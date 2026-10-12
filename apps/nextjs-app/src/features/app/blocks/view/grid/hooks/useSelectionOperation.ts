@@ -128,8 +128,8 @@ const getPasteContentColumnCount = (content: IPasteByIdRo['content']) => {
   }
 
   return content
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
     .split('\n')
     .reduce((max, row) => Math.max(max, row.length ? row.split('\t').length : 0), 0);
 };
@@ -926,11 +926,7 @@ export const useSelectionOperation = (props?: {
       return false;
     }
     // browser not support clipboard
-    if (
-      !navigator.clipboard ||
-      !navigator.clipboard.write ||
-      typeof ClipboardItem === 'undefined'
-    ) {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
       toast.error(t('table:table.actionTips.copyAndPasteBrowser'));
       return false;
     }

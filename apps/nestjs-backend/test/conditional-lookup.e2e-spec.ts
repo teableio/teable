@@ -2,9 +2,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
@@ -417,7 +417,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         const unsortedClosed = unsortedRecords.records.find(
           (record) => record.id === closedRecordId
         )!;
-        const activeTitles = [...(unsortedActive.fields[lookupField.id] as string[])].sort();
+        const activeTitles = [...(unsortedActive.fields[lookupField.id] as string[])].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        );
         expect(activeTitles).toEqual(['Alpha', 'Beta', 'Gamma']);
         expect(unsortedClosed.fields[lookupField.id]).toEqual(['Delta']);
       } finally {
@@ -2272,19 +2274,35 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       const row2 = records.records.find((record) => record.id === hostRow2Id)!;
       const row3 = records.records.find((record) => record.id === hostRow3Id)!;
 
-      const expectedTagAll = ['Alpha', 'Beta', 'Delta', 'Epsilon'].sort();
-      const expectedTagNone = ['Alpha', 'Beta', 'Gamma', 'Epsilon'].sort();
+      const expectedTagAll = ['Alpha', 'Beta', 'Delta', 'Epsilon'].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
+      const expectedTagNone = ['Alpha', 'Beta', 'Gamma', 'Epsilon'].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
 
-      const row1TagAll = [...(row1.fields[tagAllLookupField.id] as string[])].sort();
-      const row2TagAll = [...(row2.fields[tagAllLookupField.id] as string[])].sort();
-      const row3TagAll = [...(row3.fields[tagAllLookupField.id] as string[])].sort();
+      const row1TagAll = [...(row1.fields[tagAllLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
+      const row2TagAll = [...(row2.fields[tagAllLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
+      const row3TagAll = [...(row3.fields[tagAllLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       expect(row1TagAll).toEqual(expectedTagAll);
       expect(row2TagAll).toEqual(expectedTagAll);
       expect(row3TagAll).toEqual(expectedTagAll);
 
-      const row1TagNone = [...(row1.fields[tagNoneLookupField.id] as string[])].sort();
-      const row2TagNone = [...(row2.fields[tagNoneLookupField.id] as string[])].sort();
-      const row3TagNone = [...(row3.fields[tagNoneLookupField.id] as string[])].sort();
+      const row1TagNone = [...(row1.fields[tagNoneLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
+      const row2TagNone = [...(row2.fields[tagNoneLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
+      const row3TagNone = [...(row3.fields[tagNoneLookupField.id] as string[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       expect(row1TagNone).toEqual(expectedTagNone);
       expect(row2TagNone).toEqual(expectedTagNone);
       expect(row3TagNone).toEqual(expectedTagNone);
@@ -2292,7 +2310,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
     it('should filter rating values while excluding empty entries', async () => {
       const record = await getRecord(host.id, hostRow1Id);
-      const ratings = [...(record.fields[ratingValuesLookupField.id] as number[])].sort();
+      const ratings = [...(record.fields[ratingValuesLookupField.id] as number[])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       expect(ratings).toEqual([2, 4, 4, 5]);
     });
 
@@ -2337,8 +2357,10 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       const tierNames = tiers
         .map((tier) => (typeof tier === 'string' ? tier : tier.name))
         .filter((name): name is string => Boolean(name))
-        .sort();
-      expect(tierNames).toEqual(['Basic', 'Enterprise', 'Pro', 'Pro'].sort());
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      expect(tierNames).toEqual(
+        ['Basic', 'Enterprise', 'Pro', 'Pro'].sort((a, b) => Number(a > b) - Number(a < b))
+      );
       tiers.forEach((tier) => {
         if (typeof tier === 'string') {
           expect(typeof tier).toBe('string');
@@ -2399,8 +2421,10 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         const tierNames = tiers
           .map((tier) => (typeof tier === 'string' ? tier : tier.name))
           .filter((name): name is string => Boolean(name))
-          .sort();
-        expect(tierNames).toEqual(['Basic', 'Enterprise', 'Pro', 'Pro'].sort());
+          .sort((a, b) => Number(a > b) - Number(a < b));
+        expect(tierNames).toEqual(
+          ['Basic', 'Enterprise', 'Pro', 'Pro'].sort((a, b) => Number(a > b) - Number(a < b))
+        );
       } finally {
         tierSelectLookupField = await convertField(host.id, fieldId, {
           name: originalName,
@@ -2866,9 +2890,13 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         }>;
         expect(Array.isArray(linkValues)).toBe(true);
         expect(linkValues).toHaveLength(3);
-        const supplierIds = linkValues.map((link) => link.id).sort();
+        const supplierIds = linkValues
+          .map((link) => link.id)
+          .sort((a, b) => Number(a > b) - Number(a < b));
         expect(supplierIds).toEqual(
-          [suppliers.records[0].id, suppliers.records[1].id, suppliers.records[1].id].sort()
+          [suppliers.records[0].id, suppliers.records[1].id, suppliers.records[1].id].sort(
+            (a, b) => Number(a > b) - Number(a < b)
+          )
         );
         linkValues.forEach((link) => {
           expect(typeof link.title).toBe('string');
@@ -3555,7 +3583,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       expect(lookupField.id).toBeDefined();
 
       const assignedRecord = await getRecord(host.id, assignedRecordId);
-      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort();
+      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       expect(ownedTasks).toEqual(['Task Alpha', 'Task Gamma']);
 
       const emptyRecord = await getRecord(host.id, emptyRecordId);
@@ -3642,7 +3672,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       expect(lookupField.id).toBeDefined();
 
       const assignedRecord = await getRecord(host.id, assignedRecordId);
-      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort();
+      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       expect(ownedTasks).toEqual(['Task Alpha', 'Task Beta']);
 
       const emptyRecord = await getRecord(host.id, emptyRecordId);

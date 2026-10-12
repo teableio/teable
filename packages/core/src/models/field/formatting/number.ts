@@ -52,6 +52,16 @@ export const defaultNumberFormatting: INumberFormatting = {
   precision: 2,
 };
 
+// Past MAX_SAFE_INTEGER toFixed prints the double's full binary expansion, digits the API never returns.
+const toFixedDigits = (value: number, precision: number): string => {
+  if (!Number.isFinite(value) || Math.abs(value) <= Number.MAX_SAFE_INTEGER) {
+    return value.toFixed(precision);
+  }
+  const digits = String(value);
+  const zeros = digits.includes('e') ? '' : '0'.repeat(precision);
+  return zeros ? `${digits}.${zeros}` : digits;
+};
+
 export const formatNumberToString = (value: number | undefined, formatting?: INumberFormatting) => {
   if (value == null) {
     return '';
@@ -77,12 +87,12 @@ export const formatNumberToString = (value: number | undefined, formatting?: INu
   }
 
   if (type === NumberFormattingType.Percent) {
-    const formattedNumber = (cellValue * 100).toFixed(precision);
+    const formattedNumber = toFixedDigits(cellValue * 100, precision);
     return `${formattedNumber}%`;
   }
 
   if (precision != null) {
-    return cellValue.toFixed(precision);
+    return toFixedDigits(cellValue, precision);
   }
 
   return String(cellValue);
@@ -96,7 +106,7 @@ export const parseStringToNumber = (value: string | null, formatting?: INumberFo
   const numberReg = /[^\d.+-]/g;
   const symbolReg = /([+\-.])+/g;
   const numStr = originStr.replace(numberReg, '').replace(symbolReg, '$1');
-  const num = parseFloat(numStr);
+  const num = Number.parseFloat(numStr);
 
   if (Number.isNaN(num)) {
     return null;

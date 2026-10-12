@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { tableFieldInputSchema, type ITableFieldInput } from '../schemas/field';
 
 const LOOKUP_INPUT_OPTION_KEYS = [
+  'isUnique',
   'linkFieldId',
   'foreignTableId',
   'lookupFieldId',
@@ -115,6 +116,7 @@ export const toRestoreFieldCreateInput = (
           options: {
             foreignTableId: lookupOptions.foreignTableId,
             lookupFieldId: lookupOptions.lookupFieldId,
+            isUnique: lookupOptions.isUnique,
             condition: defined({
               filter: lookupOptions.filter,
               sort: lookupOptions.sort,

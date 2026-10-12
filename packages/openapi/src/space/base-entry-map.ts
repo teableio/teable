@@ -17,7 +17,7 @@ export const getBaseEntryMapRoSchema = z.object({
     .optional()
     .meta({
       description:
-        'Resolve at most this many bases, in base-list order; omitted means the whole list',
+        'Resolve at most this many projects, in project-list order; omitted means the whole list',
     }),
 });
 
@@ -39,7 +39,7 @@ export const GetBaseEntryMapRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_SPACE_BASE_ENTRY_MAP,
   description:
-    'Resolve the entry URL (last visited table and view) of the accessible bases in a space, so base-list clicks can navigate straight to the final URL',
+    'Resolve the entry URL (last visited table and view) of the accessible projects in a space, so project-list clicks can navigate straight to the final URL',
   request: {
     params: z.object({ spaceId: z.string() }),
     query: getBaseEntryMapRoSchema.pick({ take: true }),

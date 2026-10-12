@@ -11,15 +11,12 @@ export const useConnectionAutoManage = (
   connection: ReconnectingSockJS | null,
   reconnect?: () => void,
   {
-    inactiveTimeout,
-    reconnectDelay,
+    inactiveTimeout = 10 * 60 * 1000,
+    reconnectDelay = 1000,
   }: {
     inactiveTimeout?: number;
     reconnectDelay?: number;
-  } = {
-    inactiveTimeout: 10 * 60 * 1000,
-    reconnectDelay: 1000,
-  }
+  } = {}
 ) => {
   const visible = useDocumentVisible();
   const inactiveTimerRef = useRef<NodeJS.Timeout | null>(null);

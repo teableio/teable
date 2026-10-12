@@ -6,6 +6,7 @@ import { Trans } from 'next-i18next';
 import { useCallback } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
+import { LookupUniqueValuesSwitch } from '../lookup-options/LookupUniqueValuesSwitch';
 import { LinkedRecordSortLimitConfig } from './LinkedRecordSortLimitConfig';
 import { SelectTable } from './LinkOptions/SelectTable';
 
@@ -80,6 +81,10 @@ export const ConditionalLookupOptions = ({
             onLimitChange={(limit) => onOptionsChange({ limit })}
             onSortLimitDisable={handleSortLimitDisable}
             sourceTableId={sourceTableId}
+          />
+          <LookupUniqueValuesSwitch
+            checked={effectiveOptions.isUnique ?? false}
+            onCheckedChange={(isUnique) => onOptionsChange({ isUnique })}
           />
         </StandaloneViewProvider>
       ) : null}

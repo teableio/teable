@@ -11,7 +11,10 @@ import {
   FieldName,
   FieldType,
   FormulaExpression,
+  OrSpec,
+  RecordByIdsSpec,
   RecordConditionFieldReferenceValue,
+  RecordId,
   Table,
   TableId,
   TableName,
@@ -463,6 +466,28 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(parameters).toEqual([5, 10]);
     });
 
+    test('keeps a top-level OR spec as one operand before whereExpression conditions', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const rowScope = new OrSpec(
+        RecordByIdsSpec.create([RecordId.create(`rec${'a'.repeat(16)}`)._unsafeUnwrap()]),
+        RecordByIdsSpec.create([RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap()])
+      );
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb
+          .from(table)
+          .where(rowScope)
+          .whereExpression(kyselySql<boolean>`${kyselySql.ref('t.__auto_number')} > ${5}`)
+      );
+
+      expect(sql).toContain(
+        'where (("t"."__id" in ($1)) or ("t"."__id" in ($2))) and "t"."__auto_number" > $3'
+      );
+    });
+
     test('keeps single-query shape for unpaginated ordered reads', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
@@ -487,7 +512,7 @@ describe('StoredTableRecordQueryBuilder', () => {
       );
     });
 
-    test('orders createdTime by formatted day when time formatting omits time', () => {
+    test('orders createdTime by the stored timestamp when time formatting omits time', () => {
       const db = createTestDb();
       const formatting = DateTimeFormatting.create({
         date: DateFormattingPreset.ISO,
@@ -523,11 +548,12 @@ describe('StoredTableRecordQueryBuilder', () => {
         qb.from(table).orderBy(createdTimeField.id(), 'desc')
       );
 
-      expect(sql).toContain(
-        'order by to_char(timezone($1, "t"."__created_time"), $2) desc nulls last'
-      );
+      // A hidden time component must not degrade the order key to the display
+      // day: same-day rows keep sorting by their real timestamp (T7404).
+      expect(sql).toContain('order by "t"."__created_time" desc nulls last');
+      expect(sql).not.toContain('to_char');
       expect(sql).not.toContain('is null');
-      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY-MM-DD']);
+      expect(parameters).toEqual([]);
     });
 
     test('orders tracked lastModifiedTime by the field column not the system timestamp', () => {
@@ -573,14 +599,13 @@ describe('StoredTableRecordQueryBuilder', () => {
         qb.from(table).orderBy(lastModifiedTimeField.id(), 'desc')
       );
 
-      expect(sql).toContain(
-        'order by to_char(timezone($1, "t"."col_last_modified"), $2) desc nulls last'
-      );
-      expect(sql).not.toContain('order by to_char(timezone($1, "t"."__last_modified_time")');
-      expect(parameters.slice(-2)).toEqual(['Asia/Shanghai', 'YYYY-MM-DD']);
+      expect(sql).toContain('order by "t"."col_last_modified" desc nulls last');
+      expect(sql).not.toContain('order by "t"."__last_modified_time"');
+      expect(sql).not.toContain('to_char');
+      expect(parameters).toEqual([]);
     });
 
-    test('orders date fields by formatted year when date formatting collapses precision', () => {
+    test('orders date fields by the stored value when date formatting collapses precision', () => {
       const db = createTestDb();
       const formatting = DateTimeFormatting.create({
         date: DateFormattingPreset.Y,
@@ -609,9 +634,10 @@ describe('StoredTableRecordQueryBuilder', () => {
       const qb = new StoredTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table).orderBy(dateField.id(), 'asc'));
 
-      expect(sql).toContain('order by to_char(timezone($1, "t"."col_date"), $2) asc nulls first');
+      expect(sql).toContain('order by "t"."col_date" asc nulls first');
+      expect(sql).not.toContain('to_char');
       expect(sql).not.toContain('is null');
-      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY']);
+      expect(parameters).toEqual([]);
     });
 
     test('orders single user field by title with ASC null-first semantics', () => {

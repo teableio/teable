@@ -77,7 +77,7 @@ export class LinkIntegrityService {
       await this.prismaService.$queryRawUnsafe<Field[]>(crossBaseLinkFieldsQuery);
 
     const crossBaseLinkFields = crossBaseLinkFieldsRaw.filter(
-      (field) => !tables.find((table) => table.id === field.tableId)
+      (field) => !tables.some((table) => table.id === field.tableId)
     );
 
     const linkFieldIssues: IIntegrityCheckVo['linkFieldIssues'] = [];
@@ -235,7 +235,7 @@ export class LinkIntegrityService {
         fieldId: f.id,
         tableId: f.tableId,
         type,
-        message: `Primary field "${f.name}" in table "${f.table.name}" ${reason}, which breaks base duplication. Fixing will demote it and promote an existing eligible field as primary; if no candidate qualifies, a new formula field mirroring the current value is added and the bad primary is renamed with a "(before-fix)" suffix.`,
+        message: `Primary field "${f.name}" in table "${f.table.name}" ${reason}, which breaks project duplication. Fixing will demote it and promote an existing eligible field as primary; if no candidate qualifies, a new formula field mirroring the current value is added and the bad primary is renamed with a "(before-fix)" suffix.`,
       };
     });
   }
@@ -259,7 +259,7 @@ export class LinkIntegrityService {
       fieldId: t.id,
       tableId: t.id,
       type: IntegrityIssueType.MissingPrimary,
-      message: `Table "${t.name}" has no primary field, which breaks base duplication. Fixing will promote the first existing eligible field as primary, or add a new "Name" text field if none qualifies.`,
+      message: `Table "${t.name}" has no primary field, which breaks project duplication. Fixing will promote the first existing eligible field as primary, or add a new "Name" text field if none qualifies.`,
     }));
   }
 
@@ -300,7 +300,7 @@ export class LinkIntegrityService {
     const deletedFields = fields.filter((f) => f.deletedTime);
 
     // exist in references but not in fields
-    const cannotFindFields = Array.from(fieldIds).filter((id) => !fields.find((f) => f.id === id));
+    const cannotFindFields = Array.from(fieldIds).filter((id) => !fields.some((f) => f.id === id));
 
     const issues: IIntegrityIssue[] = [];
     for (const field of deletedFields) {
@@ -460,7 +460,7 @@ export class LinkIntegrityService {
     const issues: IIntegrityIssue[] = [];
 
     for (const { dbFieldName, id: fieldId } of fields) {
-      const countSql = await this.knex(dbTableName)
+      const countSql = this.knex(dbTableName)
         .count('*')
         .whereRaw(`?? = ''`, [dbFieldName])
         .toQuery();

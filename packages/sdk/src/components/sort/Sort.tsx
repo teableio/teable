@@ -17,7 +17,7 @@ interface ISortProps {
   responsive?: boolean;
 }
 
-function Sort(props: ISortProps) {
+function Sort(props: Readonly<ISortProps>) {
   const { children, onChange, sorts: outerSorts, responsive } = props;
   const sortBaseRef = useRef<ISortBaseRef>(null);
 

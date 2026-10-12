@@ -1012,28 +1012,28 @@ describe('MemoryTableRepository', () => {
     builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
     const tableResult = builder.build();
-    tableResult._unsafeUnwrap();
+    expect(tableResult.isOk()).toBe(true);
 
     const repo = new MemoryTableRepository();
     const context = createContext();
     const insertResult = await repo.insert(context, tableResult._unsafeUnwrap());
-    insertResult._unsafeUnwrap();
+    expect(insertResult.isOk()).toBe(true);
     const duplicateResult = await repo.insert(context, tableResult._unsafeUnwrap());
-    duplicateResult._unsafeUnwrapErr();
+    expect(duplicateResult.isErr()).toBe(true);
 
     const findResult = await repo.findOne(context, {
       isSatisfiedBy: (table) => table.id().equals(tableResult._unsafeUnwrap().id()),
       mutate: (table) => ok(table),
       accept: () => ok(undefined),
     });
-    findResult._unsafeUnwrap();
+    expect(findResult.isOk()).toBe(true);
 
     const missResult = await repo.findOne(context, {
       isSatisfiedBy: () => false,
       mutate: (table) => ok(table),
       accept: () => ok(undefined),
     });
-    missResult._unsafeUnwrapErr();
+    expect(missResult.isErr()).toBe(true);
   });
 
   it('sorts and paginates results', async () => {

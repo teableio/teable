@@ -143,7 +143,7 @@ export const GroupHeaderMenu = () => {
                   key={type}
                   onClick={async () => {
                     if (disabled) return;
-                    await onClick();
+                    onClick();
                     closeGroupHeaderMenu();
                   }}
                 >
@@ -183,7 +183,7 @@ export const GroupHeaderMenu = () => {
                             value={name}
                             onSelect={async () => {
                               if (disabled) return;
-                              await onClick();
+                              onClick();
                               closeGroupHeaderMenu();
                             }}
                           >

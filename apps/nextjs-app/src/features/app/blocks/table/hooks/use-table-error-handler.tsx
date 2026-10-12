@@ -1,5 +1,6 @@
 import { HttpError, HttpErrorCode } from '@teable/core';
-import { getTableList } from '@teable/openapi';
+import { getTableById, getTableList } from '@teable/openapi';
+import { isTableProvisionPending } from '@teable/sdk/context/app/tableProvisionError';
 import { useConnection, useIsReadOnlyPreview, useTables } from '@teable/sdk/hooks';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
@@ -14,6 +15,20 @@ import {
   unmarkTableDeletedLocally,
   wasTableDeletedLocally,
 } from './stale-table-fallback';
+
+/** List omission alone is insufficient: provisioning and transport failures remain retryable. */
+const confirmTableInaccessible = async (baseId: string, tableId: string): Promise<boolean> => {
+  try {
+    await getTableById(baseId, tableId);
+    return false;
+  } catch (error) {
+    return (
+      !isTableProvisionPending(error) &&
+      error instanceof HttpError &&
+      [403, 404].includes(error.status)
+    );
+  }
+};
 
 const anchorKey = (baseId: string, tableId: string) => `${baseId}/${tableId}`;
 
@@ -133,6 +148,9 @@ const useConfirmedTableRedirect = () => {
         // the anchor exists after all (e.g. just created) — let the
         // subscription catch up instead of redirecting
         if (tableList.some((table) => table.id === suspectTableId)) return;
+        // Ready-only list/snapshot projections may omit a provisioning table.
+        // Confirm the resource itself before treating list absence as deletion.
+        if (!(await confirmTableInaccessible(baseId, suspectTableId))) return;
         // the user navigated away while we confirmed — don't compete
         if (!router.asPath.includes(`/table/${suspectTableId}`)) return;
         const targetTable = tableList[0];
@@ -180,6 +198,7 @@ export const useTableErrorHandler = (baseId: string, tableId: string) => {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const errorHandler = (error: any) => {
+      if (isTableProvisionPending(error)) return;
       const httpError = new HttpError(error, error?.status || 500);
       if (
         httpError.code === HttpErrorCode.NOT_FOUND ||

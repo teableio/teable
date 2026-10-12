@@ -71,8 +71,8 @@ describe('SelectOption', () => {
   });
 
   it('rejects invalid option objects', () => {
-    SelectOption.create({ id: null, name: 'Todo', color: 'blue' })._unsafeUnwrapErr();
-    SelectOption.create({ name: 'Todo', color: 'invalid' })._unsafeUnwrapErr();
+    expect(SelectOption.create({ id: null, name: 'Todo', color: 'blue' }).isErr()).toBe(true);
+    expect(SelectOption.create({ name: 'Todo', color: 'invalid' }).isErr()).toBe(true);
   });
 
   it('compares options by value', () => {
@@ -101,7 +101,7 @@ describe('SelectDefaultValue', () => {
   });
 
   it('rejects invalid values', () => {
-    SelectDefaultValue.create(1)._unsafeUnwrapErr();
+    expect(SelectDefaultValue.create(1).isErr()).toBe(true);
   });
 });
 
@@ -181,22 +181,22 @@ describe('SelectOptions', () => {
       [optionOne._unsafeUnwrap(), optionTwo._unsafeUnwrap()],
       defaultValue._unsafeUnwrap()
     );
-    uniqueResult._unsafeUnwrap();
+    expect(uniqueResult.isOk()).toBe(true);
 
     const duplicateResult = validateSelectOptions([
       optionOne._unsafeUnwrap(),
       duplicate._unsafeUnwrap(),
     ]);
-    duplicateResult._unsafeUnwrapErr();
+    expect(duplicateResult.isErr()).toBe(true);
 
     const invalidDefault = SelectDefaultValue.create('Missing');
-    invalidDefault._unsafeUnwrap();
+    expect(invalidDefault.isOk()).toBe(true);
 
     const invalidResult = validateSelectOptions(
       [optionOne._unsafeUnwrap()],
       invalidDefault._unsafeUnwrap()
     );
-    invalidResult._unsafeUnwrapErr();
+    expect(invalidResult.isErr()).toBe(true);
   });
 
   it('uses runtime table limits when validating option count and names', () => {
@@ -271,9 +271,9 @@ describe('Button types', () => {
   });
 
   it('rejects invalid workflows and labels', () => {
-    ButtonLabel.create(1)._unsafeUnwrapErr();
-    ButtonWorkflow.create({ id: 'bad' })._unsafeUnwrapErr();
-    ButtonWorkflow.create(null)._unsafeUnwrapErr();
+    expect(ButtonLabel.create(1).isErr()).toBe(true);
+    expect(ButtonWorkflow.create({ id: 'bad' }).isErr()).toBe(true);
+    expect(ButtonWorkflow.create(null).isErr()).toBe(true);
   });
 });
 

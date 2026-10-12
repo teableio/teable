@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { getPublicFullStorageUrl as getPublicFullStorageUrlOpenApi } from '@teable/openapi';
 import type { IAttachmentPreviewCache } from '../../../cache/types';
 import { baseConfig } from '../../../configs/base.config';
@@ -54,6 +54,24 @@ export const getPreviewCacheKey = (token: string) => `attachment:preview:${token
 let previewUrlConfigSigCache: { input: string; sig: string } | undefined;
 
 /**
+ * Per-provider bump for when the shape of generated preview URLs changes in
+ * code (not config), so entries cached by an older build are treated as stale
+ * on deploy. Only providers listed here get a bump; the others keep the
+ * fingerprint they had before, so their caches survive the deploy untouched.
+ * aliyun v2: presign no longer carries response-content-type (OSS 400).
+ * local v2: read tokens are sealed and bound to the object path; tokens of
+ * the previous shape no longer verify, so cached urls must be re-minted.
+ * s3/minio v2: only inline-safe types keep an inline disposition; urls cached
+ * before that would still open html/svg inline on the bucket origin.
+ */
+const PREVIEW_URL_SHAPE_VERSIONS: Partial<Record<string, number>> = {
+  aliyun: 2,
+  local: 2,
+  s3: 2,
+  minio: 2,
+};
+
+/**
  * Fingerprint of every storage setting that shapes generated preview URLs.
  * Cached entries carry it, and readers treat a mismatch as a cache miss, so
  * any storage reconfiguration (endpoint, addressing style, credentials,
@@ -67,7 +85,8 @@ export const getPreviewUrlConfigSig = () => {
   // Secrets participate as digests so rotating only the secret key still
   // changes the fingerprint, without keeping raw key material in the memo.
   const digest = (value?: string) =>
-    value ? createHash('sha1').update(value).digest('hex') : value;
+    value ? createHash('sha256').update(value).digest('hex') : value;
+  const shapeVersion = PREVIEW_URL_SHAPE_VERSIONS[provider];
   const input = JSON.stringify([
     provider,
     publicUrl,
@@ -85,6 +104,9 @@ export const getPreviewUrlConfigSig = () => {
     minio.accessKey,
     digest(minio.secretKey),
     StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,
+    // Appended last and only when bumped, so unlisted providers hash exactly
+    // the same input as before this field existed.
+    ...(shapeVersion ? [shapeVersion] : []),
   ]);
   if (previewUrlConfigSigCache?.input !== input) {
     previewUrlConfigSigCache = {

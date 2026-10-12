@@ -182,6 +182,80 @@ describe('OAuthServerService', () => {
     });
   });
 
+  describe('authorizeImmediate', () => {
+    const client = {
+      clientId: 'clientId',
+      scopes: ['user|email_read', 'user|spaces_read'],
+      redirectUri: 'http://localhost/callback',
+    };
+    const user = { id: 'userId' } as any;
+    let done: Mock;
+    let touchAuthorize: MockInstance;
+
+    // approved `daysAgo`, and the app holding tokens with these scope sets
+    const approved = (daysAgo: number, ...held: string[][]) => {
+      prismaService.oAuthAppAuthorized.findUnique.mockResolvedValue({
+        authorizedTime: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+      } as any);
+      prismaService.accessToken.findMany.mockResolvedValue(
+        held.map((scopes) => ({ scopes: JSON.stringify(scopes) })) as any
+      );
+    };
+    const immediate = () =>
+      service['authorizeImmediate'](client, user, [], 'code', {} as any, done as any);
+
+    beforeEach(() => {
+      done = vitest.fn();
+      touchAuthorize = vitest.spyOn(service as any, 'touchAuthorize').mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      vitest.restoreAllMocks();
+    });
+
+    it('skips the consent screen for scopes the app already holds, across its tokens', async () => {
+      approved(1, ['user|email_read'], ['user|spaces_read', 'user|integrations']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, true, undefined, undefined);
+      expect(touchAuthorize).toHaveBeenCalledWith('clientId', 'userId', client.scopes);
+      // only the tokens it could still refresh count
+      expect(prismaService.accessToken.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'clientId',
+            userId: 'userId',
+            createdTime: { gt: expect.any(Date) },
+          }),
+        })
+      );
+    });
+
+    it('asks again when the app asks for a scope it does not hold', async () => {
+      approved(1, ['user|email_read']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+      expect(touchAuthorize).not.toHaveBeenCalled();
+    });
+
+    it('asks again when the app got no token out of the approval', async () => {
+      approved(1);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+    });
+
+    it('asks again once the approval has lapsed, whatever the app holds', async () => {
+      approved(8, ['user|email_read', 'user|spaces_read']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+    });
+
+    it('asks a user who never approved the app', async () => {
+      prismaService.oAuthAppAuthorized.findUnique.mockResolvedValue(null);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+    });
+  });
+
   describe('codeExchange', () => {
     let mockDone: Mock;
     let mockGenerateAccessToken: MockInstance;

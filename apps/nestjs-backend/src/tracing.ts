@@ -54,7 +54,6 @@ import { NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import { wrapContextManagerClass } from '@sentry/opentelemetry';
 import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
 import { createSmartSpanProcessor } from './tracing-span-export';
 
@@ -185,13 +184,18 @@ const metricsExporter = metricsEndpoint
   : undefined;
 
 // Strip high-cardinality resource attributes from metrics only.
-// Traces and logs keep these for debugging; metrics drop them to prevent
-// cardinality explosion (each restart = new host.name + pid; each deploy =
-// new service.version build tag, so the unique metric series count would grow
-// unbounded over time as releases accumulate).
+// Traces and logs keep these for debugging; metrics drop them to limit series
+// churn (each restart = new pid + service.instance.id; each deploy = new
+// service.version build tag, so the unique metric series count grows with
+// every release).
+//
+// host.name (= pod name) is deliberately KEPT: it is the only per-pod series
+// identity. Without it every pod's cumulative counter merges into one series,
+// and the interleaved samples read as endless counter resets — rate()-based
+// panels inflate by orders of magnitude (observed ~1000x). Its churn (pod
+// count × deploys) is acceptable on self-hosted SigNoz.
 if (metricsExporter) {
   const dropFromMetricResource = new Set([
-    'host.name',
     'host.arch',
     'os.type',
     'os.description',
@@ -288,13 +292,6 @@ const spanProcessors = [
   teableDbSpanAttributeProcessor,
 ];
 
-// Keep SentryContextManager even in error-only mode: it forks Sentry scopes per
-// OTEL context so concurrent requests don't leak breadcrumbs/tags into each
-// other's error reports.
-const SentryContextManager = hasSentry
-  ? wrapContextManagerClass(AsyncLocalStorageContextManager)
-  : undefined;
-
 const ignorePaths = [
   '/favicon.ico',
   '/_next/',
@@ -351,7 +348,9 @@ const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor({ exporter: logExporter })] : [],
   sampler: new AlwaysOnSampler(),
-  contextManager: SentryContextManager ? new SentryContextManager() : undefined,
+  // Sentry 11 keeps its scopes in its own AsyncLocalStorage and no longer wraps the OTEL
+  // context manager; instrument.ts links events to the active span instead.
+  contextManager: new AsyncLocalStorageContextManager(),
   textMapPropagator: undefined,
   views: metricViews,
   metricReader: metricsExporter

@@ -13,11 +13,23 @@ export type RealtimeApplyChangeOptions = {
   version?: number;
 };
 
+export type RealtimeEnsureOptions = {
+  /**
+   * The caller only guards a following applyChange on a document that is
+   * already persisted, so no collection query can gain a new member. Engines
+   * that broadcast creation (ShareDB) then notify doc subscribers only and
+   * leave collection query subscriptions alone, which otherwise re-poll for
+   * every subscriber on each create.
+   */
+  expectExisting?: boolean;
+};
+
 export interface IRealtimeEngine {
   ensure(
     context: IExecutionContext,
     docId: RealtimeDocId,
-    initial: unknown
+    initial: unknown,
+    options?: RealtimeEnsureOptions
   ): Promise<Result<void, DomainError>>;
 
   applyChange(
@@ -41,5 +53,14 @@ export interface IRealtimeEngine {
     context: IExecutionContext,
     collection: string,
     change: RealtimeChange
+  ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Signal that a table's derived compute activity changed. Subscribers refetch
+   * the authoritative snapshot over HTTP; the signal carries no activity data.
+   */
+  notifyTableComputeActivity(
+    context: IExecutionContext,
+    tableId: string
   ): Promise<Result<void, DomainError>>;
 }

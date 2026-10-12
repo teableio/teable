@@ -2,7 +2,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { Database, MoreHorizontal, Share2 } from '@teable/icons';
+import { LayoutGrid, MoreHorizontal, Share2 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -118,7 +118,11 @@ export const BaseCard: FC<IBaseCard> = (props) => {
             onRemove={() => iconChange(null)}
           >
             <div className="size-12 rounded-lg bg-background bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-border transition-all group-hover:outline-border hover:shadow-lg">
-              {base.icon ? <Emoji emoji={base.icon} size={24} /> : <Database className="size-6" />}
+              {base.icon ? (
+                <Emoji emoji={base.icon} size={24} />
+              ) : (
+                <LayoutGrid className="size-6" />
+              )}
             </div>
           </EmojiPicker>
         </div>

@@ -51,6 +51,7 @@ import type {
   TableSchemaInsertManyOptions,
 } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
@@ -541,7 +542,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -677,7 +678,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -752,7 +753,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)

@@ -14,9 +14,11 @@ import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
+import { registerQueryCancellation } from './query-cancellation';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
-import { ShareDbAdapter, type ComputedActivitySnapshotLoader } from './share-db.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
+import { stripInstructionlessComponents } from './utils';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 const v2ProjectionSubmitSource = '@@v2-projection';
@@ -41,7 +43,7 @@ const hasClientStream = (
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  private logger = new Logger(ShareDbService.name);
+  private readonly logger = new Logger(ShareDbService.name);
 
   constructor(
     readonly shareDbAdapter: ShareDbAdapter,
@@ -72,6 +74,7 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
+    registerQueryCancellation(this);
     authMiddleware(this, this.sessionHandleService);
     this.use('submit', this.onSubmit);
 
@@ -115,10 +118,6 @@ export class ShareDbService extends ShareDBClass {
     return this.connect();
   }
 
-  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
-    this.shareDbAdapter.setComputedActivitySnapshotLoader(loader);
-  }
-
   @Timing()
   private async updateTableMetaByRawOpMap(rawOpMap?: IRawOpMap[]) {
     if (!rawOpMap?.length) {
@@ -156,19 +155,14 @@ export class ShareDbService extends ShareDBClass {
         const data = rawOpMap[collection];
         for (const docId in data) {
           const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
-          const channels = [collection, `${collection}.${docId}`];
           rawOp.c = collection;
           rawOp.d = docId;
           const repairedOp = await this.repairAttachmentOpService.repairAttachmentOp(
             rawOp,
             repairAttachmentContext
           );
-          this.pubsub.publish(channels, repairedOp, noop);
-          publishCount++;
-
-          if (this.shouldForwardToRecordChannel(repairedOp)) {
-            const tableId = collection.split('_')[1];
-            this.forwardToRecordChannel(tableId, repairedOp);
+          if (this.publishOp(collection, docId, repairedOp)) {
+            publishCount++;
           }
         }
       }
@@ -176,6 +170,24 @@ export class ShareDbService extends ShareDBClass {
     if (publishCount > 0) {
       this.realtimeMetrics?.recordOpsPublished(publishCount);
     }
+  }
+
+  // Every subscriber applies a published op verbatim, so a json0 component it
+  // cannot read must never leave here (see utils.ts). Returns whether the op
+  // went out at all.
+  private publishOp(collection: string, docId: string, op: EditOp | CreateOp | DeleteOp): boolean {
+    const publishableOp = stripInstructionlessComponents(op);
+    if (!publishableOp) {
+      this.logger.debug(
+        `skip publishing an op without a json0 instruction: ${collection} ${docId}`
+      );
+      return false;
+    }
+    this.pubsub.publish([collection, `${collection}.${docId}`], publishableOp, noop);
+    if (this.shouldForwardToRecordChannel(publishableOp)) {
+      this.forwardToRecordChannel(collection.split('_')[1], publishableOp);
+    }
+    return true;
   }
 
   // synthetic ops that only wake record query polling, never doc subscribers
@@ -202,7 +214,7 @@ export class ShareDbService extends ShareDBClass {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
   }
 
-  private onSubmit = (
+  private readonly onSubmit = (
     context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {

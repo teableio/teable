@@ -14,7 +14,6 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
   const { connection } = useConnection();
   const channel = getBaseNodeChannel(baseId);
   const presence = connection?.getPresence(channel);
-  const [nodes, setNodes] = useState<IBaseNodeVo[]>([]);
   const queryClient = useQueryClient();
 
   // Initialize treeItems from cache to avoid flash of empty state on remount
@@ -30,7 +29,12 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     return {};
   });
 
-  const { data: queryData, isLoading } = useQuery({
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    isError,
+  } = useQuery({
     queryKey: ReactQueryKeys.baseNodeTree(baseId),
     queryFn: ({ queryKey }) => getBaseNodeTree(queryKey[1]).then((res) => res.data),
     enabled: Boolean(baseId),
@@ -46,19 +50,18 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     return queryData?.maxFolderDepth ?? 2;
   }, [queryData?.maxFolderDepth]);
 
+  /** The query result the current treeItems were built from. */
+  const [builtFrom, setBuiltFrom] = useState<IBaseNodeVo[] | null>(null);
   useEffect(() => {
-    if (queryData?.nodes) {
-      setNodes(queryData?.nodes);
-    }
-  }, [queryData?.nodes, setNodes]);
-
-  useEffect(() => {
-    if (nodes.length > 0) {
-      setTreeItems(buildTreeItems(isRestrictedAuthority ? filterAutoHiddenFolders(nodes) : nodes));
-    } else {
-      setTreeItems({});
-    }
-  }, [nodes, setTreeItems, isRestrictedAuthority]);
+    const nodes = queryData?.nodes;
+    if (!nodes) return;
+    setTreeItems(
+      nodes.length > 0
+        ? buildTreeItems(isRestrictedAuthority ? filterAutoHiddenFolders(nodes) : nodes)
+        : {}
+    );
+    setBuiltFrom(nodes);
+  }, [queryData?.nodes, setTreeItems, isRestrictedAuthority]);
 
   useEffect(() => {
     if (!presence || !channel) {
@@ -88,15 +91,20 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
       presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
       presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
-  }, [connection, presence, channel, setNodes, invalidateMenu]);
+  }, [connection, presence, channel, invalidateMenu]);
+
+  // treeItems answers for the latest result once rebuilt from it; a refetch in flight or failed
+  // leaves the old result standing, which is no answer.
+  const isLoaded = !isFetching && !isError && builtFrom === queryData?.nodes;
 
   return useMemo(() => {
     return {
       isLoading,
+      isLoaded,
       maxFolderDepth,
       treeItems,
       setTreeItems,
       invalidateMenu,
     };
-  }, [isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
+  }, [isLoading, isLoaded, maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
 };

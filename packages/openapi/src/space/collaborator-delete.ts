@@ -46,7 +46,7 @@ export const DELETE_SPACE_BASE_COLLABORATORS = '/space/{spaceId}/collaborators/b
 export const DeleteSpaceBaseCollaboratorsRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_SPACE_BASE_COLLABORATORS,
-  description: "Delete all of a principal's base-level collaborator rows within the space",
+  description: "Delete all of a principal's project-level collaborator rows within the space",
   request: {
     params: z.object({
       spaceId: z.string(),

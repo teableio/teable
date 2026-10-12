@@ -415,6 +415,3 @@ export class PostgresSchemaIntrospector implements SchemaIntrospector {
     }
   }
 }
-
-// Export for unused import fix
-void (null as unknown as ConstraintInfo);

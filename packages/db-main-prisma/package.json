@@ -52,8 +52,8 @@
   },
   "peerDependencies": {
     "@prisma/client": "^5.0.0",
-    "@nestjs/common": "^10.0.0",
-    "nestjs-cls": "^4.0.0"
+    "@nestjs/common": "^12.0.0",
+    "nestjs-cls": "^6.0.0"
   },
   "dependencies": {
     "@prisma/adapter-pg": "6.2.1",
@@ -66,7 +66,7 @@
     "@httpx/dsn-parser": "1.8.4",
     "@faker-js/faker": "8.4.1",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
     "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",
@@ -81,6 +81,7 @@
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsx": "4.7.1",
+    "rxjs": "7.8.1",
     "typescript": "5.4.3",
     "bcrypt": "5.1.1"
   },

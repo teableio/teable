@@ -505,7 +505,7 @@ describe('SpaceDataDbCopyService', () => {
           },
         ],
       })
-    ).rejects.toThrow('pgcopydb base schema copy does not support filtering');
+    ).rejects.toThrow('pgcopydb project schema copy does not support filtering');
 
     expect(processRunner.run).not.toHaveBeenCalled();
   });

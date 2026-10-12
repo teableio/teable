@@ -13,14 +13,17 @@ const createFixture = (shareInfo?: {
   const sharedViewAccessV2Service = {
     findByShareId: vi.fn().mockResolvedValue(shareInfo),
   };
+  const cls = { get: vi.fn().mockReturnValue(undefined) };
+  const audit = { emitAtomic: vi.fn().mockResolvedValue(undefined) };
   const service = new ShareAuthService(
     {} as never,
     prismaService as never,
     {} as never,
-    {} as never,
-    sharedViewAccessV2Service as never
+    cls as never,
+    sharedViewAccessV2Service as never,
+    audit as never
   );
-  return { service, prismaService, sharedViewAccessV2Service };
+  return { service, prismaService, sharedViewAccessV2Service, audit };
 };
 
 describe('ShareAuthService v2 View access', () => {
@@ -45,6 +48,8 @@ describe('ShareAuthService v2 View access', () => {
     });
     await expect(fixture.service.authShareView('shrMissing', 'secret', true)).resolves.toBeNull();
     expect(fixture.prismaService.view.findFirst).not.toHaveBeenCalled();
+    // No live share, nothing to attribute the attempt to.
+    expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
   });
 
   it('accepts only the aggregate-backed password', async () => {
@@ -58,6 +63,45 @@ describe('ShareAuthService v2 View access', () => {
       'shrShared'
     );
     await expect(fixture.service.authShareView('shrShared', 'wrong', true)).resolves.toBeNull();
+  });
+
+  it('audits every password attempt on a live share, never the password', async () => {
+    const fixture = createFixture({
+      shareId: 'shrShared',
+      tableId: 'tblShared',
+      shareMeta: { password: 'secret' },
+    });
+
+    await fixture.service.authShareView('shrShared', 'wrong', true);
+    await fixture.service.authShareView('shrShared', 'secret', true, 'usrVisitor');
+
+    expect(fixture.audit.emitAtomic.mock.calls.map(([row]) => row)).toEqual([
+      {
+        action: 'share.view.auth-failed',
+        resourceId: 'shrShared',
+        userId: 'anonymous',
+        params: { shareId: 'shrShared', tableId: 'tblShared', viewId: undefined },
+      },
+      {
+        action: 'share.view.auth',
+        resourceId: 'shrShared',
+        userId: 'usrVisitor',
+        params: { shareId: 'shrShared', tableId: 'tblShared', viewId: undefined },
+      },
+    ]);
+    expect(JSON.stringify(fixture.audit.emitAtomic.mock.calls)).not.toContain('secret"');
+  });
+
+  it('does not audit the cookie check of an already unlocked share', async () => {
+    const fixture = createFixture({
+      shareId: 'shrShared',
+      tableId: 'tblShared',
+      shareMeta: { password: 'secret' },
+    });
+
+    await fixture.service.authShareViewByHash('shrShared', 'whatever', true);
+
+    expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
   });
 
   it('preserves the password-not-enabled validation branch', async () => {
@@ -107,6 +151,12 @@ describe('ShareAuthService v2 View access', () => {
       'shrLegacy'
     );
     await expect(fixture.service.authShareView('shrLegacy', 'wrong')).resolves.toBeNull();
+    expect(fixture.audit.emitAtomic).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: 'share.view.auth-failed',
+        params: { shareId: 'shrLegacy', tableId: 'tblLegacy', viewId: 'viwLegacy' },
+      })
+    );
     expect(fixture.prismaService.view.findFirst).toHaveBeenCalledWith({
       where: { shareId: 'shrLegacy', enableShare: true, deletedTime: null },
     });
@@ -167,7 +217,8 @@ describe('ShareAuthService.getLinkViewInfo', () => {
       prismaService as never,
       {} as never,
       cls as never,
-      sharedViewAccessV2Service as never
+      sharedViewAccessV2Service as never,
+      { emitAtomic: vi.fn() } as never
     );
     return { service, prismaService, sharedViewAccessV2Service };
   };

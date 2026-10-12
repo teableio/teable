@@ -4,10 +4,12 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { useUpgradeCtaEnabled } from '../hooks/useUpgradeCtaEnabled';
 
 export function AutomationPage() {
   const { t } = useTranslation('common');
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
 
   // In template/share preview mode, don't show upgrade prompt
   // Allow the actual automation component to be rendered (if available via override)
@@ -46,12 +48,18 @@ export function AutomationPage() {
             <span className="text-lg">✨</span> {t('billing.enterpriseFeature')}
           </AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-xs">
-            <p>{t('billing.automationRequiresUpgrade')}</p>
-            <Button className="w-fit" variant="default" asChild size="xs">
-              <Link href={`${t('help.appLink')}/setting/license-plan`} target="_blank">
-                {t('billing.viewPricing')}
-              </Link>
-            </Button>
+            <p>
+              {upgradeCtaEnabled
+                ? t('billing.automationRequiresUpgrade')
+                : t('mobileEmbed.featureUnavailableDescription')}
+            </p>
+            {upgradeCtaEnabled && (
+              <Button className="w-fit" variant="default" asChild size="xs">
+                <Link href={`${t('help.appLink')}/setting/license-plan`} target="_blank">
+                  {t('billing.viewPricing')}
+                </Link>
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
       </div>

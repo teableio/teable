@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import type { ISecretSpec } from './secret-specs';
 
 /**
@@ -34,7 +34,7 @@ export const resolveSecret = (
   env: Record<string, string | undefined> = process.env
 ): string => {
   const resolved =
-    [spec.envKey, ...(spec.fallbackEnvKeys ?? [])].map((key) => env[key]).find((value) => value) ??
+    [spec.envKey, ...(spec.fallbackEnvKeys ?? [])].map((key) => env[key]).find(Boolean) ??
     spec.legacyDefault ??
     (spec.derivePurpose && env.SECRET_KEY
       ? deriveFromSecretKey(spec.derivePurpose, env.SECRET_KEY)

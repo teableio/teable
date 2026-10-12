@@ -5,18 +5,14 @@ import type { IOpBuilder } from '../interface';
 export interface ISetViewPropertyOpContext {
   name: OpName.SetViewProperty;
   key: IViewPropertyKeys;
-  newValue?: unknown | null;
-  oldValue?: unknown | null;
+  newValue?: unknown;
+  oldValue?: unknown;
 }
 
 export class SetViewPropertyBuilder implements IOpBuilder {
   name: OpName.SetViewProperty = OpName.SetViewProperty;
 
-  build(params: {
-    key: IViewPropertyKeys;
-    newValue?: unknown | null;
-    oldValue?: unknown | null;
-  }): IOtOperation {
+  build(params: { key: IViewPropertyKeys; newValue?: unknown; oldValue?: unknown }): IOtOperation {
     const { key, newValue, oldValue } = params;
 
     return {

@@ -235,7 +235,7 @@ export type IV2BaseSchemaIntegrityRepairRo = z.infer<typeof v2BaseSchemaIntegrit
 export const V2SchemaIntegrityDecisionRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_V2_SCHEMA_INTEGRITY_DECISION,
-  description: 'Resolve whether the current base should use the v2 schema integrity flow',
+  description: 'Resolve whether the current project should use the v2 schema integrity flow',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -243,7 +243,7 @@ export const V2SchemaIntegrityDecisionRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the v2 schema integrity decision for the base',
+      description: 'Returns the v2 schema integrity decision for the project',
       content: {
         'application/json': {
           schema: v2SchemaIntegrityDecisionVoSchema,
@@ -275,7 +275,7 @@ export const V2SchemaIntegrityCheckStreamRoute: RouteConfig = registerRoute({
 export const V2BaseSchemaIntegrityCheckStreamRoute: RouteConfig = registerRoute({
   method: 'get',
   path: CHECK_V2_BASE_SCHEMA_INTEGRITY_STREAM,
-  description: 'Stream v2 schema integrity check results for a base',
+  description: 'Stream v2 schema integrity check results for a project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -284,7 +284,7 @@ export const V2BaseSchemaIntegrityCheckStreamRoute: RouteConfig = registerRoute(
   },
   responses: {
     200: {
-      description: 'SSE stream with base-level schema integrity check results',
+      description: 'SSE stream with project-level schema integrity check results',
     },
   },
   tags: ['integrity'],
@@ -317,7 +317,7 @@ export const V2SchemaIntegrityRepairStreamRoute: RouteConfig = registerRoute({
 export const V2BaseSchemaIntegrityRepairStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: REPAIR_V2_BASE_SCHEMA_INTEGRITY_STREAM,
-  description: 'Stream v2 schema integrity repair results for a base',
+  description: 'Stream v2 schema integrity repair results for a project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -332,7 +332,7 @@ export const V2BaseSchemaIntegrityRepairStreamRoute: RouteConfig = registerRoute
   },
   responses: {
     200: {
-      description: 'SSE stream with base-level schema integrity repair results',
+      description: 'SSE stream with project-level schema integrity repair results',
     },
   },
   tags: ['integrity'],

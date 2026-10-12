@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -289,8 +289,8 @@ export class OAuthDeviceService {
     userCode: string;
     approve: boolean;
     user: { id: string; name: string; email: string };
-  }): Promise<{ clientId: string }> {
-    let decided: { clientId: string } | undefined;
+  }): Promise<{ clientId: string; scopes: string[] }> {
+    let decided: { clientId: string; scopes: string[] } | undefined;
     const ran = await this.distributedLock.runExclusive(
       `oauth-device-decide:${this.normalizeUserCode(params.userCode)}`,
       10,
@@ -308,7 +308,7 @@ export class OAuthDeviceService {
     userCode: string;
     approve: boolean;
     user: { id: string; name: string; email: string };
-  }): Promise<{ clientId: string }> {
+  }): Promise<{ clientId: string; scopes: string[] }> {
     const entry = await this.getStateByUserCode(params.userCode);
     if (!entry) {
       throw new NotFoundException('This code has expired or does not exist');
@@ -324,7 +324,7 @@ export class OAuthDeviceService {
       user: params.approve ? params.user : undefined,
     };
     await this.store(entry.deviceCode, next);
-    return { clientId: entry.state.clientId };
+    return { clientId: entry.state.clientId, scopes: entry.state.scopes };
   }
 
   /**

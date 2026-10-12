@@ -37,16 +37,16 @@ export const DUPLICATE_BASE_STREAM = '/base/duplicate-stream';
 
 export const duplicateBaseRoSchema = z.object({
   fromBaseId: z.string().meta({
-    description: 'The base to duplicate',
+    description: 'The project to duplicate',
   }),
   spaceId: z.string().meta({
-    description: 'The space to duplicate the base to',
+    description: 'The space to duplicate the project to',
   }),
   withRecords: z.boolean().optional().meta({
     description: 'Whether to duplicate the records',
   }),
   name: z.string().optional().meta({
-    description: 'The name of the duplicated base',
+    description: 'The name of the duplicated project',
   }),
   baseId: z.string().optional(),
   nodes: z.array(z.string()).optional().meta({
@@ -54,7 +54,7 @@ export const duplicateBaseRoSchema = z.object({
   }),
   shareId: z.string().optional().meta({
     description:
-      'The share ID when duplicating from a shared base. If provided, will use share permissions instead of base|update permission.',
+      'The share ID when duplicating from a shared project. If provided, will use share permissions instead of base|update permission.',
   }),
   timeZone: timeZoneStringSchema.optional().meta({
     description:
@@ -92,7 +92,8 @@ export type IDuplicateBaseSSEEvent =
 export const DuplicateBaseRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DUPLICATE_BASE,
-  description: 'duplicate a base',
+  title: 'Duplicate project',
+  description: 'Create a copy of a project in the target space.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -107,7 +108,7 @@ export const DuplicateBaseRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns information about a successfully duplicated base.',
+      description: 'Returns information about a successfully duplicated project.',
       content: {
         'application/json': {
           schema: createBaseVoSchema,
@@ -121,7 +122,9 @@ export const DuplicateBaseRoute: RouteConfig = registerRoute({
 export const DuplicateBaseStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DUPLICATE_BASE_STREAM,
-  description: 'duplicate a base with SSE progress stream',
+  title: 'Duplicate project with progress',
+  description:
+    'Duplicate a project and receive progress updates and the final result through server-sent events.',
   request: {
     body: {
       content: {
@@ -133,7 +136,7 @@ export const DuplicateBaseStreamRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'SSE stream with progress events and final duplicated base.',
+      description: 'SSE stream with progress events and final duplicated project.',
     },
   },
   tags: ['base'],
@@ -255,7 +258,7 @@ export const duplicateBaseStream = async (
 
   const result = await readSSEStream(reader, onProgress);
   if (!result) {
-    throw new Error('Duplicate base stream ended without result');
+    throw new Error('Duplicate project stream ended without result');
   }
 
   return { data: result };

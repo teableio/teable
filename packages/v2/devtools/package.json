@@ -61,10 +61,11 @@
     "unzipper": "0.12.3"
   },
   "devDependencies": {
-    "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@teable/v2-tsdown-config": "workspace:*",
+    "@types/node": "24.13.2",
     "@types/unzipper": "0.10.11",
+    "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",

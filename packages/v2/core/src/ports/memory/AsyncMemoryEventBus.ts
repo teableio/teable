@@ -6,6 +6,7 @@ import { isDomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
+import { isRecordUpdatedEvent } from '../../domain/table/events/RecordUpdated';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventDispatchScope, IEventHandler } from '../EventHandler';
 import {
@@ -108,7 +109,18 @@ export class AsyncMemoryEventBus implements IEventBus {
       ViewOrderUpdated: true,
     };
 
-    return events.every((event) => awaitableEventNames[event.name.toString()] === true);
+    return events.every((event) => {
+      if (awaitableEventNames[event.name.toString()] === true) {
+        return true;
+      }
+      // Lookup/formula cascades publish after the source write. Await handler
+      // completion (pending-run insert for computed automation), not full
+      // workflow execution.
+      if (isRecordsBatchUpdatedEvent(event) && event.source === 'computed') {
+        return true;
+      }
+      return isRecordUpdatedEvent(event) && event.source === 'computed';
+    });
   }
 
   constructor(
@@ -136,6 +148,10 @@ export class AsyncMemoryEventBus implements IEventBus {
 
   events(): ReadonlyArray<IDomainEvent> {
     return [...this.publishedEvents];
+  }
+
+  recordPublished(events: ReadonlyArray<IDomainEvent>): void {
+    this.maybeRecordPublishedEvents(events);
   }
 
   async publish(

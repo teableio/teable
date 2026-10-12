@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import { PerformanceCacheService } from '../../performance-cache';
@@ -15,9 +16,10 @@ describe('AccessTokenService', () => {
   const prismaService = mockDeep<PrismaService>();
   const accessTokenModel = mockDeep<AccessTokenModel>();
   const performanceCacheService = mockDeep<PerformanceCacheService>();
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, AccessTokenModule],
     })
       .overrideProvider(PrismaService)
@@ -43,6 +45,18 @@ describe('AccessTokenService', () => {
     vitest.resetAllMocks();
     mockReset(prismaService);
     mockReset(performanceCacheService);
+  });
+
+  it('refuses to mint a personal access token from a sandbox session', async () => {
+    const cls = module.get(ClsService);
+    vitest
+      .spyOn(cls, 'get')
+      .mockImplementation(((key: string) => (key === 'authSource' ? 'sandbox' : 'usr1')) as never);
+
+    await expect(
+      accessTokenService.createAccessToken({ name: 't', scopes: ['record|read'] } as never)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prismaService.accessToken.create).not.toHaveBeenCalled();
   });
 
   it('should be defined', () => {

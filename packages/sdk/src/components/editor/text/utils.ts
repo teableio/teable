@@ -1,30 +1,8 @@
 import { SingleLineTextDisplayType } from '@teable/core';
+import type { ISingleLineTextActionType } from '@teable/core';
+import { openInNewTab } from '../../../utils/url';
 
-export const onMixedTextClick = (type: SingleLineTextDisplayType, text: string) => {
-  let url = '';
-
-  if (type === SingleLineTextDisplayType.Url) {
-    try {
-      const testURL = new URL(text);
-      if (testURL.protocol && !/^javascript:/i.test(testURL.protocol)) {
-        url = testURL.href;
-      }
-    } catch (error) {
-      try {
-        const testURL = new URL(`http://${text}`);
-        url = testURL.href;
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  } else if (type === SingleLineTextDisplayType.Email) {
-    url = `mailto:${text}`;
-  } else if (type === SingleLineTextDisplayType.Phone) {
-    url = `tel:${text}`;
-  }
-
-  if (!url) return;
-
-  const newWindow = window.open(url, '_blank', 'noopener=yes,noreferrer=yes');
-  newWindow && (newWindow.opener = null);
+export const onMixedTextClick = (type: ISingleLineTextActionType, text: string) => {
+  const scheme = type === SingleLineTextDisplayType.Email ? 'mailto' : 'tel';
+  openInNewTab(`${scheme}:${text}`);
 };

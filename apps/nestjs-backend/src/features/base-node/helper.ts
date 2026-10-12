@@ -18,13 +18,13 @@ export const buildBatchUpdateSql = (
     return null;
   }
 
-  const caseStatements: Record<string, { when: string; then: unknown }[]> = {};
+  const caseStatements: Record<string, { when: string; thenValue: unknown }[]> = {};
   for (const { id, values } of data) {
     for (const [key, value] of Object.entries(values)) {
       if (!caseStatements[key]) {
         caseStatements[key] = [];
       }
-      caseStatements[key].push({ when: id, then: value });
+      caseStatements[key].push({ when: id, thenValue: value });
     }
   }
 
@@ -36,9 +36,9 @@ export const buildBatchUpdateSql = (
     const column = snakeCase(key);
     const whenClauses: string[] = [];
     const caseBindings: unknown[] = [];
-    for (const { when, then } of statements) {
+    for (const { when, thenValue } of statements) {
       whenClauses.push('WHEN ?? = ? THEN ?');
-      caseBindings.push('id', when, then);
+      caseBindings.push('id', when, thenValue);
     }
     const caseExpression = `CASE ${whenClauses.join(' ')} ELSE ?? END`;
     const rawExpression = knex.raw(caseExpression, [...caseBindings, column]);

@@ -8,7 +8,11 @@ import type { Table } from '../../domain/table/Table';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IFindOptions } from '../RepositoryQuery';
-import type { ITableRepository, TableUpdatePersistResult } from '../TableRepository';
+import type {
+  ITableRepository,
+  TableUpdatePersistResult,
+  TableFindOneOptions,
+} from '../TableRepository';
 
 export class NoopTableRepository implements ITableRepository {
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -22,9 +26,18 @@ export class NoopTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async waitForReady(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOneOptions, 'provisionWaitMs'>
+  ): Promise<Result<void, DomainError>> {
+    return (await this.findOne(context, spec, options)).map(() => undefined);
+  }
+
   async findOne(
     _: IExecutionContext,
-    __: ISpecification<Table, ITableSpecVisitor>
+    __: ISpecification<Table, ITableSpecVisitor>,
+    _options?: TableFindOneOptions
   ): Promise<Result<Table, DomainError>> {
     return err(domainError.notFound({ message: 'Not found' }));
   }

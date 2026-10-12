@@ -43,7 +43,7 @@ export function AIModelSelect({
   children,
   onlyImageOutput = false,
   placeholder,
-}: IAIModelSelectProps) {
+}: Readonly<IAIModelSelectProps>) {
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
 

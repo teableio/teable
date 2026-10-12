@@ -18,7 +18,7 @@ enum ISortKey {
   Ascending = 'order',
 }
 
-function SortItem(props: ISortItemProps) {
+function SortItem(props: Readonly<ISortItemProps>) {
   const { index, value, onSelect, selectedFields, ...restProps } = props;
   const { t } = useTranslation();
   const inDrawer = useInDrawer();

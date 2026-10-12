@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IDataDbPreflightRo, IDataDbPreflightVo } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import { AuditScope } from '../audit/audit-scope';
 import { DataDbBaselineService } from './data-db-baseline.service';
 import { DataDbHealthService } from './data-db-health.service';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
@@ -14,6 +15,7 @@ import {
   getDatabaseUrlDisplayParts,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import { invalidateSearchIndexesForDataDbRouting } from './search-index-routing-invalidation';
 import {
   migrateSpaceTargetMode,
   spaceDataDbAdminOnlyErrorCode,
@@ -69,7 +71,8 @@ export class DataDbBindingService {
     private readonly dataDbClientManager: DataDbClientManager,
     @Optional() private readonly dataDbMigrationService?: DataDbMigrationService,
     @Optional() private readonly spaceDataDbMigrationService?: SpaceDataDbMigrationService,
-    @Optional() private readonly dataDbHealthService?: DataDbHealthService
+    @Optional() private readonly dataDbHealthService?: DataDbHealthService,
+    @Optional() private readonly audit?: AuditScope
   ) {}
 
   async createBindingForNewSpace(
@@ -221,6 +224,17 @@ export class DataDbBindingService {
       url: decryptDataDbUrl(connection.encryptedUrl),
     });
     await this.dataDbClientManager.invalidateConnection(connection.id);
+    // The connection id and schema name only: the URL (with its credentials) stays out.
+    await this.audit?.emitAtomic({
+      action: 'space.data-db.retry',
+      resourceId: spaceId,
+      params: {
+        spaceId,
+        dataDbConnectionId: connection.id,
+        internalSchema: connection.internalSchema,
+        appliedMigrationCount: applied.length,
+      },
+    });
     return applied;
   }
 
@@ -438,6 +452,8 @@ export class DataDbBindingService {
         select: { id: true },
       });
       connectionId = connection.id;
+
+      await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds: [spaceId] });
 
       await prisma.spaceDataDbBinding.upsert({
         where: { spaceId },

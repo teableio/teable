@@ -96,7 +96,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteFieldCommand
   ): Promise<Result<DeleteFieldResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DeleteFieldResult, DomainError>(async function* () {
       const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
       const tableResult = await handler.tableRepository.findOne(context, specResult);
@@ -322,7 +322,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       DomainError
     >
   > {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<
       {
         sourceTable: Table;
@@ -388,7 +388,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       DomainError
     >
   > {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry(async function* () {
       const allTablesSpec = yield* TableAggregate.specs(sourceTable.baseId()).build();
       const allTables = yield* await handler.tableRepository.find(context, allTablesSpec);

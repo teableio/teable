@@ -30,9 +30,9 @@ export const DotTeaImporterLive = Layer.effect(
             const resolvedBaseId = input.baseId ?? defaultBaseId;
             if (!resolvedBaseId) {
               const hint = isPglite
-                ? 'Use the auto-created base or pass --base-id'
+                ? 'Use the auto-created project or pass --base-id'
                 : 'Provide --base-id for non-pglite connections';
-              throw new Error(`Missing baseId. ${hint}`);
+              throw new Error(`Missing project ID (baseId). ${hint}`);
             }
 
             const commandResult =

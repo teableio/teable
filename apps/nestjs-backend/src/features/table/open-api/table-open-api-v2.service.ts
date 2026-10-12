@@ -34,13 +34,13 @@ import type {
   IQueryBus,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
-import { DatabaseRouter } from '../../../global/database-router.service';
-import type { IClsStore } from '../../../types/cls';
-import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events, TableUpdateEvent, type IChangeTable } from '../../../event-emitter/events';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
@@ -49,6 +49,7 @@ import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
 import { TableDuplicateService } from '../table-duplicate.service';
+import { TABLE_PERMANENT_DELETE_ACTION } from './table-audit.constants';
 import { mapLegacyCreateTableToV2Input } from './table-open-api-v2.mapper';
 
 const internalServerError = 'Internal server error';
@@ -97,6 +98,16 @@ export class TableOpenApiV2Service {
       .catch((error) =>
         this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
       );
+  }
+
+  /**
+   * the v2 command only drops rows on the data DB; comments live on the meta
+   * DB keyed by table id and have no cascade, so purge them here.
+   */
+  private async cleanupCommentsAfterPermanentDelete(tableId: string): Promise<void> {
+    const metaPrisma = this.prismaService.txClient();
+    await metaPrisma.comment.deleteMany({ where: { tableId } });
+    await metaPrisma.commentSubscription.deleteMany({ where: { tableId } });
   }
 
   private async assertBaseWritable(baseId: string) {
@@ -423,6 +434,32 @@ export class TableOpenApiV2Service {
     tableId: string,
     mode: 'soft' | 'permanent' = 'soft'
   ): Promise<void> {
+    if (mode !== 'permanent') {
+      return this.executeDeleteTable(baseId, tableId, mode);
+    }
+    // Same shape as the v1 permanent delete: the TableDeleted projection's `table.delete` row runs
+    // inside a `table.permanent-delete` operation, and the permanent row is written once it is gone.
+    const table = await this.prismaService.tableMeta
+      .findUnique({ where: { id: tableId }, select: { name: true } })
+      .catch(() => null);
+    return this.audit.withOperation(
+      { rootAction: TABLE_PERMANENT_DELETE_ACTION, resourceId: baseId },
+      async () => {
+        await this.executeDeleteTable(baseId, tableId, mode);
+        await this.audit.emitAtomic({
+          action: TABLE_PERMANENT_DELETE_ACTION,
+          resourceId: tableId,
+          params: { baseId, tableId, ...(table ? { name: table.name } : {}) },
+        });
+      }
+    );
+  }
+
+  private async executeDeleteTable(
+    baseId: string,
+    tableId: string,
+    mode: 'soft' | 'permanent'
+  ): Promise<void> {
     await this.assertBaseWritable(baseId);
     const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -441,6 +478,7 @@ export class TableOpenApiV2Service {
     if (result.status === 200 && result.body.ok) {
       if (mode === 'permanent') {
         await this.cleanupRecordHistoryAfterPermanentDelete(baseId, tableId);
+        await this.cleanupCommentsAfterPermanentDelete(tableId);
       }
       return;
     }

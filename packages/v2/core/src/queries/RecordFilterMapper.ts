@@ -6,8 +6,12 @@ import { andSpec } from '../domain/shared/specification/AndSpec';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { notSpec } from '../domain/shared/specification/NotSpec';
 import { orSpec } from '../domain/shared/specification/OrSpec';
+import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
+import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
+import { LookupField } from '../domain/table/fields/types/LookupField';
+import type { ITableReadModel } from '../domain/table/ITableReadModel';
 import {
   conditionNullMatch,
   conditionNullMatchForSpec,
@@ -15,6 +19,7 @@ import {
 } from '../domain/table/records/specs/ConditionNullSemantics';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { RecordConditionOperator } from '../domain/table/records/specs/RecordConditionOperators';
+import { RecordValueConditionSpec } from '../domain/table/records/specs/RecordConditionSpec';
 import type { RecordConditionValue } from '../domain/table/records/specs/RecordConditionValues';
 import {
   RecordConditionDateValue,
@@ -22,9 +27,7 @@ import {
   RecordConditionLiteralListValue,
   RecordConditionLiteralValue,
 } from '../domain/table/records/specs/RecordConditionValues';
-import { RecordValueConditionSpec } from '../domain/table/records/specs/RecordConditionSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { RecordQueryFieldMask } from '../ports/RecordQueryPlugin';
 import {
@@ -45,7 +48,7 @@ type FieldMaskMap = ReadonlyMap<
 
 const currentUserFilterValue = 'Me';
 
-const resolveField = (table: Table, rawFieldId: string) => {
+const resolveField = (table: ITableReadModel, rawFieldId: string) => {
   return FieldId.create(rawFieldId).andThen((fieldId) =>
     table
       .getField((candidate) => candidate.id().equals(fieldId))
@@ -54,7 +57,7 @@ const resolveField = (table: Table, rawFieldId: string) => {
 };
 
 const buildConditionValue = (
-  table: Table,
+  table: ITableReadModel,
   rawValue: RecordFilterValue
 ): Result<RecordConditionValue | undefined, DomainError> => {
   if (rawValue === null) return ok(undefined);
@@ -176,7 +179,7 @@ const orPolarities = (
   );
 
 const buildPolarityFromNode = (
-  table: Table,
+  table: ITableReadModel,
   node: RecordFilterNode,
   fieldMasks?: FieldMaskMap
 ): Result<FilterPolarity, DomainError> => {
@@ -264,14 +267,14 @@ const buildPolarityFromNode = (
 };
 
 const buildSpecFromNode = (
-  table: Table,
+  table: ITableReadModel,
   node: RecordFilterNode,
   fieldMasks?: FieldMaskMap
 ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> =>
   buildPolarityFromNode(table, node, fieldMasks).map((polarity) => polarity.isTrue);
 
 const sanitizeNode = (
-  table: Table,
+  table: ITableReadModel,
   node: RecordFilterNode
 ): Result<RecordFilterNode | null, DomainError> => {
   if (isRecordFilterCondition(node)) {
@@ -319,7 +322,12 @@ const sanitizeNode = (
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
 
-function isUserLikeFieldType(type: FieldType): boolean {
+function isUserLikeField(field: Field): boolean {
+  if (field instanceof LookupField || field instanceof ConditionalLookupField) {
+    const innerField = field.innerField();
+    return innerField.isOk() && isUserLikeField(innerField.value);
+  }
+  const type = field.type();
   return (
     type.equals(FieldType.user()) ||
     type.equals(FieldType.createdBy()) ||
@@ -328,7 +336,7 @@ function isUserLikeFieldType(type: FieldType): boolean {
 }
 
 export function replaceCurrentUserTagInFilter(
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined,
   actorId: string
 ): RecordFilter | null | undefined {
@@ -353,7 +361,7 @@ export function replaceCurrentUserTagInFilter(
     }
 
     const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
-    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
+    if (fieldResult.isErr() || !isUserLikeField(fieldResult.value)) {
       return node;
     }
 
@@ -374,7 +382,7 @@ export function replaceCurrentUserTagInFilter(
 }
 
 export const buildRecordConditionSpec = (
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter,
   fieldMasks?: ReadonlyArray<RecordQueryFieldMask>
 ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
@@ -386,7 +394,7 @@ export const buildRecordConditionSpec = (
 };
 
 export const sanitizeRecordFilter = (
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined
 ): Result<RecordFilter | null | undefined, DomainError> => {
   if (filter === undefined || filter === null) {
@@ -397,7 +405,7 @@ export const sanitizeRecordFilter = (
 };
 
 export const buildSanitizedRecordConditionSpec = (
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined
 ): Result<
   ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,

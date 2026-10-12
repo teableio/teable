@@ -11,6 +11,8 @@ export const authorizedVoSchema = z.object({
   logo: z.string().url().optional(),
   description: z.string().optional(),
   scopes: z.array(z.string()).optional(),
+  // the user turned off the notifications this app sends them
+  notificationsMuted: z.boolean().optional(),
   lastUsedTime: z.string().optional(),
   createdUser: z.object({
     name: z.string(),

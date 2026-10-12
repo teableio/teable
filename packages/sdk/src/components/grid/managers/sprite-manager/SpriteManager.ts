@@ -23,13 +23,13 @@ const getColors = (variant: ISpriteVariant, theme: IGridTheme): [string, string]
 };
 
 export class SpriteManager {
-  private spriteMap: Map<string, HTMLCanvasElement> = new Map();
-  private icons: ISpriteMap;
+  private readonly spriteMap: Map<string, HTMLCanvasElement> = new Map();
+  private readonly icons: ISpriteMap;
   private inFlight = 0;
 
   constructor(
     icons?: ISpriteMap,
-    private onSettled?: () => void
+    private readonly onSettled?: () => void
   ) {
     this.icons = {
       ...sprites,

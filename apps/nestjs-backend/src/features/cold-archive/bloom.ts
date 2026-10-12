@@ -17,7 +17,7 @@ const BLOOM_MIN_BITS = 64;
 const fnv1a = (value: string, seed: number): number => {
   let hash = (0x811c9dc5 ^ seed) >>> 0;
   for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
+    hash ^= value.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash >>> 0;

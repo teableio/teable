@@ -59,7 +59,7 @@ export function ModelSearchPopover({
   onSelectModel,
   onRetry,
   t,
-}: IModelSearchPopoverProps) {
+}: Readonly<IModelSearchPopoverProps>) {
   const commandListRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top when search query changes

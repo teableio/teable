@@ -26,7 +26,7 @@ export function SetupStepCard({
   badge,
   disabled,
   icon,
-}: ISetupStepCardProps) {
+}: Readonly<ISetupStepCardProps>) {
   return (
     <Collapsible open={isExpanded} onOpenChange={disabled ? undefined : onToggle}>
       <div

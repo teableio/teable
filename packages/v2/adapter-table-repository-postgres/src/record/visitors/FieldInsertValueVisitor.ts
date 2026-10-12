@@ -29,6 +29,7 @@ import type { Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { safeTry } from 'neverthrow';
 
+import { dedupeLinkItemsById } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
 
 const RECORD_ID_COLUMN = '__id';
@@ -216,12 +217,20 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
         const columnValues: Record<string, unknown> = {};
         const queryExecutors: QueryExecutor[] = [];
 
-        // Store link value JSONB column and handle FK relationships.
+        // One junction row per linked record, and the stored cell must agree with
+        // it: a duplicated id (typecast create, paste, import) is collapsed to its
+        // first occurrence before either representation is built.
+        const linkItems = Array.isArray(this.rawValue)
+          ? dedupeLinkItemsById(this.rawValue as Array<{ id: string; title?: string }>)
+          : ([this.rawValue] as Array<{ id: string; title?: string }>);
 
+        // Store link value JSONB column and handle FK relationships.
         const storedValue = field.isMultipleValue()
-          ? this.rawValue
+          ? Array.isArray(this.rawValue)
+            ? linkItems
+            : this.rawValue
           : Array.isArray(this.rawValue)
-            ? this.rawValue[0] ?? null
+            ? linkItems[0] ?? null
             : this.rawValue;
         columnValues[this.ctx.dbFieldName] =
           storedValue === null || storedValue === undefined ? null : JSON.stringify(storedValue);
@@ -230,11 +239,6 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
         if (this.rawValue === null || this.rawValue === undefined) {
           return ok({ columnValues, queryExecutors });
         }
-
-        // Parse link items
-        const linkItems = Array.isArray(this.rawValue)
-          ? (this.rawValue as Array<{ id: string; title?: string }>)
-          : [this.rawValue as { id: string; title?: string }];
 
         if (linkItems.length === 0) {
           return ok({ columnValues, queryExecutors });

@@ -17,10 +17,10 @@ import { DbFieldType } from './fields/DbFieldType';
 import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
-import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
-import { CheckboxField } from './fields/types/CheckboxField';
 import { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
 import { CellValueType } from './fields/types/CellValueType';
+import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
+import { CheckboxField } from './fields/types/CheckboxField';
 import { FieldNotNull } from './fields/types/FieldNotNull';
 import { FieldUnique } from './fields/types/FieldUnique';
 import { FormulaExpression } from './fields/types/FormulaExpression';
@@ -282,7 +282,7 @@ describe('Table', () => {
       views: [],
       primaryFieldId: fieldIdResult._unsafeUnwrap(),
     });
-    emptyFields._unsafeUnwrapErr();
+    expect(emptyFields.isErr()).toBe(true);
 
     const missingPrimary = Table.rehydrate({
       id: tableIdResult._unsafeUnwrap(),
@@ -302,7 +302,7 @@ describe('Table', () => {
       ],
       primaryFieldId: otherFieldIdResult._unsafeUnwrap(),
     });
-    missingPrimary._unsafeUnwrapErr();
+    expect(missingPrimary.isErr()).toBe(true);
   });
 
   it('manages db table name lifecycle', () => {
@@ -1570,8 +1570,8 @@ describe('Table', () => {
 
 describe('TableName', () => {
   it('validates table names', () => {
-    TableName.create('Project')._unsafeUnwrap();
-    TableName.create('')._unsafeUnwrapErr();
+    expect(TableName.create('Project').isOk()).toBe(true);
+    expect(TableName.create('').isErr()).toBe(true);
   });
 
   it('compares table names by value', () => {
@@ -1586,8 +1586,8 @@ describe('TableName', () => {
 
 describe('DbTableName', () => {
   it('rehydrates and validates db table names', () => {
-    DbTableName.rehydrate('table_name')._unsafeUnwrap();
-    DbTableName.rehydrate('')._unsafeUnwrapErr();
+    expect(DbTableName.rehydrate('table_name').isOk()).toBe(true);
+    expect(DbTableName.rehydrate('').isErr()).toBe(true);
   });
 
   it('requires rehydrate before accessing value', () => {
@@ -2257,6 +2257,69 @@ describe('Table.createRecordsStream', () => {
       numberFieldId: numberFieldId._unsafeUnwrap().toString(),
     };
   };
+
+  it.each(['sync', 'async'] as const)(
+    '%s stream can suppress standalone record events without losing table events or values',
+    async (mode) => {
+      const { table, textFieldId } = buildTableWithNumberField();
+      const fieldId = FieldId.create(textFieldId)._unsafeUnwrap();
+      const values = Array.from(
+        { length: 207 },
+        (_, index) => `${index}:${'snapshot'.repeat(300)}`
+      );
+      const rows = values.map((value) => new Map<string, unknown>([[textFieldId, value]]));
+      const options = { batchSize: 100, emitRecordCreatedEvents: false };
+      const stream =
+        mode === 'sync'
+          ? table.createRecordsStream(rows, options)
+          : table.createRecordsStreamAsync(
+              (async function* () {
+                yield* rows;
+              })(),
+              options
+            );
+      let processed = 0;
+      const batchLengths: number[] = [];
+      for await (const batchResult of stream) {
+        const records = batchResult._unsafeUnwrap();
+        batchLengths.push(records.length);
+        expect(records.map((record) => record.fields().get(fieldId)?.toValue())).toEqual(
+          values.slice(processed, processed + records.length)
+        );
+        expect(table.pullDomainEvents().map((event) => event.name.toString())).toEqual(
+          processed === 0 ? ['TableCreated'] : []
+        );
+        processed += records.length;
+      }
+      expect(processed).toBe(values.length);
+      expect(batchLengths).toEqual([100, 100, 7]);
+    }
+  );
+
+  it.each(['sync', 'async'] as const)(
+    '%s stream retains standalone record events by default',
+    async (mode) => {
+      const { table, textFieldId } = buildTableWithNumberField();
+      const rows = ['first', 'second'].map(
+        (value) => new Map<string, unknown>([[textFieldId, value]])
+      );
+      const stream =
+        mode === 'sync'
+          ? table.createRecordsStream(rows, { batchSize: 1 })
+          : table.createRecordsStreamAsync(
+              (async function* () {
+                yield* rows;
+              })(),
+              { batchSize: 1 }
+            );
+      for await (const batchResult of stream) batchResult._unsafeUnwrap();
+      expect(table.pullDomainEvents().map((event) => event.name.toString())).toEqual([
+        'TableCreated',
+        'RecordCreated',
+        'RecordCreated',
+      ]);
+    }
+  );
 
   it('creates records in batches from stream', () => {
     const { table, textFieldId, numberFieldId } = buildTableWithNumberField();

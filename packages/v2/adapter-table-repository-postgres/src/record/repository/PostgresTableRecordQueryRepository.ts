@@ -3,6 +3,7 @@ import {
   type ILogger,
   isDomainError,
   v2CoreTokens,
+  TableQueryTraceAttributes,
   type DomainError,
   type FieldOrderBy,
   FieldType,
@@ -10,7 +11,6 @@ import {
   type IExecutionContext,
   type IRecordReadQuerySource,
   type IRecordSearchAccessPathResolution,
-  type RecordQuerySearch,
   type ITableRecordQueryRepository,
   type ITableRecordCountQueryRepository,
   type ITableRecordCountOptions,
@@ -47,6 +47,7 @@ import {
   buildUserAvatarUrl,
   isFieldOrderBy,
   isSystemColumnOrderBy,
+  getUnitOfWorkTransaction,
   type TableRecordOrderBy,
   createSearchTraceAttributes,
   createTableQueryTraceAttributes,
@@ -54,7 +55,7 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { CompiledQuery, sql } from 'kysely';
-import type { Expression, Kysely, RawBuilder, SqlBool } from 'kysely';
+import type { Expression, Kysely, QueryResult, RawBuilder, SqlBool } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -80,22 +81,27 @@ import {
 import { buildFieldMaskSqlMap } from './buildFieldMaskSql';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
-import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import {
-  buildBookmarkSeekExists,
+  buildCursorToken,
+  buildValueSeekPredicate,
   CURSOR_ORDER_BY_ERROR,
+  CURSOR_STALE_ERROR,
+  cursorValueAlias,
   getLastAutoNumberCursor,
   isAutoNumberOnlyCursorOrderBy,
   isRawColumnCursorField,
   orderByHasAutoNumberAsc,
   parseCursorToken,
+  resolveCursorValues,
   type CursorSeekKey,
 } from './listRecordsCursor';
+import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import {
   buildRecordSearchFieldMatches,
   buildRecordSearchWhereClause,
   buildRecordSearchWherePlan,
   type RecordSearchFieldMatch,
+  type RecordSearchWherePlan,
 } from './RecordSearchWhereBuilder';
 import {
   buildTableRecordAggregationExpression,
@@ -206,33 +212,20 @@ type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
 
 const createRecordSearchAccessPathResolution = (
   options: ITableRecordQueryOptions | undefined,
-  used: IRecordSearchAccessPathResolution['used']
+  plan: RecordSearchWherePlan
 ): IRecordSearchAccessPathResolution | undefined => {
   if (!options?.search) return undefined;
-  const requested = options.searchAccessPath?.kind ?? 'default';
-  const generatedTextFallbackReason =
-    requested === 'generated_text' &&
-    options.searchAccessPath?.kind === 'generated_text' &&
-    options.searchAccessPath.provider === 'pg_trgm' &&
-    Array.from(options.search.search.value).length < 3
-      ? ('generated_text_probe_too_short' as const)
-      : ('generated_text_unavailable' as const);
   return {
-    requested,
-    used,
-    ...(requested === 'generated_text' && used === 'default'
-      ? { fallbackReason: generatedTextFallbackReason }
-      : {}),
-    ...(requested === 'generated_tsvector' && used === 'default'
-      ? { fallbackReason: 'generated_tsvector_unavailable' as const }
-      : {}),
+    requested: options.searchAccessPath?.kind ?? 'default',
+    used: plan.usedAccessPath,
+    ...(plan.fallbackReason ? { fallbackReason: plan.fallbackReason } : {}),
   };
 };
 
 const createRepositoryFindTraceAttributes = (
   table: Table,
   options: ITableRecordQueryOptions | undefined,
-  source: 'repository.record_find' | 'repository.record_count',
+  source: 'repository.record_find' | 'repository.record_count' | 'repository.record_aggregate',
   resolution?: IRecordSearchAccessPathResolution
 ) => {
   const search = options?.search?.search;
@@ -260,10 +253,15 @@ const createRepositoryFindTraceAttributes = (
   return {
     ...createTableQueryTraceAttributes({
       tableId: table.id().toString(),
-      queryKind: search ? 'search' : 'record_list',
+      queryKind: search
+        ? 'search'
+        : source === 'repository.record_aggregate'
+          ? 'aggregation'
+          : 'record_list',
       querySource: source,
       hasSort: Boolean(options?.orderBy?.length),
-      includeTotal: options?.includeTotal !== false,
+      includeTotal:
+        source === 'repository.record_aggregate' ? undefined : options?.includeTotal === true,
     }),
     ...createSearchTraceAttributes({
       searchValue: search?.value,
@@ -294,6 +292,32 @@ const createRepositoryFindTraceAttributes = (
   };
 };
 
+/**
+ * T7339: `ITableRecordCountOptions` carries no `includeTotal` option - a standalone count
+ * *is* the request for a total. Reporting the find-only option here claimed the opposite of
+ * what these spans do. The companion count inside `find()` keeps reporting the option that
+ * gated it, because that count only runs when the find asked for a total.
+ */
+const createCountTraceAttributes = (
+  table: Table,
+  options: ITableRecordQueryOptions | undefined,
+  resolution?: IRecordSearchAccessPathResolution
+) => ({
+  ...createRepositoryFindTraceAttributes(table, options, 'repository.record_count', resolution),
+  [TableQueryTraceAttributes.QUERY_INCLUDE_TOTAL]: true,
+});
+
+/**
+ * Statement budget for the data-reading statements this repository runs: record
+ * pages (offset and cursor, including the stream batches), single records,
+ * counts, aggregations, grouped reads and the calendar/search helper queries.
+ * `statementBudgetMs` must be positive to have an effect; 0 or undefined keeps
+ * the previous unbudgeted behaviour.
+ */
+export interface IRecordQueryRepositoryConfig {
+  readonly statementBudgetMs?: number;
+}
+
 @injectable()
 export class PostgresTableRecordQueryRepository
   implements
@@ -314,8 +338,37 @@ export class PostgresTableRecordQueryRepository
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2RecordRepositoryPostgresTokens.recordQueryConfig)
+    private readonly recordQueryConfig: IRecordQueryRepositoryConfig = { statementBudgetMs: 0 }
   ) {}
+
+  /**
+   * Runs a data-reading statement under the configured statement budget.
+   *
+   * `statement_timeout` is transaction-local, so a budget needs a transaction of
+   * its own; inside an ambient unit-of-work transaction the caller already owns
+   * the budget and nesting one here would be wrong. The setting is never a
+   * session `SET`, so it stays correct behind a transaction pooler.
+   *
+   * Metadata probes (`information_schema`) and DDL intentionally stay outside:
+   * they cannot run away, and they are already bounded by their own budgets.
+   */
+  private async executeQueryWithBudget<R>(
+    context: IExecutionContext,
+    db: Kysely<DynamicDB>,
+    compiled: CompiledQuery<R>
+  ): Promise<QueryResult<R>> {
+    const budgetMs = this.recordQueryConfig.statementBudgetMs ?? 0;
+    if (budgetMs <= 0 || getUnitOfWorkTransaction(context, 'data')) {
+      return db.executeQuery(compiled);
+    }
+
+    return db.transaction().execute(async (trx) => {
+      await sql`select set_config('statement_timeout', ${String(budgetMs)}, true)`.execute(trx);
+      return trx.executeQuery(compiled);
+    });
+  }
 
   async findDistinctUserIds(
     context: IExecutionContext,
@@ -354,7 +407,11 @@ export class PostgresTableRecordQueryRepository
         .distinct();
       const compiled = query.compile();
       this.recordSqlDiagnostic(context, 'record_find_distinct_user_ids', compiled);
-      const rows = await dynamicDb.executeQuery<{ user_id: string | null }>(compiled);
+      const rows = await this.executeQueryWithBudget<{ user_id: string | null }>(
+        context,
+        dynamicDb,
+        compiled
+      );
       return ok(rows.rows.flatMap((row) => (row.user_id ? [row.user_id] : [])));
     } catch (error) {
       return err(
@@ -390,6 +447,10 @@ export class PostgresTableRecordQueryRepository
       });
       if (queryBuilderResult.isErr()) return err(queryBuilderResult.error);
       const queryBuilder = queryBuilderResult.value;
+      const fieldMaskSqlResult = buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
+      if (fieldMaskSqlResult.isErr()) return err(fieldMaskSqlResult.error);
+      const fieldMaskSqlMap = fieldMaskSqlResult.value;
+      queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
       const searchFieldsResult = options?.search
         ? options.search.search.resolveFields(table, {
             visibleFieldIds: options.search.visibleFieldIds,
@@ -409,12 +470,26 @@ export class PostgresTableRecordQueryRepository
       if (spec) queryBuilder.where(spec);
       const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
         tableAlias: TABLE_ALIAS,
+        searchAccessPath: options?.searchAccessPath,
+        fieldMaskSqlMap,
       });
       if (searchWherePlan.isErr()) return err(searchWherePlan.error);
+      const searchAccessPath = createRecordSearchAccessPathResolution(
+        options,
+        searchWherePlan.value
+      );
+      span?.setAttributes(
+        createRepositoryFindTraceAttributes(
+          table,
+          options,
+          'repository.record_aggregate',
+          searchAccessPath
+        )
+      );
       if (searchWherePlan.value.condition !== null) {
         queryBuilder.whereExpression(searchWherePlan.value.condition);
       }
-      if (options?.orderBy?.length || options?.pagination) {
+      if (!options?.recordIdsOrder?.length && (options?.orderBy?.length || options?.pagination)) {
         const dbTableNameResult = table.dbTableName();
         if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
         const tableNameResult = dbTableNameResult.value.value();
@@ -432,13 +507,20 @@ export class PostgresTableRecordQueryRepository
         } else {
           queryBuilder.orderBy('__auto_number', 'asc');
         }
-        if (options.pagination) {
-          queryBuilder.limit(options.pagination.limit().toNumber());
-          queryBuilder.offset(options.pagination.offset().toNumber());
-        }
+      }
+      if (options?.pagination) {
+        queryBuilder.limit(options.pagination.limit().toNumber());
+        queryBuilder.offset(options.pagination.offset().toNumber());
       }
       const scopedQueryResult = queryBuilder.build();
       if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
+      let scopedQuery = scopedQueryResult.value;
+      if (options?.recordIdsOrder?.length) {
+        const orderedIds = options.recordIdsOrder.map((recordId) => recordId.toString());
+        scopedQuery = scopedQuery.orderBy(
+          sql`array_position(${orderedIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
+        );
+      }
 
       const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
       const fieldColumns = new Map<string, string>();
@@ -452,6 +534,29 @@ export class PostgresTableRecordQueryRepository
         fieldsById.set(fieldId.toString(), fieldResult.value);
       }
 
+      if (fieldMaskSqlMap?.size) {
+        const maskAliases = new Map<string, string>();
+        for (const [fieldId, maskSql] of fieldMaskSqlMap) {
+          if (!fieldColumns.has(fieldId)) continue;
+          const alias = `__aggregation_mask_${maskAliases.size}`;
+          maskAliases.set(fieldId, alias);
+          scopedQuery = scopedQuery.select(sql`${maskSql}`.as(alias));
+        }
+        // Evaluate masks against the source row, then aggregate only masked
+        // values. Mask dependency columns never escape the inner query.
+        scopedQuery = dynamicDb.selectFrom(scopedQuery.as('a')).select(
+          [...fieldColumns].map(([fieldId, column]) => {
+            const value = sql.ref(`a.${column}`);
+            const maskAlias = maskAliases.get(fieldId);
+            return (
+              maskAlias
+                ? maskValueExpression(sql<SqlBool>`${sql.ref(`a.${maskAlias}`)}`, value)
+                : value
+            ).as(column);
+          })
+        );
+      }
+
       const values: TableRecordAggregationValue[] = [];
       const levels: ReadonlyArray<ReadonlyArray<TableRecordAggregationGroup>> = [
         [],
@@ -463,7 +568,7 @@ export class PostgresTableRecordQueryRepository
         const aggregateAliases = aggregation.fields.map((_, index) => `__aggregation_${index}`);
         const groupAliases = groupFields.map((_, index) => `__group_${index}`);
         let aggregateQuery = dynamicDb
-          .with(scopeAlias, () => scopedQueryResult.value)
+          .with(scopeAlias, () => scopedQuery)
           .selectFrom(`${scopeAlias} as a`)
           .select(
             aggregation.fields.map((aggregationField, index) => {
@@ -481,31 +586,29 @@ export class PostgresTableRecordQueryRepository
           const field = fieldsById.get(group.fieldId.toString())!;
           const columnName = fieldColumns.get(group.fieldId.toString())!;
           const column = sql.ref(`a.${columnName}`);
+          // Same local-time trunc as list grouping (`buildGroupFieldValueExpression`).
+          // Raw timestamps split a YYYY-MM / YYYY-MM-DD header into many group
+          // ids, so the grid cannot match column statistics onto group points.
+          const dateGroupExpression = buildDateLikeGroupExpression(field, 'a', columnName);
           const userIdentity = userGroupIdentityExprForField(field, column);
           if (userIdentity.isErr()) return err(userIdentity.error);
-          const groupExpression = userIdentity.value ?? column;
+          const groupExpression = userIdentity.value ?? dateGroupExpression ?? column;
           aggregateQuery = aggregateQuery
             .select(groupExpression.as(groupAliases[index]!))
             .groupBy(groupExpression);
-          if (userIdentity.value) {
-            // order user buckets by the same title+identity clauses the record
-            // queries use, so share-view group points collate with their
-            // record pages instead of by raw jsonb comparison
-            const orderByClauses = buildStoredFieldOrderByClauses(
-              field,
-              columnName,
-              group.order,
-              'a',
-              {
-                columnExpression: userIdentity.value,
-              }
-            );
-            if (orderByClauses.isErr()) return err(orderByClauses.error);
-            for (const clause of orderByClauses.value) {
-              aggregateQuery = applyStoredFieldOrderByClause(aggregateQuery, clause);
+          const orderByClauses = buildStoredFieldOrderByClauses(
+            field,
+            columnName,
+            group.order,
+            'a',
+            {
+              columnExpression: groupExpression,
+              groupIdentityCollation: true,
             }
-          } else {
-            aggregateQuery = aggregateQuery.orderBy(groupExpression, group.order);
+          );
+          if (orderByClauses.isErr()) return err(orderByClauses.error);
+          for (const clause of orderByClauses.value) {
+            aggregateQuery = applyStoredFieldOrderByClause(aggregateQuery, clause);
           }
         }
         if (groupFields.length) {
@@ -514,14 +617,13 @@ export class PostgresTableRecordQueryRepository
 
         const compiled = aggregateQuery.compile();
         this.recordSqlDiagnostic(context, 'record_aggregate', compiled);
-        const rows = await dynamicDb.executeQuery<Record<string, unknown>>(compiled);
+        const rows = await this.executeQueryWithBudget<Record<string, unknown>>(
+          context,
+          dynamicDb,
+          compiled
+        );
         for (const row of rows.rows) {
-          const groupValues = groupAliases.map((alias, index) =>
-            normalizeStoredGroupValue(
-              fieldsById.get(groupFields[index]!.fieldId.toString())!,
-              row[alias]
-            )
-          );
+          const groupValues = groupAliases.map((alias) => normalizeStoredGroupValue(row[alias]));
           aggregation.fields.forEach((aggregationField, index) => {
             values.push({
               fieldId: aggregationField.fieldId,
@@ -553,9 +655,7 @@ export class PostgresTableRecordQueryRepository
       readonly endDate: string;
     },
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    options?: {
-      readonly search?: RecordQuerySearch;
-    }
+    options?: Parameters<ITableRecordCalendarQueryRepository['calendarDailyCollection']>[5]
   ): Promise<Result<ReadonlyArray<TableRecordCalendarDailyCollectionEntry>, DomainError>> {
     const span = context.tracer?.startSpan('teable.repository.record.calendar_daily_collection', {
       tableId: table.id().toString(),
@@ -564,33 +664,17 @@ export class PostgresTableRecordQueryRepository
     });
 
     try {
-      const queryBuilderResult = await this.queryBuilderManager.createBuilder(context, table, {
-        mode: 'stored',
-      });
-      if (queryBuilderResult.isErr()) return err(queryBuilderResult.error);
-      const queryBuilder = queryBuilderResult.value;
-      const searchFieldsResult = options?.search
-        ? options.search.search.resolveFields(table, {
-            visibleFieldIds: options.search.visibleFieldIds,
-          })
-        : ok([]);
-      if (searchFieldsResult.isErr()) return err(searchFieldsResult.error);
-      const projection = [
-        ...new Map(
-          [
-            calendar.startFieldId,
-            calendar.endFieldId,
-            ...searchFieldsResult.value.map((field) => field.id()),
-          ].map((fieldId) => [fieldId.toString(), fieldId])
-        ).values(),
-      ];
-      queryBuilder.select(projection);
-      if (spec) queryBuilder.where(spec);
-      const scopedQueryResult = queryBuilder.build();
-      if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
+      const tableNameResult = table.dbTableName().andThen((name) => name.value());
+      if (tableNameResult.isErr()) return err(tableNameResult.error);
+      const whereClause = spec ? buildRecordWhereClause(spec, { tableAlias: 'a' }) : ok(null);
+      if (whereClause.isErr()) return err(whereClause.error);
+      const fieldMaskSqlMap = buildFieldMaskSqlMap(options?.fieldMasks, 'a');
+      if (fieldMaskSqlMap.isErr()) return err(fieldMaskSqlMap.error);
 
       const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
         tableAlias: 'a',
+        searchAccessPath: options?.searchAccessPath,
+        fieldMaskSqlMap: fieldMaskSqlMap.value,
       });
       if (searchWherePlan.isErr()) return err(searchWherePlan.error);
 
@@ -598,17 +682,35 @@ export class PostgresTableRecordQueryRepository
       if (startFieldResult.isErr()) return err(startFieldResult.error);
       const endFieldResult = table.getField((field) => field.id().equals(calendar.endFieldId));
       if (endFieldResult.isErr()) return err(endFieldResult.error);
-      const outputVisitor = new FieldOutputColumnVisitor();
-      const startColumnResult = outputVisitor.getColumnAlias(startFieldResult.value);
+      const startColumnResult = startFieldResult.value
+        .dbFieldName()
+        .andThen((name) => name.value());
       if (startColumnResult.isErr()) return err(startColumnResult.error);
-      const endColumnResult = outputVisitor.getColumnAlias(endFieldResult.value);
+      const endColumnResult = endFieldResult.value.dbFieldName().andThen((name) => name.value());
       if (endColumnResult.isErr()) return err(endColumnResult.error);
+      const startValue = buildStoredFieldValueExpression(
+        startFieldResult.value,
+        'a',
+        startColumnResult.value
+      );
+      if (startValue.isErr()) return err(startValue.error);
+      const endValue = buildStoredFieldValueExpression(
+        endFieldResult.value,
+        'a',
+        endColumnResult.value
+      );
+      if (endValue.isErr()) return err(endValue.error);
+      const startMask = fieldMaskSqlMap.value?.get(calendar.startFieldId.toString());
+      const endMask = fieldMaskSqlMap.value?.get(calendar.endFieldId.toString());
 
       const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
-      const scopeAlias = 'record_calendar_scope';
       const timeZone = calendar.timeZone.toString();
-      const startColumn = sql.ref(`a.${startColumnResult.value}`);
-      const endColumn = sql.ref(`a.${endColumnResult.value}`);
+      const startColumn = startMask
+        ? maskValueExpression(startMask, startValue.value.expression)
+        : startValue.value.expression;
+      const endColumn = endMask
+        ? maskValueExpression(endMask, endValue.value.expression)
+        : endValue.value.expression;
       const dateSeries = sql<{ date: Date }>`(
         SELECT date::date AS date
         FROM generate_series(
@@ -619,8 +721,7 @@ export class PostgresTableRecordQueryRepository
       )`.as('dates');
 
       let query = dynamicDb
-        .with(scopeAlias, () => scopedQueryResult.value)
-        .selectFrom(`${scopeAlias} as a`)
+        .selectFrom(`${tableNameResult.value} as a`)
         .innerJoin(dateSeries, (join) => join.onTrue())
         .select([
           sql<string>`to_char(${sql.ref('dates.date')}, 'YYYY-MM-DD')`.as('date'),
@@ -647,17 +748,20 @@ export class PostgresTableRecordQueryRepository
         )
         .groupBy(sql.ref('dates.date'))
         .orderBy(sql.ref('dates.date'), 'asc');
+      if (whereClause.value !== null) {
+        query = query.where(whereClause.value);
+      }
       if (searchWherePlan.value.condition !== null) {
         query = query.where(searchWherePlan.value.condition);
       }
 
       const compiled = query.compile();
       this.recordSqlDiagnostic(context, 'record_calendar_daily_collection', compiled);
-      const rows = await dynamicDb.executeQuery<{
+      const rows = await this.executeQueryWithBudget<{
         date: string;
         count: string;
         record_ids: ReadonlyArray<string>;
-      }>(compiled);
+      }>(context, dynamicDb, compiled);
       const entries: TableRecordCalendarDailyCollectionEntry[] = [];
       for (const row of rows.rows) {
         const recordIdsResult = row.record_ids.map((recordId) => RecordId.create(recordId));
@@ -686,7 +790,7 @@ export class PostgresTableRecordQueryRepository
     const findOptions = options as ITableRecordQueryOptions | undefined;
     const span = context.tracer?.startSpan(
       'teable.repository.record.count',
-      createRepositoryFindTraceAttributes(table, findOptions, 'repository.record_count')
+      createCountTraceAttributes(table, findOptions)
     );
 
     try {
@@ -714,7 +818,7 @@ export class PostgresTableRecordQueryRepository
           }
           const searchAccessPath = createRecordSearchAccessPathResolution(
             findOptions,
-            searchWherePlan.value.usedAccessPath
+            searchWherePlan.value
           );
           const countCompiled = this.withRecordReadQuerySource(
             dynamicDb
@@ -732,21 +836,16 @@ export class PostgresTableRecordQueryRepository
           this.recordSqlDiagnostic(context, 'record_count', countCompiled);
           const countDbSpan = context.tracer?.startSpan(
             'teable.table.query.db.count',
-            createRepositoryFindTraceAttributes(
-              table,
-              findOptions,
-              'repository.record_count',
-              searchAccessPath
-            )
+            createCountTraceAttributes(table, findOptions, searchAccessPath)
           );
           const countResult = await (
             countDbSpan && context.tracer
               ? context.tracer.withSpan(countDbSpan, () =>
-                  dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                  this.executeQueryWithBudget<{ count: string }>(context, dynamicDb, countCompiled)
                 )
-              : dynamicDb.executeQuery<{ count: string }>(countCompiled)
+              : this.executeQueryWithBudget<{ count: string }>(context, dynamicDb, countCompiled)
           ).finally(() => countDbSpan?.end());
-          return ok(parseInt(countResult.rows[0]?.count ?? '0', 10));
+          return ok(Number.parseInt(countResult.rows[0]?.count ?? '0', 10));
         }.bind(this)
       );
     } catch (error) {
@@ -771,6 +870,19 @@ export class PostgresTableRecordQueryRepository
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
+          if (options?.recordIndexId !== undefined) {
+            const recordId = options.recordIndexId;
+            const indexes = yield* await this.loadViewIndexes(
+              context,
+              table,
+              spec,
+              options,
+              [recordId],
+              options.search
+            );
+            const index = indexes.get(recordId);
+            return ok({ records: [], total: 0, recordIndex: index == null ? null : index - 1 });
+          }
           const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
@@ -822,7 +934,8 @@ export class PostgresTableRecordQueryRepository
             orderBy,
             dynamicDb,
             schemaName,
-            tableNameOnly
+            tableNameOnly,
+            fieldMaskSqlMap
           );
           if (options?.cursor) {
             if (cursorSeekPlan === null) {
@@ -844,20 +957,38 @@ export class PostgresTableRecordQueryRepository
               queryBuilder.limit(options.pagination.limit().toNumber());
             }
             if (cursorSeekPlan === 'auto-number') {
+              if (parsedCursor.kind !== 'auto-number') {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
               queryBuilder.whereExpression(
-                sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+                sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor.autoNumber}` as Expression<SqlBool>
               );
             } else {
-              const seekTableName = sourceTableName.includes('.')
-                ? sourceTableName
-                : `${schemaName}.${tableNameOnly}`;
-              const [seekSchema, seekTable] = seekTableName.split('.');
+              if (parsedCursor.kind !== 'values') {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
+              const cursorValues = resolveCursorValues(cursorSeekPlan, parsedCursor.entries);
+              if (!cursorValues) {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
               queryBuilder.whereExpression(
-                buildBookmarkSeekExists(
-                  sql`${sql.id(seekSchema!)}.${sql.id(seekTable!)}`,
-                  parsedCursor,
-                  cursorSeekPlan
-                )
+                buildValueSeekPredicate(
+                  TABLE_ALIAS,
+                  cursorSeekPlan,
+                  cursorValues
+                ) as Expression<SqlBool>
               );
             }
           } else if (options?.pagination) {
@@ -894,7 +1025,7 @@ export class PostgresTableRecordQueryRepository
           }
           const searchAccessPath = createRecordSearchAccessPathResolution(
             options,
-            searchWherePlan.value.usedAccessPath
+            searchWherePlan.value
           );
           const searchFieldMatches =
             options?.includeSearchFieldMatches && !options.idsOnly
@@ -945,6 +1076,17 @@ export class PostgresTableRecordQueryRepository
           if (orderColumns.length > 0) {
             for (const col of orderColumns) {
               builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+            }
+          }
+
+          // Cursor pages carry the value of every order key forward, so a paginated row
+          // query projects each one under a stable alias — independent of the field
+          // projection and of whether the caller asked for order columns.
+          if (Array.isArray(cursorSeekPlan) && options?.pagination && !options?.idsOnly) {
+            for (const [index, key] of cursorSeekPlan.entries()) {
+              builtQuery = builtQuery.select(
+                sql.ref(`${TABLE_ALIAS}.${key.column}`).as(cursorValueAlias(index))
+              );
             }
           }
 
@@ -999,7 +1141,10 @@ export class PostgresTableRecordQueryRepository
               column,
               item.direction,
               TABLE_ALIAS,
-              { columnExpression: sql.ref(`${GROUP_RESULT_ALIAS}.${item.fieldId.toString()}`) }
+              {
+                columnExpression: sql.ref(`${GROUP_RESULT_ALIAS}.${item.fieldId.toString()}`),
+                groupIdentityCollation: true,
+              }
             );
             groupFields.push({ ...item, column, valueExpression, orderByClauses });
           }
@@ -1007,7 +1152,7 @@ export class PostgresTableRecordQueryRepository
           try {
             // Group queries return the full scoped row count through a window
             // aggregate, so only ungrouped reads need a standalone count query.
-            const shouldQueryTotal = groupFields.length === 0 && options?.includeTotal !== false;
+            const shouldQueryTotal = groupFields.length === 0 && options?.includeTotal === true;
             const recordsDbSpan = context.tracer?.startSpan(
               'teable.table.query.db.records',
               createRepositoryFindTraceAttributes(
@@ -1020,9 +1165,13 @@ export class PostgresTableRecordQueryRepository
             const rowsPromise = (
               recordsDbSpan && context.tracer
                 ? context.tracer.withSpan(recordsDbSpan, () =>
-                    dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                    this.executeQueryWithBudget<Record<string, unknown>>(
+                      context,
+                      dynamicDb,
+                      compiled
+                    )
                   )
-                : dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                : this.executeQueryWithBudget<Record<string, unknown>>(context, dynamicDb, compiled)
             )
               .then((result) => result.rows)
               .finally(() => recordsDbSpan?.end());
@@ -1058,9 +1207,17 @@ export class PostgresTableRecordQueryRepository
             const countPromise = countCompiled
               ? (countDbSpan && context.tracer
                   ? context.tracer.withSpan(countDbSpan, () =>
-                      dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                      this.executeQueryWithBudget<{ count: string }>(
+                        context,
+                        dynamicDb,
+                        countCompiled
+                      )
                     )
-                  : dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                  : this.executeQueryWithBudget<{ count: string }>(
+                      context,
+                      dynamicDb,
+                      countCompiled
+                    )
                 )
                   .then((result) => result.rows[0] ?? { count: '0' })
                   .finally(() => countDbSpan?.end())
@@ -1100,7 +1257,11 @@ export class PostgresTableRecordQueryRepository
               this.recordSqlDiagnostic(context, 'record_group', groupCompiled);
             }
             const groupsPromise = groupCompiled
-              ? dynamicDb.executeQuery<Record<string, unknown>>(groupCompiled).then((result) => ({
+              ? this.executeQueryWithBudget<Record<string, unknown>>(
+                  context,
+                  dynamicDb,
+                  groupCompiled
+                ).then((result) => ({
                   groups: result.rows.map((row) => {
                     const fields: Record<string, unknown> = {};
                     for (const item of groupFields) {
@@ -1126,7 +1287,7 @@ export class PostgresTableRecordQueryRepository
             const total = groupResult
               ? groupResult.total
               : shouldQueryTotal
-                ? parseInt(countResult.count, 10)
+                ? Number.parseInt(countResult.count, 10)
                 : records.length;
             const pageRecordIds = options?.includeSearchFieldMatches
               ? rows.map((row) => String(row[RECORD_ID_COLUMN]))
@@ -1183,9 +1344,12 @@ export class PostgresTableRecordQueryRepository
               : undefined;
 
             const pageLimit = options?.pagination?.limit().toNumber();
+            const pageIsFull = pageLimit != null && records.length === pageLimit;
             const nextCursor =
-              pageLimit != null && records.length === pageLimit && cursorSeekPlan !== null
-                ? getLastAutoNumberCursor(records)
+              pageIsFull && cursorSeekPlan !== null
+                ? cursorSeekPlan === 'auto-number'
+                  ? getLastAutoNumberCursor(records)
+                  : buildCursorToken(cursorSeekPlan, rows[rows.length - 1])
                 : undefined;
             return ok({
               records,
@@ -1193,6 +1357,7 @@ export class PostgresTableRecordQueryRepository
               ...(groups ? { groups } : {}),
               ...(searchAccessPath ? { searchAccessPath } : {}),
               ...(searchMatches ? { searchMatches } : {}),
+              ...(pageLimit != null ? { hasMore: pageIsFull } : {}),
               ...(nextCursor ? { nextCursor } : {}),
             });
           } catch (error) {
@@ -1286,7 +1451,11 @@ export class PostgresTableRecordQueryRepository
         readQuerySource
       );
       this.recordSqlDiagnostic(context, 'record_search_field_matches', compiled);
-      const rows = await dynamicDb.executeQuery<Record<string, unknown>>(compiled);
+      const rows = await this.executeQueryWithBudget<Record<string, unknown>>(
+        context,
+        dynamicDb,
+        compiled
+      );
       return ok(rows.rows);
     } catch (error) {
       return err(buildUnexpectedQueryError('Failed to load search field matches', error));
@@ -1298,7 +1467,8 @@ export class PostgresTableRecordQueryRepository
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     options: ITableRecordQueryOptions,
-    recordIds: ReadonlyArray<string>
+    recordIds: ReadonlyArray<string>,
+    search?: ITableRecordQueryOptions['search']
   ): Promise<Result<ReadonlyMap<string, number>, DomainError>> {
     if (!recordIds.length) return ok(new Map());
 
@@ -1313,6 +1483,8 @@ export class PostgresTableRecordQueryRepository
           sourceTableName: readQuerySource?.tableName,
         });
         queryBuilder.idsOnly?.();
+        const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options.fieldMasks, TABLE_ALIAS);
+        queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
         const explicitRecordIdsOrder = options.recordIdsOrder;
         if (!explicitRecordIdsOrder?.length) {
           if (options.orderBy?.length) {
@@ -1332,6 +1504,14 @@ export class PostgresTableRecordQueryRepository
           }
         }
         if (spec) queryBuilder.where(spec);
+        const searchWherePlan = yield* buildRecordSearchWherePlan(table, search, {
+          tableAlias: TABLE_ALIAS,
+          searchAccessPath: options.searchAccessPath,
+          fieldMaskSqlMap,
+        });
+        if (searchWherePlan.condition !== null) {
+          queryBuilder.whereExpression(searchWherePlan.condition);
+        }
 
         let viewRows = yield* queryBuilder.build();
         if (explicitRecordIdsOrder?.length) {
@@ -1359,10 +1539,10 @@ export class PostgresTableRecordQueryRepository
           readQuerySource
         );
         this.recordSqlDiagnostic(context, 'record_search_view_index', compiled);
-        const rows = await dynamicDb.executeQuery<{
+        const rows = await this.executeQueryWithBudget<{
           __id: string;
           __row_index: string | number;
-        }>(compiled);
+        }>(context, dynamicDb, compiled);
         return ok(
           new Map(rows.rows.map((row) => [String(row[RECORD_ID_COLUMN]), Number(row.__row_index)]))
         );
@@ -1430,8 +1610,13 @@ export class PostgresTableRecordQueryRepository
           const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
 
           try {
-            const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
-              .rows;
+            const rows = (
+              await this.executeQueryWithBudget(
+                context,
+                this.db as unknown as Kysely<DynamicDB>,
+                compiled
+              )
+            ).rows;
 
             if (rows.length === 0) {
               return err(
@@ -1623,14 +1808,16 @@ export class PostgresTableRecordQueryRepository
         }
 
         const parsedCursor = parseCursorToken(cursor);
-        if (cursor != null && parsedCursor == null) {
+        const streamCursor =
+          parsedCursor?.kind === 'auto-number' ? parsedCursor.autoNumber : undefined;
+        if (cursor != null && streamCursor == null) {
           this.logger.warn('findStream: invalid cursor token, fallback to stream start', {
             cursor,
           });
         }
-        if (parsedCursor != null) {
+        if (streamCursor != null) {
           queryBuilder.whereExpression(
-            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${streamCursor}` as Expression<SqlBool>
           );
         }
 
@@ -1651,8 +1838,13 @@ export class PostgresTableRecordQueryRepository
         );
 
         try {
-          const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
-            .rows;
+          const rows = (
+            await this.executeQueryWithBudget(
+              context,
+              this.db as unknown as Kysely<DynamicDB>,
+              compiled
+            )
+          ).rows;
           const records = mapRowsToReadModels(fieldColumns, rows, []);
           return ok(records);
         } catch (error) {
@@ -1673,14 +1865,15 @@ export class PostgresTableRecordQueryRepository
 
   /**
    * `null` cannot seek. `'auto-number'` uses `__auto_number > n`.
-   * Otherwise bookmark the last row and compare the same stored order keys.
+   * Otherwise compare the same stored order keys against the values the cursor carries.
    */
   private async resolveCursorSeekPlan(
     table: Table,
     orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
     dynamicDb: Kysely<DynamicDB>,
     schemaName: string,
-    tableNameOnly: string
+    tableNameOnly: string,
+    fieldMaskSqlMap: ReadonlyMap<string, unknown> | undefined
   ): Promise<Result<'auto-number' | CursorSeekKey[] | null, DomainError>> {
     if (isAutoNumberOnlyCursorOrderBy(orderBy)) {
       return ok('auto-number');
@@ -1692,6 +1885,11 @@ export class PostgresTableRecordQueryRepository
     const keys: CursorSeekKey[] = [];
     for (const sort of orderBy) {
       if (isFieldOrderBy(sort)) {
+        // A masked field is ordered by its mask expression rather than by its column, so
+        // a token carrying the column value could not express a position in that order.
+        if (fieldMaskSqlMap?.has(sort.fieldId.toString())) {
+          return ok(null);
+        }
         const fieldResult = table.getField((field) => field.id().equals(sort.fieldId));
         if (fieldResult.isErr()) {
           return err(fieldResult.error);
@@ -1704,10 +1902,8 @@ export class PostgresTableRecordQueryRepository
         if (columnResult.isErr()) {
           return err(columnResult.error);
         }
-        const column = columnResult.value;
         keys.push({
-          left: sql.ref(`${TABLE_ALIAS}.${column}`),
-          right: sql.ref(`__seek.${column}`),
+          column: columnResult.value,
           direction: sort.direction,
           matchV1Nulls: true,
         });
@@ -1721,8 +1917,7 @@ export class PostgresTableRecordQueryRepository
           return ok(null);
         }
         keys.push({
-          left: sql.ref(`${TABLE_ALIAS}.__auto_number`),
-          right: sql.ref(`__seek.__auto_number`),
+          column: '__auto_number',
           direction: 'asc',
           matchV1Nulls: false,
         });
@@ -1741,8 +1936,7 @@ export class PostgresTableRecordQueryRepository
         continue;
       }
       keys.push({
-        left: sql.ref(`${TABLE_ALIAS}.${sort.column}`),
-        right: sql.ref(`__seek.${sort.column}`),
+        column: sort.column,
         direction: sort.direction,
         matchV1Nulls: true,
       });
@@ -1890,7 +2084,7 @@ export class PostgresTableRecordQueryRepository
       });
       return compiled;
     }
-    const escapedName = cteName.replace(/"/g, '""');
+    const escapedName = cteName.replaceAll('"', '""');
     const sqlWithCte = `with "${escapedName}" as (${source.cteSql}) ${compiled.sql}`;
     return CompiledQuery.raw(sqlWithCte, Array.from(compiled.parameters)) as CompiledQuery<O>;
   }
@@ -1982,16 +2176,9 @@ const mapRowsToReadModels = (
   });
 };
 
-const normalizeStoredGroupValue = (field: Field, value: unknown): unknown => {
+const normalizeStoredGroupValue = (value: unknown): unknown => {
   if (value instanceof Date) {
     return value.toISOString();
-  }
-  if (
-    field.type().equals(FieldType.user()) ||
-    field.type().equals(FieldType.createdBy()) ||
-    field.type().equals(FieldType.lastModifiedBy())
-  ) {
-    return normalizeStoredUserAvatarUrls(value);
   }
   return value;
 };
@@ -2079,14 +2266,28 @@ const extractDatabaseErrorDetails = (
   return Object.keys(details).length > 0 ? details : undefined;
 };
 
+/**
+ * `57014` means the server cancelled a statement that outran its budget: the
+ * database did not answer in time, which is infrastructure - not a defect in the
+ * generated SQL (`db.undefined_column`) and not an unclassified failure.
+ */
 const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError => {
   const details = extractDatabaseErrorDetails(error);
   const pgCode = details?.pgCode;
+  const message = `${prefix}: ${describeError(error)}`;
+
+  if (pgCode === '57014') {
+    return domainError.infrastructure({
+      code: 'db.statement_timeout',
+      ...(details ? { details } : {}),
+      message,
+    });
+  }
 
   return domainError.unexpected({
     ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
     ...(details ? { details } : {}),
-    message: `${prefix}: ${describeError(error)}`,
+    message,
   });
 };
 

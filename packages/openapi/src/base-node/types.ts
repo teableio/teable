@@ -8,6 +8,7 @@ export enum BaseNodeResourceType {
   Workflow = ResourceType.Workflow,
   App = ResourceType.App,
   Folder = ResourceType.Folder,
+  Routine = ResourceType.Routine,
 }
 
 const defaultResourceMetaSchema = z.object({
@@ -50,8 +51,15 @@ export const baseNodeWorkflowResourceMetaSchema = defaultResourceMetaSchema.exte
 
 export type IBaseNodeWorkflowResourceMeta = z.infer<typeof baseNodeWorkflowResourceMetaSchema>;
 
+export const baseNodeRoutineResourceMetaSchema = defaultResourceMetaSchema.extend({
+  status: z.string().nullable().optional(),
+});
+
+export type IBaseNodeRoutineResourceMeta = z.infer<typeof baseNodeRoutineResourceMetaSchema>;
+
 const baseNodeResourceMetaSchema = z.union([
   baseNodeWorkflowResourceMetaSchema,
+  baseNodeRoutineResourceMetaSchema,
   baseNodeTableResourceMetaSchema,
   baseNodeAppResourceMetaSchema,
   baseNodeDashboardResourceMetaSchema,
@@ -105,6 +113,10 @@ export const baseNodeVoSchema = z.discriminatedUnion('resourceType', [
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.Folder),
     resourceMeta: baseNodeFolderResourceMetaSchema,
+  }),
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.Routine),
+    resourceMeta: baseNodeRoutineResourceMetaSchema,
   }),
 ]);
 

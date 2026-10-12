@@ -44,10 +44,10 @@ export const toRegularLookupFormulaOptions = (options: unknown): RegularLookupFo
   const next: RegularLookupFormulaOptions = {
     expression: LOOKUP_FORMULA_PLACEHOLDER_EXPRESSION,
   };
-  if (Object.prototype.hasOwnProperty.call(display, 'formatting')) {
+  if (Object.hasOwn(display, 'formatting')) {
     next.formatting = display.formatting;
   }
-  if (Object.prototype.hasOwnProperty.call(display, 'showAs')) {
+  if (Object.hasOwn(display, 'showAs')) {
     next.showAs = display.showAs;
   }
   return next;
@@ -68,7 +68,7 @@ export const extractLookupDisplayOptionsPatch = (
   const source = options as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
   for (const key of LOOKUP_DISPLAY_OPTION_KEYS) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
+    if (Object.hasOwn(source, key)) {
       // Keep null tombstones; only skip missing keys.
       patch[key] = source[key];
     }
@@ -88,8 +88,8 @@ const displayOptionEquals = (left: unknown, right: unknown): boolean => {
 
   const leftRecord = left as Record<string, unknown>;
   const rightRecord = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftRecord).sort();
-  const rightKeys = Object.keys(rightRecord).sort();
+  const leftKeys = Object.keys(leftRecord).sort((a, b) => Number(a > b) - Number(a < b));
+  const rightKeys = Object.keys(rightRecord).sort((a, b) => Number(a > b) - Number(a < b));
   return (
     leftKeys.length === rightKeys.length &&
     leftKeys.every(
@@ -113,7 +113,7 @@ export const inferLookupDisplayOptionsPatch = (
   const source = extractLookupDisplayOptionsPatch(sourceOptions);
   const patch: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(candidate)) {
-    const hasSourceValue = source && Object.prototype.hasOwnProperty.call(source, key);
+    const hasSourceValue = source && Object.hasOwn(source, key);
     if (value === null || !hasSourceValue || !displayOptionEquals(value, source?.[key])) {
       patch[key] = value;
     }

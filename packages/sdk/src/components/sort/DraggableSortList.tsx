@@ -57,7 +57,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
   );
 }
 
-function DraggableSortList(props: IDraggableSortProps) {
+function DraggableSortList(props: Readonly<IDraggableSortProps>) {
   const { sorts, onChange, selectedFields } = props;
   const isHydrated = useIsHydrated();
 

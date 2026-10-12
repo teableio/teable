@@ -25,6 +25,7 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
     return {
       spaceUpdate: hasPermission(space.role, 'space|update'),
       spaceDelete: hasPermission(space.role, 'space|delete'),
+      baseCreate: hasPermission(space.role, 'base|create'),
     };
   }, [space.role]);
 
@@ -68,7 +69,7 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
         space={space}
         showRename={menuPermission.spaceUpdate}
         showDelete={menuPermission.spaceDelete}
-        showImportBase={menuPermission.spaceUpdate}
+        showImportBase={menuPermission.baseCreate}
         onDelete={() => deleteSpaceMutator(space.id)}
         onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
         onRename={onRename}

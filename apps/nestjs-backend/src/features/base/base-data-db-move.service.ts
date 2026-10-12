@@ -1,6 +1,6 @@
-import { mkdir, rm } from 'fs/promises';
-import { tmpdir } from 'os';
-import path from 'path';
+import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -104,7 +104,7 @@ export class BaseDataDbMoveService {
 
     if (base.spaceId === targetSpaceId) {
       throw new CustomHttpException(
-        'Base is already in the target space',
+        'Project is already in the target space',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -121,7 +121,7 @@ export class BaseDataDbMoveService {
     ]);
     if (source.cacheKey === target.cacheKey) {
       throw new CustomHttpException(
-        'Physical base move is only required across different data databases',
+        'Physical project move is only required across different data databases',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -191,7 +191,7 @@ export class BaseDataDbMoveService {
         completedAt: new Date(),
         lastError: 'Cancelled by user',
         copyStats: {
-          ...(asRecord(job.copyStats) ?? {}),
+          ...asRecord(job.copyStats),
           phase: 'cancelled',
           progress: { percent: this.readProgressPercent(job.copyStats), phase: 'cancelled' },
         },
@@ -359,7 +359,9 @@ export class BaseDataDbMoveService {
       // Meta switch while base still routes to source until spaceId updates.
       await this.cls.run(async () => {
         this.cls.set('user.id', job.createdBy);
-        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId);
+        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId, {
+          dataDbChanged: true,
+        });
       });
 
       await this.cleanupSourceArtifacts(sourceUrl, inventory).catch((error) => {
@@ -398,7 +400,7 @@ export class BaseDataDbMoveService {
         completedAt: new Date(),
         lastError: message,
         copyStats: {
-          ...(asRecord(current?.copyStats) ?? {}),
+          ...asRecord(current?.copyStats),
           phase: current?.state ?? 'failed',
           progress: {
             percent: this.readProgressPercent(current?.copyStats),
@@ -466,7 +468,10 @@ export class BaseDataDbMoveService {
   private readInventory(raw: unknown): IBaseMoveInventory {
     const inv = asRecord(raw);
     if (!inv || typeof inv.baseId !== 'string') {
-      throw new CustomHttpException('Invalid base move inventory', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException(
+        'Invalid project move inventory',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     return {
       baseId: inv.baseId as string,
@@ -482,7 +487,7 @@ export class BaseDataDbMoveService {
   }
 
   private buildCopyStats(
-    phase: IBaseDataDbMovePhase | string,
+    phase: string,
     stageFraction: number,
     extra: Record<string, unknown> = {}
   ) {
@@ -571,7 +576,7 @@ export class BaseDataDbMoveService {
     const active = await this.hasActiveMoveForBase(baseId);
     if (active) {
       throw new CustomHttpException(
-        'A base data database move is already in progress',
+        'A project data database move is already in progress',
         HttpErrorCode.CONFLICT,
         {
           errorCode: baseDataDbMovingErrorCode,

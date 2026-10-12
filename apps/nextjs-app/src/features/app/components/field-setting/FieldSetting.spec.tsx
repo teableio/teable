@@ -9,7 +9,7 @@ import type * as OpenApi from '@teable/openapi';
 import type * as SdkHooks from '@teable/sdk/hooks';
 import { act } from 'react';
 import { render, screen, TestAnchorProvider, userEvent, waitFor } from '@/test-utils';
-import { FieldSetting, FieldSettingBase } from './FieldSetting';
+import { FieldSetting, FieldSettingBase, sanitizeLookupOptions } from './FieldSetting';
 import { FieldOperator } from './type';
 
 const fieldOperationMocks = vi.hoisted(() => ({
@@ -358,5 +358,27 @@ describe('FieldSettingBase', () => {
         },
       }),
     });
+  });
+});
+
+describe('lookup option persistence', () => {
+  it.each([true, false])('preserves isUnique=%s when saving a link lookup', (isUnique) => {
+    const options = {
+      foreignTableId: 'tblForeign000000001',
+      linkFieldId: 'fldLink00000000001',
+      lookupFieldId: 'fldSource000000001',
+      isUnique,
+    };
+    expect(sanitizeLookupOptions(options)).toEqual(options);
+  });
+
+  it.each([true, false])('preserves isUnique=%s when saving a conditional lookup', (isUnique) => {
+    const options = {
+      foreignTableId: 'tblForeign000000001',
+      lookupFieldId: 'fldSource000000001',
+      filter: { conjunction: 'and' as const, filterSet: [] },
+      isUnique,
+    };
+    expect(sanitizeLookupOptions(options)).toEqual(options);
   });
 });

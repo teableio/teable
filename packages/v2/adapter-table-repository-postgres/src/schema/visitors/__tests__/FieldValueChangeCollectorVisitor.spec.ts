@@ -8,7 +8,9 @@ import {
   RatingMax,
   RollupExpression,
   RollupFieldConfig,
+  RemoveSymmetricLinkFieldSpec,
   SelectOption,
+  TableRemoveFieldSpec,
   TableUpdateFieldNameSpec,
   TableUpdateFieldTypeSpec,
   UpdateFormulaExpressionSpec,
@@ -663,6 +665,57 @@ describe('FieldValueChangeCollectorVisitor', () => {
 
       expect(visitor.valueChangedFields()).toEqual([]);
       expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+  });
+
+  // ============ Removed fields ============
+
+  describe('visitTableRemoveField', () => {
+    it('should collect removed field ids and leave backfill sets untouched', () => {
+      const removedField = createTextField('goneA', 'Gone', 'gone_col')._unsafeUnwrap();
+      const spec = TableRemoveFieldSpec.create(removedField);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        removedField.id().toString(),
+      ]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.deferredBackfillFields()).toEqual([]);
+    });
+
+    it('should collect the symmetric link field dropped by a twoWay to oneWay conversion', () => {
+      const symmetricField = createTextField(
+        'symGone',
+        'Symmetric link',
+        'sym_gone_col'
+      )._unsafeUnwrap();
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      RemoveSymmetricLinkFieldSpec.create(symmetricField).accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        symmetricField.id().toString(),
+      ]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.valueChangedFields()).toEqual([]);
+    });
+
+    it('should deduplicate removed field ids and collect symmetric removals', () => {
+      const removedField = createTextField('goneB', 'Gone', 'gone_col_b')._unsafeUnwrap();
+      const symmetricField = createTextField('goneC', 'Gone link', 'gone_col_c')._unsafeUnwrap();
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      TableRemoveFieldSpec.create(removedField).accept(visitor);
+      TableRemoveFieldSpec.create(symmetricField).accept(visitor);
+      TableRemoveFieldSpec.create(removedField).accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        removedField.id().toString(),
+        symmetricField.id().toString(),
+      ]);
     });
   });
 

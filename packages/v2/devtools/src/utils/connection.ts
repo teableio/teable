@@ -1,7 +1,14 @@
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 
-export const DEFAULT_CONNECTION_STRING =
-  'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public';
+/**
+ * Local development fallback. Credentials follow the libpq convention (PGUSER / PGPASSWORD)
+ * so the dev database password never has to live in the source; the defaults match
+ * dockers/.env for the bundled postgres container.
+ */
+const DEFAULT_DB_USER = process.env.PGUSER ?? 'teable';
+const DEFAULT_DB_PASSWORD = process.env.PGPASSWORD ?? 'teable';
+export const DEFAULT_CONNECTION_STRING = `postgresql://${encodeURIComponent(DEFAULT_DB_USER)}:${encodeURIComponent(DEFAULT_DB_PASSWORD)}@127.0.0.1:5432/teable?schema=public`;
 
 /** PGlite connection string prefix */
 export const PGLITE_PROTOCOL = 'pglite://';
@@ -49,7 +56,7 @@ export const parsePgliteDataDir = (connStr: string): string => {
  */
 export const generatePgliteConnectionString = (baseDir = DEFAULT_PGLITE_DATA_DIR): string => {
   const timestamp = Date.now();
-  const randomSuffix = Math.random().toString(36).slice(2, 8);
+  const randomSuffix = randomBytes(3).toString('hex');
   const sessionDir = `session-${timestamp}-${randomSuffix}`;
   return `${PGLITE_PROTOCOL}${path.join(baseDir, sessionDir)}`;
 };

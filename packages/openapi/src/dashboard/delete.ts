@@ -8,6 +8,7 @@ export const DELETE_DASHBOARD = '/base/{baseId}/dashboard/{id}';
 export const DeleteDashboardRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_DASHBOARD,
+  title: 'Delete project dashboard',
   description: 'Delete a dashboard by id',
   request: {
     params: z.object({

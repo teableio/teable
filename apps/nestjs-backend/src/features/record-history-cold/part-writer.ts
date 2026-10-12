@@ -196,8 +196,12 @@ export class PartWriter {
       maxCreatedTime: part.maxCreatedTime,
       minRecordId: part.minRecordId,
       maxRecordId: part.maxRecordId,
-      fieldIds: part.fieldIds ? [...part.fieldIds].sort() : null,
-      createdBys: part.createdBys ? [...part.createdBys].sort() : null,
+      fieldIds: part.fieldIds
+        ? [...part.fieldIds].sort((a, b) => Number(a > b) - Number(a < b))
+        : null,
+      createdBys: part.createdBys
+        ? [...part.createdBys].sort((a, b) => Number(a > b) - Number(a < b))
+        : null,
       recordBloom: buildRecordBloom(part.recordIds, part.recordIds.length),
     });
     this.metrics.parts += 1;

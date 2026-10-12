@@ -114,21 +114,17 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
           </SelectContent>
         </Select>
       </div>
-      <>
-        {type === NumberFormattingType.Currency && (
-          <div className="flex w-full flex-col gap-2">
-            <Label className="text-sm font-medium">
-              {t('field.default.number.currencySymbol')}
-            </Label>
-            <Input
-              placeholder={t('field.default.number.currencySymbol')}
-              size="lg"
-              value={formatting.symbol}
-              onChange={onSymbolChange}
-            />
-          </div>
-        )}
-      </>
+      {type === NumberFormattingType.Currency && (
+        <div className="flex w-full flex-col gap-2">
+          <Label className="text-sm font-medium">{t('field.default.number.currencySymbol')}</Label>
+          <Input
+            placeholder={t('field.default.number.currencySymbol')}
+            size="lg"
+            value={formatting.symbol}
+            onChange={onSymbolChange}
+          />
+        </div>
+      )}
       <div className="flex w-full flex-col gap-2">
         <Label className="font-medium ">{t('field.default.number.precision')}</Label>
         <Select value={precision.toString()} onValueChange={onPrecisionChange}>

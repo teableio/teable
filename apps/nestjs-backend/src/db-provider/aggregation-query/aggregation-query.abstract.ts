@@ -29,7 +29,7 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
   appendBuilder(): Knex.QueryBuilder {
     const queryBuilder = this.originQueryBuilder;
 
-    if (!this.aggregationFields || !this.aggregationFields.length) {
+    if (!this.aggregationFields?.length) {
       return queryBuilder;
     }
 
@@ -45,7 +45,7 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
         this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc, alias);
         return;
       }
-      const field = this.fields && this.fields[fieldId];
+      const field = this.fields?.[fieldId];
       if (!field) {
         return queryBuilder;
       }
@@ -94,7 +94,7 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     aggregationFields
       .filter(({ fieldId }) => !!fieldId && fieldId !== '*')
       .forEach(({ fieldId, statisticFunc }) => {
-        const field = this.fields && this.fields[fieldId];
+        const field = this.fields?.[fieldId];
 
         if (!field) {
           throw new BadRequestException(`field: '${fieldId}' is invalid`);

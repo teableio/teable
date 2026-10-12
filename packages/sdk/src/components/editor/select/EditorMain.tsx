@@ -110,7 +110,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
       />
       <OptionList options={filteredOptions} onSelect={onSelect} checkIsActive={checkIsActive} />
       {searchValue &&
-        !filteredOptions.find((v) => v.label === searchValue) &&
+        !filteredOptions.some((v) => v.label === searchValue) &&
         onOptionAdd &&
         !preventAutoNewOptions && (
           <CommandItem className="items-center justify-center" onSelect={onOptionAddInner}>

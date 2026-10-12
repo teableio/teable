@@ -19,6 +19,10 @@ import {
   sendSignupVerificationCodeRoSchema,
   signupSchema,
   ISendSignupVerificationCodeRo,
+  sendSigninVerificationCodeRoSchema,
+  ISendSigninVerificationCodeRo,
+  signinWithCodeSchema,
+  ISigninWithCode,
   changeEmailRoSchema,
   IChangeEmailRo,
   sendChangeEmailCodeRoSchema,
@@ -52,7 +56,37 @@ export class LocalAuthController {
   @HttpCode(200)
   @Post('signin')
   async signin(@Req() req: Request): Promise<IUserMeVo> {
+    await this.sessionService.recordSignin(req, 'password');
     return req.user as IUserMeVo;
+  }
+
+  @Public()
+  @HttpCode(200)
+  @Post('signin-with-code')
+  async signinWithCode(
+    @Body(new ZodValidationPipe(signinWithCodeSchema)) body: ISigninWithCode,
+    @Req() req: Request
+  ): Promise<IUserMeVo> {
+    const user = pickUserMe(await this.authService.signinWithCode(body.email, body.code));
+    // set cookie, passport login
+    await new Promise<void>((resolve, reject) => {
+      req.login(user, (err) => (err ? reject(err) : resolve()));
+    });
+    await this.sessionService.recordSignin(req, 'email_code');
+    return user;
+  }
+
+  @Public()
+  @Post('send-signin-verification-code')
+  @HttpCode(200)
+  async sendSigninVerificationCode(
+    @Body(new ZodValidationPipe(sendSigninVerificationCodeRoSchema))
+    body: ISendSigninVerificationCodeRo,
+    @Req() req: Request
+  ) {
+    const remoteIp =
+      req.ip || req.connection.remoteAddress || (req.headers['x-forwarded-for'] as string);
+    return this.authService.sendSigninVerificationCode(body.email, body.turnstileToken, remoteIp);
   }
 
   @Public()
@@ -69,6 +103,7 @@ export class LocalAuthController {
     await new Promise<void>((resolve, reject) => {
       req.login(user, (err) => (err ? reject(err) : resolve()));
     });
+    await this.sessionService.recordSignin(req, 'signup');
     return user;
   }
 

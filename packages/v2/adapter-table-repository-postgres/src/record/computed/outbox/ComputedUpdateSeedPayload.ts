@@ -23,6 +23,7 @@ import {
   mergeBeforeImageRecordDtos,
   mergeComputedRealtimeOrchestration,
 } from './ComputedUpdateOutboxPayload';
+import type { SeedOutboxItem } from './IComputedUpdateOutbox';
 
 /**
  * Impact hint for seed tasks - describes which fields changed.
@@ -321,6 +322,43 @@ export const buildSeedTaskInput = (params: {
     ...payload,
     runId: params.runId,
     planHash: computeSeedHash(payload, params.hasher),
+  };
+};
+
+/** The same seed chunk contract is used by worker splitting and bounded claim hydration. */
+export const buildSeedTaskChunk = (
+  task: SeedOutboxItem,
+  chunk: Pick<ComputedUpdateSeedPayload, 'seedRecordIds' | 'extraSeedRecords'>,
+  chunkIndex: number,
+  chunkCount: number
+): ComputedUpdateSeedTaskInput => {
+  let beforeImageRecords: ComputedBeforeImageRecordDto[] = [];
+  if (task.beforeImageRecords?.length && chunk.seedRecordIds.length) {
+    const recordIds = new Set(chunk.seedRecordIds);
+    beforeImageRecords = task.beforeImageRecords.filter((record) => recordIds.has(record.recordId));
+  }
+  return {
+    taskType: 'seed',
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords,
+    changedFieldIds: task.changedFieldIds,
+    changeType: task.changeType,
+    impact: task.impact,
+    cyclePolicy: task.cyclePolicy,
+    orchestration: task.orchestration
+      ? {
+          ...task.orchestration,
+          totalChunkCount: Math.max(task.orchestration.totalChunkCount, chunkCount),
+          chunkIndex,
+          scope: 'chunk',
+        }
+      : undefined,
+    runId: task.runId,
+    sourceChangedAt: task.sourceChangedAt ?? undefined,
+    planHash: `${task.planHash}:chunk:${chunkIndex + 1}/${chunkCount}`,
   };
 };
 

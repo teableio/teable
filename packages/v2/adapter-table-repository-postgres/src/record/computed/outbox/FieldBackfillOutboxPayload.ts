@@ -103,7 +103,7 @@ export const computeFieldBackfillHash = (
     taskType: payload.taskType,
     baseId: payload.baseId,
     tableId: payload.tableId,
-    fieldIds: [...payload.fieldIds].sort(), // Sort for consistent hash
+    fieldIds: [...payload.fieldIds].sort((a, b) => Number(a > b) - Number(a < b)), // Sort for consistent hash
     cursor: payload.cursor,
   };
   return hasher.sha256(JSON.stringify(hashInput));

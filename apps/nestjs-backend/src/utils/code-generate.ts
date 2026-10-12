@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac } from 'node:crypto';
 import { baseConfig } from '../configs/base.config';
 
 export const generateInvitationCode = (invitationId: string) => {

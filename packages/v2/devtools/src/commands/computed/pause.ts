@@ -30,6 +30,13 @@ const actorOption = Options.text('actor').pipe(
   Options.withDescription('Actor tag recorded on the pause scope row')
 );
 
+const writePolicyOption = Options.text('write-policy').pipe(
+  Options.withDefault('allow_bounded'),
+  Options.withDescription(
+    'allow_bounded keeps writes available until the backlog watermark; block fails computed-producing writes with COMPUTE_PAUSED_WRITE_BLOCKED'
+  )
+);
+
 type ScopeSelection = {
   scopeType: 'space' | 'base' | 'table';
   scopeId: string;
@@ -77,10 +84,13 @@ const handler = (args: {
   readonly reason: Option.Option<string>;
   readonly resumeAt: string;
   readonly actor: string;
+  readonly writePolicy: string;
 }) =>
   Effect.gen(function* () {
     const computedTaskControl = yield* ComputedTaskControl;
     const output = yield* Output;
+    const writePolicy =
+      args.writePolicy === 'block' ? ('block' as const) : ('allow_bounded' as const);
     const rawInput = {
       connection: optionToUndefined(args.connection),
       spaceId: optionToUndefined(args.spaceId),
@@ -89,6 +99,7 @@ const handler = (args: {
       reason: optionToUndefined(args.reason),
       resumeAt: args.resumeAt,
       actor: args.actor,
+      writePolicy,
     };
 
     const scope = yield* resolveScope(args);
@@ -98,6 +109,7 @@ const handler = (args: {
       reason: rawInput.reason,
       resumeAt: rawInput.resumeAt,
       actor: rawInput.actor,
+      writePolicy,
     };
 
     const result = yield* computedTaskControl.pauseScope(input);
@@ -114,6 +126,7 @@ const handler = (args: {
           reason: optionToUndefined(args.reason),
           resumeAt: args.resumeAt,
           actor: args.actor,
+          writePolicy: args.writePolicy === 'block' ? 'block' : 'allow_bounded',
         };
         yield* output.error('computed.pause', rawInput, error);
         return yield* Effect.fail(error);
@@ -131,6 +144,7 @@ export const computedPause = Command.make(
     reason: reasonOption,
     resumeAt: resumeAtOption,
     actor: actorOption,
+    writePolicy: writePolicyOption,
   },
   handler
 ).pipe(

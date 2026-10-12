@@ -28,7 +28,7 @@ exports[`if branch normalization > 'IfEmptyTextThenLookup' snapshots 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN COALESCE(FALSE, FALSE) THEN (
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(FALSE, FALSE) THEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -51,7 +51,7 @@ exports[`if branch normalization > 'IfEmptyTextThenLookup' snapshots 1`] = `
       WHEN "t"."SingleLineText" IS NULL THEN NULL
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN NULL
       ELSE "t"."SingleLineText"
-    END) END)",
+    END) END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -83,7 +83,7 @@ exports[`if branch normalization > 'IfLookupThenEmptyText' snapshots 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN COALESCE(TRUE, FALSE) THEN (
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(TRUE, FALSE) THEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -106,6 +106,6 @@ exports[`if branch normalization > 'IfLookupThenEmptyText' snapshots 1`] = `
       WHEN "t"."SingleLineText" IS NULL THEN NULL
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN NULL
       ELSE "t"."SingleLineText"
-    END) END)",
+    END) END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;

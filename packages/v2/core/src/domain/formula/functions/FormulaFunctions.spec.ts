@@ -97,30 +97,30 @@ describe('formula functions', () => {
   describe('array functions', () => {
     it('validates count function params', () => {
       const countAll = new CountAll();
-      countAll.validateParams([])._unsafeUnwrapErr();
-      countAll.validateParams([stringValue])._unsafeUnwrap();
-      countAll.getReturnType()._unsafeUnwrap();
-      countAll.getReturnType([stringValue])._unsafeUnwrap();
+      expect(countAll.validateParams([]).isErr()).toBe(true);
+      expect(countAll.validateParams([stringValue]).isOk()).toBe(true);
+      expect(countAll.getReturnType().isOk()).toBe(true);
+      expect(countAll.getReturnType([stringValue]).isOk()).toBe(true);
 
       const countA = new CountA();
-      countA.validateParams([])._unsafeUnwrapErr();
-      countA.validateParams([stringValue])._unsafeUnwrap();
-      countA.getReturnType()._unsafeUnwrap();
-      countA.getReturnType([stringValue])._unsafeUnwrap();
+      expect(countA.validateParams([]).isErr()).toBe(true);
+      expect(countA.validateParams([stringValue]).isOk()).toBe(true);
+      expect(countA.getReturnType().isOk()).toBe(true);
+      expect(countA.getReturnType([stringValue]).isOk()).toBe(true);
 
       const count = new Count();
-      count.validateParams([])._unsafeUnwrapErr();
-      count.validateParams([stringValue])._unsafeUnwrap();
-      count.getReturnType()._unsafeUnwrap();
-      count.getReturnType([stringValue])._unsafeUnwrap();
+      expect(count.validateParams([]).isErr()).toBe(true);
+      expect(count.validateParams([stringValue]).isOk()).toBe(true);
+      expect(count.getReturnType().isOk()).toBe(true);
+      expect(count.getReturnType([stringValue]).isOk()).toBe(true);
     });
 
     it('validates array string functions', () => {
       const arrayJoin = new ArrayJoin();
-      arrayJoin.validateParams([])._unsafeUnwrapErr();
-      arrayJoin.validateParams([stringValue])._unsafeUnwrap();
-      arrayJoin.getReturnType()._unsafeUnwrap();
-      arrayJoin.getReturnType([stringValue])._unsafeUnwrap();
+      expect(arrayJoin.validateParams([]).isErr()).toBe(true);
+      expect(arrayJoin.validateParams([stringValue]).isOk()).toBe(true);
+      expect(arrayJoin.getReturnType().isOk()).toBe(true);
+      expect(arrayJoin.getReturnType([stringValue]).isOk()).toBe(true);
     });
 
     it('infers union return types', () => {
@@ -163,13 +163,13 @@ describe('formula functions', () => {
         new Log(),
       ];
 
-      numericOnly[0].validateParams([])._unsafeUnwrapErr();
-      numericOnly[0].validateParams([stringValue])._unsafeUnwrapErr();
+      expect(numericOnly[0].validateParams([]).isErr()).toBe(true);
+      expect(numericOnly[0].validateParams([stringValue]).isErr()).toBe(true);
 
       for (const func of numericOnly) {
-        func.validateParams([numberValue])._unsafeUnwrap();
-        func.getReturnType()._unsafeUnwrap();
-        func.getReturnType([numberValue])._unsafeUnwrap();
+        expect(func.validateParams([numberValue]).isOk()).toBe(true);
+        expect(func.getReturnType().isOk()).toBe(true);
+        expect(func.getReturnType([numberValue]).isOk()).toBe(true);
       }
     });
 
@@ -191,26 +191,26 @@ describe('formula functions', () => {
 
     it('validates length-constrained numeric functions', () => {
       const sqrt = new Sqrt();
-      sqrt.validateParams([])._unsafeUnwrapErr();
-      sqrt.validateParams([stringValue])._unsafeUnwrapErr();
-      sqrt.validateParams([numberValue])._unsafeUnwrap();
+      expect(sqrt.validateParams([]).isErr()).toBe(true);
+      expect(sqrt.validateParams([stringValue]).isErr()).toBe(true);
+      expect(sqrt.validateParams([numberValue]).isOk()).toBe(true);
 
       const exp = new Exp();
-      exp.validateParams([])._unsafeUnwrapErr();
-      exp.validateParams([numberValue])._unsafeUnwrap();
+      expect(exp.validateParams([]).isErr()).toBe(true);
+      expect(exp.validateParams([numberValue]).isOk()).toBe(true);
 
       const power = new Power();
-      power.validateParams([numberValue])._unsafeUnwrapErr();
-      power.validateParams([numberValue, numberValue])._unsafeUnwrap();
+      expect(power.validateParams([numberValue]).isErr()).toBe(true);
+      expect(power.validateParams([numberValue, numberValue]).isOk()).toBe(true);
 
       const mod = new Mod();
-      mod.validateParams([numberValue])._unsafeUnwrapErr();
-      mod.validateParams([numberValue, numberValue])._unsafeUnwrap();
+      expect(mod.validateParams([numberValue]).isErr()).toBe(true);
+      expect(mod.validateParams([numberValue, numberValue]).isOk()).toBe(true);
 
       const value = new Value();
-      value.validateParams([])._unsafeUnwrapErr();
-      value.validateParams([numberValue])._unsafeUnwrapErr();
-      value.validateParams([stringValue])._unsafeUnwrap();
+      expect(value.validateParams([]).isErr()).toBe(true);
+      expect(value.validateParams([numberValue]).isErr()).toBe(true);
+      expect(value.validateParams([stringValue]).isOk()).toBe(true);
     });
   });
 
@@ -274,36 +274,36 @@ describe('formula functions', () => {
 
     it('validates boolean combinators', () => {
       const and = new And();
-      and.validateParams([])._unsafeUnwrapErr();
-      and.validateParams([booleanValue])._unsafeUnwrap();
+      expect(and.validateParams([]).isErr()).toBe(true);
+      expect(and.validateParams([booleanValue]).isOk()).toBe(true);
 
       const or = new Or();
-      or.validateParams([])._unsafeUnwrapErr();
-      or.validateParams([booleanValue])._unsafeUnwrap();
+      expect(or.validateParams([]).isErr()).toBe(true);
+      expect(or.validateParams([booleanValue]).isOk()).toBe(true);
 
       const xor = new Xor();
-      xor.validateParams([])._unsafeUnwrapErr();
-      xor.validateParams([booleanValue])._unsafeUnwrap();
-      xor.getReturnType()._unsafeUnwrap();
-      xor.getReturnType([booleanValue])._unsafeUnwrap();
+      expect(xor.validateParams([]).isErr()).toBe(true);
+      expect(xor.validateParams([booleanValue]).isOk()).toBe(true);
+      expect(xor.getReturnType().isOk()).toBe(true);
+      expect(xor.getReturnType([booleanValue]).isOk()).toBe(true);
 
       const not = new Not();
-      not.validateParams([booleanValue, booleanValue])._unsafeUnwrapErr();
-      not.validateParams([booleanValue])._unsafeUnwrap();
-      not.getReturnType()._unsafeUnwrap();
-      not.getReturnType([booleanValue])._unsafeUnwrap();
+      expect(not.validateParams([booleanValue, booleanValue]).isErr()).toBe(true);
+      expect(not.validateParams([booleanValue]).isOk()).toBe(true);
+      expect(not.getReturnType().isOk()).toBe(true);
+      expect(not.getReturnType([booleanValue]).isOk()).toBe(true);
 
       const blank = new Blank();
-      blank.validateParams([])._unsafeUnwrap();
-      blank.getReturnType()._unsafeUnwrap();
+      expect(blank.validateParams([]).isOk()).toBe(true);
+      expect(blank.getReturnType().isOk()).toBe(true);
 
       const formulaError = new FormulaError();
-      formulaError.validateParams([])._unsafeUnwrap();
-      formulaError.getReturnType()._unsafeUnwrap();
+      expect(formulaError.validateParams([]).isOk()).toBe(true);
+      expect(formulaError.getReturnType().isOk()).toBe(true);
 
       const isError = new IsError();
-      isError.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
-      isError.validateParams([stringValue])._unsafeUnwrap();
+      expect(isError.validateParams([stringValue, stringValue]).isErr()).toBe(true);
+      expect(isError.validateParams([stringValue]).isOk()).toBe(true);
     });
   });
 
@@ -311,10 +311,10 @@ describe('formula functions', () => {
     it('validates at-least-one text functions', () => {
       const atLeastOne = [new Concatenate(), new Find(), new Search(), new Left(), new Right()];
       for (const func of atLeastOne) {
-        func.validateParams([])._unsafeUnwrapErr();
-        func.validateParams([stringValue])._unsafeUnwrap();
-        func.getReturnType()._unsafeUnwrap();
-        func.getReturnType([stringValue])._unsafeUnwrap();
+        expect(func.validateParams([]).isErr()).toBe(true);
+        expect(func.validateParams([stringValue]).isOk()).toBe(true);
+        expect(func.getReturnType().isOk()).toBe(true);
+        expect(func.getReturnType([stringValue]).isOk()).toBe(true);
       }
     });
 
@@ -362,10 +362,10 @@ describe('formula functions', () => {
       ];
 
       for (const func of exact) {
-        func.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
-        func.validateParams([stringValue])._unsafeUnwrap();
-        func.getReturnType()._unsafeUnwrap();
-        func.getReturnType([stringValue])._unsafeUnwrap();
+        expect(func.validateParams([stringValue, stringValue]).isErr()).toBe(true);
+        expect(func.validateParams([stringValue]).isOk()).toBe(true);
+        expect(func.getReturnType().isOk()).toBe(true);
+        expect(func.getReturnType([stringValue]).isOk()).toBe(true);
       }
     });
   });
@@ -385,10 +385,10 @@ describe('formula functions', () => {
       ];
 
       for (const func of exact) {
-        func.validateParams([])._unsafeUnwrapErr();
-        func.validateParams([dateValue])._unsafeUnwrap();
-        func.getReturnType()._unsafeUnwrap();
-        func.getReturnType([dateValue])._unsafeUnwrap();
+        expect(func.validateParams([]).isErr()).toBe(true);
+        expect(func.validateParams([dateValue]).isOk()).toBe(true);
+        expect(func.getReturnType().isOk()).toBe(true);
+        expect(func.getReturnType([dateValue]).isOk()).toBe(true);
       }
     });
 
@@ -409,26 +409,26 @@ describe('formula functions', () => {
       ];
 
       for (const { func, params } of atLeast) {
-        func.validateParams([])._unsafeUnwrapErr();
-        func.validateParams(params)._unsafeUnwrap();
-        func.getReturnType()._unsafeUnwrap();
-        func.getReturnType(params)._unsafeUnwrap();
+        expect(func.validateParams([]).isErr()).toBe(true);
+        expect(func.validateParams(params).isOk()).toBe(true);
+        expect(func.getReturnType().isOk()).toBe(true);
+        expect(func.getReturnType(params).isOk()).toBe(true);
       }
     });
 
     it('handles system-provided date-time functions', () => {
       const today = new Today();
-      today.validateParams([])._unsafeUnwrap();
-      today.getReturnType()._unsafeUnwrap();
+      expect(today.validateParams([]).isOk()).toBe(true);
+      expect(today.getReturnType().isOk()).toBe(true);
 
       const now = new Now();
-      now.validateParams([])._unsafeUnwrap();
-      now.getReturnType()._unsafeUnwrap();
-      now.getReturnType([dateValue])._unsafeUnwrap();
+      expect(now.validateParams([]).isOk()).toBe(true);
+      expect(now.getReturnType().isOk()).toBe(true);
+      expect(now.getReturnType([dateValue]).isOk()).toBe(true);
 
       const created = new CreatedTime();
-      created.validateParams([])._unsafeUnwrap();
-      created.getReturnType()._unsafeUnwrap();
+      expect(created.validateParams([]).isOk()).toBe(true);
+      expect(created.getReturnType().isOk()).toBe(true);
     });
 
     it('validates last modified time params', () => {
@@ -440,10 +440,10 @@ describe('formula functions', () => {
       const withField = valueOf(CellValueType.Number, { field: fieldRef });
       const func = new LastModifiedTime();
 
-      func.validateParams([])._unsafeUnwrap();
-      func.validateParams([numberValue])._unsafeUnwrapErr();
-      func.validateParams([withField])._unsafeUnwrap();
-      func.getReturnType([withField])._unsafeUnwrap();
+      expect(func.validateParams([]).isOk()).toBe(true);
+      expect(func.validateParams([numberValue]).isErr()).toBe(true);
+      expect(func.validateParams([withField]).isOk()).toBe(true);
+      expect(func.getReturnType([withField]).isOk()).toBe(true);
     });
   });
 
@@ -467,12 +467,12 @@ describe('formula functions', () => {
 
     it('exposes record metadata return types', () => {
       const recordId = new RecordId();
-      recordId.validateParams([])._unsafeUnwrap();
-      recordId.getReturnType()._unsafeUnwrap();
+      expect(recordId.validateParams([]).isOk()).toBe(true);
+      expect(recordId.getReturnType().isOk()).toBe(true);
 
       const autoNumber = new AutoNumber();
-      autoNumber.validateParams([])._unsafeUnwrap();
-      autoNumber.getReturnType()._unsafeUnwrap();
+      expect(autoNumber.validateParams([]).isOk()).toBe(true);
+      expect(autoNumber.getReturnType().isOk()).toBe(true);
     });
   });
 });

@@ -2,9 +2,9 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { ITableReadModel } from '../domain/table/ITableReadModel';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { PluginTraceContext } from './Tracer';
 
@@ -97,7 +97,11 @@ type RecordQueryPluginHookResult<T> = Result<T, DomainError> | Promise<Result<T,
 interface IRecordQueryPluginContextBase<TKind extends RecordQueryOperationKind, TPayload> {
   readonly kind: TKind;
   readonly executionContext: IExecutionContext;
-  readonly table: Table;
+  /**
+   * Live table as a read model. Query plugins must not mutate it and must not
+   * cast this to {@link Table} (T7092).
+   */
+  readonly table: ITableReadModel;
   readonly payload: TPayload;
   readonly trace?: PluginTraceContext;
 }

@@ -1,15 +1,14 @@
-import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import {
   RunComputedTaskByIdCommand,
   type RunComputedTaskByIdResult,
   v2RecordRepositoryPostgresTokens,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely, SelectQueryBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { CliError } from '../errors/CliError';
-import { Database } from '../services/Database';
 import {
   ComputedTaskInspector,
   type CliTable,
@@ -30,6 +29,7 @@ import {
   type TaskEdgeModeRow,
   type TaskTargetRow,
 } from '../services/ComputedTaskInspector';
+import { Database } from '../services/Database';
 
 type RawTaskRow = {
   id: string;
@@ -48,7 +48,7 @@ type RawTaskRow = {
   lastError: string | null;
   steps: unknown;
   edges: unknown;
-  dirtyStats: unknown | null;
+  dirtyStats: unknown;
 };
 
 type EdgeDto = {
@@ -88,7 +88,7 @@ const ensurePositive = (value: number | undefined, fallback: number, field: stri
 const ensureStatuses = (
   statuses: ReadonlyArray<ComputedTaskStatus> | undefined
 ): ReadonlyArray<ComputedTaskStatus> => {
-  const resolved = statuses && statuses.length ? statuses : (['pending', 'processing'] as const);
+  const resolved = statuses?.length ? statuses : (['pending', 'processing'] as const);
   if ((resolved as ReadonlyArray<string>).includes('done')) {
     throw new CliError({
       message:

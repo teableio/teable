@@ -27,6 +27,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableSpecBuilder.spec.ts` - Role: spec builder tests; Purpose: verify and/or/not composition.
 - `TableSpecBuilder.ts` - Role: spec builder; Purpose: fluent table spec construction.
 - `TableSpecs.spec.ts` - Role: spec tests; Purpose: verify isSatisfiedBy per spec.
+- `TableWithFieldIdsSpec.ts` - Role: query hydration spec; Purpose: narrow Field children loaded for a Table without changing the Table match.
 
 ## Examples
 

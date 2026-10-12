@@ -1,4 +1,5 @@
-import { join, resolve, extname } from 'path';
+import { randomUUID } from 'node:crypto';
+import { join, resolve, extname } from 'node:path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AUTOMATION_ROBOT_ID, APP_ROBOT_ID, ANONYMOUS_USER_ID } from '@teable/core';
@@ -65,7 +66,7 @@ export const EMAIL_LOGO_TOKEN = 'email-logo';
 @Injectable()
 export class BuiltinAssetsInitService implements OnModuleInit {
   protected readonly logger = new Logger(BuiltinAssetsInitService.name);
-  private lockValue: string;
+  private readonly lockValue: string;
 
   constructor(
     protected readonly prismaService: PrismaService,
@@ -74,7 +75,7 @@ export class BuiltinAssetsInitService implements OnModuleInit {
     protected readonly configService: ConfigService
   ) {
     // Generate unique lock value per instance
-    this.lockValue = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.lockValue = `${process.pid}-${randomUUID()}`;
   }
 
   async onModuleInit() {

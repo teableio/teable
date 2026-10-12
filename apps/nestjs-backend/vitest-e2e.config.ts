@@ -2,6 +2,7 @@ import swc from 'unplugin-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { resolveE2eMaxWorkers } from './test/utils/e2e-shared';
+import { v2CoveredV1TableIntegrationFiles } from './v2-covered-v1-table-integrations';
 
 // Set timezone to UTC for deterministic datetime test results
 // This must be set before any datetime operations
@@ -19,11 +20,20 @@ if (!process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT) {
 // app across spec files and run files in parallel against per-worker databases.
 process.env.E2E_SHARED_APP ??= '1';
 process.env.E2E_WORKER_DB ??= '1';
+// V2 is fully rolled out; the suite exercises the v2 write path by default, the same
+// as the EE community-host run. Export FORCE_V2_ALL=false to run the legacy v1 baseline.
+process.env.FORCE_V2_ALL ??= 'true';
 const e2eMaxWorkers = resolveE2eMaxWorkers();
 
 const timeout = process.env.CI ? 60000 : 10000;
 // Anchored at test/ so the glob never has to crawl node_modules.
 const testFiles = ['test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
+// Retired v1 table suites (covered by the v2 e2e package) are skipped, as in the EE
+// community-host run. Set E2E_INCLUDE_RETIRED_V1=1 to run one of them locally.
+const retiredV1Files =
+  process.env.E2E_INCLUDE_RETIRED_V1 === '1'
+    ? []
+    : v2CoveredV1TableIntegrationFiles.map((file) => `test/${file}`);
 
 export default defineConfig({
   resolve: {
@@ -44,7 +54,8 @@ export default defineConfig({
         target: 'es2022',
       },
     }),
-    tsconfigPaths(),
+    // The mobile app's tsconfig extends expo's, which is not installed here; skip it.
+    tsconfigPaths({ ignoreConfigErrors: true }),
   ],
   cacheDir: '../../.cache/vitest/nestjs-backend/e2e',
   test: {
@@ -71,6 +82,6 @@ export default defineConfig({
     logHeapUsage: true,
     reporters: ['verbose'],
     include: testFiles,
-    exclude: [...configDefaults.exclude, '**/.next/**'],
+    exclude: [...configDefaults.exclude, '**/.next/**', ...retiredV1Files],
   },
 });

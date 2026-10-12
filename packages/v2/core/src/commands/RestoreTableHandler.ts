@@ -47,7 +47,7 @@ export class RestoreTableHandler
     context: ExecutionContextPort.IExecutionContext,
     command: RestoreTableCommand
   ): Promise<Result<RestoreTableResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RestoreTableResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getDeletedByIdInBase(
         context,

@@ -85,6 +85,7 @@ export interface IDomainErrorLocalization {
  * - Plain data object (not extending Error) to remain serializable across boundaries.
  * - No throw/exception semantics; errors are returned via Result<T, DomainError>.
  * - Immutable (all fields readonly) for predictable behavior.
+ * - `toString` is non-enumerable: log serializers must receive data, not methods.
  * - Diagnostic `stack`/`cause` are non-enumerable so JSON/HTTP DTO paths stay clean,
  *   while Sentry and log boundaries can still attribute the creation site.
  *
@@ -165,8 +166,8 @@ function createError(
     tags: input.tags,
     details: input.details,
     localization: input.localization,
-    toString: () => input.message,
   };
+  defineNonEnumerable(error, 'toString', () => input.message);
 
   if (input.stack) {
     defineNonEnumerable(error, 'stack', input.stack);
@@ -469,8 +470,20 @@ export const isValidationError = (error: DomainError): boolean => hasTag(error, 
 /** Check if error is a conflict error (state collision). */
 export const isConflictError = (error: DomainError): boolean => hasTag(error, 'conflict');
 
-/** Check if error is a not-found error (resource doesn't exist). */
-export const isNotFoundError = (error: DomainError): boolean => hasTag(error, 'not-found');
+/** Canonical code for the temporary table schema barrier. */
+export const TABLE_PROVISION_PENDING_CODE = 'table.provision_pending';
+
+/** Provisioning is temporary unavailability, even for legacy errors tagged not-found. */
+export const isTableProvisionPendingError = (error: { readonly code?: unknown }): boolean =>
+  error.code === TABLE_PROVISION_PENDING_CODE;
+
+export const tableProvisionPendingError = (
+  message = 'Table schema is updating (provision_state=pending)'
+): DomainError => domainError.infrastructure({ code: TABLE_PROVISION_PENDING_CODE, message });
+
+/** A temporary provisioning barrier must never be interpreted as resource deletion. */
+export const isNotFoundError = (error: DomainError): boolean =>
+  hasTag(error, 'not-found') && !isTableProvisionPendingError(error);
 
 /** Check if error is an invariant violation (domain rule broken). */
 export const isInvariantError = (error: DomainError): boolean => hasTag(error, 'invariant');

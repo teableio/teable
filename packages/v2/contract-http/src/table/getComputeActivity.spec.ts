@@ -65,6 +65,32 @@ const snapshot: TableComputeActivitySnapshot = {
 };
 
 describe('mapComputeActivitySnapshotToDto', () => {
+  it('does not expose provider SQL or private error context', () => {
+    const failed = structuredClone(snapshot);
+    failed.reconciliationPerformed = true;
+    failed.observationState = 'syncing';
+    failed.fields[0].extensions = {
+      reliabilityIssueIdentities: {
+        unresolved: ['private-issue-id'],
+      },
+    };
+    failed.fields[0].lastError = {
+      code: 'postgres',
+      message: 'SELECT private_data',
+      context: { sql: 'secret' },
+    };
+    failed.diagnostics.anomalies = [
+      { fieldId: failed.fields[0].fieldId, kind: 'failed', message: 'private SQL' },
+    ];
+    const result = mapComputeActivitySnapshotToDto(failed)._unsafeUnwrap();
+    expect(result.fields[0].lastError).toEqual({
+      code: 'computed.update_failed',
+      message: 'Computed results have not been updated',
+    });
+    expect(JSON.stringify(result)).not.toContain('private');
+    expect(result).not.toHaveProperty('reconciliationPerformed');
+    expect(result.observationState).toBe('syncing');
+  });
   it('exposes current batch progress with task state counts', () => {
     const result = mapComputeActivitySnapshotToDto(snapshot)._unsafeUnwrap();
 

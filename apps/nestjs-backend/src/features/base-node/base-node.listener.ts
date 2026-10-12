@@ -26,6 +26,11 @@ import type {
 } from '../../event-emitter/events/dashboard/dashboard.event';
 import { Events } from '../../event-emitter/events/event.enum';
 import type {
+  RoutineCreateEvent,
+  RoutineDeleteEvent,
+  RoutineUpdateEvent,
+} from '../../event-emitter/events/routine/routine.event';
+import type {
   WorkflowCreateEvent,
   WorkflowDeleteEvent,
   WorkflowUpdateEvent,
@@ -42,7 +47,8 @@ type IResourceCreateEvent =
   | TableCreateEvent
   | WorkflowCreateEvent
   | DashboardCreateEvent
-  | AppCreateEvent;
+  | AppCreateEvent
+  | RoutineCreateEvent;
 
 type IResourceDeleteEvent =
   | BaseDeleteEvent
@@ -50,14 +56,16 @@ type IResourceDeleteEvent =
   | TableDeleteEvent
   | WorkflowDeleteEvent
   | DashboardDeleteEvent
-  | AppDeleteEvent;
+  | AppDeleteEvent
+  | RoutineDeleteEvent;
 
 type IResourceUpdateEvent =
   | BaseFolderUpdateEvent
   | TableUpdateEvent
   | WorkflowUpdateEvent
   | DashboardUpdateEvent
-  | AppUpdateEvent;
+  | AppUpdateEvent
+  | RoutineUpdateEvent;
 
 @Injectable()
 export class BaseNodeListener {
@@ -79,6 +87,7 @@ export class BaseNodeListener {
   @OnEvent(Events.DASHBOARD_CREATE, { async: true })
   @OnEvent(Events.WORKFLOW_CREATE, { async: true })
   @OnEvent(Events.APP_CREATE, { async: true })
+  @OnEvent(Events.ROUTINE_CREATE, { async: true })
   async onResourceCreate(event: IResourceCreateEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -140,6 +149,12 @@ export class BaseNodeListener {
         resourceId = event.payload.app.id;
         name = event.payload.app.name;
         break;
+      case Events.ROUTINE_CREATE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routine.id;
+        name = event.payload.routine.name;
+        break;
     }
     return {
       baseId,
@@ -156,6 +171,7 @@ export class BaseNodeListener {
   @OnEvent(Events.DASHBOARD_UPDATE, { async: true })
   @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
   @OnEvent(Events.APP_UPDATE, { async: true })
+  @OnEvent(Events.ROUTINE_UPDATE, { async: true })
   async onResourceUpdate(event: IResourceUpdateEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -210,6 +226,12 @@ export class BaseNodeListener {
         resourceId = event.payload.folder.id;
         name = event.payload.folder.name;
         break;
+      case Events.ROUTINE_UPDATE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routine.id;
+        name = event.payload.routine.name;
+        break;
     }
     return {
       baseId,
@@ -244,6 +266,7 @@ export class BaseNodeListener {
   @OnEvent(Events.DASHBOARD_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
+  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   async onResourceDelete(event: IResourceDeleteEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -304,6 +327,11 @@ export class BaseNodeListener {
         baseId = event.payload.baseId;
         resourceType = BaseNodeResourceType.Folder;
         resourceId = event.payload.folderId;
+        break;
+      case Events.ROUTINE_DELETE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routineId;
         break;
     }
     return {

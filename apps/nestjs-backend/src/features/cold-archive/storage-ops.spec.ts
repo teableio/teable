@@ -2,7 +2,7 @@ import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import type StorageAdapter from '../attachments/plugins/adapter';
 import { ColdStatsCache } from './stats-cache';
-import { readColdStats, readColdStatsCached } from './storage-ops';
+import { listColdParts, readColdStats, readColdStatsCached } from './storage-ops';
 
 const adapterFor = (downloadFile: () => Promise<Readable>): StorageAdapter =>
   ({
@@ -90,5 +90,33 @@ describe('readColdStatsCached', () => {
         () => {}
       )
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('listColdParts', () => {
+  it('lists a prefix recursively and keeps only the keys the parser accepts', async () => {
+    const listed: { prefix: string; options?: unknown }[] = [];
+    const adapter = {
+      listObjects: async (_bucket: string, prefix: string, options?: unknown) => {
+        listed.push({ prefix, options });
+        return {
+          objects: [
+            { key: 'root/tbl/_stats.json', size: 10, etag: 'e0' },
+            { key: 'root/tbl/202605/01-p0.ndjson.zst', size: 20, etag: 'e1' },
+            { key: 'root/tbl/202606/m-p0.ndjson.zst', size: 30 },
+          ],
+          prefixes: [],
+        };
+      },
+    } as unknown as StorageAdapter;
+    const parts = await listColdParts(adapter, 'bucket', 'root/tbl/', (key) => {
+      const month = /\/(\d{6})\//.exec(key)?.[1];
+      return month ? { key, month } : undefined;
+    });
+    expect(listed).toEqual([{ prefix: 'root/tbl/', options: undefined }]);
+    expect(parts).toEqual([
+      { key: 'root/tbl/202605/01-p0.ndjson.zst', month: '202605', size: 20, etag: 'e1' },
+      { key: 'root/tbl/202606/m-p0.ndjson.zst', month: '202606', size: 30 },
+    ]);
   });
 });

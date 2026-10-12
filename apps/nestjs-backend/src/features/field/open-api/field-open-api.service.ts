@@ -125,7 +125,7 @@ type CreateFieldsOptions = {
 
 @Injectable()
 export class FieldOpenApiService {
-  private logger = new Logger(FieldOpenApiService.name);
+  private readonly logger = new Logger(FieldOpenApiService.name);
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
@@ -1035,10 +1035,8 @@ export class FieldOpenApiService {
       if (!field.hasError) {
         await this.fieldService.markError(tableId, [field.id], true);
       }
-    } else {
-      if (field.hasError) {
-        await this.fieldService.markError(tableId, [field.id], false);
-      }
+    } else if (field.hasError) {
+      await this.fieldService.markError(tableId, [field.id], false);
     }
   }
 
@@ -1064,7 +1062,7 @@ export class FieldOpenApiService {
       },
     });
     const missingReferenceIds = uniqueFieldReferenceIds.filter(
-      (refId) => !curReference.find((ref) => ref.fromFieldId === refId)
+      (refId) => !curReference.some((ref) => ref.fromFieldId === refId)
     );
 
     if (missingReferenceIds.length) {
@@ -2246,6 +2244,7 @@ export class FieldOpenApiService {
         return target;
       case isLookupOrRollup: {
         const picked = pick(source.lookupOptions ?? {}, [
+          'isUnique',
           'foreignTableId',
           'lookupFieldId',
           'linkFieldId',

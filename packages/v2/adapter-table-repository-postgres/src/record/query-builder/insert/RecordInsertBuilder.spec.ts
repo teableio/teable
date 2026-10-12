@@ -208,6 +208,36 @@ describe('RecordInsertBuilder', () => {
     expect(statements.some((sql) => sql.includes('__order'))).toBe(false);
   });
 
+  it('collapses duplicate link ids into one junction row per linked record', () => {
+    const { db } = createRecordingDb();
+    const { table, linkFieldId } = buildTable({ hasOrderColumn: true });
+    const builder = new RecordInsertBuilder(db);
+
+    const fieldValues = new Map<string, unknown>([
+      [linkFieldId.toString(), [{ id: 'rec_one' }, { id: 'rec_two' }, { id: 'rec_one' }]],
+    ]);
+
+    const data = builder
+      .buildInsertData({
+        table,
+        fieldValues,
+        context: { recordId: 'rec_main', actorId: 'usr_test', now: '2025-01-01T00:00:00.000Z' },
+      })
+      ._unsafeUnwrap();
+
+    // The stored cell value and the junction rows agree: one entry per linked record.
+    expect(data.values.col_links).toBe(JSON.stringify([{ id: 'rec_one' }, { id: 'rec_two' }]));
+
+    const inserts = data.additionalStatements.filter((statement) =>
+      statement.compiled.sql.startsWith('insert into')
+    );
+    expect(inserts).toHaveLength(2);
+    expect(inserts.map((statement) => statement.compiled.parameters)).toEqual([
+      ['rec_main', 'rec_one', 1],
+      ['rec_main', 'rec_two', 2],
+    ]);
+  });
+
   it('sets oneMany order column when link meta hasOrderColumn is true', () => {
     const { db } = createRecordingDb();
     const { table, linkFieldId } = buildTable({

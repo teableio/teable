@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Check, GoogleSheet } from '@teable/icons';
 import {
-  getUserIntegrationList,
   importGoogleSheetAnalyze,
   ImportGoogleSheetStreamError,
   importGoogleSheetStream,
@@ -10,7 +9,6 @@ import {
   type IImportGoogleSheetIssue,
   type IImportGoogleSheetProgressEvent,
   type IImportGoogleSheetVo,
-  type IUserIntegrationItemVo,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/index';
@@ -29,7 +27,9 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { useConnectIntegration } from '@/features/app/components/user-integration/useConnectIntegration';
+import { ConnectedAccountMenu } from '@/features/app/components/user-integration/ConnectedAccountMenu';
+import { ReauthorizeNotice } from '@/features/app/components/user-integration/ReauthorizeNotice';
+import { useConnectedAccounts } from '@/features/app/components/user-integration/useConnectedAccounts';
 import { spaceConfig } from '@/features/i18n/space.config';
 import {
   ImportLogPanel,
@@ -78,7 +78,6 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
   const queryClient = useQueryClient();
 
   const [step, setStep] = React.useState<IStep>('detect');
-  const [integration, setIntegration] = React.useState<IUserIntegrationItemVo | null>(null);
   const [spreadsheet, setSpreadsheet] = React.useState<ISpreadsheet | null>(null);
   const [selectedSheetIds, setSelectedSheetIds] = React.useState<number[]>([]);
   const [importRecords, setImportRecords] = React.useState(true);
@@ -93,9 +92,36 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
   >({});
   const [createdBase, setCreatedBase] = React.useState<IImportGoogleSheetVo['base'] | null>(null);
 
+  // The user-integration endpoints are EE-only; when they are unavailable the
+  // dialog explains that the Google Sheets integration is not configured. Every Google
+  // account on file is read: which account's Drive the picker opens on is chosen in
+  // the pick step.
+  const account = useConnectedAccounts({
+    provider: UserIntegrationProvider.GoogleSheet,
+    name: 'Google Sheets',
+    queryKey: 'google-sheet-import',
+    enabled: open,
+    // Another account's Drive: what was picked under the old one is dropped.
+    onSwitch: () => {
+      setSpreadsheet(null);
+      setSelectedSheetIds([]);
+    },
+    onConnected: () => setStep('pick'),
+  });
+  const {
+    accounts,
+    isDetecting: isDetectingFetch,
+    detectError,
+    staleId,
+    setStaleId,
+    isConnecting,
+  } = account;
+  const integration = account.chosen;
+  const needsReauth = Boolean(integration && staleId === integration.id);
+
   const resetState = React.useCallback(() => {
     setStep('detect');
-    setIntegration(null);
+    account.reset();
     setSpreadsheet(null);
     setSelectedSheetIds([]);
     setImportRecords(true);
@@ -105,44 +131,15 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
     setLogs([]);
     setTableProgresses({});
     setCreatedBase(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The user-integration endpoints are EE-only; when they are unavailable the
-  // dialog explains that the Google Sheets integration is not configured.
-  const {
-    data: detectedIntegration,
-    isFetching: isDetectingFetch,
-    error: detectError,
-  } = useQuery({
-    queryKey: [...ReactQueryKeys.getUserIntegrations(), 'google-sheet-import'],
-    enabled: open,
-    retry: false,
-    queryFn: async () =>
-      (
-        await getUserIntegrationList({ provider: UserIntegrationProvider.GoogleSheet })
-      ).data.integrations.find((item) => item.hasSecret) ?? null,
-  });
   // Only a 404 means the endpoints genuinely don't exist (community edition /
   // integrations not deployed). Any other failure is transient — the terminal
   // "ask an administrator" message would misdiagnose a configured instance
   // over a network blip; fall through to the connect step instead.
   const detectStatus = (detectError as { status?: number } | null)?.status;
   const integrationUnavailable = detectStatus === 404;
-
-  // OAuth connect with auto-close handled by the shared hook; on success we read
-  // back the freshly-connected integration and jump straight to the picker step.
-  const { connect, isConnecting } = useConnectIntegration({
-    onConnected: async () => {
-      const found =
-        (
-          await getUserIntegrationList({ provider: UserIntegrationProvider.GoogleSheet })
-        ).data.integrations.find((item) => item.hasSecret) ?? null;
-      if (found) {
-        setIntegration(found);
-        setStep('pick');
-      }
-    },
-  });
 
   const handleOpenChange = (nextOpen: boolean) => {
     // closeable={!isImporting} only hides the X — Escape and overlay clicks
@@ -173,13 +170,14 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
   // useConnectIntegration's onConnected.
   React.useEffect(() => {
     if (!open || isDetectingFetch || step !== 'detect') return;
-    if (detectedIntegration) {
-      setIntegration(detectedIntegration);
+    if (accounts?.length) {
+      account.switchAccount(accounts[0]);
       setStep('pick');
     } else {
       setStep('connect');
     }
-  }, [open, isDetectingFetch, detectedIntegration, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isDetectingFetch, accounts, step]);
 
   /**
    * Open the Google Picker: fetch the public picker config plus a short-lived
@@ -199,14 +197,10 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
     // failures keep the healthy integration on the pick step for a retry.
     const prereqs = await fetchPickerPrereqs(integration.id);
     if (prereqs.status === 'tokenFailed') {
+      // Google refused the stored grant: only this account's consent again helps,
+      // so say so in place rather than sending the user back to "connect".
       setIsPicking(false);
-      toast.error(
-        prereqs.reason instanceof Error
-          ? prereqs.reason.message
-          : t('space:googleSheetImport.failed')
-      );
-      setIntegration(null);
-      setStep('connect');
+      setStaleId(integration.id);
       return;
     }
     let picked: { id: string }[] | undefined;
@@ -421,12 +415,7 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8">
               <GoogleSheet className="size-10" />
-              <Button
-                onClick={() =>
-                  connect(UserIntegrationProvider.GoogleSheet, { name: 'Google Sheets' })
-                }
-                disabled={isConnecting}
-              >
+              <Button onClick={account.connectAnother} disabled={isConnecting}>
                 {isConnecting && <Spin className="me-1 size-4" />}
                 {isConnecting
                   ? t('space:googleSheetImport.waitingOAuth')
@@ -440,13 +429,23 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
             <div className="flex items-baseline justify-between">
               <Label>{t('space:googleSheetImport.pickSpreadsheet')}</Label>
               {integration && (
-                <span className="text-xs text-muted-foreground">
-                  {t('space:googleSheetImport.connectedAs', {
-                    account: integration.metadata?.userInfo?.email ?? integration.name,
-                  })}
-                </span>
+                <ConnectedAccountMenu
+                  accounts={accounts ?? []}
+                  current={integration}
+                  disabled={isAnalyzing || isConnecting}
+                  onChange={account.switchAccount}
+                  onConnectAnother={account.connectAnother}
+                  label={(account) => t('space:googleSheetImport.connectedAs', { account })}
+                />
               )}
             </div>
+
+            {needsReauth && (
+              <ReauthorizeNotice
+                busy={isConnecting}
+                onReauthorize={() => account.reauthorize(integration)}
+              />
+            )}
 
             {isAnalyzing ? (
               <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">

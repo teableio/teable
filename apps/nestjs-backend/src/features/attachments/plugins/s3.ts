@@ -1,10 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import http from 'http';
-import https from 'https';
+import http from 'node:http';
+import https from 'node:https';
+import { join, resolve } from 'node:path';
+import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { join, resolve } from 'path';
-import type { Readable } from 'stream';
 import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
@@ -26,6 +26,7 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
+import { resolveThumbnailMimetype } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IPresignParams,
@@ -38,12 +39,12 @@ import type {
 
 @Injectable()
 export class S3Storage implements StorageAdapter {
-  private s3Client: S3Client;
-  private s3ClientPrivateNetwork: S3Client;
-  private httpAgent: http.Agent;
-  private httpsAgent: https.Agent;
-  private s3ClientPreSigner: S3Client;
-  private logger = new Logger(S3Storage.name);
+  private readonly s3Client: S3Client;
+  private readonly s3ClientPrivateNetwork: S3Client;
+  private readonly httpAgent: http.Agent;
+  private readonly httpsAgent: https.Agent;
+  private readonly s3ClientPreSigner: S3Client;
+  private readonly logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const {
@@ -341,15 +342,11 @@ export class S3Storage implements StorageAdapter {
         ...normalizeImageDimensions(metadata),
       };
     } catch (error) {
-      throw new CustomHttpException(
-        `Calculate image size failed: ${(error as Error).message}`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.calculateImageSizeFailed',
-          },
-        }
-      );
+      // Dimensions are a nice-to-have (grid aspect ratio); an image sharp cannot
+      // parse, e.g. a HEIC libheif rejects, must still upload. Thumbnails are
+      // handled downstream by the crop job, which has its own decoders.
+      this.logger.warn(`Calculate image size failed for ${path}: ${(error as Error).message}`);
+      return { hash, url, size, mimetype };
     } finally {
       stream?.destroy();
     }
@@ -532,7 +529,7 @@ export class S3Storage implements StorageAdapter {
         .resize(width, height);
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': mimetype,
+        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
       });
       return upload.path;
     } finally {
@@ -569,7 +566,7 @@ export class S3Storage implements StorageAdapter {
   ) {
     for (const obj of page.Contents ?? []) {
       if (obj.Key) {
-        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replace(/"/g, '') });
+        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replaceAll('"', '') });
       }
     }
     for (const common of page.CommonPrefixes ?? []) {

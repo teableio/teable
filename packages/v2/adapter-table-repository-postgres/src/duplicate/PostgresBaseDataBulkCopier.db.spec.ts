@@ -200,7 +200,7 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
     ]);
 
     // Every same-named FK survived the drop→rebuild cycle with its delete rule.
-    const fkRows = await sql<{ tableName: string; deleteRule: string }>`
+    const fkRows = await sql<{ tableName: string; deleteRule: string; validated: boolean }>`
       SELECT rel.relname AS "tableName",
              CASE con.confdeltype
                WHEN 'a' THEN 'NO ACTION'
@@ -208,18 +208,21 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
                WHEN 'c' THEN 'CASCADE'
                WHEN 'n' THEN 'SET NULL'
                WHEN 'd' THEN 'SET DEFAULT'
-             END AS "deleteRule"
+             END AS "deleteRule",
+             con.convalidated AS validated
       FROM pg_constraint con
       JOIN pg_class rel ON rel.oid = con.conrelid
       JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
       WHERE con.contype = 'f' AND nsp.nspname = ${schema} AND con.conname = 'fk___id'
       ORDER BY rel.relname
     `.execute(db);
+    // Clean copied rows keep a validated FK on the target: only dangling source
+    // values may cost the constraint its validated state.
     expect(fkRows.rows).toEqual([
-      { tableName: 'bulk_src_a', deleteRule: 'SET NULL' },
-      { tableName: 'bulk_src_b', deleteRule: 'SET NULL' },
-      { tableName: 'bulk_tgt_a', deleteRule: 'SET NULL' },
-      { tableName: 'bulk_tgt_b', deleteRule: 'SET NULL' },
+      { tableName: 'bulk_src_a', deleteRule: 'SET NULL', validated: true },
+      { tableName: 'bulk_src_b', deleteRule: 'SET NULL', validated: true },
+      { tableName: 'bulk_tgt_a', deleteRule: 'SET NULL', validated: true },
+      { tableName: 'bulk_tgt_b', deleteRule: 'SET NULL', validated: true },
     ]);
 
     // Source tables are untouched.
@@ -262,5 +265,210 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
 
     const supported = await copier.isSupported(context, unreachablePlan);
     expect(supported._unsafeUnwrap()).toBe(false);
+  });
+
+  it('rejects an empty source schema left behind after a database move', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(schema)}`).execute(db);
+
+    const supported = await copier.isSupported(context, buildPlan(schema));
+
+    expect(supported._unsafeUnwrap()).toBe(false);
+  });
+
+  it('rejects a plan whose source tables exist but source junction is absent', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await createDataTables(db, schema);
+    await sql.raw(`DROP TABLE ${qualified(`${schema}.junction_bulk_old`)}`).execute(db);
+
+    const supported = await copier.isSupported(context, buildPlan(schema));
+
+    expect(supported._unsafeUnwrap()).toBe(false);
+  });
+
+  // T7655: legacy bases carry link FKs created NOT VALID (the import paths add
+  // them that way to skip validating existing data), so such a table can hold
+  // link values whose record no longer exists. The copier drops every FK of the
+  // source and target tables and rebuilds them afterwards; rebuilding the source
+  // FK as validated re-checks the source's own dangling rows, and rebuilding the
+  // target FK as validated re-checks the dangling rows the copy just brought
+  // over — both abort the copy with PG 23503. The source FK has to come back in
+  // the state it had; the target FK has to fall back to NOT VALID instead.
+  it('keeps a NOT VALID source link FK and falls back for the target FK', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(schema)}`).execute(db);
+
+    const sourceLinkColumn = '__fk_fldsrclink00000001';
+    const targetLinkColumn = '__fk_fldtgtlink00000001';
+    const cleanSourceLinkColumn = '__fk_fldsrclink00000002';
+    const cleanTargetLinkColumn = '__fk_fldtgtlink00000002';
+    const orphanSourceLinkColumn = '__fk_fldsrclink00000003';
+    const orphanTargetLinkColumn = '__fk_fldtgtlink00000003';
+    const sourceConstraint = `fk_${sourceLinkColumn}`;
+    const targetConstraint = `fk_${targetLinkColumn}`;
+    const cleanSourceConstraint = `fk_${cleanSourceLinkColumn}`;
+    const cleanTargetConstraint = `fk_${cleanTargetLinkColumn}`;
+    const orphanTargetConstraint = `fk_${orphanTargetLinkColumn}`;
+
+    for (const table of ['fk_src_parent', 'fk_tgt_parent']) {
+      await sql
+        .raw(
+          `CREATE TABLE ${qualified(`${schema}.${table}`)} (
+            "__id" text PRIMARY KEY,
+            "__auto_number" serial,
+            "name" text
+          )`
+        )
+        .execute(db);
+    }
+    for (const [table, linkColumns] of [
+      ['fk_src_child', [sourceLinkColumn, cleanSourceLinkColumn, orphanSourceLinkColumn]],
+      ['fk_tgt_child', [targetLinkColumn, cleanTargetLinkColumn, orphanTargetLinkColumn]],
+    ] as const) {
+      await sql
+        .raw(
+          `CREATE TABLE ${qualified(`${schema}.${table}`)} (
+            "__id" text PRIMARY KEY,
+            "__auto_number" serial,
+            "name" text,
+            ${linkColumns.map((column) => `${quoteIdentifier(column)} text`).join(',\n            ')}
+          )`
+        )
+        .execute(db);
+    }
+    await sql
+      .raw(
+        `INSERT INTO ${qualified(`${schema}.fk_src_parent`)} ("__id", "name") VALUES ('recparent00000001', 'Parent')`
+      )
+      .execute(db);
+    await sql
+      .raw(
+        `INSERT INTO ${qualified(`${schema}.fk_src_child`)} ("__id", "name", ${quoteIdentifier(sourceLinkColumn)}, ${quoteIdentifier(cleanSourceLinkColumn)}, ${quoteIdentifier(orphanSourceLinkColumn)})
+         VALUES ('recchild000000001', 'Linked', 'recparent00000001', 'recparent00000001', 'recparent00000001'),
+                ('recchild000000002', 'Dangling', 'recmissing0000001', 'recparent00000001', 'recmissing0000002')`
+      )
+      .execute(db);
+    // The reported production shape: a source FK created NOT VALID, here over a
+    // row whose link value has no matching record; a second NOT VALID source FK
+    // covers clean rows only, and a third link column has no source FK at all.
+    for (const [constraint, column] of [
+      [sourceConstraint, sourceLinkColumn],
+      [cleanSourceConstraint, cleanSourceLinkColumn],
+    ] as const) {
+      await sql
+        .raw(
+          `ALTER TABLE ${qualified(`${schema}.fk_src_child`)} ADD CONSTRAINT ${quoteIdentifier(constraint)} FOREIGN KEY (${quoteIdentifier(column)}) REFERENCES ${qualified(`${schema}.fk_src_parent`)} ("__id") NOT VALID`
+        )
+        .execute(db);
+    }
+    // v2 creates target link FKs validated on the still empty target table.
+    for (const [constraint, column] of [
+      [targetConstraint, targetLinkColumn],
+      [cleanTargetConstraint, cleanTargetLinkColumn],
+      [orphanTargetConstraint, orphanTargetLinkColumn],
+    ] as const) {
+      await sql
+        .raw(
+          `ALTER TABLE ${qualified(`${schema}.fk_tgt_child`)} ADD CONSTRAINT ${quoteIdentifier(constraint)} FOREIGN KEY (${quoteIdentifier(column)}) REFERENCES ${qualified(`${schema}.fk_tgt_parent`)} ("__id")`
+        )
+        .execute(db);
+    }
+
+    const plan: BaseDataBulkCopyPlan = {
+      tables: [
+        {
+          sourceTableId: 'tblSrcParent',
+          targetTableId: 'tblTgtParent',
+          targetTableName: 'Target parent',
+          sourceDbTableName: `${schema}.fk_src_parent`,
+          targetDbTableName: `${schema}.fk_tgt_parent`,
+          excludedTargetColumns: [],
+          linkValueColumns: [],
+        },
+        {
+          sourceTableId: 'tblSrcChild',
+          targetTableId: 'tblTgtChild',
+          targetTableName: 'Target child',
+          sourceDbTableName: `${schema}.fk_src_child`,
+          targetDbTableName: `${schema}.fk_tgt_child`,
+          excludedTargetColumns: [],
+          linkValueColumns: [],
+        },
+      ],
+      junctions: [],
+      viewIdMap: {},
+      fieldIdMap: {
+        fldsrclink00000001: 'fldtgtlink00000001',
+        fldsrclink00000002: 'fldtgtlink00000002',
+        fldsrclink00000003: 'fldtgtlink00000003',
+      },
+      batchSize: 100,
+    };
+
+    const result = await copier.copyBaseData(context, plan);
+    expect(result._unsafeUnwrap().recordsLength).toBe(3);
+
+    const copiedRows = await sql<{
+      id: string;
+      link: string | null;
+      cleanLink: string | null;
+      orphanLink: string | null;
+    }>`
+      SELECT "__id" AS id, ${sql.ref(targetLinkColumn)} AS link,
+             ${sql.ref(cleanTargetLinkColumn)} AS "cleanLink",
+             ${sql.ref(orphanTargetLinkColumn)} AS "orphanLink"
+      FROM ${sql.raw(qualified(`${schema}.fk_tgt_child`))}
+      ORDER BY "__auto_number"
+    `.execute(db);
+    expect(copiedRows.rows).toEqual([
+      {
+        id: 'recchild000000001',
+        link: 'recparent00000001',
+        cleanLink: 'recparent00000001',
+        orphanLink: 'recparent00000001',
+      },
+      {
+        id: 'recchild000000002',
+        link: 'recmissing0000001',
+        cleanLink: 'recparent00000001',
+        orphanLink: 'recmissing0000002',
+      },
+    ]);
+
+    const fkState = async (table: string, constraintName: string) => {
+      const rows = await sql<{ validated: boolean }>`
+        SELECT con.convalidated AS validated
+        FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+        WHERE con.contype = 'f' AND nsp.nspname = ${schema}
+          AND rel.relname = ${table} AND con.conname = ${constraintName}
+      `.execute(db);
+      return rows.rows;
+    };
+
+    // Source FKs come back exactly as they were, and the source column that had
+    // no FK still has none.
+    expect(await fkState('fk_src_child', sourceConstraint)).toEqual([{ validated: false }]);
+    expect(await fkState('fk_src_child', cleanSourceConstraint)).toEqual([{ validated: false }]);
+    expect(await fkState('fk_src_child', `fk_${orphanSourceLinkColumn}`)).toEqual([]);
+    // Target FKs: the one over copied dangling values falls back to NOT VALID,
+    // while clean copied values keep the constraint validated — including the
+    // column whose source FK is missing, where only the data decides.
+    expect(await fkState('fk_tgt_child', targetConstraint)).toEqual([{ validated: false }]);
+    expect(await fkState('fk_tgt_child', cleanTargetConstraint)).toEqual([{ validated: true }]);
+    expect(await fkState('fk_tgt_child', orphanTargetConstraint)).toEqual([{ validated: false }]);
   });
 });

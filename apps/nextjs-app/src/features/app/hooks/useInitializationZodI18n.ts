@@ -26,9 +26,14 @@ export const useInitializationZodI18n = () => {
 
   useEffect(() => {
     const language = i18n.language || 'en';
-    // Map language codes to Zod locale error maps
-    const errorMap =
+    const localeError =
       localeErrorMaps[language as keyof typeof localeErrorMaps] || localeErrorMaps['en'];
-    z.config({ localeError: errorMap });
-  }, [i18n.language]);
+    z.config({
+      // zod 4 reports a missing value as invalid_type; keep showing it as "required" like zod 3 did.
+      localeError: (issue) =>
+        issue.code === 'invalid_type' && issue.input === undefined
+          ? i18n.t('common:required')
+          : localeError(issue),
+    });
+  }, [i18n, i18n.language]);
 };

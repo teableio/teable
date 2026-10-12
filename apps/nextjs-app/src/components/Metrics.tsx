@@ -215,7 +215,7 @@ export const GoogleAnalytics = ({
   // across client-side navigations (logout does router.push('/auth/login')),
   // so the gtag session survives logout and an identified -> anonymous
   // transition is observable here (same pattern as the PostHog effect).
-  const lastIdentifiedIdRef = useRef<string>();
+  const lastIdentifiedIdRef = useRef<string>(undefined);
 
   useEffect(() => {
     if (!isGtagReady || !window.gtag) {
@@ -331,7 +331,7 @@ export const PostHog = ({
   // Last user id this page session identified with. _app stays mounted across
   // client-side navigations (logout does router.push('/auth/login')), so an
   // in-session account switch is observable here even before the SDK loads.
-  const lastIdentifiedIdRef = useRef<string>();
+  const lastIdentifiedIdRef = useRef<string>(undefined);
 
   // Mirror the newest user id into module scope for handlePosthogLoaded (the
   // snippet renders once; a closure captured in it would go stale). Effects

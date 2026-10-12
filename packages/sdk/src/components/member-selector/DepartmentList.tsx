@@ -48,7 +48,7 @@ export function DepartmentList({
   search,
   excludeType,
   disabledDepartment,
-}: DepartmentListProps) {
+}: Readonly<DepartmentListProps>) {
   const { t } = useTranslation();
   const [currentDepartment, setCurrentDepartment] = React.useState<string | undefined>(
     departmentId

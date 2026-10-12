@@ -38,6 +38,11 @@ export class Record extends RecordCore {
     super(fieldMap);
   }
 
+  /** ShareDB doc identity for viewport fill invalidation. */
+  get docSource(): object | undefined {
+    return this.doc;
+  }
+
   get title() {
     if (!this.fieldMap) {
       return undefined;
@@ -125,7 +130,7 @@ export class Record extends RecordCore {
     );
   }
 
-  private updateComputedField = async (fieldIds: string[], record: IRecord) => {
+  private readonly updateComputedField = async (fieldIds: string[], record: IRecord) => {
     const changeCellFieldIds = fieldIds.filter((fieldId) => {
       // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
       // This prevents clearing computed fields that will be updated via ShareDB op

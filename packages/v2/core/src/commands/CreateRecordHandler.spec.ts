@@ -30,6 +30,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -423,9 +424,8 @@ const createHandler = (
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     )
   );
 

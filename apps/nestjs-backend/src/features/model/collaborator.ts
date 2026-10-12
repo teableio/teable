@@ -19,7 +19,9 @@ export class CollaboratorModel {
       const clearCacheKeys: (keyof IPerformanceCacheStore)[] = [];
       if (
         params.model === 'Collaborator' &&
-        (params.action.includes('update') || params.action.includes('delete'))
+        (params.action.includes('update') ||
+          params.action.includes('delete') ||
+          params.action === 'upsert')
       ) {
         const resourceId = params.args?.where?.resourceId;
         if (typeof resourceId === 'string') {

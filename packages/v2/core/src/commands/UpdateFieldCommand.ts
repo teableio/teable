@@ -7,6 +7,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
+import { dbFieldNameInputSchema } from '../schemas/field';
 
 /**
  * Schema for field update input.
@@ -22,7 +23,7 @@ export const updateFieldInputSchema = z.object({
     // Common properties
     name: z.string().optional(),
     description: z.string().nullable().optional(),
-    dbFieldName: z.string().optional(),
+    dbFieldName: dbFieldNameInputSchema.optional(),
     notNull: z.boolean().optional(),
     unique: z.boolean().optional(),
     // Type-specific options (partial)
@@ -83,7 +84,7 @@ export class UpdateFieldCommand {
    * For link field updates, returns the foreign table reference from options.
    */
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    const command = this;
+    const command = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<LinkForeignTableReference>, DomainError>(function* () {
       const references: LinkForeignTableReference[] = [];
 

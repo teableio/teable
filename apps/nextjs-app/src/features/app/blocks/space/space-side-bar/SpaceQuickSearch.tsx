@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Database, Search, Table2 } from '@teable/icons';
+import { LayoutGrid, Search, Table2 } from '@teable/icons';
 import { type ISpaceSearchItem } from '@teable/openapi';
 import { spaceSearch } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
@@ -8,7 +8,6 @@ import {
   CommandInput,
   CommandList,
   CommandEmpty,
-  CommandGroup,
   CommandItem,
   Button,
   TooltipProvider,
@@ -17,7 +16,7 @@ import {
   TooltipContent,
 } from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
-import { AppWindowMacIcon, BotIcon, CircleGaugeIcon } from 'lucide-react';
+import { AppWindowMacIcon, BotIcon, CalendarClockIcon, CircleGaugeIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback, useRef, type FC } from 'react';
@@ -33,11 +32,12 @@ interface Props {
 }
 
 const SearchTypeIconMap = {
-  base: Database,
+  base: LayoutGrid,
   table: Table2,
   dashboard: CircleGaugeIcon,
   workflow: BotIcon,
   app: AppWindowMacIcon,
+  routine: CalendarClockIcon,
 };
 
 export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {

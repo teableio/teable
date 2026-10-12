@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import { createAppContext } from '../../../../../../context/__tests__/createAppContext';
 import { BaseMultipleSelect } from '../BaseMultipleSelect';
@@ -35,6 +35,36 @@ describe('BaseMultipleSelect', () => {
   };
   const initvalue = ['value-1'];
   const onSelect = () => {};
+
+  it('cancels pending search when the filter unmounts or changes its callback', () => {
+    vi.useFakeTimers();
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(
+      <BaseMultipleSelect options={options} value={null} onSelect={onSelect} onSearch={first} />,
+      { wrapper: createAppContext() }
+    );
+    try {
+      view.rerender(
+        <BaseMultipleSelect options={options} value={null} onSelect={onSelect} onSearch={second} />
+      );
+      act(() => vi.advanceTimersByTime(200));
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledWith('');
+      second.mockClear();
+      view.rerender(
+        <BaseMultipleSelect options={options} value={null} onSelect={onSelect} onSearch={first} />
+      );
+      view.unmount();
+      act(() => vi.advanceTimersByTime(200));
+      expect(first).not.toHaveBeenCalled();
+      expect(second).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
 
   it('should render init selected value label', async () => {
     render(<BaseMultipleSelect options={options} onSelect={onSelect} value={initvalue} />, {

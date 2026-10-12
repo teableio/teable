@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Injectable, Optional } from '@nestjs/common';
+import { AuthGuard, AuthModuleOptions } from '@nestjs/passport';
 
 /**
  * Authenticates the OAuth *client* on the token endpoint and leaves the
@@ -12,4 +12,9 @@ import { AuthGuard } from '@nestjs/passport';
  * read `req.user`, which `canActivate` sets without a session.
  */
 @Injectable()
-export class OAuthClientGuard extends AuthGuard(['oauth2-client-password', 'oauth2-pkce-client']) {}
+export class OAuthClientGuard extends AuthGuard(['oauth2-client-password', 'oauth2-pkce-client']) {
+  // Nest 12 no longer inherits the AuthGuard mixin's @Optional() constructor marker.
+  constructor(@Optional() options?: AuthModuleOptions) {
+    super(options);
+  }
+}

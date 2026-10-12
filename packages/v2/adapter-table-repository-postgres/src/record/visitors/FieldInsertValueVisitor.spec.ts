@@ -146,6 +146,28 @@ describe('FieldInsertValueVisitor', () => {
     expect(oneWay.queryExecutors).toHaveLength(2);
   });
 
+  it('collapses duplicate ids before storing and linking a created record', () => {
+    const first = { id: 'recForeign0000001' };
+    const second = { id: 'recForeign0000002' };
+    const linkField = createLinkField({
+      relationship: 'manyMany',
+      isOneWay: false,
+      hasOrderColumn: true,
+      orderColumnName: '__order_links',
+      hostTableName: 'public.junction_links',
+    });
+
+    const result = FieldInsertValueVisitor.create([first, second, first], {
+      recordId: 'recSource00000001',
+      dbFieldName: 'link_json',
+    })
+      .visitLinkField(linkField as never)
+      ._unsafeUnwrap();
+
+    expect(result.columnValues.link_json).toBe(JSON.stringify([first, second]));
+    expect(result.queryExecutors).toHaveLength(2);
+  });
+
   it('writes foreign key columns or foreign-table updates for fk-based links', () => {
     const rawValue = [{ id: 'recForeign0000001' }, { id: 'recForeign0000002' }];
 

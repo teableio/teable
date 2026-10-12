@@ -1,10 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, getRandomString } from '@teable/core';
-import type { CreateAccessTokenRo, ITableFullVo } from '@teable/openapi';
+import type { CreateAccessTokenRo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
   createAccessToken,
   createAxios,
@@ -22,13 +22,18 @@ import {
   permanentDeleteSpace,
   listAccessToken,
   deleteAccessToken,
+  READ_PATH,
+  UPDATE_USER_AVATAR,
+  USER_ME,
   UploadType,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { CacheService } from '../src/cache/cache.service';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { AttachmentsService } from '../src/features/attachments/attachments.service';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
+import type { LocalStorage } from '../src/features/attachments/plugins/local';
 import { createAwaitWithEvent } from './utils/event-promise';
 import { permanentDeleteTable, createField, createTable, initApp } from './utils/init-app';
 
@@ -66,10 +71,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       UploadType.WorkflowRunCold,
       UploadType.AuditLogCold,
     ]) {
-      const error = await getSignature(
-        { type, contentLength: 10, contentType: 'application/octet-stream' },
-        undefined
-      ).catch((e) => e);
+      const error = await getSignature({
+        type,
+        contentLength: 10,
+        contentType: 'application/octet-stream',
+      }).catch((e) => e);
       expect(error).toMatchObject({ status: 400 });
     }
   });
@@ -198,6 +204,193 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(cachedRes.headers['cross-origin-resource-policy']).toBe(corp);
   });
 
+  describe('local read authorization', () => {
+    const toAbsolute = (url: string) => (url.startsWith('http') ? url : `${appUrl}${url}`);
+    // no session cookie, every status resolves: the read route is public and
+    // must stand on the token alone
+    const anonymousAxios = () => {
+      const instance = createAxios();
+      instance.defaults.validateStatus = () => true;
+      return instance;
+    };
+    const uploadPrivate = async (content: Buffer | string, contentType: string, name?: string) => {
+      const body = Buffer.isBuffer(content) ? content : Buffer.from(content);
+      const { token, requestHeaders } =
+        // baseId: the EE signature override requires it for table uploads
+        (
+          await getSignature({
+            type: UploadType.Table,
+            contentLength: body.length,
+            contentType,
+            baseId,
+          })
+        ).data;
+      await uploadFile(token, body, requestHeaders);
+      return (await notify(token, undefined, name)).data;
+    };
+
+    it('rejects private reads without a token sealed to the requested path', async () => {
+      const a = await uploadPrivate('attachment a', 'text/plain');
+      const b = await uploadPrivate('attachment b', 'text/plain');
+      const anon = anonymousAxios();
+      const urlA = new URL(toAbsolute(a.presignedUrl));
+      const urlB = new URL(toAbsolute(b.presignedUrl));
+      const tokenA = urlA.searchParams.get('token')!;
+      expect(tokenA).toBeTruthy();
+      expect((await anon.get(urlA.href)).status).toBe(200);
+
+      // the token is the only credential: strip it
+      const stripped = new URL(urlA.href);
+      stripped.searchParams.delete('token');
+      expect((await anon.get(stripped.href)).status).toBe(400);
+
+      // a valid token opens only the object it was minted for
+      const replayed = new URL(urlB.href);
+      replayed.searchParams.set('token', tokenA);
+      expect((await anon.get(replayed.href)).status).toBe(400);
+      expect((await anon.get(urlB.href)).status).toBe(200);
+
+      // backend-only archives are never served here, whatever token is shown
+      const bucket = StorageAdapter.getBucket(UploadType.Table);
+      const localStorage = app.get(AttachmentsService).storageAdapter as LocalStorage;
+      const statsPath = `record-history/v1/${table.id}/_stats.json`;
+      const statsFile = path.join(localStorage.storageDir, bucket, statsPath);
+      fs.mkdirSync(path.dirname(statsFile), { recursive: true });
+      fs.writeFileSync(statsFile, '{}');
+      try {
+        const statsUrl = new URL(`${appUrl}${READ_PATH}/${bucket}/${statsPath}`);
+        expect((await anon.get(statsUrl.href)).status).toBe(400);
+        statsUrl.searchParams.set('token', tokenA);
+        expect((await anon.get(statsUrl.href)).status).toBe(400);
+        statsUrl.searchParams.set(
+          'token',
+          localStorage.readTokenCodec.encode({ path: `${bucket}/${statsPath}`, expiresDate: -1 })
+        );
+        expect((await anon.get(statsUrl.href)).status).toBe(400);
+      } finally {
+        fs.rmSync(path.dirname(statsFile), { recursive: true, force: true });
+      }
+    });
+
+    it('forces a download for active content and keeps images inline', async () => {
+      const svg = await uploadPrivate(
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        'image/svg+xml'
+      );
+      const html = await uploadPrivate(
+        '<html><body><script>alert(1)</script></body></html>',
+        'text/html'
+      );
+      const png = await uploadPrivate(
+        fs.readFileSync(path.join(__dirname, '../static/test/test-image.png')),
+        'image/png'
+      );
+      const anon = anonymousAxios();
+
+      for (const item of [svg, html]) {
+        // presignedUrl is the cached preview url, url the never-expiring one
+        // minted at notify time — both must download
+        for (const url of [item.presignedUrl, item.url]) {
+          const res = await anon.get(toAbsolute(url), { responseType: 'arraybuffer' });
+          expect(res.status).toBe(200);
+          expect(res.headers['content-type']).toContain(item.mimetype);
+          expect(res.headers['content-disposition']).toMatch(/^attachment/);
+          expect(res.headers['content-security-policy']).toContain("script-src 'none'");
+        }
+        // nor can the caller opt back into inline rendering
+        const inline = new URL(toAbsolute(item.presignedUrl));
+        inline.searchParams.set('response-content-disposition', 'inline');
+        const res = await anon.get(inline.href, { responseType: 'arraybuffer' });
+        expect(res.status).toBe(200);
+        expect(res.headers['content-disposition']).toMatch(/^attachment/);
+      }
+
+      const res = await anon.get(toAbsolute(png.presignedUrl), { responseType: 'arraybuffer' });
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('image/png');
+      expect(res.headers['content-disposition']).toBeUndefined();
+      expect(res.headers['content-security-policy']).toContain("script-src 'none'");
+    });
+
+    it('forces a download for types that are not plainly inline-safe', async () => {
+      const anon = anonymousAxios();
+      // an alias Express expands to text/html, a list whose last entry wins, an xml dialect
+      for (const contentType of ['html', 'image/png,text/html', 'text/xsl']) {
+        const item = await uploadPrivate('<html><body>x</body></html>', contentType);
+        const res = await anon.get(toAbsolute(item.presignedUrl), { responseType: 'arraybuffer' });
+        expect(res.status).toBe(200);
+        expect(res.headers['content-disposition']).toMatch(/^attachment/);
+      }
+    });
+
+    it('copies an attachment by its own presigned url but refuses foreign private paths', async () => {
+      const field = await createField(table.id, { type: FieldType.Attachment });
+      const own = await uploadPrivate('copy me', 'text/plain', 'copy-me.txt');
+
+      const copied = await uploadAttachment(
+        table.id,
+        table.records[0].id,
+        field.id,
+        toAbsolute(own.presignedUrl)
+      );
+      expect(copied.status).toBe(201);
+      const copiedItem = (copied.data.fields[field.id] as IAttachmentCellValue)[0]!;
+      expect(copiedItem.size).toBe(own.size);
+      // the type the url was issued with travels with the copy
+      expect(copiedItem.mimetype).toBe('text/plain');
+
+      const bucket = StorageAdapter.getBucket(UploadType.Table);
+      const foreign = `${appUrl}${READ_PATH}/${bucket}/${own.path}`;
+      const noToken = await uploadAttachment(
+        table.id,
+        table.records[0].id,
+        field.id,
+        foreign
+      ).catch((e) => e);
+      expect(noToken).toMatchObject({ status: 400 });
+
+      const other = await uploadPrivate('other', 'text/plain');
+      const otherToken = new URL(toAbsolute(other.presignedUrl)).searchParams.get('token')!;
+      const replayed = await uploadAttachment(
+        table.id,
+        table.records[0].id,
+        field.id,
+        `${foreign}?token=${otherToken}`
+      ).catch((e) => e);
+      expect(replayed).toMatchObject({ status: 400 });
+
+      const record = await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect((record.data.fields[field.id] as IAttachmentCellValue).length).toBe(1);
+    });
+
+    it('serves public-bucket objects without a token', async () => {
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new Blob([fs.readFileSync(path.join(__dirname, '../static/test/test-image.png'))], {
+          type: 'image/png',
+        }),
+        'avatar.png'
+      );
+      expect((await defaultAxios.patch(UPDATE_USER_AVATAR, formData)).status).toBe(200);
+      const me = (await defaultAxios.get<IUserMeVo>(USER_ME)).data;
+      expect(me.avatar).toContain(READ_PATH);
+      expect(me.avatar).not.toContain('token=');
+
+      // the avatar url carries the configured storage prefix; only its path
+      // matters here, so point it at the app under test
+      const avatarUrl = new URL(me.avatar!, appUrl);
+      const res = await anonymousAxios().get(
+        new URL(`${avatarUrl.pathname}${avatarUrl.search}`, appUrl).href,
+        { responseType: 'arraybuffer' }
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('image/');
+    });
+  });
+
   it('should keep a non-ASCII file name single-encoded on the local read path', async () => {
     const csvPath = path.join(
       StorageAdapter.TEMPORARY_DIR,
@@ -207,10 +400,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     const stats = fs.statSync(csvPath);
 
     const { token, requestHeaders } = (
-      await getSignature(
-        { type: UploadType.Import, contentLength: stats.size, contentType: 'text/csv' },
-        undefined
-      )
+      await getSignature({
+        type: UploadType.Import,
+        contentLength: stats.size,
+        contentType: 'text/csv',
+      })
     ).data;
     await uploadFile(token, fs.createReadStream(csvPath), requestHeaders);
     const {

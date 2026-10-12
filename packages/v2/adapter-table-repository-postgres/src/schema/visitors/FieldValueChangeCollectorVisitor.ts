@@ -22,6 +22,7 @@ import type {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -97,6 +98,7 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   private readonly selfBackfillFieldIdSet = new Map<string, FieldId>();
   private readonly valueChangedFieldIdSet = new Map<string, FieldId>();
   private readonly deferredBackfillFieldIdSet = new Map<string, FieldId>();
+  private readonly removedFieldIdSet = new Map<string, FieldId>();
   private dbStorageTypeChanged = false;
 
   selfBackfillFields(): ReadonlyArray<FieldId> {
@@ -109,6 +111,15 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   deferredBackfillFields(): ReadonlyArray<FieldId> {
     return [...this.deferredBackfillFieldIdSet.values()];
+  }
+
+  /**
+   * Fields this mutation removes (including symmetric link fields removed as a
+   * side effect). Their physical columns are dropped with them, so pending
+   * backfill work that targets them cannot make progress any more.
+   */
+  removedFields(): ReadonlyArray<FieldId> {
+    return [...this.removedFieldIdSet.values()];
   }
 
   /**
@@ -131,6 +142,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   private addDeferredBackfill(fieldId: FieldId): void {
     this.deferredBackfillFieldIdSet.set(fieldId.toString(), fieldId);
+  }
+
+  private addRemovedField(fieldId: FieldId): void {
+    this.removedFieldIdSet.set(fieldId.toString(), fieldId);
   }
 
   visit(_: ISpecification): Result<void, DomainError> {
@@ -194,7 +209,8 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
-  visitTableRemoveField(_spec: TableRemoveFieldSpec): Result<void, DomainError> {
+  visitTableRemoveField(spec: TableRemoveFieldSpec): Result<void, DomainError> {
+    this.addRemovedField(spec.field().id());
     return ok(undefined);
   }
 
@@ -241,6 +257,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   visitTableWithPrimaryField(_spec: TableWithPrimaryFieldSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithFieldIds(_spec: TableWithFieldIdsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -595,7 +615,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   // RemoveSymmetricLinkField
-  visitRemoveSymmetricLinkField(_spec: RemoveSymmetricLinkFieldSpec): Result<void, DomainError> {
+  visitRemoveSymmetricLinkField(spec: RemoveSymmetricLinkFieldSpec): Result<void, DomainError> {
+    // The symmetric field's JSONB column is dropped with it even though the
+    // junction table survives the twoWay → oneWay conversion.
+    this.addRemovedField(spec.fieldId());
     return ok(undefined);
   }
 }

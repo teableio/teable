@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Readable, PassThrough } from 'stream';
+import { Readable, PassThrough } from 'node:stream';
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
@@ -41,17 +41,18 @@ import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { NotificationService } from '../notification/notification.service';
+import { PENDING_ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
 @Injectable()
 export class BaseExportService {
-  public static CSV_CHUNK = 500;
-  public static FIELD_EXPORT_BATCH_SIZE = 500;
-  public static VIEW_EXPORT_BATCH_SIZE = 500;
+  public static readonly CSV_CHUNK = 500;
+  public static readonly FIELD_EXPORT_BATCH_SIZE = 500;
+  public static readonly VIEW_EXPORT_BATCH_SIZE = 500;
   private static readonly TABLE_ID_QUERY_CHUNK_SIZE = 100;
-  public static FILE_SUFFIX = 'tea';
-  public static EXPORT_FIELD_COLUMNS = [
+  public static readonly FILE_SUFFIX = 'tea';
+  public static readonly EXPORT_FIELD_COLUMNS = [
     'id',
     'name',
     'description',
@@ -73,7 +74,7 @@ export class BaseExportService {
     'cellValueType',
     'isMultipleCellValue',
   ];
-  private logger = new Logger(BaseExportService.name);
+  private readonly logger = new Logger(BaseExportService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -258,7 +259,7 @@ export class BaseExportService {
         path,
         second(this.storageConfig.tokenExpireIn),
         {
-          // eslint-disable-next-line
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
         }
       );
@@ -464,6 +465,7 @@ export class BaseExportService {
     // for enterprise version, do not delete these properties
     includedAppIds,
     includedWorkflowIds,
+    includedRoutineIds,
     // Root node IDs - nodes that should have their parentId set to null
     rootNodeIds,
     // When set, fields whose foreign base lives in a different space are also
@@ -481,6 +483,7 @@ export class BaseExportService {
     includedDashboardIds?: string[];
     includedAppIds?: string[];
     includedWorkflowIds?: string[];
+    includedRoutineIds?: string[];
     excludedTableIds?: string[];
     rootNodeIds?: string[];
     destSpaceId?: string;
@@ -646,6 +649,8 @@ export class BaseExportService {
       .map(({ name }) => name)
       // exclude system fields
       .filter((name) => !excludeDbFieldNames.includes(name))
+      // an interrupted row-order backfill has no column on the imported table
+      .filter((name) => !name.startsWith(PENDING_ROW_ORDER_FIELD_PREFIX))
       // exclude fk fields which are cross base link fields
       .filter((name) => !fkNames.includes(name));
     // write the column header
@@ -874,7 +879,7 @@ export class BaseExportService {
     convertFields: [string, string],
     excludeFieldNames: string[]
   ) {
-    const recordsQuery = await this.knex(fkHostTableName)
+    const recordsQuery = this.knex(fkHostTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
       .offset(offset)
@@ -903,7 +908,7 @@ export class BaseExportService {
     dbTableName: string,
     offset: number
   ) {
-    const recordsQuery = await this.knex(dbTableName)
+    const recordsQuery = this.knex(dbTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
       .offset(offset)
@@ -1736,7 +1741,7 @@ export class BaseExportService {
     }
   ) {
     const userId = this.cls.get('user.id');
-    await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
+    this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
       status: result?.status,
       previewUrl: result?.previewUrl,
       attachment: result?.attachment,

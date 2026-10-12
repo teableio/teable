@@ -31,6 +31,7 @@ export type IDbConnectionVo = z.infer<typeof dbConnectionVoSchema>;
 export const CreateDbConnectionRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_DB_CONNECTION,
+  title: 'Post project connection',
   description: 'Create a db connection url',
   request: {
     params: z.object({

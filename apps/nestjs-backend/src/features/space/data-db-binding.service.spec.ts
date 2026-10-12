@@ -17,7 +17,7 @@ vi.mock('@teable/db-data-prisma', () => ({
   DataPrismaModule: class DataPrismaModule {},
   DataPrismaService: class DataPrismaService {},
   PrismaClient: class PrismaClient {},
-  getMetaDatabaseUrl: vi.fn(),
+  getMetaDatabaseUrl: vi.fn(() => 'postgresql://test@localhost/metadata'),
 }));
 vi.mock('@prisma/client', () => ({
   Prisma: {},
@@ -40,6 +40,8 @@ const capabilities = {
 
 describe('DataDbBindingService', () => {
   const txClient = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn(),
     dataDbConnection: {
       upsert: vi.fn(),
       update: vi.fn(),
@@ -98,6 +100,7 @@ describe('DataDbBindingService', () => {
   };
 
   beforeEach(() => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://source.example/teable');
     txClient.dataDbConnection.upsert.mockReset().mockResolvedValue({ id: 'dcnxxx' });
     txClient.dataDbConnection.update.mockReset();
     txClient.spaceDataDbBinding.create.mockReset();
@@ -350,6 +353,35 @@ describe('DataDbBindingService', () => {
         }),
       })
     );
+  });
+
+  it('audits a retried migration without the connection URL', async () => {
+    const audit = { emitAtomic: vi.fn().mockResolvedValue(undefined) };
+    dataDbMigrationService.ensureConnectionMigrated.mockResolvedValueOnce(['0002_add_column']);
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never,
+      undefined,
+      undefined,
+      audit as never
+    );
+
+    await service.retryMigrationForSpace('spcxxx');
+
+    expect(audit.emitAtomic).toHaveBeenCalledWith({
+      action: 'space.data-db.retry',
+      resourceId: 'spcxxx',
+      params: {
+        spaceId: 'spcxxx',
+        dataDbConnectionId: 'dcnxxx',
+        internalSchema,
+        appliedMigrationCount: 1,
+      },
+    });
+    expect(JSON.stringify(audit.emitAtomic.mock.calls)).not.toContain(dataUrl);
   });
 
   it('retries migration for an existing BYODB binding', async () => {

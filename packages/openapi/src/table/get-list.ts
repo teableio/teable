@@ -13,7 +13,7 @@ export const GetTableListRoute: RouteConfig = registerRoute({
   path: GET_TABLE_LIST,
   summary: 'List tables',
   description:
-    'Retrieve a list of all tables in the specified base, including their basic information and configurations.',
+    'Retrieve a list of all tables in the specified project, including their basic information and configurations.',
   request: {
     params: z.object({
       baseId: z.string(),

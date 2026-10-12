@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { PassThrough } from 'stream';
+import { PassThrough } from 'node:stream';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -23,7 +23,7 @@ export const BASE_IMPORT_ATTACHMENTS_QUEUE = 'base-import-attachments-queue';
 @Injectable()
 @Processor(BASE_IMPORT_ATTACHMENTS_QUEUE)
 export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
-  private logger = new Logger(BaseImportAttachmentsQueueProcessor.name);
+  private readonly logger = new Logger(BaseImportAttachmentsQueueProcessor.name);
 
   constructor(
     private readonly prismaService: PrismaService,

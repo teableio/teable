@@ -143,13 +143,36 @@ export class MetaValidationVisitor implements IFieldVisitor<MetaValidationIssue[
               relatedFieldId: symFieldIdStr,
             })
           );
-        } else {
+        } else if (symmetricField.type().toString() !== 'link') {
           // Validate symmetric field is a link field
-          if (symmetricField.type().toString() !== 'link') {
+          issues.push(
+            referenceError({
+              ...info,
+              message: `Symmetric field is not a link field (found: ${symmetricField.type().toString()})`,
+              relatedTableId: foreignTableId,
+              relatedFieldId: symFieldIdStr,
+            })
+          );
+        } else {
+          issues.push(
+            referenceSuccess({
+              ...info,
+              message: `✓ Symmetric field exists: ${symmetricField.name().toString()}`,
+              relatedTableId: foreignTableId,
+              relatedFieldId: symFieldIdStr,
+            })
+          );
+
+          // Validate symmetric link points back to current table
+          const symLinkField = symmetricField as LinkField;
+          const symForeignTableId = symLinkField.foreignTableId().toString();
+          const currentTableId = this.ctx.table.id().toString();
+
+          if (symForeignTableId !== currentTableId) {
             issues.push(
               referenceError({
                 ...info,
-                message: `Symmetric field is not a link field (found: ${symmetricField.type().toString()})`,
+                message: `Symmetric field's foreignTableId (${symForeignTableId}) does not point back to current table (${currentTableId})`,
                 relatedTableId: foreignTableId,
                 relatedFieldId: symFieldIdStr,
               })
@@ -158,22 +181,22 @@ export class MetaValidationVisitor implements IFieldVisitor<MetaValidationIssue[
             issues.push(
               referenceSuccess({
                 ...info,
-                message: `✓ Symmetric field exists: ${symmetricField.name().toString()}`,
+                message: `✓ Symmetric field points back to current table`,
                 relatedTableId: foreignTableId,
                 relatedFieldId: symFieldIdStr,
               })
             );
+          }
 
-            // Validate symmetric link points back to current table
-            const symLinkField = symmetricField as LinkField;
-            const symForeignTableId = symLinkField.foreignTableId().toString();
-            const currentTableId = this.ctx.table.id().toString();
-
-            if (symForeignTableId !== currentTableId) {
+          // Validate symmetric field's symmetricFieldId points back to this field
+          const symSymmetricFieldId = symLinkField.symmetricFieldId();
+          if (symSymmetricFieldId) {
+            const symSymFieldIdStr = symSymmetricFieldId.toString();
+            if (symSymFieldIdStr !== info.fieldId) {
               issues.push(
                 referenceError({
                   ...info,
-                  message: `Symmetric field's foreignTableId (${symForeignTableId}) does not point back to current table (${currentTableId})`,
+                  message: `Symmetric field's symmetricFieldId (${symSymFieldIdStr}) does not point back to this field (${info.fieldId})`,
                   relatedTableId: foreignTableId,
                   relatedFieldId: symFieldIdStr,
                 })
@@ -182,36 +205,11 @@ export class MetaValidationVisitor implements IFieldVisitor<MetaValidationIssue[
               issues.push(
                 referenceSuccess({
                   ...info,
-                  message: `✓ Symmetric field points back to current table`,
+                  message: `✓ Bidirectional symmetry is consistent`,
                   relatedTableId: foreignTableId,
                   relatedFieldId: symFieldIdStr,
                 })
               );
-            }
-
-            // Validate symmetric field's symmetricFieldId points back to this field
-            const symSymmetricFieldId = symLinkField.symmetricFieldId();
-            if (symSymmetricFieldId) {
-              const symSymFieldIdStr = symSymmetricFieldId.toString();
-              if (symSymFieldIdStr !== info.fieldId) {
-                issues.push(
-                  referenceError({
-                    ...info,
-                    message: `Symmetric field's symmetricFieldId (${symSymFieldIdStr}) does not point back to this field (${info.fieldId})`,
-                    relatedTableId: foreignTableId,
-                    relatedFieldId: symFieldIdStr,
-                  })
-                );
-              } else {
-                issues.push(
-                  referenceSuccess({
-                    ...info,
-                    message: `✓ Bidirectional symmetry is consistent`,
-                    relatedTableId: foreignTableId,
-                    relatedFieldId: symFieldIdStr,
-                  })
-                );
-              }
             }
           }
         }

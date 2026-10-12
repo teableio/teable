@@ -7,6 +7,7 @@ import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
 import { shareConfig } from '@/features/i18n/share.config';
 import { getAppDatabaseUrl } from '@/lib/database-url';
 import { getTranslationsProps } from '@/lib/i18n';
+import { getUnauthenticatedRedirect } from '@/lib/returning-user-cookie';
 import withEnv from '@/lib/withEnv';
 
 export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
@@ -26,7 +27,7 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
         if (!user) {
           return {
             redirect: {
-              destination: `/auth/signup?redirect=${encodeURIComponent(req?.url || '')}`,
+              destination: getUnauthenticatedRedirect(req),
               permanent: false,
             },
           };

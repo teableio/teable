@@ -11,6 +11,7 @@ import { Selector } from '@/components/Selector';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import { LookupFilterOptions } from './LookupFilterOptions';
+import { LookupUniqueValuesSwitch } from './LookupUniqueValuesSwitch';
 
 export const SelectFieldByTableId: React.FC<{
   selectedId?: string;
@@ -49,13 +50,20 @@ export const LookupOptions = (props: {
   options: Partial<ILookupLinkOptionsVo> | undefined;
   fieldId?: string;
   requireFilter?: boolean;
+  enableUniqueValues?: boolean;
   onChange?: (
     options: Partial<ILookupLinkOptionsVo>,
     linkField?: LinkField,
     lookupField?: IFieldInstance
   ) => void;
 }) => {
-  const { fieldId, options = {}, onChange, requireFilter = false } = props;
+  const {
+    fieldId,
+    options = {},
+    onChange,
+    requireFilter = false,
+    enableUniqueValues = false,
+  } = props;
   const table = useTable();
   const tables = useTables();
   const fields = useFields({ withHidden: true, withDenied: true });
@@ -64,6 +72,7 @@ export const LookupOptions = (props: {
     foreignTableId: options.foreignTableId,
     linkFieldId: options.linkFieldId,
     lookupFieldId: options.lookupFieldId,
+    isUnique: options.isUnique,
   });
   const baseId = useBaseId();
 
@@ -73,8 +82,9 @@ export const LookupOptions = (props: {
       foreignTableId: options.foreignTableId,
       linkFieldId: options.linkFieldId,
       lookupFieldId: options.lookupFieldId,
+      isUnique: options.isUnique,
     }));
-  }, [options.foreignTableId, options.linkFieldId, options.lookupFieldId]);
+  }, [options.foreignTableId, options.linkFieldId, options.lookupFieldId, options.isUnique]);
 
   const [moreVisible, setMoreVisible] = useState<boolean>(
     requireFilter || Boolean(options?.filter)
@@ -152,6 +162,12 @@ export const LookupOptions = (props: {
                   />
                 </div>
               </StandaloneViewProvider>
+              {enableUniqueValues && (
+                <LookupUniqueValuesSwitch
+                  checked={innerOptions.isUnique ?? false}
+                  onCheckedChange={(isUnique) => setOptions({ isUnique })}
+                />
+              )}
               <>
                 <div className="flex justify-start">
                   <Button

@@ -46,7 +46,7 @@ export const updateCommentReactionRoSchema = z.object({
 export type IUpdateCommentReactionRo = z.infer<typeof updateCommentReactionRoSchema>;
 
 export const CreateCommentReactionRoute: RouteConfig = registerRoute({
-  method: 'post',
+  method: 'patch',
   path: CREATE_COMMENT_REACTION,
   description: 'create record comment reaction',
   request: {

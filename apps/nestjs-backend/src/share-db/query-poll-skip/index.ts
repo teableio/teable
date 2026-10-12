@@ -2,12 +2,16 @@ import { IdPrefix } from '@teable/core';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import type { IQueryPollSkipStrategy } from '../interface';
 import { recordQueryPollDecision } from '../metrics/query-poll-skip-metrics';
+import { DocListQueryPollSkipStrategy } from './doc-list-query-poll-skip.strategy';
 import { RecordQueryPollSkipStrategy } from './record-query-poll-skip.strategy';
 
 // one strategy per subscribed doc type; a subscription type without a
 // strategy always polls
+const docListStrategy = new DocListQueryPollSkipStrategy();
 const strategies: Partial<Record<IdPrefix, IQueryPollSkipStrategy>> = {
   [IdPrefix.Record]: new RecordQueryPollSkipStrategy(),
+  [IdPrefix.Table]: docListStrategy,
+  [IdPrefix.View]: docListStrategy,
 };
 
 /**

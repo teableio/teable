@@ -172,9 +172,9 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    const numericList = (value as ILiteralValueList).map((entry) => Number(entry));
+    const numericList = (value as ILiteralValueList).map(Number);
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb \\?| ARRAY[${this.createSqlPlaceholders(numericList)}]`,
+      String.raw`${this.tableColumnRef}::jsonb \?| ARRAY[${this.createSqlPlaceholders(numericList)}]`,
       numericList
     );
     return builderClient;
@@ -196,9 +196,9 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    const numericList = (value as ILiteralValueList).map((entry) => Number(entry));
+    const numericList = (value as ILiteralValueList).map(Number);
     builderClient.whereRaw(
-      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \\?| ARRAY[${this.createSqlPlaceholders(numericList)}]`,
+      String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \?| ARRAY[${this.createSqlPlaceholders(numericList)}]`,
       numericList
     );
     return builderClient;
@@ -218,7 +218,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    const numericList = (value as ILiteralValueList).map((entry) => Number(entry));
+    const numericList = (value as ILiteralValueList).map(Number);
     builderClient.whereRaw(
       `jsonb_exists_all(${this.tableColumnRef}::jsonb, ARRAY[${this.createSqlPlaceholders(numericList)}])`,
       numericList
@@ -241,7 +241,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    const numericList = (value as ILiteralValueList).map((entry) => Number(entry));
+    const numericList = (value as ILiteralValueList).map(Number);
     const placeholders = this.createSqlPlaceholders(numericList);
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @> to_jsonb(ARRAY[${placeholders}]) AND to_jsonb(ARRAY[${placeholders}]) @> ${this.tableColumnRef}::jsonb`,
@@ -265,7 +265,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    const numericList = (value as ILiteralValueList).map((entry) => Number(entry));
+    const numericList = (value as ILiteralValueList).map(Number);
     const placeholders = this.createSqlPlaceholders(numericList);
     builderClient.whereRaw(
       `(NOT (${this.tableColumnRef}::jsonb @> to_jsonb(ARRAY[${placeholders}]) AND to_jsonb(ARRAY[${placeholders}]) @> ${this.tableColumnRef}::jsonb) OR ${this.tableColumnRef} IS NULL)`,

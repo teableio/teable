@@ -5,6 +5,13 @@ import { DOMParser, DOMSerializer } from '@milkdown/prose/model';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import TurndownService from 'turndown';
 
+/** Drops the trailing newline and everything after it when only whitespace follows (linear-time `\n\s*$`). */
+const stripTrailingNewline = (text: string): string => {
+  const trimmedLength = text.trimEnd().length;
+  const newlineAt = text.indexOf('\n', trimmedLength);
+  return newlineAt === -1 ? text : text.slice(0, newlineAt);
+};
+
 const VSCODE_TEXT_MODES = new Set(['markdown', 'plaintext', 'plain']);
 
 const isGoogleDocsHtml = (html: string) => html.includes('docs-internal-guid');
@@ -108,9 +115,8 @@ export const createMarkdownPastePlugin = (ctx: Ctx) =>
             .turndown(html)
             // Clean up empty bold/italic markers left by Google Docs' <b>/<i> wrappers
             .replace(/^[*_]{2,}\s*$/gm, '')
-            .replace(/^\s*\n/, '')
-            .replace(/\n\s*$/, '');
-          return pasteMarkdown(ctx, view, markdown);
+            .replace(/^\s*\n/, '');
+          return pasteMarkdown(ctx, view, stripTrailingNewline(markdown));
         }
 
         // Default: parse text/plain as markdown

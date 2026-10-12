@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import path from 'path';
+import path from 'node:path';
 import KeyvRedis from '@keyv/redis';
 import KeyvSqlite from '@keyv/sqlite';
 import type { Provider } from '@nestjs/common';

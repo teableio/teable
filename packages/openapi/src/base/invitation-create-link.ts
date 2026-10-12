@@ -20,7 +20,8 @@ export type CreateBaseInvitationLinkVo = z.infer<typeof createBaseInvitationLink
 export const CreateBaseInvitationLinkRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE_INVITATION_LINK,
-  description: 'Create a invitation link to your',
+  title: 'Create project invitation link',
+  description: 'Create a link for inviting collaborators to a project.',
   request: {
     params: z.object({
       baseId: z.string(),

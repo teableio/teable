@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
+import { Inject, Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
   CellFormat,
@@ -150,6 +150,7 @@ import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-searc
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
+import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 
 const internalServerError = 'Internal server error';
@@ -164,6 +165,7 @@ interface IRecordsWithVersions {
 
 interface IIdRecordResponsePlan {
   checkboxFieldIds: ReadonlySet<string>;
+  includeEmptyCells: boolean;
   auditFallbacks: ReadonlyArray<{
     fieldId: string;
     source: 'createdBy' | 'lastModifiedBy';
@@ -224,6 +226,10 @@ type FilterFieldMeta = Pick<IFieldInstance, 'type' | 'cellValueType'> & {
 
 @Injectable()
 export class RecordOpenApiV2Service {
+  // Property-injected so the long positional constructor (and its specs) stay as they are.
+  @Inject(CrossBaseLinkAccessService)
+  private readonly crossBaseLinkAccess!: CrossBaseLinkAccessService;
+
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
@@ -344,6 +350,8 @@ export class RecordOpenApiV2Service {
     table: Table,
     options?: {
       projectionFieldIds?: ReadonlyArray<string>;
+      /** Socket recovery needs explicit clears; ordinary REST responses stay sparse. */
+      includeEmptyCells?: boolean;
       /** Id-resolution reads: select only record ids, skip extras. */
       idsOnly?: boolean;
       /** Host-only page size for ids-only sweeps (overrides the request take). */
@@ -399,10 +407,9 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
-    const recordSearchAccessPath = await this.resolveRecordSearchAccessPath(
+    const recordSearchAccessPath = this.resolveRecordSearchAccessPath(
       context,
-      tableId,
-      container,
+      table,
       effectiveQuery.search
     );
     const shouldExposeGroupMetadata =
@@ -509,7 +516,9 @@ export class RecordOpenApiV2Service {
       'teable.RecordOpenApiV2Service.queryExtra',
       {
         'record.read.query_extra_enabled': shouldLoadSearchHitIndex,
-        'record.read.include_query_extra': query.includeQueryExtra !== false,
+        // T7339: the raw request flag, so an omitted option must not read as a request.
+        // Whether the extra was actually loaded is the attribute above.
+        'record.read.include_query_extra': query.includeQueryExtra === true,
         'record.read.has_search': Boolean(effectiveQuery.search),
         'record.read.search_access_path': recordSearchAccessPath?.kind ?? 'default',
         'record.read.query_extra_match_count': listResult.searchMatches?.length ?? 0,
@@ -605,7 +614,7 @@ export class RecordOpenApiV2Service {
       },
       () => {
         const idResponsePlan = this.isIdFieldKeyType(requestedFieldKeyType)
-          ? this.createIdRecordResponsePlan(table)
+          ? this.createIdRecordResponsePlan(table, options?.includeEmptyCells)
           : undefined;
         return listResult.records.map((record) =>
           this.mapTableRecordReadModelToIRecord(
@@ -1067,6 +1076,7 @@ export class RecordOpenApiV2Service {
       projection: projectionFieldIds,
       fieldKeyType: FieldKeyType.Id,
       cellFormat: CellFormat.Json,
+      includeEmptyCells: true,
       // ShareDB query membership already scopes subscribed ids; retain known
       // documents for version continuity while still applying field scope.
       keepPrimaryKey: true,
@@ -1128,6 +1138,7 @@ export class RecordOpenApiV2Service {
       fieldKeyType: FieldKeyType;
       keepPrimaryKey: boolean;
       throwOnMissing?: boolean;
+      includeEmptyCells?: boolean;
     }
   ): Promise<{
     recordById: Map<string, IRecord>;
@@ -1163,7 +1174,8 @@ export class RecordOpenApiV2Service {
         queryScope,
         container,
         context,
-        table
+        table,
+        { includeEmptyCells: options.includeEmptyCells }
       );
       for (const record of page.result.records) {
         recordById.set(record.id, record);
@@ -2257,7 +2269,10 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  private createIdRecordResponsePlan(table: Table): IIdRecordResponsePlan {
+  private createIdRecordResponsePlan(
+    table: Table,
+    includeEmptyCells = false
+  ): IIdRecordResponsePlan {
     const checkboxFieldIds = new Set<string>();
     const auditFallbacks: Array<IIdRecordResponsePlan['auditFallbacks'][number]> = [];
 
@@ -2275,6 +2290,7 @@ export class RecordOpenApiV2Service {
 
     return {
       checkboxFieldIds,
+      includeEmptyCells,
       auditFallbacks,
     };
   }
@@ -2286,6 +2302,7 @@ export class RecordOpenApiV2Service {
     const fields: Record<string, unknown> = {};
     for (const [fieldId, value] of Object.entries(record.fields)) {
       if (value == null || (value === false && plan.checkboxFieldIds.has(fieldId))) {
+        if (plan.includeEmptyCells) fields[fieldId] = null;
         continue;
       }
       fields[fieldId] = value;
@@ -2406,18 +2423,17 @@ export class RecordOpenApiV2Service {
     return field.name().toString();
   }
 
-  private async resolveRecordSearchAccessPath(
+  private resolveRecordSearchAccessPath(
     context: IExecutionContext,
-    tableId: string,
-    container: DependencyContainer,
+    table: Table,
     search: IGetRecordsRo['search']
-  ): Promise<IRecordSearchAccessPath | undefined> {
+  ): IRecordSearchAccessPath | undefined {
     const runtimeService = this.tableQuerySearchVectorRuntimeService;
     if (!runtimeService) {
       return undefined;
     }
 
-    return await this.withRecordReadSpan(
+    return this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.resolveRecordSearchAccessPath',
       {
@@ -2425,8 +2441,7 @@ export class RecordOpenApiV2Service {
       },
       () =>
         runtimeService.resolveForRecordSearch({
-          container,
-          tableId,
+          table,
           search,
         })
     );
@@ -2569,6 +2584,9 @@ export class RecordOpenApiV2Service {
     const hasOrder = Boolean(order);
     const fields = updateRecordRo.record.fields ?? {};
     const hasFields = Object.keys(fields).length > 0;
+    if (hasFields && updateRecordRo.typecast) {
+      await this.crossBaseLinkAccess.assertForeignTablesReadable(tableId, Object.keys(fields));
+    }
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -2731,6 +2749,9 @@ export class RecordOpenApiV2Service {
       'record.update.request.hasOrder': Boolean(updateRecordsRo.order),
       'record.update.request.typecast': updateRecordsRo.typecast ?? false,
     });
+    if (updateRecordsRo.typecast) {
+      await this.crossBaseLinkAccess.assertForeignTablesReadable(tableId, uniqueFieldIds);
+    }
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -2880,6 +2901,12 @@ export class RecordOpenApiV2Service {
 
     // Preserve v1's default typecast behavior (false) to ensure proper validation
     const records = createRecordsRo.records;
+    if (createRecordsRo.typecast) {
+      await this.crossBaseLinkAccess.assertForeignTablesReadable(
+        tableId,
+        records.flatMap((record) => Object.keys(record.fields ?? {}))
+      );
+    }
 
     const result = await executeCreateRecordsEndpoint(
       context,
@@ -3296,6 +3323,11 @@ export class RecordOpenApiV2Service {
         }
 
         const targetFields = fields.slice(startCol, startCol + truncatedCols);
+        // Pasted text in a link column is resolved by title against the foreign table.
+        await this.crossBaseLinkAccess.assertForeignTablesReadable(
+          tableId,
+          targetFields.map((field) => field.id)
+        );
         const sourceFieldInstances = header?.map((field) => createFieldInstanceByVo(field));
         if (sourceFieldInstances) {
           finalContent = this.convertPasteContentWithSourceFields(

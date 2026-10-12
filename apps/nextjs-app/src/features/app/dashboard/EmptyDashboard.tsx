@@ -1,6 +1,6 @@
 import { Plus } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import { useBasePermission } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';

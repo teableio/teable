@@ -46,9 +46,15 @@ export const urlBuilder = (url: string, pathParams?: Record<string, unknown>) =>
   return url;
 };
 
-const routes: RouteConfig[] = [];
+// Display labels are separate from summary, which determines existing documentation URLs.
+export type IRouteConfig = RouteConfig & {
+  title?: string;
+  sidebarTitle?: string;
+};
 
-export const registerRoute = (route: RouteConfig) => {
+const routes: IRouteConfig[] = [];
+
+export const registerRoute = (route: IRouteConfig) => {
   routes.push(route);
   return route;
 };

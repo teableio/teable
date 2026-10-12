@@ -59,7 +59,8 @@ export type IBaseErdVo = z.infer<typeof baseErdVoSchema>;
 export const getBaseErdRoute: RouteConfig = registerRoute({
   method: 'get',
   path: BASE_ERD,
-  description: 'Get the erd of a base',
+  title: 'Get project relationship diagram',
+  description: 'Retrieve the entity relationship diagram for a project.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -67,7 +68,7 @@ export const getBaseErdRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the erd of a base.',
+      description: 'Returns the erd of a project.',
       content: {
         'application/json': {
           schema: baseErdVoSchema,

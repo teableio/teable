@@ -10,7 +10,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import * as CsvParserPort from '../ports/CsvParser';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
-import * as EventBusPort from '../ports/EventBus';
+import * as DomainWriteTransactionPort from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -48,8 +48,8 @@ export class ImportCsvHandler
     tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    domainWriteTransaction: DomainWriteTransactionPort.IDomainWriteTransaction,
     @inject(v2CoreTokens.unitOfWork)
     unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.recordWritePluginRunner)
@@ -68,7 +68,7 @@ export class ImportCsvHandler
       tableRepository,
       tableSchemaRepository,
       tableRecordRepository,
-      eventBus,
+      domainWriteTransaction,
       unitOfWork,
       recordWritePluginRunner,
       tableOperationPluginRunner
@@ -80,7 +80,7 @@ export class ImportCsvHandler
     context: ExecutionContextPort.IExecutionContext,
     command: ImportCsvCommand
   ): Promise<Result<ImportTabularTableResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ImportTabularTableResult, DomainError>(async function* () {
       const parseResult = yield* await handler.parseCsvSource(
         command.csvSource,
@@ -111,18 +111,17 @@ export class ImportCsvHandler
     useFirstRowAsHeader: boolean
   ): Promise<Result<CsvParserPort.CsvParseResult, DomainError>> {
     const options: CsvParserPort.CsvParseOptions = { hasHeader: useFirstRowAsHeader };
-    if (source.type === 'stream' || source.type === 'url') {
-      if (!this.csvParser.parseAsync) {
-        return err(
-          domainError.infrastructure({
-            message: 'CSV parser does not support async parsing for stream/url sources',
-            code: 'csv.async_not_supported',
-          })
-        );
-      }
+    if (this.csvParser.parseAsync) {
       return this.csvParser.parseAsync(source, options);
     }
-
+    if (source.type === 'stream' || source.type === 'url') {
+      return err(
+        domainError.infrastructure({
+          message: 'CSV parser does not support async parsing for stream/url sources',
+          code: 'csv.async_not_supported',
+        })
+      );
+    }
     return this.csvParser.parse(source, options);
   }
 }

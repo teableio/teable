@@ -201,7 +201,8 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
 
     if (!ctx) return { type: CellRegionType.Blank };
 
-    const scrollTop = activeCellBound?.scrollTop ?? 0;
+    // activeCellBound describes the active cell even while hit-testing others
+    const scrollTop = isActive ? activeCellBound?.scrollTop ?? 0 : 0;
     const hoverY = originHoverY + scrollTop;
 
     setFontSize(fontSizeSM);
@@ -222,11 +223,11 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     }
     return { type: CellRegionType.Blank };
   },
-  onClick: (cell: ILinkCell, props: ICellClickProps, _callback: ICellClickCallback) => {
+  onClick: (cell: ILinkCell, props: ICellClickProps, callback: ICellClickCallback) => {
     const cellRegion = linkCellRenderer.checkRegion?.(cell, props, true);
-    if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
-    if (cellRegion.type === CellRegionType.Preview) {
-      cell.onClick?.(cellRegion.data as string);
-    }
+    if (cellRegion?.type !== CellRegionType.Preview) return;
+    cell.onClick?.(cellRegion.data as string);
+    // Lets the touch layer know a link was tapped so it does not also activate the cell
+    callback(cellRegion);
   },
 };

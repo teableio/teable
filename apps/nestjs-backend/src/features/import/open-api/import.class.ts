@@ -1,14 +1,15 @@
-import { existsSync } from 'fs';
-import { join } from 'path';
-import { PassThrough } from 'stream';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { Transform, type Readable } from 'node:stream';
 import { getUniqName, FieldType, HttpErrorCode } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
+import type { IImportParseResult, IImportSource } from '@teable/v2-core';
+import { ExcelImportAdapter, prepareExcelImportSource } from '@teable/v2-import';
 import jschardet from 'jschardet';
-import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
+import { toString, intersection } from 'lodash';
 import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { z } from 'zod';
 import type { ZodType } from 'zod';
 import { CustomHttpException } from '../../../custom.exception';
@@ -17,6 +18,11 @@ import { safeFetch } from '../../../utils/ssrf-http';
 import { toLineDelimitedStream } from './delimiter-stream';
 
 export const DEFAULT_IMPORT_CPU_USAGE = 0.5;
+
+type ImportSheetAnalysis = {
+  rowCount: number;
+  columns: { header: unknown; candidates: IValidateTypes[]; hasValue: boolean }[];
+};
 
 export const parseBoolean = (value: unknown): boolean => {
   if (typeof value === 'boolean') return value;
@@ -92,7 +98,7 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Date]: z.any().refine(isValidDateForImport, { message: 'Invalid date' }),
   [FieldType.Number]: z.any().refine(
     (value) => {
-      return !isNaN(Number(value));
+      return !Number.isNaN(Number(value));
     },
     { message: 'Invalid number' }
   ),
@@ -116,69 +122,62 @@ function detectAndDecode(sample: Buffer): { isUtf8: boolean; encoding: string } 
   return { isUtf8: isUtf8Compatible(encoding), encoding: encoding || 'utf-8' };
 }
 
-function flushSampleAsUtf8(sampleChunks: Buffer[], output: PassThrough, encoding: string) {
-  const decoder = new TextDecoder(encoding, { fatal: false });
-  for (const buf of sampleChunks) {
-    output.write(Buffer.from(decoder.decode(buf, { stream: true })));
-  }
-  return decoder;
-}
-
 /**
  * Detect the encoding of a stream by sampling the first N bytes,
  * then return a UTF-8 stream. If the source is already UTF-8/ASCII,
  * the original bytes are passed through with zero overhead.
  */
-function createEncodingConvertStream(input: NodeJS.ReadableStream): NodeJS.ReadableStream {
-  const output = new PassThrough();
-  const sampleChunks: Buffer[] = [];
+function createEncodingConvertStream(input: Readable): Transform {
+  let sampleChunks: Buffer[] = [];
   let sampleSize = 0;
   let detected = false;
-
-  input.on('data', (chunk: Buffer) => {
-    if (detected) return;
-
-    sampleChunks.push(chunk);
-    sampleSize += chunk.length;
-
-    if (sampleSize < encodingSampleSize) return;
-
-    detected = true;
-    const { isUtf8, encoding } = detectAndDecode(Buffer.concat(sampleChunks));
-
-    if (isUtf8) {
-      for (const buf of sampleChunks) output.write(buf);
-      input.on('data', (c: Buffer) => output.write(c));
-    } else {
-      const decoder = flushSampleAsUtf8(sampleChunks, output, encoding);
-      input.on('data', (c: Buffer) => {
-        output.write(Buffer.from(decoder.decode(c, { stream: true })));
-      });
-      input.on('end', () => {
-        const tail = decoder.decode();
-        if (tail) output.write(Buffer.from(tail));
-      });
-    }
-  });
-
-  input.on('end', () => {
-    if (!detected && sampleChunks.length > 0) {
-      const sample = Buffer.concat(sampleChunks);
-      const { isUtf8, encoding } = detectAndDecode(sample);
-
-      if (isUtf8) {
-        output.write(sample);
-      } else {
-        const decoder = new TextDecoder(encoding, { fatal: false });
-        output.write(Buffer.from(decoder.decode(sample)));
+  let decoder: TextDecoder | undefined;
+  const output = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      try {
+        if (!detected) {
+          sampleChunks.push(chunk);
+          sampleSize += chunk.length;
+          if (sampleSize < encodingSampleSize) {
+            callback();
+            return;
+          }
+          const sample = Buffer.concat(sampleChunks, sampleSize);
+          const { isUtf8, encoding } = detectAndDecode(sample);
+          decoder = isUtf8 ? undefined : new TextDecoder(encoding, { fatal: false });
+          detected = true;
+          sampleChunks = [];
+          this.push(decoder ? Buffer.from(decoder.decode(sample, { stream: true })) : sample);
+        } else {
+          this.push(decoder ? Buffer.from(decoder.decode(chunk, { stream: true })) : chunk);
+        }
+        callback();
+      } catch (error) {
+        callback(error as Error);
       }
-    }
-    output.end();
+    },
+    flush(callback) {
+      try {
+        if (!detected && sampleSize > 0) {
+          const sample = Buffer.concat(sampleChunks, sampleSize);
+          const { isUtf8, encoding } = detectAndDecode(sample);
+          this.push(isUtf8 ? sample : Buffer.from(new TextDecoder(encoding).decode(sample)));
+          sampleChunks = [];
+        } else if (decoder) {
+          const remaining = decoder.decode();
+          if (remaining) this.push(Buffer.from(remaining));
+        }
+        callback();
+      } catch (error) {
+        callback(error as Error);
+      }
+    },
   });
-
-  input.on('error', (err) => output.destroy(err));
-
-  return output;
+  const forwardError = (error: Error) => output.destroy(error);
+  input.once('error', forwardError);
+  input.once('close', () => input.removeListener('error', forwardError));
+  output.once('close', () => input.destroy());
+  return input.pipe(output);
 }
 
 export interface IImportConstructorParams {
@@ -195,15 +194,15 @@ export interface IParseResult {
 export const OVER_PLAN_ROW_COUNT_ERROR_MESSAGE = 'Please upgrade your plan to import more records';
 
 export abstract class Importer {
-  public static DEFAULT_ERROR_MESSAGE = 'unknown error';
+  public static readonly DEFAULT_ERROR_MESSAGE = 'unknown error';
 
-  public static OVER_PLAN_ROW_COUNT_ERROR_MESSAGE = OVER_PLAN_ROW_COUNT_ERROR_MESSAGE;
+  public static readonly OVER_PLAN_ROW_COUNT_ERROR_MESSAGE = OVER_PLAN_ROW_COUNT_ERROR_MESSAGE;
 
-  public static CHUNK_SIZE = 1024 * 1024 * 0.2;
+  public static readonly CHUNK_SIZE = 1024 * 1024 * 0.2;
 
-  public static MAX_CHUNK_LENGTH = 500;
+  public static readonly MAX_CHUNK_LENGTH = 500;
 
-  public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
+  public static readonly DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
   // order make sence
   public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
@@ -242,7 +241,9 @@ export abstract class Importer {
       url = `http://localhost:${process.env.PORT}${url}`;
     }
 
-    const { body: stream, headers } = await safeFetch(url);
+    const { body, headers } = await safeFetch(url);
+    // node-fetch returns a Node Readable; its v2 types expose only the narrower interface.
+    const stream = body as Readable;
 
     const supportType = importTypeMap[type].accept.split(',');
 
@@ -252,6 +253,7 @@ export abstract class Importer {
       ?.map((item: string) => item.trim());
 
     if (fileFormat?.length && !intersection(fileFormat, supportType).length) {
+      stream.destroy();
       throw new CustomHttpException(
         `File format is not supported, only ${supportType.join(',')} are supported, your file's content type is ${fileFormat.join(';')}`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -272,8 +274,8 @@ export abstract class Importer {
 
     if (contentDisposition) {
       const fileNameMatch =
-        contentDisposition.match(/filename\*=UTF-8''([^;]+)/) ||
-        contentDisposition.match(/filename="?([^"]+)"?/);
+        /filename\*=UTF-8''([^;]+)/.exec(contentDisposition) ||
+        /filename="?([^"]+)"?/.exec(contentDisposition);
       if (fileNameMatch) {
         fileName = fileNameMatch[1];
       }
@@ -292,71 +294,71 @@ export abstract class Importer {
     return { stream: finalStream, fileName: finalFileName };
   }
 
+  protected async *analysisRows(): AsyncGenerator<{
+    sheetName: string;
+    row: ReadonlyArray<unknown>;
+  }> {
+    const parsed = await this.parse();
+    for (const [sheetName, rows] of Object.entries(parsed)) {
+      if (rows.length === 0) yield { sheetName, row: [] };
+      for (const row of rows) yield { sheetName, row };
+    }
+  }
+
   async genColumns() {
-    const supportTypes = Importer.SUPPORTEDTYPE;
-    const parseResult = await this.parse();
-    const { fileName, type } = this.config;
-    const result: IAnalyzeVo['worksheets'] = {};
-
-    for (const [sheetName, cols] of Object.entries(parseResult)) {
-      const zipColumnInfo = zip(...cols);
-      const existNames: string[] = [];
-      const calculatedColumnHeaders = zipColumnInfo
-        .map((column, index) => {
-          let isColumnEmpty = true;
-          let validatingFieldTypes = [...supportTypes];
-          for (let i = 0; i < column.length; i++) {
-            if (validatingFieldTypes.length <= 1) {
-              break;
-            }
-
-            // ignore empty value and first row causing first row as header
-            if (column[i] === '' || column[i] == null || i === 0) {
-              continue;
-            }
-
-            // when the whole columns aren't empty should flag
-            isColumnEmpty = false;
-
-            // when one of column's value validates long text, then break;
-            if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
-              validatingFieldTypes = [FieldType.LongText];
-              break;
-            }
-
-            const matchTypes = validatingFieldTypes.filter((type) => {
-              const schema = validateZodSchemaMap[type];
-              return schema.safeParse(column[i]).success;
-            });
-
-            validatingFieldTypes = matchTypes;
-          }
-
-          // empty columns should be default type
-          validatingFieldTypes = !isColumnEmpty
-            ? validatingFieldTypes
-            : [Importer.DEFAULT_COLUMN_TYPE];
-
-          const name = getUniqName(toString(column?.[0]).trim() || `Field ${index}`, existNames);
-
-          existNames.push(name);
-
-          return {
-            type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
-            name: name.toString(),
-          };
-        })
-        ?.filter((column) => Boolean(column));
-
-      result[sheetName] = {
-        name: type === SUPPORTEDTYPE.EXCEL ? sheetName : fileName ? fileName : sheetName,
-        columns: calculatedColumnHeaders,
-      };
+    const sheets = new Map<string, ImportSheetAnalysis>();
+    for await (const { sheetName, row } of this.analysisRows()) {
+      let sheet = sheets.get(sheetName);
+      if (!sheet) {
+        sheet = { rowCount: 0, columns: [] };
+        sheets.set(sheetName, sheet);
+      }
+      this.accumulateAnalysisRow(sheet, row);
     }
 
-    return {
-      worksheets: result,
-    };
+    const worksheets: IAnalyzeVo['worksheets'] = {};
+    for (const [sheetName, sheet] of sheets) {
+      const names: string[] = [];
+      const columns = sheet.columns.map((column, index) => {
+        const name = getUniqName(toString(column.header).trim() || `Field ${index}`, names);
+        names.push(name);
+        return {
+          name,
+          type: column.hasValue
+            ? column.candidates[0] || Importer.DEFAULT_COLUMN_TYPE
+            : Importer.DEFAULT_COLUMN_TYPE,
+        };
+      });
+      worksheets[sheetName] = {
+        name:
+          this.config.type === SUPPORTEDTYPE.EXCEL ? sheetName : this.config.fileName || sheetName,
+        columns,
+      };
+    }
+    return { worksheets };
+  }
+
+  private accumulateAnalysisRow(sheet: ImportSheetAnalysis, row: ReadonlyArray<unknown>): void {
+    for (let index = 0; index < row.length; index++) {
+      const column = (sheet.columns[index] ??= {
+        header: sheet.rowCount === 0 ? row[index] : undefined,
+        candidates: [...Importer.SUPPORTEDTYPE],
+        hasValue: false,
+      });
+      const value = row[index];
+      if (sheet.rowCount === 0 || value === '' || value == null || column.candidates.length <= 1) {
+        continue;
+      }
+      column.hasValue = true;
+      if (validateZodSchemaMap[FieldType.LongText].safeParse(value).success) {
+        column.candidates = [FieldType.LongText];
+      } else {
+        column.candidates = column.candidates.filter(
+          (type) => validateZodSchemaMap[type].safeParse(value).success
+        );
+      }
+    }
+    sheet.rowCount++;
   }
 }
 
@@ -450,7 +452,7 @@ export class CsvImporter extends Importer {
             reject(e);
           },
         });
-      });
+      }).finally(() => stream.destroy());
     } else {
       return new Promise((resolve, reject) => {
         Papa.parse(stream, {
@@ -466,7 +468,7 @@ export class CsvImporter extends Importer {
             reject(err);
           },
         });
-      });
+      }).finally(() => stream.destroy());
     }
   }
 
@@ -486,77 +488,115 @@ export class CsvImporter extends Importer {
           reject(err);
         },
       });
-    });
+    }).finally(() => stream.destroy());
   }
 }
 
-type DenseExcelCell = { w?: string; v?: unknown };
-type DenseExcelRow = Array<DenseExcelCell | undefined> | undefined;
+export class ExcelImporter extends Importer {
+  private readonly adapter = new ExcelImportAdapter();
 
-const excelHeaderScanRows = 30;
-
-const denseExcelCellToString = (cell: DenseExcelCell | undefined): string => {
-  if (!cell) {
-    return '';
+  private async readSheet(
+    source: IImportSource,
+    sheetName?: string
+  ): Promise<IImportParseResult & { rowsAsync: AsyncIterable<ReadonlyArray<unknown>> }> {
+    const result = await this.adapter.parse(source, { sheetName });
+    if (result.isErr()) throw new Error(result.error.message);
+    const rowsAsync = result.value.rowsAsync;
+    if (!rowsAsync) throw new Error('Excel parser did not provide streaming rows');
+    return { ...result.value, rowsAsync };
   }
-  const value = cell.w ?? cell.v;
-  return value == null ? '' : String(value);
-};
 
-const filledExcelCellCount = (row: DenseExcelRow): number =>
-  (row ?? []).reduce(
-    (count, cell) => (denseExcelCellToString(cell).trim() === '' ? count : count + 1),
-    0
-  );
-
-const findExcelHeaderRowIndex = (rows: ReadonlyArray<DenseExcelRow>): number => {
-  const scanUntil = Math.min(rows.length, excelHeaderScanRows);
-  let bestIndex = -1;
-  let bestCount = 0;
-  for (let index = 0; index < scanUntil; index++) {
-    const count = filledExcelCellCount(rows[index]);
-    if (count > bestCount) {
-      bestCount = count;
-      bestIndex = index;
+  private async checkRowLimit(rows: AsyncIterable<ReadonlyArray<unknown>>, limit: number) {
+    const iterator = rows[Symbol.asyncIterator]();
+    try {
+      let count = 0;
+      let next = await iterator.next();
+      while (!next.done) {
+        if (++count > limit) throw new Error(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
+        next = await iterator.next();
+      }
+    } finally {
+      await iterator.return?.();
     }
   }
-  return bestIndex;
-};
 
-const readDenseExcelRows = (sheet: XLSX.WorkSheet): Array<DenseExcelRow> => {
-  const dataProp = (sheet as { ['!data']?: unknown })['!data'];
-  if (Array.isArray(dataProp) && dataProp.length > 0) {
-    return dataProp as Array<DenseExcelRow>;
+  private async *sheets(
+    sheetName?: string,
+    enforceRowLimit = false
+  ): AsyncGenerator<{ name: string; rows: AsyncIterable<ReadonlyArray<unknown>> }> {
+    const { stream } = await this.getFile();
+    const preparedResult = await prepareExcelImportSource({ type: 'excel', stream });
+    if (preparedResult.isErr()) throw new Error(preparedResult.error.message);
+    const prepared = preparedResult.value;
+    try {
+      let parsed = await this.readSheet(prepared.source, sheetName);
+      const names = sheetName ? [sheetName] : (parsed.sheets ?? []).map((sheet) => sheet.name);
+      for (const [index, name] of names.entries()) {
+        if (index > 0) {
+          parsed = await this.readSheet(prepared.source, name);
+        }
+        if (enforceRowLimit && this.config.maxRowCount != null) {
+          await this.checkRowLimit(parsed.rowsAsync, this.config.maxRowCount);
+          parsed = await this.readSheet(prepared.source, name);
+        }
+        const iterator = parsed.rowsAsync[Symbol.asyncIterator]();
+        try {
+          yield { name, rows: { [Symbol.asyncIterator]: () => iterator } };
+        } finally {
+          await iterator.return?.();
+        }
+      }
+    } finally {
+      await prepared.dispose();
+    }
   }
-  if (Array.isArray(sheet)) {
-    return sheet as Array<DenseExcelRow>;
+
+  protected async *analysisRows(): AsyncGenerator<{
+    sheetName: string;
+    row: ReadonlyArray<unknown>;
+  }> {
+    for await (const sheet of this.sheets()) {
+      let hasRows = false;
+      for await (const row of sheet.rows) {
+        hasRows = true;
+        yield { sheetName: sheet.name, row };
+      }
+      if (!hasRows) yield { sheetName: sheet.name, row: [] };
+    }
   }
-  return [];
-};
-
-const denseSheetToImportRows = (sheet: XLSX.WorkSheet): unknown[][] => {
-  const rawData = readDenseExcelRows(sheet);
-  const headerRowIndex = findExcelHeaderRowIndex(rawData);
-  if (headerRowIndex < 0) {
-    return [];
+  private async preview(): Promise<IParseResult> {
+    const preview: IParseResult = {};
+    for await (const sheet of this.sheets()) {
+      const rows: unknown[][] = [];
+      for await (const row of sheet.rows) {
+        rows.push([...row]);
+        if (rows.length >= CsvImporter.CHECK_LINES) break;
+      }
+      preview[sheet.name] = rows;
+    }
+    return preview;
   }
 
-  const headerWidth = Math.max((rawData[headerRowIndex] ?? []).length, 1);
-  return rawData
-    .slice(headerRowIndex)
-    .map((row) =>
-      Array.from({ length: headerWidth }, (_, index) => denseExcelCellToString(row?.[index]))
-    );
-};
-
-export class ExcelImporter extends Importer {
-  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
-    FieldType.Checkbox,
-    FieldType.Number,
-    FieldType.Date,
-    FieldType.SingleLineText,
-    FieldType.LongText,
-  ];
+  private async emitSheetBatches(
+    sheet: { name: string; rows: AsyncIterable<ReadonlyArray<unknown>> },
+    skipFirstNLines: number,
+    chunk: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>
+  ): Promise<void> {
+    let rowIndex = 0;
+    let batch: unknown[][] = [];
+    let batchBytes = 0;
+    for await (const row of sheet.rows) {
+      if (rowIndex++ < skipFirstNLines) continue;
+      if (batch.length >= Importer.MAX_CHUNK_LENGTH || batchBytes >= Importer.CHUNK_SIZE) {
+        await chunk({ [sheet.name]: batch }, false);
+        batch = [];
+        batchBytes = 0;
+      }
+      batch.push([...row]);
+      batchBytes += sizeof(row);
+    }
+    await chunk({ [sheet.name]: batch }, true);
+  }
 
   parse(): Promise<IParseResult>;
   parse(
@@ -565,68 +605,23 @@ export class ExcelImporter extends Importer {
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<void>;
-
   async parse(
     options?: { skipFirstNLines: number; key: string },
     chunk?: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>,
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<unknown> {
-    const { stream: fileSteam } = await this.getFile();
+    if (!options || !chunk) return this.preview();
 
-    const asyncRs = async (stream: NodeJS.ReadableStream): Promise<IParseResult> =>
-      new Promise((res, rej) => {
-        const buffers: Uint8Array[] = [];
-        stream.on('data', function (data) {
-          buffers.push(data);
-        });
-        stream.on('end', function () {
-          const buf = Buffer.concat(buffers);
-          const workbook = XLSX.read(buf, { dense: true });
-          const result: IParseResult = {};
-          Object.keys(workbook.Sheets).forEach((name) => {
-            result[name] = denseSheetToImportRows(workbook.Sheets[name]);
-          });
-          res(result);
-        });
-        stream.on('error', (e) => {
-          onError?.(e?.message || Importer.DEFAULT_ERROR_MESSAGE);
-          rej(e);
-        });
-      });
-
-    const parseResult = await asyncRs(fileSteam);
-
-    if (options && chunk) {
-      const { skipFirstNLines, key } = options;
-      const chunks = parseResult[key];
-      const parseResults = chunkArray(chunks, Importer.MAX_CHUNK_LENGTH);
-
-      if (this.config.maxRowCount != null && chunks.length > this.config.maxRowCount) {
-        onError?.(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
-        return;
-      }
-
-      for (let i = 0; i < parseResults.length; i++) {
-        const currentChunk = parseResults[i];
-        if (i === 0 && skipFirstNLines) {
-          currentChunk.splice(0, 1);
-        }
-        const lastChunk = i === parseResults.length - 1;
-        try {
-          await chunk({ [key]: currentChunk }, lastChunk);
-        } catch (e) {
-          onError?.((e as Error)?.message || Importer.DEFAULT_ERROR_MESSAGE);
-        }
+    try {
+      for await (const sheet of this.sheets(options.key, true)) {
+        await this.emitSheetBatches(sheet, options.skipFirstNLines, chunk);
       }
       onFinished?.();
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : Importer.DEFAULT_ERROR_MESSAGE);
+      if (!onError) throw error;
     }
-
-    return parseResult;
-  }
-
-  async getRawContent() {
-    return await this.parse();
   }
 }
 

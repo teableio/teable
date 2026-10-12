@@ -31,6 +31,7 @@ export const GridAttachmentEditor = forwardRef<
     return attachments
       ? attachments.map((item) => ({
           src: item.presignedUrl || '',
+          thumb: item.lgThumbnailUrl,
           name: item.name,
           fileId: item.id,
           mimetype: item.mimetype,
@@ -55,32 +56,34 @@ export const GridAttachmentEditor = forwardRef<
     return null;
   }
   return (
-    <>
-      <div
-        ref={containerRef}
-        style={{
-          ...style,
-          ...attachStyle,
-          maxHeight: '320px',
-        }}
-        className={cn(
-          'click-outside-ignore cursor-default flex flex-col absolute w-full overflow-hidden rounded-md border border-border-high bg-popover shadow-md dark:shadow-lg'
-        )}
-      >
-        <div className="fixed inset-0 cursor-default" onClick={() => setEditing?.(false)} />
-        <AttachmentEditorMain
-          className="relative flex-1 overflow-hidden"
-          value={attachments || []}
-          onChange={setAttachments}
-          tableId={field.tableId}
-          recordId={record.id}
-          fieldId={field.id}
-        />
-        <FilePreviewProvider i18nMap={i18nMap}>
-          <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />
-        </FilePreviewProvider>
-      </div>
-    </>
+    <div
+      ref={containerRef}
+      style={{
+        ...style,
+        ...attachStyle,
+        maxHeight: '320px',
+      }}
+      className={cn(
+        'click-outside-ignore cursor-default flex flex-col absolute w-full overflow-hidden rounded-md border border-border-high bg-popover shadow-md dark:shadow-lg'
+      )}
+      // The upload zone consumes clipboard files itself. Without this the paste
+      // also bubbles to EditorContainer, which forwards it to the grid selection
+      // handler and uploads the same files a second time (T7040).
+      onPaste={(e) => e.stopPropagation()}
+    >
+      <div className="fixed inset-0 cursor-default" onClick={() => setEditing?.(false)} />
+      <AttachmentEditorMain
+        className="relative flex-1 overflow-hidden"
+        value={attachments || []}
+        onChange={setAttachments}
+        tableId={field.tableId}
+        recordId={record.id}
+        fieldId={field.id}
+      />
+      <FilePreviewProvider i18nMap={i18nMap}>
+        <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />
+      </FilePreviewProvider>
+    </div>
   );
 });
 

@@ -1,6 +1,6 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { ThemeProvider } from '@teable/next-themes';
 import type { IGetBaseVo } from '@teable/openapi';
+import { ThemeProvider } from '@teable/ui-lib';
 import { isObject, merge } from 'lodash';
 import { useMemo } from 'react';
 import { isRtlLang, setContentDirectionEnabled } from '../../utils/text-direction';

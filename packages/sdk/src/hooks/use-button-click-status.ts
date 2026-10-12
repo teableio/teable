@@ -16,7 +16,7 @@ import { useConnection } from './use-connection';
 // e.g., "Hello {fldXXX}" => "Hello World" (where fldXXX field value is "World")
 const resolveFieldVariables = (template: string, record?: IRecord): string => {
   if (!template || !record) return template;
-  return template.replace(/\{([^}]+)\}/g, (match, fieldId) => {
+  return template.replace(/\{([^{}]+)\}/g, (match, fieldId) => {
     return record.getCellValueAsString(fieldId);
   });
 };

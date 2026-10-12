@@ -17,16 +17,23 @@ if (!schema) {
   process.exit(1);
 }
 
-const result = spawnSync('pnpm', ['exec', 'prisma', 'generate', '--schema', schema], {
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    PRISMA_DATABASE_URL:
-      process.env.PRISMA_DATABASE_URL ??
-      'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
-  },
-  shell: process.platform === 'win32',
-});
+// Sonar S4036 (reported on the command-name argument): developer/CLI script on a trusted machine; the executable is resolved through PATH by design
+const result = spawnSync(
+  'pnpm', // NOSONAR javascript:S4036 -- executable resolved through PATH by design (see above)
+  ['exec', 'prisma', 'generate', '--schema', schema],
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      // `prisma generate` never opens a connection; the schema only needs the env var to resolve.
+      // Use a credential-free placeholder instead of a real-looking password.
+      PRISMA_DATABASE_URL:
+        process.env.PRISMA_DATABASE_URL ??
+        'postgresql://prisma-generate@127.0.0.1:5432/prisma-generate?schema=public',
+    },
+    shell: process.platform === 'win32',
+  }
+);
 
 if (result.error) {
   throw result.error;

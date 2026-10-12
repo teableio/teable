@@ -2,19 +2,19 @@ import type { RefObject } from 'react';
 import { create } from 'zustand';
 
 interface IToolBarState {
-  filterRef: RefObject<HTMLButtonElement> | null;
-  sortRef: RefObject<HTMLButtonElement> | null;
-  groupRef: RefObject<HTMLButtonElement> | null;
-  setFilterRef: (ref: RefObject<HTMLButtonElement>) => void;
-  setSortRef: (ref: RefObject<HTMLButtonElement>) => void;
-  setGroupRef: (ref: RefObject<HTMLButtonElement>) => void;
+  filterRef: RefObject<HTMLButtonElement | null> | null;
+  sortRef: RefObject<HTMLButtonElement | null> | null;
+  groupRef: RefObject<HTMLButtonElement | null> | null;
+  setFilterRef: (ref: RefObject<HTMLButtonElement | null>) => void;
+  setSortRef: (ref: RefObject<HTMLButtonElement | null>) => void;
+  setGroupRef: (ref: RefObject<HTMLButtonElement | null>) => void;
 }
 
 export const useToolBarStore = create<IToolBarState>((set) => ({
   filterRef: null,
   sortRef: null,
   groupRef: null,
-  setFilterRef: (ref: RefObject<HTMLButtonElement>) => {
+  setFilterRef: (ref: RefObject<HTMLButtonElement | null>) => {
     set((state) => {
       return {
         ...state,
@@ -22,7 +22,7 @@ export const useToolBarStore = create<IToolBarState>((set) => ({
       };
     });
   },
-  setSortRef: (ref: RefObject<HTMLButtonElement>) => {
+  setSortRef: (ref: RefObject<HTMLButtonElement | null>) => {
     set((state) => {
       return {
         ...state,
@@ -30,7 +30,7 @@ export const useToolBarStore = create<IToolBarState>((set) => ({
       };
     });
   },
-  setGroupRef: (ref: RefObject<HTMLButtonElement>) => {
+  setGroupRef: (ref: RefObject<HTMLButtonElement | null>) => {
     set((state) => {
       return {
         ...state,

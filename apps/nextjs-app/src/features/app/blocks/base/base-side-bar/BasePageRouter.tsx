@@ -108,43 +108,37 @@ export const BasePageRouter = () => {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-2 px-3">
-        <ul>
-          {pageRoutes.map(({ href, label, Icon, billingLevel }) => {
-            return (
-              <UpgradeWrapper
-                key={href}
-                baseId={baseId as string}
-                targetBillingLevel={billingLevel}
-              >
-                {({ badge }) => (
-                  <li key={href}>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      asChild
-                      className={cn(
-                        'w-full justify-start text-sm my-[2px]',
-                        router.asPath.startsWith(href) && 'bg-secondary'
-                      )}
-                    >
-                      <Link href={href} className="font-normal">
-                        <Icon className="size-4 shrink-0" />
-                        <p className="truncate">{label}</p>
-                        <div className="grow basis-0"></div>
-                        {badge}
-                      </Link>
-                    </Button>
-                  </li>
-                )}
-              </UpgradeWrapper>
-            );
-          })}
-          <ShareBaseDialog />
-          <MoreMenu />
-        </ul>
-      </div>
-    </>
+    <div className="flex flex-col gap-2 px-3">
+      <ul>
+        {pageRoutes.map(({ href, label, Icon, billingLevel }) => {
+          return (
+            <UpgradeWrapper key={href} baseId={baseId as string} targetBillingLevel={billingLevel}>
+              {({ badge }) => (
+                <li key={href}>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    asChild
+                    className={cn(
+                      'w-full justify-start text-sm my-[2px]',
+                      router.asPath.startsWith(href) && 'bg-secondary'
+                    )}
+                  >
+                    <Link href={href} className="font-normal">
+                      <Icon className="size-4 shrink-0" />
+                      <p className="truncate">{label}</p>
+                      <div className="grow basis-0"></div>
+                      {badge}
+                    </Link>
+                  </Button>
+                </li>
+              )}
+            </UpgradeWrapper>
+          );
+        })}
+        <ShareBaseDialog />
+        <MoreMenu />
+      </ul>
+    </div>
   );
 };

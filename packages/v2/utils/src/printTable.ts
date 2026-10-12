@@ -39,7 +39,7 @@ const formatArrayValue = (items: unknown[]): string => {
       })
       .join(', ');
   }
-  return `[${items.map((item) => String(item)).join(', ')}]`;
+  return `[${items.map(String).join(', ')}]`;
 };
 
 const parseJsonArray = (raw: string): unknown[] | null => {

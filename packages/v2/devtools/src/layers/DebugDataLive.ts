@@ -289,6 +289,7 @@ export const DebugDataLive = Layer.effect(
               pagination,
               search,
               searchAccessPath,
+              includeTotal: true,
             });
             if (queryResult.isErr()) throw queryResult.error;
 

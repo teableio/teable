@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { getBaseDataDbMoveJob, getRecords, moveBase, moveBaseCheck } from '@teable/openapi';

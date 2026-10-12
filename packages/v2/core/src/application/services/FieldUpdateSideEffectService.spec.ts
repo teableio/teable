@@ -11,13 +11,17 @@ import { Field } from '../../domain/table/fields/Field';
 import { createNewLinkField } from '../../domain/table/fields/FieldFactory';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { DbFieldName } from '../../domain/table/fields/DbFieldName';
 import type { LinkField } from '../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
 import type { NumberField } from '../../domain/table/fields/types/NumberField';
 import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
+import { UserField } from '../../domain/table/fields/types/UserField';
+import { UserMultiplicity } from '../../domain/table/fields/types/UserMultiplicity';
 import { ForeignTable } from '../../domain/table/ForeignTable';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
+import { UpdateUserMultiplicitySpec } from '../../domain/table/specs/field-updates/UpdateUserMultiplicitySpec';
 import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../../domain/table/Table';
@@ -445,6 +449,106 @@ describe('FieldUpdateSideEffectService', () => {
       (spec): spec is TableUpdateViewColumnMetaSpec => spec instanceof TableUpdateViewColumnMetaSpec
     );
     expect(columnMetaSpec).toBeUndefined();
+  });
+
+  it('remaps view user filters after isMultiple change', async () => {
+    const context = createContext();
+    const repo = new MemoryTableRepository();
+    const flow = buildFlow(repo);
+    const service = new FieldUpdateSideEffectService(
+      flow,
+      repo,
+      new LinkFieldUpdateSideEffectService(flow),
+      new FieldCrossTableUpdateSideEffectService(repo, flow)
+    );
+
+    const baseId = createBaseId('u');
+    const tableId = createTableId('v');
+    const primaryFieldId = createFieldId('w');
+    const userFieldId = createFieldId('x');
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('User Filter Host')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .user()
+      .withId(userFieldId)
+      .withName(FieldName.create('Assignees')._unsafeUnwrap())
+      .withMultiplicity(UserMultiplicity.multiple())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const baseTable = builder.build()._unsafeUnwrap();
+    const baseView = baseTable.views()[0]!;
+    const clonedView = baseView.accept(new CloneViewVisitor())._unsafeUnwrap();
+    clonedView.setColumnMeta(baseView.columnMeta()._unsafeUnwrap())._unsafeUnwrap();
+    clonedView
+      .setQueryDefaults(
+        ViewQueryDefaults.create({
+          filter: {
+            conjunction: 'and',
+            items: [{ fieldId: userFieldId.toString(), operator: 'hasAnyOf', value: ['Me'] }],
+          },
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+
+    const table = Table.rehydrate({
+      id: baseTable.id(),
+      baseId: baseTable.baseId(),
+      name: baseTable.name(),
+      fields: baseTable.getFields(),
+      views: [clonedView],
+      primaryFieldId: baseTable.primaryFieldId(),
+    })._unsafeUnwrap();
+    const previousField = table.getField((field) => field.id().equals(userFieldId))._unsafeUnwrap();
+    if (!(previousField instanceof UserField)) {
+      throw new Error('expected user field');
+    }
+    const updatedField = UserField.create({
+      id: previousField.id(),
+      name: previousField.name(),
+      isMultiple: UserMultiplicity.single(),
+      shouldNotify: previousField.notification(),
+    })._unsafeUnwrap();
+
+    await repo.insert(context, table);
+
+    const result = await service.execute(context, {
+      table,
+      updatedField,
+      previousField,
+      updateSpecs: [
+        UpdateUserMultiplicitySpec.create(
+          userFieldId,
+          DbFieldName.rehydrate('assignees')._unsafeUnwrap(),
+          UserMultiplicity.multiple(),
+          UserMultiplicity.single()
+        ),
+      ],
+      foreignTables: [],
+    });
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const queryDefaultsSpec = result.value.specs.find(
+      (spec): spec is TableUpdateViewQueryDefaultsSpec =>
+        spec instanceof TableUpdateViewQueryDefaultsSpec
+    );
+    expect(queryDefaultsSpec).toBeDefined();
+    expect(queryDefaultsSpec?.updates()[0]?.queryDefaults.filter()).toEqual({
+      conjunction: 'and',
+      items: [{ fieldId: userFieldId.toString(), operator: 'isAnyOf', value: ['Me'] }],
+    });
   });
 
   it('builds view columnMeta cleanup spec after number -> text conversion', async () => {

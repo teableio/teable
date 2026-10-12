@@ -89,7 +89,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     }
 
     // Handle wrapped casts like ((7)::double precision)
-    const wrappedCastMatch = trimmed.match(/^\((.+)\)$/);
+    const wrappedCastMatch = /^\((.+)\)$/.exec(trimmed);
     if (wrappedCastMatch) {
       return this.isNumericLiteral(wrappedCastMatch[1]);
     }
@@ -169,7 +169,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
     const cleaned = `NULLIF(${sanitized}, '')`;
     // Avoid "?" in the regex so knex.raw doesn't misinterpret it as a binding placeholder.
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const matchClause = shouldCollate
       ? `${cleaned} COLLATE "C" ~ ${numericPattern} COLLATE "C"`
       : `${cleaned} ~ ${numericPattern}`;
@@ -179,14 +179,13 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       const dateGuardExpr = `${textExpr} ~ ${datePattern}`;
       guards.push(`WHEN ${dateGuardExpr} THEN NULL`);
     }
-    guards.push(`WHEN ${matchClause} THEN ${cleaned}::double precision`);
-    guards.push('ELSE NULL');
+    guards.push(`WHEN ${matchClause} THEN ${cleaned}::double precision`, 'ELSE NULL');
     return `(CASE ${guards.join(' ')} END)`;
   }
 
   private numericFromJson(expr: string): string {
     const jsonExpr = `to_jsonb(${expr})`;
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     const arraySum = `(SELECT SUM(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN elem.value::double precision ELSE NULL END) FROM jsonb_array_elements_text(${jsonExpr}) AS elem(value))`;
     return `(CASE
@@ -198,7 +197,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   private buildNumericArrayAggregation(expr: string): { sum: string; count: string } {
     const arrayExpr = this.normalizeAnyToJsonArray(expr);
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     const numericValue = `(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN elem.value::double precision ELSE NULL END)`;
     const numericCount = `(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN 1 ELSE 0 END)`;
@@ -210,7 +209,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   private buildNumericArrayExtremum(expr: string, op: 'max' | 'min'): string {
     const arrayExpr = this.normalizeAnyToJsonArray(expr);
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     const numericValue = `(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN elem.value::double precision ELSE NULL END)`;
     const agg = op === 'max' ? 'MAX' : 'MIN';
@@ -340,7 +339,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   private getExpressionFieldType(value: string): DbFieldType | undefined {
     const trimmed = this.stripOuterParentheses(value);
-    const columnMatch = trimmed.match(/^"([^"]+)"$/) ?? trimmed.match(/^"[^"]+"\."([^"]+)"$/);
+    const columnMatch = /^"([^"]+)"$/.exec(trimmed) ?? /^"[^"]+"\."([^"]+)"$/.exec(trimmed);
     if (!columnMatch || columnMatch.length < 2) {
       return undefined;
     }
@@ -356,7 +355,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
     // Handle CTE-projected lookup/rollup aliases like "lookup_<fieldId>" that aren't part of the
     // base table's dbFieldName list but still correspond to concrete field metadata.
-    const lookupMatch = columnName.match(/^(lookup|rollup)_(fld[A-Za-z0-9]+)$/);
+    const lookupMatch = /^(lookup|rollup)_(fld[A-Za-z0-9]+)$/.exec(columnName);
     if (lookupMatch && typeof table?.getField === 'function') {
       const byId = table.getField(lookupMatch[2]);
       return byId?.dbFieldType as DbFieldType | undefined;
@@ -430,8 +429,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     END`;
   }
 
-  private coerceJsonExpressionToText(wrapped: string, metadataIndex?: number): string {
-    void metadataIndex;
+  private coerceJsonExpressionToText(wrapped: string, _metadataIndex?: number): string {
     const jsonExpr = `to_jsonb${wrapped}`;
     return `(CASE
       WHEN ${wrapped} IS NULL THEN NULL
@@ -733,7 +731,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   private sanitizeTimestampInput(date: string): string {
     const trimmed = `NULLIF(BTRIM((${date})::text), '')`;
-    const pattern = getDefaultDatetimeParsePattern().replace(/'/g, "''");
+    const pattern = getDefaultDatetimeParsePattern().replaceAll("'", "''");
     return `CASE WHEN ${trimmed} IS NULL THEN NULL WHEN LOWER(${trimmed}) IN ('null', 'undefined') THEN NULL WHEN ${trimmed} ~ '${pattern}' THEN ${trimmed} ELSE NULL END`;
   }
 
@@ -796,7 +794,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       return `${wrappedBase}::timestamp`;
     }
     // Sanitize single quotes to prevent SQL issues
-    const safeTz = tz.replace(/'/g, "''");
+    const safeTz = tz.replaceAll("'", "''");
     return `${wrappedBase}::timestamptz AT TIME ZONE '${safeTz}'`;
   }
 
@@ -806,7 +804,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       return "'+00:00'";
     }
 
-    const safeTz = tz.replace(/'/g, "''");
+    const safeTz = tz.replaceAll("'", "''");
     const offsetMinutesSql = `ROUND(EXTRACT(EPOCH FROM (((${localTimestampSql}) AT TIME ZONE 'UTC') - ((${localTimestampSql}) AT TIME ZONE '${safeTz}'))) / 60)::int`;
 
     return `(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
@@ -859,11 +857,14 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const datePattern = this.getDatePattern(formatting?.date ?? DateFormattingPreset.ISO);
     const timePreset = formatting?.time as TimeFormatting | undefined;
     const timePattern = this.getTimePattern(timePreset);
-    const pattern = (timePattern ? `${datePattern} ${timePattern}` : datePattern).replace(
-      /'/g,
+    const pattern = (timePattern ? `${datePattern} ${timePattern}` : datePattern).replaceAll(
+      "'",
       "''"
     );
-    const timeZone = (formatting?.timeZone ?? this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const timeZone = (formatting?.timeZone ?? this.context?.timeZone ?? 'UTC').replaceAll(
+      "'",
+      "''"
+    );
     return { pattern, timeZone };
   }
 
@@ -928,7 +929,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     if (paramInfo.isMultiValueField) {
       const normalizedArray = this.normalizeAnyToJsonArray(expr);
       const { pattern, timeZone } = this.buildDatetimeFormatting({
-        ...(formatting ?? {}),
+        ...formatting,
         timeZone: timeZoneSource ?? this.context?.timeZone ?? 'UTC',
       });
       const scalar = `(CASE
@@ -948,7 +949,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     }
 
     const { pattern, timeZone } = this.buildDatetimeFormatting({
-      ...(formatting ?? {}),
+      ...formatting,
       timeZone: timeZoneSource ?? this.context?.timeZone ?? 'UTC',
     });
     const sanitized = this.sanitizeTimestampInput(normalizedExpr);
@@ -1409,7 +1410,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   fromNow(date: string, unit = 'day'): string {
-    const tz = this.context?.timeZone?.replace(/'/g, "''");
+    const tz = this.context?.timeZone?.replaceAll("'", "''");
     if (tz) {
       return this.buildNowDiffByUnit(`(NOW() AT TIME ZONE '${tz}')`, this.tzWrap(date, 0), unit);
     }
@@ -1434,7 +1435,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
         const literal = trimmed.slice(1, -1);
         const normalizedUnit = this.normalizeTruncateUnit(literal);
-        const safeUnit = normalizedUnit.replace(/'/g, "''");
+        const safeUnit = normalizedUnit.replaceAll("'", "''");
         return `DATE_TRUNC('${safeUnit}', ${this.tzWrap(date1, 0)}) = DATE_TRUNC('${safeUnit}', ${this.tzWrap(date2, 1)})`;
       }
       return `DATE_TRUNC(${unit}, ${this.tzWrap(date1, 0)}) = DATE_TRUNC(${unit}, ${this.tzWrap(
@@ -1966,7 +1967,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Literals
   stringLiteral(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
+    return `'${value.replaceAll("'", "''")}'`;
   }
 
   numberLiteral(value: number): string {
@@ -2027,7 +2028,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const pattern = getDefaultDatetimeParsePattern();
     const hasClockTime = `(${sanitizedExpr} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
     const hasExplicitTimeZone = `(${sanitizedExpr} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
-    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const safeTz = (this.context?.timeZone ?? 'UTC').replaceAll("'", "''");
     const localTimestampExpr = `(${sanitizedExpr})::timestamp AT TIME ZONE '${safeTz}'`;
     const explicitZoneExpr = `(${sanitizedExpr})::timestamptz`;
 
@@ -2050,7 +2051,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   ): string {
     const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr);
     const toTimestampExpr = `TO_TIMESTAMP(${textExpr}::text, ${normalizedFormat})`;
-    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const safeTz = (this.context?.timeZone ?? 'UTC').replaceAll("'", "''");
     const hasTimezoneToken = hasDatetimeTimezoneToken(formatExpr);
     const parsedExpr =
       hasTimezoneToken === false
@@ -2060,7 +2061,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     if (!guardPattern) {
       return parsedExpr;
     }
-    const escapedPattern = guardPattern.replace(/'/g, "''");
+    const escapedPattern = guardPattern.replaceAll("'", "''");
     return `(CASE WHEN ${nullGuardExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${parsedExpr} ELSE NULL END)`;
   }
 

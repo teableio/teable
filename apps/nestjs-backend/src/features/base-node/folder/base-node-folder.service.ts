@@ -39,6 +39,19 @@ export class BaseNodeFolderService {
     const { name } = body;
 
     return this.prismaService.$tx(async (prisma) => {
+      // The route only authorizes `baseId`; a folder id from another base must not match.
+      const folder = await prisma.baseNodeFolder.findFirst({
+        where: { id: folderId, baseId },
+        select: { id: true },
+      });
+      if (!folder) {
+        throw new CustomHttpException('Folder not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.folderNotFound',
+          },
+        });
+      }
+
       const find = await prisma.baseNodeFolder.findFirst({
         where: { baseId, name, id: { not: folderId } },
       });
@@ -55,7 +68,7 @@ export class BaseNodeFolderService {
       }
 
       return prisma.baseNodeFolder.update({
-        where: { id: folderId },
+        where: { id: folderId, baseId },
         data: { name, lastModifiedBy: this.userId },
         select: {
           id: true,

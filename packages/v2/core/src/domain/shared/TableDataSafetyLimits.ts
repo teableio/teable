@@ -119,12 +119,12 @@ export const mergeTableDataSafetyLimitConfig = (
 ): TableDataSafetyLimitConfig | undefined => {
   if (!base && !override) return undefined;
   return {
-    fieldOptions: { ...(base?.fieldOptions ?? {}), ...(override?.fieldOptions ?? {}) },
-    recordValues: { ...(base?.recordValues ?? {}), ...(override?.recordValues ?? {}) },
-    computed: { ...(base?.computed ?? {}), ...(override?.computed ?? {}) },
-    tableSchema: { ...(base?.tableSchema ?? {}), ...(override?.tableSchema ?? {}) },
-    viewConfig: { ...(base?.viewConfig ?? {}), ...(override?.viewConfig ?? {}) },
-    displayText: { ...(base?.displayText ?? {}), ...(override?.displayText ?? {}) },
+    fieldOptions: { ...base?.fieldOptions, ...override?.fieldOptions },
+    recordValues: { ...base?.recordValues, ...override?.recordValues },
+    computed: { ...base?.computed, ...override?.computed },
+    tableSchema: { ...base?.tableSchema, ...override?.tableSchema },
+    viewConfig: { ...base?.viewConfig, ...override?.viewConfig },
+    displayText: { ...base?.displayText, ...override?.displayText },
   };
 };
 
@@ -189,6 +189,30 @@ export const tableDataSafetyLimitErrors = {
   formulaMaxLength: {
     code: 'validation.limit.formula_max_length',
     i18nKey: sdkErrorI18nKeys.limit.formulaMaxLength,
+  },
+  formulaCompileNodesMax: {
+    code: 'validation.limit.formula_compile_nodes_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaCompileNodesMax,
+  },
+  formulaCompileDepthMax: {
+    code: 'validation.limit.formula_compile_depth_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaCompileDepthMax,
+  },
+  formulaReferenceDepthMax: {
+    code: 'validation.limit.formula_reference_depth_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaReferenceDepthMax,
+  },
+  formulaBindingsMax: {
+    code: 'validation.limit.formula_bindings_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaBindingsMax,
+  },
+  formulaCompileBytesMax: {
+    code: 'validation.limit.formula_compile_bytes_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaCompileBytesMax,
+  },
+  formulaSqlBytesMax: {
+    code: 'validation.limit.formula_sql_bytes_max',
+    i18nKey: sdkErrorI18nKeys.limit.formulaSqlBytesMax,
   },
   tablesPerBaseMax: {
     code: 'validation.limit.tables_per_base_max',

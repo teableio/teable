@@ -37,7 +37,7 @@ export class CreateBaseHandler implements ICommandHandler<CreateBaseCommand, Cre
     context: ExecutionContextPort.IExecutionContext,
     command: CreateBaseCommand
   ): Promise<Result<CreateBaseResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateBaseResult, DomainError>(async function* () {
       const builder = Base.builder().withName(command.baseName);
       if (command.baseId) {

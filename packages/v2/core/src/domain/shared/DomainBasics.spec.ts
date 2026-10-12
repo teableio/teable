@@ -82,7 +82,7 @@ describe('DomainEventName', () => {
   });
 
   it('rejects invalid event names', () => {
-    DomainEventName.create('')._unsafeUnwrapErr();
+    expect(DomainEventName.create('').isErr()).toBe(true);
   });
 
   it('supports typed event guards', () => {
@@ -113,7 +113,7 @@ describe('OccurredAt', () => {
   });
 
   it('rejects invalid inputs', () => {
-    OccurredAt.create('now')._unsafeUnwrapErr();
+    expect(OccurredAt.create('now').isErr()).toBe(true);
   });
 });
 

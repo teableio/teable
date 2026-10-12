@@ -1,11 +1,20 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { ISearchCountRo, ISearchCountVo } from '../aggregation';
+import type { ISearchCountVo } from '../aggregation';
 import { searchCountRoSchema, searchCountVoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const GET_SHARE_VIEW_SEARCH_COUNT = '/share/{shareId}/view/search-count';
+
+export const shareViewSearchCountRoSchema = searchCountRoSchema.omit({
+  // viewId is bound by the shareId; ignoreViewQuery must not be exposed — it would
+  // drop the view's row filter and let hidden columns be searched.
+  viewId: true,
+  ignoreViewQuery: true,
+});
+
+export type IShareViewSearchCountRo = z.infer<typeof shareViewSearchCountRoSchema>;
 
 export const GetShareViewSearchCountRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -15,7 +24,7 @@ export const GetShareViewSearchCountRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: searchCountRoSchema,
+    query: shareViewSearchCountRoSchema,
   },
   responses: {
     200: {
@@ -30,7 +39,7 @@ export const GetShareViewSearchCountRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewSearchCount = async (shareId: string, query?: ISearchCountRo) => {
+export const getShareViewSearchCount = async (shareId: string, query?: IShareViewSearchCountRo) => {
   return axios.get<ISearchCountVo>(urlBuilder(GET_SHARE_VIEW_SEARCH_COUNT, { shareId }), {
     params: {
       ...query,

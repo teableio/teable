@@ -12,7 +12,7 @@ export const useAggregationsQuery = (tableId: string, viewId: string) => {
         [viewId]: {
           viewId: viewId,
           aggregations: aggregations ?? [],
-          executionTime: new Date().getTime(),
+          executionTime: Date.now(),
         },
       });
     });

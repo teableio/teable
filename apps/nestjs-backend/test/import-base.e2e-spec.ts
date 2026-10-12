@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
+import { Readable } from 'node:stream';
 import type { INestApplication } from '@nestjs/common';
 import type {
   IAttachmentItem,
@@ -11,6 +12,7 @@ import type {
 import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IBaseJson,
   IExportBaseProgressEvent,
   IExportBaseSSEEvent,
   IExportBaseVo,
@@ -50,9 +52,11 @@ import {
   updateSetting,
   SettingKey,
 } from '@teable/openapi';
+import archiver from 'archiver';
 import { omit, pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
 import { ClsService } from 'nestjs-cls';
+import * as unzipper from 'unzipper';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
@@ -63,6 +67,7 @@ import type { IClsStore } from '../src/types/cls';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
+import { getError } from './utils/get-error';
 
 import {
   createTable,
@@ -359,7 +364,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
       const notify = await clsService.runWith<Promise<IAttachmentItem>>(
         {
-          // eslint-disable-next-line
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           user: {
             id: userId,
             name: 'Test User',
@@ -722,9 +727,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       importedBaseId = importedBase.id;
 
       const tableList = (await getTableList(importedBase.id)).data;
-      expect(tableList.map(({ name }) => name).sort()).toEqual(
-        [hostTable.name, lookupTable.name].sort()
-      );
+      expect(
+        tableList.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual([hostTable.name, lookupTable.name].sort((a, b) => Number(a > b) - Number(a < b)));
 
       const importedLookupMeta = tableList.find(
         (tableMeta) => tableMeta.name === lookupTable.name
@@ -876,8 +881,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         importedBaseId = importedBase.id;
 
         const tableList = (await getTableList(importedBase.id)).data;
-        expect(tableList.map(({ name }) => name).sort()).toEqual(
-          [hostTable.name, foreignTable.name].sort()
+        expect(
+          tableList.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+        ).toEqual(
+          [hostTable.name, foreignTable.name].sort((a, b) => Number(a > b) - Number(a < b))
         );
 
         const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
@@ -1434,8 +1441,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(integrityDecision.data.useV2).toBe(true);
 
       const importedTables = await getTableList(importedCanaryBaseId).then((res) => res.data);
-      expect(importedTables.map(({ name }) => name).sort()).toEqual(
-        [projectsTable.name, tasksTable.name].sort()
+      expect(
+        importedTables.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [projectsTable.name, tasksTable.name].sort((a, b) => Number(a > b) - Number(a < b))
       );
       const importedProjects = importedTables.find(({ name }) => name === projectsTable.name)!;
       const importedTasks = importedTables.find(({ name }) => name === tasksTable.name)!;
@@ -1782,9 +1791,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const importedBaseId = result.base.id;
 
       const tableList = (await getTableList(importedBaseId)).data;
-      expect(tableList.map((table) => table.name).sort()).toEqual(
-        [mainTable.name, subTable.name].sort()
-      );
+      expect(
+        tableList.map((table) => table.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual([mainTable.name, subTable.name].sort((a, b) => Number(a > b) - Number(a < b)));
 
       const importedMainTable = tableList.find((table) => table.name === mainTable.name)!;
       const importedFields = (await getFields(importedMainTable.id)).data;
@@ -1792,9 +1801,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
       const importedViews = (await getViewList(importedMainTable.id)).data;
       const importedPluginViews = importedViews.filter((view) => view.type === ViewType.Plugin);
-      expect(importedPluginViews.map((view) => view.name).sort()).toEqual(
-        ['sheetView1', 'sheetView2'].sort()
-      );
+      expect(
+        importedPluginViews.map((view) => view.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['sheetView1', 'sheetView2'].sort((a, b) => Number(a > b) - Number(a < b)));
       for (const sourceView of sourcePluginViews) {
         const importedView = importedPluginViews.find(({ name }) => name === sourceView.name)!;
         const importedInstall = (await getViewInstallPlugin(importedMainTable.id, importedView.id))
@@ -2300,11 +2309,11 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       // Verify resource types distribution
       const sourceResourceTypes = updatedSourceNodes
         .map((n) => n.resourceType)
-        .sort()
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .join(',');
       const importedResourceTypes = importedNodes
         .map((n) => n.resourceType)
-        .sort()
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .join(',');
       expect(importedResourceTypes).toBe(sourceResourceTypes);
 
@@ -2341,8 +2350,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
       // Verify folder names are preserved
-      const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
-      const importedFolderNames = importedFolders.map((f) => f.resourceMeta?.name).sort();
+      const sourceFolderNames = sourceFolders
+        .map((f) => f.resourceMeta?.name)
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      const importedFolderNames = importedFolders
+        .map((f) => f.resourceMeta?.name)
+        .sort((a, b) => Number(a > b) - Number(a < b));
       expect(importedFolderNames).toEqual(sourceFolderNames);
 
       // Verify that table inside folder1 exists in imported base
@@ -2370,8 +2383,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       // Verify tables are accessible
       const importedTableList = await getTableList(importedNodeBaseId).then((res) => res.data);
       expect(importedTableList.length).toBe(2);
-      expect(importedTableList.map((t) => t.name).sort()).toEqual(
-        [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
+      expect(
+        importedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
 
       // Verify dashboards are accessible
@@ -2379,8 +2396,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         (res) => res.data
       );
       expect(importedDashboardList.length).toBe(2);
-      expect(importedDashboardList.map((d) => d.name).sort()).toEqual(
-        [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
+      expect(
+        importedDashboardList.map((d) => d.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
     });
   });
@@ -2488,6 +2509,103 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const foreignDbFieldNames = foreignLinkFields.map((f) => f.dbFieldName);
       const uniqueDbFieldNames = new Set(foreignDbFieldNames);
       expect(uniqueDbFieldNames.size).toBe(3);
+    });
+  });
+
+  // GHSA-gj7m-w85q-hrj7: dbTableName / dbFieldName in structure.json become raw
+  // SQL identifiers, so a hand-edited archive must be refused up front.
+  describe('import base rejects hand-edited db identifiers', () => {
+    let patchedSourceBaseId: string | undefined;
+
+    beforeAll(async () => {
+      const sourceBase = (await createBase({ name: 'patched_identifier_source', spaceId })).data;
+      patchedSourceBaseId = sourceBase.id;
+      await createTable(patchedSourceBaseId, {
+        name: 'PatchedSource',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'Row 1' } }],
+      });
+    });
+
+    afterAll(async () => {
+      if (patchedSourceBaseId) {
+        await permanentDeleteBase(patchedSourceBaseId);
+      }
+    });
+
+    // Re-pack the exported .tea with one identifier in structure.json edited
+    // by hand, keeping every other entry as exported.
+    const repackWithPatchedStructure = async (
+      teaBuffer: Buffer,
+      patch: (structure: IBaseJson) => void
+    ): Promise<Buffer> => {
+      const directory = await unzipper.Open.buffer(teaBuffer);
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const finished = new Promise<void>((resolve, reject) => {
+        archive.on('end', () => resolve());
+        archive.on('error', reject);
+      });
+      for (const file of directory.files) {
+        if (file.type !== 'File') continue;
+        const content = await file.buffer();
+        if (file.path === 'structure.json') {
+          const structure = JSON.parse(content.toString('utf-8')) as IBaseJson;
+          patch(structure);
+          archive.append(JSON.stringify(structure), { name: file.path });
+        } else {
+          archive.append(content, { name: file.path });
+        }
+      }
+      await archive.finalize();
+      await finished;
+      return Buffer.concat(chunks);
+    };
+
+    const importPatchedExport = async (patch: (structure: IBaseJson) => void) => {
+      const awaitExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExport(async () => {
+        await exportBase(patchedSourceBaseId!);
+      });
+      const exported = await fetch(appUrl + previewUrl);
+      const patched = await repackWithPatchedStructure(
+        Buffer.from(await exported.arrayBuffer()),
+        patch
+      );
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: { id: userId, name: 'Test', email: 'test@example.com', isAdmin: null },
+        } as unknown as ClsStore,
+        async () =>
+          getAttachmentService(app).uploadFromStream(Readable.from(patched), {
+            filename: 'patched.tea',
+            contentType: 'application/zip',
+            contentLength: patched.length,
+          })
+      );
+      return importBase({ notify: notify as unknown as INotifyVo, spaceId });
+    };
+
+    it('rejects a dbFieldName that is not a plain SQL identifier', async () => {
+      const error = await getError(() =>
+        importPatchedExport((structure) => {
+          structure.tables[0].fields[0].dbFieldName = 'title"; DROP TABLE x; --';
+        })
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('rejects a dbTableName that is not a plain SQL identifier', async () => {
+      const error = await getError(() =>
+        importPatchedExport((structure) => {
+          structure.tables[0].dbTableName = 'tbl"; DROP TABLE x; --';
+        })
+      );
+      expect(error?.status).toBe(400);
     });
   });
 

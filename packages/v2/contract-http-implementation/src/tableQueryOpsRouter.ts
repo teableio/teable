@@ -75,18 +75,32 @@ export const createV2TableQueryOpsOrpcRouter = (
   };
 
   const throwEndpointError = (status: HttpErrorStatus, body: IApiErrorResponseDto): never => {
-    const code =
-      status === 400
-        ? 'BAD_REQUEST'
-        : status === 401
-          ? 'UNAUTHORIZED'
-          : status === 403
-            ? 'FORBIDDEN'
-            : status === 404
-              ? 'NOT_FOUND'
-              : status === 501
-                ? 'NOT_IMPLEMENTED'
-                : 'INTERNAL_SERVER_ERROR';
+    let code: string;
+    switch (status) {
+      case 400:
+        code = 'BAD_REQUEST';
+        break;
+      case 401:
+        code = 'UNAUTHORIZED';
+        break;
+      case 403:
+        code = 'FORBIDDEN';
+        break;
+      case 404:
+        code = 'NOT_FOUND';
+        break;
+      case 501:
+        code = 'NOT_IMPLEMENTED';
+        break;
+      case 503:
+        code = 'SERVICE_UNAVAILABLE';
+        break;
+      case 504:
+        code = 'GATEWAY_TIMEOUT';
+        break;
+      default:
+        code = 'INTERNAL_SERVER_ERROR';
+    }
     throw new ORPCError(code, {
       message: body.error.message,
       data: {

@@ -6,7 +6,7 @@
   "fieldKeyType": "Alan anahtar türü",
   "chooseSource": "Bir veri kaynağı seçin",
   "action": {
-    "selectBase": "Bir veritabanı seçin...",
+    "selectBase": "Bir proje seçin...",
     "selectTable": "Bir tablo seçin..."
   },
   "pickParams": "Parametreleri seçin ve yapılandırın",

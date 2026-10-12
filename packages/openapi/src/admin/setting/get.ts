@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
+import { modelTierIdSchema } from './model-tier';
 import { aiConfigVoSchema, appConfigSchema, canaryConfigSchema, imConfigSchema } from './update';
 
 export const settingVoSchema = z.object({
@@ -18,6 +19,8 @@ export const settingVoSchema = z.object({
   enableWaitlist: z.boolean().nullable().optional(),
   enableCreditReward: z.boolean().nullable().optional(),
   aiConfig: aiConfigVoSchema.nullable().optional(),
+  /** Read-only, computed by the server: credit ratio of each chat tier against the default tier. */
+  aiChatTierCreditRatio: z.partialRecord(modelTierIdSchema, z.number()).optional(),
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),

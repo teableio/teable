@@ -2,7 +2,7 @@ import { acceptLanguage } from './acceptHeader';
 
 export const getLocaleFromCookie = (cookie: string): string | null => {
   if (!cookie) return null;
-  const match = cookie.match(/NEXT_LOCALE=([^;]+)/);
+  const match = /NEXT_LOCALE=([^;]+)/.exec(cookie);
   return match?.[1] || null;
 };
 

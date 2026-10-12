@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import multer from 'multer';
+import { AiModule } from '../../ai/ai.module';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import { TurnstileModule } from '../../auth/turnstile/turnstile.module';
@@ -17,6 +18,7 @@ import { SettingOpenApiService } from './setting-open-api.service';
     AttachmentsStorageModule,
     SettingModule,
     TurnstileModule,
+    AiModule,
   ],
   controllers: [SettingOpenApiController],
   exports: [SettingOpenApiService],

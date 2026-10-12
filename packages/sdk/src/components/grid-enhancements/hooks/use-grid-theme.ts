@@ -1,4 +1,4 @@
-import { useTheme } from '@teable/next-themes';
+import { useTheme } from '@teable/ui-lib';
 import colors from 'tailwindcss/colors';
 import type { IGridTheme } from '../../grid/configs';
 import { hexToRGBA } from '../../grid/utils';

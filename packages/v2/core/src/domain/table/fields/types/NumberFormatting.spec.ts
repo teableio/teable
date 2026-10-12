@@ -8,20 +8,20 @@ describe('NumberFormatting', () => {
       type: NumberFormattingType.Decimal,
       precision: 2,
     });
-    decimalResult._unsafeUnwrap();
+    expect(decimalResult.isOk()).toBe(true);
 
     const percentResult = NumberFormatting.create({
       type: NumberFormattingType.Percent,
       precision: 0,
     });
-    percentResult._unsafeUnwrap();
+    expect(percentResult.isOk()).toBe(true);
 
     const currencyResult = NumberFormatting.create({
       type: NumberFormattingType.Currency,
       precision: 2,
       symbol: '$',
     });
-    currencyResult._unsafeUnwrap();
+    expect(currencyResult.isOk()).toBe(true);
   });
 
   it('rejects invalid precision or missing currency symbol', () => {
@@ -29,13 +29,13 @@ describe('NumberFormatting', () => {
       type: NumberFormattingType.Decimal,
       precision: 6,
     });
-    invalidPrecisionResult._unsafeUnwrapErr();
+    expect(invalidPrecisionResult.isErr()).toBe(true);
 
     const missingSymbolResult = NumberFormatting.create({
       type: NumberFormattingType.Currency,
       precision: 2,
     });
-    missingSymbolResult._unsafeUnwrapErr();
+    expect(missingSymbolResult.isErr()).toBe(true);
   });
 
   it('exposes defaults and dto mapping', () => {

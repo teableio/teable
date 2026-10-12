@@ -58,7 +58,7 @@ export type IGetSearchAccessPathStatusEndpointResult =
 export const getSearchAccessPathStatusOkResponseSchema = apiOkResponseDtoSchema(
   getSearchAccessPathStatusResponseDataSchema
 );
-export const getSearchAccessPathStatusErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as getSearchAccessPathStatusErrorResponseSchema } from '../shared/http';
 
 export const searchAccessPathCapabilitySchema = z
   .object({
@@ -106,7 +106,7 @@ export type IGetSearchAccessPathCapabilitiesEndpointResult =
 export const getSearchAccessPathCapabilitiesOkResponseSchema = apiOkResponseDtoSchema(
   getSearchAccessPathCapabilitiesResponseDataSchema
 );
-export const getSearchAccessPathCapabilitiesErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as getSearchAccessPathCapabilitiesErrorResponseSchema } from '../shared/http';
 
 export const reconcileSearchAccessPathInputSchema = z
   .object({
@@ -159,4 +159,4 @@ export type IReconcileSearchAccessPathEndpointResult =
 export const reconcileSearchAccessPathOkResponseSchema = apiOkResponseDtoSchema(
   reconcileSearchAccessPathResponseDataSchema
 );
-export const reconcileSearchAccessPathErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as reconcileSearchAccessPathErrorResponseSchema } from '../shared/http';

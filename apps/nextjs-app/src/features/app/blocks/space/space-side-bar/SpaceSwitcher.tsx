@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Check, ChevronDown, Database, Plus, ShieldUser, Trash2 } from '@teable/icons';
+import { Check, ChevronDown, LayoutGrid, Plus, ShieldUser, Trash2 } from '@teable/icons';
 import {
   createSpace,
   getSubscriptionSummaryList,
@@ -285,7 +285,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                 onClick={() => setOpen(false)}
                 className="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-accent"
               >
-                <Database className="size-4 shrink-0" />
+                <LayoutGrid className="size-4 shrink-0" />
                 <span className="text-sm">{t('space:sharedBase.title')}</span>
               </Link>
 

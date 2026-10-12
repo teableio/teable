@@ -7,6 +7,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Table aggregate, builder, value objects, and sort keys.
 - Entry point for table fields/views/specs/events.
 - Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) and mutate-only specs (e.g. TableAddFieldSpec, TableRemoveFieldSpec, TableUpdateViewColumnMetaSpec) but are passed separately from query specs.
+- Adding a field preserves customized view visibility: non-target form/gallery/kanban/calendar views with an explicit `visible: false` keep the new field hidden. Form fields that need input to satisfy constraints remain visible: non-null fields without usable defaults (including empty text/user defaults), and unique fields with defaults that could collide across submissions. The creation view and all-visible views retain their defaults; grid views keep their existing explicit `hidden` policy (`Table.buildAddedFieldColumnMetaEntry`).
 
 ## Subfolders
 
@@ -24,6 +25,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ForeignTable.ts` - Role: branded wrapper; Purpose: distinguish foreign table context.
 - `IdValueObjects.spec.ts` - Role: ID tests; Purpose: verify table/field/view ID formats.
 - `Table.spec.ts` - Role: aggregate tests; Purpose: verify Table behavior and invariants.
+- `ITableReadModel.ts` - Role: query-only table surface; Purpose: record query plugins read schema without Table mutating methods (T7092).
+- `ITableReadModel.spec.ts` - Role: type tests; Purpose: reject mutate keys on ITableReadModel.
 - `Table.ts` - Role: aggregate root; Purpose: manage fields/views and domain events.
 - `TableBuilder.spec.ts` - Role: builder tests; Purpose: verify TableBuilder constraints.
 - `TableBuilder.ts` - Role: builder; Purpose: fluent aggregate construction.

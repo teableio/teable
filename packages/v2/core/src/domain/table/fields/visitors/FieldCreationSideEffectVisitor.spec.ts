@@ -445,13 +445,13 @@ describe('FieldCreationSideEffectVisitor', () => {
       linkFieldIdResult,
       linkFieldNameResult,
     ].forEach((r) => r._unsafeUnwrap());
-    baseIdResult._unsafeUnwrap();
-    hostTableIdResult._unsafeUnwrap();
-    foreignTableIdResult._unsafeUnwrap();
-    hostPrimaryIdResult._unsafeUnwrap();
-    foreignPrimaryIdResult._unsafeUnwrap();
-    linkFieldIdResult._unsafeUnwrap();
-    linkFieldNameResult._unsafeUnwrap();
+    expect(baseIdResult.isOk()).toBe(true);
+    expect(hostTableIdResult.isOk()).toBe(true);
+    expect(foreignTableIdResult.isOk()).toBe(true);
+    expect(hostPrimaryIdResult.isOk()).toBe(true);
+    expect(foreignPrimaryIdResult.isOk()).toBe(true);
+    expect(linkFieldIdResult.isOk()).toBe(true);
+    expect(linkFieldNameResult.isOk()).toBe(true);
 
     const baseId = baseIdResult._unsafeUnwrap();
     const hostTable = buildTable({
@@ -467,7 +467,7 @@ describe('FieldCreationSideEffectVisitor', () => {
       foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
       lookupFieldId: foreignPrimaryIdResult._unsafeUnwrap().toString(),
     });
-    configResult._unsafeUnwrap();
+    expect(configResult.isOk()).toBe(true);
 
     const linkFieldResult = createNewLinkField({
       id: linkFieldIdResult._unsafeUnwrap(),
@@ -476,7 +476,7 @@ describe('FieldCreationSideEffectVisitor', () => {
       baseId,
       hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
-    linkFieldResult._unsafeUnwrap();
+    expect(linkFieldResult.isOk()).toBe(true);
 
     const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
       [linkFieldResult._unsafeUnwrap()],
@@ -485,6 +485,6 @@ describe('FieldCreationSideEffectVisitor', () => {
         foreignTables: [],
       }
     );
-    sideEffectsResult._unsafeUnwrapErr();
+    expect(sideEffectsResult.isErr()).toBe(true);
   });
 });

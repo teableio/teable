@@ -1,6 +1,6 @@
 // @ts-check
 
-import path from 'path';
+import path from 'node:path';
 import { loadEnvConfig } from '@next/env';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { devices } from '@playwright/test';

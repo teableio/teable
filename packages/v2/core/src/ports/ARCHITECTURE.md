@@ -25,17 +25,28 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain port boundaries and implementations.
 - `ButtonClickWorkflowService.ts` - Role: Table Button-field workflow port; Purpose: optional automation after `ButtonClicked`. Not a host-hook template.
 - `CommandBus.ts` - Role: port interface; Purpose: define ICommandBus + middleware contract.
+- `CsvParser.ts` - Role: lazy CSV source contract; Purpose: support bounded parsing without promising
+  immediate headers for an ambiguous delimiter. The Papa adapter scores fixed lexical previews and
+  replays ambiguous decoded prefixes from private Node files or browser IndexedDB. Detection can
+  wait until EOF; disk/quota failures propagate and owner cleanup runs on every ordinary exit.
 - `DotTeaParser.ts` - Role: port interface; Purpose: parse .tea structure inputs.
+- `DomainWriteTransaction.ts` - Role: transaction-owned event delivery; Purpose: commit data and journal
+  together. `executeStream` appends bounded batches, disables replay of one-shot input, and returns
+  event summaries rather than record payloads. Post-commit finalization errors retain `committed: true`.
 - `EventBus.ts` - Role: port interface; Purpose: define IEventBus publish contract.
 - `EventHandler.ts` - Role: handler registry; Purpose: map events to handlers.
 - `ExecutionContext.ts` - Role: execution context model; Purpose: carry actor/transaction/tracer.
 - `HandlerResolver.ts` - Role: container adapter; Purpose: resolve handlers by token.
+- `ImportEventSpool.ts` - Role: complete import-event snapshot storage outside the JS heap;
+  Purpose: replay original values before transactional projections and after commit without accumulating rows. The Node adapter uses
+  private temporary files; this is request-scoped storage, not a crash-recovery event queue.
 - `Logger.ts` - Role: logging port; Purpose: abstract logging.
 - `QueryBus.ts` - Role: port interface; Purpose: define IQueryBus + middleware contract.
 - `RealtimeChange.ts` - Role: realtime model; Purpose: describe change operations.
 - `RealtimeDocId.ts` - Role: realtime value object; Purpose: validate doc identifiers.
 - `RealtimeEngine.ts` - Role: realtime port; Purpose: abstract realtime storage and fanout, including version-aware apply and delete operations for optimistic ShareDB sequencing.
 - `RecordWritePlugin.ts` - Role: plugin port; Purpose: define typed record-write plugin hooks and operation contexts.
+- `RecordQueryPlugin.ts` - Role: plugin port; Purpose: read-side scope/guard hooks. `table` is `ITableReadModel`, not the mutating aggregate (T7092).
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
 - `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.
 - `TableRecordReadModel.ts` - Role: read model DTO; Purpose: lightweight record shape for queries.

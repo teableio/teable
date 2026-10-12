@@ -356,7 +356,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     selectionMap: IReadonlyRecordSelectionMap
   ) {
     const nullOrdering = direction === 'DESC' ? 'NULLS LAST' : 'NULLS FIRST';
-    const quotedAlias = `"${field.dbFieldName.replace(/"/g, '""')}"`;
+    const quotedAlias = `"${field.dbFieldName.replaceAll('"', '""')}"`;
     const selection = selectionMap.get(field.id);
     const selectionExpression =
       typeof selection === 'string' ? selection : selection ? selection.toQuery() : undefined;
@@ -531,7 +531,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       );
     }
 
-    if (applyPagination && sort && sort.length) {
+    if (applyPagination && sort?.length) {
       this.buildSort(baseBuilder, table, sort, baseSelectionMap!);
     }
 

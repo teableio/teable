@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { detectTextDirection, isContentDirectionEnabled } from '../../../../utils/text-direction';
+import { resolveContentDirection } from '../../../../utils/text-direction';
 import { parseToRGB } from '../../utils';
 import type {
   ILineProps,
@@ -23,6 +23,8 @@ const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }>
 });
 
 const multiLineTextInfoCache: LRUCache<string, ITextInfo[]> = new LRUCache({ max: 1000 });
+
+export const TEXT_ELLIPSIS = '...';
 
 const createFallbackSegmenter = () => ({
   segment: (text: string) => ({
@@ -71,9 +73,6 @@ const truncateToBudget = (ctx: CanvasRenderingContext2D, text: string, budget: n
  * untouched. Detection is skipped entirely while the language gate is off, so
  * every other locale keeps running the exact code path it ran before.
  */
-const resolveContentDirection = (text: string) =>
-  isContentDirectionEnabled() ? detectTextDirection(text) : null;
-
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
@@ -92,10 +91,13 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   } = props;
 
   let lines: ITextInfo[] = [];
-  const ellipsis = '...';
+  const ellipsis = TEXT_ELLIPSIS;
   const ellipsisWidth = ctx.measureText(ellipsis).width;
   let currentLine = '';
   let currentLineWidth = 0;
+  // Source offset where currentLine begins; every emitted line is a verbatim
+  // slice of text starting there (plus the ellipsis when truncated)
+  let lineStart = 0;
 
   const fontKey = ctx.font || '';
   const cacheKey = `${fontKey}-${text}-${fontSize}-${maxWidth}-${maxLines}`;
@@ -106,63 +108,76 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   } else {
     let consumed = 0;
 
-    const addEllipsisLine = (overflowSeg?: string) => {
+    const pushLine = (lineText: string, lineWidth: number) => {
+      lines.push({ text: lineText, width: lineWidth, start: lineStart });
+    };
+
+    const append = (piece: string, pieceWidth: number, pieceStart: number) => {
+      if (currentLine === '') lineStart = pieceStart;
+      currentLine += piece;
+      currentLineWidth += pieceWidth;
+    };
+
+    const addEllipsisLine = (overflowSeg?: string, overflowStart = 0) => {
       const budget = maxWidth - ellipsisWidth;
       if (currentLineWidth > budget) {
         const truncated = truncateToBudget(ctx, currentLine, budget);
         currentLine = truncated.text;
         currentLineWidth = truncated.width;
       } else if (overflowSeg) {
+        let graphemeStart = overflowStart;
         for (const { segment: grapheme } of graphemeSegmenter.segment(overflowSeg)) {
           const gw = ctx.measureText(grapheme).width;
           if (currentLineWidth + gw > budget) break;
-          currentLine += grapheme;
-          currentLineWidth += gw;
+          append(grapheme, gw, graphemeStart);
+          graphemeStart += grapheme.length;
         }
       }
-      lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
+      pushLine(currentLine + ellipsis, currentLineWidth + ellipsisWidth);
       currentLine = '';
       currentLineWidth = 0;
     };
 
-    const addSegment = (seg: string, segWidth: number) => {
+    const addSegment = (seg: string, segWidth: number, segStart: number) => {
       if (currentLineWidth + segWidth <= maxWidth) {
-        currentLine += seg;
-        currentLineWidth += segWidth;
+        append(seg, segWidth, segStart);
         return;
       }
       if (segWidth <= maxWidth) {
         if (lines.length < maxLines - 1) {
-          lines.push({ text: currentLine, width: currentLineWidth });
-          currentLine = seg;
-          currentLineWidth = segWidth;
+          pushLine(currentLine, currentLineWidth);
+          currentLine = '';
+          currentLineWidth = 0;
+          append(seg, segWidth, segStart);
         } else {
-          addEllipsisLine(seg);
+          addEllipsisLine(seg, segStart);
         }
         return;
       }
+      let graphemeStart = segStart;
       for (const { segment: grapheme } of graphemeSegmenter.segment(seg)) {
         if (lines.length >= maxLines) break;
         const gWidth = ctx.measureText(grapheme).width;
         if (currentLineWidth + gWidth > maxWidth) {
           if (lines.length < maxLines - 1) {
-            lines.push({ text: currentLine, width: currentLineWidth });
-            currentLine = grapheme;
-            currentLineWidth = gWidth;
+            pushLine(currentLine, currentLineWidth);
+            currentLine = '';
+            currentLineWidth = 0;
+            append(grapheme, gWidth, graphemeStart);
           } else {
             addEllipsisLine();
           }
         } else {
-          currentLine += grapheme;
-          currentLineWidth += gWidth;
+          append(grapheme, gWidth, graphemeStart);
         }
+        graphemeStart += grapheme.length;
       }
     };
 
     for (const { segment } of wordSegmenter.segment(text)) {
       if (lines.length >= maxLines) break;
 
-      if (segment.indexOf('\n') !== -1) {
+      if (segment.includes('\n')) {
         const parts = segment.split('\n');
         for (let p = 0; p < parts.length; p++) {
           if (lines.length >= maxLines) break;
@@ -172,25 +187,26 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
               addEllipsisLine();
               break;
             }
-            lines.push({ text: currentLine, width: currentLineWidth });
+            pushLine(currentLine, currentLineWidth);
             currentLine = '';
             currentLineWidth = 0;
+            lineStart = consumed;
           }
           const part = parts[p];
           if (part.length > 0) {
             consumed += part.length;
-            addSegment(part, ctx.measureText(part).width);
+            addSegment(part, ctx.measureText(part).width, consumed - part.length);
           }
         }
         continue;
       }
 
       consumed += segment.length;
-      addSegment(segment, ctx.measureText(segment).width);
+      addSegment(segment, ctx.measureText(segment).width, consumed - segment.length);
     }
 
     if (lines.length < maxLines && currentLine !== '') {
-      lines.push({ text: currentLine, width: currentLineWidth });
+      pushLine(currentLine, currentLineWidth);
     }
 
     multiLineTextInfoCache.set(cacheKey, lines);
@@ -266,7 +282,7 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
       displayText = text;
       width = fullWidth;
     } else {
-      const ellipsis = '...';
+      const ellipsis = TEXT_ELLIPSIS;
       const ellipsisWidth = ctx.measureText(ellipsis).width;
       // Reserve the ellipsis width up front so that the rendered text and the
       // returned width stay within maxWidth (as long as maxWidth fits at
@@ -411,7 +427,7 @@ export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyPr
     const v2 = asVec(p2, p3);
     const sinA = v1.nx * v2.ny - v1.ny * v2.nx;
     const sinA90 = v1.nx * v2.nx - v1.ny * -v2.ny;
-    let angle = Math.asin(sinA < -1 ? -1 : sinA > 1 ? 1 : sinA);
+    let angle = Math.asin(Math.min(Math.max(sinA, -1), 1));
     let radDirection = 1;
     let drawDirection = false;
     if (sinA90 < 0) {
@@ -422,11 +438,9 @@ export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyPr
         radDirection = -1;
         drawDirection = true;
       }
-    } else {
-      if (angle > 0) {
-        radDirection = -1;
-        drawDirection = true;
-      }
+    } else if (angle > 0) {
+      radDirection = -1;
+      drawDirection = true;
     }
     radius = p2.radius !== undefined ? p2.radius : radiusAll;
 
@@ -671,7 +685,7 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
 
   const barMaxWidth = 8;
   const [originMinY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
-  const minY = originMinY > 0 ? 0 : originMinY;
+  const minY = Math.min(originMinY, 0);
   const delta = maxY - minY === 0 ? 1 : maxY - minY;
   const zeroY = maxY <= 0 ? y : minY >= 0 ? y + height : y + height * (maxY / delta);
 

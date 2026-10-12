@@ -26,6 +26,7 @@ export type IGetDashboardInstallPluginVo = z.infer<typeof getDashboardInstallPlu
 export const GetDashboardInstallPluginRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_DASHBOARD_INSTALL_PLUGIN,
+  title: 'Get project dashboard plugin',
   description: 'Get a dashboard install plugin by id',
   request: {
     params: getDashboardInstallPluginRoSchema,

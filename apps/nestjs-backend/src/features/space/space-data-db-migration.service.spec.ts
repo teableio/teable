@@ -98,6 +98,8 @@ const triggerSignatureRows = (
 
 describe('SpaceDataDbMigrationService', () => {
   const txClient = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn(),
     dataDbConnection: {
       upsert: vi.fn(),
       update: vi.fn(),
@@ -4359,6 +4361,136 @@ describe('SpaceDataDbMigrationService', () => {
     expect(values).toEqual(['recxxx', '2026-07-13T00:00:00.000Z']);
   });
 
+  it('replays domain event outbox INSERT/UPDATE/DELETE and inbox composite-key upserts', async () => {
+    targetClient.raw.mockImplementation(async (sql: string, bindings: unknown[] = []) => {
+      if (sql.includes('FROM information_schema.columns')) {
+        if (bindings[1] === 'domain_event_inbox') {
+          return {
+            rows: [
+              { columnName: 'consumer_id', dataType: 'text', isGenerated: 'NEVER' },
+              { columnName: 'event_id', dataType: 'text', isGenerated: 'NEVER' },
+              {
+                columnName: 'created_at',
+                dataType: 'timestamp with time zone',
+                isGenerated: 'NEVER',
+              },
+            ],
+          };
+        }
+        return {
+          rows: [
+            { columnName: 'id', dataType: 'text', isGenerated: 'NEVER' },
+            { columnName: 'base_id', dataType: 'text', isGenerated: 'NEVER' },
+            { columnName: 'payload', dataType: 'jsonb', isGenerated: 'NEVER' },
+            { columnName: 'unpublished', dataType: 'boolean', isGenerated: 'NEVER' },
+            { columnName: 'settled', dataType: 'text', isGenerated: 'NEVER' },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const service = createService();
+    const applyDeltaRowToTarget = (
+      service as unknown as {
+        applyDeltaRowToTarget: (input: unknown) => Promise<boolean>;
+      }
+    ).applyDeltaRowToTarget;
+    const columnMetadataCache = new Map();
+    const apply = (row: unknown) =>
+      applyDeltaRowToTarget.call(service, {
+        targetClient,
+        row,
+        sourceSchema: 'public',
+        targetSchema: internalSchema,
+        columnMetadataCache,
+      });
+
+    await expect(
+      apply({
+        seq: 1,
+        schemaName: 'public',
+        tableName: 'domain_event_outbox',
+        op: 'INSERT',
+        pk: null,
+        oldRow: null,
+        newRow: {
+          id: 'deo1',
+          base_id: 'bsexxx',
+          payload: { recordId: 'rec1' },
+          unpublished: true,
+          settled: null,
+        },
+        capturedAt: '2026-05-06T00:00:00.000Z',
+      })
+    ).resolves.toBe(true);
+    const [insertSql, insertValues] = targetClient.raw.mock.calls.at(-1) ?? [];
+    expect(insertSql).toContain(`INSERT INTO "${internalSchema}"."domain_event_outbox"`);
+    expect(insertSql).toContain('ON CONFLICT ("id")');
+    expect(insertSql).toContain('DO UPDATE SET');
+    expect(insertValues).toEqual(['deo1', 'bsexxx', '{"recordId":"rec1"}', true, null]);
+
+    await expect(
+      apply({
+        seq: 2,
+        schemaName: 'public',
+        tableName: 'domain_event_outbox',
+        op: 'UPDATE',
+        pk: null,
+        oldRow: { id: 'deo1', settled: null },
+        newRow: {
+          id: 'deo1',
+          base_id: 'bsexxx',
+          payload: { recordId: 'rec1' },
+          unpublished: false,
+          settled: 'succeeded',
+        },
+        capturedAt: '2026-05-06T00:00:01.000Z',
+      })
+    ).resolves.toBe(true);
+    const [updateSql, updateValues] = targetClient.raw.mock.calls.at(-1) ?? [];
+    expect(updateSql).toContain(`INSERT INTO "${internalSchema}"."domain_event_outbox"`);
+    expect(updateSql).toContain('ON CONFLICT ("id") DO UPDATE SET');
+    expect(updateValues).toEqual(['deo1', 'bsexxx', '{"recordId":"rec1"}', false, 'succeeded']);
+
+    await expect(
+      apply({
+        seq: 3,
+        schemaName: 'public',
+        tableName: 'domain_event_outbox',
+        op: 'DELETE',
+        pk: null,
+        oldRow: { id: 'deo1', base_id: 'bsexxx' },
+        newRow: null,
+        capturedAt: '2026-05-06T00:00:02.000Z',
+      })
+    ).resolves.toBe(true);
+    expect(targetClient.raw).toHaveBeenLastCalledWith(
+      `DELETE FROM "${internalSchema}"."domain_event_outbox" WHERE "id" = ?`,
+      ['deo1']
+    );
+
+    await expect(
+      apply({
+        seq: 4,
+        schemaName: 'public',
+        tableName: 'domain_event_inbox',
+        op: 'INSERT',
+        pk: null,
+        oldRow: null,
+        newRow: {
+          consumer_id: 'record.validation.v1',
+          event_id: 'deo1',
+          created_at: '2026-05-06T00:00:03.000Z',
+        },
+        capturedAt: '2026-05-06T00:00:03.000Z',
+      })
+    ).resolves.toBe(true);
+    const [inboxSql, inboxValues] = targetClient.raw.mock.calls.at(-1) ?? [];
+    expect(inboxSql).toContain(`INSERT INTO "${internalSchema}"."domain_event_inbox"`);
+    expect(inboxSql).toContain('ON CONFLICT ("consumer_id", "event_id")');
+    expect(inboxValues).toEqual(['record.validation.v1', 'deo1', '2026-05-06T00:00:03.000Z']);
+  });
+
   it('fails validation on base table index constraint or trigger signature mismatch', async () => {
     prismaService.spaceDataDbMigrationJob.findUnique.mockResolvedValue({
       id: 'sdmjxxx',
@@ -7090,6 +7222,9 @@ describe('SpaceDataDbMigrationService', () => {
           sharedTables: [
             { object: 'shared:computed_update_outbox', sourceCount: 0, targetCount: 0 },
             { object: 'shared:computed_update_dead_letter', sourceCount: 0, targetCount: 0 },
+            { object: 'shared:domain_event_outbox', sourceCount: 0, targetCount: 0 },
+            { object: 'shared:domain_event_delivery', sourceCount: 0, targetCount: 0 },
+            { object: 'shared:domain_event_inbox', sourceCount: 0, targetCount: 0 },
             { object: 'shared:__undo_log', sourceCount: 0, targetCount: 0 },
           ],
         },
@@ -7167,6 +7302,9 @@ describe('SpaceDataDbMigrationService', () => {
         sharedTables: [
           { object: 'shared:computed_update_outbox', sourceCount: 0, targetCount: 0 },
           { object: 'shared:computed_update_dead_letter', sourceCount: 0, targetCount: 0 },
+          { object: 'shared:domain_event_outbox', sourceCount: 0, targetCount: 0 },
+          { object: 'shared:domain_event_delivery', sourceCount: 0, targetCount: 0 },
+          { object: 'shared:domain_event_inbox', sourceCount: 0, targetCount: 0 },
           { object: 'shared:__undo_log', sourceCount: 0, targetCount: 0 },
         ],
       },

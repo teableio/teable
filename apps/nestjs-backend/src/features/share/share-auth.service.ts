@@ -7,6 +7,8 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
+import { hashSharePassword } from '../../utils/share-password-hash';
+import { AuditScope } from '../audit/audit-scope';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
@@ -23,7 +25,8 @@ export interface IShareViewInfo {
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  // sha256 over shareId + password (see hashSharePassword); never the password.
+  pwHash: string;
 }
 
 @Injectable()
@@ -33,7 +36,8 @@ export class ShareAuthService {
     private readonly prismaService: PrismaService,
     private readonly jwtService: TeableJwtService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly sharedViewAccessV2Service: SharedViewAccessV2Service
+    private readonly sharedViewAccessV2Service: SharedViewAccessV2Service,
+    private readonly audit: AuditScope
   ) {}
 
   async validateJwtToken(token: string) {
@@ -44,7 +48,10 @@ export class ShareAuthService {
     }
   }
 
-  async authShareView(shareId: string, pass: string, useV2 = false): Promise<string | null> {
+  private async getSharePassword(
+    shareId: string,
+    useV2: boolean
+  ): Promise<{ password: string; shareInfo: IShareViewInfo } | null> {
     const shareInfo = await this.findShareViewInfo(shareId, useV2);
     if (!shareInfo) {
       return null;
@@ -61,11 +68,57 @@ export class ShareAuthService {
         }
       );
     }
-    return pass === password ? shareId : null;
+    return { password, shareInfo };
   }
 
-  async authToken(jwtShareInfo: IJwtShareInfo) {
-    return await this.jwtService.signAsync(jwtShareInfo);
+  /**
+   * The password form of a shared view. Every attempt on a live share is audited, the wrong ones
+   * as `share.view.auth-failed` so a guessing run stays visible; `actorId` is the visitor's own
+   * session user when they are signed in, else the row goes to 'anonymous'.
+   */
+  async authShareView(
+    shareId: string,
+    pass: string,
+    useV2 = false,
+    actorId?: string
+  ): Promise<string | null> {
+    const share = await this.getSharePassword(shareId, useV2);
+    if (!share) {
+      return null;
+    }
+    const userId = actorId ?? this.cls.get('user.id') ?? 'anonymous';
+    const params = {
+      shareId,
+      tableId: share.shareInfo.tableId,
+      viewId: share.shareInfo.view?.id,
+    };
+    if (pass !== share.password) {
+      await this.audit.emitAtomic({
+        action: 'share.view.auth-failed',
+        resourceId: shareId,
+        userId,
+        params,
+      });
+      return null;
+    }
+    await this.audit.emitAtomic({
+      action: 'share.view.auth',
+      resourceId: shareId,
+      userId,
+      params,
+    });
+    return shareId;
+  }
+
+  /** Cookie counterpart of authShareView: compares the hash the cookie carries. */
+  async authShareViewByHash(shareId: string, pwHash: string, useV2 = false) {
+    const share = await this.getSharePassword(shareId, useV2);
+    return share !== null && hashSharePassword(shareId, share.password) === pwHash ? shareId : null;
+  }
+
+  async authToken(shareId: string, password: string) {
+    const payload: IJwtShareInfo = { shareId, pwHash: hashSharePassword(shareId, password) };
+    return await this.jwtService.signAsync(payload);
   }
 
   async getShareViewInfo(shareId: string, useV2 = false): Promise<IShareViewInfo> {

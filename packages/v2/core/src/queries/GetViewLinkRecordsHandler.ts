@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import type { IncomingLinkHostCondition } from '../domain/table/records/specs/IncomingLinkSelectedSpec';
 import { RecordConditionSpecBuilder } from '../domain/table/records/specs/RecordConditionSpecBuilder';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
@@ -91,9 +92,29 @@ export class GetViewLinkRecordsHandler
         );
         yield* plan.validateTargetTable(targetTable);
 
+        // A shared view's link picker must not reveal foreign records linked
+        // only from host rows the view filter hides: turn the source view's
+        // filter into a host-side condition of the selection spec.
+        let hostCondition: IncomingLinkHostCondition | undefined;
+        if (query.applySourceViewFilter && plan.selectionType === 'selected') {
+          const sourceView = yield* sourceTable.getView(query.viewId);
+          const sourceDefaults = yield* sourceView.queryDefaults();
+          const sourceFilter = replaceCurrentUserTagInFilter(
+            sourceTable,
+            sourceDefaults.filter(),
+            context.actorId.toString()
+          );
+          const sanitizedSourceFilter = yield* sanitizeRecordFilter(sourceTable, sourceFilter);
+          if (sanitizedSourceFilter) {
+            hostCondition = yield* buildRecordConditionSpec(sourceTable, sanitizedSourceFilter);
+          }
+        }
+
         const specBuilder = RecordConditionSpecBuilder.create();
         let hasConditionSpec = false;
-        const selectionSpec = yield* plan.selectionSpec(sourceTable, targetTable);
+        const selectionSpec = yield* plan.selectionSpec(sourceTable, targetTable, {
+          hostCondition,
+        });
         if (selectionSpec) {
           specBuilder.addConditionSpec(selectionSpec);
           hasConditionSpec = true;

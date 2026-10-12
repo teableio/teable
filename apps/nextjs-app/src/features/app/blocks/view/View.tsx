@@ -47,16 +47,14 @@ export const View = (props: IViewBaseProps) => {
 
     if (query?.ready && !views.length) {
       return (
-        <>
-          <div className="flex h-full flex-col items-center justify-center gap-y-4 text-center">
-            <h3 data-testid="not-found-title" className="text-xl font-semibold text-foreground">
-              {t('table:view.noView')}
-            </h3>
-            <p className="max-w-md text-sm text-muted-foreground">
-              {t('common:admin.tips.pleaseContactAdmin')}
-            </p>
-          </div>
-        </>
+        <div className="flex h-full flex-col items-center justify-center gap-y-4 text-center">
+          <h3 data-testid="not-found-title" className="text-xl font-semibold text-foreground">
+            {t('table:view.noView')}
+          </h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {t('common:admin.tips.pleaseContactAdmin')}
+          </p>
+        </div>
       );
     }
   }

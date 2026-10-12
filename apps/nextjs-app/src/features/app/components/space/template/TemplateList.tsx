@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useTheme } from '@teable/next-themes';
 import { getPublishedTemplateList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useTheme } from '@teable/ui-lib';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, cn, Skeleton } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
@@ -57,7 +57,7 @@ export const TemplateList = (props: ITemplateListProps) => {
   });
 
   const currentTemplateList = useMemo(() => {
-    return data?.pages?.flatMap((page) => page) ?? [];
+    return data?.pages?.flat() ?? [];
   }, [data]);
 
   if (isLoading) {

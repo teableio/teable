@@ -65,3 +65,61 @@ describe('normalizeCellValueForDisplay T6459', () => {
     expect(normalizeCellValueForDisplay(field, undefined)).toBeUndefined();
   });
 });
+
+const createUserField = (isMultiple: boolean): IFieldVo => ({
+  id: 'fldOwner0000000001',
+  name: 'Owner',
+  dbFieldName: 'Owner',
+  type: FieldType.User,
+  options: { isMultiple, shouldNotify: true },
+  unique: false,
+  cellValueType: CellValueType.String,
+  isMultipleCellValue: isMultiple,
+  dbFieldType: DbFieldType.Json,
+});
+
+const parker = { id: 'usrParker0000001', title: 'parker', email: 'parker@teable.ai' };
+const leo = { id: 'usrLeo0000000001', title: 'Leo', email: 'leo@teable.io' };
+
+describe('normalizeCellValueForDisplay user isMultiple transition T7257', () => {
+  it('proves the validate-only path blanks a stale single user value after convert to multiple', () => {
+    const field = createFieldInstance(createUserField(true));
+
+    // Grid path before this fix: validate only → undefined → blank cell.
+    const validateOnly = field.validateCellValue(parker);
+    const blanked = validateOnly.success ? validateOnly.data : undefined;
+    expect(blanked).toBeUndefined();
+
+    expect(normalizeCellValueForDisplay(field, parker)).toEqual([parker]);
+  });
+
+  it('keeps single user values visible after convert to multiple', () => {
+    const field = createFieldInstance(createUserField(true));
+
+    expect(normalizeCellValueForDisplay(field, parker)).toEqual([parker]);
+    expect(normalizeCellValueForDisplay(field, [parker])).toEqual([parker]);
+  });
+
+  it('keeps multiple user array values visible after convert to single', () => {
+    const field = createFieldInstance(createUserField(false));
+
+    expect(normalizeCellValueForDisplay(field, [parker])).toEqual(parker);
+    expect(normalizeCellValueForDisplay(field, [parker, leo])).toEqual(parker);
+    expect(normalizeCellValueForDisplay(field, parker)).toEqual(parker);
+  });
+
+  it('does not invent a user value from an empty array', () => {
+    const multiple = createFieldInstance(createUserField(true));
+    const single = createFieldInstance(createUserField(false));
+
+    expect(normalizeCellValueForDisplay(multiple, [])).toBeNull();
+    expect(normalizeCellValueForDisplay(single, [])).toBeNull();
+  });
+
+  it('returns nullish values unchanged', () => {
+    const field = createFieldInstance(createUserField(true));
+
+    expect(normalizeCellValueForDisplay(field, null)).toBeNull();
+    expect(normalizeCellValueForDisplay(field, undefined)).toBeUndefined();
+  });
+});

@@ -421,11 +421,10 @@ describe('v2 http createTable (e2e)', () => {
     expect(created.views).toHaveLength(1);
     expect(created.views[0]?.type).toBe('grid');
 
-    // v1's "3 empty records for an empty payload" default comes from its API
-    // layer (TablePipe fills DEFAULT_FIELDS/VIEWS/RECORD_DATA before the
-    // command runs — the FORCE_V2 bridge inherits it). The native v2 endpoint
-    // stays explicit; the same default table is available as the 'default'
-    // template (@teable/v2-table-templates), covered by the test below.
+    // v1's API layer no longer seeds default records (T6947): TablePipe only fills
+    // DEFAULT_FIELDS/VIEWS before the command runs — the FORCE_V2 bridge inherits it.
+    // The native v2 endpoint stays explicit; the same default table is available as
+    // the 'default' template (@teable/v2-table-templates), covered by the test below.
     const records = await ctx.listRecords(created.id, { limit: 10 });
     expect(records).toHaveLength(0);
   });

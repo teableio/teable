@@ -34,6 +34,33 @@ describe('collectContinuationFieldIds', () => {
     ).toEqual([changed.toString()]);
   });
 
+  it('skips planned fields whose returned old and new values are Object.is equal', () => {
+    const changed = fieldId('a');
+    const unchanged = fieldId('b');
+    const plan = {
+      steps: [{ tableId: {} as never, fieldIds: [changed, unchanged], level: 0 }],
+      edges: [],
+    } as unknown as ComputedUpdatePlan;
+
+    expect(
+      collectContinuationFieldIds(plan, [
+        {
+          tableId: 'tblxxxxxxxxxxxxxxxx',
+          recordChanges: [
+            {
+              recordId: 'recxxxxxxxxxxxxxxxx',
+              oldVersion: 1,
+              changes: [
+                { fieldId: changed.toString(), oldValue: 1, newValue: 2 },
+                { fieldId: unchanged.toString(), oldValue: 0, newValue: 0 },
+              ],
+            },
+          ],
+        },
+      ]).map((id) => id.toString())
+    ).toEqual([changed.toString()]);
+  });
+
   it('stops after a step that produced no actual changes', () => {
     const plan = {
       steps: [{ tableId: {} as never, fieldIds: [fieldId('a')], level: 0 }],

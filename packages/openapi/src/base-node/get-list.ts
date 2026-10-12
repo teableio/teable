@@ -13,7 +13,8 @@ export type IBaseNodeListVo = z.infer<typeof baseNodeListVoSchema>;
 export const GetBaseNodeListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_NODE_LIST,
-  description: 'Get list nodes of a base',
+  title: 'List project nodes',
+  description: 'Retrieve a flat list of nodes in a project.',
   request: {
     params: z.object({
       baseId: z.string(),

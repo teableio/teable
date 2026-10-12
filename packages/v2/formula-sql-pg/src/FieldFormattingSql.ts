@@ -8,6 +8,7 @@ import {
   TimeFormatting,
   type Field,
 } from '@teable/v2-core';
+import { sqlText, type FormulaCompileBudget } from './FormulaCompileBudget';
 
 import { sqlStringLiteral } from './PgSqlHelpers';
 import type { SqlValueType } from './SqlExpression';
@@ -52,19 +53,23 @@ const mapTimeFormatMask = (format: TimeFormatting): string => {
   }
 };
 
-export const formatNumberStringSql = (valueSql: string, formatting: NumberFormatting): string => {
+export const formatNumberStringSql = (
+  valueSql: string,
+  formatting: NumberFormatting,
+  budget?: FormulaCompileBudget
+): string => {
   const precision = formatting.precision().toNumber();
-  const decimalPart = precision > 0 ? `D${'0'.repeat(precision)}` : '';
-  const mask = `999999990${decimalPart}`;
-  const maskSql = sqlStringLiteral(mask);
-  const baseValue = `(${valueSql})::numeric`;
+  const decimalPart = precision > 0 ? (budget?.sql ?? sqlText)`D${'0'.repeat(precision)}` : '';
+  const mask = (budget?.sql ?? sqlText)`999999990${decimalPart}`;
+  const maskSql = sqlStringLiteral(mask, budget);
+  const baseValue = (budget?.sql ?? sqlText)`(${valueSql})::numeric`;
 
-  return formatNumberStringSqlWithBaseValue(baseValue, formatting, maskSql);
+  return formatNumberStringSqlWithBaseValue(baseValue, formatting, maskSql, budget);
 };
 
-const buildJsonScalarNumericSql = (valueSql: string): string => {
-  const jsonValue = `to_jsonb(${valueSql})`;
-  return `(CASE
+const buildJsonScalarNumericSql = (valueSql: string, budget?: FormulaCompileBudget): string => {
+  const jsonValue = (budget?.sql ?? sqlText)`to_jsonb(${valueSql})`;
+  return (budget?.sql ?? sqlText)`(CASE
     WHEN ${valueSql} IS NULL THEN NULL
     WHEN jsonb_typeof(${jsonValue}) = 'array' THEN NULLIF((${jsonValue} ->> 0), '')::numeric
     WHEN jsonb_typeof(${jsonValue}) = 'null' THEN NULL
@@ -75,21 +80,23 @@ const buildJsonScalarNumericSql = (valueSql: string): string => {
 const formatNumberStringSqlWithBaseValue = (
   baseValue: string,
   formatting: NumberFormatting,
-  maskSql: string
+  maskSql: string,
+  budget?: FormulaCompileBudget
 ): string => {
   switch (formatting.type()) {
     case NumberFormattingType.Percent: {
-      const percentValue = `(${baseValue} * 100)`;
-      const formatted = `trim(to_char(${percentValue}, ${maskSql}))`;
-      return `${formatted} || ${sqlStringLiteral('%')}`;
+      const percentValue = (budget?.sql ?? sqlText)`(${baseValue} * 100)`;
+      const formatted = (budget?.sql ?? sqlText)`trim(to_char(${percentValue}, ${maskSql}))`;
+      return (budget?.sql ?? sqlText)`${formatted} || ${sqlStringLiteral('%', budget)}`;
     }
     case NumberFormattingType.Currency: {
-      const formatted = `trim(to_char(${baseValue}, ${maskSql}))`;
-      return `${sqlStringLiteral(formatting.symbol() ?? '')} || ${formatted}`;
+      const formatted = (budget?.sql ?? sqlText)`trim(to_char(${baseValue}, ${maskSql}))`;
+      return (budget?.sql ??
+        sqlText)`${sqlStringLiteral(formatting.symbol() ?? '', budget)} || ${formatted}`;
     }
     case NumberFormattingType.Decimal:
     default:
-      return `trim(to_char(${baseValue}, ${maskSql}))`;
+      return (budget?.sql ?? sqlText)`trim(to_char(${baseValue}, ${maskSql}))`;
   }
 };
 
@@ -100,16 +107,18 @@ type NumberFormatOptions = {
 export const formatDatetimeStringSql = (
   valueSql: string,
   formatting: DateTimeFormatting,
-  timeZoneOverride?: string
+  timeZoneOverride?: string,
+  budget?: FormulaCompileBudget
 ): string => {
   const dateMask = mapDateFormatMask(formatting.date());
   const timeMask = mapTimeFormatMask(formatting.time());
-  const fullMask = timeMask ? `${dateMask} ${timeMask}` : dateMask;
-  const maskSql = sqlStringLiteral(fullMask);
+  const fullMask = timeMask ? (budget?.sql ?? sqlText)`${dateMask} ${timeMask}` : dateMask;
+  const maskSql = sqlStringLiteral(fullMask, budget);
   const timeZone = timeZoneOverride ?? formatting.timeZone().toString();
   const tz = mapTimeZoneToPg(timeZone);
-  const zonedValue = `(${valueSql})::timestamptz AT TIME ZONE ${sqlStringLiteral(tz)}`;
-  return `TO_CHAR(${zonedValue}, ${maskSql})`;
+  const zonedValue = (budget?.sql ??
+    sqlText)`(${valueSql})::timestamptz AT TIME ZONE ${sqlStringLiteral(tz, budget)}`;
+  return (budget?.sql ?? sqlText)`TO_CHAR(${zonedValue}, ${maskSql})`;
 };
 
 const resolveLookupInnerField = (field: Field): Field | null => {
@@ -151,8 +160,10 @@ export const formatFieldValueAsStringSql = (
   valueSql: string,
   valueType?: SqlValueType,
   timeZoneOverride?: string,
-  options?: NumberFormatOptions
+  options?: NumberFormatOptions,
+  budget?: FormulaCompileBudget
 ): string | undefined => {
+  const sql = budget?.sql ?? sqlText;
   const formatting = resolveFormatting(field);
   if (!formatting) return undefined;
 
@@ -160,21 +171,22 @@ export const formatFieldValueAsStringSql = (
     if (valueType && valueType !== 'number') return undefined;
     if (options?.normalizeJsonScalar) {
       const precision = formatting.precision().toNumber();
-      const decimalPart = precision > 0 ? `D${'0'.repeat(precision)}` : '';
-      const mask = `999999990${decimalPart}`;
-      const maskSql = sqlStringLiteral(mask);
+      const decimalPart = precision > 0 ? sql`D${'0'.repeat(precision)}` : '';
+      const mask = sql`999999990${decimalPart}`;
+      const maskSql = sqlStringLiteral(mask, budget);
       return formatNumberStringSqlWithBaseValue(
-        buildJsonScalarNumericSql(valueSql),
+        buildJsonScalarNumericSql(valueSql, budget),
         formatting,
-        maskSql
+        maskSql,
+        budget
       );
     }
-    return formatNumberStringSql(valueSql, formatting);
+    return formatNumberStringSql(valueSql, formatting, budget);
   }
 
   if (formatting instanceof DateTimeFormatting) {
     if (valueType && valueType !== 'datetime') return undefined;
-    return formatDatetimeStringSql(valueSql, formatting, timeZoneOverride);
+    return formatDatetimeStringSql(valueSql, formatting, timeZoneOverride, budget);
   }
 
   return undefined;

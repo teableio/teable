@@ -57,6 +57,7 @@ const stripUndefinedDeep = (value: unknown): unknown => {
 // canonical create-field input accepted by `lookupOptionsSchema` (.strict()), so we keep only the
 // input keys rather than stripping a denylist that can drift as enrichment grows.
 const LOOKUP_INPUT_OPTION_KEYS = [
+  'isUnique',
   'linkFieldId',
   'foreignTableId',
   'lookupFieldId',
@@ -205,7 +206,7 @@ export class FieldUndoRedoSnapshotService {
       includeRecords?: boolean;
     }
   ): Promise<Result<ReadonlyArray<UndoRedoFieldSnapshot>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<UndoRedoFieldSnapshot>, DomainError>(async function* () {
       const tableDto = yield* service.tableMapper.toDTO(table);
       const orderedFieldIdsByViewId = yield* service.captureOrderedFieldIdsByView(table);
@@ -437,7 +438,7 @@ export class FieldUndoRedoSnapshotService {
   ): NonNullable<UndoRedoFieldSnapshot['records']>[number] {
     return {
       recordId: row.id,
-      value: Object.prototype.hasOwnProperty.call(row.fields, fieldId) ? row.fields[fieldId] : null,
+      value: Object.hasOwn(row.fields, fieldId) ? row.fields[fieldId] : null,
     };
   }
 

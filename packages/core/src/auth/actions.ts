@@ -9,6 +9,7 @@ export enum ActionPrefix {
   Record = 'record',
   Field = 'field',
   Automation = 'automation',
+  Routine = 'routine',
   App = 'app',
   User = 'user',
   TableRecordHistory = 'table_record_history',
@@ -96,11 +97,26 @@ export const automationActions = [
 export const automationActionSchema = z.enum(automationActions);
 export type AutomationAction = z.infer<typeof automationActionSchema>;
 
+export const routineActions = [
+  'routine|create',
+  'routine|delete',
+  'routine|read',
+  'routine|update',
+] as const;
+export const routineActionSchema = z.enum(routineActions);
+export type RoutineAction = z.infer<typeof routineActionSchema>;
+
 export const appActions = ['app|create', 'app|delete', 'app|read', 'app|update'] as const;
 export const appActionSchema = z.enum(appActions);
 export type AppAction = z.infer<typeof appActionSchema>;
 
-export const userActions = ['user|email_read', 'user|integrations'] as const;
+export const userActions = [
+  'user|email_read',
+  'user|integrations',
+  'user|spaces_read',
+  'user|self_hosted_licenses_read',
+  'user|notifications_send',
+] as const;
 export const userActionSchema = z.enum(userActions);
 export type UserAction = z.infer<typeof userActionSchema>;
 
@@ -124,6 +140,7 @@ export type Action =
   | FieldAction
   | RecordAction
   | AutomationAction
+  | RoutineAction
   | AppAction
   | UserAction
   | TableRecordHistoryAction
@@ -139,6 +156,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.Record]: RecordAction[];
   [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
   [ActionPrefix.Automation]: AutomationAction[];
+  [ActionPrefix.Routine]: RoutineAction[];
   [ActionPrefix.App]: AppAction[];
   [ActionPrefix.User]: UserAction[];
   [ActionPrefix.Instance]: InstanceAction[];
@@ -154,6 +172,7 @@ export const allActions: readonly Action[] = [
   ...recordActions,
   ...tableRecordHistoryActions,
   ...automationActions,
+  ...routineActions,
   ...appActions,
   ...userActions,
   ...instanceActions,
@@ -169,6 +188,7 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Record]: [...recordActions],
   [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.Automation]: [...automationActions],
+  [ActionPrefix.Routine]: [...routineActions],
   [ActionPrefix.App]: [...appActions],
   [ActionPrefix.User]: [...userActions],
   [ActionPrefix.Instance]: [...instanceActions],

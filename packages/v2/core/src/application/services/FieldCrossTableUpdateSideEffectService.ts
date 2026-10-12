@@ -62,7 +62,7 @@ export class FieldCrossTableUpdateSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldCrossTableUpdateSideEffectInput
   ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
       const pendingUpdates: CrossTableFieldUpdate[] = [input];

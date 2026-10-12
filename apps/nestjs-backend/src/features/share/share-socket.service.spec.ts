@@ -92,35 +92,6 @@ describe('ShareSocketService View reads', () => {
   );
 });
 
-describe('ShareSocketService computed activity authorization', () => {
-  it('allows activity for the shared table', () => {
-    const { service } = createService();
-
-    expect(() =>
-      service.authorizeComputedActivityRead(
-        { shareId: 'shrTest', tableId: 'tblShared' },
-        'tblShared'
-      )
-    ).not.toThrow();
-  });
-
-  it('rejects activity for a different table', () => {
-    const { service } = createService();
-
-    expect(() =>
-      service.authorizeComputedActivityRead(
-        { shareId: 'shrTest', tableId: 'tblShared' },
-        'tblOther'
-      )
-    ).toThrowError(
-      expect.objectContaining({
-        code: HttpErrorCode.RESTRICTED_RESOURCE,
-        message: 'Table(tblOther) permission not allowed: read',
-      })
-    );
-  });
-});
-
 describe('ShareSocketService record snapshot projection', () => {
   it('intersects a requested projection with the server-owned shared-field allow-list', async () => {
     const getFieldsByQuery = vi.fn().mockResolvedValue([{ id: 'fldVisible', isPrimary: true }]);
@@ -160,5 +131,87 @@ describe('ShareSocketService record snapshot projection', () => {
       undefined,
       true
     );
+  });
+});
+
+const createFieldService = (useV2 = false) => {
+  const fieldService = {
+    getFieldsByQuery: vi.fn(),
+    getSnapshotBulk: vi.fn(),
+  };
+  const fieldOpenApiV2Service = {
+    getFields: vi.fn(),
+    getSnapshotBulk: vi.fn(),
+  };
+  const service = new ShareSocketService(
+    {} as never,
+    {} as never,
+    fieldService as never,
+    {} as never,
+    { get: vi.fn().mockReturnValue(useV2) } as never,
+    {} as never,
+    fieldOpenApiV2Service as never
+  );
+  return { service, fieldService, fieldOpenApiV2Service };
+};
+
+const fieldShareInfo = {
+  shareId: 'shrTest',
+  tableId: 'tblShared',
+  view: { id: 'viwShared', shareMeta: { includeHiddenField: false } },
+} as never;
+
+describe('ShareSocketService Field reads', () => {
+  it('loads shared field snapshots through v2 without using FieldService', async () => {
+    const { service, fieldService, fieldOpenApiV2Service } = createFieldService(true);
+    fieldOpenApiV2Service.getFields.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
+    fieldOpenApiV2Service.getSnapshotBulk.mockResolvedValue([
+      { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
+    ]);
+
+    await expect(service.getFieldDocIdsByQuery(fieldShareInfo)).resolves.toEqual({
+      ids: ['fldTitle'],
+    });
+    await expect(service.getFieldSnapshotBulk(fieldShareInfo, ['fldTitle'])).resolves.toEqual([
+      { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
+    ]);
+
+    expect(fieldOpenApiV2Service.getFields).toHaveBeenCalledWith('tblShared', {
+      viewId: 'viwShared',
+      filterHidden: true,
+    });
+    expect(fieldOpenApiV2Service.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['fldTitle']);
+    expect(fieldService.getFieldsByQuery).not.toHaveBeenCalled();
+    expect(fieldService.getSnapshotBulk).not.toHaveBeenCalled();
+  });
+
+  it('keeps the legacy field path only when the v2 feature is disabled', async () => {
+    const { service, fieldService, fieldOpenApiV2Service } = createFieldService(false);
+    fieldService.getFieldsByQuery.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
+    fieldService.getSnapshotBulk.mockResolvedValue([{ id: 'fldTitle' }]);
+
+    await service.getFieldDocIdsByQuery(fieldShareInfo);
+    await service.getFieldSnapshotBulk(fieldShareInfo, ['fldTitle']);
+
+    expect(fieldService.getFieldsByQuery).toHaveBeenCalledWith('tblShared', {
+      viewId: 'viwShared',
+      filterHidden: true,
+    });
+    expect(fieldService.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['fldTitle']);
+    expect(fieldOpenApiV2Service.getFields).not.toHaveBeenCalled();
+    expect(fieldOpenApiV2Service.getSnapshotBulk).not.toHaveBeenCalled();
+  });
+
+  it('rejects snapshot IDs outside the shared field allow-list before v2 persistence', async () => {
+    const { service, fieldService, fieldOpenApiV2Service } = createFieldService(true);
+    fieldOpenApiV2Service.getFields.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
+
+    await expect(service.getFieldSnapshotBulk(fieldShareInfo, ['fldSecret'])).rejects.toMatchObject(
+      {
+        code: HttpErrorCode.RESTRICTED_RESOURCE,
+      }
+    );
+    expect(fieldOpenApiV2Service.getSnapshotBulk).not.toHaveBeenCalled();
+    expect(fieldService.getSnapshotBulk).not.toHaveBeenCalled();
   });
 });

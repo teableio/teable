@@ -831,8 +831,8 @@ describe('ComputedOptimization (e2e)', () => {
       expect(row[formula2DbField]).toBe(20); // 10 + 10
     });
 
-    it('updates wide same-level formula tables in field chunks', async () => {
-      const { container, baseId, processOutbox, spyLogger } = getTestContainer();
+    it('updates wide same-level formula tables', async () => {
+      const { container, baseId, processOutbox } = getTestContainer();
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
 
@@ -849,20 +849,10 @@ describe('ComputedOptimization (e2e)', () => {
       });
       await processOutbox();
 
-      spyLogger.clear();
       await updateRecord(commandBus, table.id(), recordId, {
         [baseFieldId.toString()]: 10,
       });
       await processOutbox();
-
-      const plan = spyLogger.getLastComputedPlan();
-      expect(plan).toBeDefined();
-      expect(plan?.steps.some((step) => step.fieldIds.length >= 20)).toBe(true);
-
-      const chunkedSqlLogs = spyLogger.getEntriesByMessage(/computed:update:table=.*:chunk=/);
-      expect(chunkedSqlLogs.length).toBeGreaterThanOrEqual(2);
-      expect(chunkedSqlLogs[0]?.message).toContain(':chunk=1/2:sql:');
-      expect(chunkedSqlLogs[1]?.message).toContain(':chunk=2/2:sql:');
 
       const dbTableName = table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
       const rows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)

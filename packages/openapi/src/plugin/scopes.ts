@@ -9,15 +9,15 @@ import {
 } from '@teable/core';
 import { z } from '../zod';
 
+// Scopes a plugin token may request. Anyone can create a plugin and install it
+// into a base they merely edit, so the base-management scopes that hand out
+// credentials or seats (db connection, invites, authority matrix) are never
+// available to a plugin token, whatever role the plugin user ends up holding.
 export const pluginBaseActions = [
   'base|read',
   'base|update',
-  'base|invite_email',
-  'base|invite_link',
   'base|table_import',
   'base|table_export',
-  'base|authority_matrix_config',
-  'base|db_connection',
   'base|query_data',
   ...tableActions,
   ...viewActions,

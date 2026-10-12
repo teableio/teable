@@ -1,7 +1,11 @@
 import type { IExecutionContext } from '@teable/v2-core';
-import { nanoid } from 'nanoid';
 
 import { TableQueryObservationWindow } from './domain';
+import {
+  CLUSTER_OBSERVATION_WRITER_ID,
+  DEFAULT_OBSERVATION_MIN_REQUEST_COUNT,
+  decideObservationPersist,
+} from './observationPersistPolicy';
 import type { TableQueryObservationBatchSink, TableQueryObservationPublisher } from './ports';
 
 export type BufferedTableQueryObservationPublisherOptions = {
@@ -9,6 +13,8 @@ export type BufferedTableQueryObservationPublisherOptions = {
   readonly flushIntervalMs?: number;
   readonly maxPendingKeys?: number;
   readonly batchSize?: number;
+  readonly minRequestCount?: number;
+  readonly now?: () => Date;
 };
 
 type PendingObservation = {
@@ -19,13 +25,14 @@ type PendingObservation = {
 const defaultFlushIntervalMs = 10_000;
 const defaultMaxPendingKeys = 1_000;
 const defaultBatchSize = 100;
-const processWriterId = `tqo_${nanoid(16)}`;
 
 export class BufferedTableQueryObservationPublisher implements TableQueryObservationPublisher {
   private readonly writerId: string;
   private readonly flushIntervalMs: number;
   private readonly maxPendingKeys: number;
   private readonly batchSize: number;
+  private readonly minRequestCount: number;
+  private readonly now: () => Date;
   private readonly pending = new Map<string, PendingObservation>();
 
   private flushTimer: NodeJS.Timeout | undefined;
@@ -36,7 +43,7 @@ export class BufferedTableQueryObservationPublisher implements TableQueryObserva
     private readonly batchSink: TableQueryObservationBatchSink,
     options: BufferedTableQueryObservationPublisherOptions = {}
   ) {
-    this.writerId = options.writerId ?? processWriterId;
+    this.writerId = options.writerId ?? CLUSTER_OBSERVATION_WRITER_ID;
     this.flushIntervalMs = positiveInteger(
       'flushIntervalMs',
       options.flushIntervalMs ?? defaultFlushIntervalMs
@@ -46,6 +53,11 @@ export class BufferedTableQueryObservationPublisher implements TableQueryObserva
       options.maxPendingKeys ?? defaultMaxPendingKeys
     );
     this.batchSize = positiveInteger('batchSize', options.batchSize ?? defaultBatchSize);
+    this.minRequestCount = positiveInteger(
+      'minRequestCount',
+      options.minRequestCount ?? DEFAULT_OBSERVATION_MIN_REQUEST_COUNT
+    );
+    this.now = options.now ?? (() => new Date());
   }
 
   publish(context: IExecutionContext, observation: TableQueryObservationWindow): void {
@@ -145,15 +157,19 @@ export class BufferedTableQueryObservationPublisher implements TableQueryObserva
     | undefined {
     const observations: TableQueryObservationWindow[] = [];
     let context: IExecutionContext | undefined;
+    const now = this.now();
 
     for (const [key, pending] of this.pending) {
+      const decision = decideObservationPersist(pending.observation, now, this.minRequestCount);
+      if (decision === 'keep') continue;
+      this.pending.delete(key);
+      if (decision === 'drop') continue;
       context ??= pending.context;
       observations.push(pending.observation);
-      this.pending.delete(key);
       if (observations.length >= this.batchSize) break;
     }
 
-    return context ? { context, observations } : undefined;
+    return context && observations.length > 0 ? { context, observations } : undefined;
   }
 }
 

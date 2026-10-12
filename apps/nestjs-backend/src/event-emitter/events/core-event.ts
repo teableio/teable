@@ -1,4 +1,4 @@
-import type { IncomingHttpHeaders } from 'http';
+import type { IncomingHttpHeaders } from 'node:http';
 import type { OpName } from '@teable/core';
 import type { IUserInfoVo } from '@teable/openapi';
 import type { IRecordRemovalReason } from '@teable/v2-core';

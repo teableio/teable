@@ -86,7 +86,7 @@ export class FieldFormatter {
     }
 
     // handle single value type
-    return baseExpression.replace(/value/g, `"${dbFieldName}"`);
+    return baseExpression.replaceAll('value', `"${dbFieldName}"`);
   }
 
   // expression for generating index
@@ -119,8 +119,8 @@ export class FieldFormatter {
 }
 
 export class IndexBuilderPostgres extends IndexBuilderAbstract {
-  static PG_MAX_INDEX_LEN = 63;
-  static DELIMITER_LEN = 3;
+  static readonly PG_MAX_INDEX_LEN = 63;
+  static readonly DELIMITER_LEN = 3;
 
   private getIndexPrefix() {
     return `idx_trgm`;
@@ -134,7 +134,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       id.length -
       this.getIndexPrefix().length -
       IndexBuilderPostgres.DELIMITER_LEN;
-    const tableDbNameLen = maxTableDbNameLen < table.length ? maxTableDbNameLen : table.length;
+    const tableDbNameLen = Math.min(maxTableDbNameLen, table.length);
     // 3 is space character
     const dbFieldNameLen =
       maxTableDbNameLen < table.length
@@ -301,7 +301,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
             .toLowerCase()
             .replace(/[()\s"']/g, '')
             .replace(/::(jsonb|text\[\]|text)/g, '')
-            .replace(/ifnotexists/g, '')
+            .replaceAll('ifnotexists', '')
         );
       })
       .map(({ indexName }) => ({

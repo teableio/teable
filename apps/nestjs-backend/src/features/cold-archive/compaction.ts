@@ -6,9 +6,16 @@ import type { IScannedPartKey } from './part-scan';
 // and WHICH keys it may then delete — the three places a mistake corrupts the
 // month rather than merely wasting work.
 
+export enum CompactionSkipReason {
+  NoDayParts = 'no-day-parts',
+  EmptyMonth = 'empty-month',
+  /** the month can still receive day parts; its table stays pending for a later run */
+  OpenMonth = 'open-month',
+}
+
 export interface IMonthCompactionPlan<TPart extends IScannedPartKey> {
   /** set when the month needs no rewrite; the caller returns early */
-  skippedReason?: 'no-day-parts' | 'empty-month';
+  skippedReason?: CompactionSkipReason;
   /** day parts first: the merge consumes them in that order */
   inputs: TPart[];
   /**
@@ -35,10 +42,27 @@ export const planMonthCompaction = <TPart extends IScannedPartKey & { seq: numbe
   // tokened keys therefore recompacts and converges.
   const monthGenerations = new Set(monthParts.map((part) => part.runToken)).size;
   if (dayParts.length === 0 && monthGenerations <= 1 && !options?.force) {
-    return { ...base, skippedReason: 'no-day-parts' };
+    return { ...base, skippedReason: CompactionSkipReason.NoDayParts };
   }
-  if (parts.length === 0) return { ...base, skippedReason: 'empty-month' };
+  if (parts.length === 0) return { ...base, skippedReason: CompactionSkipReason.EmptyMonth };
   return base;
+};
+
+/**
+ * Month → its parts, newest month first (the order a month-dir listing walks).
+ * Feeds planMonthCompaction from one table-wide listing instead of one LIST
+ * per month.
+ */
+export const groupPartsByMonth = <TPart extends IScannedPartKey>(
+  parts: TPart[]
+): Map<string, TPart[]> => {
+  const byMonth = new Map<string, TPart[]>();
+  for (const part of parts) {
+    const month = byMonth.get(part.yyyymm);
+    if (month) month.push(part);
+    else byMonth.set(part.yyyymm, [part]);
+  }
+  return new Map([...byMonth].sort(([a], [b]) => b.localeCompare(a)));
 };
 
 /**

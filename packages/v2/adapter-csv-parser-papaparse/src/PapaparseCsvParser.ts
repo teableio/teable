@@ -6,10 +6,11 @@ import type {
   ICsvParser,
 } from '@teable/v2-core';
 import { domainError } from '@teable/v2-core';
-import { safeFetch } from '@teable/v2-utils';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import Papa from 'papaparse';
+
+import { parseCsvRows } from './parseCsvRows';
 
 /**
  * PapaParse CSV 解析器实现
@@ -95,225 +96,82 @@ export class PapaparseCsvParser implements ICsvParser {
    * 支持：
    * - URL 远程文件（流式下载）
    * - Stream 数据源
-   * - 内存数据源（自动降级）
+   * - 内存数据源（分块解析，不构建完整行数组）
    */
   async parseAsync(
     source: CsvSource,
     options?: CsvParseOptions
   ): Promise<Result<CsvParseResult, DomainError>> {
-    // 对于 string 和 buffer，使用同步解析
-    if (source.type === 'string' || source.type === 'buffer') {
-      return this.parse(source, options);
-    }
-
-    const delimiter = options?.delimiter;
-    const hasHeader = options?.hasHeader ?? true;
-    const skipEmptyLines = options?.skipEmptyLines ?? true;
-
-    if (source.type === 'url') {
-      return this.parseFromUrl(source.url, { delimiter, hasHeader, skipEmptyLines });
-    }
-
-    if (source.type === 'stream') {
-      return this.parseFromStream(source.data, options);
-    }
-
-    return err(
-      domainError.infrastructure({
-        message: 'Unsupported CSV source type',
-        code: 'csv.unsupported_source',
-      })
-    );
-  }
-
-  /**
-   * 从 URL 流式解析 CSV
-   *
-   * 使用 fetch + ReadableStream 实现流式处理：
-   * - 边下载边解析
-   * - 返回 rowsAsync 异步迭代器
-   * - 支持 Node.js 和浏览器环境
-   */
-  private async parseFromUrl(
-    url: string,
-    options: { delimiter?: string; hasHeader: boolean; skipEmptyLines: boolean }
-  ): Promise<Result<CsvParseResult, DomainError>> {
-    try {
-      const response = await safeFetch(url);
-
-      if (!response.ok) {
-        return err(
-          domainError.infrastructure({
-            message: `Failed to fetch CSV from URL: ${response.status} ${response.statusText}`,
-            code: 'csv.fetch_error',
-          })
-        );
-      }
-
-      if (!response.body) {
-        return err(
-          domainError.infrastructure({
-            message: 'Response body is not available for streaming',
-            code: 'csv.no_stream',
-          })
-        );
-      }
-
-      // 创建流式解析器
-      const { headers, rowsAsync } = await this.createStreamingParser(response.body, options);
-
-      return ok({
-        headers,
-        rows: [], // 空数组，使用 rowsAsync
-        rowsAsync,
-      });
-    } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message: `CSV download error: ${error instanceof Error ? error.message : String(error)}`,
-          code: 'csv.download_error',
-        })
-      );
-    }
-  }
-
-  /**
-   * 创建流式 CSV 解析器
-   * 返回 headers 和异步行迭代器
-   */
-  private async createStreamingParser(
-    body: ReadableStream<Uint8Array>,
-    options: { delimiter?: string; hasHeader: boolean; skipEmptyLines: boolean }
-  ): Promise<{ headers: string[]; rowsAsync: AsyncIterable<Record<string, string>> }> {
-    const decoder = new TextDecoder();
-    const reader = body.getReader();
-
-    // 收集数据直到可以确定 headers
-    let buffer = '';
-    let headers: string[] = [];
-    let headersDetermined = false;
-    const pendingRows: Record<string, string>[] = [];
-
-    // 先读取足够的数据来确定 headers
-    while (!headersDetermined) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // 尝试解析 headers
-      const lines = buffer.split(/\r?\n/);
-      if (lines.length > 1 || done) {
-        // 有完整的第一行了
-        const completeData = done ? buffer : lines.slice(0, -1).join('\n');
-        const parseResult = Papa.parse<Record<string, string>>(completeData, {
-          delimiter: options.delimiter || undefined,
-          header: options.hasHeader,
-          skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
-          transformHeader: (header) => header.trim(),
-          transform: (value) => value.trim(),
-        });
-
-        if (parseResult.meta.fields) {
-          headers = parseResult.meta.fields;
-        } else if (parseResult.data.length > 0) {
-          headers = (parseResult.data[0] as unknown as string[]).map((_, i) => `Column_${i + 1}`);
-        }
-
-        // 保存已解析的行
-        pendingRows.push(
-          ...(options.hasHeader
-            ? parseResult.data
-            : this.mapRowsToHeaders(parseResult.data as unknown as string[][], headers))
-        );
-        headersDetermined = true;
-
-        // 保留未完成的最后一行
-        if (!done && lines.length > 1) {
-          buffer = lines[lines.length - 1];
-        } else {
-          buffer = '';
-        }
-      }
-    }
-
-    // 创建异步迭代器
-    const parseRowsWithKnownHeaders = this.parseRowsWithKnownHeaders.bind(this);
-    const rowsAsync: AsyncIterable<Record<string, string>> = {
-      [Symbol.asyncIterator]: () => {
-        let pendingIndex = 0;
-        let readerDone = false;
-        let currentBuffer = buffer;
-
-        return {
-          async next(): Promise<IteratorResult<Record<string, string>>> {
-            // 先返回已解析的 pending rows
-            if (pendingIndex < pendingRows.length) {
-              return { value: pendingRows[pendingIndex++], done: false };
-            }
-
-            // 继续从流中读取
-            while (!readerDone) {
-              const { done, value } = await reader.read();
-              if (done) {
-                readerDone = true;
-                // 处理剩余的 buffer
-                if (currentBuffer.trim()) {
-                  const rows = parseRowsWithKnownHeaders(currentBuffer, headers, options);
-                  if (rows.length > 0) {
-                    pendingRows.push(...rows);
-                    if (pendingIndex < pendingRows.length) {
-                      return { value: pendingRows[pendingIndex++], done: false };
-                    }
-                  }
-                }
-                break;
-              }
-
-              currentBuffer += decoder.decode(value, { stream: true });
-
-              // 按行解析
-              const lines = currentBuffer.split(/\r?\n/);
-              if (lines.length > 1) {
-                // 解析除最后一行外的所有行
-                const completeData = lines.slice(0, -1).join('\n');
-                currentBuffer = lines[lines.length - 1];
-
-                const rows = parseRowsWithKnownHeaders(completeData, headers, options);
-
-                if (rows.length > 0) {
-                  pendingRows.push(...rows);
-                  if (pendingIndex < pendingRows.length) {
-                    return { value: pendingRows[pendingIndex++], done: false };
-                  }
-                }
-              }
-            }
-
-            return { value: undefined as never, done: true };
-          },
-        };
-      },
-    };
-
-    return { headers, rowsAsync };
-  }
-
-  private parseRowsWithKnownHeaders(
-    csvData: string,
-    headers: ReadonlyArray<string>,
-    options: { delimiter?: string; skipEmptyLines: boolean }
-  ): Record<string, string>[] {
-    const parseResult = Papa.parse<string[]>(csvData, {
-      delimiter: options.delimiter || undefined,
-      header: false,
-      skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
-      transform: (value) => value.trim(),
+    const iterator = parseCsvRows(source, {
+      delimiter: options?.delimiter,
+      encoding: options?.encoding,
+      skipEmptyLines: options?.skipEmptyLines ?? true ? 'greedy' : false,
     });
+    try {
+      const first = await iterator.next();
+      const hasHeader = options?.hasHeader ?? true;
+      const headers = first.done
+        ? []
+        : first.value.map((value, index) => (hasHeader ? value.trim() : `Column_${index + 1}`));
+      if (hasHeader) this.deduplicateHeaders(headers);
+      let pending = !hasHeader && !first.done ? first.value : undefined;
+      // Inline sources previously used Papa's strict header-width validation.
+      const validateFieldCount =
+        hasHeader && (source.type === 'string' || source.type === 'buffer');
+      const rowsAsync: AsyncIterableIterator<Record<string, string>> = {
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        async next() {
+          const row = pending;
+          pending = undefined;
+          const next = row ? { done: false, value: row } : await iterator.next();
+          if (next.done) return { done: true, value: undefined };
+          if (validateFieldCount && next.value.length !== headers.length) {
+            await iterator.return(undefined);
+            throw domainError.validation({
+              message: `CSV row has ${next.value.length} fields but the header has ${headers.length}`,
+              code: 'csv.parse_error',
+            });
+          }
+          return {
+            done: false,
+            value: Object.fromEntries(
+              headers.map((header, index) => [header, (next.value[index] ?? '').trim()])
+            ),
+          };
+        },
+        async return() {
+          pending = undefined;
+          await iterator.return(undefined);
+          return { done: true, value: undefined };
+        },
+        async throw(error) {
+          pending = undefined;
+          await iterator.throw(error);
+          return { done: true, value: undefined };
+        },
+      };
+      return ok({ headers, rows: [], rowsAsync });
+    } catch (error) {
+      await iterator.return(undefined);
+      return err(domainError.fromUnknown(error, { code: 'csv.parse_failed' }));
+    }
+  }
 
-    return parseResult.data.map((row) =>
-      Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']))
-    );
+  private deduplicateHeaders(headers: string[]): void {
+    const used = new Set(headers);
+    const counts = new Map<string, number>();
+    for (let index = 0; index < headers.length; index++) {
+      const header = headers[index];
+      let suffix = counts.get(header) ?? 0;
+      if (suffix > 0) {
+        while (used.has(`${header}_${suffix}`)) suffix++;
+        headers[index] = `${header}_${suffix}`;
+        used.add(headers[index]);
+      }
+      counts.set(header, suffix + 1);
+    }
   }
 
   private mapRowsToGeneratedHeaders(rows: string[][]): Record<string, string>[] {
@@ -331,38 +189,6 @@ export class PapaparseCsvParser implements ICsvParser {
   }
 
   /**
-   * 从 AsyncIterable stream 解析 CSV
-   */
-  private async parseFromStream(
-    stream: AsyncIterable<Uint8Array | string>,
-    options?: CsvParseOptions
-  ): Promise<Result<CsvParseResult, DomainError>> {
-    try {
-      const { headers, rowsAsync } = await this.createStreamingParser(
-        asyncIterableToReadableStream(stream),
-        {
-          delimiter: options?.delimiter,
-          hasHeader: options?.hasHeader ?? true,
-          skipEmptyLines: options?.skipEmptyLines ?? true,
-        }
-      );
-
-      return ok({
-        headers,
-        rows: [],
-        rowsAsync,
-      });
-    } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message: `CSV stream parse error: ${error instanceof Error ? error.message : String(error)}`,
-          code: 'csv.stream_parse_error',
-        })
-      );
-    }
-  }
-
-  /**
    * 创建行的同步 Iterable
    */
   private *createRowsIterable(data: Record<string, string>[]): Iterable<Record<string, string>> {
@@ -371,23 +197,3 @@ export class PapaparseCsvParser implements ICsvParser {
     }
   }
 }
-
-const asyncIterableToReadableStream = (
-  stream: AsyncIterable<Uint8Array | string>
-): ReadableStream<Uint8Array> => {
-  const encoder = new TextEncoder();
-  const iterator = stream[Symbol.asyncIterator]();
-  return new ReadableStream({
-    async pull(controller) {
-      const next = await iterator.next();
-      if (next.done) {
-        controller.close();
-        return;
-      }
-      controller.enqueue(typeof next.value === 'string' ? encoder.encode(next.value) : next.value);
-    },
-    async cancel() {
-      await iterator.return?.();
-    },
-  });
-};

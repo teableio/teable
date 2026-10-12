@@ -1,5 +1,6 @@
 import ipaddr from 'ipaddr.js';
 import { Agent, buildConnector, type Dispatcher } from 'undici';
+import { isCloudMetadataAddress, type ISafeAgentOptions } from './agents';
 
 /**
  * Shared SSRF-safe `fetch` machinery for v2 Node hosts: an undici dispatcher
@@ -134,8 +135,13 @@ export function createTrustedUrlPredicate(): (url: string) => boolean {
     isTrustedExactOriginUrl(url, exactOrigins) || isTrustedInternalReadUrl(url, readOrigins);
 }
 
-/** undici Agent whose connector rejects non-public resolved peer IPs. */
-function createStrictSsrfAgent(): Agent {
+/**
+ * undici Agent whose connector rejects non-public resolved peer IPs, or with
+ * `allowPrivateNetwork` (self-hosted) only the cloud-metadata addresses — the
+ * same split as the http.Agent stack in agents.ts.
+ */
+function createStrictSsrfAgent(allowPrivateNetwork: boolean): Agent {
+  const isRejected = allowPrivateNetwork ? isCloudMetadataAddress : isBlockedAddress;
   const baseConnector = buildConnector({});
   const connector: buildConnector.connector = (options, callback) => {
     baseConnector(options, (err, socket) => {
@@ -144,10 +150,10 @@ function createStrictSsrfAgent(): Agent {
         return;
       }
       const remote = socket.remoteAddress;
-      if (!remote || isBlockedAddress(remote)) {
+      if (!remote || isRejected(remote)) {
         socket.destroy();
         callback(
-          new Error(`SSRF guard: ${remote ?? 'unknown host'} is not a public address`),
+          new Error(`SSRF guard: ${remote ?? 'unknown host'} is not an allowed address`),
           null
         );
         return;
@@ -158,11 +164,15 @@ function createStrictSsrfAgent(): Agent {
   return new Agent({ connect: connector });
 }
 
-let strictSsrfAgent: Agent | undefined;
+const strictSsrfAgents = new Map<boolean, Agent>();
 
-function getStrictSsrfAgent(): Agent {
-  strictSsrfAgent ??= createStrictSsrfAgent();
-  return strictSsrfAgent;
+function getStrictSsrfAgent(allowPrivateNetwork = false): Agent {
+  let agent = strictSsrfAgents.get(allowPrivateNetwork);
+  if (!agent) {
+    agent = createStrictSsrfAgent(allowPrivateNetwork);
+    strictSsrfAgents.set(allowPrivateNetwork, agent);
+  }
+  return agent;
 }
 
 /** Plain agent for URLs the full-URL predicate trusts; only reachable through the routing dispatcher. */
@@ -184,8 +194,8 @@ function getTrustedAgent(): Agent {
  * request time, never frozen at registration (V1 parity): hosts may finalize
  * `STORAGE_PREFIX`/`PORT` after the container registers this fetch.
  */
-function createRoutingDispatcher(): Dispatcher {
-  return getStrictSsrfAgent().compose((dispatch) => (opts, handler) => {
+function createRoutingDispatcher(allowPrivateNetwork = false): Dispatcher {
+  return getStrictSsrfAgent(allowPrivateNetwork).compose((dispatch) => (opts, handler) => {
     let trusted = false;
     try {
       trusted = createTrustedUrlPredicate()(new URL(opts.path ?? '/', opts.origin).href);
@@ -197,13 +207,13 @@ function createRoutingDispatcher(): Dispatcher {
 }
 
 /** Default SSRF-guarded fetch for Node containers; bypass parity with V1 `safeFetch`. */
-export function createSsrfSafeFetch(): ISsrfSafeFetchFn {
+export function createSsrfSafeFetch(options?: ISafeAgentOptions): ISsrfSafeFetchFn {
   if (isSsrfProtectionDisabled()) {
     return (url, init) => fetch(url, init);
   }
   // One routing dispatcher for every URL: trust is decided per dispatch (i.e.
   // per redirect hop) against the full URL, never baked in at request start.
-  const dispatcher = createRoutingDispatcher();
+  const dispatcher = createRoutingDispatcher(Boolean(options?.allowPrivateNetwork));
   // Boundary cast: `@types/node` types `RequestInit.dispatcher` against a
   // different `undici-types` version than the `undici` we run (type-only skew).
   return (url, init) => fetch(url, { ...init, dispatcher } as unknown as RequestInit);

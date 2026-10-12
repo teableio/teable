@@ -225,6 +225,7 @@ describe('v2 record operations with cyclic references (e2e)', () => {
       [nameFieldId]: 'Cycle Ops Record',
       [linkFieldId]: { id: foreignRecordId1 },
     });
+    expect(record.id).toBeTruthy();
     await ctx.drainOutbox();
 
     await ctx.updateRecord(tableId, record.id, {

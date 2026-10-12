@@ -39,7 +39,7 @@ import { createDtField, createTextField } from './helpers/fieldFactories';
 
 describe('TableSchemaUpdateVisitor', () => {
   describe('visitTableAddView', () => {
-    it('adds, backfills and indexes the row-order column for a grid view', () => {
+    it('does not emit transactional row-order DDL for a grid view', () => {
       const db = createTestDb();
       const tableBuilder = Table.builder()
         .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
@@ -74,15 +74,7 @@ describe('TableSchemaUpdateVisitor', () => {
         table,
       });
       const statements = visitor.visitTableAddView(TableAddViewSpec.create(view))._unsafeUnwrap();
-      const sqls = statements.map((statement) => statement.compile(db).sql);
-
-      expect(sqls).toHaveLength(3);
-      expect(sqls[0].toLowerCase()).toContain('add column if not exists');
-      expect(sqls[0]).toContain(view.id().toRowOrderColumnName());
-      expect(sqls[1]).toContain('"__auto_number"');
-      expect(sqls[2].toLowerCase()).toBe(
-        `create index if not exists "idx_${view.id().toRowOrderColumnName()}" on "public"."table_data" ("${view.id().toRowOrderColumnName()}")`
-      );
+      expect(statements).toEqual([]);
 
       const ensureVisitor = new TableSchemaUpdateVisitor({
         db,
@@ -91,11 +83,10 @@ describe('TableSchemaUpdateVisitor', () => {
         tableId: table.id().toString(),
         table,
       });
-      const ensureSqls = ensureVisitor
+      const ensureStatements = ensureVisitor
         .visitTableEnsureViewRowOrder(TableEnsureViewRowOrderSpec.create(view))
-        ._unsafeUnwrap()
-        .map((statement) => statement.compile(db).sql);
-      expect(ensureSqls).toEqual(sqls);
+        ._unsafeUnwrap();
+      expect(ensureStatements).toEqual([]);
     });
   });
 
@@ -948,6 +939,9 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(result.isOk()).toBe(true);
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
       expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls[0]).toContain(`WHERE table_id = '${table.id().toString()}'`);
+      expect(sqls[0]).toContain("AND status IN ('ready', 'rebuild_pending')");
+      expect(sqls[0]).not.toContain('LIMIT 1');
       expect(sqls[1]).toContain("a.attgenerated = 's'");
       expect(sqls[1]).toContain("a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'");
       expect(sqls[1]).toContain('ALTER TABLE %I.%I %s');
@@ -1231,7 +1225,7 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(result.isOk()).toBe(true);
 
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
-      expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(false);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
     });
@@ -1290,6 +1284,7 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(sqls.some((text) => text.includes(unsupportedDbFieldName))).toBe(true);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(false);
     });
   });
 

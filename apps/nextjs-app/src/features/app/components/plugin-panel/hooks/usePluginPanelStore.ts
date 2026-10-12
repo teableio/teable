@@ -29,7 +29,7 @@ const checkAndCleanTables = (tables: Record<string, ITableState>, tableId: strin
   if (!tables[tableId]) {
     const tableIds = Object.entries(tables);
     if (tableIds.length >= MAX_TABLES) {
-      const oldestId = tableIds.sort(([, a], [, b]) => a.lastAccessed - b.lastAccessed)[0][0];
+      const oldestId = [...tableIds].sort(([, a], [, b]) => a.lastAccessed - b.lastAccessed)[0][0];
       delete tables[oldestId];
     }
   }

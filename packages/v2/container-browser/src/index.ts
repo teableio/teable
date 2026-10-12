@@ -6,7 +6,11 @@ import {
 } from '@teable/v2-adapter-db-postgres-pglite';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
-import { registerV2TableRepositoryPostgresAdapter } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  registerV2TableRepositoryPostgresAdapter,
+  FormulaSourceBudgetCommandBusMiddleware,
+  type IV2TableRepositoryPostgresConfig,
+} from '@teable/v2-adapter-table-repository-postgres';
 import {
   AsyncMemoryEventBus,
   MemoryCommandBus,
@@ -41,6 +45,7 @@ export interface IV2BrowserPgliteContainerOptions {
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
@@ -99,6 +104,7 @@ export const registerV2BrowserPgliteDependencies = async (
   registerV2TableRepositoryPostgresAdapter(c, {
     db: dataDb,
     tableDataSafetyLimits: options.tableDataSafetyLimits,
+    formulaCompileBudget: options.formulaCompileBudget,
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -110,6 +116,7 @@ export const registerV2BrowserPgliteDependencies = async (
 
   c.registerInstance(v2CoreTokens.tableDataSafetyLimits, options.tableDataSafetyLimits ?? {});
   const commandBus = new MemoryCommandBus(c, [
+    new FormulaSourceBudgetCommandBusMiddleware(options.formulaCompileBudget),
     ...(options.tableDataSafetyLimits
       ? [
           new TableDataSafetyLimitCommandBusMiddleware(

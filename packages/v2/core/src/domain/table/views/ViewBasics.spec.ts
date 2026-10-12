@@ -129,8 +129,8 @@ describe('View types and visitors', () => {
     const idResult = createViewId('b');
     const nameResult = ViewName.create('All Records');
     [idResult, nameResult].forEach((r) => r._unsafeUnwrap());
-    idResult._unsafeUnwrap();
-    nameResult._unsafeUnwrap();
+    expect(idResult.isOk()).toBe(true);
+    expect(nameResult.isOk()).toBe(true);
 
     const params = { id: idResult._unsafeUnwrap(), name: nameResult._unsafeUnwrap() };
     const results = [

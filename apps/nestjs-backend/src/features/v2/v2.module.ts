@@ -12,13 +12,15 @@ import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migratio
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
 import { ViewModule } from '../view/view.module';
 import { ComputedOutboxAnomalyService } from './computed-outbox-trigger/computed-outbox-anomaly.service';
-import { ComputedOutboxLineageService } from './computed-outbox-trigger/computed-outbox-lineage.service';
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
+import { ComputedOutboxLineageService } from './computed-outbox-trigger/computed-outbox-lineage.service';
 import { ComputedOutboxMonitorService } from './computed-outbox-trigger/computed-outbox-monitor.service';
 import { ComputedOutboxRedriveService } from './computed-outbox-trigger/computed-outbox-redrive.service';
 import { ComputedOutboxWakeupProducerModule } from './computed-outbox-trigger/computed-outbox-wakeup-producer.module';
 import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-trigger/computed-outbox-worker-concurrency.service';
-import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
+import { ComputedReliabilityReconciliationService } from './computed-outbox-trigger/computed-reliability-reconciliation.service';
+import { DomainEventWakeupProducerModule } from './domain-event-outbox-trigger/domain-event-wakeup-producer.module';
+import { TableQueryObservationRuntimeModule } from './table-query-observation-runtime.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import {
@@ -31,6 +33,7 @@ import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
 import { V2OpenApiController } from './v2-openapi.controller';
 import { V2RecordHistoryService } from './v2-record-history.service';
 import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.service';
+import { V2TablePropertiesCompatService } from './v2-table-properties-compat.service';
 import { V2UserRenamePropagationService } from './v2-user-rename-propagation.service';
 import { V2ViewCompatService } from './v2-view-compat.service';
 import { V2ViewDeleteSideEffectService } from './v2-view-delete-side-effect.service';
@@ -120,12 +123,13 @@ const toErrorMessage = (body: unknown): string => {
     RecordModule,
     ViewModule,
     SpaceDataDbMigrationGuardModule,
+    TableQueryObservationRuntimeModule,
     ComputedOutboxWakeupProducerModule.register(),
+    DomainEventWakeupProducerModule,
   ],
   controllers: [V2Controller, V2OpenApiController],
   providers: [
     DiscoveryService,
-    TableQueryObservationRuntimeService,
     V2ContainerService,
     V2ExecutionContextFactory,
     V2ActionTriggerService,
@@ -136,11 +140,13 @@ const toErrorMessage = (body: unknown): string => {
     V2FieldDeleteCompatService,
     V2RecordHistoryService,
     V2SchemaOperationRunnerService,
+    V2TablePropertiesCompatService,
     V2ViewCompatService,
     V2ViewDeleteSideEffectService,
     V2ViewShareSideEffectService,
     UndoRedoStackService,
     ComputedOutboxRedriveService,
+    ComputedReliabilityReconciliationService,
     ComputedOutboxMonitorService,
     ComputedOutboxAnomalyService,
     ComputedOutboxLineageService,
@@ -149,6 +155,7 @@ const toErrorMessage = (body: unknown): string => {
   ],
   exports: [
     V2ContainerService,
+    TableQueryObservationRuntimeModule,
     V2ExecutionContextFactory,
     V2UserRenamePropagationService,
     ComputedOutboxWakeupProducerModule,

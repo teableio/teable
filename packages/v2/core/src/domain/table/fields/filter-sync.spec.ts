@@ -20,6 +20,9 @@ import { SelectOption } from './types/SelectOption';
 import { SingleLineTextField } from './types/SingleLineTextField';
 import { SingleSelectField } from './types/SingleSelectField';
 import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { UpdateUserMultiplicitySpec } from '../specs/field-updates/UpdateUserMultiplicitySpec';
+import { UserField } from './types/UserField';
+import { UserMultiplicity } from './types/UserMultiplicity';
 import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
 import { TableId } from '../TableId';
 import type { RecordFilter } from '../../../queries/RecordFilterDto';
@@ -240,6 +243,92 @@ describe('filter-sync', () => {
           },
         },
         { fieldId: otherFieldId.toString(), operator: 'isNotEmpty', value: null },
+      ],
+    });
+  });
+
+  it('remaps user filter operators when multiplicity changes from single to multiple', () => {
+    const ownerFieldId = createFieldId('k');
+    const ownerField = UserField.create({
+      id: ownerFieldId,
+      name: FieldName.create('Owner')._unsafeUnwrap(),
+      isMultiple: UserMultiplicity.single(),
+    })._unsafeUnwrap();
+    const plan = buildFieldFilterSyncPlan(ownerField, [
+      UpdateUserMultiplicitySpec.create(
+        ownerFieldId,
+        DbFieldName.rehydrate('owner')._unsafeUnwrap(),
+        UserMultiplicity.single(),
+        UserMultiplicity.multiple()
+      ),
+    ]);
+
+    expect(hasFieldFilterSyncPlanChanges(plan)).toBe(true);
+    expect(plan.userMultiplicityChange).toBe('singleToMultiple');
+
+    const next = syncFilterByFieldChanges(
+      {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: ownerFieldId.toString(), operator: 'is', value: 'usr1' },
+          { fieldId: ownerFieldId.toString(), operator: 'isAnyOf', value: ['usr1', 'usr2'] },
+          { fieldId: ownerFieldId.toString(), operator: 'isNoneOf', value: ['usr1'] },
+          { fieldId: ownerFieldId.toString(), operator: 'isEmpty' },
+        ],
+      },
+      ownerFieldId,
+      plan
+    );
+
+    expect(next).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: ownerFieldId.toString(), operator: 'isExactly', value: ['usr1'] },
+        { fieldId: ownerFieldId.toString(), operator: 'hasAnyOf', value: ['usr1', 'usr2'] },
+        { fieldId: ownerFieldId.toString(), operator: 'hasNoneOf', value: ['usr1'] },
+        { fieldId: ownerFieldId.toString(), operator: 'isEmpty' },
+      ],
+    });
+  });
+
+  it('remaps user filter operators when multiplicity changes from multiple to single', () => {
+    const ownerFieldId = createFieldId('l');
+    const ownerField = UserField.create({
+      id: ownerFieldId,
+      name: FieldName.create('Owner')._unsafeUnwrap(),
+      isMultiple: UserMultiplicity.multiple(),
+    })._unsafeUnwrap();
+    const plan = buildFieldFilterSyncPlan(ownerField, [
+      UpdateUserMultiplicitySpec.create(
+        ownerFieldId,
+        DbFieldName.rehydrate('owner')._unsafeUnwrap(),
+        UserMultiplicity.multiple(),
+        UserMultiplicity.single()
+      ),
+    ]);
+
+    expect(plan.userMultiplicityChange).toBe('multipleToSingle');
+
+    const nextFilter = syncRecordFilterByFieldChanges(
+      {
+        conjunction: 'or',
+        items: [
+          { fieldId: ownerFieldId.toString(), operator: 'hasAnyOf', value: ['Me'] },
+          { fieldId: ownerFieldId.toString(), operator: 'hasNoneOf', value: ['usr1', 'usr2'] },
+          { fieldId: ownerFieldId.toString(), operator: 'isExactly', value: ['usr1'] },
+          { fieldId: ownerFieldId.toString(), operator: 'hasAllOf', value: ['usr1', 'usr2'] },
+        ],
+      },
+      ownerFieldId.toString(),
+      plan
+    );
+
+    expect(nextFilter).toEqual({
+      conjunction: 'or',
+      items: [
+        { fieldId: ownerFieldId.toString(), operator: 'isAnyOf', value: ['Me'] },
+        { fieldId: ownerFieldId.toString(), operator: 'isNoneOf', value: ['usr1', 'usr2'] },
+        { fieldId: ownerFieldId.toString(), operator: 'is', value: 'usr1' },
       ],
     });
   });

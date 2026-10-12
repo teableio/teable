@@ -5,7 +5,7 @@ import { SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 
 interface IUseGridFileEventProps {
-  gridRef: React.RefObject<IGridRef>;
+  gridRef: React.RefObject<IGridRef | null>;
   onValidation: (cell: ICellItem) => boolean;
   onCellDrop: (cell: ICellItem, files: FileList) => Promise<void> | void;
 }

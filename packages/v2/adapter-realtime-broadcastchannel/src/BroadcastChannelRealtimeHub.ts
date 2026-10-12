@@ -10,7 +10,7 @@ type SnapshotMessage = {
   docKey: string;
   collection: string;
   docId: string;
-  snapshot: unknown | null;
+  snapshot: unknown;
 };
 
 type CollectionInvalidatedMessage = {
@@ -20,7 +20,7 @@ type CollectionInvalidatedMessage = {
 
 type BroadcastMessage = SnapshotMessage | CollectionInvalidatedMessage;
 
-type DocListener = (snapshot: unknown | null) => void;
+type DocListener = (snapshot: unknown) => void;
 type CollectionListener = (
   snapshots: ReadonlyArray<unknown>,
   removedDocIds: ReadonlyArray<string>
@@ -230,7 +230,7 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
-  getSnapshot(docKey: string): unknown | null {
+  getSnapshot(docKey: string): unknown {
     return this.docs.get(docKey)?.snapshot ?? null;
   }
 

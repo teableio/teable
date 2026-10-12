@@ -1064,7 +1064,7 @@ export const executeFormulaAsText = async (
   const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
   const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  const rendered = testTable.translator.renderSql(sqlExpr);
+  const rendered = testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
   const tableName = resolveDbTableName(testTable.table);
 
   const result = await sql<{ value: string | null }>`
@@ -1094,7 +1094,7 @@ const buildFormattedFieldValueSql = (testTable: FormulaTestTable, field: Field):
   const expr = `CONCATENATE({${fieldId}}, "")`;
   const sqlExprResult = testTable.translator.translateExpression(expr);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  return testTable.translator.renderSql(sqlExpr);
+  return testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
 };
 
 const fetchRawFieldValueSql = (field: Field, tableAlias: string): string => {
@@ -1206,7 +1206,7 @@ export const buildFormulaSnapshotContext = async (
   const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
   const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  const renderedSql = testTable.translator.renderSql(sqlExpr);
+  const renderedSql = testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
   const result = await fetchSqlValue(testTable, renderedSql);
 
   const refs = extractFieldRefs(formulaDefinition.expression);

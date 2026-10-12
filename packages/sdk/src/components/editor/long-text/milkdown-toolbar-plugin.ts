@@ -484,7 +484,7 @@ export function createFloatingToolbarPlugin(): Plugin {
           const listItemType = state.schema.nodes.list_item;
           if (!listItemType) return false;
 
-          const checkedAttr = taskItem.getAttribute('data-checked');
+          const checkedAttr = taskItem.dataset.checked;
           if (checkedAttr !== 'true' && checkedAttr !== 'false') return false;
           const nextChecked = checkedAttr !== 'true';
 

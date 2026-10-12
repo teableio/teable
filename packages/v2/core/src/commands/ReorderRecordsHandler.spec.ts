@@ -17,6 +17,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -235,14 +236,13 @@ describe('ReorderRecordsHandler', () => {
       {
         calculateOrders: async () => ok([10, 11]),
       } as IRecordOrderCalculator,
-      eventBus,
       {
         appendEntry: async (_context, _tableId, entry) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },
       } as unknown as UndoRedoStackService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const result = await handler.handle(createContext(), command);
@@ -299,14 +299,13 @@ describe('ReorderRecordsHandler', () => {
       {
         calculateOrders: async () => ok([10]),
       } as IRecordOrderCalculator,
-      new FakeEventBus(),
       {
         appendEntry: async (_context, _tableId, entry) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },
       } as unknown as UndoRedoStackService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(createContext(), command);
@@ -327,11 +326,10 @@ describe('ReorderRecordsHandler', () => {
       {
         calculateOrders: async () => ok([1]),
       } as IRecordOrderCalculator,
-      new FakeEventBus(),
       {
         appendEntry: async () => ok(undefined),
       } as unknown as UndoRedoStackService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(createContext(), command);
@@ -363,11 +361,10 @@ describe('ReorderRecordsHandler', () => {
       {
         calculateOrders: async () => ok([5]),
       } as IRecordOrderCalculator,
-      eventBus,
       {
         appendEntry: async () => ok(undefined),
       } as unknown as UndoRedoStackService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const result = await handler.handle(createContext(), command);

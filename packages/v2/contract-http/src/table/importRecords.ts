@@ -3,9 +3,8 @@ import { ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { IDomainEventDto } from '../shared/domainEvent';
-import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
+import { domainEventDtoSchema } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -28,7 +27,7 @@ export const importRecordsResponseDataSchema = z.object({
 export const importRecordsOkResponseSchema = apiOkResponseDtoSchema(
   importRecordsResponseDataSchema
 );
-export const importRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as importRecordsErrorResponseSchema } from '../shared/http';
 
 export type IImportRecordsEndpointResult =
   | { status: 200; body: IImportRecordsOkResponseDto }
@@ -39,6 +38,6 @@ export const mapImportRecordsResultToDto = (
 ): Result<IImportRecordsResponseDataDto, DomainError> => {
   return ok({
     totalImported: result.totalImported,
-    events: result.events.map(mapDomainEventToDto),
+    events: [...result.events],
   });
 };

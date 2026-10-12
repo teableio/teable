@@ -69,7 +69,7 @@ const runPlugin = async (context: RecordWritePluginContext) => {
 };
 
 describe('TableDataSafetyLimitRecordWritePlugin', () => {
-  it('supports every record write operation except deleteMany', () => {
+  it('supports every record write operation except deleteMany and archiveMany', () => {
     const plugin = new TableDataSafetyLimitRecordWritePlugin();
 
     expect(plugin.supports(RecordWriteOperationKind.createOne)).toBe(true);
@@ -83,6 +83,7 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
     expect(plugin.supports(RecordWriteOperationKind.importAppend)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.paste)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.deleteMany)).toBe(false);
+    expect(plugin.supports(RecordWriteOperationKind.archiveMany)).toBe(false);
   });
 
   it.each([
