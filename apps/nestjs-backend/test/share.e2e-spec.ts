@@ -112,6 +112,7 @@ import {
   getField,
   deleteField,
   convertField,
+  getRecord,
   updateRecordByApi,
   permanentDeleteBase,
 } from './utils/init-app';
@@ -310,6 +311,43 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(resultData.data.viewId).toEqual(gridViewId);
     });
 
+    it('rejects a password token presented for another share', async () => {
+      // The attacker knows the password of their own share only.
+      const own = await createView(tableId, gridViewRo);
+      const ownShareId = (await apiEnableShareView({ tableId, viewId: own.id })).data.shareId;
+      await apiUpdateViewShareMeta(tableId, own.id, { password: 'attacker-pass' });
+      const victim = await createView(tableId, gridViewRo);
+      const victimShareId = (await apiEnableShareView({ tableId, viewId: victim.id })).data.shareId;
+      await apiUpdateViewShareMeta(tableId, victim.id, { password: 'victim-secret' });
+
+      const auth = await anonymousUser.post<ShareViewAuthVo>(
+        urlBuilder(SHARE_VIEW_AUTH, { shareId: ownShareId }),
+        { password: 'attacker-pass' }
+      );
+      const setCookie = ([] as string[]).concat(auth.headers['set-cookie'] ?? []);
+      const ownCookie = setCookie
+        .map((entry) => entry.split(';')[0])
+        .find((entry) => entry.startsWith(`${ownShareId}=`));
+      expect(ownCookie).toBeDefined();
+      const ownToken = ownCookie!.slice(ownShareId.length + 1);
+
+      const ownView = await anonymousUser.get<ShareViewGetVo>(
+        urlBuilder(SHARE_VIEW_GET, { shareId: ownShareId }),
+        { headers: { cookie: ownCookie } }
+      );
+      expect(ownView.data.viewId).toEqual(own.id);
+      // the share GET never echoes the password back to a visitor
+      expect(ownView.data.shareMeta).not.toHaveProperty('password');
+      expect(ownView.data.view?.shareMeta).not.toHaveProperty('password');
+
+      const error = await getError(() =>
+        anonymousUser.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId: victimShareId }), {
+          headers: { cookie: `${victimShareId}=${ownToken}` },
+        })
+      );
+      expect(error?.status).toEqual(401);
+    });
+
     it('keeps password authentication and shared reads on v1 when canary is disabled', async () => {
       const previousForceV2All = process.env.FORCE_V2_ALL;
       const previousCanary = process.env.ENABLE_CANARY_FEATURE;
@@ -385,6 +423,22 @@ describe('OpenAPI ShareController (e2e)', () => {
       if (record.createdBy != null) {
         expect(record.createdBy).toEqual(ANONYMOUS_USER_ID);
       }
+    });
+
+    it('should ignore a spoofed automation header on an anonymous submit', async () => {
+      const result = await anonymousUser.post(
+        urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId: fromViewShareId }),
+        { fields: {} },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { headers: { 'x-automation-internal': 'true' } }
+      );
+      const submitted = result.data as IRecord;
+      expect(submitted.id).toBeDefined();
+
+      // The header only classifies the request; it must never lend the automation
+      // robot identity to an unauthenticated caller.
+      const record = await getRecord(tableId, submitted.id);
+      expect(record.createdBy).toEqual(ANONYMOUS_USER_ID);
     });
 
     it('submit exclude form view', async () => {
@@ -1542,6 +1596,48 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(result.data.records[0].fields).not.toHaveProperty(secretFieldId);
     });
 
+    it('rejects a row count filtered on a hidden column', async () => {
+      const error = await getError(() =>
+        getShareViewRowCount(leakShareId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: secretFieldId, operator: 'is', value: secretValue }],
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
+    });
+
+    it('rejects records grouped or sorted by a hidden column', async () => {
+      const groupError = await getError(() =>
+        apiGetShareViewRecords(leakShareId, {
+          take: 10,
+          groupBy: [{ fieldId: secretFieldId, order: SortFunc.Asc }],
+        })
+      );
+      expect(groupError?.status).toEqual(403);
+
+      const sortError = await getError(() =>
+        apiGetShareViewRecords(leakShareId, {
+          take: 10,
+          orderBy: [{ fieldId: secretFieldId, order: SortFunc.Asc }],
+        })
+      );
+      expect(sortError?.status).toEqual(403);
+    });
+
+    it('rejects aggregations filtered on a hidden column', async () => {
+      const error = await getError(() =>
+        getShareViewAggregations(leakShareId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: secretFieldId, operator: 'is', value: secretValue }],
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
+    });
+
     it('must not return a hidden column even when the client requests it via projection', async () => {
       const result = await apiGetShareViewRecords(leakShareId, {
         take: 10,
@@ -2396,6 +2492,52 @@ describe('OpenAPI ShareController (e2e)', () => {
         expect(linkRecords.map((record) => record.title)).toEqual(
           tableRecords.slice(0, 2).map((record) => record.fields[primaryFieldName])
         );
+      });
+
+      it('only lists foreign records linked from rows the shared view shows', async () => {
+        const filteredView = await createView(linkTableRes.id, gridViewRo);
+        const filteredShareId = (
+          await apiEnableShareView({ tableId: linkTableRes.id, viewId: filteredView.id })
+        ).data.shareId;
+        // host row "2" (the only one linking foreign record "2") is filtered out
+        await updateViewFilter(linkTableRes.id, filteredView.id, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: linkTableRes.fields[0].id, operator: 'is', value: '1' }],
+          },
+        });
+        const expectOnlyVisibleHostLinks = async () => {
+          const result = await apiGetShareViewLinkRecords(filteredShareId, {
+            fieldId: linkFieldId,
+          });
+          expect(result.data.map((record) => record.title)).toEqual(['1']);
+        };
+
+        // v2 (forced in this suite)
+        await expectOnlyVisibleHostLinks();
+
+        // v1
+        const previousForceV2All = process.env.FORCE_V2_ALL;
+        const previousCanary = process.env.ENABLE_CANARY_FEATURE;
+        const previousBase = await prismaService.base.findUniqueOrThrow({
+          where: { id: baseId },
+          select: { v2Enabled: true },
+        });
+        process.env.FORCE_V2_ALL = 'false';
+        process.env.ENABLE_CANARY_FEATURE = 'false';
+        await prismaService.base.update({ where: { id: baseId }, data: { v2Enabled: false } });
+        try {
+          await expectOnlyVisibleHostLinks();
+        } finally {
+          if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+          else process.env.FORCE_V2_ALL = previousForceV2All;
+          if (previousCanary == null) delete process.env.ENABLE_CANARY_FEATURE;
+          else process.env.ENABLE_CANARY_FEATURE = previousCanary;
+          await prismaService.base.update({
+            where: { id: baseId },
+            data: { v2Enabled: previousBase.v2Enabled },
+          });
+        }
       });
 
       it('rejects hidden and non-Link Fields at the Table aggregate boundary', async () => {

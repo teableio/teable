@@ -206,7 +206,7 @@ export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQu
 
   // Literals - Common implementations
   stringLiteral(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
+    return `'${value.replaceAll("'", "''")}'`;
   }
 
   numberLiteral(value: number): string {
@@ -254,7 +254,7 @@ export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQu
 
   // Helper method to escape SQL identifiers
   protected escapeIdentifier(identifier: string): string {
-    return `"${identifier.replace(/"/g, '""')}"`;
+    return `"${identifier.replaceAll('"', '""')}"`;
   }
 
   // Helper method to handle array parameters

@@ -14,6 +14,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `computed-outbox/` - Computed-update outbox maintenance queries (overview, pauses, anomalies, queue jobs, task lineage).
 - `GetTableByIdHandler.ts` - Role: query handler; Purpose: find a table by spec.
 - `GetTableByIdQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId and convert to value objects.
+- `GetFieldSnapshotsQuery.ts` - Role: query DTO; Purpose: validate Table/Field IDs for ShareDB field snapshots.
+- `GetFieldSnapshotsHandler.ts` - Role: query handler; Purpose: load requested Field children with persisted versions, omitting missing ids like v1 snapshot-bulk.
 - `GetViewHandler.ts` - Role: query handler; Purpose: load a Table aggregate with one selected View child.
 - `GetViewQuery.ts` - Role: query DTO; Purpose: validate Table/View IDs.
 - `ListViewsHandler.ts` - Role: query handler; Purpose: project all active View children from a Table aggregate.
@@ -43,16 +45,19 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `GetViewSelectionCopyHandler.ts` - Role: query handler; Purpose: load the authorized partial
   Table aggregate, execute its copy plan through the existing Table Record repository, and format
   the selected v2 Field values as clipboard text.
-- `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records for a table.
-- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is keyset on `__auto_number` asc and cannot mix with offset.
+- `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records or resolve a target record's zero-based index in the same authorized filter/search/order scope without fetching preceding rows.
+- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is an opaque keyset token carrying the previous page's order-key values, and cannot mix with offset. Trusted `recordIndexId` selects index-only repository execution.
 - `CountTableRecordsHandler.ts` - Role: query handler; Purpose: count rows for a table without fetching records.
 - `CountTableRecordsQuery.ts` - Role: query DTO; Purpose: validate table/view/filter/search/link inputs for row counts.
+- `AggregateTableRecordsQuery.ts` / `AggregateTableRecordsHandler.ts` - Role: aggregation query; Purpose: evaluate totals, grouped statistics, and selected ranges with optional view defaults, link/record selections, row scope, and conditional field masks. Ignored or absent views do not apply saved statistics/filter defaults.
+- `GetCalendarDailyCollectionQuery.ts` / `GetCalendarDailyCollectionHandler.ts` - Role: calendar query; Purpose: collect date buckets and readable records using optional view defaults, row scope, and the same masked values for date ranges, search, and returned cells.
 - `GetRecordStatusQuery.ts` - Role: query DTO; Purpose: validate Table/Record IDs plus the
   same view/filter/search/link inputs used by record counts.
 - `GetRecordStatusHandler.ts` - Role: query handler; Purpose: compose record existence with a
   selected-id count to return deleted/visible status.
 - `tableRecordQueryPlan.ts` - Role: shared query planner helpers; Purpose: resolve view filter, permission field lists, and projection for list and count reads.
-- `tableRecordQueryConditionPlan.ts` - Role: shared link/selection planner; Purpose: build incoming-link candidate and selected specs for list and count reads.
+- `tableRecordQueryConditionPlan.ts` - Role: shared link/selection planner; Purpose: build incoming-link candidate and selected specs for list, count, and aggregation reads. An explicit empty selected-record list remains empty; an empty candidate exclusion excludes nothing.
+- `tableRecordFieldMasks.ts` - Role: shared read masking helpers; Purpose: collect mask dependencies and apply conditional cell visibility for list and calendar records without exposing dependency-only fields.
 - `ListTablesHandler.ts` - Role: query handler; Purpose: build specs and query with sort/pagination.
 - `ListTablesQuery.spec.ts` - Role: query tests; Purpose: verify sort/pagination/validation logic.
 - `ListTablesQuery.ts` - Role: query DTO; Purpose: build name filter, sort, and pagination.

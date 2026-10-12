@@ -14,9 +14,10 @@ const okResult = <T>(value: T) => ({
   value,
 });
 
-const errResult = () => ({
+const errResult = (error: unknown = { message: 'table not found' }) => ({
   isErr: () => true,
   isOk: () => false,
+  error,
 });
 
 const createTextField = (fieldId: string, name: string) => ({
@@ -42,26 +43,30 @@ const createTable = (fields: Array<ReturnType<typeof createTextField>>) => ({
   },
 });
 
-const createScheduledContext = (actorId: string) => {
-  const scheduled: Array<() => Promise<void> | void> = [];
-  const context = {
-    actorId: { toString: () => actorId },
-    scheduleBackgroundTask: vi.fn((task: () => Promise<void> | void) => {
-      scheduled.push(task);
-    }),
-  };
-  return { context, scheduled };
-};
-
-const flushScheduled = async (scheduled: Array<() => Promise<void> | void>) => {
-  while (scheduled.length) {
-    await scheduled.shift()?.();
+const createContext = (
+  actorId: string,
+  sameTxProjection?: {
+    eventId: string;
+    tables?: Map<string, unknown>;
+    historyRowBudget?: { remaining: number };
   }
-};
+) => ({
+  actorId: { toString: () => actorId },
+  ...(sameTxProjection
+    ? {
+        sameTxProjection: {
+          eventId: sameTxProjection.eventId,
+          tables: sameTxProjection.tables ?? new Map(),
+          historyRowBudget: sameTxProjection.historyRowBudget,
+        },
+      }
+    : {}),
+});
 
 const createV2ContainerService = () => {
   const query = {
     values: vi.fn().mockReturnThis(),
+    onConflict: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue(undefined),
   };
   const db = {
@@ -104,7 +109,7 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       tableQueryService as never,
       eventEmitterService as never
     );
-    const { context, scheduled } = createScheduledContext('usrHistWriter00000001');
+    const context = createContext('usrHistWriter00000001');
 
     const result = await projection.handle(
       context as never,
@@ -123,10 +128,6 @@ describe('V2RecordUpdatedHistoryProjection', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(db.insertInto).not.toHaveBeenCalled();
-
-    await flushScheduled(scheduled);
-
     expect(db.insertInto).toHaveBeenCalledWith('record_history');
     const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
     expect(rows).toHaveLength(1);
@@ -136,6 +137,7 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       field_id: 'fldHistField0000001',
       created_by: 'usrHistWriter00000001',
     });
+    expect(rows[0].id).toMatch(/^rhi[0-9a-f]{24}$/);
     expect(JSON.parse(rows[0].before)).toEqual({
       meta: {
         type: CoreFieldType.SingleLineText,
@@ -159,6 +161,151 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       recordIds: ['recHistRecord000001'],
     });
   });
+
+  it('skips cell history when the table cannot be loaded', async () => {
+    const { db, service: v2ContainerService } = createV2ContainerService();
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue(errResult({ code: 'table.not_found' })),
+    };
+    const projection = new V2RecordUpdatedHistoryProjection(
+      v2ContainerService as never,
+      { recordHistoryDisabled: false } as never,
+      tableQueryService as never,
+      { emit: vi.fn() } as never
+    );
+
+    const result = await projection.handle(
+      createContext('usrHistWriter00000001') as never,
+      {
+        source: 'user',
+        tableId: { toString: () => 'tblHistTable0000001' },
+        recordId: { toString: () => 'recHistRecord000001' },
+        changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
+      } as never
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(db.insertInto).not.toHaveBeenCalled();
+  });
+
+  it('shares the same-tx history row budget across events', async () => {
+    const { db, service: v2ContainerService } = createV2ContainerService();
+    const tableQueryService = {
+      getById: vi
+        .fn()
+        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
+    };
+    const projection = new V2RecordUpdatedHistoryProjection(
+      v2ContainerService as never,
+      { recordHistoryDisabled: false } as never,
+      tableQueryService as never,
+      { emit: vi.fn() } as never
+    );
+    const budget = { remaining: 200 };
+    const context = createContext('usrHistWriter00000001', {
+      eventId: 'evt-shared-budget',
+      historyRowBudget: budget,
+    });
+    const event = {
+      source: 'user',
+      tableId: { toString: () => 'tblHistTable0000001' },
+      recordId: { toString: () => 'recHistRecord000001' },
+      changes: Array.from({ length: 150 }, (_, index) => ({
+        fieldId: 'fldHistField0000001',
+        oldValue: `before-${index}`,
+        newValue: `after-${index}`,
+      })),
+    };
+
+    const first = await projection.handle(context as never, event as never);
+    const second = await projection.handle(context as never, event as never);
+
+    expect(first.isOk()).toBe(true);
+    expect(second.isOk()).toBe(true);
+    expect(db.insertInto).toHaveBeenCalledTimes(1);
+    expect(budget.remaining).toBe(50);
+  });
+
+  it('skips cell history when the same-tx row budget is exceeded', async () => {
+    const { db, service: v2ContainerService } = createV2ContainerService();
+    const tableQueryService = {
+      getById: vi
+        .fn()
+        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
+    };
+    const projection = new V2RecordUpdatedHistoryProjection(
+      v2ContainerService as never,
+      { recordHistoryDisabled: false } as never,
+      tableQueryService as never,
+      { emit: vi.fn() } as never
+    );
+
+    const result = await projection.handle(
+      createContext('usrHistWriter00000001') as never,
+      {
+        source: 'user',
+        tableId: { toString: () => 'tblHistTable0000001' },
+        recordId: { toString: () => 'recHistRecord000001' },
+        changes: Array.from({ length: 201 }, () => ({
+          fieldId: 'fldHistField0000001',
+          oldValue: 'a',
+          newValue: 'b',
+        })),
+      } as never
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(db.insertInto).not.toHaveBeenCalled();
+  });
+
+  it('defers RECORD_HISTORY_CREATE until after commit', async () => {
+    const { service: v2ContainerService } = createV2ContainerService();
+    const tableQueryService = {
+      getById: vi
+        .fn()
+        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
+    };
+    const eventEmitterService = {
+      emit: vi.fn(),
+    };
+    const projection = new V2RecordUpdatedHistoryProjection(
+      v2ContainerService as never,
+      { recordHistoryDisabled: false } as never,
+      tableQueryService as never,
+      eventEmitterService as never
+    );
+    const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+    const context = {
+      actorId: { toString: () => 'usrHistWriter00000001' },
+      transaction: {
+        afterCommit: (handler: () => Promise<void> | void) => {
+          afterCommitHandlers.push(handler);
+        },
+      },
+    };
+
+    await projection.handle(
+      context as never,
+      {
+        source: 'user',
+        tableId: { toString: () => 'tblHistTable0000001' },
+        recordId: { toString: () => 'recHistRecord000001' },
+        changes: [
+          {
+            fieldId: 'fldHistField0000001',
+            oldValue: 'before',
+            newValue: 'after',
+          },
+        ],
+      } as never
+    );
+
+    expect(eventEmitterService.emit).not.toHaveBeenCalled();
+    await afterCommitHandlers[0]?.();
+    expect(eventEmitterService.emit).toHaveBeenCalledWith(Events.RECORD_HISTORY_CREATE, {
+      recordIds: ['recHistRecord000001'],
+    });
+  });
 });
 
 describe('V2RecordsBatchCreatedHistoryProjection', () => {
@@ -178,7 +325,7 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
       tableQueryService as never,
       eventEmitterService as never
     );
-    const { context, scheduled } = createScheduledContext('usrBatchCreator00001');
+    const context = createContext('usrBatchCreator00001');
 
     const result = await projection.handle(
       context as never,
@@ -199,10 +346,6 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(db.insertInto).not.toHaveBeenCalled();
-
-    await flushScheduled(scheduled);
-
     expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblHistTable0000001');
     expect(db.insertInto).toHaveBeenCalledWith('record_history');
     const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
@@ -256,7 +399,7 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
         tableQueryService as never,
         eventEmitterService as never
       );
-      const { context, scheduled } = createScheduledContext('usrBatchCreator00001');
+      const context = createContext('usrBatchCreator00001');
 
       const result = await projection.handle(
         context as never,
@@ -273,9 +416,6 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
       );
 
       expect(result._unsafeUnwrap()).toBeUndefined();
-
-      await flushScheduled(scheduled);
-
       expect(db.insertInto).not.toHaveBeenCalled();
       expect(eventEmitterService.emit).not.toHaveBeenCalled();
     }
@@ -299,7 +439,7 @@ describe('V2RecordsBatchUpdatedHistoryProjection', () => {
       tableQueryService as never,
       eventEmitterService as never
     );
-    const { context, scheduled } = createScheduledContext('usrBatchWriter0000001');
+    const context = createContext('usrBatchWriter0000001');
 
     const result = await projection.handle(
       context as never,
@@ -332,10 +472,6 @@ describe('V2RecordsBatchUpdatedHistoryProjection', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(db.insertInto).not.toHaveBeenCalled();
-
-    await flushScheduled(scheduled);
-
     expect(db.insertInto).toHaveBeenCalledWith('record_history');
     const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
     expect(rows).toHaveLength(2);

@@ -63,6 +63,6 @@ describe('DeleteFieldCommand', () => {
       tableId,
     });
 
-    commandResult._unsafeUnwrapErr();
+    expect(commandResult.isErr()).toBe(true);
   });
 });

@@ -1,11 +1,18 @@
-import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { randomBytes } from 'node:crypto';
+import {
+  createV2PostgresDb,
+  v2DataDbTokens,
+  v2MetaDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import {
   getTablePhysicalName,
   makePhysicalTableSql,
   mergeSearchVectorCoverage,
   PostgresTableSearchVectorAdvisor,
+  PostgresTableSearchAccessPathMetadataPublisher,
   registerV2TableOpsPostgresAdapter,
-  renderSearchTextProjectionSql,
+  renderGeneratedSearchTextProjectionSql,
+  ensureSearchDocumentFunctions,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -40,6 +47,7 @@ import {
 } from '@teable/v2-core';
 import {
   FormulaSqlPgTranslator,
+  defaultFormulaCompileBudgetPolicy,
   makeExpr,
   Pg16TypeValidationStrategy,
 } from '@teable/v2-formula-sql-pg';
@@ -80,7 +88,6 @@ import {
   type TableQueryOpsExecuteSearchAccessPathInput,
   type TableQueryOpsExecuteSearchAccessPathResult,
   type TableQueryOpsExecuteSearchVectorInput,
-  type TableQueryOpsExecuteSearchVectorResult,
   type TableQueryOpsExplainSavedViewsInput,
   type TableQueryOpsExplainSavedViewsResult,
   type TableQueryOpsSearchAccessPathTempTableValidationResult,
@@ -91,10 +98,8 @@ import {
   type TableQueryOpsValidateSearchAccessPathTempTableInput,
   type TableQueryOpsValidateSearchVectorTempTableInput,
   type TableQueryOpsAnalyzeSearchVectorsInput,
-  type TableQueryOpsAnalyzeSearchVectorsResult,
   type TableQueryOpsObservabilitySchemaResult,
   type TableQueryOpsSignozDashboardTemplateResult,
-  type TableQueryOpsSearchVectorRecommendationSummary,
   type TableQueryOpsFormulaEvidenceSummary,
   type TableQueryOpsCoverageReportSummary,
   type TableQueryOpsIndexCandidateSummary,
@@ -472,10 +477,10 @@ type SearchAccessPathTempQueryPathResult = {
 // Durable output must not carry raw record ids (customer data); a
 // deterministic set hash still lets two runs be compared for equality.
 const stableRecordIdSetHash = (recordIds: readonly string[]): string => {
-  const joined = [...recordIds].sort().join('\n');
+  const joined = [...recordIds].sort((a, b) => Number(a > b) - Number(a < b)).join('\n');
   let hash = 0;
   for (let index = 0; index < joined.length; index += 1) {
-    hash = (hash * 31 + joined.charCodeAt(index)) >>> 0;
+    hash = (hash * 31 + joined.charCodeAt(index)) >>> 0; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   }
   return `${recordIds.length}:${hash.toString(16).padStart(8, '0')}`;
 };
@@ -984,7 +989,7 @@ const buildRecommendedIndexes = (
       .filter((item) => item.indexKind === 'btree' && item.accessPath === 'composite')
       .map((item) => item.optimizedFields[0])
       .filter((field): field is string => Boolean(field))
-      .map((field) => /\(([^)]+)\)/.exec(field)?.[1] ?? field.split(':')[0])
+      .map((field) => /\(([^()]+)\)/.exec(field)?.[1] ?? field.split(':')[0])
   );
 
   return summaries
@@ -992,7 +997,7 @@ const buildRecommendedIndexes = (
       if (item.indexKind !== 'btree' || item.accessPath !== 'single_field') return true;
       const field = item.optimizedFields[0];
       if (!field) return true;
-      const normalizedField = /\(([^)]+)\)/.exec(field)?.[1] ?? field.split(':')[0];
+      const normalizedField = /\(([^()]+)\)/.exec(field)?.[1] ?? field.split(':')[0];
       return !compositePrefixFields.has(normalizedField);
     })
     .sort((a, b) => b.optimizedSources.length - a.optimizedSources.length);
@@ -1369,7 +1374,7 @@ const remediationKindForRecommendedIndex = (
   return 'create_filter_index';
 };
 
-const quoteIdentifier = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 const splitPhysicalName = (
   dbTableName: string,
@@ -1436,6 +1441,11 @@ const buildFormulaExpressionIndexSql = (
     tableAlias: '',
     allowFieldNameFallback: false,
     typeValidationStrategy: new Pg16TypeValidationStrategy(),
+    compileBudget: {
+      policy: defaultFormulaCompileBudgetPolicy,
+      mode: 'enforce',
+      policyVersion: 1,
+    },
     resolveFieldSql: (field: Field) => {
       const dbFieldName = field.dbFieldName().andThen((name) => name.value());
       const columnSql = dbFieldName.isOk() ? quoteIdentifier(dbFieldName.value) : 'NULL';
@@ -1447,7 +1457,7 @@ const buildFormulaExpressionIndexSql = (
   );
   if (translated.isErr()) return undefined;
   const expressionSql = translator.renderSql(translated.value);
-  return expressionSql;
+  return expressionSql.isOk() ? expressionSql.value : undefined;
 };
 
 const explainCompiled = async (
@@ -1583,21 +1593,23 @@ const buildSearchDocumentGeneratedExpression = (
     )
     .map(
       (field) =>
-        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+        `coalesce(${renderGeneratedSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
     )
-    .join(` || E'\\n' || `);
+    .join(String.raw` || E'\n' || `);
   return `lower(${document || "''"})`;
 };
 
 const makeTempSearchAccessPathTableName = (): string =>
-  `${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`.slice(0, 63);
+  `${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`.slice(
+    0,
+    63
+  );
 
 const makeTempSearchAccessPathIndexName = (): string =>
-  `idx${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`.slice(0, 63);
+  `idx${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`.slice(
+    0,
+    63
+  );
 
 const cloneTableWithDbTableName = (
   table: Table,
@@ -1686,6 +1698,8 @@ const runTempSearchQuery = async (input: {
           visibleFieldIds: input.visibleFieldIds,
         },
         searchAccessPath: input.searchAccessPath,
+        // The paging loop below bounds itself on `total`, so the count must be requested.
+        includeTotal: true,
       });
       if (result.isErr()) throw result.error;
       total = result.value.total;
@@ -1693,7 +1707,11 @@ const runTempSearchQuery = async (input: {
       offsetValue += result.value.records.length;
       if (!result.value.records.length) break;
     } while (offsetValue < total);
-    runs.push({ durationMs: durationMsFrom(startedAt), total, ids: ids.sort() });
+    runs.push({
+      durationMs: durationMsFrom(startedAt),
+      total,
+      ids: ids.sort((a, b) => Number(a > b) - Number(a < b)),
+    });
   }
   const first = runs[0] ?? { durationMs: 0, total: 0, ids: [] };
   if (
@@ -2286,6 +2304,10 @@ export const TableQueryOpsLive = Layer.effect(
         `.execute(dataDb);
         copiedRows = Number(countResult.rows[0]?.count ?? '0');
 
+        await ensureSearchDocumentFunctions(
+          dataDb as Kysely<UnknownPostgresDatabase>,
+          coveredFields.map((field) => field.textProjection)
+        );
         const expression = buildSearchDocumentGeneratedExpression(coveredFields);
         await sql
           .raw(
@@ -3063,7 +3085,7 @@ export const TableQueryOpsLive = Layer.effect(
               .map((item) => validationByKey.get(item.indexKey)?.recommendedIndex)
               .filter((item): item is TableQueryOpsRecommendedIndexSummary => Boolean(item));
             if (!baseId && candidates.length > 0) {
-              throw new Error(`No base id found for table ${input.tableId}`);
+              throw new Error(`No project ID found for table ${input.tableId}`);
             }
 
             for (const recommendedIndex of candidates) {
@@ -3250,6 +3272,33 @@ export const TableQueryOpsLive = Layer.effect(
       ): Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError> =>
         Effect.tryPromise({
           try: () => executeSearchAccessPathUnsafe(input),
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      refreshSearchAccessPath: (input: {
+        readonly tableId: string;
+        readonly dataConnection?: string;
+      }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const inspectionDb = input.dataConnection
+              ? await createV2PostgresDb<UnknownPostgresDatabase>({
+                  pg: { connectionString: input.dataConnection },
+                })
+              : container.resolve<Kysely<UnknownPostgresDatabase>>(v2DataDbTokens.db);
+            try {
+              const publisher = new PostgresTableSearchAccessPathMetadataPublisher(
+                container.resolve<Kysely<UnknownPostgresDatabase>>(v2MetaDbTokens.db),
+                inspectionDb,
+                container.resolve<ITableRepository>(v2CoreTokens.tableRepository)
+              );
+              const result = await publisher.refresh(createContext(container), input.tableId);
+              if (result.isErr()) throw result.error;
+              return { tableId: input.tableId, published: result.value !== undefined };
+            } finally {
+              if (input.dataConnection) await inspectionDb.destroy();
+            }
+          },
           catch: (error) => CliError.fromUnknown(error),
         }),
 

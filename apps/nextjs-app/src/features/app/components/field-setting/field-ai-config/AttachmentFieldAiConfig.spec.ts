@@ -3,6 +3,25 @@ import { getImageModelConfigByGatewayId } from '@teable/openapi';
 import { sanitizeAttachmentAiConfigForModel } from './AttachmentFieldAiConfig';
 
 describe('sanitizeAttachmentAiConfigForModel', () => {
+  it('removes an unsupported resolution when switching to Gemini Lite', () => {
+    const next = sanitizeAttachmentAiConfigForModel(
+      { type: 'imageCustomization', prompt: 'Generate image', resolution: '4K' },
+      { modelKey: 'aiGateway@google/gemini-3.1-flash-lite-image@teable' },
+      getImageModelConfigByGatewayId('google/gemini-3.1-flash-lite-image')
+    );
+    expect(next).not.toHaveProperty('resolution');
+  });
+
+  it('preserves Grok resolution and removes unsupported quality', () => {
+    const next = sanitizeAttachmentAiConfigForModel(
+      { type: 'imageCustomization', prompt: 'Generate image', resolution: '2K', quality: 'high' },
+      { modelKey: 'aiGateway@spacexai/grok-imagine-image-2.0@teable' },
+      getImageModelConfigByGatewayId('spacexai/grok-imagine-image-2.0')
+    );
+    expect(next.resolution).toBe('2K');
+    expect(next).not.toHaveProperty('quality');
+  });
+
   it('removes prompt-controlled leftovers when switching to GPT Image 2', () => {
     const next = sanitizeAttachmentAiConfigForModel(
       {

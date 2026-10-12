@@ -51,6 +51,7 @@ const toPauseScopeRow = (scope: ComputedUpdatePauseScope): ComputedPauseScopeRow
   pausedBy: scope.pausedBy,
   resumeAt: toIso(scope.resumeAt),
   reason: scope.reason,
+  writePolicy: scope.writePolicy,
   updatedAt: scope.updatedAt.toISOString(),
   updatedBy: scope.updatedBy,
   active: scope.active,
@@ -143,6 +144,7 @@ export const ComputedTaskControlLive = Layer.effect(
                 resumeAt: parseResumeAt(input.resumeAt),
                 reason: input.reason,
                 actor: input.actor ?? 'devtools-computed-pause',
+                writePolicy: input.writePolicy,
               });
               if (pauseResult.isErr()) throw pauseResult.error;
               return pauseResult.value;

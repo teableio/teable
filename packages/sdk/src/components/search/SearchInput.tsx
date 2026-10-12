@@ -152,7 +152,7 @@ export function SearchInput({
         ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
       );
       const name = currentField?.name?.toLocaleLowerCase()?.trim() || t('common.untitled');
-      return Number(name.indexOf(searchValue.toLowerCase()) > -1);
+      return Number(name.includes(searchValue.toLowerCase()));
     },
     [filterFields, t]
   );

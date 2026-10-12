@@ -56,6 +56,7 @@ import { ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { calculateMultiplier, formatMultiplier } from './ai-model-select/utils';
 import { LLM_PROVIDERS } from './constant';
@@ -185,7 +186,7 @@ interface LLMProviderFormProps {
   onAdd?: (data: LLMProvider) => void;
   /** Test function - accepts full ITestLLMRo for capability testing */
   onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
-  /** Hide pricing fields (space-level settings where billing doesn't apply); token caps stay editable */
+  /** Hide pricing fields (space-level settings where billing doesn't apply) */
   hideModelRates?: boolean;
   /** Callback to save model test results */
   onSaveTestResult?: (
@@ -293,8 +294,7 @@ interface ModelRatesConfigProps {
   models: string;
   modelConfigs: Record<string, IModelConfig> | undefined;
   onChange: (configs: Record<string, IModelConfig>) => void;
-  // Hides pricing in space-level settings (billing doesn't apply to BYOK there);
-  // token caps stay visible everywhere.
+  // Hides pricing in space-level settings (billing doesn't apply to BYOK there).
   hideModelRates?: boolean;
 }
 
@@ -343,8 +343,8 @@ const inferGatewayRatio = (
     const current = currentPricing?.[field];
     const reference = referencePricing?.[field];
     if (!current || !reference) continue;
-    const currentValue = parseFloat(current);
-    const referenceValue = parseFloat(reference);
+    const currentValue = Number.parseFloat(current);
+    const referenceValue = Number.parseFloat(reference);
     if (Number.isNaN(currentValue) || Number.isNaN(referenceValue) || referenceValue === 0) {
       continue;
     }
@@ -356,13 +356,20 @@ const formatGatewayRatio = (ratio: number | undefined): string => {
   if (ratio === undefined || Number.isNaN(ratio)) return '';
   if (ratio === 0) return '0';
   if (ratio < 0.0001) return ratio.toPrecision(3);
-  if (ratio < 1) return ratio.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
-  return ratio.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  if (ratio < 1)
+    return ratio
+      .toFixed(4)
+      .replace(/(?<!0)0+$/, '')
+      .replace(/\.$/, '');
+  return ratio
+    .toFixed(2)
+    .replace(/(?<!0)0+$/, '')
+    .replace(/\.$/, '');
 };
 
 // Ratios must be positive — 0 would zero out pricing and make the model unbillable.
 const parseGatewayRatio = (value: string): number | undefined => {
-  const ratio = parseFloat(value);
+  const ratio = Number.parseFloat(value);
   if (Number.isNaN(ratio) || ratio <= 0) return undefined;
   return ratio;
 };
@@ -533,12 +540,11 @@ const ModelRatesConfig = ({
     [modelConfigs, gatewayModels]
   );
 
-  // Materialize reference pricing (×1) plus caps/tags into models that have none, so
-  // custom model names stay billable without the admin opening each per-model editor
-  // and the backend model-caps resolution (which only reads modelConfigs[model]) sees
-  // the same caps the editor displays. The reference match itself stays dynamic. This
-  // also runs in space-level settings (hideModelRates): the stored pricing is inert
-  // for BYOK.
+  // Materialize reference pricing (×1) plus tags into models that have none, so custom
+  // model names stay billable without the admin opening each per-model editor. Context
+  // and output limits are not copied: the runtime resolves those from the model catalog.
+  // The reference match itself stays dynamic. This also runs in space-level settings
+  // (hideModelRates): the stored pricing is inert for BYOK.
   useEffect(() => {
     if (gatewayModels.length === 0) return;
     const filled: Record<string, IModelConfig> = {};
@@ -552,8 +558,6 @@ const ModelRatesConfig = ({
       filled[model] = {
         ...config,
         pricing,
-        contextWindow: config?.contextWindow ?? reference.contextWindow,
-        maxTokens: config?.maxTokens ?? reference.maxTokens,
         tags: config?.tags ?? reference.tags,
       };
     }
@@ -564,7 +568,7 @@ const ModelRatesConfig = ({
 
   // Auto-expand when a model shows up that neither auto-matches a gateway reference
   // nor has a saved config, so the admin is guided to configure it instead of
-  // discovering blank pricing/caps later. Each model is evaluated once (tracked in a
+  // discovering blank pricing later. Each model is evaluated once (tracked in a
   // ref) so a manual collapse isn't fought on re-renders; only runs once the gateway
   // list is loaded — before that (or on community edition) every model looks unmatched.
   const evaluatedModelsRef = useRef<Set<string>>(new Set());
@@ -573,10 +577,7 @@ const ModelRatesConfig = ({
     const newModels = modelList.filter((model) => !evaluatedModelsRef.current.has(model));
     newModels.forEach((model) => evaluatedModelsRef.current.add(model));
     const needsSetup = (model: string) => {
-      const config = modelConfigs[model];
-      const configured =
-        config?.pricing || config?.contextWindow != null || config?.maxTokens != null;
-      return !configured && !resolveReferenceModel(model);
+      return !modelConfigs[model]?.pricing && !resolveReferenceModel(model);
     };
     if (newModels.some(needsSetup)) setExpanded(true);
   }, [gatewayModels, modelList, modelConfigs, resolveReferenceModel]);
@@ -584,8 +585,8 @@ const ModelRatesConfig = ({
   if (modelList.length === 0) return null;
 
   const gridColsClass = hideModelRates
-    ? 'grid-cols-[minmax(120px,1fr),90px,90px,32px]'
-    : 'grid-cols-[minmax(120px,1fr),190px,56px,90px,90px,32px]';
+    ? 'grid-cols-[minmax(120px,1fr),32px]'
+    : 'grid-cols-[minmax(120px,1fr),190px,56px,32px]';
 
   return (
     <div className="space-y-2">
@@ -607,14 +608,9 @@ const ModelRatesConfig = ({
                 <div>• {t('admin.setting.ai.rateExplanationFormula')}</div>
                 <div>• {t('admin.setting.ai.rateExplanationExample')}</div>
                 <div>• {t('admin.setting.ai.rateExplanationManual')}</div>
-                <div>• {t('admin.setting.ai.rateExplanationCaps')}</div>
               </div>
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {t('admin.setting.ai.rateExplanationCaps')}
-            </p>
-          )}
+          ) : null}
 
           {!hideModelRates && pricingError && (
             <div className="text-xs text-destructive">
@@ -623,7 +619,7 @@ const ModelRatesConfig = ({
           )}
 
           <div className="overflow-x-auto">
-            <div className={cn('space-y-2', !hideModelRates && 'min-w-[620px]')}>
+            <div className={cn('space-y-2', !hideModelRates && 'min-w-[440px]')}>
               <div
                 className={cn(
                   'grid gap-2 text-xs font-medium text-muted-foreground',
@@ -641,12 +637,6 @@ const ModelRatesConfig = ({
                     </div>
                   </>
                 )}
-                <div title={t('admin.setting.ai.contextWindowCapTip')}>
-                  {t('admin.setting.ai.contextWindowCap')}
-                </div>
-                <div title={t('admin.setting.ai.maxOutputTokensCapTip')}>
-                  {t('admin.setting.ai.maxOutputTokensCap')}
-                </div>
                 <div />
               </div>
               {modelList.map((model) => {
@@ -669,12 +659,6 @@ const ModelRatesConfig = ({
                         <div className="text-xs font-medium tabular-nums">{multiplier ?? '-'}</div>
                       </>
                     )}
-                    <div className="truncate text-xs tabular-nums text-muted-foreground">
-                      {config.contextWindow ?? '-'}
-                    </div>
-                    <div className="truncate text-xs tabular-nums text-muted-foreground">
-                      {config.maxTokens ?? '-'}
-                    </div>
                     <Button
                       type="button"
                       variant="ghost"
@@ -699,8 +683,8 @@ const ModelRatesConfig = ({
         </div>
       )}
 
-      {/* Per-model editor: reference model, derived pricing, and token caps live together.
-          Keyed and mounted per open so draft input state can't leak between models. */}
+      {/* Per-model editor: reference model and derived pricing. Keyed and mounted per open
+          so the draft ratio input can't leak between models. */}
       {editingModel && (
         <ModelEditorDialog
           key={editingModel}
@@ -749,9 +733,8 @@ const ModelEditorDialog = ({
   const { t } = useTranslation();
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
   const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
-  // Draft input strings; null falls back to the persisted config value.
+  // Draft input string; null falls back to the persisted config value.
   const [ratioInput, setRatioInput] = useState<string | null>(null);
-  const [capsInput, setCapsInput] = useState<{ contextWindow?: string; maxTokens?: string }>({});
 
   const filteredReferenceModels = useMemo(() => {
     const query = referenceSearchQuery.trim().toLowerCase();
@@ -782,24 +765,8 @@ const ModelEditorDialog = ({
       ...config,
       referenceModel: reference.id,
       pricing: reference.pricing ? scalePricing(reference.pricing, ratio) : config.pricing,
-      contextWindow: reference.contextWindow ?? config.contextWindow,
-      maxTokens: reference.maxTokens ?? config.maxTokens,
       tags: reference.tags ?? config.tags,
     });
-    // Drop the string drafts so the copied reference caps become visible.
-    setCapsInput({});
-  };
-
-  const applyCap = (field: 'contextWindow' | 'maxTokens', value: string) => {
-    setCapsInput((prev) => ({ ...prev, [field]: value }));
-    const trimmed = value.trim();
-    if (!trimmed) {
-      onConfigChange({ ...config, [field]: undefined });
-      return;
-    }
-    const num = parseInt(trimmed, 10);
-    if (Number.isNaN(num) || num <= 0) return;
-    onConfigChange({ ...config, [field]: num });
   };
 
   return (
@@ -943,47 +910,6 @@ const ModelEditorDialog = ({
               </div>
             </>
           )}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <div
-                className="text-xs font-medium text-muted-foreground"
-                title={t('admin.setting.ai.contextWindowCapTip')}
-              >
-                {t('admin.setting.ai.contextWindowCap')}
-              </div>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={
-                  capsInput.contextWindow ??
-                  (config.contextWindow != null ? String(config.contextWindow) : '')
-                }
-                onChange={(e) => applyCap('contextWindow', e.target.value)}
-                placeholder={
-                  referenceModel?.contextWindow ? String(referenceModel.contextWindow) : '128000'
-                }
-                size="sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <div
-                className="text-xs font-medium text-muted-foreground"
-                title={t('admin.setting.ai.maxOutputTokensCapTip')}
-              >
-                {t('admin.setting.ai.maxOutputTokensCap')}
-              </div>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={
-                  capsInput.maxTokens ?? (config.maxTokens != null ? String(config.maxTokens) : '')
-                }
-                onChange={(e) => applyCap('maxTokens', e.target.value)}
-                placeholder={referenceModel?.maxTokens ? String(referenceModel.maxTokens) : '8192'}
-                size="sm"
-              />
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1009,7 +935,7 @@ export const LLMProviderForm = ({
   const isAutoProviderName = providerNameMode === 'auto';
 
   const form = useForm<LLMProvider>({
-    resolver: zodResolver(llmProviderSchema),
+    resolver: zodResolver(llmProviderSchema) as Resolver<LLMProvider>,
     defaultValues: getLLMProviderDefaultValues(value, isAutoProviderName),
   });
 
@@ -1277,7 +1203,7 @@ export const LLMProviderForm = ({
         name="name"
         render={({ field }) => (
           // Internal identifier (normalized to 'teable' server-side). Kept registered so its
-          // value stays in form state for in-session modelKeys, but hidden from the UI.
+          // value stays in form state as the name segment of every model key, but hidden from the UI.
           <FormItem className="hidden">
             <FormControl>
               <Input {...field} readOnly autoComplete="off" />
@@ -1394,8 +1320,8 @@ export const LLMProviderForm = ({
             )}
           />
 
-          {/* Pricing shows on every edition; space-level settings (hideModelRates) only
-              expose the per-model token caps since billing doesn't apply to BYOK. */}
+          {/* Pricing shows on every edition; space-level settings (hideModelRates) keep only
+              the reference-model picker since billing doesn't apply to BYOK. */}
           <ModelRatesConfig
             models={form.watch('models') || ''}
             modelConfigs={form.watch('modelConfigs')}

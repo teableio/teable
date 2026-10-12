@@ -1,6 +1,6 @@
-import type { UrlObject } from 'url';
+import type { UrlObject } from 'node:url';
 import { ViewType } from '@teable/core';
-import { Component, Database, Table2 } from '@teable/icons';
+import { Component, LayoutGrid, Table2 } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { BaseNodeResourceType, PinType } from '@teable/openapi';
 import Link from 'next/link';
@@ -88,7 +88,7 @@ export const PinItem = (props: IPinItemProps) => {
                   <Emoji emoji={pin.icon} size={16} />
                 </div>
               ) : (
-                <Database className="size-4 shrink-0" />
+                <LayoutGrid className="size-4 shrink-0" />
               )}
               <p className="grow truncate">{pin.name}</p>
               {right}
@@ -230,6 +230,31 @@ export const PinItem = (props: IPinItemProps) => {
               href={appUrl}
               title={pin.name}
               onClick={(e) => interceptEnter(e, { id: pin.parentBaseId! }, appUrl, 'plain')}
+            >
+              <IconComponent className="size-4 shrink-0" />
+              <p className="grow truncate">{pin.name}</p>
+              {right}
+            </Link>
+          </ItemButton>
+        </>
+      );
+    }
+    case PinType.Routine: {
+      const IconComponent = BaseNodeResourceIconMap.routine;
+      const routineUrl =
+        getNodeUrl({
+          baseId: pin.parentBaseId!,
+          resourceType: BaseNodeResourceType.Routine,
+          resourceId: pin.id,
+        }) ?? {};
+      return (
+        <>
+          {enterBaseOverlay}
+          <ItemButton className={className}>
+            <Link
+              href={routineUrl}
+              title={pin.name}
+              onClick={(e) => interceptEnter(e, { id: pin.parentBaseId! }, routineUrl, 'plain')}
             >
               <IconComponent className="size-4 shrink-0" />
               <p className="grow truncate">{pin.name}</p>

@@ -128,22 +128,18 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
   }, [activeViewId, allFields, view?.columnMeta, sidebarAdditionalFieldId]);
 
   const onFieldShown = (field: IFieldInstance) => {
-    view &&
-      view.updateColumnMeta([
-        {
-          fieldId: field.id,
-          columnMeta: {
-            visible: true,
-          },
+    view?.updateColumnMeta([
+      {
+        fieldId: field.id,
+        columnMeta: {
+          visible: true,
         },
-      ]);
+      },
+    ]);
   };
 
   const onFieldsVisibleChange = (fields: IFieldInstance[], visible: boolean) => {
-    view &&
-      view.updateColumnMeta(
-        fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } }))
-      );
+    view?.updateColumnMeta(fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } })));
   };
 
   return (

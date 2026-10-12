@@ -46,28 +46,34 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
   return (
     <div
       className={cn(
-        'flex flex-1 flex-col rounded-lg border border-input px-3 py-2 gap-1.5',
+        'flex min-w-0 flex-1 flex-col rounded-lg border border-input px-3 py-2 gap-1.5',
         // Each nesting level eats horizontal room; `min-w-0` keeps the card
-        // shrinkable and the tighter padding buys back 8px per level.
-        inDrawer && 'min-w-0 px-2',
+        // shrinkable. Drawer padding is tighter to buy back 8px per level.
+        inDrawer && 'px-2',
         depth === 1 && 'bg-muted dark:bg-white/5',
         depth === 2 && 'bg-card dark:bg-white/5'
       )}
     >
-      <div className={cn('flex items-center', inDrawer && 'min-w-0 gap-1')}>
+      <div className={cn('flex min-w-0 items-center', inDrawer && 'gap-1')}>
         <ConjunctionSelect
           value={conjunction}
           onSelect={onChangeConjunctionHandler}
           // Row container: shrinking here is horizontal, which is what keeps
-          // the add/delete buttons on screen when the label is long.
-          className={cn(inDrawer && 'min-w-0 shrink')}
+          // the add/delete buttons on screen when the label is long. Field
+          // setting sheets are ~400px and are not InDrawer (T7084).
+          className="min-w-0 shrink"
         />
-        <div className={cn('ms-auto flex', inDrawer && 'shrink-0')}>
+        <div className="ms-auto flex shrink-0">
           {/* Must match the surrounding layer: a non-modal menu inside a
               modal drawer dismisses the wrong DismissableLayer. */}
           <DropdownMenu modal={inDrawer}>
-            <DropdownMenuTrigger>
-              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground"
+                data-testid="filter-group-add"
+              >
                 <Plus className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -120,7 +126,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
         </div>
       </div>
       {React.Children.count(children) > 0 && (
-        <div className={cn('mb-1 flex flex-col gap-2', inDrawer && 'gap-4')}>{children}</div>
+        <div className="mb-1 flex flex-col gap-3">{children}</div>
       )}
     </div>
   );

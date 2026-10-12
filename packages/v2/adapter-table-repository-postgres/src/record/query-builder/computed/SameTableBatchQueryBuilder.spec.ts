@@ -15,20 +15,31 @@ import {
   Table,
   TableId,
   TableName,
+  type FormulaField,
 } from '@teable/v2-core';
-import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
+import {
+  Pg16TypeValidationStrategy,
+  FormulaCompileBudget,
+  createFormulaCompileBudgetPolicy,
+  defaultFormulaCompileBudgetLimits,
+  type FormulaCompileBudgetConfig,
+} from '@teable/v2-formula-sql-pg';
 import {
   DummyDriver,
   Kysely,
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  sql,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
 import { UpdateFromSelectBuilder } from '../../computed/UpdateFromSelectBuilder';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
-import { SameTableBatchQueryBuilder } from './SameTableBatchQueryBuilder';
+import {
+  SameTableBatchQueryBuilder,
+  resolveStoredFormulaFieldSql,
+} from './SameTableBatchQueryBuilder';
 
 // Helper to create field IDs
 const createFieldId = (id: string) => FieldId.create(id)._unsafeUnwrap();
@@ -740,6 +751,182 @@ const createEscapedIdentifierChainTable = () => {
 };
 
 describe('SameTableBatchQueryBuilder', () => {
+  describe('persisted formula safety', () => {
+    const configFor = (
+      limits: Partial<typeof defaultFormulaCompileBudgetLimits>
+    ): FormulaCompileBudgetConfig => ({
+      policyVersion: 1,
+      policy: createFormulaCompileBudgetPolicy({ ...defaultFormulaCompileBudgetLimits, ...limits }),
+    });
+    const enable = (table: Table, id: FieldId) => {
+      const field = table
+        .getField((field) => field.id().equals(id))
+        ._unsafeUnwrap() as FormulaField;
+      field.enableFormulaSafety(1)._unsafeUnwrap();
+    };
+
+    it('keeps legacy roots observable but rejects the same protected definition without NULL fallback', () => {
+      const db = createCompileKysely();
+      const { table, formulaFieldId } = createSingleFormulaTable();
+      const config = { table, fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }] };
+      const observed = new SameTableBatchQueryBuilder(
+        db,
+        typeValidationStrategy,
+        configFor({ visitedNodes: 1 })
+      ).build(config);
+      const baseline = new SameTableBatchQueryBuilder(db, typeValidationStrategy)
+        .build(config)
+        ._unsafeUnwrap();
+      expect(sql`${observed._unsafeUnwrap().selectQuery}`.compile(db).sql).toBe(
+        sql`${baseline.selectQuery}`.compile(db).sql
+      );
+      enable(table, formulaFieldId);
+      const rejected = new SameTableBatchQueryBuilder(
+        db,
+        typeValidationStrategy,
+        configFor({ visitedNodes: 1 })
+      ).build(config);
+      expect(rejected._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.limit.formula_compile_nodes_max',
+        details: { metric: 'visitedNodes', max: 1, policyVersion: 1 },
+      });
+    });
+
+    it('rejects deep source before dependency reference collection can recurse', () => {
+      const { table, formulaFieldId } = createSingleFormulaTable();
+      const field = table
+        .getField((field) => field.id().equals(formulaFieldId))
+        ._unsafeUnwrap() as FormulaField;
+      field
+        .setExpression(FormulaExpression.create('-'.repeat(1024) + '1')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      enable(table, formulaFieldId);
+      const result = new SameTableBatchQueryBuilder(
+        createCompileKysely(),
+        typeValidationStrategy
+      ).build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+      });
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.limit.formula_compile_depth_max',
+        details: { metric: 'astDepth', policyVersion: 1 },
+      });
+    });
+
+    it('rejects mixed explicit targets rather than downgrading the protected root', () => {
+      const { table, doubledAId, doubledBId } = createParallelFormulaTable();
+      enable(table, doubledAId);
+      const result = new SameTableBatchQueryBuilder(
+        createCompileKysely(),
+        typeValidationStrategy
+      ).build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [doubledAId, doubledBId] }],
+      });
+      expect(result._unsafeUnwrapErr().tags).toContain('invariant');
+    });
+
+    it('budgets legacy dependencies under the protected explicit root', () => {
+      const { table, isErrorAlwaysErrorId } = createIsErrorFormulaChainTable();
+      enable(table, isErrorAlwaysErrorId);
+      const builder = new SameTableBatchQueryBuilder(
+        createCompileKysely(),
+        typeValidationStrategy,
+        configFor({ referenceDepth: 0 })
+      );
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [isErrorAlwaysErrorId] }],
+      });
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.limit.formula_reference_depth_max',
+        details: { metric: 'referenceDepth', attempted: 1, max: 0, policyVersion: 1 },
+      });
+    });
+
+    it('accepts each individual formula while rejecting their combined SELECT size', () => {
+      const db = createCompileKysely();
+      const { table, doubledAId, doubledBId } = createParallelFormulaTable();
+      const ids = [doubledAId, doubledBId];
+      ids.forEach((id) => enable(table, id));
+      const config = (fieldIds: FieldId[]) => ({ table, fieldLevels: [{ level: 0, fieldIds }] });
+      const wide = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const max = Math.max(
+        ...ids.map((id) =>
+          Buffer.byteLength(
+            sql`${wide.build(config([id]))._unsafeUnwrap().selectQuery}`.compile(db).sql,
+            'utf8'
+          )
+        )
+      );
+      const tight = new SameTableBatchQueryBuilder(
+        db,
+        typeValidationStrategy,
+        configFor({ sqlBytes: max })
+      );
+      for (const id of ids) expect(tight.build(config([id])).isOk()).toBe(true);
+      expect(tight.build(config(ids))._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.limit.formula_sql_bytes_max',
+        details: { metric: 'sqlBytes', max },
+      });
+    });
+
+    it('charges UTF-8 bytes for escaped record slices before assembling the SELECT', () => {
+      const db = createCompileKysely();
+      const { table, formulaFieldId } = createSingleFormulaTable();
+      enable(table, formulaFieldId);
+      const config = {
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+        recordIds: ['记录一'],
+      };
+      const baseline = new SameTableBatchQueryBuilder(db, typeValidationStrategy)
+        .build(config)
+        ._unsafeUnwrap();
+      const sqlText = sql`${baseline.selectQuery}`.compile(db).sql;
+      const max = Buffer.byteLength(sqlText, 'utf8');
+      expect(
+        new SameTableBatchQueryBuilder(db, typeValidationStrategy, configFor({ sqlBytes: max }))
+          .build(config)
+          .isOk()
+      ).toBe(true);
+      expect(
+        new SameTableBatchQueryBuilder(db, typeValidationStrategy, configFor({ sqlBytes: max - 1 }))
+          .build(config)
+          ._unsafeUnwrapErr()
+      ).toMatchObject({
+        code: 'validation.limit.formula_sql_bytes_max',
+        details: { metric: 'sqlBytes', attempted: max, max: max - 1 },
+      });
+    });
+
+    it('accounts for stored user snapshot title wrappers during admission-style resolution', () => {
+      const { table } = createUserSnapshotFormulaTable();
+      const creator = table
+        .getField((field) => field.id().equals(createFieldId(`fld${'u'.repeat(16)}`)))
+        ._unsafeUnwrap();
+      const { table: numberTable, numberFieldId } = createSingleFormulaTable();
+      const number = numberTable
+        .getField((field) => field.id().equals(numberFieldId))
+        ._unsafeUnwrap();
+      const options = { ...configFor({ fragmentBytes: 128 }), mode: 'enforce' as const };
+      expect(
+        resolveStoredFormulaFieldSql(number, 'candidate', new FormulaCompileBudget(options)).isOk()
+      ).toBe(true);
+      expect(
+        resolveStoredFormulaFieldSql(
+          creator,
+          'candidate',
+          new FormulaCompileBudget(options)
+        )._unsafeUnwrapErr()
+      ).toMatchObject({
+        code: 'validation.limit.formula_compile_bytes_max',
+        details: { metric: 'fragmentBytes', max: 128 },
+      });
+    });
+  });
+
   describe('build()', () => {
     it('returns error for empty field levels', () => {
       const db = createMockKysely();
@@ -840,9 +1027,8 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = compiled._unsafeUnwrap().sql;
 
       expect(sqlText).toContain('"level_0"."PlusOne"');
-      expect(sqlText).toContain(
-        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS "u" JOIN "level_1"'
-      );
+      expect(sqlText).toContain('FROM "level_1"');
+      expect(sqlText).not.toContain('AS "u" JOIN "level_1"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
       );
@@ -1225,10 +1411,11 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = updateResult._unsafeUnwrap().sql;
 
       expect(sqlText).toContain('CROSS JOIN LATERAL');
-      expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
-      expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
-      expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toContain('JOIN "level_1" ON "u"."__id" = "level_1"."__id"');
+      expect(sqlText).toContain('("__formula_group_0"."SameA") as "SameA"');
+      expect(sqlText).toContain('("__formula_group_0"."SameB") as "SameB"');
+      expect((sqlText.match(/"__formula_0" AS MATERIALIZED/g) ?? []).length).toBe(1);
+      expect(sqlText).toContain('FROM "level_1"');
+      expect(sqlText).not.toContain('AS "u" JOIN "level_1"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
       );

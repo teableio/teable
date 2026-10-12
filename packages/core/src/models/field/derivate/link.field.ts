@@ -51,7 +51,7 @@ export class LinkFieldCore extends FieldCore {
 
   cellValueType!: CellValueType.String;
 
-  declare isMultipleCellValue?: boolean | undefined;
+  declare isMultipleCellValue?: boolean;
 
   getHasOrderColumn(): boolean {
     return !!this.meta?.hasOrderColumn;

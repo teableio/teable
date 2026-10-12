@@ -332,7 +332,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
                   e.stopPropagation();
                   e.preventDefault();
                   const originValue = Math.abs(Math.round(Number(e.target.value)));
-                  const newValue = isNaN(originValue) ? 1 : originValue;
+                  const newValue = Number.isNaN(originValue) ? 1 : originValue;
                   if (originValue > 1000) {
                     e.target.value = '1000';
                     setNumber(1000);
@@ -458,92 +458,90 @@ export const RecordMenu = () => {
   }
 
   return (
-    <>
-      <Popover open={visible}>
-        <PopoverTrigger asChild style={style} className="absolute">
-          <div className="size-0 opacity-0" />
-        </PopoverTrigger>
-        <PopoverContent
-          className="size-auto min-w-40 rounded-md p-0"
-          align="start"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
-            <CommandList className="max-h-96">
-              {menuItemGroups.map((items, index) => {
-                const nextItems = menuItemGroups[index + 1] ?? [];
-                const hasNextItems = nextItems.length > 0;
-                if (!items.length) return null;
+    <Popover open={visible}>
+      <PopoverTrigger asChild style={style} className="absolute">
+        <div className="size-0 opacity-0" />
+      </PopoverTrigger>
+      <PopoverContent
+        className="size-auto min-w-40 rounded-md p-0"
+        align="start"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
+          <CommandList className="max-h-96">
+            {menuItemGroups.map((items, index) => {
+              const nextItems = menuItemGroups[index + 1] ?? [];
+              const hasNextItems = nextItems.length > 0;
+              if (!items.length) return null;
 
-                return (
-                  <Fragment key={index}>
-                    <CommandGroup aria-valuetext="name" className="p-1">
-                      {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
-                        return (
-                          <CommandItem
-                            className={cn('h-8 px-2', className, {
-                              'px-0': [MenuItemType.InsertBelow, MenuItemType.InsertAbove].includes(
-                                type
-                              ),
-                            })}
-                            key={type}
-                            value={name}
-                            onSelect={async () => {
-                              if (disabled) {
-                                return;
-                              }
-                              await onClick();
-                              closeRecordMenu();
-                            }}
-                          >
-                            {disabled ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger
-                                    className={cn('flex items-center gap-2', {
-                                      'opacity-50': disabled,
-                                    })}
-                                  >
-                                    <div className="pointer-events-none">
-                                      {render ? (
-                                        render
-                                      ) : (
-                                        <>
-                                          {icon}
-                                          {name}
-                                        </>
-                                      )}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent hideWhenDetached={true}>
-                                    {t('table:view.insertToolTip')}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <>
-                                {render ? (
-                                  render
-                                ) : (
-                                  <>
-                                    {icon}
-                                    {name}
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                    {hasNextItems && <CommandSeparator />}
-                  </Fragment>
-                );
-              })}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </>
+              return (
+                <Fragment key={index}>
+                  <CommandGroup aria-valuetext="name" className="p-1">
+                    {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
+                      return (
+                        <CommandItem
+                          className={cn('h-8 px-2', className, {
+                            'px-0': [MenuItemType.InsertBelow, MenuItemType.InsertAbove].includes(
+                              type
+                            ),
+                          })}
+                          key={type}
+                          value={name}
+                          onSelect={async () => {
+                            if (disabled) {
+                              return;
+                            }
+                            onClick();
+                            closeRecordMenu();
+                          }}
+                        >
+                          {disabled ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  className={cn('flex items-center gap-2', {
+                                    'opacity-50': disabled,
+                                  })}
+                                >
+                                  <div className="pointer-events-none">
+                                    {render ? (
+                                      render
+                                    ) : (
+                                      <>
+                                        {icon}
+                                        {name}
+                                      </>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent hideWhenDetached={true}>
+                                  {t('table:view.insertToolTip')}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <>
+                              {render ? (
+                                render
+                              ) : (
+                                <>
+                                  {icon}
+                                  {name}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                  {hasNextItems && <CommandSeparator />}
+                </Fragment>
+              );
+            })}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };

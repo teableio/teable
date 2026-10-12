@@ -203,11 +203,9 @@ describe('update-field: primary field conversions [V1 PARITY]', () => {
     const { tableId, primaryFieldId } = await createPrimaryTextTable();
     try {
       // allowNoop: noop update should succeed silently
-      await ctx.updateField({
-        tableId,
-        fieldId: primaryFieldId,
-        field: { type: 'singleLineText' },
-      });
+      await expect(
+        ctx.updateField({ tableId, fieldId: primaryFieldId, field: { type: 'singleLineText' } })
+      ).resolves.toBeDefined();
     } finally {
       await ctx.deleteTable(tableId);
     }

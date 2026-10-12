@@ -24,7 +24,7 @@ export class TableBaseScopeGuard implements CanActivate {
     });
     if (table?.baseId !== baseId) {
       throw new CustomHttpException(
-        `Table ${tableId} not found in base ${baseId}`,
+        `Table ${tableId} not found in project ${baseId}`,
         HttpErrorCode.NOT_FOUND,
         {
           localization: {

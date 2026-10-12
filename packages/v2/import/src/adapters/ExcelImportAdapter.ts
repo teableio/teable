@@ -6,60 +6,164 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
-import { safeFetch } from '@teable/v2-utils';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-import * as XLSX from 'xlsx';
+import { err, ok, type Result } from 'neverthrow';
 
-type DenseCell = { w?: string; v?: unknown };
-type DenseRow = Array<DenseCell | undefined> | undefined;
+import { BiffWorkbook } from './excel/BiffWorkbook';
+import { DiskFile } from './excel/DiskStringTable';
+import { HtmlWorkbook } from './excel/HtmlWorkbook';
+import {
+  excelError,
+  TemporaryWorkbook,
+  type PhysicalExcelRow,
+  type StreamingWorkbook,
+} from './excel/TemporaryWorkbook';
+import { XmlWorkbook } from './excel/XmlWorkbook';
+import { ZipWorkbook } from './excel/ZipWorkbook';
 
 const excelHeaderScanRows = 30;
-const excelWorkbookCache = new WeakMap<Uint8Array, XLSX.WorkBook>();
 
-const denseCellToString = (cell: DenseCell | undefined): string => {
-  if (!cell) {
-    return '';
-  }
-  const value = cell.w ?? cell.v;
-  return value == null ? '' : String(value);
-};
+async function openWorkbook(owner: TemporaryWorkbook): Promise<StreamingWorkbook> {
+  const file = new DiskFile(owner.path, owner);
+  const signature = file.read(0, Math.min(file.size, 512));
+  file.close();
+  if (signature[0] === 0x50 && signature[1] === 0x4b) return ZipWorkbook.open(owner);
+  const encoding =
+    signature[0] === 0xff && signature[1] === 0xfe
+      ? 'utf-16le'
+      : signature[0] === 0xfe && signature[1] === 0xff
+        ? 'utf-16be'
+        : 'utf-8';
+  const text = new TextDecoder(encoding).decode(signature).trimStart();
+  if (/<(?:\w+:)?Workbook\b/i.test(text)) return XmlWorkbook.open(owner);
+  if (/<(?:!doctype\s+html|html|table)\b/i.test(text)) return HtmlWorkbook.open(owner);
+  if (text.startsWith('<')) return XmlWorkbook.open(owner);
+  return BiffWorkbook.open(owner);
+}
 
-const filledCellCount = (row: DenseRow): number =>
-  (row ?? []).reduce(
-    (count, cell) => (denseCellToString(cell).trim() === '' ? count : count + 1),
-    0
-  );
-
-const findExcelHeaderRowIndex = (rows: ReadonlyArray<DenseRow>): number => {
-  const scanUntil = Math.min(rows.length, excelHeaderScanRows);
-  let bestIndex = -1;
-  let bestCount = 0;
-  for (let index = 0; index < scanUntil; index++) {
-    const count = filledCellCount(rows[index]);
-    if (count > bestCount) {
-      bestCount = count;
-      bestIndex = index;
+async function scanHeader(physical: AsyncIterator<PhysicalExcelRow>) {
+  const prefix: PhysicalExcelRow[] = [];
+  let header: PhysicalExcelRow | undefined;
+  let filled = 0;
+  let next = await physical.next();
+  while (!next.done) {
+    prefix.push(next.value);
+    if (next.value.index >= excelHeaderScanRows) break;
+    const count = next.value.values.reduce((sum, value) => sum + (value?.trim() ? 1 : 0), 0);
+    if (count > filled) {
+      filled = count;
+      header = next.value;
     }
+    next = await physical.next();
   }
-  return bestIndex;
-};
+  return { prefix, header, exhausted: next.done === true };
+}
 
-const readDenseSheetRows = (sheet: XLSX.WorkSheet): Array<DenseRow> => {
-  const dataProp = (sheet as { ['!data']?: unknown })['!data'];
-  if (Array.isArray(dataProp) && dataProp.length > 0) {
-    return dataProp as Array<DenseRow>;
+async function* remainingRows(
+  physical: AsyncIterator<PhysicalExcelRow>,
+  prefix: PhysicalExcelRow[],
+  start: number,
+  exhausted: boolean
+): AsyncGenerator<PhysicalExcelRow> {
+  while (prefix.length) {
+    // The fixed header window releases each consumed row immediately.
+    const row = prefix.shift()!;
+    if (row.index >= start) yield row;
   }
-  if (Array.isArray(sheet)) {
-    return sheet as Array<DenseRow>;
+  while (!exhausted) {
+    const next = await physical.next();
+    if (next.done) break;
+    yield next.value;
   }
-  return [];
-};
+}
 
-/**
- * Excel Import Adapter
- * Supports XLSX, XLS files
- */
+async function* paddedRows(
+  owner: TemporaryWorkbook,
+  physical: AsyncIterator<PhysicalExcelRow>,
+  prefix: PhysicalExcelRow[],
+  start: number,
+  width: number,
+  exhausted: boolean
+): AsyncGenerator<ReadonlyArray<unknown>> {
+  let index = start;
+  try {
+    for await (const row of remainingRows(physical, prefix, start, exhausted)) {
+      while (index < row.index) {
+        yield Array<string>(width).fill('');
+        index++;
+      }
+      yield Array.from({ length: width }, (_, column) => row.values[column] ?? '');
+      index = row.index + 1;
+    }
+  } finally {
+    await owner.close();
+  }
+}
+
+function ownedRows(
+  owner: TemporaryWorkbook,
+  rows: AsyncGenerator<ReadonlyArray<unknown>>
+): AsyncIterableIterator<ReadonlyArray<unknown>> {
+  // Generator finally does not run when return() precedes the first next().
+  return {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next: () => rows.next(),
+    async return() {
+      try {
+        return await rows.return(undefined);
+      } finally {
+        await owner.close();
+      }
+    },
+    async throw(cause) {
+      try {
+        return await rows.throw(cause);
+      } finally {
+        await owner.close();
+      }
+    },
+  };
+}
+
+async function sheetRows(
+  owner: TemporaryWorkbook,
+  workbook: StreamingWorkbook,
+  target: string
+): Promise<Pick<IImportParseResult, 'headers' | 'rowsAsync' | 'rowCount'>> {
+  const physical = workbook.rows(target)[Symbol.asyncIterator]();
+  owner.own(async () => {
+    await physical.return?.();
+  });
+  const { prefix, header, exhausted } = await scanHeader(physical);
+  if (!header) {
+    await owner.close();
+    return {
+      headers: [],
+      rowsAsync: {
+        async *[Symbol.asyncIterator]() {
+          yield* [];
+        },
+      },
+      rowCount: 0,
+    };
+  }
+  const headers = Array.from(
+    { length: header.values.length },
+    (_, index) => header.values[index] || `Column_${index + 1}`
+  );
+  const rowCount = exhausted ? prefix[prefix.length - 1].index - header.index + 1 : undefined;
+  return {
+    headers,
+    rowCount,
+    rowsAsync: ownedRows(
+      owner,
+      paddedRows(owner, physical, prefix, header.index, headers.length, exhausted)
+    ),
+  };
+}
+
+/** Rows, shared strings and source bytes are never retained as a workbook in memory. */
 export class ExcelImportAdapter implements IImportSourceAdapter {
   readonly supportedTypes = ['xlsx', 'xls', 'excel'] as const;
 
@@ -71,14 +175,13 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
     source: IImportSource,
     options?: IImportOptions
   ): Promise<Result<IImportParseResult, DomainError>> {
+    let owner: TemporaryWorkbook | undefined;
     try {
-      const buffer = await this.getBuffer(source);
-      if (buffer.isErr()) return err(buffer.error);
-
-      const workbook = this.readWorkbook(buffer.value);
-      const sheetNames = workbook.SheetNames;
-
-      if (sheetNames.length === 0) {
+      owner = await TemporaryWorkbook.open(source);
+      const workbook = await openWorkbook(owner);
+      const sheets = workbook.sheets.map(({ name, index }) => ({ name, index }));
+      if (!sheets.length) {
+        await owner.close();
         return err(
           domainError.validation({
             message: 'Excel file has no sheets',
@@ -86,58 +189,20 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
           })
         );
       }
-
-      const targetSheet = options?.sheetName ?? sheetNames[0];
-      const sheet = workbook.Sheets[targetSheet];
-
-      if (!sheet) {
+      const currentSheet = options?.sheetName ?? sheets[0].name;
+      if (!sheets.some((sheet) => sheet.name === currentSheet)) {
+        await owner.close();
         return err(
           domainError.validation({
-            message: `Sheet "${targetSheet}" not found`,
+            message: `Sheet "${currentSheet}" not found`,
             code: 'import.excel.sheet_not_found',
           })
         );
       }
-
-      // SheetJS dense sheets are the row array itself; 0.20+ also exposes the
-      // same rows on `!data`. Used ranges that start below A1 leave a hole at
-      // index 0, so headers cannot be taken from rawData[0].
-      const rawData = readDenseSheetRows(sheet);
-      const headerRowIndex = findExcelHeaderRowIndex(rawData);
-
-      if (headerRowIndex < 0) {
-        return ok({
-          headers: [],
-          rows: [],
-          rowCount: 0,
-          sheets: sheetNames.map((name, index) => ({ name, index })),
-          currentSheet: targetSheet,
-        });
-      }
-
-      const headerRow = rawData[headerRowIndex] ?? [];
-      const headers = Array.from(
-        { length: headerRow.length },
-        (_, i) => denseCellToString(headerRow[i]) || `Column_${i + 1}`
-      );
-
-      // Include the detected header row so callers can skip it via useFirstRowAsHeader.
-      const rows = this.createRowsIterable(rawData, headerRowIndex, headers.length);
-
-      return ok({
-        headers,
-        rows,
-        rowCount: Math.max(rawData.length - headerRowIndex, 0),
-        sheets: sheetNames.map((name, index) => ({ name, index })),
-        currentSheet: targetSheet,
-      });
-    } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message: `Excel parsing failed: ${error}`,
-          code: 'import.excel.parse_failed',
-        })
-      );
+      return ok({ ...(await sheetRows(owner, workbook, currentSheet)), sheets, currentSheet });
+    } catch (cause) {
+      await owner?.close();
+      return err(excelError(cause));
     }
   }
 
@@ -155,108 +220,23 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
       DomainError
     >
   > {
-    const parseResult = await this.parse(source, options);
-    if (parseResult.isErr()) return err(parseResult.error);
-
-    const { headers, rows, sheets } = parseResult.value;
+    const parsed = await this.parse(source, options);
+    if (parsed.isErr()) return err(parsed.error);
+    const { headers, rowsAsync, sheets } = parsed.value;
     const sampleRows: unknown[][] = [];
-    const skipFirstNLines = options?.skipFirstNLines ?? 1;
-    let rowIndex = 0;
-
-    if (rows) {
-      for (const row of rows) {
-        rowIndex++;
-        if (rowIndex <= skipFirstNLines) continue;
-        sampleRows.push([...row]);
-        if (sampleRows.length >= previewRows) break;
-      }
-    }
-
-    return ok({
-      headers,
-      sampleRows,
-      sheets: sheets ?? [],
-    });
-  }
-
-  private readWorkbook(buffer: Uint8Array): XLSX.WorkBook {
-    const cached = excelWorkbookCache.get(buffer);
-    if (cached) {
-      return cached;
-    }
-    const workbook = XLSX.read(buffer, { type: 'array', dense: true });
-    excelWorkbookCache.set(buffer, workbook);
-    return workbook;
-  }
-
-  private async getBuffer(source: IImportSource): Promise<Result<Uint8Array, DomainError>> {
-    if (source.data) {
-      if (typeof source.data === 'string') {
-        return ok(new TextEncoder().encode(source.data));
-      }
-      return ok(source.data);
-    }
-
-    if (source.url) {
-      try {
-        const response = await safeFetch(source.url);
-        if (!response.ok) {
-          return err(
-            domainError.infrastructure({
-              message: `Failed to fetch Excel: ${response.status}`,
-              code: 'import.excel.fetch_failed',
-            })
-          );
+    const skip = options?.skipFirstNLines ?? 1;
+    let index = 0;
+    try {
+      if (rowsAsync && previewRows > 0) {
+        for await (const row of rowsAsync) {
+          if (index++ < skip) continue;
+          sampleRows.push([...row]);
+          if (sampleRows.length >= previewRows) break;
         }
-        return ok(new Uint8Array(await response.arrayBuffer()));
-      } catch (error) {
-        return err(
-          domainError.infrastructure({
-            message: `Failed to download Excel: ${error}`,
-            code: 'import.excel.download_failed',
-          })
-        );
-      }
-    }
-
-    if (source.stream) {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of source.stream) {
-        if (typeof chunk === 'string') {
-          chunks.push(new TextEncoder().encode(chunk));
-        } else {
-          chunks.push(chunk);
-        }
-      }
-      const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-      const result = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.length;
-      }
-      return ok(result);
-    }
-
-    return err(
-      domainError.validation({
-        message: 'Excel source must have url, stream, or data',
-        code: 'import.excel.invalid_source',
-      })
-    );
-  }
-
-  private *createRowsIterable(
-    rawData: ReadonlyArray<DenseRow>,
-    startIndex: number,
-    columnCount: number
-  ): Iterable<ReadonlyArray<unknown>> {
-    for (let i = startIndex; i < rawData.length; i++) {
-      const row = rawData[i] ?? [];
-      const values = Array.from({ length: columnCount }, (_, index) =>
-        denseCellToString(row[index])
-      );
-      yield values;
+      } else await rowsAsync?.[Symbol.asyncIterator]().return?.();
+      return ok({ headers, sampleRows, sheets: sheets ?? [] });
+    } catch (cause) {
+      return err(excelError(cause));
     }
   }
 }

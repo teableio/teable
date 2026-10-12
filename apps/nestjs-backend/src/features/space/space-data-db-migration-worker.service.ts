@@ -1,4 +1,4 @@
-import { hostname } from 'os';
+import { hostname } from 'node:os';
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';

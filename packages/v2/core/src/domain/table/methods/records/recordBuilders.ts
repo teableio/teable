@@ -7,9 +7,9 @@ import type { RecordCreateSource } from '../../events/RecordFieldValuesDTO';
 import type { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
 import { FieldByKeySpec } from '../../fields/specs/FieldByKeySpec';
-import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValueVisitor';
 import { FieldCellValueSchemaVisitor } from '../../fields/visitors/FieldCellValueSchemaVisitor';
 import type { FieldCellValueSchema } from '../../fields/visitors/FieldCellValueSchemaVisitor';
+import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValueVisitor';
 import { RecordCreateResult } from '../../records/RecordCreateResult';
 import { RecordId } from '../../records/RecordId';
 import { RecordMutationSpecBuilder } from '../../records/RecordMutationSpecBuilder';
@@ -91,7 +91,7 @@ export function buildRecordWithSpec(
     emitRecordCreatedEvent?: boolean;
   }
 ): Result<RecordCreateResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   const {
     typecast = false,
     source = { type: 'user' },
@@ -230,7 +230,7 @@ export function buildRecord(
   this: Table,
   fieldValues: ReadonlyMap<string, unknown>,
   recordId?: RecordId,
-  options?: { typecast?: boolean; source?: RecordCreateSource }
+  options?: { typecast?: boolean; source?: RecordCreateSource; emitRecordCreatedEvent?: boolean }
 ): Result<TableRecord, DomainError> {
   return buildRecordWithSpec
     .call(this, fieldValues, recordId, options)

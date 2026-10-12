@@ -261,6 +261,7 @@ describe('update-field: option preservation matrix (e2e)', () => {
       fieldId,
       field: { name: 'Editor renamed' },
     });
+    expect(updated.fields.some((item) => item.id === fieldId)).toBe(true);
     expectFieldOptions(
       updated.fields.find((item) => item.id === fieldId),
       { trackedFieldIds: [primary.id] }
@@ -295,6 +296,7 @@ describe('update-field: option preservation matrix (e2e)', () => {
       fieldId,
       field: { name: 'Related renamed' },
     });
+    expect(updated.fields.some((item) => item.id === fieldId)).toBe(true);
     expectFieldOptions(
       updated.fields.find((item) => item.id === fieldId),
       {
@@ -355,6 +357,7 @@ describe('update-field: option preservation matrix (e2e)', () => {
       fieldId,
       field: { name: 'Order Total renamed' },
     });
+    expect(updated.fields.some((item) => item.id === fieldId)).toBe(true);
     expectFieldOptions(
       updated.fields.find((item) => item.id === fieldId),
       {

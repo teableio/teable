@@ -161,6 +161,18 @@ const actionsI18nMap: Record<
   'automation|update': {
     description: 'permission.actionDescription.automationUpdate',
   },
+  'routine|create': {
+    description: 'permission.actionDescription.routineCreate',
+  },
+  'routine|delete': {
+    description: 'permission.actionDescription.routineDelete',
+  },
+  'routine|read': {
+    description: 'permission.actionDescription.routineRead',
+  },
+  'routine|update': {
+    description: 'permission.actionDescription.routineUpdate',
+  },
   'app|create': {
     description: 'permission.actionDescription.appCreate',
   },
@@ -178,6 +190,15 @@ const actionsI18nMap: Record<
   },
   'user|integrations': {
     description: 'permission.actionDescription.userIntegrations',
+  },
+  'user|spaces_read': {
+    description: 'permission.actionDescription.userSpacesRead',
+  },
+  'user|self_hosted_licenses_read': {
+    description: 'permission.actionDescription.userSelfHostedLicensesRead',
+  },
+  'user|notifications_send': {
+    description: 'permission.actionDescription.userNotificationsSend',
   },
   'base|query_data': {
     description: 'permission.actionDescription.baseQuery',
@@ -218,6 +239,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   [ActionPrefix.Automation]: {
     title: 'noun.automation',
   },
+  [ActionPrefix.Routine]: {
+    title: 'noun.routine',
+  },
   [ActionPrefix.App]: {
     title: 'noun.app',
   },
@@ -247,6 +271,7 @@ const ACTION_PREFIX_DISPLAY_ORDER: readonly ActionPrefix[] = [
   ActionPrefix.User,
   ActionPrefix.TableRecordHistory,
   ActionPrefix.Automation,
+  ActionPrefix.Routine,
   ActionPrefix.Enterprise,
   ActionPrefix.Instance,
 ] as const;

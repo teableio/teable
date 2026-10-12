@@ -1,23 +1,35 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { getUserIntegrationList, type UserIntegrationProvider } from '@teable/openapi';
+import {
+  findChangedUserIntegration,
+  getUserIntegrationList,
+  userIntegrationBaseline,
+  type IUserIntegrationBaseline,
+  type UserIntegrationProvider,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import React from 'react';
 import { openConnectIntegration } from './utils';
 
-// Kept in sync with the backend callback page (oauth.controller.ts
-// renderCallbackPage), which broadcasts `{ok,provider}` on this channel.
+// Kept in sync with the backend callback page (oauth-callback-page.ts),
+// which broadcasts `{ok,provider}` on this channel.
 const OAUTH_BROADCAST_CHANNEL = 'teable-oauth';
+// A callback page that reached us over the channel is one whose script runs: it
+// shows "connected", counts down three seconds and closes its own window. Closing
+// it from here the instant the broadcast lands would cut that confirmation to a
+// flash, so the opener waits this long and only then closes it — insurance for a
+// browser that refused the page's own close.
+const CALLBACK_PAGE_LINGER_MS = 4000;
 const CONNECT_POLL_MS = 2000; // poll the integration list every 2s while connecting
 // Cadence once the popup is gone. The poll stays alive because a popup can only
 // *look* closed (see `dismiss`), but that reading is rare and the broadcast
 // covers it anyway unless PUBLIC_ORIGIN differs from the app origin — not worth
 // ~150 requests behind a window the user did in fact close.
 const DISMISSED_POLL_MS = 6000;
-const CONNECT_TIMEOUT_MS = 5 * 60 * 1000; // give up on a connect that never lands
+const CONNECT_TIMEOUT_MS = 10 * 60 * 1000; // give up on a connect that never lands
 // How often to check whether the popup is still there. Closing it is the only
 // trace a user leaves when they abandon the consent screen — nothing is
 // broadcast — so this watch is what keeps that case from holding the caller's
-// "connecting" state for the poll's full 5 minutes.
+// "connecting" state for the poll's full 10 minutes.
 const POPUP_WATCH_MS = 800;
 
 // Providers with a connect poll already running. Module-level (not a ref) so a
@@ -30,6 +42,14 @@ interface IConnectInFlight {
   isDismissed: () => boolean;
 }
 const connectInFlight = new Map<UserIntegrationProvider, IConnectInFlight>();
+/**
+ * The delayed close of a popup whose page is counting down (see
+ * CALLBACK_PAGE_LINGER_MS). Module-level because every native connect opens the
+ * SAME named window (`teable-oauth`): a connect started inside that window
+ * navigates it to the next provider's consent screen, and a close still pending
+ * from the previous success would shut that screen in the user's face.
+ */
+let pendingPopupClose: ReturnType<typeof setTimeout> | undefined;
 
 interface IUseConnectIntegrationOptions {
   /**
@@ -88,6 +108,12 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         // fresh one instead of silently doing nothing.
         running.cancel();
       }
+      // This connect takes the named window over; a close the last success left
+      // scheduled for it must not fire on the new consent screen.
+      if (pendingPopupClose) {
+        clearTimeout(pendingPopupClose);
+        pendingPopupClose = undefined;
+      }
       // queryParams (name / integrationId) are passed straight through to the
       // authorize URL — the caller owns them (a reconnect must not be renamed).
       const popup = openConnectIntegration(provider, queryParams);
@@ -107,16 +133,11 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         });
 
       // Snapshot this provider's grants before connecting so the poll can detect
-      // a *change* rather than "any grant exists" — the latter is already true
-      // when adding a second account of a connected provider or reconnecting,
-      // which would false-positive and close the popup mid-OAuth.
-      let baseline: Record<string, number> | null = null;
+      // a *change* rather than "any grant exists" — see userIntegrationBaseline for why
+      // the latter false-positives and closes the popup mid-OAuth.
+      let baseline: IUserIntegrationBaseline | null = null;
       void fetchIntegrations().then((data) => {
-        baseline = Object.fromEntries(
-          (data?.integrations ?? [])
-            .filter((item) => item.provider === provider)
-            .map((item) => [item.id, item.connectedTime ? Date.parse(item.connectedTime) : 0])
-        );
+        baseline = userIntegrationBaseline(data?.integrations ?? [], provider);
       });
 
       // A deadline, not a tick count: the poll changes cadence on dismissal and
@@ -125,6 +146,11 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
       let settled = false;
       let dismissed = false;
       let holdsUi = true;
+      // Set the moment the callback page reports success. The page closes its own
+      // window after its countdown, which can land while the fetch that resolves
+      // the grant id is still running; without this flag that close would read as
+      // an abandonment and tell the caller "dismissed" just before "connected".
+      let successSignalled = false;
 
       const channel = (() => {
         try {
@@ -134,19 +160,12 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         }
       })();
 
-      // A grant is "changed" when it is new or its connectedTime advanced
-      // (reconnect) relative to the pre-connect baseline.
       const findChangedIntegrationId = (
         data: Awaited<ReturnType<typeof fetchIntegrations>>
-      ): string | undefined => {
-        if (!baseline) return undefined;
-        return (data?.integrations ?? []).find((item) => {
-          if (item.provider !== provider || !item.hasSecret) return false;
-          const previous = baseline?.[item.id];
-          const current = item.connectedTime ? Date.parse(item.connectedTime) : 0;
-          return previous === undefined || current > previous;
-        })?.id;
-      };
+      ): string | undefined =>
+        baseline
+          ? findChangedUserIntegration(data?.integrations ?? [], provider, baseline)?.id
+          : undefined;
 
       // Hand the caller's "connecting" state back. Separate from teardown: a
       // dismissed connect releases the UI while its listeners stay armed.
@@ -175,11 +194,18 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
           // cross-origin popup reference may be severed — ignore
         }
       };
-      const succeed = (integrationId?: string) => {
+      const succeed = (integrationId?: string, opts?: { pageClosesItself?: boolean }) => {
         if (settled) return; // broadcast and poll can both fire — run once
         settled = true;
         teardown();
-        closePopup();
+        if (opts?.pageClosesItself) {
+          pendingPopupClose = setTimeout(() => {
+            pendingPopupClose = undefined;
+            closePopup();
+          }, CALLBACK_PAGE_LINGER_MS);
+        } else {
+          closePopup();
+        }
         void queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getUserIntegrations() });
         onConnectedRef.current?.(provider, integrationId);
       };
@@ -199,9 +225,12 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
       // state — the broadcast and poll listeners stay armed, so an
       // authorization the user is still working through resolves as usual.
       // Without this a consent screen closed on the first step spins the
-      // caller's button for the poll's full ~5 minutes.
+      // caller's button for the poll's full ~10 minutes.
       const dismiss = () => {
         if (settled || dismissed) return;
+        // The page announced success and closed itself: the fetch in flight will
+        // settle this connect as connected, and nothing is abandoned.
+        if (successSignalled) return;
         dismissed = true;
         clearInterval(popupWatch);
         // Same deadline, far fewer requests: nothing is expected to come back
@@ -231,10 +260,11 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         channel.onmessage = (e) => {
           if (e.data?.provider !== provider) return;
           if (e.data?.ok) {
+            successSignalled = true;
             // Resolve the new/updated grant id before reporting success.
             void fetchIntegrations().then(
-              (data) => succeed(findChangedIntegrationId(data)),
-              () => succeed()
+              (data) => succeed(findChangedIntegrationId(data), { pageClosesItself: true }),
+              () => succeed(undefined, { pageClosesItself: true })
             );
           } else if (e.data?.ok === false) {
             fail(typeof e.data?.error === 'string' ? e.data.error : undefined);

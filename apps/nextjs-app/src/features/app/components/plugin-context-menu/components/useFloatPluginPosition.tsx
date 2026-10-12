@@ -49,7 +49,7 @@ export const useFloatPluginPosition = (tableId: string, pluginInstallId: string)
       }
       // Handle percentage strings like "50%"
       if (typeof value === 'string' && value.endsWith('%')) {
-        return parseFloat(value) / 100;
+        return Number.parseFloat(value) / 100;
       }
       const numValue = value as number;
       // If already 0-1, keep it; if >1, convert to percentage

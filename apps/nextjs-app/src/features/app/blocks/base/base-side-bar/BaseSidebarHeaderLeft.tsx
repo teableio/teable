@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, ChevronDown, Database, HelpCircle, Pencil, Share2 } from '@teable/icons';
+import { ChevronsLeft, ChevronDown, LayoutGrid, HelpCircle, Pencil, Share2 } from '@teable/icons';
 import {
   CollaboratorType,
   getBaseList,
@@ -154,7 +154,7 @@ const BaseDropdownMenu = ({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <div className="flex w-full cursor-pointer items-center gap-2">
-                <Database className="size-4" />
+                <LayoutGrid className="size-4" />
                 {t('common:actions.switchBase')}
               </div>
             </DropdownMenuSubTrigger>
@@ -172,7 +172,7 @@ const BaseDropdownMenu = ({
                       {base.icon ? (
                         <Emoji emoji={base.icon} size="1rem" />
                       ) : (
-                        <Database className="size-4" />
+                        <LayoutGrid className="size-4" />
                       )}
                     </span>
                     <span dir={contentDir} className="truncate" title={base.name}>

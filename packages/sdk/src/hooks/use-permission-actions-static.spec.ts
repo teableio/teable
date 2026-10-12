@@ -20,6 +20,15 @@ describe('usePermissionActionsStatic', () => {
     );
   });
 
+  it('display order lists every action prefix exactly once', () => {
+    const { result } = renderHook(() => usePermissionActionsStatic(), {
+      wrapper: createAppContext(),
+    });
+    expect([...result.current.actionPrefixDisplayOrder].sort()).toEqual(
+      Object.values(ActionPrefix).sort()
+    );
+  });
+
   it('action description should be translated', () => {
     const { result } = renderHook(() => usePermissionActionsStatic(), {
       wrapper: createAppContext(),

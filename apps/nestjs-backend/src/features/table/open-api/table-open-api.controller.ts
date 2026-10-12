@@ -296,7 +296,7 @@ export class TableController {
     if (this.cls.get('useV2')) {
       return this.tableOpenApiV2Service.getDocIds(baseId);
     }
-    return this.tableService.getDocIdsByQuery(baseId, undefined);
+    return this.tableService.getDocIdsByQuery(baseId);
   }
 
   @Post(':tableId/index')

@@ -3,6 +3,7 @@ export * from './delete';
 export * from './get';
 export * from './update';
 export * from './update-order';
+export * from './personal-order';
 export * from './all-list';
 export * from './collaborator-get-list';
 export * from './collaborator-delete';

@@ -5,7 +5,6 @@ import { z } from 'zod';
 import type { IDomainEventDto } from '../shared/domainEvent';
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
@@ -38,7 +37,7 @@ export const deleteFieldResponseDataSchema = z.object({
 
 export const deleteFieldOkResponseSchema = apiOkResponseDtoSchema(deleteFieldResponseDataSchema);
 
-export const deleteFieldErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as deleteFieldErrorResponseSchema } from '../shared/http';
 
 export const mapDeleteFieldResultToDto = (
   result: DeleteFieldResult

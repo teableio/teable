@@ -1,6 +1,6 @@
-import { useTheme } from '@teable/next-themes';
 import { useBasePermission } from '@teable/sdk/hooks';
 import type { IUIConfig } from '@teable/sdk/plugin-bridge';
+import { useTheme } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import type { IPluginParams } from '../types';

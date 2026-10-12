@@ -263,6 +263,13 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
   });
 
   describe('filter record with special characters', () => {
+    // A title carrying both quote kinds: a link `contains` filter must treat it
+    // as data (GHSA-p7h6-58r8-v27m), never as part of the SQL or jsonpath text.
+    const QUOTED_TITLE = `O'Reilly "quoted" (v1.0)`;
+    // x_20_link links records 10 and 12 to foreign record index 4.
+    const QUOTED_TITLE_LINKED_ROWS = 2;
+    // 20 linked rows plus one empty record.
+    const SUB_TABLE_ROWS = 21;
     let table: ITableFullVo;
     let subTable: ITableFullVo;
     beforeAll(async () => {
@@ -276,6 +283,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
           { fields: { [textField.name]: 'notepad++@' } },
         ]
       );
+      newRecords.splice(4, 1, { fields: { [textField.name]: QUOTED_TITLE } });
       table = await createTable(baseId, {
         name: 'special_characters',
         fields: x_20.fields,
@@ -308,6 +316,40 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         conjunction: and.value,
       });
       expect(records.length).toBe(8);
+    });
+
+    it('should treat quotes in link and lookup contains filters as data', async () => {
+      const linkField = subTable.fields.find((field) => field.type === FieldType.Link)!;
+      const textLookupField = subTable.fields.find(
+        (field) => field.isLookup && field.type === FieldType.SingleLineText
+      )!;
+
+      const { records: linked } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: QUOTED_TITLE, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(linked.length).toBe(QUOTED_TITLE_LINKED_ROWS);
+
+      const { records: notLinked } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: `O'Reilly`, operator: 'doesNotContain' }],
+        conjunction: and.value,
+      });
+      expect(notLinked.length).toBe(SUB_TABLE_ROWS - QUOTED_TITLE_LINKED_ROWS);
+
+      const { records: lookedUp } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: textLookupField.id, value: `O'Reilly "q`, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(lookedUp.length).toBe(QUOTED_TITLE_LINKED_ROWS);
+    });
+
+    it('should not let a link contains filter break out of the query', async () => {
+      const linkField = subTable.fields.find((field) => field.type === FieldType.Link)!;
+      const { records } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: `zzz") ' OR 1=1 --`, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(records.length).toBe(0);
     });
   });
 });

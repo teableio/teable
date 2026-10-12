@@ -10,6 +10,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -32,6 +33,7 @@ import type {
 } from '../ports/import/IImportSource';
 import type { IImportSourceAdapter } from '../ports/import/IImportSourceAdapter';
 import type { IImportSourceRegistry } from '../ports/import/IImportSourceRegistry';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -48,7 +50,6 @@ import { ImportRecordsHandler } from './ImportRecordsHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
-  expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -360,8 +361,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -418,8 +418,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -485,8 +484,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -549,8 +547,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -622,8 +619,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -681,8 +677,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -705,9 +700,12 @@ describe('ImportRecordsHandler', () => {
     );
     const tableRecordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
-    const event = { type: 'import.side_effect.persisted' } as IDomainEvent;
-    let sideEffectCalls = 0;
-    let updateFlowCalls = 0;
+    const event = FieldOptionsAdded.create({
+      tableId: table.id(),
+      baseId: table.baseId(),
+      fieldId: textFieldId,
+      options: [{ id: 'choImported', name: 'Imported choice', color: 'blue' }],
+    });
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
@@ -720,7 +718,6 @@ describe('ImportRecordsHandler', () => {
       createRecordWritePluginRunner(),
       {
         execute: () => {
-          sideEffectCalls += 1;
           return ok({
             table,
             updateResult: {
@@ -732,12 +729,10 @@ describe('ImportRecordsHandler', () => {
       } as unknown as RecordWriteSideEffectService,
       {
         execute: async () => {
-          updateFlowCalls += 1;
           return ok({ table, events: [event] });
         },
       } as unknown as TableUpdateFlow,
-      eventBus,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const result = await handler.handle(
@@ -746,18 +741,26 @@ describe('ImportRecordsHandler', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(sideEffectCalls).toBe(1);
-    expect(updateFlowCalls).toBe(1);
-    // ImportRecordsHandler now also emits a RecordsBatchCreated per yielded batch
-    // so projection handlers (audit, realtime, automation) can react to imported records.
-    expect(eventBus.publishedMany).toHaveLength(1);
-    const published = eventBus.publishedMany[0];
-    expect(published).toHaveLength(2);
-    expect(published[0]).toBe(event);
-    expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
-    expect(isRecordsBatchCreatedEvent(published[1]) && published[1].source.type === 'import').toBe(
-      true
-    );
+    const published = eventBus.publishedMany.flat();
+    expect(published.map((item) => item.name.toString())).toEqual([
+      'FieldOptionsAdded',
+      'RecordsBatchCreated',
+    ]);
+    expect(published[0]).toMatchObject({
+      fieldId: textFieldId,
+      options: [{ id: 'choImported', name: 'Imported choice', color: 'blue' }],
+    });
+    const created = published.find(isRecordsBatchCreatedEvent);
+    expect(created?.source).toEqual({ type: 'import' });
+    expect(created?.records).toEqual([
+      {
+        recordId: tableRecordRepository.inserted[0].id().toString(),
+        fields: [{ fieldId: textFieldId.toString(), value: 'Imported row' }],
+      },
+    ]);
+    expect(table.pullDomainEvents().map((pending) => pending.name.toString())).toEqual([
+      'TableCreated',
+    ]);
     expect(tableRecordRepository.inserted).toHaveLength(1);
     expect(tableRecordRepository.insertManyStreamOptions).toMatchObject({
       deferComputedUpdates: true,
@@ -812,8 +815,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(

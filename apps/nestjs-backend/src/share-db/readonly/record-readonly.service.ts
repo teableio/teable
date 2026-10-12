@@ -44,6 +44,7 @@ export class RecordReadonlyServiceAdapter
           collapsedGroupIds: JSON.stringify(query?.collapsedGroupIds),
         },
         {
+          signal: this.cls.get('interactiveQueryAbort'),
           headers: {
             cookie: this.cls.get('cookie'),
             [IS_TEMPLATE_HEADER]: templateHeader,
@@ -75,6 +76,7 @@ export class RecordReadonlyServiceAdapter
           projection,
         },
         {
+          signal: this.cls.get('interactiveQueryAbort'),
           headers: {
             cookie: this.cls.get('cookie'),
             [IS_TEMPLATE_HEADER]: templateHeader,

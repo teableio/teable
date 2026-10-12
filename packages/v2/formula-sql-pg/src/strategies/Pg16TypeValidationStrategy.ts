@@ -1,3 +1,4 @@
+import { sqlText, type FormulaCompileBudget } from '../FormulaCompileBudget';
 import type { IPgTypeValidationStrategy, PgValidationType } from '../PgTypeValidationStrategy';
 
 /**
@@ -7,7 +8,11 @@ import type { IPgTypeValidationStrategy, PgValidationType } from '../PgTypeValid
  * This function returns TRUE if the input can be safely cast to the specified type.
  */
 export class Pg16TypeValidationStrategy implements IPgTypeValidationStrategy {
-  isValidForType(valueSql: string, typeName: PgValidationType): string {
-    return `pg_input_is_valid(${valueSql}, '${typeName}')`;
+  isValidForType(
+    valueSql: string,
+    typeName: PgValidationType,
+    budget?: FormulaCompileBudget
+  ): string {
+    return (budget?.sql ?? sqlText)`pg_input_is_valid(${valueSql}, '${typeName}')`;
   }
 }

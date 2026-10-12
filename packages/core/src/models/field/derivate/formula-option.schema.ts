@@ -19,6 +19,9 @@ export const formulaFieldMetaSchema = z.object({
     description:
       'Whether this formula field is persisted as a generated column in the database. When true, the field value is computed and stored as a database generated column.',
   }),
+  formulaSafetyVersion: z.number().int().positive().optional().meta({
+    description: 'Server-owned formula compile safety policy version.',
+  }),
 });
 
 export type IFormulaFieldMeta = z.infer<typeof formulaFieldMetaSchema>;

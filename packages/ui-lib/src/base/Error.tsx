@@ -5,7 +5,7 @@ interface IErrorProps {
   error?: string;
 }
 
-export const Error = (props: IErrorProps) => {
+const ErrorMessage = (props: IErrorProps) => {
   const { error, className } = props;
 
   if (!error) return null;
@@ -19,3 +19,6 @@ export const Error = (props: IErrorProps) => {
     </div>
   );
 };
+
+// Exported under the historical name; the declaration avoids shadowing the global Error.
+export { ErrorMessage as Error };

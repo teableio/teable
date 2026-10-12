@@ -2,6 +2,7 @@ import {
   BaseId,
   CellValueMultiplicity,
   CellValueType,
+  DbFieldName,
   FieldId,
   FieldName,
   FormulaExpression,
@@ -28,6 +29,7 @@ const FOREIGN_TABLE_ID = `tbl${'c'.repeat(16)}`;
 const FOREIGN_TABLE_DB_NAME = 'table2_216';
 const FIELD_ID = `fld${'d'.repeat(16)}`;
 const SYMMETRIC_FIELD_ID = `fld${'f'.repeat(16)}`;
+const LINK_VALUE_COLUMN = 'Link_value';
 
 const createTestTable = (): Table => {
   const id = TableId.create(HOST_TABLE_ID)._unsafeUnwrap();
@@ -68,6 +70,7 @@ const createTwoWayOneManyLinkField = () => {
     fkHostTableName: () => ({
       split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
     }),
+    dbFieldName: () => ok(DbFieldName.rehydrate(LINK_VALUE_COLUMN)._unsafeUnwrap()),
     selfKeyNameString: () => ok(`__fk_${SYMMETRIC_FIELD_ID}`),
     foreignKeyNameString: () => ok(`__fk_${FIELD_ID}`),
     baseId: () => undefined,
@@ -90,11 +93,13 @@ const createManyOneLinkField = () => {
     fkHostTableName: () => ({
       split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
     }),
+    dbFieldName: () => ok(DbFieldName.rehydrate(LINK_VALUE_COLUMN)._unsafeUnwrap()),
     selfKeyNameString: () => ok('__id'),
     foreignKeyNameString: () => ok(`__fk_${FIELD_ID}`),
     baseId: () => undefined,
     foreignTableId: () => ({ toString: () => FOREIGN_TABLE_ID }),
     orderColumnName: () => ok(`__fk_${FIELD_ID}_order`),
+    accept: () => ok(false),
   };
 };
 
@@ -112,6 +117,7 @@ const createSymmetricOneOneLinkField = () => {
     fkHostTableName: () => ({
       split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
     }),
+    dbFieldName: () => ok(DbFieldName.rehydrate(LINK_VALUE_COLUMN)._unsafeUnwrap()),
     selfKeyNameString: () => ok(`__fk_${FIELD_ID}`),
     foreignKeyNameString: () => ok('__id'),
     baseId: () => undefined,
@@ -120,9 +126,7 @@ const createSymmetricOneOneLinkField = () => {
   };
 };
 
-const createService = (
-  config: FieldBackfillConfig = { mode: 'sync', hybridThreshold: 5000 }
-) =>
+const createService = (config: FieldBackfillConfig = { mode: 'sync', hybridThreshold: 5000 }) =>
   new ComputedFieldBackfillService(
     {
       findOne: vi.fn().mockResolvedValue(
@@ -192,6 +196,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     const linkField = createTwoWayOneManyLinkField();
     const columnExists = vi.spyOn(service as any, 'columnExists') as any;
 
+    columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(false));
     columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(true));
@@ -218,17 +223,24 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       expect.anything(),
       BASE_ID,
       HOST_TABLE_ID,
-      `__fk_${SYMMETRIC_FIELD_ID}`
+      LINK_VALUE_COLUMN
     );
     expect(columnExists).toHaveBeenNthCalledWith(
       2,
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      `__fk_${SYMMETRIC_FIELD_ID}`
+    );
+    expect(columnExists).toHaveBeenNthCalledWith(
+      3,
       expect.anything(),
       BASE_ID,
       FOREIGN_TABLE_DB_NAME,
       `__fk_${SYMMETRIC_FIELD_ID}`
     );
     expect(columnExists).toHaveBeenNthCalledWith(
-      3,
+      4,
       expect.anything(),
       BASE_ID,
       FOREIGN_TABLE_DB_NAME,
@@ -242,6 +254,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     const linkField = createTwoWayOneManyLinkField();
     const columnExists = vi.spyOn(service as any, 'columnExists') as any;
 
+    columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(false));
     columnExists.mockResolvedValueOnce(ok(false));
 
@@ -270,6 +283,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     const linkField = createManyOneLinkField();
     const columnExists = vi.spyOn(service as any, 'columnExists') as any;
 
+    columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(false));
 
     const result = await (
@@ -303,6 +317,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     const linkField = createSymmetricOneOneLinkField();
     const columnExists = vi.spyOn(service as any, 'columnExists') as any;
 
+    columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(false));
 
     const result = await (
@@ -337,6 +352,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     const columnExists = vi.spyOn(service as any, 'columnExists') as any;
 
     columnExists.mockResolvedValueOnce(ok(true));
+    columnExists.mockResolvedValueOnce(ok(true));
     columnExists.mockResolvedValueOnce(ok(false));
 
     const result = await (
@@ -361,15 +377,78 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       expect.anything(),
       BASE_ID,
       HOST_TABLE_ID,
-      `__fk_${SYMMETRIC_FIELD_ID}`
+      LINK_VALUE_COLUMN
     );
     expect(columnExists).toHaveBeenNthCalledWith(
       2,
       expect.anything(),
       BASE_ID,
       HOST_TABLE_ID,
+      `__fk_${SYMMETRIC_FIELD_ID}`
+    );
+    expect(columnExists).toHaveBeenNthCalledWith(
+      3,
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
       `__fk_${FIELD_ID}`
     );
+  });
+
+  it('skips link when its own value column is missing on the host table', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const linkField = createManyOneLinkField();
+    const columnExists = vi.spyOn(service as any, 'columnExists') as any;
+
+    columnExists.mockResolvedValueOnce(ok(false));
+
+    const result = await (
+      service as unknown as {
+        collectBackfillFields: (
+          context: IExecutionContext,
+          input: { table: Table; fields: unknown[]; includeOneManyTwoWay?: boolean }
+        ) => Promise<any>;
+      }
+    ).collectBackfillFields({} as IExecutionContext, {
+      table,
+      fields: [linkField],
+      includeOneManyTwoWay: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(0);
+    }
+    expect(columnExists).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      LINK_VALUE_COLUMN
+    );
+    expect(columnExists).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a field whose storage column is gone before executeSyncMany issues SQL', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const linkField = createManyOneLinkField();
+    const columnExists = vi.spyOn(service as any, 'columnExists') as any;
+
+    columnExists.mockResolvedValueOnce(ok(true));
+    columnExists.mockResolvedValueOnce(ok(false));
+
+    const result = await service.executeSyncMany({} as IExecutionContext, {
+      table,
+      fields: [linkField],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.fields).toHaveLength(0);
+    }
+    expect(columnExists).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to an outbox task when sync computed backfill fails', async () => {
@@ -397,6 +476,37 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       })
     );
     expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'validation.limit.formula_sql_bytes_max',
+    'validation.formula_safety_version_unsupported',
+  ])('does not turn formula safety rejection %s into queued success', async (code) => {
+    const service = createService();
+    const failure = domainError.validation({ code, message: 'Formula safety rejected' });
+    vi.spyOn(service, 'executeSync').mockResolvedValueOnce(err(failure));
+    const result = await service.backfill({} as IExecutionContext, {
+      table: createTestTable(),
+      field: createComputedField(),
+    });
+    expect(result._unsafeUnwrapErr()).toBe(failure);
+    expect(service['outbox'].enqueueFieldBackfill).not.toHaveBeenCalled();
+  });
+
+  it('does not enqueue a batch whose formula compilation exceeded budget', async () => {
+    const service = createService();
+    const failure = domainError.validation({
+      code: 'validation.limit.formula_compile_depth_max',
+      message: 'Formula depth exceeded',
+      details: { metric: 'astDepth', attempted: 11, max: 10, policyVersion: 1 },
+    });
+    vi.spyOn(service, 'executeSyncMany').mockResolvedValueOnce(err(failure));
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table: createTestTable(),
+      fields: [createComputedField()],
+    });
+    expect(result._unsafeUnwrapErr()).toBe(failure);
+    expect(service['outbox'].enqueueFieldBackfill).not.toHaveBeenCalled();
   });
 
   it('returns original sync failure when outbox fallback also fails', async () => {

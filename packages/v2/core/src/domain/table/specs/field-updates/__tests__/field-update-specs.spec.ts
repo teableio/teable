@@ -155,7 +155,7 @@ describe('Field update specs', () => {
       );
 
       const result = spec.mutate(table);
-      result._unsafeUnwrapErr();
+      expect(result.isErr()).toBe(true);
     });
 
     it('errors when field is wrong type', () => {
@@ -329,7 +329,7 @@ describe('Field update specs', () => {
 
       const spec = UpdateSingleSelectOptionsSpec.create(fieldId, dbFieldName, [], []);
       const result = spec.mutate(table);
-      result._unsafeUnwrapErr();
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts visitor', () => {

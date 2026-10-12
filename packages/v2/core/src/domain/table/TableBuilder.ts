@@ -75,6 +75,7 @@ import type { UserDefaultValue } from './fields/types/UserDefaultValue';
 import { UserField } from './fields/types/UserField';
 import { UserMultiplicity } from './fields/types/UserMultiplicity';
 import { UserNotification } from './fields/types/UserNotification';
+import type { ITableSearchIndex } from './ITableSearchIndex';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import type { Table } from './Table';
 import { TableId } from './TableId';
@@ -101,6 +102,7 @@ export interface ITableBuildProps {
   views: ReadonlyArray<View>;
   primaryFieldId: FieldId;
   dbTableName?: DbTableName;
+  searchIndex?: ITableSearchIndex;
 }
 
 export type TableBuildOptions = {
@@ -167,22 +169,22 @@ export class TableBuilder {
     return new TableBuilder(factory);
   }
 
-  withId(id: TableId): TableBuilder {
+  withId(id: TableId): this {
     this.tableId = id;
     return this;
   }
 
-  withBaseId(baseId: BaseId): TableBuilder {
+  withBaseId(baseId: BaseId): this {
     this.baseId = baseId;
     return this;
   }
 
-  withName(name: TableName): TableBuilder {
+  withName(name: TableName): this {
     this.tableName = name;
     return this;
   }
 
-  withDbTableName(dbTableName: DbTableName): TableBuilder {
+  withDbTableName(dbTableName: DbTableName): this {
     this.dbTableName = dbTableName;
     return this;
   }
@@ -316,7 +318,7 @@ export class TableBuilder {
    * Add a field directly to the table builder from a Result.
    * This is useful for fields created outside the builder pattern (e.g., pending lookup fields).
    */
-  addFieldFromResult(result: Result<Field, DomainError>): TableBuilder {
+  addFieldFromResult(result: Result<Field, DomainError>): this {
     this.addFieldResult(result);
     return this;
   }
@@ -486,37 +488,37 @@ export class SingleLineTextFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): SingleLineTextFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): SingleLineTextFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withShowAs(showAs: SingleLineTextShowAs): SingleLineTextFieldBuilder {
+  withShowAs(showAs: SingleLineTextShowAs): this {
     this.showAs = showAs;
     return this;
   }
 
-  withDefaultValue(defaultValue: TextDefaultValue): SingleLineTextFieldBuilder {
+  withDefaultValue(defaultValue: TextDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): SingleLineTextFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): SingleLineTextFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): SingleLineTextFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -560,37 +562,37 @@ export class LongTextFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): LongTextFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): LongTextFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withShowAs(showAs: LongTextShowAs): LongTextFieldBuilder {
+  withShowAs(showAs: LongTextShowAs): this {
     this.showAs = showAs;
     return this;
   }
 
-  withDefaultValue(defaultValue: TextDefaultValue): LongTextFieldBuilder {
+  withDefaultValue(defaultValue: TextDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): LongTextFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): LongTextFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): LongTextFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -630,42 +632,42 @@ export class NumberFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): NumberFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): NumberFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withFormatting(formatting: NumberFormatting): NumberFieldBuilder {
+  withFormatting(formatting: NumberFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withShowAs(showAs: NumberShowAs): NumberFieldBuilder {
+  withShowAs(showAs: NumberShowAs): this {
     this.showAs = showAs;
     return this;
   }
 
-  withDefaultValue(defaultValue: NumberDefaultValue): NumberFieldBuilder {
+  withDefaultValue(defaultValue: NumberDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): NumberFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): NumberFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): NumberFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -711,42 +713,42 @@ export class RatingFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): RatingFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): RatingFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withMax(max: RatingMax): RatingFieldBuilder {
+  withMax(max: RatingMax): this {
     this.max = max;
     return this;
   }
 
-  withIcon(icon: RatingIcon): RatingFieldBuilder {
+  withIcon(icon: RatingIcon): this {
     this.icon = icon;
     return this;
   }
 
-  withColor(color: RatingColor): RatingFieldBuilder {
+  withColor(color: RatingColor): this {
     this.color = color;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): RatingFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): RatingFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): RatingFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -790,32 +792,32 @@ export class FormulaFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): FormulaFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): FormulaFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withExpression(expression: FormulaExpression): FormulaFieldBuilder {
+  withExpression(expression: FormulaExpression): this {
     this.expression = expression;
     return this;
   }
 
-  withTimeZone(timeZone: TimeZone): FormulaFieldBuilder {
+  withTimeZone(timeZone: TimeZone): this {
     this.timeZone = timeZone;
     return this;
   }
 
-  withFormatting(formatting: FormulaFormatting): FormulaFieldBuilder {
+  withFormatting(formatting: FormulaFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withShowAs(showAs: FormulaShowAs): FormulaFieldBuilder {
+  withShowAs(showAs: FormulaShowAs): this {
     this.showAs = showAs;
     return this;
   }
@@ -823,17 +825,17 @@ export class FormulaFieldBuilder {
   withResultType(resultType: {
     cellValueType: CellValueType;
     isMultipleCellValue: CellValueMultiplicity;
-  }): FormulaFieldBuilder {
+  }): this {
     this.resultType = resultType;
     return this;
   }
 
-  withDependencies(dependencies: ReadonlyArray<FieldId>): FormulaFieldBuilder {
+  withDependencies(dependencies: ReadonlyArray<FieldId>): this {
     this.dependencies = [...dependencies];
     return this;
   }
 
-  primary(): FormulaFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -890,42 +892,42 @@ export class RollupFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): RollupFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): RollupFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withConfig(config: RollupFieldConfig): RollupFieldBuilder {
+  withConfig(config: RollupFieldConfig): this {
     this.config = config;
     return this;
   }
 
-  withExpression(expression: RollupExpression): RollupFieldBuilder {
+  withExpression(expression: RollupExpression): this {
     this.expression = expression;
     return this;
   }
 
-  withValuesField(valuesField: Field): RollupFieldBuilder {
+  withValuesField(valuesField: Field): this {
     this.valuesField = valuesField;
     return this;
   }
 
-  withTimeZone(timeZone: TimeZone): RollupFieldBuilder {
+  withTimeZone(timeZone: TimeZone): this {
     this.timeZone = timeZone;
     return this;
   }
 
-  withFormatting(formatting: RollupFormatting): RollupFieldBuilder {
+  withFormatting(formatting: RollupFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withShowAs(showAs: RollupShowAs): RollupFieldBuilder {
+  withShowAs(showAs: RollupShowAs): this {
     this.showAs = showAs;
     return this;
   }
@@ -933,17 +935,17 @@ export class RollupFieldBuilder {
   withResultType(resultType: {
     cellValueType: CellValueType;
     isMultipleCellValue: CellValueMultiplicity;
-  }): RollupFieldBuilder {
+  }): this {
     this.resultType = resultType;
     return this;
   }
 
-  withDependencies(dependencies: ReadonlyArray<FieldId>): RollupFieldBuilder {
+  withDependencies(dependencies: ReadonlyArray<FieldId>): this {
     this.dependencies = [...dependencies];
     return this;
   }
 
-  primary(): RollupFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1014,17 +1016,17 @@ export class LookupFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): LookupFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): LookupFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withLookupOptions(options: LookupOptions): LookupFieldBuilder {
+  withLookupOptions(options: LookupOptions): this {
     this.lookupOptions = options;
     return this;
   }
@@ -1033,22 +1035,22 @@ export class LookupFieldBuilder {
    * Set the inner field that defines the lookup value type and formatting.
    * This should be a field that matches the type of the field being looked up.
    */
-  withInnerField(innerField: Field): LookupFieldBuilder {
+  withInnerField(innerField: Field): this {
     this.innerField = innerField;
     return this;
   }
 
-  withDependencies(dependencies: ReadonlyArray<FieldId>): LookupFieldBuilder {
+  withDependencies(dependencies: ReadonlyArray<FieldId>): this {
     this.dependencies = [...dependencies];
     return this;
   }
 
-  withIsMultipleCellValue(isMultiple: boolean): LookupFieldBuilder {
+  withIsMultipleCellValue(isMultiple: boolean): this {
     this.isMultipleCellValueValue = isMultiple;
     return this;
   }
 
-  primary(): LookupFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1103,42 +1105,42 @@ export class SingleSelectFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): SingleSelectFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): SingleSelectFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withOptions(options: ReadonlyArray<SelectOption>): SingleSelectFieldBuilder {
+  withOptions(options: ReadonlyArray<SelectOption>): this {
     this.options = [...options];
     return this;
   }
 
-  withDefaultValue(defaultValue: SelectDefaultValue): SingleSelectFieldBuilder {
+  withDefaultValue(defaultValue: SelectDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withPreventAutoNewOptions(preventAutoNewOptions: SelectAutoNewOptions): SingleSelectFieldBuilder {
+  withPreventAutoNewOptions(preventAutoNewOptions: SelectAutoNewOptions): this {
     this.preventAutoNewOptions = preventAutoNewOptions;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): SingleSelectFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): SingleSelectFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): SingleSelectFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1184,44 +1186,42 @@ export class MultipleSelectFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): MultipleSelectFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): MultipleSelectFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withOptions(options: ReadonlyArray<SelectOption>): MultipleSelectFieldBuilder {
+  withOptions(options: ReadonlyArray<SelectOption>): this {
     this.options = [...options];
     return this;
   }
 
-  withDefaultValue(defaultValue: SelectDefaultValue): MultipleSelectFieldBuilder {
+  withDefaultValue(defaultValue: SelectDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withPreventAutoNewOptions(
-    preventAutoNewOptions: SelectAutoNewOptions
-  ): MultipleSelectFieldBuilder {
+  withPreventAutoNewOptions(preventAutoNewOptions: SelectAutoNewOptions): this {
     this.preventAutoNewOptions = preventAutoNewOptions;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): MultipleSelectFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): MultipleSelectFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): MultipleSelectFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1265,32 +1265,32 @@ export class CheckboxFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): CheckboxFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): CheckboxFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withDefaultValue(defaultValue: CheckboxDefaultValue): CheckboxFieldBuilder {
+  withDefaultValue(defaultValue: CheckboxDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): CheckboxFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): CheckboxFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): CheckboxFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1327,27 +1327,27 @@ export class AttachmentFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): AttachmentFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): AttachmentFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): AttachmentFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): AttachmentFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): AttachmentFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1386,37 +1386,37 @@ export class DateFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): DateFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): DateFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withFormatting(formatting: DateTimeFormatting): DateFieldBuilder {
+  withFormatting(formatting: DateTimeFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withDefaultValue(defaultValue: DateDefaultValue): DateFieldBuilder {
+  withDefaultValue(defaultValue: DateDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): DateFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): DateFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): DateFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1457,22 +1457,22 @@ export class CreatedTimeFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): CreatedTimeFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): CreatedTimeFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withFormatting(formatting: DateTimeFormatting): CreatedTimeFieldBuilder {
+  withFormatting(formatting: DateTimeFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  primary(): CreatedTimeFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1511,27 +1511,27 @@ export class LastModifiedTimeFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): LastModifiedTimeFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): LastModifiedTimeFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withFormatting(formatting: DateTimeFormatting): LastModifiedTimeFieldBuilder {
+  withFormatting(formatting: DateTimeFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): LastModifiedTimeFieldBuilder {
+  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): this {
     this.trackedFieldIds = [...trackedFieldIds];
     return this;
   }
 
-  primary(): LastModifiedTimeFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1574,42 +1574,42 @@ export class UserFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): UserFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): UserFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withMultiplicity(multiplicity: UserMultiplicity): UserFieldBuilder {
+  withMultiplicity(multiplicity: UserMultiplicity): this {
     this.multiplicity = multiplicity;
     return this;
   }
 
-  withNotification(notification: UserNotification): UserFieldBuilder {
+  withNotification(notification: UserNotification): this {
     this.notification = notification;
     return this;
   }
 
-  withDefaultValue(defaultValue: UserDefaultValue): UserFieldBuilder {
+  withDefaultValue(defaultValue: UserDefaultValue): this {
     this.defaultValue = defaultValue;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): UserFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): UserFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): UserFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1650,17 +1650,17 @@ export class CreatedByFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): CreatedByFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): CreatedByFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  primary(): CreatedByFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1694,22 +1694,22 @@ export class LastModifiedByFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): LastModifiedByFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): LastModifiedByFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): LastModifiedByFieldBuilder {
+  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): this {
     this.trackedFieldIds = [...trackedFieldIds];
     return this;
   }
 
-  primary(): LastModifiedByFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1744,17 +1744,17 @@ export class AutoNumberFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): AutoNumberFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): AutoNumberFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  primary(): AutoNumberFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1795,57 +1795,57 @@ export class ButtonFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): ButtonFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): ButtonFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withLabel(label: ButtonLabel): ButtonFieldBuilder {
+  withLabel(label: ButtonLabel): this {
     this.label = label;
     return this;
   }
 
-  withColor(color: FieldColor): ButtonFieldBuilder {
+  withColor(color: FieldColor): this {
     this.color = color;
     return this;
   }
 
-  withMaxCount(maxCount: ButtonMaxCount): ButtonFieldBuilder {
+  withMaxCount(maxCount: ButtonMaxCount): this {
     this.maxCount = maxCount;
     return this;
   }
 
-  withResetCount(resetCount: ButtonResetCount): ButtonFieldBuilder {
+  withResetCount(resetCount: ButtonResetCount): this {
     this.resetCount = resetCount;
     return this;
   }
 
-  withWorkflow(workflow: ButtonWorkflow): ButtonFieldBuilder {
+  withWorkflow(workflow: ButtonWorkflow): this {
     this.workflow = workflow;
     return this;
   }
 
-  withConfirm(confirm: ButtonConfirm): ButtonFieldBuilder {
+  withConfirm(confirm: ButtonConfirm): this {
     this.confirm = confirm;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): ButtonFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): ButtonFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): ButtonFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1893,37 +1893,37 @@ export class LinkFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): LinkFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): LinkFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withConfig(config: LinkFieldConfig): LinkFieldBuilder {
+  withConfig(config: LinkFieldConfig): this {
     this.config = config;
     return this;
   }
 
-  withMeta(meta: LinkFieldMeta): LinkFieldBuilder {
+  withMeta(meta: LinkFieldMeta): this {
     this.meta = meta;
     return this;
   }
 
-  withNotNull(notNull: FieldNotNull): LinkFieldBuilder {
+  withNotNull(notNull: FieldNotNull): this {
     this.notNull = notNull;
     return this;
   }
 
-  withUnique(unique: FieldUnique): LinkFieldBuilder {
+  withUnique(unique: FieldUnique): this {
     this.unique = unique;
     return this;
   }
 
-  primary(): LinkFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -1997,42 +1997,42 @@ export class ConditionalRollupFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): ConditionalRollupFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): ConditionalRollupFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withConfig(config: ConditionalRollupConfig): ConditionalRollupFieldBuilder {
+  withConfig(config: ConditionalRollupConfig): this {
     this.config = config;
     return this;
   }
 
-  withExpression(expression: RollupExpression): ConditionalRollupFieldBuilder {
+  withExpression(expression: RollupExpression): this {
     this.expression = expression;
     return this;
   }
 
-  withValuesField(valuesField: Field): ConditionalRollupFieldBuilder {
+  withValuesField(valuesField: Field): this {
     this.valuesField = valuesField;
     return this;
   }
 
-  withTimeZone(timeZone: TimeZone): ConditionalRollupFieldBuilder {
+  withTimeZone(timeZone: TimeZone): this {
     this.timeZone = timeZone;
     return this;
   }
 
-  withFormatting(formatting: ConditionalRollupFormatting): ConditionalRollupFieldBuilder {
+  withFormatting(formatting: ConditionalRollupFormatting): this {
     this.formatting = formatting;
     return this;
   }
 
-  withShowAs(showAs: ConditionalRollupShowAs): ConditionalRollupFieldBuilder {
+  withShowAs(showAs: ConditionalRollupShowAs): this {
     this.showAs = showAs;
     return this;
   }
@@ -2040,17 +2040,17 @@ export class ConditionalRollupFieldBuilder {
   withResultType(resultType: {
     cellValueType: CellValueType;
     isMultipleCellValue: CellValueMultiplicity;
-  }): ConditionalRollupFieldBuilder {
+  }): this {
     this.resultType = resultType;
     return this;
   }
 
-  withDependencies(dependencies: ReadonlyArray<FieldId>): ConditionalRollupFieldBuilder {
+  withDependencies(dependencies: ReadonlyArray<FieldId>): this {
     this.dependencies = [...dependencies];
     return this;
   }
 
-  primary(): ConditionalRollupFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -2120,17 +2120,17 @@ export class ConditionalLookupFieldBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: FieldName): ConditionalLookupFieldBuilder {
+  withName(name: FieldName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: FieldId): ConditionalLookupFieldBuilder {
+  withId(id: FieldId): this {
     this.id = id;
     return this;
   }
 
-  withConditionalLookupOptions(options: ConditionalLookupOptions): ConditionalLookupFieldBuilder {
+  withConditionalLookupOptions(options: ConditionalLookupOptions): this {
     this.conditionalLookupOptions = options;
     return this;
   }
@@ -2139,17 +2139,17 @@ export class ConditionalLookupFieldBuilder {
    * Set the inner field that defines the lookup value type and formatting.
    * This should be a field that matches the type of the field being looked up.
    */
-  withInnerField(innerField: Field): ConditionalLookupFieldBuilder {
+  withInnerField(innerField: Field): this {
     this.innerField = innerField;
     return this;
   }
 
-  withDependencies(dependencies: ReadonlyArray<FieldId>): ConditionalLookupFieldBuilder {
+  withDependencies(dependencies: ReadonlyArray<FieldId>): this {
     this.dependencies = [...dependencies];
     return this;
   }
 
-  primary(): ConditionalLookupFieldBuilder {
+  primary(): this {
     this.isPrimary = true;
     return this;
   }
@@ -2240,17 +2240,17 @@ export class GridViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): GridViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): GridViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): GridViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Grid');
     return this;
   }
@@ -2290,17 +2290,17 @@ export class KanbanViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): KanbanViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): KanbanViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): KanbanViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Kanban');
     return this;
   }
@@ -2340,17 +2340,17 @@ export class GalleryViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): GalleryViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): GalleryViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): GalleryViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Gallery');
     return this;
   }
@@ -2390,17 +2390,17 @@ export class CalendarViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): CalendarViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): CalendarViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): CalendarViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Calendar');
     return this;
   }
@@ -2440,17 +2440,17 @@ export class FormViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): FormViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): FormViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): FormViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Form');
     return this;
   }
@@ -2490,17 +2490,17 @@ export class PluginViewBuilder {
     private readonly sink: ITableBuilderSink
   ) {}
 
-  withName(name: ViewName): PluginViewBuilder {
+  withName(name: ViewName): this {
     this.name = name;
     return this;
   }
 
-  withId(id: ViewId): PluginViewBuilder {
+  withId(id: ViewId): this {
     this.id = id;
     return this;
   }
 
-  defaultName(): PluginViewBuilder {
+  defaultName(): this {
     this.setDefaultName('Plugin');
     return this;
   }

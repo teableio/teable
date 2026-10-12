@@ -3,6 +3,7 @@ import { HttpErrorCode } from '@teable/core';
 import {
   deleteUserSchemaRo,
   IDeleteUserSchema,
+  type IDeleteUserSpacesVo,
   type IGetTempTokenVo,
   type IUserMeVo,
 } from '@teable/openapi';
@@ -12,6 +13,7 @@ import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AuditScope } from '../audit/audit-scope';
 import { DeleteUserService } from '../user/delete-user/delete-user.service';
 import { AuthService } from './auth.service';
 import { AllowAnonymous, AllowAnonymousType } from './decorators/allow-anonymous.decorator';
@@ -24,7 +26,8 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly sessionService: SessionService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly deleteUserService: DeleteUserService
+    private readonly deleteUserService: DeleteUserService,
+    private readonly audit: AuditScope
   ) {}
 
   @AllowAnonymous(AllowAnonymousType.USER)
@@ -68,8 +71,28 @@ export class AuthController {
         },
       });
     }
-    await this.deleteUserService.deleteUser();
+    const userId = this.cls.get('user.id');
+    // The service is replaced per edition (EE also clears enterprise data), so the self-service
+    // deletion is recorded here, once, after it committed and while the session still names the
+    // actor. The admin console deletes users through its own path.
+    const { trashedSpaceIds } = await this.deleteUserService.deleteUser(query.spaceIds);
+    await this.audit.emitAtomic({
+      action: 'user.delete',
+      resourceId: userId,
+      userId,
+      params: { trashedSpaceCount: trashedSpaceIds.length, trashedSpaceIds },
+    });
     await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
+  }
+
+  /**
+   * What leaves with the account, before anything is pressed: the spaces this user alone
+   * owns. The deletion page lists them first and asks for the word, so the press that
+   * follows is the last one, not the one that discovers them.
+   */
+  @Get('user/sole-owner-spaces')
+  async getSoleOwnerSpaces(): Promise<IDeleteUserSpacesVo> {
+    return { spaces: await this.deleteUserService.listSoleOwnerSpaces() };
   }
 }

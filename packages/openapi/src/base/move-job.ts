@@ -11,8 +11,9 @@ export const RETRY_BASE_DATA_DB_MOVE_JOB = '/base/{baseId}/move-job/{jobId}/retr
 export const GetBaseDataDbMoveJobRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_DATA_DB_MOVE_JOB,
-  description: 'Get status of a cross-data-DB base move job',
-  summary: 'Get base data DB move job status',
+  title: 'Get project database move job',
+  description: 'Get status of a cross-data-DB project move job',
+  summary: 'Get project data DB move job status',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -35,8 +36,9 @@ export const GetBaseDataDbMoveJobRoute: RouteConfig = registerRoute({
 export const CancelBaseDataDbMoveJobRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CANCEL_BASE_DATA_DB_MOVE_JOB,
-  description: 'Cancel a cross-data-DB base move job (only before switch)',
-  summary: 'Cancel base data DB move job',
+  title: 'Cancel project database move job',
+  description: 'Cancel a cross-data-DB project move job (only before switch)',
+  summary: 'Cancel project data DB move job',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -59,8 +61,9 @@ export const CancelBaseDataDbMoveJobRoute: RouteConfig = registerRoute({
 export const RetryBaseDataDbMoveJobRoute: RouteConfig = registerRoute({
   method: 'post',
   path: RETRY_BASE_DATA_DB_MOVE_JOB,
-  description: 'Retry a failed cross-data-DB base move job',
-  summary: 'Retry base data DB move job',
+  title: 'Retry project database move job',
+  description: 'Retry a failed cross-data-DB project move job',
+  summary: 'Retry project data DB move job',
   request: {
     params: z.object({
       baseId: z.string(),

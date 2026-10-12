@@ -1,4 +1,4 @@
-const { join } = require('path');
+const { join } = require('node:path');
 const deepMerge = require('deepmerge');
 const shadcnuiConfig = require('./tailwind.shadcnui.config.cjs');
 

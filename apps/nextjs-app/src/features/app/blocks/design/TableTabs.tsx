@@ -47,7 +47,7 @@ const TablePicker = ({
   const { t } = useTranslation(['table']);
   let tables = useTables() as { id: string; name: string; icon?: string }[];
 
-  if (tableId && !tables.find((table) => table.id === tableId)) {
+  if (tableId && !tables.some((table) => table.id === tableId)) {
     tables = tables.concat({
       id: tableId!,
       name: t('table:field.editor.tableNoPermission'),

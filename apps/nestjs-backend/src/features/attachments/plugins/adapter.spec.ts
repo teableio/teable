@@ -30,6 +30,7 @@ describe('StorageAdapter.getCacheControl', () => {
     [UploadType.RecordRemoval],
     [UploadType.WorkflowRunCold],
     [UploadType.AuditLogCold],
+    [UploadType.UserDataExport],
   ])('private-bucket type %s gets no object-level cache-control', (type) => {
     expect(StorageAdapter.getCacheControl(type)).toBeUndefined();
   });

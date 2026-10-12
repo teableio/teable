@@ -21,7 +21,8 @@ export type ICreateBaseNodeFolderVo = z.infer<typeof createBaseNodeFolderVoSchem
 export const CreateBaseNodeFolderRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE_NODE_FOLDER,
-  description: 'Create a folder node in base',
+  title: 'Create project folder',
+  description: 'Create a folder in a project hierarchy.',
   request: {
     params: z.object({
       baseId: z.string(),

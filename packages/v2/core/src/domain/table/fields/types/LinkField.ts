@@ -681,7 +681,7 @@ export class LinkField
     return ok(undefined);
   }
 
-  private resolveFkHostTableName = (params: {
+  private readonly resolveFkHostTableName = (params: {
     baseId: BaseId;
     hostTableId: TableId;
     hostTableDbTableName?: DbTableName;

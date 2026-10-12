@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -35,15 +35,15 @@ import {
   DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
   getImageModelConfig,
   getImageModelConfigByGatewayId,
+  INSTANCE_PROVIDER_NAME,
   UploadType,
   LLMProviderType,
   resolveOpenAITranscriptionEndpoint,
   SettingKey,
 } from '@teable/openapi';
-import { createGateway, generateText, tool, generateImage } from 'ai';
+import { APICallError, RetryError, createGateway, generateText, tool, generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
-import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
@@ -51,17 +51,51 @@ import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { resolveBuildVersion } from '../../../utils/build-version';
-import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
-import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
+import { assertUniqueProviderModels } from '../../ai/ai.service';
+import {
+  aiProviderFetch,
+  assertAiProviderBaseUrlsAllowed,
+  instanceAdminProviderFetch,
+  getAdaptedProviderOptions,
+  modelProviders,
+} from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { AuditScope } from '../../audit/audit-scope';
 import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
+import { collectChangedKeys, collectChangedPatchKeys } from '../changed-setting-keys';
 import { SettingService } from '../setting.service';
 
 const unknownErrorMsg = 'unknown error';
+
+/**
+ * What a failed provider test tells the caller. The raw error can carry a
+ * socket error or a response body from whatever host the base URL named,
+ * which would let a space owner probe the server's network through the test
+ * route (GHSA-r8m3-c4fh-jv5x), so only instance admins get it verbatim. Our
+ * own validation errors and the status a provider answered with stay.
+ */
+const describeProviderTestError = (error: unknown, exposeUpstreamErrors: boolean) => {
+  if (exposeUpstreamErrors || error instanceof HttpException) {
+    return error instanceof Error ? error.message : unknownErrorMsg;
+  }
+  const cause = RetryError.isInstance(error) ? error.lastError : error;
+  if (APICallError.isInstance(cause) && cause.statusCode) {
+    return `The provider responded with HTTP ${cause.statusCode}`;
+  }
+  return 'Could not get a valid response from the provider';
+};
+
+// Audit rows about instance settings are instance-scoped: no space/base, one fixed resource.
+const INSTANCE_AUDIT_RESOURCE_ID = 'instance';
+// Settings whose values are shown in the audit row (booleans are shown too): nothing secret.
+const SETTING_KEYS_WITH_AUDITED_VALUES = new Set<string>([
+  SettingKey.BRAND_NAME,
+  SettingKey.BANNED_EMAIL_DOMAINS,
+]);
 
 // Test file tokens from builtin-assets-init
 const actTestImageToken = 'actTestImage';
@@ -117,7 +151,8 @@ export class SettingOpenApiService {
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>,
     private readonly settingService: SettingService,
-    protected readonly attachmentsStorageService: AttachmentsStorageService
+    protected readonly attachmentsStorageService: AttachmentsStorageService,
+    protected readonly audit: AuditScope
   ) {}
 
   async getSetting(names?: string[]): Promise<ISettingVo> {
@@ -129,23 +164,67 @@ export class SettingOpenApiService {
     // allowing a simple suffix check to distinguish instance vs BYOK models.
     if (updateSettingRo.aiConfig) {
       this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
+      assertUniqueProviderModels(updateSettingRo.aiConfig.llmProviders);
     }
-    return this.settingService.updateSetting(updateSettingRo);
+    const patch = updateSettingRo as Record<string, unknown>;
+    const keys = Object.keys(patch).filter((key) => patch[key] !== undefined);
+    const before = keys.length
+      ? ((await this.settingService.getSetting(keys)) as Record<string, unknown>)
+      : {};
+    const result = await this.settingService.updateSetting(updateSettingRo);
+    const changedKeys = collectChangedPatchKeys(before, patch);
+    if (changedKeys.length) {
+      // Values only for flags and plain display settings; the rest (AI keys, SMTP, IM) by key only.
+      const shownKeys = [...new Set(changedKeys.map((path) => path.split('.')[0]))].filter(
+        (key) => typeof patch[key] === 'boolean' || SETTING_KEYS_WITH_AUDITED_VALUES.has(key)
+      );
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: {
+          changedKeys,
+          ...(shownKeys.length
+            ? {
+                before: Object.fromEntries(shownKeys.map((key) => [key, before[key] ?? null])),
+                after: Object.fromEntries(shownKeys.map((key) => [key, patch[key] ?? null])),
+              }
+            : {}),
+        },
+      });
+    }
+    return result;
   }
 
   async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
     const nextAiConfig = {
-      ...(aiConfig ?? {}),
+      ...aiConfig,
       ...patch,
     } as IAIConfig;
+    nextAiConfig.llmProviders ??= [];
 
     this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
+    assertUniqueProviderModels(nextAiConfig.llmProviders);
 
     await this.settingService.updateSetting({
       [SettingKey.AI_CONFIG]: nextAiConfig,
     } as Partial<ISettingVo>);
+    // Provider entries carry API keys: the row names the changed keys, never their values.
+    const changedKeys = Object.keys(patch).flatMap((key) =>
+      collectChangedKeys(
+        (aiConfig as Record<string, unknown> | undefined)?.[key],
+        nextAiConfig[key as keyof IAIConfig],
+        key
+      )
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-ai-config',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { changedKeys },
+      });
+    }
 
     return {
       aiConfig: Object.fromEntries(
@@ -158,13 +237,28 @@ export class SettingOpenApiService {
     const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
     const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
     const nextAppConfig = {
-      ...(appConfig ?? {}),
+      ...appConfig,
       ...patch,
     } as IAppConfig;
 
     await this.settingService.updateSetting({
       [SettingKey.APP_CONFIG]: nextAppConfig,
     } as Partial<ISettingVo>);
+    // The app builder config holds deploy tokens: keys only, never values.
+    const changedKeys = Object.keys(patch).flatMap((key) =>
+      collectChangedKeys(
+        (appConfig as Record<string, unknown> | undefined)?.[key],
+        nextAppConfig[key as keyof IAppConfig],
+        key
+      )
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-app-config',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { changedKeys },
+      });
+    }
 
     return {
       appConfig: Object.fromEntries(
@@ -188,7 +282,7 @@ export class SettingOpenApiService {
     }
     const chatModel = aiConfig.chatModel as Record<string, string | undefined> | undefined;
     if (chatModel) {
-      for (const tier of ['lg', 'md', 'sm']) {
+      for (const tier of ['xl', 'lg', 'md', 'sm']) {
         const key = chatModel[tier];
         if (key && key.includes('@')) {
           const parts = key.split('@');
@@ -279,8 +373,6 @@ export class SettingOpenApiService {
 
   private getAvailableIntegrationProviders(): string[] {
     return [
-      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
-      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
       ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
       // The OAuth client is shared with Google sign-in, so the Picker key is
       // the variable that actually expresses "this instance opted into Sheets
@@ -327,7 +419,13 @@ export class SettingOpenApiService {
       },
     });
 
-    await this.updateSetting({ brandLogo: path });
+    // Straight to the store: the logo gets its own audit row, not an `admin.setting.update` one.
+    await this.settingService.updateSetting({ brandLogo: path });
+    await this.audit.emitAtomic({
+      action: 'admin.setting.update-logo',
+      resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+      params: { mimetype, size },
+    });
 
     return {
       url: getPublicFullStorageUrl(path),
@@ -379,7 +477,7 @@ export class SettingOpenApiService {
       );
 
       // Strict validation: expect exactly "K" or "k" in quotes
-      const quotedLetterMatch = responseText.match(/"([^"]+)"/);
+      const quotedLetterMatch = /"([^"]+)"/.exec(responseText);
       const letterInQuotes = quotedLetterMatch ? quotedLetterMatch[1].toLowerCase() : null;
       const containsExpectedInQuotes = letterInQuotes === expectedLetter;
 
@@ -553,7 +651,7 @@ export class SettingOpenApiService {
       return {};
     }
 
-    const testAbilities = uniq(ability);
+    const testAbilities = [...new Set(ability)];
     const result: IChatModelAbility = {};
 
     // Run all tests in parallel for better performance
@@ -606,7 +704,16 @@ export class SettingOpenApiService {
     return { type, model, name };
   }
 
-  async testLLM(testLLMRo: ITestLLMRo): Promise<ITestLLMVo> {
+  /**
+   * `asInstanceAdmin`: the instance admin's own test route. The admin configures
+   * the instance, so the base URL is not SSRF-checked and upstream errors come
+   * back verbatim; a space owner's test gets neither (see
+   * describeProviderTestError and aiProviderFetch).
+   */
+  async testLLM(
+    testLLMRo: ITestLLMRo,
+    { asInstanceAdmin = false }: { asInstanceAdmin?: boolean } = {}
+  ): Promise<ITestLLMVo> {
     const {
       type,
       baseUrl,
@@ -618,6 +725,13 @@ export class SettingOpenApiService {
       testImageToImage,
     } = testLLMRo;
 
+    // Outside the catch-all below so the owner sees the network-policy message
+    // rather than a generic "LLM test failed".
+    if (!asInstanceAdmin) {
+      await assertAiProviderBaseUrlsAllowed([{ baseUrl }]);
+    }
+    const providerFetch = asInstanceAdmin ? instanceAdminProviderFetch : aiProviderFetch;
+
     try {
       const modelArray = models.split(',');
       const model = modelKey ? this.parseModelKey(modelKey).model : modelArray[0];
@@ -628,6 +742,7 @@ export class SettingOpenApiService {
         const gatewayProvider = createGateway({
           apiKey,
           baseURL: baseUrl || undefined,
+          fetch: providerFetch,
         });
 
         // Handle image generation model testing
@@ -668,11 +783,18 @@ export class SettingOpenApiService {
       });
       const modelProvider = provider({
         ...providerOptions,
+        fetch: providerFetch,
       } as never) as OpenAIProvider;
 
       // Handle image generation model testing
       if (shouldTestImageGeneration) {
-        return await this.testImageGenerationModel(modelProvider, model, type, testImageToImage);
+        return await this.testImageGenerationModel(
+          modelProvider,
+          model,
+          type,
+          testImageToImage,
+          asInstanceAdmin
+        );
       }
 
       // Standard text model testing
@@ -690,7 +812,10 @@ export class SettingOpenApiService {
         ability: supportAbilities,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : unknownErrorMsg;
+      if (!asInstanceAdmin) {
+        this.logger.warn(`testLLM failed: ${error instanceof Error ? error.message : error}`);
+      }
+      const message = describeProviderTestError(error, asInstanceAdmin);
       throw new CustomHttpException(
         'LLM test failed with error: ' + message,
         HttpErrorCode.VALIDATION_ERROR,
@@ -721,7 +846,8 @@ export class SettingOpenApiService {
     modelProvider: OpenAIProvider,
     model: string,
     providerType: LLMProviderType,
-    testImageToImage?: boolean
+    testImageToImage?: boolean,
+    exposeUpstreamErrors = false
   ): Promise<ITestLLMVo> {
     try {
       // Google Gemini native image generation models use generateText with responseModalities
@@ -772,10 +898,9 @@ export class SettingOpenApiService {
       };
     } catch (error) {
       this.logger.error('testImageGenerationModel Error', (error as Error)?.stack);
-      const message = error instanceof Error ? error.message : 'Image generation failed';
       return {
         success: false,
-        response: message,
+        response: describeProviderTestError(error, exposeUpstreamErrors),
       };
     }
   }
@@ -813,8 +938,9 @@ export class SettingOpenApiService {
               role: 'user',
               content: [
                 {
-                  type: 'image',
-                  image: `data:image/png;base64,${testImageBase64}`,
+                  type: 'file',
+                  mediaType: 'image/png',
+                  data: `data:image/png;base64,${testImageBase64}`,
                 },
                 {
                   type: 'text',
@@ -874,9 +1000,22 @@ export class SettingOpenApiService {
   async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
     const { name, transportConfig } = setMailTransportConfigRo;
     await verifyTransport(transportConfig);
+    const before = await this.settingService.getSetting([name]);
     await this.settingService.updateSetting({
       [name]: transportConfig,
     });
+    // SMTP credentials: which fields changed (e.g. `auth.pass`), never their values.
+    const changedKeys = collectChangedKeys(
+      (before as Record<string, unknown>)[name],
+      transportConfig
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-mail-transport',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { transporter: name, changedKeys },
+      });
+    }
   }
 
   /**
@@ -899,6 +1038,7 @@ export class SettingOpenApiService {
         const gatewayProvider = createGateway({
           apiKey,
           baseURL: baseUrl || undefined,
+          fetch: instanceAdminProviderFetch,
         });
         modelInstance = gatewayProvider(model) as unknown as LanguageModel;
       } else {
@@ -922,6 +1062,7 @@ export class SettingOpenApiService {
         });
         const modelProvider = providerFactory({
           ...providerOptions,
+          fetch: instanceAdminProviderFetch,
         } as never) as OpenAIProvider;
         modelInstance = modelProvider(model) as unknown as LanguageModel;
       }
@@ -1242,7 +1383,7 @@ export class SettingOpenApiService {
       if (baseUrl) {
         gatewayOptions.baseURL = baseUrl;
       }
-      const gateway = createGateway(gatewayOptions);
+      const gateway = createGateway({ ...gatewayOptions, fetch: instanceAdminProviderFetch });
       const modelInstance = gateway(testModel);
 
       // Test image with both URL and Base64 modes in parallel
@@ -1298,7 +1439,7 @@ export class SettingOpenApiService {
       if (baseUrl) {
         gatewayOptions.baseURL = baseUrl;
       }
-      const gateway = createGateway(gatewayOptions);
+      const gateway = createGateway({ ...gatewayOptions, fetch: instanceAdminProviderFetch });
 
       // Use a minimal generateText call to verify the key
       await generateText({

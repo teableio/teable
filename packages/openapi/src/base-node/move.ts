@@ -17,7 +17,8 @@ export type IMoveBaseNodeRo = z.infer<typeof moveBaseNodeRoSchema>;
 export const MoveBaseNodeRoute: RouteConfig = registerRoute({
   method: 'put',
   path: MOVE_BASE_NODE,
-  description: 'Move or reorder a node',
+  title: 'Move project node',
+  description: 'Move or reorder a node within a project hierarchy.',
   request: {
     params: z.object({
       baseId: z.string(),

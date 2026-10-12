@@ -33,42 +33,40 @@ export const FieldValidation = (props: IFieldValidationProps) => {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-2 border-t pt-4">
-        <span className="neutral-content text-sm font-medium">
-          {t('table:field.editor.fieldValidationRules')}
-        </span>
+    <div className="flex flex-col gap-2 border-t pt-4">
+      <span className="neutral-content text-sm font-medium">
+        {t('table:field.editor.fieldValidationRules')}
+      </span>
 
-        {isUniqueEnabled && (
-          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
-            <Switch
-              id={VALIDATION_UNIQUE}
-              checked={Boolean(unique)}
-              onCheckedChange={(checked) => {
-                onChange?.({ unique: checked });
-              }}
-            />
-            <Label htmlFor={VALIDATION_UNIQUE} className="font-normal leading-tight">
-              {t('table:field.editor.enableValidateFieldUnique')}
-            </Label>
-          </div>
-        )}
+      {isUniqueEnabled && (
+        <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
+          <Switch
+            id={VALIDATION_UNIQUE}
+            checked={Boolean(unique)}
+            onCheckedChange={(checked) => {
+              onChange?.({ unique: checked });
+            }}
+          />
+          <Label htmlFor={VALIDATION_UNIQUE} className="font-normal leading-tight">
+            {t('table:field.editor.enableValidateFieldUnique')}
+          </Label>
+        </div>
+      )}
 
-        {isNotNullEnabled && (
-          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
-            <Switch
-              id={VALIDATION_NOT_NULL}
-              checked={Boolean(notNull)}
-              onCheckedChange={(checked) => {
-                onChange?.({ notNull: checked });
-              }}
-            />
-            <Label htmlFor={VALIDATION_NOT_NULL} className="font-normal leading-tight">
-              {t('table:field.editor.enableValidateFieldNotNull')}
-            </Label>
-          </div>
-        )}
-      </div>
-    </>
+      {isNotNullEnabled && (
+        <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
+          <Switch
+            id={VALIDATION_NOT_NULL}
+            checked={Boolean(notNull)}
+            onCheckedChange={(checked) => {
+              onChange?.({ notNull: checked });
+            }}
+          />
+          <Label htmlFor={VALIDATION_NOT_NULL} className="font-normal leading-tight">
+            {t('table:field.editor.enableValidateFieldNotNull')}
+          </Label>
+        </div>
+      )}
+    </div>
   );
 };

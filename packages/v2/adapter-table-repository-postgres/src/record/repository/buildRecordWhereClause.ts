@@ -1,13 +1,12 @@
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-import type { Expression, SqlBool } from 'kysely';
-
 import type {
   DomainError,
   ISpecification,
   ITableRecordConditionSpecVisitor,
   TableRecord,
 } from '@teable/v2-core';
+import { sql, type Expression, type SqlBool } from 'kysely';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 import {
   TableRecordConditionWhereVisitor,
@@ -35,5 +34,7 @@ export const buildRecordWhereClause = (
     }
     return err(whereResult.error);
   }
-  return ok(whereResult.value as unknown as Expression<SqlBool>);
+  // Callers AND this with search/other conditions; a top-level `a or b` from
+  // the visitor must stay one operand.
+  return ok(sql<SqlBool>`(${whereResult.value})`);
 };

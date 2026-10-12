@@ -10,7 +10,7 @@ interface SelectedMembersProps {
   onRemove: (id: string) => void;
 }
 
-export function MemberSelected({ selectedMembers, onRemove }: SelectedMembersProps) {
+export function MemberSelected({ selectedMembers, onRemove }: Readonly<SelectedMembersProps>) {
   const { t } = useTranslation();
   if (selectedMembers.length === 0) {
     return (

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { listTableRecordsOkResponseSchema } from '@teable/v2-contract-http';
-import { createV2HttpClient } from '@teable/v2-contract-http-client';
+import { createV2HttpClient, type V2HttpClient } from '@teable/v2-contract-http-client';
 import { FieldKeyType } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -29,7 +29,7 @@ import {
  */
 describe('v2 listRecords groupBy (e2e)', () => {
   let ctx: SharedTestContext;
-  let client: ReturnType<typeof createV2HttpClient>;
+  let client: V2HttpClient;
 
   const drainOutbox = async (rounds = 10) => {
     for (let i = 0; i < rounds; i += 1) {
@@ -713,6 +713,249 @@ describe('v2 listRecords groupBy (e2e)', () => {
 
       const records = await listOrdered(table.id, { viewId });
       expect(records.map((record) => record.fields[itemFieldId])).toEqual(['r2', 'r1', 'r3']);
+    });
+  });
+
+  describe('saved view grouping by lookup of link titles (T7536)', () => {
+    let tableId: string;
+    let nameFieldId: string;
+    let lookupFieldId: string;
+    let alphaLabel: { id: string; title: string };
+    let betaLabel: { id: string; title: string };
+    let sharedFirstLabel: { id: string; title: string };
+    let sharedSecondLabel: { id: string; title: string };
+    const viewIds: Partial<Record<'asc' | 'desc', string>> = {};
+
+    beforeAll(async () => {
+      const labels = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Lookup Link Group Labels',
+        fields: [{ name: 'Title', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const titleFieldId = labels.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const labelRecords = await ctx.createRecords(labels.id, [
+        { fields: { [titleFieldId]: 'Pending One' } },
+        { fields: { [titleFieldId]: 'Pending Two' } },
+        { fields: { [titleFieldId]: 'Pending Three' } },
+        { fields: { [titleFieldId]: 'Pending Four' } },
+      ]);
+      const labelIds = labelRecords.map((record) => record.id).sort();
+      // The smaller record id must have the later title: JSON/id ordering is wrong.
+      betaLabel = { id: labelIds[0], title: 'Beta' };
+      alphaLabel = { id: labelIds[1], title: '0Alpha' };
+      await ctx.updateRecord(labels.id, betaLabel.id, { [titleFieldId]: betaLabel.title });
+      await ctx.updateRecord(labels.id, alphaLabel.id, { [titleFieldId]: alphaLabel.title });
+      sharedFirstLabel = { id: labelIds[2], title: 'Shared' };
+      sharedSecondLabel = { id: labelIds[3], title: 'Shared' };
+      await ctx.updateRecord(labels.id, sharedFirstLabel.id, { [titleFieldId]: 'Shared' });
+      await ctx.updateRecord(labels.id, sharedSecondLabel.id, { [titleFieldId]: 'Shared' });
+
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Lookup Link Group Source',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Labels',
+            type: 'link',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: labels.id,
+              lookupFieldId: titleFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const sourceNameFieldId = source.fields.find((field) => field.name === 'Name')?.id ?? '';
+      const sourceLinkFieldId = source.fields.find((field) => field.name === 'Labels')?.id ?? '';
+      const [betaSource, alphaSource, sharedFirstSource, sharedSecondSource] =
+        await ctx.createRecords(source.id, [
+          {
+            fields: {
+              [sourceNameFieldId]: 'Source Beta',
+              [sourceLinkFieldId]: [{ id: betaLabel.id }],
+            },
+          },
+          {
+            fields: {
+              [sourceNameFieldId]: 'Source Alpha',
+              [sourceLinkFieldId]: [{ id: alphaLabel.id }],
+            },
+          },
+          {
+            fields: {
+              [sourceNameFieldId]: 'Source Shared First',
+              [sourceLinkFieldId]: [{ id: sharedFirstLabel.id }],
+            },
+          },
+          {
+            fields: {
+              [sourceNameFieldId]: 'Source Shared Second',
+              [sourceLinkFieldId]: [{ id: sharedSecondLabel.id }],
+            },
+          },
+        ]);
+
+      const main = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Lookup Link Group Main',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Sources',
+            type: 'link',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: source.id,
+              lookupFieldId: sourceNameFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+        views: [
+          { name: 'Title ascending', type: 'grid' },
+          { name: 'Title descending', type: 'grid' },
+        ],
+      });
+      tableId = main.id;
+      nameFieldId = main.fields.find((field) => field.name === 'Name')?.id ?? '';
+      const mainLinkFieldId = main.fields.find((field) => field.name === 'Sources')?.id ?? '';
+      const withLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          name: 'Source Labels',
+          type: 'lookup',
+          options: {
+            foreignTableId: source.id,
+            linkFieldId: mainLinkFieldId,
+            lookupFieldId: sourceLinkFieldId,
+          },
+        },
+      });
+      lookupFieldId = withLookup.fields.find((field) => field.name === 'Source Labels')?.id ?? '';
+
+      // Interleave groups so a missing group order cannot pass on insertion order.
+      await ctx.createRecords(tableId, [
+        { fields: { [nameFieldId]: 'beta-1', [mainLinkFieldId]: [{ id: betaSource.id }] } },
+        { fields: { [nameFieldId]: 'alpha-1', [mainLinkFieldId]: [{ id: alphaSource.id }] } },
+        { fields: { [nameFieldId]: 'beta-2', [mainLinkFieldId]: [{ id: betaSource.id }] } },
+        { fields: { [nameFieldId]: 'alpha-2', [mainLinkFieldId]: [{ id: alphaSource.id }] } },
+        {
+          fields: {
+            [nameFieldId]: 'shared-first-1',
+            [mainLinkFieldId]: [{ id: sharedFirstSource.id }],
+          },
+        },
+        {
+          fields: {
+            [nameFieldId]: 'shared-second-1',
+            [mainLinkFieldId]: [{ id: sharedSecondSource.id }],
+          },
+        },
+        {
+          fields: {
+            [nameFieldId]: 'shared-first-2',
+            [mainLinkFieldId]: [{ id: sharedFirstSource.id }],
+          },
+        },
+        {
+          fields: {
+            [nameFieldId]: 'shared-second-2',
+            [mainLinkFieldId]: [{ id: sharedSecondSource.id }],
+          },
+        },
+        { fields: { [nameFieldId]: 'blank' } },
+      ]);
+
+      for (const [index, order] of (['asc', 'desc'] as const).entries()) {
+        const viewId = main.views[index]?.id ?? '';
+        viewIds[order] = viewId;
+        const grouped = await client.tables.updateViewGroup({
+          tableId,
+          viewId,
+          group: [{ fieldId: lookupFieldId, order }],
+        });
+        expect(grouped.ok).toBe(true);
+      }
+      await drainOutbox();
+    }, 120000);
+
+    it.each(['asc', 'desc'] as const)(
+      'aligns group metadata and row blocks by title in %s order without a separate sort',
+      async (order) => {
+        const params = new URLSearchParams({
+          tableId,
+          viewId: viewIds[order] ?? '',
+          fieldKeyType: FieldKeyType.Id,
+          includeGroups: 'true',
+        });
+        const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`);
+        const rawBody = await response.json();
+        expect(response.status).toBe(200);
+        const parsed = listTableRecordsOkResponseSchema.parse(rawBody);
+        if (!parsed.ok) throw new Error(`ListRecords failed: ${JSON.stringify(rawBody)}`);
+
+        const ascendingLabels = [null, alphaLabel, betaLabel, sharedFirstLabel, sharedSecondLabel];
+        const expectedLabels = order === 'asc' ? ascendingLabels : [...ascendingLabels].reverse();
+        const { records, groups } = parsed.data;
+        expect(groups?.map((group) => group.fields[lookupFieldId])).toEqual(
+          expectedLabels.map((label) => (label ? [label] : null))
+        );
+        expect(groups?.map((group) => group.count)).toEqual(
+          order === 'asc' ? [1, 2, 2, 2, 2] : [2, 2, 2, 2, 1]
+        );
+        expect(records.map((record) => record.fields[lookupFieldId])).toEqual(
+          expectedLabels.flatMap<Array<{ id: string; title: string }> | null>((label) =>
+            label ? [[label], [label]] : [null]
+          )
+        );
+        expect(records.map((record) => record.fields[nameFieldId])).toEqual(
+          order === 'asc'
+            ? [
+                'blank',
+                'alpha-1',
+                'alpha-2',
+                'beta-1',
+                'beta-2',
+                'shared-first-1',
+                'shared-first-2',
+                'shared-second-1',
+                'shared-second-2',
+              ]
+            : [
+                'shared-second-1',
+                'shared-second-2',
+                'shared-first-1',
+                'shared-first-2',
+                'beta-1',
+                'beta-2',
+                'alpha-1',
+                'alpha-2',
+                'blank',
+              ]
+        );
+      }
+    );
+
+    it('keeps row-order ties for equal titles in a plain lookup sort', async () => {
+      const records = await listOrdered(tableId, {
+        sort: [{ fieldId: lookupFieldId, order: 'asc' }],
+      });
+      expect(records.map((record) => record.fields[nameFieldId])).toEqual([
+        'blank',
+        'alpha-1',
+        'alpha-2',
+        'beta-1',
+        'beta-2',
+        'shared-first-1',
+        'shared-second-1',
+        'shared-first-2',
+        'shared-second-2',
+      ]);
     });
   });
 

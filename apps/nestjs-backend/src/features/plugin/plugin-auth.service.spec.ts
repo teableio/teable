@@ -1,11 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { HttpErrorCode } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, pluginGetTokenRoSchema, type IPluginGetTokenRo } from '@teable/openapi';
+import {
+  pluginBaseActions,
+  PluginPosition,
+  pluginGetTokenRoSchema,
+  type IPluginGetTokenRo,
+} from '@teable/openapi';
 import type { ClsService } from 'nestjs-cls';
 import type { CacheService } from '../../cache/cache.service';
 import type { IClsStore } from '../../types/cls';
 import type { AccessTokenService } from '../access-token/access-token.service';
+import type { AuditScope } from '../audit/audit-scope';
 import type { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { PluginAuthService } from './plugin-auth.service';
 
@@ -47,6 +53,8 @@ describe('PluginAuthService', () => {
   const accessTokenService = {} as AccessTokenService;
   const jwtService = { verifyAsync: verifyRefreshToken } as unknown as TeableJwtService;
   const cls = { get: getCls } as unknown as ClsService<IClsStore>;
+  const emitAtomic = vitest.fn();
+  const audit = { emitAtomic } as unknown as AuditScope;
 
   const pluginId = 'plgTest';
   const baseId = 'bseTest';
@@ -73,7 +81,8 @@ describe('PluginAuthService', () => {
       cacheService,
       accessTokenService,
       jwtService,
-      cls
+      cls,
+      audit
     );
 
     (service as any).validateSecret = vitest.fn().mockResolvedValue({
@@ -103,6 +112,60 @@ describe('PluginAuthService', () => {
       { pluginId, baseId },
       expect.any(Number)
     );
+  });
+
+  it('audits the auth code as the signed-in user authorizing the plugin for the base', async () => {
+    await service.authCode(pluginId, baseId);
+
+    expect(emitAtomic).toHaveBeenCalledTimes(1);
+    expect(emitAtomic).toHaveBeenCalledWith({
+      action: 'plugin.authorize',
+      resourceId: pluginId,
+      payload: undefined,
+      params: { baseId },
+    });
+  });
+
+  it('does not audit an auth code for a plugin that is not installed in the base', async () => {
+    dashboardFindFirst.mockResolvedValue(null);
+
+    await expect(service.authCode(pluginId, baseId)).rejects.toMatchObject({
+      message: 'Plugin not installed',
+    });
+    expect(emitAtomic).not.toHaveBeenCalled();
+  });
+
+  it('audits the code exchange as the plugin bot, with scopes and without any token', async () => {
+    await service.token(pluginId, tokenRo);
+
+    expect(emitAtomic).toHaveBeenCalledTimes(1);
+    expect(emitAtomic).toHaveBeenCalledWith({
+      action: 'plugin.token.issue',
+      resourceId: pluginId,
+      userId: 'usrPlugin',
+      params: { baseId, scopes: tokenRo.scopes },
+    });
+    const serialized = JSON.stringify(emitAtomic.mock.calls);
+    expect(serialized).not.toContain(tokenRo.secret);
+    expect(serialized).not.toContain('access-token');
+    expect(serialized).not.toContain(authCode);
+  });
+
+  it('does not audit a rejected code exchange or a refresh', async () => {
+    getAuthCode.mockResolvedValue(undefined);
+    await expect(service.token(pluginId, tokenRo)).rejects.toThrow();
+
+    verifyRefreshToken.mockResolvedValue(validRefreshPayload);
+    findAccessToken.mockResolvedValue({
+      baseIds: JSON.stringify([baseId]),
+      scopes: JSON.stringify(['base|read']),
+    });
+    await service.refreshToken(pluginId, {
+      secret: tokenRo.secret,
+      refreshToken: 'refresh-token-old',
+    });
+
+    expect(emitAtomic).not.toHaveBeenCalled();
   });
 
   it('consumes a matching auth code and issues a token', async () => {
@@ -177,6 +240,19 @@ describe('PluginAuthService', () => {
   it('rejects invalid or empty token scopes at the schema boundary', () => {
     expect(() => pluginGetTokenRoSchema.parse({ ...tokenRo, scopes: ['invalid|scope'] })).toThrow();
     expect(() => pluginGetTokenRoSchema.parse({ ...tokenRo, scopes: [] })).toThrow();
+  });
+
+  it('never offers base-management scopes to a plugin token', () => {
+    const forbidden = [
+      'base|db_connection',
+      'base|authority_matrix_config',
+      'base|invite_email',
+      'base|invite_link',
+    ];
+    for (const scope of forbidden) {
+      expect(pluginBaseActions).not.toContain(scope);
+      expect(() => pluginGetTokenRoSchema.parse({ ...tokenRo, scopes: [scope] })).toThrow();
+    }
   });
 
   it('refreshes a token while the plugin remains installed in the base', async () => {

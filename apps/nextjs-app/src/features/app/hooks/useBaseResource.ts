@@ -31,19 +31,26 @@ export interface IBaseResourceApp extends IBaseResourceBase {
   appId: string;
 }
 
+export interface IBaseResourceRoutine extends IBaseResourceBase {
+  resourceType: typeof BaseNodeResourceType.Routine;
+  routineId: string;
+}
+
 export type IBaseResource =
   | IBaseResourceEmpty
   | IBaseResourceTable
   | IBaseResourceDashboard
   | IBaseResourceWorkflow
-  | IBaseResourceApp;
+  | IBaseResourceApp
+  | IBaseResourceRoutine;
 
 export type IBaseResourceParsed =
   | Omit<IBaseResourceEmpty, 'baseId'>
   | Omit<IBaseResourceTable, 'baseId'>
   | Omit<IBaseResourceDashboard, 'baseId'>
   | Omit<IBaseResourceWorkflow, 'baseId'>
-  | Omit<IBaseResourceApp, 'baseId'>;
+  | Omit<IBaseResourceApp, 'baseId'>
+  | Omit<IBaseResourceRoutine, 'baseId'>;
 
 /**
  * URL:
@@ -54,6 +61,7 @@ export type IBaseResourceParsed =
  * - /base/xxx/automation                → { resourceType: Workflow }
  * - /base/xxx/automation/aut1           → { resourceType: Workflow, workflowId: 'aut1' }
  * - /base/xxx/app/app1                  → { resourceType: App, appId: 'app1' }
+ * - /base/xxx/routine/rou1              → { resourceType: Routine, routineId: 'rou1' }
  *
  * Note: Legacy URLs like /base/xxx/tbl1/viw1 are redirected to /base/xxx/table/tbl1/viw1 in getServerSideProps
  */
@@ -85,6 +93,11 @@ export function parseBaseSlug(slug?: string[]): IBaseResourceParsed {
       return {
         resourceType: BaseNodeResourceType.App,
         appId: id,
+      };
+    case 'routine':
+      return {
+        resourceType: BaseNodeResourceType.Routine,
+        routineId: id,
       };
     default:
       return { resourceType: undefined };

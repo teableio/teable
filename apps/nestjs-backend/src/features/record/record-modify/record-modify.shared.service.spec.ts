@@ -25,6 +25,7 @@ describe('RecordModifySharedService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     );
 

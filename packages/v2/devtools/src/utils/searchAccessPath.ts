@@ -53,8 +53,12 @@ export const compareExactRecordIds = (
 } => {
   const legacy = new Set(legacyIds);
   const optimized = new Set(optimizedIds);
-  const missingFromOptimized = [...legacy].filter((id) => !optimized.has(id)).sort();
-  const unexpectedFromOptimized = [...optimized].filter((id) => !legacy.has(id)).sort();
+  const missingFromOptimized = [...legacy]
+    .filter((id) => !optimized.has(id))
+    .sort((a, b) => Number(a > b) - Number(a < b));
+  const unexpectedFromOptimized = [...optimized]
+    .filter((id) => !legacy.has(id))
+    .sort((a, b) => Number(a > b) - Number(a < b));
   return {
     exactResultMatch: missingFromOptimized.length === 0 && unexpectedFromOptimized.length === 0,
     missingFromOptimized,

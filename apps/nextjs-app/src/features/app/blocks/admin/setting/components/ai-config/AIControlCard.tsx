@@ -94,8 +94,8 @@ const SwitchList = (props: SwitchListProps) => {
 
   const onCheckItemHandler = useCallback(
     (actionName: AIActions, open: boolean) => {
-      if (open && disableActions.find((action) => action === actionName)) {
-        const index = disableActions.findIndex((action) => action === actionName);
+      if (open && disableActions.some((action) => action === actionName)) {
+        const index = disableActions.indexOf(actionName);
         if (index !== -1) {
           const newDisableActions = [...disableActions];
           newDisableActions.splice(index, 1);
@@ -103,7 +103,7 @@ const SwitchList = (props: SwitchListProps) => {
         }
       }
 
-      if (!open && !disableActions.find((action) => action === actionName)) {
+      if (!open && !disableActions.some((action) => action === actionName)) {
         const newDisableActions = [...disableActions, actionName];
         onChange({ disableActions: newDisableActions });
       }
@@ -178,7 +178,7 @@ export const AIControlCard = ({
     try {
       setIsSaving(true);
       await onChange(value);
-    } catch (error) {
+    } catch {
       setLocalDisableActions(previousDisableActions);
     } finally {
       setIsSaving(false);

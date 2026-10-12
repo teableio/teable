@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IRole } from '@teable/core';
-import { Building2, Database } from '@teable/icons';
+import { Building2, LayoutGrid } from '@teable/icons';
 import type { IGetSpaceVo, UniqueCollaboratorItem } from '@teable/openapi';
 import {
   CollaboratorType,
@@ -55,7 +55,7 @@ const PrincipalBaseList = ({ spaceId, principalId }: { spaceId: string; principa
             className="flex h-5 min-w-0 items-center gap-1 ps-11"
             key={permission.base?.id ?? 'space'}
           >
-            <Database className="size-3.5 text-muted-foreground" aria-hidden="true" />
+            <LayoutGrid className="size-3.5 text-muted-foreground" aria-hidden="true" />
             <span
               dir={contentDir}
               className="min-w-0 truncate text-xs text-muted-foreground"

@@ -15,11 +15,13 @@ import { sql } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../record/di/tokens';
+import { isForeignKeyViolation } from '../shared/errors';
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 const ROW_ORDER_COLUMN_PREFIX = '__row_';
 const FK_COLUMN_PREFIX = '__fk_fld';
+const LINK_COLUMN_PREFIX = '__fk_';
 const AUTO_NUMBER_COLUMN = '__auto_number';
 
 // Never copied verbatim: auto number and audit columns are regenerated on the
@@ -56,6 +58,7 @@ type ForeignKeyRow = {
   referenced_table_name: string;
   referenced_column_name: string;
   delete_rule: string;
+  validated: boolean;
 };
 
 type PlannedForeignKey = ForeignKeyRow & { dbTableName: string };
@@ -64,8 +67,8 @@ type PlannedForeignKey = ForeignKeyRow & { dbTableName: string };
  * Same-database physical base copier. Rows, link storage columns and junction
  * tables are cloned verbatim with INSERT…SELECT inside one transaction; the
  * foreign keys of every source and target table are dropped first and rebuilt
- * afterwards with their original ON DELETE action so bulk inserts never pay
- * per-row FK checks.
+ * afterwards with their original ON DELETE action and validation state so bulk
+ * inserts never pay per-row FK checks.
  *
  * The FK introspection anchors on pg_constraint.conrelid (the exact
  * constrained table): constraint names are unique per table, not per schema,
@@ -74,6 +77,14 @@ type PlannedForeignKey = ForeignKeyRow & { dbTableName: string };
  * `fk_{column}` naming) — the drop phase then issued the same DROP CONSTRAINT
  * twice and died with PG 42704 (T6990). Teable FKs are single-column, so
  * conkey[1]/confkey[1] keep the one-row-per-constraint contract.
+ *
+ * A NOT VALID FK (the import paths create link FKs that way to skip validating
+ * existing data) legitimately covers rows whose link value has no record. Source
+ * tables therefore get their FKs back in the state they had, and a target FK —
+ * which now covers the copied rows — is added validated when those rows satisfy
+ * it and falls back to NOT VALID when the source's dangling link values came
+ * along inside a savepoint. Rebuilding either as a plain validated constraint
+ * re-checks those dangling rows with PG 23503 and aborts the whole copy (T7655).
  */
 @injectable()
 export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
@@ -87,22 +98,25 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     plan: BaseDataBulkCopyPlan
   ): Promise<Result<boolean, DomainError>> {
     try {
-      const sourceSchemas = [
-        ...new Set(
-          plan.tables.map((table) => splitDbTableName(table.sourceDbTableName).schema ?? 'public')
-        ),
-      ];
-      for (const schema of sourceSchemas) {
-        const result = await sql<{ exists: boolean }>`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.schemata WHERE schema_name = ${schema}
-          ) AS "exists"
-        `.execute(this.db);
-        if (!result.rows[0]?.exists) {
-          return ok(false);
-        }
+      const sourceRelations = [
+        ...new Set([
+          ...plan.tables.map((table) => table.sourceDbTableName),
+          ...plan.junctions.map((junction) => junction.sourceJunctionDbTableName),
+        ]),
+      ].map(qualifiedTableName);
+      if (!sourceRelations.length) {
+        return ok(true);
       }
-      return ok(true);
+      // A database move can leave an empty source schema behind. Bulk copying
+      // requires every source relation, not just its schema, on this connection.
+      const result = await sql<{ supported: boolean }>`
+        SELECT NOT EXISTS (
+          SELECT 1
+          FROM unnest(${sourceRelations}::text[]) AS source(relation_name)
+          WHERE to_regclass(source.relation_name) IS NULL
+        ) AS supported
+      `.execute(this.db);
+      return ok(result.rows[0]?.supported ?? false);
     } catch (error) {
       return err(
         domainError.fromUnknown(error, { code: 'duplicate_base.bulk_copy_preflight_failed' })
@@ -117,15 +131,18 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
   ): Promise<Result<BaseDataBulkCopyResult, DomainError>> {
     try {
       const recordsLength = await this.db.transaction().execute(async (trx) => {
-        const dbTableNames = plan.tables.flatMap((table) => [
-          table.sourceDbTableName,
-          table.targetDbTableName,
-        ]);
-
         const foreignKeys: PlannedForeignKey[] = [];
-        for (const dbTableName of dbTableNames) {
-          for (const row of await this.listForeignKeys(trx, dbTableName)) {
-            foreignKeys.push({ ...row, dbTableName });
+        // Tables the copy only reads from. Their FKs come back exactly as they
+        // were; only a NOT VALID FK may cover rows whose link value has no
+        // record, so re-validating one would fail and would also change
+        // constraints the copy must leave alone (T7655).
+        const sourceDbTableNames = new Set(plan.tables.map((table) => table.sourceDbTableName));
+        for (const table of plan.tables) {
+          for (const row of await this.listForeignKeys(trx, table.sourceDbTableName)) {
+            foreignKeys.push({ ...row, dbTableName: table.sourceDbTableName });
+          }
+          for (const row of await this.listForeignKeys(trx, table.targetDbTableName)) {
+            foreignKeys.push({ ...row, dbTableName: table.targetDbTableName });
           }
         }
         for (const foreignKey of foreignKeys) {
@@ -155,13 +172,22 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
             .execute(trx);
         }
 
+        let rebuiltForeignKeyCount = 0;
         for (const foreignKey of foreignKeys) {
           const referenced = `${quoteIdentifier(foreignKey.referenced_table_schema)}.${quoteIdentifier(foreignKey.referenced_table_name)}`;
-          await sql
-            .raw(
-              `ALTER TABLE ${qualifiedTableName(foreignKey.dbTableName)} ADD CONSTRAINT ${quoteIdentifier(foreignKey.constraint_name)} FOREIGN KEY (${quoteIdentifier(foreignKey.column_name)}) REFERENCES ${referenced} (${quoteIdentifier(foreignKey.referenced_column_name)}) ON DELETE ${foreignKey.delete_rule}`
-            )
-            .execute(trx);
+          const addConstraintSql = `ALTER TABLE ${qualifiedTableName(foreignKey.dbTableName)} ADD CONSTRAINT ${quoteIdentifier(foreignKey.constraint_name)} FOREIGN KEY (${quoteIdentifier(foreignKey.column_name)}) REFERENCES ${referenced} (${quoteIdentifier(foreignKey.referenced_column_name)}) ON DELETE ${foreignKey.delete_rule}`;
+          if (sourceDbTableNames.has(foreignKey.dbTableName)) {
+            await sql
+              .raw(`${addConstraintSql}${foreignKey.validated ? '' : ' NOT VALID'}`)
+              .execute(trx);
+            continue;
+          }
+          rebuiltForeignKeyCount += 1;
+          await this.addConstraintValidatedOrNotValid(
+            trx,
+            addConstraintSql,
+            rebuiltForeignKeyCount
+          );
         }
 
         onProgress?.({
@@ -177,6 +203,29 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     }
   }
 
+  /**
+   * Rebuilds a target FK on rows that were just copied: validated when the copy
+   * satisfies it, NOT VALID when the source's dangling link values came along.
+   * The failed attempt runs inside a savepoint, so the 23503 that PostgreSQL
+   * raises while validating does not abort the copy transaction.
+   */
+  private async addConstraintValidatedOrNotValid(
+    trx: Transaction<V1TeableDatabase>,
+    addConstraintSql: string,
+    index: number
+  ): Promise<void> {
+    const savepointName = `fk_rebuild_${index}`;
+    await sql.raw(`SAVEPOINT ${savepointName}`).execute(trx);
+    try {
+      await sql.raw(addConstraintSql).execute(trx);
+    } catch (error) {
+      if (!isForeignKeyViolation(error)) throw error;
+      await sql.raw(`ROLLBACK TO SAVEPOINT ${savepointName}`).execute(trx);
+      await sql.raw(`${addConstraintSql} NOT VALID`).execute(trx);
+    }
+    await sql.raw(`RELEASE SAVEPOINT ${savepointName}`).execute(trx);
+  }
+
   private async listForeignKeys(
     trx: Transaction<V1TeableDatabase>,
     dbTableName: string
@@ -188,6 +237,7 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
              ref_nsp.nspname AS referenced_table_schema,
              ref_rel.relname AS referenced_table_name,
              ref_att.attname AS referenced_column_name,
+             con.convalidated AS validated,
              CASE con.confdeltype
                WHEN 'a' THEN 'NO ACTION'
                WHEN 'r' THEN 'RESTRICT'
@@ -296,7 +346,7 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
 
     const oldFkColumns = linkColumnScope.filter((name) => name.startsWith(FK_COLUMN_PREFIX));
     const newFkColumns = oldFkColumns.map((name) => {
-      const sourceFieldId = name.slice('__fk_'.length);
+      const sourceFieldId = name.slice(LINK_COLUMN_PREFIX.length);
       const targetFieldId = plan.fieldIdMap[sourceFieldId];
       return targetFieldId ? `__fk_${targetFieldId}` : name;
     });

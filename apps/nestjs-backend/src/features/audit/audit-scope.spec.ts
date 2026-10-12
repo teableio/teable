@@ -52,6 +52,18 @@ describe('AuditScope', () => {
     });
   });
 
+  it('withOperation runs fn as-is outside a CLS context (queue jobs, schedulers)', async () => {
+    const service = makeService();
+    const cls = ClsServiceManager.getClsService();
+
+    const inside = await service.withOperation(
+      { rootAction: CreateRecordAction.Import, resourceId: 'tbl1' },
+      async () => ({ active: cls.isActive(), operation: service.current() })
+    );
+
+    expect(inside).toEqual({ active: false, operation: undefined });
+  });
+
   it('outer-wins: nested operations do not override the outer rootAction', async () => {
     const service = makeService();
     await runInCls(async () => {
@@ -100,6 +112,19 @@ describe('AuditScope', () => {
         recordCount: 42,
       })
     );
+  });
+
+  it('emitAtomic() names the action it skips when no resourceId can be resolved', async () => {
+    const emitAsync = vi.fn().mockResolvedValue([]);
+    const service = makeService({ emitAsync });
+    const warn = vi.fn();
+    (service as unknown as { logger: { warn: typeof warn } }).logger = { warn };
+    await runInCls(async () => {
+      await service.emitAtomic({ action: 'table|delete' as IAuditAction });
+    });
+    expect(emitAsync).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('action=table|delete'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('operation=absent'));
   });
 
   it('emitAtomic() ignores reserved keys from payload extras', async () => {

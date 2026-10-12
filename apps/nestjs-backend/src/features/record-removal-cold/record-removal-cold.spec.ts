@@ -2,8 +2,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Readable } from 'node:stream';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type StorageAdapter from '../attachments/plugins/adapter';
+import { FakePendingRedis } from '../cold-archive/compaction-pending.spec-fixtures';
 import { BucketMergeFeeder } from './bucket-merge-feeder';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import type {
@@ -33,8 +34,12 @@ import {
   RecordRemovalColdReadService,
 } from './record-removal-cold-read.service';
 import { RecordRemovalColdStorageService } from './record-removal-cold-storage.service';
-import { recordRemovalColdConfig } from './record-removal-cold.config';
+import {
+  RECORD_REMOVAL_COMPACT_PENDING_KEY,
+  recordRemovalColdConfig,
+} from './record-removal-cold.config';
 import { RecordRemovalColdProcessor } from './record-removal-cold.processor';
+import type { ICompactMonthResult } from './record-removal-compactor.service';
 import { RecordRemovalCompactorService } from './record-removal-compactor.service';
 import type { IColdFlushRunResult, ITableFlushResult } from './record-removal-flusher.service';
 import { RecordRemovalFlusherService } from './record-removal-flusher.service';
@@ -1163,6 +1168,51 @@ describe('record-removal cold storage', () => {
       expect(isTombstonedAt(map, 'recUnknown', '2026-01-01T00:00:00.000Z')).toBe(false);
     });
 
+    it('compactTable lists the table once and walks both reasons from that listing', async () => {
+      const tableId = 'tblOnce';
+      await seedParts(storage, tableId, 'archived', { yyyymm: '202605', kind: 'day', dd: '10' }, [
+        makeRow({ id: 'rmsA1', recordId: 'recA', removedTime: '2026-05-10T01:00:00.000Z' }),
+      ]);
+      await seedParts(storage, tableId, 'deleted', { yyyymm: '202604', kind: 'month' }, [
+        makeRow({ id: 'rmsD1', recordId: 'recD', removedTime: '2026-04-10T01:00:00.000Z' }),
+      ]);
+      await seedParts(storage, tableId, 'deleted', { yyyymm: '202605', kind: 'day', dd: '11' }, [
+        makeRow({ id: 'rmsD2', recordId: 'recD', removedTime: '2026-05-11T01:00:00.000Z' }),
+      ]);
+      await storage.writeStats(tableId, 'archived', {
+        version: 1,
+        tableId,
+        reason: 'archived',
+        parts: {},
+      });
+
+      const byReason = await storage.listTableParts(tableId);
+      expect([...byReason.keys()]).toEqual(['deleted', 'archived']);
+      expect([...byReason.get('deleted')!.keys()]).toEqual(['202605', '202604']);
+      expect([...byReason.get('archived')!.keys()]).toEqual(['202605']);
+
+      const listCalls: string[] = [];
+      const listObjects = fake.listObjects.bind(fake);
+      fake.listObjects = async (bucket, prefix, options) => {
+        listCalls.push(prefix);
+        return listObjects(bucket, prefix, options);
+      };
+      const compactor = new RecordRemovalCompactorService(
+        storage,
+        { dataPrismaForTable: async () => new FakeTombstoneDb().client } as never,
+        new RecordRemovalTombstoneService()
+      );
+      const results = await compactor.compactTable(tableId);
+      expect(listCalls).toEqual([`record-removal/v1/${tableId}/`]);
+      expect(
+        results.map((result) => [result.reason, result.yyyymm, result.skippedReason ?? 'merged'])
+      ).toEqual([
+        ['deleted', '202605', 'merged'],
+        ['deleted', '202604', 'no-day-parts'],
+        ['archived', '202605', 'merged'],
+      ]);
+    });
+
     it('compaction physically drops tombstoned rows and leaves the tombstones in place', async () => {
       const tombstoneDb = new FakeTombstoneDb();
       const compactor = new RecordRemovalCompactorService(
@@ -1512,14 +1562,16 @@ describe('record-removal cold storage', () => {
           throw new Error(`unhandled queryDataPrismaForTable sql: ${sql}`);
         },
       };
+      const redis = new FakePendingRedis();
       const flusher = new RecordRemovalFlusherService(
         prismaService as any,
         metaFallbackDataPrismaService as any,
         dataDbClientManager as any,
         databaseRouter as any,
-        storage
+        storage,
+        redis as any
       );
-      return { flusher, orphanDeletes };
+      return { flusher, orphanDeletes, redis };
     };
 
     it('flushes rows past each reason horizon while young rows stay buffered', async () => {
@@ -1557,9 +1609,13 @@ describe('record-removal cold storage', () => {
           createdTime: new Date(now - 100 * DAY_MS),
         })
       );
-      const { flusher } = makeFlusherHarness(db, { liveTables: [{ id: 'tblA' }] });
+      const { flusher, redis } = makeFlusherHarness(db, { liveTables: [{ id: 'tblA' }] });
 
       const result = await flusher.runFlush({ mode: 'incremental' });
+
+      // month parts only, but the table is still marked so the compactor
+      // gets to converge any generation a died heal could have left behind
+      expect(redis.members(RECORD_REMOVAL_COMPACT_PENDING_KEY)).toEqual(['tblA']);
 
       // per-reason horizons, both 30d by default (recycle-bin reads merge PG + S3
       // exactly like the archive UI)
@@ -1586,6 +1642,35 @@ describe('record-removal cold storage', () => {
       expect((await decodeParts(storage, deletedKeys)).map((r) => r.id)).toEqual(['trsDelOld']);
       expect(fake.objects.has(statsKey(ROOT, 'tblA', 'archived'))).toBe(true);
       expect(fake.objects.has(statsKey(ROOT, 'tblA', 'deleted'))).toBe(true);
+    });
+
+    it('marks the table pending for compaction once it writes parts', async () => {
+      // a horizon inside the day window is what makes day parts at all
+      process.env.BACKEND_RECORD_REMOVAL_COLD_ARCHIVE_HORIZON_MS = String(2 * DAY_MS);
+      try {
+        const now = Date.now();
+        const db = new FakeTrashDb();
+        db.insert(
+          trashRow({
+            id: 'trsArchWeek',
+            tableId: 'tblA',
+            reason: 'archived',
+            createdTime: new Date(now - 7 * DAY_MS),
+          })
+        );
+        const { flusher, redis } = makeFlusherHarness(db, { liveTables: [{ id: 'tblA' }] });
+
+        const result = await flusher.runFlush({ mode: 'incremental' });
+
+        expect(result.tables.find((t) => t.reason === 'archived')).toMatchObject({ rows: 1 });
+        const parts = [...fake.objects.keys()]
+          .map((key) => parsePartKey(ROOT, key))
+          .filter((part): part is IParsedPartKey => Boolean(part));
+        expect(parts.map((part) => part.kind)).toEqual(['day']);
+        expect(redis.members(RECORD_REMOVAL_COMPACT_PENDING_KEY)).toEqual(['tblA']);
+      } finally {
+        delete process.env.BACKEND_RECORD_REMOVAL_COLD_ARCHIVE_HORIZON_MS;
+      }
     });
 
     it('reports the rows an upload-only run leaves behind as backlog', async () => {
@@ -2049,7 +2134,12 @@ describe('record-removal cold storage', () => {
     const makeProcessor = (
       queue: FakeColdQueue,
       flushResult: Partial<IColdFlushRunResult> = {},
-      runFlushCalls?: unknown[]
+      runFlushCalls?: unknown[],
+      compaction: {
+        tables?: string[];
+        redis?: FakePendingRedis;
+        compactTable?: (tableId: string) => Promise<ICompactMonthResult[]>;
+      } = {}
     ) => {
       const flusher = {
         runFlush: async (options: unknown): Promise<IColdFlushRunResult> => {
@@ -2077,9 +2167,10 @@ describe('record-removal cold storage', () => {
       };
       return new RecordRemovalColdProcessor(
         flusher as never,
-        {} as never,
-        {} as never,
-        queue as never
+        { compactTable: compaction.compactTable } as never,
+        { listTables: async () => compaction.tables ?? [] } as never,
+        queue as never,
+        (compaction.redis ?? new FakePendingRedis()) as never
       );
     };
 
@@ -2089,6 +2180,52 @@ describe('record-removal cold storage', () => {
 
     afterEach(() => {
       delete process.env.BACKEND_STORAGE_COLD_ARCHIVE_DISABLED;
+      vi.useRealTimers();
+    });
+
+    it('compacts only the pending tables once the set is bootstrapped and puts a failed one back', async () => {
+      const redis = new FakePendingRedis();
+      await redis.setex(
+        `${RECORD_REMOVAL_COMPACT_PENDING_KEY}:bootstrapped`,
+        1,
+        '2026-09-01T00:00:00.000Z'
+      );
+      await redis.sadd(RECORD_REMOVAL_COMPACT_PENDING_KEY, 'tblB', 'tblC');
+      const compacted: string[] = [];
+      const processor = makeProcessor(new FakeColdQueue(), {}, undefined, {
+        tables: ['tblA', 'tblB', 'tblC'],
+        redis,
+        compactTable: async (tableId) => {
+          compacted.push(tableId);
+          if (tableId === 'tblC') throw new Error('merge died');
+          return [];
+        },
+      });
+
+      await processor.process({ name: 'record-removal-cold:compact', data: {} } as any);
+
+      expect(compacted).toEqual(['tblB', 'tblC']);
+      expect(redis.members(RECORD_REMOVAL_COMPACT_PENDING_KEY)).toEqual(['tblC']);
+    });
+
+    it('walks every cold table until the set is bootstrapped, then marks it', async () => {
+      const redis = new FakePendingRedis();
+      await redis.sadd(RECORD_REMOVAL_COMPACT_PENDING_KEY, 'tblB');
+      const compacted: string[] = [];
+      const processor = makeProcessor(new FakeColdQueue(), {}, undefined, {
+        tables: ['tblA', 'tblB'],
+        redis,
+        compactTable: async (tableId) => {
+          compacted.push(tableId);
+          return [];
+        },
+      });
+
+      await processor.process({ name: 'record-removal-cold:compact', data: {} } as any);
+
+      expect(compacted).toEqual(['tblA', 'tblB']);
+      expect(redis.members(RECORD_REMOVAL_COMPACT_PENDING_KEY)).toEqual([]);
+      expect(redis.strings.has(`${RECORD_REMOVAL_COMPACT_PENDING_KEY}:bootstrapped`)).toBe(true);
     });
 
     it('chains a catch-up job with a colon-free id when the budget is exhausted', async () => {

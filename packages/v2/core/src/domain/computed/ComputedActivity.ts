@@ -1,10 +1,10 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { BaseId } from '../base/BaseId';
+import { BaseId } from '../base/BaseId';
 import type { DomainError } from '../shared/DomainError';
-import type { FieldId } from '../table/fields/FieldId';
-import type { TableId } from '../table/TableId';
+import { FieldId } from '../table/fields/FieldId';
+import { TableId } from '../table/TableId';
 import type {
   FieldComputeBatch,
   FieldComputeLastError,
@@ -240,17 +240,29 @@ export class ComputedActivity {
     const now = params.now ?? new Date();
     const touchedTables = new Map<string, { tableId: TableId; baseId: BaseId }>();
     for (const { fieldId, error } of params.errors) {
-      const field = this.fields.get(fieldId);
-      if (!field) continue;
+      let field = this.fields.get(fieldId);
+      if (!field) {
+        const context = error.context;
+        if (typeof context?.tableId !== 'string' || typeof context.baseId !== 'string') continue;
+        const tableIdResult = TableId.create(context.tableId);
+        const baseIdResult = BaseId.create(context.baseId);
+        const parsedFieldId = FieldId.create(fieldId);
+        if (tableIdResult.isErr() || baseIdResult.isErr() || parsedFieldId.isErr()) continue;
+        field = this.ensureField({
+          fieldId: parsedFieldId.value,
+          tableId: tableIdResult.value,
+          baseId: baseIdResult.value,
+          now,
+        });
+      }
       field.notePersistentFailure({ error, now });
       touchedTables.set(field.tableId().toString(), {
         tableId: field.tableId(),
         baseId: field.baseId(),
       });
     }
-    for (const { tableId, baseId } of touchedTables.values()) {
+    for (const { tableId, baseId } of touchedTables.values())
       this.recomputeTables(baseId, [tableId], now);
-    }
   }
 
   noteRetryScheduled(params: {

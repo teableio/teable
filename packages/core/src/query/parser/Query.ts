@@ -3,7 +3,6 @@
 import { ATN } from 'antlr4ts/atn/ATN';
 import { ATNDeserializer } from 'antlr4ts/atn/ATNDeserializer';
 import { ParserATNSimulator } from 'antlr4ts/atn/ParserATNSimulator';
-import { NotNull, Override } from 'antlr4ts/Decorators';
 import { FailedPredicateException } from 'antlr4ts/FailedPredicateException';
 import * as Utils from 'antlr4ts/misc/Utils';
 import { NoViableAltException } from 'antlr4ts/NoViableAltException';
@@ -13,8 +12,6 @@ import { RecognitionException } from 'antlr4ts/RecognitionException';
 import type { RuleContext } from 'antlr4ts/RuleContext';
 import { Token } from 'antlr4ts/Token';
 import type { TokenStream } from 'antlr4ts/TokenStream';
-import { ParseTreeListener } from 'antlr4ts/tree/ParseTreeListener';
-import { ParseTreeVisitor } from 'antlr4ts/tree/ParseTreeVisitor';
 // import { RuleVersion } from "antlr4ts/RuleVersion";
 import type { TerminalNode } from 'antlr4ts/tree/TerminalNode';
 import type { Vocabulary } from 'antlr4ts/Vocabulary';

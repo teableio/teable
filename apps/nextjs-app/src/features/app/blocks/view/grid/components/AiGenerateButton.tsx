@@ -22,7 +22,7 @@ import React, {
 } from 'react';
 
 interface IAIButtonProps {
-  gridRef: React.RefObject<IGridRef>;
+  gridRef: React.RefObject<IGridRef | null>;
   activeCell?: IActiveCell;
   recordMap: IRecordIndexMap;
   onGenerate?: () => void;

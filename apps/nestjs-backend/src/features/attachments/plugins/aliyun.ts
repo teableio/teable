@@ -12,7 +12,7 @@ import type { IRespHeaders } from './types';
 
 @Injectable()
 export class AliyunStorage extends S3Storage implements StorageAdapter {
-  private aliyunClient: S3Client;
+  private readonly aliyunClient: S3Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     super(config);
@@ -59,9 +59,15 @@ export class AliyunStorage extends S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
-      // See s3.ts: an explicit type override prevents Safari from sniffing and
-      // auto-extracting downloads of objects stored without a Content-Type.
-      ResponseContentType: respHeaders?.['Content-Type'] || undefined,
+      // Unlike S3 (see s3.ts), Aliyun OSS rejects GET requests that carry a
+      // response-content-type override with 400 InvalidRequest
+      // (EC 0017-00000902: "Can not override response header on content-type"),
+      // so the Content-Type response header is intentionally not forwarded here.
+      // The Safari sniffing workaround is not needed on OSS either: a PUT
+      // without Content-Type is stored as application/octet-stream (object
+      // keys carry no extension, so OSS cannot infer anything else), and
+      // browsers save octet-stream downloads as-is instead of sniffing them.
+      // S3 by contrast stores such objects with no Content-Type at all.
       ResponseCacheControl: StorageAdapter.isPublicBucket(bucket)
         ? undefined
         : StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,

@@ -1,4 +1,4 @@
-import http from 'http';
+import http from 'node:http';
 import type { AdaptableWebSocket } from '@an-epiphany/websocket-json-stream';
 import { WebSocketJSONStream } from '@an-epiphany/websocket-json-stream';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -12,7 +12,7 @@ import { createSockjsServerOptions } from './sockjs-options';
 
 @Injectable()
 export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
-  private logger = new Logger(DevWsGateway.name);
+  private readonly logger = new Logger(DevWsGateway.name);
   private sockjsServer: sockjs.Server | null = null;
   private httpServer: http.Server | null = null;
   private readonly activeConnections = new Set<sockjs.Connection>();
@@ -53,7 +53,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private handleConnection = (conn: sockjs.Connection) => {
+  private readonly handleConnection = (conn: sockjs.Connection) => {
     if (!conn) return;
 
     this.activeConnections.add(conn);
@@ -122,7 +122,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     } as unknown as Request;
   }
 
-  private handleServerError = (error: Error) => {
+  private readonly handleServerError = (error: Error) => {
     this.logger.error('HTTP server error', error?.stack);
   };
 

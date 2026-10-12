@@ -132,9 +132,18 @@ describe('TableQueryDecisionPolicy.decideAcceptance', () => {
     expect(large.wouldAutoAccept).toBe(true);
     expect(large.reasonCodes).toContain('large_table_requires_manual');
 
-    const unknown = policy.decideAcceptance(acceptanceInput({ estimatedRows: 0 }))._unsafeUnwrap();
+    const unknown = policy
+      .decideAcceptance(acceptanceInput({ estimatedRows: null }))
+      ._unsafeUnwrap();
     expect(unknown.action).toBe('hold');
+    expect(unknown.wouldAutoAccept).toBe(true);
     expect(unknown.reasonCodes).toContain('table_size_unknown');
+
+    const emptyEstimate = policy
+      .decideAcceptance(acceptanceInput({ estimatedRows: 0 }))
+      ._unsafeUnwrap();
+    expect(emptyEstimate.action).toBe('auto_accept');
+    expect(emptyEstimate.reasonCodes).not.toContain('table_size_unknown');
   });
 
   it('reports would-auto-accept in shadow mode without acting', () => {

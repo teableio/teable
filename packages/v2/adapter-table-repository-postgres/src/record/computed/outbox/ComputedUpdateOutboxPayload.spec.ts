@@ -7,6 +7,7 @@ import {
   deserializeComputedUpdatePlan,
   mergeBeforeImageRecordDtos,
   mergeComputedRealtimeOrchestration,
+  serializeComputedUpdatePlan,
 } from './ComputedUpdateOutboxPayload';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
@@ -68,6 +69,36 @@ const createPlan = (): ComputedUpdatePlan => ({
 });
 
 describe('ComputedUpdateOutboxPayload', () => {
+  it('roundtrips complete merged source provenance without inventing it for old tasks', () => {
+    const plan = createPlan();
+    const edge = {
+      fromFieldId: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+      toFieldId: FieldId.create(THIRD_FIELD_ID)._unsafeUnwrap(),
+      fromTableId: plan.seedTableId,
+      toTableId: TableId.create(EXTRA_TABLE_ID)._unsafeUnwrap(),
+      propagationSourceFieldIds: [FIELD_ID, SECOND_FIELD_ID, FIELD_ID].map((id) =>
+        FieldId.create(id)._unsafeUnwrap()
+      ),
+      order: 0,
+    };
+    const payload = serializeComputedUpdatePlan({ ...plan, edges: [edge] });
+    expect(payload.edges[0].propagationSourceFieldIds).toEqual([FIELD_ID, SECOND_FIELD_ID]);
+    const decoded = deserializeComputedUpdatePlan(payload)._unsafeUnwrap();
+    expect(decoded.edges[0].propagationSourceFieldIds?.map((id) => id.toString())).toEqual([
+      FIELD_ID,
+      SECOND_FIELD_ID,
+    ]);
+
+    delete payload.edges[0].propagationSourceFieldIds;
+    const legacy = deserializeComputedUpdatePlan(payload)._unsafeUnwrap();
+    expect(legacy.edges[0].propagationSourceFieldIds).toBeUndefined();
+    expect(serializeComputedUpdatePlan(legacy).edges[0].propagationSourceFieldIds).toBeUndefined();
+    payload.edges[0].propagationSourceFieldIds = ['invalid'];
+    expect(deserializeComputedUpdatePlan(payload).isErr()).toBe(true);
+    payload.edges[0].propagationSourceFieldIds = [SECOND_FIELD_ID];
+    expect(deserializeComputedUpdatePlan(payload).isErr()).toBe(true);
+  });
+
   it('uses step outputs without refeeding edge targets when steps exist', () => {
     const plan = {
       ...createPlan(),

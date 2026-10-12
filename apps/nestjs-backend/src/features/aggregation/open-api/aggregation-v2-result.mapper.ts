@@ -10,8 +10,11 @@ import { ListFieldsQuery } from '@teable/v2-core';
 import type {
   AggregateTableRecordsResult,
   AttachmentValueDecoratorService,
+  Field,
+  FieldId,
   IQueryBus,
   ListFieldsResult,
+  ITableReadModel,
 } from '@teable/v2-core';
 import { convertValueToStringify, string2Hash } from '../../../utils';
 import {
@@ -43,25 +46,35 @@ export async function normalizeLegacyFilterViaQueryBus(
   rawFilter: unknown,
   actorId: string,
   queryBus: IQueryBus,
-  context: IV2QueryExecutionContext
+  context: IV2QueryExecutionContext,
+  table?: ITableReadModel
 ) {
   if (rawFilter == null) return rawFilter;
 
-  const queryResult = ListFieldsQuery.create({ tableId });
-  if (queryResult.isErr()) {
-    throwV2QueryDomainError(queryResult.error);
-  }
-  const fieldsResult = await queryBus.execute<ListFieldsQuery, ListFieldsResult>(
-    context,
-    queryResult.value
-  );
-  if (fieldsResult.isErr()) {
-    throwV2QueryDomainError(fieldsResult.error);
+  let fields: ReadonlyArray<Field>;
+  let primaryFieldId: FieldId;
+  if (table) {
+    fields = table.getFields();
+    primaryFieldId = table.primaryFieldId();
+  } else {
+    const queryResult = ListFieldsQuery.create({ tableId });
+    if (queryResult.isErr()) {
+      throwV2QueryDomainError(queryResult.error);
+    }
+    const fieldsResult = await queryBus.execute<ListFieldsQuery, ListFieldsResult>(
+      context,
+      queryResult.value
+    );
+    if (fieldsResult.isErr()) {
+      throwV2QueryDomainError(fieldsResult.error);
+    }
+    fields = fieldsResult.value.fields;
+    primaryFieldId = fieldsResult.value.primaryFieldId;
   }
 
   const fieldMetaById = new Map<string, IRecordFilterFieldMeta>();
-  for (const field of fieldsResult.value.fields) {
-    const fieldDto = mapFieldToDto(field, fieldsResult.value.primaryFieldId);
+  for (const field of fields) {
+    const fieldDto = mapFieldToDto(field, primaryFieldId);
     if (fieldDto.isErr()) {
       throwV2QueryDomainError(fieldDto.error);
     }
@@ -80,10 +93,8 @@ export async function normalizeLegacyFilterViaQueryBus(
 }
 
 /** Map an AggregateTableRecordsResult to the legacy IAggregationVo shape. */
-export function mapAggregationResult(
-  result: AggregateTableRecordsResult,
-  groupBy: ReadonlyArray<{ fieldId: string }> | undefined
-): IAggregationVo {
+export function mapAggregationResult(result: AggregateTableRecordsResult): IAggregationVo {
+  const groupBy = result.groupBy;
   const aggregations: NonNullable<IAggregationVo['aggregations']> = result.values
     .filter((value) => value.groupValues === undefined)
     .map((value) => ({
@@ -99,10 +110,10 @@ export function mapAggregationResult(
 
   for (const value of result.values) {
     if (!value.groupValues?.length) continue;
-    const currentGroup = groupBy?.[value.groupValues.length - 1];
+    const currentGroup = groupBy[value.groupValues.length - 1];
     if (!currentGroup) continue;
     const groupValue = value.groupValues.map(convertValueToStringify).join('_');
-    const groupId = String(string2Hash(`${currentGroup.fieldId}_${groupValue}`));
+    const groupId = String(string2Hash(`${currentGroup.fieldId.toString()}_${groupValue}`));
     const aggregation = aggregationByKey.get(`${value.fieldId.toString()}:${value.statisticFunc}`);
     if (!aggregation) continue;
     aggregation.group ??= {};

@@ -1,3 +1,4 @@
+import { sqlText, type FormulaCompileBudget } from '../FormulaCompileBudget';
 import type { IPgTypeValidationStrategy, PgValidationType } from '../PgTypeValidationStrategy';
 
 /**
@@ -14,8 +15,12 @@ import type { IPgTypeValidationStrategy, PgValidationType } from '../PgTypeValid
  * All types use the polyfill to ensure semantic equivalence with `pg_input_is_valid`.
  */
 export class PgLegacyTypeValidationStrategy implements IPgTypeValidationStrategy {
-  isValidForType(valueSql: string, typeName: PgValidationType): string {
+  isValidForType(
+    valueSql: string,
+    typeName: PgValidationType,
+    budget?: FormulaCompileBudget
+  ): string {
     // All types use the polyfill function to guarantee semantic equivalence
-    return `public.teable_try_cast_valid(${valueSql}, '${typeName}')`;
+    return (budget?.sql ?? sqlText)`public.teable_try_cast_valid(${valueSql}, '${typeName}')`;
   }
 }

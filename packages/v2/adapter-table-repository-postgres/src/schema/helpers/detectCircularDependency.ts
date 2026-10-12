@@ -1,4 +1,4 @@
-import { domainError, type DomainError, type FieldId } from '@teable/v2-core';
+import { domainError, type DomainError } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 

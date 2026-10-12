@@ -129,6 +129,11 @@ interface IBaseNodeMoreProps {
   contentAlign?: 'start' | 'end';
 
   onRename?: () => void;
+  /**
+   * Opens the node's description. The table page passes it where its title block — the
+   * description's usual home — is hidden (the native mobile app), so the menu is the way in.
+   */
+  onDescription?: () => void;
   onDelete?: (permanent: boolean) => Promise<void>;
   onDuplicate?: (ro?: IDuplicateBaseNodeRo) => Promise<void>;
 
@@ -482,6 +487,28 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
+export const RoutineOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useBasePermission();
+  const canRename = Boolean(permission?.['routine|update']);
+  const canDelete = Boolean(permission?.['routine|delete']);
+  const canPermanentDelete = false;
+  const canDuplicate = Boolean(permission?.['routine|create']);
+  const canShare = Boolean(permission?.['base|update']);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.routine')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+      canShare={canShare}
+    />
+  );
+};
+
 export const AppOperation = (props: IBaseNodeMoreProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permission = useBasePermission();
@@ -539,6 +566,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     open,
     setOpen,
     onRename,
+    onDescription,
     children,
     onDelete,
     onDuplicate,
@@ -816,7 +844,7 @@ export const TableOperation = (props: ITableOperationProps) => {
       )}
 
       {apiDialogOpen && (
-        <APIDialog open={apiDialogOpen} setOpen={setApiDialogOpen}>
+        <APIDialog tableId={resourceId} open={apiDialogOpen} setOpen={setApiDialogOpen}>
           <span className="hidden text-sm">API</span>
         </APIDialog>
       )}
@@ -842,6 +870,20 @@ export const TableOperation = (props: ITableOperationProps) => {
   if (variant === 'list') {
     return (
       <>
+        {onDescription && (
+          <ListMenuItem
+            icon={<Info className="size-4" />}
+            label={t('common:resourceDescription.nodeDescription')}
+            onClick={() => onDescription()}
+          />
+        )}
+        {menuPermission.updateTable && (
+          <ListMenuItem
+            icon={<Pen className="size-4" />}
+            label={t('table:table.rename')}
+            onClick={() => onRename?.()}
+          />
+        )}
         {menuPermission.duplicateTable && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -969,6 +1011,12 @@ export const TableOperation = (props: ITableOperationProps) => {
           onClick={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
+          {onDescription && (
+            <DropdownMenuItem onClick={() => onDescription()}>
+              <Info className="me-2 size-4" />
+              {t('common:resourceDescription.nodeDescription')}
+            </DropdownMenuItem>
+          )}
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
               <Pen className="me-2 size-4" />
@@ -1172,6 +1220,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -1300,6 +1350,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
             queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
           });
           break;
+        case BaseNodeResourceType.Routine:
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.routineItem(baseId, resourceId),
+          });
+          break;
         case BaseNodeResourceType.App:
           queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
@@ -1346,6 +1401,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
     case BaseNodeResourceType.Workflow:
       return <WorkflowOperation {...mergedProps}>{children}</WorkflowOperation>;
+    case BaseNodeResourceType.Routine:
+      return <RoutineOperation {...mergedProps}>{children}</RoutineOperation>;
     case BaseNodeResourceType.App:
       return <AppOperation {...mergedProps}>{children}</AppOperation>;
     case BaseNodeResourceType.Folder:

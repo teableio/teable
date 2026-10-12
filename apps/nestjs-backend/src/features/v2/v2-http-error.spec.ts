@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { mapDomainErrorToHttpError } from '@teable/v2-contract-http';
-import { domainError } from '@teable/v2-core';
+import { domainError, tableProvisionPendingError } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
 import { throwV2Error } from './v2-http-error';
@@ -80,5 +80,34 @@ describe('throwV2Error', () => {
     expect(caught).toBeInstanceOf(CustomHttpException);
     expect(caught?.stack).toBe(domain.stack);
     expect(caught?.stack).toEqual(expect.stringContaining('v2-http-error.spec.ts'));
+  });
+});
+
+describe('provisioning HTTP contract', () => {
+  it.each([400, 404, 500, 503])('preserves pending as 503 despite caller status %s', (status) => {
+    try {
+      throwV2Error(tableProvisionPendingError(), status);
+    } catch (error) {
+      expect(error).toBeInstanceOf(CustomHttpException);
+      const exception = error as CustomHttpException;
+      expect(exception.getStatus()).toBe(503);
+      expect(exception.data?.domainCode).toBe('table.provision_pending');
+      expect(exception.message).not.toContain('Table not found');
+      return;
+    }
+    expect.fail('Expected pending to throw');
+  });
+
+  it('preserves genuine not found', () => {
+    try {
+      throwV2Error(
+        domainError.notFound({ code: 'table.not_found', message: 'Missing table' }),
+        404
+      );
+    } catch (error) {
+      expect((error as CustomHttpException).getStatus()).toBe(404);
+      return;
+    }
+    expect.fail('Expected missing table to throw');
   });
 });

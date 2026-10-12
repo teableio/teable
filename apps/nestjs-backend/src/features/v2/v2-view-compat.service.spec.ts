@@ -15,11 +15,18 @@ vi.mock('@teable/v2-adapter-db-postgres-pg', () => ({
   v2MetaDbTokens: mockV2Tokens.v2MetaDbTokens,
 }));
 
-vi.mock('@teable/v2-core', () => ({
-  v2CoreTokens: mockV2Tokens.v2CoreTokens,
-  ViewOperationKind: {
-    update: 'update',
-  },
+vi.mock('@teable/v2-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@teable/v2-core')>();
+  return {
+    ...actual,
+    v2CoreTokens: mockV2Tokens.v2CoreTokens,
+  };
+});
+
+// The raw-op sink is already supplied by createBatchService below. Isolate its
+// module too, so this unit test does not initialize unrelated calculation adapters.
+vi.mock('../calculation/batch.service', () => ({
+  BatchService: class BatchService {},
 }));
 
 vi.mock('./v2-container.service', () => ({

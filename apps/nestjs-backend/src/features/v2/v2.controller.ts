@@ -49,6 +49,8 @@ export class V2Controller {
   ) {}
 
   @Implement(v2Contract.tables.create)
+  @Permissions('table|create')
+  @ResourceMeta('baseId', 'body')
   createTable() {
     return implement(v2Contract.tables.create).handler(async ({ input }) => {
       const container = await this.v2Container.getContainerForBase(input.baseId);
@@ -64,6 +66,8 @@ export class V2Controller {
   }
 
   @Implement(v2Contract.tables.getById)
+  @Permissions('table|read')
+  @ResourceMeta('tableId', 'query')
   getTableById() {
     return implement(v2Contract.tables.getById).handler(async ({ input }) => {
       const container = await this.v2Container.getContainerForTable(input.tableId);
@@ -102,6 +106,8 @@ export class V2Controller {
   }
 
   @Implement(v2Contract.tables.deleteRecords)
+  @Permissions('record|delete')
+  @ResourceMeta('tableId', 'body')
   deleteRecords() {
     return implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
       const container = await this.v2Container.getContainerForTable(input.tableId);
@@ -117,6 +123,8 @@ export class V2Controller {
   }
 
   @Implement(v2Contract.tables.updateRecords)
+  @Permissions('record|update')
+  @ResourceMeta('tableId', 'body')
   updateRecords() {
     return implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
       const container = await this.v2Container.getContainerForTable(input.tableId);

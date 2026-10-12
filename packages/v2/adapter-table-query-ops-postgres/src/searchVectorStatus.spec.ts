@@ -1,4 +1,4 @@
-import type { IRecordSearchAccessPath } from '@teable/v2-core';
+import { type IRecordSearchAccessPath } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
 import { toRecordSearchAccessPathFromConfig } from './searchVectorStatus';
@@ -50,6 +50,23 @@ describe('toRecordSearchAccessPathFromConfig', () => {
     expect(coveredFieldIdStrings(accessPath)).toEqual([fieldId]);
   });
 
+  it.each(['stale', 'rebuild_pending'])(
+    'retains the configured substring contract while %s',
+    (status) => {
+      const fieldId = `fld${'c'.repeat(16)}`;
+      const accessPath = toRecordSearchAccessPathFromConfig({
+        generatedColumnName: '__tqops_search_document',
+        semantics: 'substring',
+        accessPath: 'generated_text',
+        provider: 'pg_trgm',
+        fieldIds: [fieldId],
+        searchScope: 'all_fields',
+        status,
+      });
+      expect(coveredFieldIdStrings(accessPath)).toEqual([fieldId]);
+    }
+  );
+
   it('does not create an access path when covered fields are missing or invalid', () => {
     expect(
       toRecordSearchAccessPathFromConfig({
@@ -62,7 +79,7 @@ describe('toRecordSearchAccessPathFromConfig', () => {
     ).toBeUndefined();
   });
 
-  it('does not reactivate an older ready path when the latest config is pending', () => {
+  it('does not convert a pending config into a usable access path', () => {
     expect(
       toRecordSearchAccessPathFromConfig({
         generatedColumnName: '__tqops_search_vector',

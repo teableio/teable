@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -7,8 +7,12 @@ import type {
   TableRecordAggregationFieldInput,
   TableRecordAggregationGroupInput,
 } from '../domain/table/records/TableRecordAggregation';
+import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import type { RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
+import type { IRecordSearchAccessPath } from '../ports/TableRecordQueryRepository';
+import { countTableRecordsInputSchema } from './CountTableRecordsQuery';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
@@ -25,7 +29,7 @@ const aggregationGroupSchema = z.object({
 export const aggregateTableRecordsInputSchema = z
   .object({
     tableId: z.string(),
-    viewId: z.string(),
+    viewId: z.string().min(1).optional(),
     filter: recordFilterSchema.optional(),
     search: recordSearchInputSchema,
     fields: z.array(aggregationFieldSchema).optional(),
@@ -36,8 +40,19 @@ export const aggregateTableRecordsInputSchema = z
     ignoreViewQuery: z.boolean().optional(),
     collapsedGroupIds: z.array(z.string().min(1)).optional(),
     includeHiddenFields: z.boolean().optional(),
+    filterLinkCellSelected: countTableRecordsInputSchema.shape.filterLinkCellSelected,
+    filterLinkCellCandidate: countTableRecordsInputSchema.shape.filterLinkCellCandidate,
+    selectedRecordIds: countTableRecordsInputSchema.shape.selectedRecordIds,
   })
   .superRefine((value, ctx) => {
+    if (value.filterLinkCellSelected && value.filterLinkCellCandidate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
+        path: ['filterLinkCellSelected'],
+      });
+    }
     if (value.skip != null && value.take == null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -50,12 +65,15 @@ export const aggregateTableRecordsInputSchema = z
 export type IAggregateTableRecordsQueryInput = z.input<typeof aggregateTableRecordsInputSchema>;
 
 export type IAggregateTableRecordsQueryOptions = {
+  readonly queryScope?: RecordQueryPluginScope;
   readonly maxGroupPoints?: number;
+  readonly recordSearchAccessPath?: IRecordSearchAccessPath;
+  readonly table?: Table;
 };
 export class AggregateTableRecordsQuery {
   private constructor(
     readonly tableId: TableId,
-    readonly viewId: ViewId,
+    readonly viewId: ViewId | undefined,
     readonly filter: RecordFilter | undefined,
     readonly search: RecordSearchInput | undefined,
     readonly fields: ReadonlyArray<TableRecordAggregationFieldInput> | undefined,
@@ -66,7 +84,13 @@ export class AggregateTableRecordsQuery {
     readonly ignoreViewQuery: boolean,
     readonly collapsedGroupIds: ReadonlyArray<string> | undefined,
     readonly includeHiddenFields: boolean,
-    readonly maxGroupPoints: number
+    readonly maxGroupPoints: number,
+    readonly recordSearchAccessPath?: IRecordSearchAccessPath,
+    readonly table?: Table,
+    readonly queryScope?: RecordQueryPluginScope,
+    readonly filterLinkCellSelected?: string | [string, string],
+    readonly filterLinkCellCandidate?: string | [string, string],
+    readonly selectedRecordIds?: ReadonlyArray<string>
   ) {}
 
   static create(
@@ -84,7 +108,7 @@ export class AggregateTableRecordsQuery {
     }
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
-      ViewId.create(parsed.data.viewId).map(
+      (parsed.data.viewId ? ViewId.create(parsed.data.viewId) : ok(undefined)).map(
         (viewId) =>
           new AggregateTableRecordsQuery(
             tableId,
@@ -99,7 +123,13 @@ export class AggregateTableRecordsQuery {
             parsed.data.ignoreViewQuery === true,
             parsed.data.collapsedGroupIds,
             parsed.data.includeHiddenFields ?? false,
-            Math.max(1, Math.floor(options?.maxGroupPoints ?? 5_000))
+            Math.max(1, Math.floor(options?.maxGroupPoints ?? 5_000)),
+            options?.recordSearchAccessPath,
+            options?.table,
+            options?.queryScope,
+            parsed.data.filterLinkCellSelected,
+            parsed.data.filterLinkCellCandidate,
+            parsed.data.selectedRecordIds
           )
       )
     );

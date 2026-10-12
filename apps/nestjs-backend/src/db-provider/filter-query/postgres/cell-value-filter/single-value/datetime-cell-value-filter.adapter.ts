@@ -190,7 +190,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   }
 
   private wrapWithTimeZone(expr: string, formatting?: IDatetimeFormatting): string {
-    const tz = (formatting?.timeZone || 'UTC').replace(/'/g, "''");
+    const tz = (formatting?.timeZone || 'UTC').replaceAll("'", "''");
     return `(${expr}) AT TIME ZONE '${tz}'`;
   }
 

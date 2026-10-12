@@ -8,7 +8,7 @@ import type { AbstractSortFunction } from './function/sort-function.abstract';
 import type { ISortQueryInterface } from './sort-query.interface';
 
 export abstract class AbstractSortQuery implements ISortQueryInterface {
-  private logger = new Logger(AbstractSortQuery.name);
+  private readonly logger = new Logger(AbstractSortQuery.name);
 
   constructor(
     protected readonly knex: Knex,
@@ -34,7 +34,7 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
     }
     const sortClauses = sortObjs
       .map(({ fieldId, order }) => {
-        const field = this.fields && this.fields[fieldId];
+        const field = this.fields?.[fieldId];
         if (!field) {
           return undefined;
         }
@@ -51,12 +51,12 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
   }
 
   private parseSorts(queryBuilder: Knex.QueryBuilder, sortObjs?: ISortItem[]): Knex.QueryBuilder {
-    if (!sortObjs || !sortObjs.length) {
+    if (!sortObjs?.length) {
       return queryBuilder;
     }
 
     sortObjs.forEach(({ fieldId, order }) => {
-      const field = this.fields && this.fields[fieldId];
+      const field = this.fields?.[fieldId];
       if (!field) {
         return queryBuilder;
       }

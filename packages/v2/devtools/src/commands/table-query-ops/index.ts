@@ -6,6 +6,7 @@ export { tableQueryOpsAnalyzeObservation } from './analyze-observation';
 export { tableQueryOpsExecuteRecommendations } from './execute-recommendations';
 export { tableQueryOpsExecuteSearchVector } from './execute-search-vector';
 export { tableQueryOpsExecuteSearchAccessPath } from './execute-search-access-path';
+export { tableQueryOpsRefreshSearchAccessPath } from './refresh-search-access-path';
 export { tableQueryOpsExplainSavedViews } from './explain-saved-views';
 export { tableQueryOpsExplainSearchVectors } from './explain-search-vectors';
 export { tableQueryOpsExplainSearchAccessPaths } from './explain-search-access-paths';

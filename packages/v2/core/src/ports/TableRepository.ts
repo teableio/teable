@@ -32,6 +32,8 @@ export type TableFindOneOptions = Pick<TableFindOptions, 'state'> & {
    * aggregate root row before hydrating its current child collection.
    */
   lock?: TableLockMode;
+  /** Zero probes once without waiting; omitted uses the repository default. */
+  provisionWaitMs?: number;
 };
 
 export type FieldVersionChange = {
@@ -72,6 +74,12 @@ export type TableDeleteOptions = {
 };
 
 export interface ITableRepository {
+  /** Readiness only: never hydrate fields/views. Optional for non-persistent adapters. */
+  waitForReady?(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOneOptions, 'provisionWaitMs'>
+  ): Promise<Result<void, DomainError>>;
   insert(context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>>;
   insertMany(
     context: IExecutionContext,

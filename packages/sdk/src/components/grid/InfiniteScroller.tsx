@@ -1,5 +1,11 @@
 import { cn } from '@teable/ui-lib';
-import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
+import type {
+  ForwardRefRenderFunction,
+  MutableRefObject,
+  ReactNode,
+  RefObject,
+  UIEvent,
+} from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -11,6 +17,7 @@ import type { ILinearRow, IScrollState } from './interface';
 import type { CoordinateManager } from './managers';
 import type { ITimeoutID } from './utils';
 import { getWheelDelta } from './utils';
+import { getThumbDragRatio } from './utils/scrollbar';
 import { cancelTimeout, requestTimeout } from './utils/utils';
 
 export interface ScrollerProps
@@ -28,6 +35,7 @@ export interface ScrollerProps
   scrollWidth: number;
   scrollHeight: number;
   containerRef: MutableRefObject<HTMLDivElement | null>;
+  rootRef: RefObject<HTMLDivElement | null>;
   left?: number;
   top?: number;
   scrollEnable?: boolean;
@@ -41,6 +49,42 @@ export interface ScrollerRef {
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
+// The vertical bar's `scrollbar-min-thumb` floor; the horizontal bar has none
+const VERTICAL_MIN_THUMB = 32;
+
+interface IThumbDrag {
+  el: HTMLDivElement;
+  pos: 'clientX' | 'clientY';
+  scroll: 'scrollLeft' | 'scrollTop';
+  start: number;
+  origin: number;
+  ratio: number;
+}
+
+const grabThumb = (
+  el: HTMLDivElement | null,
+  vertical: boolean,
+  touch: Touch
+): IThumbDrag | null => {
+  if (!el) return null;
+  // Overlay scrollbars (iOS) take no room and have no thumb to grab
+  const thickness = vertical ? el.offsetWidth - el.clientWidth : el.offsetHeight - el.clientHeight;
+  if (thickness <= 0) return null;
+  const rect = el.getBoundingClientRect();
+  const pos = vertical ? 'clientY' : 'clientX';
+  const scroll = vertical ? 'scrollTop' : 'scrollLeft';
+  const metrics = vertical
+    ? { track: el.clientHeight, content: el.scrollHeight, minThumb: VERTICAL_MIN_THUMB }
+    : { track: el.clientWidth, content: el.scrollWidth, minThumb: 0 };
+  const origin = el[scroll];
+  const ratio = getThumbDragRatio(
+    { ...metrics, offset: origin, thickness },
+    touch[pos] - (vertical ? rect.top : rect.left),
+    vertical ? rect.right - touch.clientX : rect.bottom - touch.clientY
+  );
+  return ratio == null ? null : { el, pos, scroll, start: touch[pos], origin, ratio };
+};
+
 const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps> = (props, ref) => {
   const {
     coordInstance,
@@ -51,6 +95,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     left = 0,
     top = 0,
     containerRef,
+    rootRef,
     smoothScrollX,
     smoothScrollY,
     scrollBarVisible,
@@ -93,6 +138,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   const resetScrollingTimeoutID = useRef<ITimeoutID | null>(null);
   const offsetY = useRef(0);
   const lastScrollTop = useRef(0);
+  const thumbDrag = useRef<IThumbDrag | null>(null);
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onScroll = (e: UIEvent<HTMLDivElement>, direction: 'horizontal' | 'vertical') => {
@@ -227,17 +273,62 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     }
   }, []);
 
-  const onTouchEnd = useCallback((e: TouchEvent) => {
-    if (scrollerRef.current) {
-      if (horizontalScrollRef.current && verticalScrollRef.current) {
-        scrollerRef.current?.scrollTo(
-          horizontalScrollRef.current.scrollLeft,
-          verticalScrollRef.current.scrollTop
-        );
-      }
-      scrollerRef.current.doTouchEnd(e.timeStamp);
+  const syncScroller = useCallback(() => {
+    if (horizontalScrollRef.current && verticalScrollRef.current) {
+      scrollerRef.current?.scrollTo(
+        horizontalScrollRef.current.scrollLeft,
+        verticalScrollRef.current.scrollTop
+      );
     }
   }, []);
+
+  const onTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      if (scrollerRef.current) {
+        syncScroller();
+        scrollerRef.current.doTouchEnd(e.timeStamp);
+      }
+    },
+    [syncScroller]
+  );
+
+  // A finger rarely lands on a 10px scrollbar: on touch, a touch near a thumb drags it, ahead of
+  // the canvas's own panning; anywhere else the grid's touch handling is untouched.
+  const onThumbTouchStart = useCallback(
+    (e: TouchEvent) => {
+      if (!scrollBarVisible || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const drag =
+        grabThumb(verticalScrollRef.current, true, touch) ??
+        grabThumb(horizontalScrollRef.current, false, touch);
+      if (!drag) return;
+      thumbDrag.current = drag;
+      // Halts a fling still gliding: the canvas never sees this touch to stop it
+      syncScroller();
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [scrollBarVisible, syncScroller]
+  );
+
+  const onThumbTouchMove = useCallback((e: TouchEvent) => {
+    const drag = thumbDrag.current;
+    if (!drag) return;
+    e.preventDefault();
+    e.stopPropagation();
+    drag.el[drag.scroll] = drag.origin + (e.touches[0][drag.pos] - drag.start) * drag.ratio;
+  }, []);
+
+  // The canvas's own panning starts from where the thumb left the grid, not from before the drag
+  const onThumbTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      if (!thumbDrag.current) return;
+      thumbDrag.current = null;
+      e.stopPropagation();
+      syncScroller();
+    },
+    [syncScroller]
+  );
 
   useEffect(() => {
     if (!isTouchDevice) return;
@@ -275,6 +366,12 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   useEventListener('touchstart', onTouchStart, containerRef.current, false);
   useEventListener('touchmove', onTouchMove, containerRef.current, false);
   useEventListener('touchend', onTouchEnd, containerRef.current, false);
+
+  const gridRoot = isTouchDevice ? rootRef.current : null;
+  useEventListener('touchstart', onThumbTouchStart, gridRoot, false, true);
+  useEventListener('touchmove', onThumbTouchMove, gridRoot, false, true);
+  useEventListener('touchend', onThumbTouchEnd, gridRoot, false, true);
+  useEventListener('touchcancel', onThumbTouchEnd, gridRoot, false, true);
 
   return (
     <>

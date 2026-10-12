@@ -45,12 +45,14 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler
           FROM table_query_search_vector_config
           WHERE table_id = ${tableId}
             AND status IN ('ready', 'stale', 'rebuild_pending')
-          ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+          ORDER BY last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST, id DESC
           LIMIT 1
         `.execute(trx);
         const activeConfig = config.rows[0];
         if (!activeConfig) return undefined;
 
+        // Pending is lifecycle state, not proof that a document is unusable.
+        // Runtime verifies the physical path and retains compatible coverage.
         await sql`
           UPDATE table_query_search_vector_config
           SET status = 'rebuild_pending',
@@ -59,7 +61,8 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler
                 'reason', ${input.reason}::text
               ),
               last_modified_time = now()
-          WHERE id = ${activeConfig.id}
+          WHERE table_id = ${tableId}
+            AND (status IN ('ready', 'rebuild_pending') OR id = ${activeConfig.id})
         `.execute(trx);
 
         const queued = await sql<QueuedTaskRow>`

@@ -1,6 +1,6 @@
 export type DebugJsonField = {
   raw: string | null;
-  parsed: unknown | null;
+  parsed: unknown;
   parseError: string | null;
 };
 

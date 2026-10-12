@@ -77,6 +77,9 @@ export const thresholdConfig = registerAs('threshold', () => ({
     httpRequestTimeout: Number(process.env.AUTOMATION_HTTP_REQUEST_TIMEOUT ?? 300_000), // 5 mins
     watchdogDisabled: process.env.AUTOMATION_WATCHDOG_DISABLED === 'true',
   },
+  routine: {
+    watchdogDisabled: process.env.ROUTINE_WATCHDOG_DISABLED === 'true',
+  },
   // per-space scheduling limits: each value is both the default and the ceiling
   // for space-configured overrides, clamped to the resource's worker pool
   spaceScheduling: {
@@ -84,6 +87,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
       process.env.SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT ?? 10
     ),
     workflowRunDefaultLimit: Number(process.env.SPACE_WORKFLOW_RUN_DEFAULT_LIMIT ?? 10),
+    routineRunDefaultLimit: Number(process.env.SPACE_ROUTINE_RUN_DEFAULT_LIMIT ?? 10),
   },
 }));
 

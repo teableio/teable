@@ -129,7 +129,7 @@ export interface InsertManyStreamOptions {
   /**
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
-  orchestration?: IBatchMutationOrchestration | undefined;
+  orchestration?: IBatchMutationOrchestration;
 
   /**
    * Callback invoked after the corresponding yielded batch is persisted.
@@ -138,11 +138,9 @@ export interface InsertManyStreamOptions {
    */
   onBatchInserted?: (progress: InsertManyStreamProgress) => void;
   /**
-   * When true, computed field updates are deferred to a background worker
-   * instead of being processed inline after each batch.
-   * This significantly improves performance for bulk imports by:
-   * 1. Avoiding N computed update cycles (one per batch)
-   * 2. Allowing computed updates to run after the HTTP response is sent
+   * When true, computed field updates run after the data transaction commits
+   * rather than inline after each inserted batch. Implementations stage only
+   * bounded seed batches, not the complete imported record objects.
    *
    * Default: false (computed updates run inline after each batch)
    */
@@ -208,6 +206,8 @@ export interface UpdateManyResult {
     oldVersion: number;
     newVersion: number;
     oldFieldValues: Readonly<Record<string, unknown>>;
+    /** Persisted values normalized by storage, such as SQL-filled link titles. */
+    changedFields?: ReadonlyMap<string, unknown>;
   }>;
 }
 
@@ -230,7 +230,7 @@ export interface UpdateManyStreamOptions {
   /**
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
-  orchestration?: IBatchMutationOrchestration | undefined;
+  orchestration?: IBatchMutationOrchestration;
 
   /** Callback invoked after each batch is updated */
   onBatchUpdated?: (progress: UpdateManyStreamProgress) => void;
@@ -283,6 +283,8 @@ export interface UpdateManyStreamResult {
     oldVersion: number;
     newVersion: number;
     oldFieldValues: Readonly<Record<string, unknown>>;
+    /** Persisted values normalized by storage, such as SQL-filled link titles. */
+    changedFields?: ReadonlyMap<string, unknown>;
   }>;
 }
 
@@ -356,7 +358,7 @@ export interface InsertOptions {
   /**
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
-  orchestration?: IBatchMutationOrchestration | undefined;
+  orchestration?: IBatchMutationOrchestration;
 
   /**
    * Optional ordering specification for the inserted record(s).
@@ -419,7 +421,7 @@ export interface UpdateOptions {
   /**
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
-  orchestration?: IBatchMutationOrchestration | undefined;
+  orchestration?: IBatchMutationOrchestration;
 
   /**
    * When true, computed field updates are deferred to a background worker

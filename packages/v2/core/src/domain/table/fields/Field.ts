@@ -12,6 +12,7 @@ import { DbFieldType } from './DbFieldType';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
+import { FieldVersion } from './FieldVersion';
 import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
 import { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import { FieldComputed } from './types/FieldComputed';
@@ -38,7 +39,7 @@ export abstract class Field extends Entity<FieldId> {
     dependencies: ReadonlyArray<FieldId> = [],
     computed?: FieldComputed,
     description: string | null = null,
-    aiConfig?: unknown | null
+    aiConfig?: unknown
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
@@ -58,10 +59,12 @@ export abstract class Field extends Entity<FieldId> {
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
   private descriptionValue: string | null;
-  private aiConfigValue: unknown | null | undefined;
+  private aiConfigValue: unknown;
   private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
+  private versionValue: FieldVersion | undefined;
+  private provisionPendingValue = false;
 
   static specs(): FieldSpecBuilder {
     return FieldSpecBuilder.create();
@@ -83,11 +86,35 @@ export abstract class Field extends Entity<FieldId> {
     return this.descriptionValue;
   }
 
-  aiConfig(): unknown | null | undefined {
+  version(): Result<FieldVersion, DomainError> {
+    if (!this.versionValue) {
+      return err(domainError.invariant({ message: 'FieldVersion not set' }));
+    }
+    return ok(this.versionValue);
+  }
+
+  setVersion(version: FieldVersion): Result<void, DomainError> {
+    if (this.versionValue) {
+      if (this.versionValue.equals(version)) return ok(undefined);
+      return err(domainError.invariant({ message: 'FieldVersion already set' }));
+    }
+    this.versionValue = version;
+    return ok(undefined);
+  }
+
+  isProvisionPending(): boolean {
+    return this.provisionPendingValue;
+  }
+
+  setProvisionPending(pending: boolean): void {
+    this.provisionPendingValue = pending;
+  }
+
+  aiConfig(): unknown {
     return this.aiConfigValue;
   }
 
-  setAiConfig(aiConfig: unknown | null | undefined): Result<void, DomainError> {
+  setAiConfig(aiConfig: unknown): Result<void, DomainError> {
     this.aiConfigValue = aiConfig;
     return ok(undefined);
   }

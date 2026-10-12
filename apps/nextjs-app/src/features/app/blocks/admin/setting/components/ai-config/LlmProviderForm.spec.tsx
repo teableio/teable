@@ -169,46 +169,9 @@ describe('LLMProviderForm', () => {
       expect(vi.mocked(getAiProxyGatewayModels)).not.toHaveBeenCalled();
     });
 
-    it('shows pricing on every edition and submits an edited context window cap', async () => {
-      const onChange = vi.fn();
-      render(<LLMProviderForm value={provider} onChange={onChange} onTest={vi.fn()} />);
-
-      await expandModelSettings();
-      // The context-window cap renders from saved config, not the gateway fetch.
-      await openModelEditor();
-      await userEvent.type(screen.getByPlaceholderText('128000'), '200000');
-      await closeModelEditor();
-      await userEvent.click(screen.getByRole('button', { name: 'actions.update' }));
-
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          modelConfigs: expect.objectContaining({
-            'gpt-4o': expect.objectContaining({ contextWindow: 200000 }),
-          }),
-        })
-      );
-    });
-
-    it('enables update after editing only a cap, without a connectivity retest', async () => {
-      render(<LLMProviderForm value={provider} onChange={vi.fn()} onTest={vi.fn()} />);
-
-      await expandModelSettings();
-      expect(screen.queryByRole('button', { name: 'actions.update' })).not.toBeInTheDocument();
-
-      await openModelEditor();
-      await userEvent.type(screen.getByPlaceholderText('8192'), '4096');
-      await closeModelEditor();
-
-      expect(
-        screen.getByRole('button', { name: 'admin.setting.ai.testConnection' })
-      ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'actions.update' })).toBeInTheDocument();
-    });
-
-    it('hides pricing but keeps caps editable in space settings', async () => {
-      const onChange = vi.fn();
+    it('hides pricing in space settings but keeps the reference picker', async () => {
       render(
-        <LLMProviderForm value={provider} onChange={onChange} onTest={vi.fn()} hideModelRates />
+        <LLMProviderForm value={provider} onChange={vi.fn()} onTest={vi.fn()} hideModelRates />
       );
 
       await userEvent.click(
@@ -219,20 +182,9 @@ describe('LLMProviderForm', () => {
       const editorDialog = await screen.findByRole('dialog');
       expect(within(editorDialog).getByRole('combobox')).toBeInTheDocument();
       expect(screen.queryByText('admin.setting.ai.gatewayRatio')).not.toBeInTheDocument();
-      await userEvent.type(screen.getByPlaceholderText('8192'), '4096');
-      await closeModelEditor();
-      await userEvent.click(screen.getByRole('button', { name: 'actions.update' }));
-
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          modelConfigs: expect.objectContaining({
-            'gpt-4o': expect.objectContaining({ maxTokens: 4096 }),
-          }),
-        })
-      );
     });
 
-    it('keeps the reference picker and caps editable for an auto-matched model', async () => {
+    it('keeps the reference picker editable for an auto-matched model', async () => {
       mockGatewayModels([
         {
           id: 'openai/gpt-4o',
@@ -250,15 +202,13 @@ describe('LLMProviderForm', () => {
 
       const editorDialog = await screen.findByRole('dialog');
       const pickerTrigger = within(editorDialog).getByRole('combobox');
-      // The auto-match is only a default: the reference and caps stay editable
-      // so admins can override them.
+      // The auto-match is only a default: the reference stays editable so admins can
+      // override it.
       await waitFor(() => expect(pickerTrigger).toHaveTextContent('openai/gpt-4o'));
       expect(pickerTrigger).toBeEnabled();
-      expect(screen.getByPlaceholderText('128000')).toBeEnabled();
-      expect(screen.getByPlaceholderText('16384')).toBeEnabled();
     });
 
-    it('lets a non-auto-matched model pick a reference and inherit its pricing, caps and tags', async () => {
+    it('lets a non-auto-matched model pick a reference and inherit its pricing and tags', async () => {
       mockGatewayModels([
         {
           id: 'openai/gpt-4o',
@@ -284,10 +234,6 @@ describe('LLMProviderForm', () => {
       await userEvent.click(pickerTrigger);
       await userEvent.click(await screen.findByRole('option', { name: /openai\/gpt-4o/ }));
 
-      // Picking the reference copies its caps into the editable inputs
-      expect(screen.getByDisplayValue('128000')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('16384')).toBeInTheDocument();
-
       await closeModelEditor();
       await userEvent.click(screen.getByRole('button', { name: 'actions.update' }));
 
@@ -298,8 +244,6 @@ describe('LLMProviderForm', () => {
               referenceModel: 'openai/gpt-4o',
               // The ratio input was empty, so pricing is copied at ×1.
               pricing: { input: '0.0000025', output: '0.00001' },
-              contextWindow: 128000,
-              maxTokens: 16384,
               tags: ['reasoning', 'vision'],
             }),
           }),
@@ -366,10 +310,9 @@ describe('LLMProviderForm', () => {
         input: '0.0000025',
         output: '0.00001',
       });
-      // Caps are persisted too, so backend model-caps resolution (which only reads
-      // modelConfigs[model]) sees the limits the editor displays.
-      expect(submitted.modelConfigs?.['gpt-4o']?.contextWindow).toBe(128000);
-      expect(submitted.modelConfigs?.['gpt-4o']?.maxTokens).toBe(16384);
+      // Limits are not persisted: the runtime resolves them from the model catalog.
+      expect(submitted.modelConfigs?.['gpt-4o']?.contextWindow).toBeUndefined();
+      expect(submitted.modelConfigs?.['gpt-4o']?.maxTokens).toBeUndefined();
       // The auto-match stays dynamic: the reference id itself is not persisted.
       expect(submitted.modelConfigs?.['gpt-4o']?.referenceModel).toBeUndefined();
     });
@@ -422,23 +365,6 @@ describe('LLMProviderForm', () => {
         input: '0.0000025',
         output: '0.00001',
       });
-    });
-
-    it('clears the cap on empty input and ignores zero or garbage values', async () => {
-      const onChange = vi.fn();
-      render(<LLMProviderForm value={provider} onChange={onChange} onTest={vi.fn()} />);
-
-      await expandModelSettings();
-      await openModelEditor();
-      const contextInput = screen.getByPlaceholderText('128000');
-      await userEvent.type(contextInput, '200000');
-      await userEvent.clear(contextInput);
-      await userEvent.type(contextInput, '0');
-      await closeModelEditor();
-      await userEvent.click(screen.getByRole('button', { name: 'actions.update' }));
-
-      const submitted = onChange.mock.calls[0][0] as LLMProvider;
-      expect(submitted.modelConfigs?.['gpt-4o']?.contextWindow).toBeUndefined();
     });
   });
 });

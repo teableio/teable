@@ -10,7 +10,6 @@ import {
   PopoverTrigger,
   Switch,
 } from '@teable/ui-lib/shadcn';
-import { uniq } from 'lodash';
 import { FilterIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -108,7 +107,7 @@ const buildEdges = (
         sourceHandle: source.fieldId,
         targetHandle: target.fieldId,
         style: { strokeWidth: 1 },
-        label: relationshipLabel ? relationshipLabel : title,
+        label: relationshipLabel || title,
         markerStart,
         markerEnd,
       };
@@ -167,8 +166,8 @@ export const BaseErd = (props: { baseId: string }) => {
 
   const allEdgeTypes = useMemo(() => {
     const { edges = [] } = baseErd ?? {};
-    return uniq(edges.filter((edge) => !edge.relationship).map((edge) => edge.type))
-      .sort()
+    return [...new Set(edges.filter((edge) => !edge.relationship).map((edge) => edge.type))]
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .map((type) => getEdgeTypeInfo(type));
   }, [baseErd, getEdgeTypeInfo]);
 

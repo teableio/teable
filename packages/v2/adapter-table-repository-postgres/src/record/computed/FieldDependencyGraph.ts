@@ -21,7 +21,7 @@ import {
   type ParsedLookupOptions as LookupOptionsMeta,
 } from '@teable/v2-field-dependency-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely, Transaction } from 'kysely';
+import type { Kysely, RawBuilder, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -172,6 +172,30 @@ export type FieldDependencyGraphLoadOptions = {
   tableProvisionStates?: TableProvisionStatesForDependencyGraph;
   scopedPendingTableIds?: ReadonlyArray<TableId>;
 };
+
+type FieldMetadataRow = {
+  id: string;
+  table_id: string;
+  type: string;
+  is_computed: boolean | null;
+  is_lookup: boolean | null;
+  is_conditional_lookup: boolean | null;
+  options: string | null;
+  lookup_options: string | null;
+  symmetric_valid: boolean;
+};
+
+type ReferenceMetadataRow = {
+  from_field_id: string;
+  to_field_id: string;
+  from_table_id: string;
+  to_table_id: string;
+  to_field_type: string;
+  from_base_id: string;
+  to_base_id: string;
+};
+
+type DependencyClosureRow = { kind: 'closure' | 'legacy_filter'; field_id: string };
 
 /**
  * Load field dependency metadata from Postgres (reference + field config).
@@ -901,44 +925,51 @@ export class FieldDependencyGraph {
           return ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] });
         }
 
-        // Step 1: Find all affected field IDs using iterative traversal
-        // (Recursive CTE with multiple UNION branches is complex in Kysely,
-        // so we use application-level iteration with batched queries)
         const affectedFieldIds = yield* await this.findAffectedFieldIds(
           db,
           baseId,
           seedIds,
-          tableProvisionStates
+          tableProvisionStates,
+          scopedPendingTableIds
         );
-
-        // Include seed fields in the result
         for (const seedId of seedIds) {
           affectedFieldIds.add(seedId);
         }
 
-        if (affectedFieldIds.size === 0) {
-          return ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] });
-        }
-
-        const affectedFieldIdArray = [...affectedFieldIds];
-
-        // Step 2: Load field metadata for affected fields
+        // Materialize IDs before loading metadata: recursive cardinality estimates can turn
+        // these small incident-edge and field lookups into database-wide scans.
+        const fieldIds = [...affectedFieldIds];
         const fields = yield* await this.loadFieldsByIds(
           db,
-          affectedFieldIdArray,
+          fieldIds,
           tableProvisionStates,
           scopedPendingTableIds
         );
-
-        // Step 3: Load reference edges for affected fields
-        const { edges: referenceEdges, crossBaseFields } = yield* await this.loadEdgesByFieldIds(
-          db,
-          affectedFieldIdArray,
-          baseId,
-          tableProvisionStates,
-          scopedPendingTableIds
+        let referenceRows: ReferenceMetadataRow[];
+        try {
+          referenceRows = await this.referenceMetadataQuery(
+            db,
+            tableProvisionStates,
+            scopedPendingTableIds,
+            sql<Pick<ReferenceMetadataRow, 'from_field_id' | 'to_field_id'>>`(
+              SELECT from_field_id, to_field_id FROM reference
+              WHERE from_field_id IN (${sql.join(fieldIds)})
+              UNION
+              SELECT from_field_id, to_field_id FROM reference
+              WHERE to_field_id IN (${sql.join(fieldIds)})
+            )`
+          ).execute();
+        } catch (error) {
+          return err(
+            domainError.infrastructure({
+              message: `Failed to load edges by field IDs: ${describeError(error)}`,
+            })
+          );
+        }
+        const { edges: referenceEdges, crossBaseFields } = yield* this.parseReferenceRows(
+          referenceRows,
+          baseId
         );
-
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
 
         // Add cross-base fields
@@ -1110,15 +1141,15 @@ export class FieldDependencyGraph {
   }
 
   /**
-   * Find all field IDs that are affected by changes to the seed fields.
-   * Uses iterative BFS with batched queries - each iteration queries only the
-   * fields that depend on the current batch, avoiding full table scans.
+   * Expand reference closures and continue through legacy dependencies using bounded
+   * expression-index probes. Load field and edge metadata only after traversal finishes.
    */
   private async findAffectedFieldIds(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     baseId: BaseId,
     seedIds: string[],
-    tableProvisionStates: TableProvisionStatesForDependencyGraph
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<Result<Set<string>, DomainError>> {
     const startTime = Date.now();
     let iterationCount = 0;
@@ -1128,6 +1159,7 @@ export class FieldDependencyGraph {
     try {
       const visited = new Set<string>();
       const queue = [...seedIds];
+      const fallbackProbedIds = new Set<string>();
 
       while (queue.length > 0) {
         iterationCount++;
@@ -1161,16 +1193,17 @@ export class FieldDependencyGraph {
         // Build VALUES clause for the batch
         const batchValues = batch.map((id) => sql`(${id})`);
         const batchValuesClause = sql.join(batchValues, sql`, `);
-        const tableProvisionStateSql = sql.join(
-          tableProvisionStates.map((state) => sql`${state}`),
-          sql`, `
+        const provisionPredicate = tableProvisionPredicate(
+          't',
+          tableProvisionStates,
+          scopedPendingTableIds
         );
         const referenceQueryLimit = MAX_VISITED + batch.length + 1;
 
         // Expand healthy reference edges recursively in one query. Keep legacy metadata lookups
         // in separate 100-ID batches below: a large recursive closure can otherwise make the
         // planner abandon expression indexes and scan all link/lookup fields in the database.
-        const referenceResult = await sql<{ field_id: string }>`
+        const referenceResult = await sql<DependencyClosureRow>`
           WITH RECURSIVE
           batch(id) AS MATERIALIZED (
             VALUES ${batchValuesClause}
@@ -1188,17 +1221,64 @@ export class FieldDependencyGraph {
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE f.deleted_time IS NULL
               AND t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
+          ),
+          reference_closure AS MATERIALIZED (
+            SELECT field_id
+            FROM reference_walk
+            -- Keep the original global-budget sentinel, including paths through visited IDs.
+            LIMIT ${referenceQueryLimit}
           )
-          SELECT field_id
-          FROM reference_walk
-          -- Keep one sentinel row beyond the global safety budget. Previously visited rows can
-          -- be needed as paths to new descendants, so the limit cannot use only the remaining
-          -- budget without risking an incomplete traversal.
-          LIMIT ${referenceQueryLimit}
+          SELECT 'closure' AS kind, field_id
+          FROM reference_closure
+          UNION ALL
+          SELECT DISTINCT 'legacy_filter' AS kind, f.id AS field_id
+          FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
+          CROSS JOIN LATERAL jsonb_path_query(
+            jsonb_build_array(
+              CASE
+                WHEN f.type IN ('conditionalRollup', 'conditionalLookup')
+                  THEN f.options::jsonb
+                ELSE NULL
+              END,
+              CASE
+                WHEN f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true
+                  THEN f.lookup_options::jsonb
+                ELSE NULL
+              END
+            ),
+            '$.**.fieldId'
+          ) referenced(value)
+          INNER JOIN reference_closure affected ON affected.field_id = referenced.value #>> '{}'
+          WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND ${provisionPredicate}
+            AND t.base_id = ${baseId.toString()}
+            -- A truncated reference closure stops traversal before legacy expansion.
+            AND (SELECT count(*) FROM reference_closure) < ${referenceQueryLimit}
+            AND (
+              (
+                f.type IN ('conditionalRollup', 'conditionalLookup')
+                AND f.options IS NOT NULL
+              )
+              OR
+              (
+                (f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true)
+                AND f.lookup_options IS NOT NULL
+              )
+            )
         `.execute(db);
 
-        const referenceClosureIds = [...new Set(referenceResult.rows.map((row) => row.field_id))];
+        const referenceClosureIds: string[] = [];
+        const legacyFilterIds: string[] = [];
+        for (const row of referenceResult.rows) {
+          if (row.kind === 'closure') {
+            referenceClosureIds.push(row.field_id);
+          } else {
+            legacyFilterIds.push(row.field_id);
+          }
+        }
         const referenceClosureSet = new Set(referenceClosureIds);
         const newlyResolvedReferenceIds = referenceClosureIds.filter(
           (fieldId) => !visited.has(fieldId) && !batchSet.has(fieldId)
@@ -1234,10 +1314,11 @@ export class FieldDependencyGraph {
           break;
         }
 
-        // Reference metadata is authoritative for new writes, but old rows may only carry JSON
-        // options. Check those fallbacks against every recursively resolved ID in bounded batches.
-        for (let offset = 0; offset < referenceClosureIds.length; offset += 100) {
-          const fallbackBatch = referenceClosureIds.slice(offset, offset + 100);
+        // A mixed reference/legacy path can revisit an earlier closure. Each source only needs
+        // one set of legacy probes per load; keep the 100-ID indexable batches.
+        const fallbackIds = referenceClosureIds.filter((id) => !fallbackProbedIds.has(id));
+        for (let offset = 0; offset < fallbackIds.length; offset += 100) {
+          const fallbackBatch = fallbackIds.slice(offset, offset + 100);
           const fallbackBatchValues = fallbackBatch.map((id) => sql`(${id})`);
           const fallbackBatchValuesClause = sql.join(fallbackBatchValues, sql`, `);
 
@@ -1252,34 +1333,13 @@ export class FieldDependencyGraph {
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE f.deleted_time IS NULL
               AND t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
               AND (f.type = 'rollup' OR f.is_lookup = true)
               AND f.lookup_linked_field_id = ANY(ARRAY(SELECT id FROM batch))
 
             UNION ALL
 
-            -- 2b. Fallback for stale rows where JSON has linkFieldId but lookup_linked_field_id is null
-            SELECT f.id AS field_id
-            FROM batch affected
-            CROSS JOIN LATERAL (
-              SELECT f.id, f.table_id
-              FROM field f
-              WHERE f.deleted_time IS NULL
-                AND f.lookup_linked_field_id IS NULL
-                AND f.lookup_options IS NOT NULL
-                AND (f.type = 'rollup' OR f.is_lookup = true)
-                AND (f.lookup_options::jsonb)->>'linkFieldId' = affected.id
-              -- Prevent pull-up into a global partial-index scan; retain one expression-index
-              -- probe per batch ID.
-              OFFSET 0
-            ) f
-            INNER JOIN table_meta t ON t.id = f.table_id
-            WHERE t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
-
-            UNION ALL
-
-            -- 3. Lookup/rollup dependency on lookupFieldId - uses field_lookup_options_lookup_field_id_idx
+            -- Lookup/rollup and v1 conditional sources share the same indexed expression.
             SELECT f.id AS field_id
             FROM batch affected
             CROSS JOIN LATERAL (
@@ -1287,13 +1347,13 @@ export class FieldDependencyGraph {
               FROM field f
               WHERE f.deleted_time IS NULL
                 AND f.lookup_options IS NOT NULL
-                AND (f.type = 'rollup' OR f.is_lookup = true)
+                AND (f.type = 'rollup' OR f.is_lookup = true OR f.is_conditional_lookup = true)
                 AND (f.lookup_options::jsonb)->>'lookupFieldId' = affected.id
               OFFSET 0
             ) f
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
 
             UNION ALL
 
@@ -1303,7 +1363,7 @@ export class FieldDependencyGraph {
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE f.deleted_time IS NULL
               AND t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
               AND f.type = 'link'
               AND f.options IS NOT NULL
               AND (f.options::jsonb)->>'lookupFieldId' = ANY(ARRAY(SELECT id FROM batch))
@@ -1316,28 +1376,10 @@ export class FieldDependencyGraph {
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE f.deleted_time IS NULL
               AND t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
               AND f.type IN ('conditionalRollup', 'conditionalLookup')
               AND f.options IS NOT NULL
               AND (f.options::jsonb)->>'lookupFieldId' = ANY(ARRAY(SELECT id FROM batch))
-
-            UNION ALL
-
-            -- 6. Conditional lookup (v1) dependency on lookupFieldId
-            SELECT f.id AS field_id
-            FROM batch affected
-            CROSS JOIN LATERAL (
-              SELECT f.id, f.table_id
-              FROM field f
-              WHERE f.deleted_time IS NULL
-                AND f.is_conditional_lookup = true
-                AND f.lookup_options IS NOT NULL
-                AND (f.lookup_options::jsonb)->>'lookupFieldId' = affected.id
-              OFFSET 0
-            ) f
-            INNER JOIN table_meta t ON t.id = f.table_id
-            WHERE t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
 
             UNION ALL
 
@@ -1348,11 +1390,12 @@ export class FieldDependencyGraph {
             INNER JOIN table_meta t ON t.id = f.table_id
             WHERE f.deleted_time IS NULL
               AND t.deleted_time IS NULL
-              AND t.provision_state IN (${tableProvisionStateSql})
+              AND ${provisionPredicate}
               AND f.type = 'link'
               AND f.options IS NOT NULL
               AND (f.options::jsonb)->>'symmetricFieldId' = ANY(ARRAY(SELECT id FROM batch))
           `.execute(db);
+          for (const id of fallbackBatch) fallbackProbedIds.add(id);
 
           // UNION ALL can return duplicates, and a legacy edge can point back into the already
           // expanded reference closure. The sets preserve the old UNION semantics in memory.
@@ -1373,53 +1416,9 @@ export class FieldDependencyGraph {
           continue;
         }
 
-        // Unlike expression-index probes, JSON filter extraction scales with the number of
-        // candidate fields in this base, not the closure size. Run it once for the full closure
-        // so a large reference graph does not repeatedly parse the same legacy JSON.
-        const legacyFilterBatchValues = referenceClosureIds.map((id) => sql`(${id})`);
-        const legacyFilterBatchValuesClause = sql.join(legacyFilterBatchValues, sql`, `);
-        const legacyFilterResult = await sql<{ field_id: string }>`
-          WITH batch(id) AS MATERIALIZED (
-            VALUES ${legacyFilterBatchValuesClause}
-          )
-          SELECT DISTINCT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          CROSS JOIN LATERAL jsonb_path_query(
-            jsonb_build_array(
-              CASE
-                WHEN f.type IN ('conditionalRollup', 'conditionalLookup')
-                  THEN f.options::jsonb
-                ELSE NULL
-              END,
-              CASE
-                WHEN f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true
-                  THEN f.lookup_options::jsonb
-                ELSE NULL
-              END
-            ),
-            '$.**.fieldId'
-          ) referenced(value)
-          INNER JOIN batch affected ON affected.id = referenced.value #>> '{}'
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND t.base_id = ${baseId.toString()}
-            AND (
-              (
-                f.type IN ('conditionalRollup', 'conditionalLookup')
-                AND f.options IS NOT NULL
-              )
-              OR
-              (
-                (f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true)
-                AND f.lookup_options IS NOT NULL
-              )
-            )
-        `.execute(db);
-
-        for (const row of legacyFilterResult.rows) {
-          const fieldId = row.field_id;
+        // Filter JSON is extracted once per reference closure, without sending its IDs back
+        // to Postgres or materializing database-wide adjacency.
+        for (const fieldId of legacyFilterIds) {
           if (!visited.has(fieldId) && !referenceClosureSet.has(fieldId)) {
             visited.add(fieldId);
             queue.push(fieldId);
@@ -1447,45 +1446,34 @@ export class FieldDependencyGraph {
     }
   }
 
-  /**
-   * Load field metadata by field IDs.
-   */
-  private async loadFieldsByIds(
+  private fieldMetadataQuery(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
-    fieldIds: string[],
     tableProvisionStates: TableProvisionStatesForDependencyGraph,
-    scopedPendingTableIds: ReadonlyArray<TableId> = []
-  ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
-    if (fieldIds.length === 0) return ok([]);
-
-    try {
-      const rows = await db
-        .selectFrom('field as f')
-        .innerJoin('table_meta as t', 't.id', 'f.table_id')
-        .leftJoin('table_meta as option_target', (join) =>
-          join.onRef(sql`(f.options::json->>'foreignTableId')::text`, '=', 'option_target.id')
-        )
-        .leftJoin('table_meta as lookup_target', (join) =>
-          join.onRef(
-            sql`(f.lookup_options::json->>'foreignTableId')::text`,
-            '=',
-            'lookup_target.id'
-          )
-        )
-        .leftJoin('field as sf', (join) =>
-          join.onRef(sql`(f.options::json->>'symmetricFieldId')::text`, '=', 'sf.id')
-        )
-        .select([
-          'f.id as id',
-          'f.table_id as table_id',
-          'f.type as type',
-          'f.is_computed as is_computed',
-          'f.is_lookup as is_lookup',
-          'f.is_conditional_lookup as is_conditional_lookup',
-          'f.options as options',
-          'f.lookup_options as lookup_options',
-          // Check if symmetric field relationship is valid
-          sql<boolean>`CASE
+    scopedPendingTableIds: ReadonlyArray<TableId>
+  ) {
+    return db
+      .selectFrom('field as f')
+      .innerJoin('table_meta as t', 't.id', 'f.table_id')
+      .leftJoin('table_meta as option_target', (join) =>
+        join.onRef(sql`(f.options::json->>'foreignTableId')::text`, '=', 'option_target.id')
+      )
+      .leftJoin('table_meta as lookup_target', (join) =>
+        join.onRef(sql`(f.lookup_options::json->>'foreignTableId')::text`, '=', 'lookup_target.id')
+      )
+      .leftJoin('field as sf', (join) =>
+        join.onRef(sql`(f.options::json->>'symmetricFieldId')::text`, '=', 'sf.id')
+      )
+      .select([
+        'f.id as id',
+        'f.table_id as table_id',
+        'f.type as type',
+        'f.is_computed as is_computed',
+        'f.is_lookup as is_lookup',
+        'f.is_conditional_lookup as is_conditional_lookup',
+        'f.options as options',
+        'f.lookup_options as lookup_options',
+        // Check if symmetric field relationship is valid
+        sql<boolean>`CASE
             WHEN f.type != 'link' THEN true
             WHEN f.options::json->>'symmetricFieldId' IS NULL THEN true
             WHEN sf.id IS NULL THEN false
@@ -1495,14 +1483,13 @@ export class FieldDependencyGraph {
             WHEN (sf.options::json->>'symmetricFieldId')::text != f.id THEN false
             ELSE true
           END`.as('symmetric_valid'),
-        ])
-        .where('f.id', 'in', fieldIds)
-        .where('f.deleted_time', 'is', null)
-        .where(legacyReadyFieldPredicate('f'))
-        .where('t.deleted_time', 'is', null)
-        .where(tableProvisionPredicate('t', tableProvisionStates, scopedPendingTableIds))
-        .where(
-          sql<boolean>`(
+      ])
+      .where('f.deleted_time', 'is', null)
+      .where(legacyReadyFieldPredicate('f'))
+      .where('t.deleted_time', 'is', null)
+      .where(tableProvisionPredicate('t', tableProvisionStates, scopedPendingTableIds))
+      .where(
+        sql<boolean>`(
             (f.options::json->>'foreignTableId') IS NULL
             OR (
               option_target.deleted_time IS NULL
@@ -1513,9 +1500,9 @@ export class FieldDependencyGraph {
               )}
             )
           )`
-        )
-        .where(
-          sql<boolean>`(
+      )
+      .where(
+        sql<boolean>`(
             (f.lookup_options::json->>'foreignTableId') IS NULL
             OR (
               lookup_target.deleted_time IS NULL
@@ -1526,9 +1513,32 @@ export class FieldDependencyGraph {
               )}
             )
           )`
-        )
-        .execute();
+      );
+  }
 
+  private async loadFieldsByIds(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    fieldIds: string[],
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
+  ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
+    if (fieldIds.length === 0) return ok([]);
+    try {
+      const rows = await this.fieldMetadataQuery(db, tableProvisionStates, scopedPendingTableIds)
+        .where('f.id', 'in', fieldIds)
+        .execute();
+      return this.parseFieldRows(rows);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to load fields by IDs: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
+  private parseFieldRows(rows: ReadonlyArray<FieldMetadataRow>): Result<FieldMeta[], DomainError> {
+    try {
       const fields: FieldMeta[] = [];
       for (const row of rows) {
         const fieldId = FieldId.create(row.id);
@@ -1605,28 +1615,19 @@ export class FieldDependencyGraph {
     }
   }
 
-  /**
-   * Load reference edges for specific field IDs.
-   */
-  private async loadEdgesByFieldIds(
+  private referenceMetadataQuery(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
-    fieldIds: string[],
-    currentBaseId: BaseId,
     tableProvisionStates: TableProvisionStatesForDependencyGraph,
-    scopedPendingTableIds: ReadonlyArray<TableId> = []
-  ): Promise<
-    Result<
-      {
-        edges: ReadonlyArray<FieldDependencyEdge>;
-        crossBaseFields: ReadonlyArray<CrossBaseFieldMeta>;
-      },
-      DomainError
-    >
-  > {
-    if (fieldIds.length === 0) return ok({ edges: [], crossBaseFields: [] });
-
-    try {
-      const selectColumns = [
+    scopedPendingTableIds: ReadonlyArray<TableId>,
+    references: RawBuilder<Pick<ReferenceMetadataRow, 'from_field_id' | 'to_field_id'>>
+  ) {
+    return db
+      .selectFrom(references.as('r'))
+      .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
+      .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
+      .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
+      .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
+      .select([
         'r.from_field_id as from_field_id',
         'r.to_field_id as to_field_id',
         'f_from.table_id as from_table_id',
@@ -1634,40 +1635,26 @@ export class FieldDependencyGraph {
         'f_to.type as to_field_type',
         't_from.base_id as from_base_id',
         't_to.base_id as to_base_id',
-      ] as const;
+      ])
+      .where('f_from.deleted_time', 'is', null)
+      .where('f_to.deleted_time', 'is', null)
+      .where('t_from.deleted_time', 'is', null)
+      .where('t_to.deleted_time', 'is', null)
+      .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
+      .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
+  }
 
-      const fromFieldQuery = db
-        .selectFrom('reference as r')
-        .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
-        .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
-        .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
-        .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
-        .select(selectColumns)
-        .where('r.from_field_id', 'in', fieldIds)
-        .where('f_from.deleted_time', 'is', null)
-        .where('f_to.deleted_time', 'is', null)
-        .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null)
-        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
-        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
-
-      const toFieldQuery = db
-        .selectFrom('reference as r')
-        .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
-        .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
-        .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
-        .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
-        .select(selectColumns)
-        .where('r.to_field_id', 'in', fieldIds)
-        .where('f_from.deleted_time', 'is', null)
-        .where('f_to.deleted_time', 'is', null)
-        .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null)
-        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
-        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
-
-      const rows = await fromFieldQuery.union(toFieldQuery).execute();
-
+  private parseReferenceRows(
+    rows: Iterable<ReferenceMetadataRow>,
+    currentBaseId: BaseId
+  ): Result<
+    {
+      edges: ReadonlyArray<FieldDependencyEdge>;
+      crossBaseFields: ReadonlyArray<CrossBaseFieldMeta>;
+    },
+    DomainError
+  > {
+    try {
       const edges: FieldDependencyEdge[] = [];
       const crossBaseFieldsMap = new Map<string, CrossBaseFieldMeta>();
       const baseIdStr = currentBaseId.toString();

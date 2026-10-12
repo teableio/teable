@@ -13,6 +13,13 @@ interface NotificationIconProps {
   notifyType: NotificationTypeEnum;
 }
 
+const IconAvatar = ({ iconUrl, label }: { iconUrl?: string; label: string }) => (
+  <Avatar className="size-9 overflow-visible">
+    {iconUrl && <AvatarImage src={iconUrl} alt={label} />}
+    <AvatarFallback>{label.slice(0, 1)}</AvatarFallback>
+  </Avatar>
+);
+
 const NotificationIcon = (props: NotificationIconProps) => {
   const { notifyIcon, notifyType } = props;
 
@@ -22,13 +29,12 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.System:
       case NotificationTypeEnum.AdminNotice: {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
-
-        return (
-          <Avatar className="size-9 overflow-visible">
-            {iconUrl && <AvatarImage src={iconUrl} alt="System" />}
-            <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
-          </Avatar>
-        );
+        return <IconAvatar iconUrl={iconUrl} label="System" />;
+      }
+      case NotificationTypeEnum.OAuthApp: {
+        // the logo the sending app registered
+        const { iconUrl } = notifyIcon as INotificationSystemIcon;
+        return <IconAvatar iconUrl={iconUrl} label="App" />;
       }
       case NotificationTypeEnum.Comment:
       case NotificationTypeEnum.CollaboratorCellTag:
@@ -36,6 +42,18 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.CollaboratorInvite: {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return <UserAvatar className="size-9" user={{ name: userName, avatar: userAvatarUrl }} />;
+      }
+      default: {
+        // A type newer than this build: draw whichever icon shape it came with.
+        if ('userName' in notifyIcon) {
+          return (
+            <UserAvatar
+              className="size-9"
+              user={{ name: notifyIcon.userName, avatar: notifyIcon.userAvatarUrl }}
+            />
+          );
+        }
+        return <IconAvatar iconUrl={notifyIcon.iconUrl} label="System" />;
       }
     }
   }, [notifyIcon, notifyType]);

@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
+import type { ITableSearchIndex } from '../../domain/table/ITableSearchIndex';
 import type { Table } from '../../domain/table/Table';
 import type { View } from '../../domain/table/views/View';
 import type { ViewAuditMetadataValue } from '../../domain/table/views/ViewAuditMetadata';
@@ -141,6 +142,7 @@ export type IFormulaFieldOptionsDTO = {
 
 export type IFormulaFieldMetaDTO = {
   persistedAsGeneratedColumn?: boolean;
+  formulaSafetyVersion?: number;
 };
 
 export type IGeneratedColumnMetaDTO = {
@@ -199,6 +201,7 @@ export type IConditionalRollupFieldOptionsDTO = {
 };
 
 export type IConditionalLookupOptionsDTO = {
+  isUnique?: boolean;
   baseId?: string;
   foreignTableId: string;
   lookupFieldId: string;
@@ -225,6 +228,7 @@ export type ILinkFieldMetaDTO = {
 };
 
 export type ILookupOptionsDTO = {
+  isUnique?: boolean;
   linkFieldId: string;
   lookupFieldId: string;
   foreignTableId: string;
@@ -237,8 +241,10 @@ export type ILookupOptionsDTO = {
 export type ITableFieldBaseDTO = {
   id: string;
   name: string;
+  version?: number;
+  isPending?: boolean;
   description?: string | null;
-  aiConfig?: unknown | null;
+  aiConfig?: unknown;
   dbFieldName?: string;
   dbFieldType?: string;
   isComputed?: boolean;
@@ -374,6 +380,7 @@ export type ITablePersistenceDTO = {
   description?: string;
   icon?: string;
   dbTableName?: string;
+  searchIndex?: ITableSearchIndex;
   primaryFieldId: string;
   fields: ReadonlyArray<ITableFieldPersistenceDTO>;
   views: ReadonlyArray<ITableViewPersistenceDTO>;

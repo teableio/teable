@@ -112,8 +112,6 @@ export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[] | LLMPro
           // Include metadata from modelConfigs
           modelType: config?.modelType,
           tags: config?.tags,
-          contextWindow: config?.contextWindow,
-          maxTokens: config?.maxTokens,
           description: config?.description,
         };
       });

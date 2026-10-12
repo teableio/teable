@@ -64,6 +64,8 @@ describe('v2 link field title with multi-value lookup (e2e)', () => {
       ],
     });
 
+    expect(table2.fields.some((field) => field.id === table2MultiSelectFieldId)).toBe(true);
+
     // Create records in Table2 with multi-select values
     await ctx.createRecord(table2.id, {
       [table2MultiSelectFieldId]: ['A'],

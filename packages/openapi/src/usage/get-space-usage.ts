@@ -51,6 +51,7 @@ export enum UsageFeatureLimit {
   AppHideBadgeEnable = 'appHideBadgeEnable',
   CustomDomainEnable = 'customDomainEnable',
   MaxNumSystemSendEmail = 'maxNumSystemSendEmail',
+  ConnectorEventEnable = 'connectorEventEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -82,6 +83,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.AppHideBadgeEnable]: z.boolean(),
   [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
   [UsageFeatureLimit.MaxNumSystemSendEmail]: z.number(),
+  [UsageFeatureLimit.ConnectorEventEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({

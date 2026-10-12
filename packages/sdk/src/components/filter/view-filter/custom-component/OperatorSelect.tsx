@@ -77,7 +77,7 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
       options={operatorOption}
       popoverClassName="w-48"
       drawerTitle={t('filter.selectOperator')}
-      className={cn('h-8 w-[88px] shrink-0 justify-between gap-0 pe-1.5', inDrawer && 'w-[120px]')}
+      className={cn('h-8 w-20 shrink-0 justify-between gap-0 pe-1.5', inDrawer && 'w-[120px]')}
       onSelect={onSelectHandler}
       disabled={shouldDisabled}
       defaultLabel={<DefaultErrorLabel />}

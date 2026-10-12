@@ -31,4 +31,4 @@ export const isManagedSearchIndexName = (indexName: string): boolean =>
 
 /** SQL LIKE pattern (backslash escape) matching a managed prefix. */
 export const managedSearchPrefixLikePattern = (prefix: string): string =>
-  `${prefix.replace(/_/g, '\\_')}%`;
+  `${prefix.replaceAll('_', '\\_')}%`;

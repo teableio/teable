@@ -16,14 +16,28 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { SendIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-export const MailConfigForm = (props: {
-  value?: IMailTransportConfig;
-  onChange: (value?: IMailTransportConfig) => void;
+/** The admin form stores a plain password, the automation form a secret binding. */
+type IMailConfigFormValue = Omit<IMailTransportConfig, 'auth'> & {
+  auth: { user: string; pass: unknown };
+};
+
+export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
+  value?: T;
+  onChange: (value?: T) => void;
   disabled?: boolean;
+  /** Validates the form; defaults to the plain-password transport config. */
+  schema?: z.ZodType<T, T>;
+  /** Replaces the plain password input, e.g. with a picker binding a secret. */
+  renderPasswordField?: (field: {
+    value: unknown;
+    onChange: (value: unknown) => void;
+  }) => ReactNode;
+  hideTest?: boolean;
 }) => {
   const { t } = useTranslation('common');
   const { onChange } = props;
@@ -43,9 +57,11 @@ export const MailConfigForm = (props: {
     [props.value]
   );
 
-  const form = useForm<IMailTransportConfig>({
-    resolver: zodResolver(mailTransportConfigSchema),
-    defaultValues: defaultValues,
+  const schema: z.ZodType<IMailConfigFormValue, IMailConfigFormValue> =
+    props.schema ?? mailTransportConfigSchema;
+  const form = useForm<IMailConfigFormValue>({
+    resolver: zodResolver(schema),
+    defaultValues,
   });
   const { reset } = form;
 
@@ -67,8 +83,7 @@ export const MailConfigForm = (props: {
       return;
     }
 
-    const transporter = form.getValues();
-    const checkTransporter = mailTransportConfigSchema.safeParse(transporter);
+    const checkTransporter = mailTransportConfigSchema.safeParse(form.getValues());
     if (!checkTransporter.success) {
       toast.error(t('email.testEmailError'));
       return;
@@ -81,12 +96,12 @@ export const MailConfigForm = (props: {
     }
     await testEmailConfig({
       to: testEmail,
-      transportConfig: transporter,
+      transportConfig: checkTransporter.data,
     });
   };
 
   const onSubmit = () => {
-    onChange(form.getValues());
+    onChange(form.getValues() as T);
   };
 
   return (
@@ -183,17 +198,27 @@ export const MailConfigForm = (props: {
         render={({ field }) => (
           <FormItem className="space-y-2">
             <FormLabel className="text-sm font-medium">{t('email.password')}</FormLabel>
-            <FormControl>
-              <Input
-                type="password"
-                value={field.value}
-                disabled={props.disabled}
-                onChange={(e) => {
-                  field.onChange(e.target.value);
+            {props.renderPasswordField ? (
+              props.renderPasswordField({
+                value: field.value,
+                onChange: (value) => {
+                  field.onChange(value);
                   onSubmit();
-                }}
-              />
-            </FormControl>
+                },
+              })
+            ) : (
+              <FormControl>
+                <Input
+                  type="password"
+                  value={String(field.value ?? '')}
+                  disabled={props.disabled}
+                  onChange={(e) => {
+                    field.onChange(e.target.value);
+                    onSubmit();
+                  }}
+                />
+              </FormControl>
+            )}
           </FormItem>
         )}
       />
@@ -235,24 +260,26 @@ export const MailConfigForm = (props: {
           </FormItem>
         )}
       />
-      <div className="mt-2 flex items-center gap-2">
-        <Input
-          className="flex-1"
-          type="email"
-          value={testEmail ?? ''}
-          disabled={props.disabled}
-          onChange={(e) => setTestEmail(e.target.value)}
-          placeholder={t('email.testEmailPlaceholder')}
-        />
-        <Button
-          variant="outline"
-          onClick={testEmailSend}
-          disabled={!testEmail || isTestEmailLoading || props.disabled}
-        >
-          {isTestEmailLoading ? <Spin className="size-4" /> : <SendIcon className="size-4" />}
-          {t('email.send')}
-        </Button>
-      </div>
+      {!props.hideTest && (
+        <div className="mt-2 flex items-center gap-2">
+          <Input
+            className="flex-1"
+            type="email"
+            value={testEmail ?? ''}
+            disabled={props.disabled}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder={t('email.testEmailPlaceholder')}
+          />
+          <Button
+            variant="outline"
+            onClick={testEmailSend}
+            disabled={!testEmail || isTestEmailLoading || props.disabled}
+          >
+            {isTestEmailLoading ? <Spin className="size-4" /> : <SendIcon className="size-4" />}
+            {t('email.send')}
+          </Button>
+        </div>
+      )}
     </Form>
   );
 };

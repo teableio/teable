@@ -73,7 +73,7 @@ export class DuplicateFieldHandler
     context: ExecutionContextPort.IExecutionContext,
     command: DuplicateFieldCommand
   ): Promise<Result<DuplicateFieldResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateFieldResult, DomainError>(async function* () {
       const sourceTable = yield* await handler.loadSourceTable(context, command.tableId);
       const loadedSourceField = yield* sourceTable.getField((field) =>

@@ -31,7 +31,7 @@ import { FieldReferenceCompatibilityException } from './cell-value-filter.abstra
 import type { IFilterQueryInterface } from './filter-query.interface';
 
 export abstract class AbstractFilterQuery implements IFilterQueryInterface {
-  private logger = new Logger(AbstractFilterQuery.name);
+  private readonly logger = new Logger(AbstractFilterQuery.name);
   private filterValidationIssueMap = new Map<string, IFilterValidationError[]>();
 
   constructor(
@@ -84,7 +84,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   ) {
     const { fieldId, operator, value, isSymbol } = filterMeta;
 
-    const field = this.fields && this.fields[fieldId];
+    const field = this.fields?.[fieldId];
     if (!field) {
       return queryBuilder;
     }

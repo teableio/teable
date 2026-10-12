@@ -1,7 +1,7 @@
 import { type IDateFieldOptions, TimeFormatting } from '@teable/core';
 import { Button, Calendar, cn, NavView } from '@teable/ui-lib';
 import { ar, de, enUS, es, fr, he, it, ja, ru, tr, uk, zhCN } from 'date-fns/locale';
-import { formatInTimeZone, toDate, toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AppContext } from '../../../context';
@@ -69,26 +69,21 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     saveValue,
   }));
 
+  // The calendar hands over a day on the clock of timeZone; it keeps the time the value shows there.
   const onSelect = (value?: Date) => {
     if (!value) return onChange?.(null);
 
-    const curDatetime = fromZonedTime(value, timeZone);
+    const clock = toZonedTime(date ?? new Date(), timeZone);
+    const datetime = new Date(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+      clock.getHours(),
+      clock.getMinutes(),
+      clock.getSeconds()
+    );
 
-    if (date) {
-      const prevDatetime = toDate(date, { timeZone });
-
-      curDatetime.setHours(prevDatetime.getHours());
-      curDatetime.setMinutes(prevDatetime.getMinutes());
-      curDatetime.setSeconds(prevDatetime.getSeconds());
-    } else {
-      const tempDate = now();
-
-      curDatetime.setHours(tempDate.getHours());
-      curDatetime.setMinutes(tempDate.getMinutes());
-      curDatetime.setSeconds(tempDate.getSeconds());
-    }
-
-    const dateStr = curDatetime.toISOString();
+    const dateStr = fromZonedTime(datetime, timeZone).toISOString();
     setDate(dateStr);
     onChange?.(dateStr);
   };
@@ -107,7 +102,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   }, [date, timeZone]);
 
   const onTimeChange = (timeStr: string) => {
-    const datetime = date ? toZonedTime(date, timeZone) : now();
+    const datetime = toZonedTime(date ?? new Date(), timeZone);
 
     const hours = Number.parseInt(timeStr.split(':')[0] || '00', 10);
     const minutes = Number.parseInt(timeStr.split(':')[1] || '00', 10);
@@ -128,10 +123,8 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     onChange?.(val);
   };
 
-  const now = () => fromZonedTime(new Date(), timeZone);
-
   const defaultTimeValue = useMemo(
-    () => formatInTimeZone(now().toISOString(), timeZone, 'HH:mm'),
+    () => formatInTimeZone(new Date(), timeZone, 'HH:mm'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [timeZone]
   );
@@ -178,7 +171,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
               variant="outline"
               size="sm"
               onClick={() => {
-                const todayZoned = toZonedTime(now().toISOString(), timeZone);
+                const todayZoned = toZonedTime(new Date(), timeZone);
                 if (date) {
                   // Preserve existing time, only change the date part
                   const existingZoned = toZonedTime(date, timeZone);

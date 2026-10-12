@@ -59,14 +59,32 @@ const getCachedRow = async <T>(
   return row;
 };
 
-export const getTableMetaWithBaseCached = (
+const seedCachedRow = (clsLike: MetaAncestryCls, key: string, row: unknown) => {
+  const cls = clsLike as IMetaAncestryClsAccess | undefined;
+  if (!cls?.isActive?.() || typeof cls.get !== 'function') {
+    return;
+  }
+  const cache = cls.get('metaAncestryCache') as Map<string, unknown> | undefined;
+  if (cache && !cache.has(key)) {
+    cache.set(key, row);
+  }
+};
+
+export const getTableMetaWithBaseCached = async (
   cls: MetaAncestryCls,
   reader: IMetaAncestryReader,
   tableId: string
-): Promise<TableMetaWithBase | null> =>
-  getCachedRow(cls, `table:${tableId}`, () =>
+): Promise<TableMetaWithBase | null> => {
+  const table = await getCachedRow(cls, `table:${tableId}`, () =>
     reader.tableMeta.findUnique({ where: { id: tableId }, include: { base: true } })
   );
+  // A table load already carries its base row: seed the base key so base-scoped
+  // callers later in the same request (routing, authz) do not re-read it.
+  if (table?.base) {
+    seedCachedRow(cls, `base:${table.base.id}`, table.base);
+  }
+  return table;
+};
 
 export const getBaseCached = (
   cls: MetaAncestryCls,

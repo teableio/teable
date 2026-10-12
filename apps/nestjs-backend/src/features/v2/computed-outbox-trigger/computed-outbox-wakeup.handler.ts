@@ -8,7 +8,10 @@ import {
 } from '@teable/v2-adapter-table-repository-postgres';
 import { v2CoreTokens, type ITracer } from '@teable/v2-core';
 
-import { DataDbBindingNotReadyError } from '../../../global/data-db-client-manager.service';
+import {
+  DataDbBaseNotFoundError,
+  DataDbBindingNotReadyError,
+} from '../../../global/data-db-client-manager.service';
 import { DataDbHealthService } from '../../space/data-db-health.service';
 import { V2ContainerService } from '../v2-container.service';
 import { OpenTelemetryTracer } from '../v2-tracer.adapter';
@@ -59,7 +62,7 @@ const createDeferredWakeupId = (taskId: string, availableAt: Date, bucketMs?: nu
 const stableAdmissionDeferDelayMs = (baseId: string, taskId: string): number => {
   let hash = 2166136261;
   for (const char of `${baseId}:${taskId}`) {
-    hash ^= char.charCodeAt(0);
+    hash ^= char.charCodeAt(0); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = Math.imul(hash, 16777619);
   }
   return ADMISSION_DEFER_MIN_MS + ((hash >>> 0) % ADMISSION_DEFER_SPREAD_MS);
@@ -415,6 +418,14 @@ export class ComputedOutboxWakeupHandler {
     startedAt: number,
     parentSpan: ReturnType<ITracer['startSpan']>
   ): Promise<ComputedOutboxWakeupHandlerOutcome> {
+    // Base deletion can outlive its Redis locators. Routing fails before the
+    // ledger precheck, so acknowledge only an authoritative missing-base result.
+    if (error instanceof DataDbBaseNotFoundError && error.baseId === wakeup.baseId) {
+      this.metrics.recordConsume('noop');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'noop');
+      parentSpan.setAttribute('outbox.precheck', 'base_not_found');
+      return { status: 'noop' };
+    }
     if (error instanceof DataDbBindingNotReadyError) {
       const outcome = await this.deferBindingNotReady(wakeup, startedAt, parentSpan, error);
       if (outcome) return outcome;

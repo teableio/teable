@@ -57,7 +57,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { completedGuideMap, setCompletedGuideMap } = useCompletedGuideMapStore();
 
-  const helpers = useRef<StoreHelpers>();
+  const helpers = useRef<StoreHelpers>(undefined);
   const [run, setRun] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
@@ -274,11 +274,9 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         setSteps(steps);
         setRun(true);
         setTimeout(() => helpers.current?.reset(true), 100);
-      } else {
-        if (++retryCount >= 100) {
-          clearInterval(timer);
-          timer = undefined;
-        }
+      } else if (++retryCount >= 100) {
+        clearInterval(timer);
+        timer = undefined;
       }
     }, 50);
 

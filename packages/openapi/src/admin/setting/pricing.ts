@@ -60,7 +60,7 @@ export function calculateTieredCost(tokenCount: number, tiers: IPricingTier[]): 
     if (tokenCount <= tier.min) break;
     const tierMax = tier.max ?? Infinity;
     const tokensInTier = Math.min(tokenCount, tierMax) - tier.min;
-    totalCost += tokensInTier * parseFloat(tier.cost);
+    totalCost += tokensInTier * Number.parseFloat(tier.cost);
   }
   return totalCost;
 }
@@ -76,7 +76,7 @@ function categoryUsd(
 ): number {
   if (!tokenCount) return 0;
   if (tiers?.length) return calculateTieredCost(tokenCount, tiers);
-  if (flatRate) return parseFloat(flatRate) * tokenCount;
+  if (flatRate) return Number.parseFloat(flatRate) * tokenCount;
   return 0;
 }
 
@@ -113,11 +113,11 @@ export function pricingToCredits(
   totalUsd += categoryUsd(usage.reasoningTokens, pricing.reasoning, undefined);
 
   if (pricing.image && usage.images) {
-    totalUsd += parseFloat(pricing.image) * usage.images;
+    totalUsd += Number.parseFloat(pricing.image) * usage.images;
   }
   if (pricing.webSearch && usage.webSearches) {
     // pricing.webSearch is USD per 1,000 searches
-    totalUsd += (parseFloat(pricing.webSearch) * usage.webSearches) / 1000;
+    totalUsd += (Number.parseFloat(pricing.webSearch) * usage.webSearches) / 1000;
   }
 
   // toFixed(6) strips float noise so ceil never bumps an exact hundredth up a cent.
@@ -204,12 +204,15 @@ export function compactPricing(pricing: IModelPricing | undefined): IModelPricin
  */
 export function formatDecimalString(value: number): string | undefined {
   if (!Number.isFinite(value)) return undefined;
-  return value.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
+  return value
+    .toFixed(12)
+    .replace(/(?<!0)0+$/, '')
+    .replace(/\.$/, '');
 }
 
 export function scalePrice(price: string | undefined, ratio: number): string | undefined {
   if (!price) return undefined;
-  const value = parseFloat(price);
+  const value = Number.parseFloat(price);
   if (Number.isNaN(value)) return undefined;
   return formatDecimalString(value * ratio);
 }

@@ -171,7 +171,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     requests: ReadonlyArray<LinkTitleResolveRequest>
   ): Promise<Result<ReadonlyArray<LinkTitleResolveResult>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<LinkTitleResolveResult>, DomainError>(async function* () {
       if (requests.length === 0) {
@@ -263,7 +263,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     primaryFieldId: FieldId,
     titles: ReadonlyArray<string>
   ): Promise<Result<Map<string, string>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<Map<string, string>, DomainError>(async function* () {
       const primaryFieldResult = table.getField((f) => f.id().equals(primaryFieldId));
@@ -366,7 +366,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     _tableId: TableId,
     specs: ReadonlyArray<SetLinkValueByTitleSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       if (specs.length === 0) {
         return ok([]);
@@ -417,7 +417,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ICellValueSpec, DomainError>(async function* () {
       const titleSpecs = yield* service.extractLinkTitleSpecs(spec);

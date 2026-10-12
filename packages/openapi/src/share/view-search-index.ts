@@ -1,12 +1,20 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { searchIndexVoSchema } from '../aggregation';
-import type { ISearchIndexVo, ISearchIndexByQueryRo } from '../aggregation';
+import { searchIndexByQueryRoSchema, searchIndexVoSchema } from '../aggregation';
+import type { ISearchIndexVo } from '../aggregation';
 import { axios } from '../axios';
-import { queryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const GET_SHARE_VIEW_SEARCH_INDEX = '/share/{shareId}/view/search-index';
+
+export const shareViewSearchIndexRoSchema = searchIndexByQueryRoSchema.omit({
+  // viewId is bound by the shareId; ignoreViewQuery must not be exposed — it would
+  // drop the view's row filter and let hidden columns be searched.
+  viewId: true,
+  ignoreViewQuery: true,
+});
+
+export type IShareViewSearchIndexRo = z.infer<typeof shareViewSearchIndexRoSchema>;
 
 export const GetShareViewSearchIndexRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -16,7 +24,7 @@ export const GetShareViewSearchIndexRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: queryBaseSchema,
+    query: shareViewSearchIndexRoSchema,
   },
   responses: {
     200: {
@@ -31,7 +39,7 @@ export const GetShareViewSearchIndexRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewSearchIndex = async (shareId: string, query?: ISearchIndexByQueryRo) => {
+export const getShareViewSearchIndex = async (shareId: string, query?: IShareViewSearchIndexRo) => {
   return axios.get<ISearchIndexVo>(urlBuilder(GET_SHARE_VIEW_SEARCH_INDEX, { shareId }), {
     params: {
       ...query,

@@ -1,5 +1,5 @@
-import { sharePasswordSchema } from '@teable/core';
-import { Edit, Qrcode, RefreshCcw } from '@teable/icons';
+import { generateSharePassword } from '@teable/core';
+import { Qrcode, RefreshCcw } from '@teable/icons';
 import { Spin } from '@teable/ui-lib';
 import {
   AlertDialog,
@@ -12,11 +12,6 @@ import {
   AlertDialogTitle,
   Button,
   cn,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -39,6 +34,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { SharePasswordReveal } from '@/features/app/components/SharePasswordReveal';
 import { EmbedConfigPopover } from './EmbedConfigPopover';
 
 interface IPermissionOption {
@@ -64,10 +60,11 @@ export interface IBaseShareContentProps {
   isCreateLoading?: boolean;
   isDeleteLoading?: boolean;
   isRefreshLoading?: boolean;
+  isUpdateLoading?: boolean;
   disabled?: boolean;
   permissionOptions: IPermissionOption[];
   onToggleShare: (enabled: boolean) => void;
-  onUpdateSetting: (data: Record<string, unknown>) => void;
+  onUpdateSetting: (data: Record<string, unknown>) => Promise<boolean>;
   onDeleteShare: () => void;
   onRefreshShare: () => void;
 }
@@ -81,6 +78,7 @@ export const BaseShareContent = ({
   isCreateLoading,
   isDeleteLoading,
   isRefreshLoading,
+  isUpdateLoading,
   disabled,
   permissionOptions,
   onToggleShare,
@@ -90,8 +88,7 @@ export const BaseShareContent = ({
 }: IBaseShareContentProps) => {
   const { t } = useTranslation(['common']);
 
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [sharePassword, setSharePassword] = useState('');
+  const [revealedPassword, setRevealedPassword] = useState<string>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleToggleShare = (enabled: boolean) => {
@@ -102,23 +99,17 @@ export const BaseShareContent = ({
     }
   };
 
+  const savePassword = async (password: string) => {
+    if (await onUpdateSetting({ password })) setRevealedPassword(password);
+  };
+
   const handlePasswordSwitchChange = (checked: boolean) => {
     if (checked) {
-      setShowPasswordDialog(true);
+      savePassword(generateSharePassword());
     } else {
+      setRevealedPassword(undefined);
       onUpdateSetting({ password: null });
     }
-  };
-
-  const confirmSharePassword = () => {
-    onUpdateSetting({ password: sharePassword });
-    setShowPasswordDialog(false);
-    setSharePassword('');
-  };
-
-  const closeSharePasswordDialog = () => {
-    setSharePassword('');
-    setShowPasswordDialog(false);
   };
 
   const isShareEnabled = !!share;
@@ -250,26 +241,24 @@ export const BaseShareContent = ({
               </Label>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                id="share-password"
-                checked={Boolean(share.password)}
-                disabled={disabled}
-                onCheckedChange={handlePasswordSwitchChange}
-              />
-              <Label className="text-sm font-normal" htmlFor="share-password">
-                {t('baseShare.restrictByPassword')}
-              </Label>
-              {Boolean(share.password) && (
-                <Button
-                  className="h-5 px-1 hover:text-muted-foreground"
-                  variant="link"
-                  size="xs"
-                  disabled={disabled}
-                  onClick={() => setShowPasswordDialog(true)}
-                >
-                  <Edit className="size-4" />
-                </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="share-password"
+                  checked={Boolean(share.password)}
+                  disabled={disabled || isUpdateLoading}
+                  onCheckedChange={handlePasswordSwitchChange}
+                />
+                <Label className="text-sm font-normal" htmlFor="share-password">
+                  {t('baseShare.restrictByPassword')}
+                </Label>
+              </div>
+              {Boolean(share.password) && !disabled && (
+                <SharePasswordReveal
+                  shareUrl={shareUrl}
+                  password={revealedPassword}
+                  onSave={savePassword}
+                />
               )}
             </div>
 
@@ -302,36 +291,6 @@ export const BaseShareContent = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog
-        open={showPasswordDialog}
-        onOpenChange={(open) => !open && closeSharePasswordDialog()}
-      >
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{t('baseShare.passwordTitle')}</DialogTitle>
-          </DialogHeader>
-          <Input
-            size="lg"
-            type="password"
-            value={sharePassword}
-            onChange={(e) => setSharePassword(e.target.value)}
-            placeholder={t('baseShare.enterPassword')}
-          />
-          <DialogFooter>
-            <Button size="sm" variant="ghost" onClick={closeSharePasswordDialog}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              size="sm"
-              onClick={confirmSharePassword}
-              disabled={!sharePasswordSchema.safeParse(sharePassword).success}
-            >
-              {t('common:actions.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

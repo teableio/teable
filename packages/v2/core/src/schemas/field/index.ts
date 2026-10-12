@@ -61,5 +61,5 @@ export {
 export type { IFieldAiConfigValidationResult } from './fieldAiConfig.schema';
 
 // Main table field schema
-export { tableFieldInputSchema } from './tableField.schema';
+export { dbFieldNameInputSchema, tableFieldInputSchema } from './tableField.schema';
 export type { ITableFieldInput, ResolvedTableFieldInput } from './tableField.schema';

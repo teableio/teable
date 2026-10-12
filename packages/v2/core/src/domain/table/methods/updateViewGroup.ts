@@ -51,7 +51,7 @@ export function updateViewGroup(
   viewId: ViewId,
   rawGroup: unknown
 ): Result<UpdateViewGroupMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewGroupMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const group = yield* ViewGroup.create(rawGroup);

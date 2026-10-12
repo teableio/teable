@@ -36,6 +36,7 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     set: ReturnType<typeof vi.fn>;
     incr: ReturnType<typeof vi.fn>;
     expire: ReturnType<typeof vi.fn>;
+    eval: ReturnType<typeof vi.fn>;
   };
   let service: CacheService;
 
@@ -44,6 +45,7 @@ describe('CacheService raw-command interop with the keyv layout', () => {
       set: vi.fn().mockResolvedValue('OK'),
       incr: vi.fn().mockResolvedValue(1),
       expire: vi.fn().mockResolvedValue(1),
+      eval: vi.fn().mockResolvedValue(1),
     };
     const keyv = {
       opts: {
@@ -76,16 +78,33 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     expect(envelope.expires).toBeLessThanOrEqual(Date.now() + 30_000);
   });
 
-  it('incr counts on the store-derived key and applies the first-hit ttl', async () => {
-    await service.incr('oauth:device-rate:ip', 60);
+  it('incr with a ttl counts and expires the store-derived key in one script', async () => {
+    redis.eval.mockResolvedValue(7);
+
+    expect(await service.incr('oauth:device-rate:ip', 60)).toBe(7);
+
+    const [script, keyCount, physicalKey, ttl] = redis.eval.mock.calls[0];
+    expect(keyCount).toBe(1);
+    expect(physicalKey).toBe('sets:namespace:teable_cache:teable_cache:oauth:device-rate:ip');
+    expect(ttl).toBe(60);
+    // The expiry is attached whenever the key has none, not only on the first
+    // hit, so a counter that lost its TTL cannot stay stuck above the limit.
+    expect(script).toMatch(/INCR/);
+    expect(script).toMatch(/TTL.*<\s*0/s);
+    expect(script).toMatch(/EXPIRE/);
+    expect(redis.incr).not.toHaveBeenCalled();
+    expect(redis.expire).not.toHaveBeenCalled();
+  });
+
+  it('incr without a ttl is a plain INCR on the store-derived key', async () => {
+    redis.incr.mockResolvedValue(3);
+
+    expect(await service.incr('byok:key-rotator:index' as never)).toBe(3);
 
     expect(redis.incr).toHaveBeenCalledWith(
-      'sets:namespace:teable_cache:teable_cache:oauth:device-rate:ip'
+      'sets:namespace:teable_cache:teable_cache:byok:key-rotator:index'
     );
-    expect(redis.expire).toHaveBeenCalledWith(
-      'sets:namespace:teable_cache:teable_cache:oauth:device-rate:ip',
-      60
-    );
+    expect(redis.eval).not.toHaveBeenCalled();
   });
 
   it('expire retargets the same derived key that incr counts on', async () => {
@@ -94,7 +113,7 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     await service.incr('signin:attempts:a@b.c', 30);
     await service.expire('signin:attempts:a@b.c', 1);
 
-    expect(redis.incr).toHaveBeenCalledWith(
+    expect(redis.eval.mock.calls[0][2]).toBe(
       'sets:namespace:teable_cache:teable_cache:signin:attempts:a@b.c'
     );
     expect(redis.expire).toHaveBeenLastCalledWith(

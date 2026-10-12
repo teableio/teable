@@ -129,16 +129,16 @@ export const importAirtableRoSchema = z
       .optional()
       .meta({
         description:
-          'Target space for the new base. Required only when baseId is omitted; when importing ' +
-          "into an existing base the base's own space is used and spaceId is ignored.",
+          'Target space for the new project. Required only when baseId is omitted; when importing ' +
+          "into an existing project the project's own space is used and spaceId is ignored.",
       }),
     baseId: z
       .string()
       .optional()
       .meta({
         description:
-          'Import into this existing base (add its tables) instead of creating a new one. ' +
-          'When omitted, a new base named baseName is created in spaceId.',
+          'Import into this existing project (add its tables) instead of creating a new one. ' +
+          'When omitted, a new project named baseName is created in spaceId.',
       }),
     folderId: z.string().optional().meta({
       description:
@@ -148,7 +148,7 @@ export const importAirtableRoSchema = z
     airtableBaseId: z.string().min(1),
     baseName: z.string().min(1).optional().meta({
       description:
-        'Name for the created base (normally the Airtable base name). Required unless baseId is set.',
+        'Name for the created project (normally the Airtable base name). Required unless baseId is set.',
     }),
     importRecords: z.boolean().optional().meta({
       description: 'Import record data (default true). When false only the structure is created.',
@@ -194,7 +194,7 @@ export const importAirtableRoSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['folderId'],
-        message: 'folderId is only supported when importing into an existing base (baseId).',
+        message: 'folderId is only supported when importing into an existing project (baseId).',
       });
     }
   });
@@ -234,6 +234,7 @@ export type IImportAirtableSSEEvent =
 export const ImportAirtableAnalyzeRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_AIRTABLE_ANALYZE,
+  title: 'Analyze Airtable import source',
   description: 'List accessible Airtable bases or summarize one base schema before import',
   summary: 'analyze an Airtable import source',
   request: {
@@ -261,6 +262,7 @@ export const ImportAirtableAnalyzeRoute: RouteConfig = registerRoute({
 export const ImportAirtableStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_AIRTABLE_STREAM,
+  title: 'Import Airtable base with progress',
   description: 'import an Airtable base with SSE progress stream',
   summary: 'import an Airtable base with SSE progress events',
   request: {

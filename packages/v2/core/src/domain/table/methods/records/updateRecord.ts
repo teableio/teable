@@ -89,7 +89,7 @@ export function updateRecord(
   fieldValues: ReadonlyMap<string, unknown>,
   options?: UpdateRecordOptions
 ): Result<RecordUpdateResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   const { typecast = false, trace } = options ?? {};
   const recordIndex = options?.recordIndex;
   const buildContext = options?.buildContext;
@@ -110,13 +110,10 @@ export function updateRecord(
   return safeTry<RecordUpdateResult, DomainError>(function* () {
     // Resolve field keys to actual fields and build fieldKeyMapping
     const resolvedFields = yield* runTrace('resolveFieldKeys', () =>
-      safeTry<
-        {
-          fieldKeyMapping: FieldKeyMapping;
-          resolvedFieldValues: Map<string, unknown>;
-        },
+      ((): Result<
+        { fieldKeyMapping: FieldKeyMapping; resolvedFieldValues: Map<string, unknown> },
         DomainError
-      >(function* () {
+      > => {
         const fieldKeyMapping: FieldKeyMapping = new Map();
         const resolvedFieldValues = new Map<string, unknown>();
 
@@ -142,7 +139,7 @@ export function updateRecord(
         }
 
         return ok({ fieldKeyMapping, resolvedFieldValues });
-      })
+      })()
     );
     const { fieldKeyMapping, resolvedFieldValues } = resolvedFields;
 

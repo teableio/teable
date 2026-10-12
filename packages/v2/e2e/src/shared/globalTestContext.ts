@@ -475,6 +475,9 @@ const initSharedContext = async (
         const s = app.listen(0, '127.0.0.1', () => resolve(s));
       })
   );
+  // Specs drain outboxes between requests; never let the idle timeout close a
+  // connection fetch is about to reuse (see computedConvergence.ts).
+  server.keepAliveTimeout = 0;
   servers.set(dbMode, server);
 
   const address = server.address() as AddressInfo;

@@ -154,6 +154,7 @@ const createConditionalLookupTableMapper = () => ({
           innerType: 'number',
           innerOptions: { formatting: { type: 'decimal', precision: 2 } },
           options: {
+            isUnique: true,
             foreignTableId: 'tblForeign00000001',
             lookupFieldId: 'fldForeign00000001',
             condition: {
@@ -450,6 +451,7 @@ describe('V2FieldDeleteCompatCompletion', () => {
       isLookup: true,
       isConditionalLookup: true,
       lookupOptions: {
+        isUnique: true,
         foreignTableId: 'tblForeign00000001',
         lookupFieldId: 'fldForeign00000001',
         filter: {

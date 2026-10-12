@@ -10,6 +10,7 @@ import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/Se
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
+import { viewIdsNeedingRowOrderStorage } from '../../domain/table/specs/viewRowOrderStorage';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import type { ViewSortItem } from '../../domain/table/views/ViewSort';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -43,6 +44,15 @@ export class ViewManualSortService {
     table: Table,
     storageSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
+    const viewIds = viewIdsNeedingRowOrderStorage(storageSpec);
+    if (viewIds.length > 0 && this.tableSchemaRepository.prepareViewRowOrderStorage) {
+      const prepared = await this.tableSchemaRepository.prepareViewRowOrderStorage(
+        context,
+        table,
+        viewIds
+      );
+      if (prepared.isErr()) return err(prepared.error);
+    }
     return this.unitOfWork.withTransaction(
       context,
       async (transactionContext) =>

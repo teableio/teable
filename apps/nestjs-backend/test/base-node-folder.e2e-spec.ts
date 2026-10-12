@@ -9,9 +9,10 @@ import {
   createBaseNode,
   BaseNodeResourceType,
   deleteBaseNode,
+  createBase,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
-import { initApp } from './utils/init-app';
+import { initApp, permanentDeleteBase } from './utils/init-app';
 
 describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
   let app: INestApplication;
@@ -150,6 +151,29 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       const error = await getError(() => updateBaseNodeFolder(baseId, folderId, updateRo));
 
       expect(error?.status).toBe(400);
+    });
+
+    it('should not rename a folder that belongs to another base', async () => {
+      const otherBase = await createBase({
+        name: 'folder rename other base',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+      try {
+        const otherFolder = await createBaseNodeFolder(otherBase.id, { name: 'Other Folder' });
+
+        const error = await getError(() =>
+          updateBaseNodeFolder(baseId, otherFolder.data.id, { name: 'Renamed Elsewhere' })
+        );
+
+        expect(error?.status).toBe(404);
+        const unchanged = await prisma.baseNodeFolder.findUnique({
+          where: { id: otherFolder.data.id },
+          select: { name: true, baseId: true },
+        });
+        expect(unchanged).toEqual({ name: 'Other Folder', baseId: otherBase.id });
+      } finally {
+        await permanentDeleteBase(otherBase.id);
+      }
     });
 
     it('should fail when updating non-existent folder', async () => {

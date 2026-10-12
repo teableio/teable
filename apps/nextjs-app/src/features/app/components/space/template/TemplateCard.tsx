@@ -1,7 +1,9 @@
 import { Eye } from '@teable/icons';
 import type { ITemplateVo } from '@teable/openapi';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
+import { TemplateHostContext } from './host-context';
 import type { ITemplateBaseProps } from './TemplateMain';
 
 interface ITemplateCardProps extends Pick<ITemplateBaseProps, 'onClickTemplateCardHandler'> {
@@ -29,6 +31,8 @@ export const TemplateCard = ({
   const { name, description, cover, visitCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
   const { t, i18n } = useTranslation(['common']);
+  const host = useContext(TemplateHostContext);
+  const coverOverlay = host.renderCoverOverlay?.(template);
 
   const formatCount = (count: number) =>
     Intl.NumberFormat([i18n.language, 'en'], { notation: 'compact' }).format(count);
@@ -52,7 +56,7 @@ export const TemplateCard = ({
     >
       <div
         className={cn(
-          'group w-full shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]',
+          'group relative w-full shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]',
           AspectRatioMap[size]
         )}
       >
@@ -67,6 +71,15 @@ export const TemplateCard = ({
             <span className="text-sm text-muted-foreground">
               {t('settings.templateAdmin.noImage')}
             </span>
+          </div>
+        )}
+        {coverOverlay && (
+          <div
+            className={cn('absolute bottom-2 start-2', {
+              'bottom-1.5 start-1.5': size === 'xs',
+            })}
+          >
+            {coverOverlay}
           </div>
         )}
       </div>

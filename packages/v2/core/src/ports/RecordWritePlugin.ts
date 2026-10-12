@@ -25,6 +25,7 @@ export const RecordWriteOperationKind = {
   updateOne: 'updateOne',
   updateMany: 'updateMany',
   deleteMany: 'deleteMany',
+  archiveMany: 'archiveMany',
   importAppend: 'importAppend',
   paste: 'paste',
 } as const;
@@ -232,6 +233,10 @@ export type IRecordWriteDeleteManyContext = IRecordWritePluginContextBase<
   'deleteMany',
   RecordWriteDeleteManyPayload
 >;
+export type IRecordWriteArchiveManyContext = IRecordWritePluginContextBase<
+  'archiveMany',
+  RecordWriteDeleteManyPayload
+>;
 export type IRecordWriteImportAppendContext = IRecordWritePluginContextBase<
   'importAppend',
   RecordWriteImportAppendPayload
@@ -251,6 +256,7 @@ export type RecordWritePluginContextMap = {
   updateOne: IRecordWriteUpdateOneContext;
   updateMany: IRecordWriteUpdateManyContext;
   deleteMany: IRecordWriteDeleteManyContext;
+  archiveMany: IRecordWriteArchiveManyContext;
   importAppend: IRecordWriteImportAppendContext;
   paste: IRecordWritePasteContext;
 };

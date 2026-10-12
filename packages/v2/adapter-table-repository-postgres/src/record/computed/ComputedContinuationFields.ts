@@ -2,6 +2,7 @@ import type { FieldId } from '@teable/v2-core';
 
 import type { StepChangeData } from './ComputedFieldUpdater';
 import type { ComputedUpdatePlan, UpdateStep } from './ComputedUpdatePlanner';
+import { fieldChangeActuallyChanged } from './ComputedValueGatedPropagation';
 
 /**
  * Fields that may start the next cascade stage.
@@ -43,6 +44,7 @@ export const collectContinuationFieldIds = (
   for (const stepChange of changesByStep) {
     for (const recordChange of stepChange.recordChanges) {
       for (const change of recordChange.changes) {
+        if (!fieldChangeActuallyChanged(change)) continue;
         const fieldId = plannedFields.get(change.fieldId) ?? edgeTargets.get(change.fieldId);
         if (fieldId) changedFields.set(change.fieldId, fieldId);
       }

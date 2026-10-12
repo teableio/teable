@@ -1,4 +1,4 @@
-import { useTheme } from '@teable/next-themes';
+import { useTheme } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { MultipleSelectField, SingleSelectField } from '../../../../model';

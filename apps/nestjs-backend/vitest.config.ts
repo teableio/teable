@@ -4,6 +4,11 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
+// V8 coverage instrumentation makes these suites several times slower; every coverage run sets
+// SONAR_COVERAGE_RUN (scripts/sonar-coverage.mjs, and the test-unit-cover script CI calls) so the
+// per-test limits can be relaxed there.
+const coverageRun = process.env.SONAR_COVERAGE_RUN === '1';
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -23,10 +28,13 @@ export default defineConfig({
         target: 'es2022',
       },
     }),
-    tsconfigPaths(),
+    // The mobile app's tsconfig extends expo's, which is not installed here; skip it.
+    tsconfigPaths({ ignoreConfigErrors: true }),
   ],
   cacheDir: '../../.cache/vitest/nestjs-backend/unit',
   test: {
+    testTimeout: coverageRun ? 180_000 : 5_000,
+    hookTimeout: coverageRun ? 180_000 : 10_000,
     globals: true,
     environment: 'node',
     setupFiles: './vitest.setup.ts',

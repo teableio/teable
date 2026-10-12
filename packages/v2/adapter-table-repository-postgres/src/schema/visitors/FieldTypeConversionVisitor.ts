@@ -71,9 +71,9 @@ const createCompiledStatementBuilder = (
   compile: () => sql.raw(sqlText).compile(db),
 });
 
-const quoteIdent = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+const quoteIdent = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
-const quoteLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+const quoteLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
 
 const pgPhysicalColumnExistsSql = (schema: string, tableName: string, columnName: string): string =>
   `EXISTS (
@@ -1145,7 +1145,7 @@ const buildLookupToBasicFieldMigrationStatements = (
     const textValueExpression = sourceIsMultiple
       ? `NULLIF(replace(btrim(${arrayValuesExpression}::text, '[]'), '"', ''), '')`
       : scalarValueExpression;
-    const numericValueExpression = `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${firstValueExpression})::double precision ELSE NULL END`;
+    const numericValueExpression = String.raw`CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\.[0-9]+)?$' THEN (${firstValueExpression})::double precision ELSE NULL END`;
     const targetType = newField.type().toString();
     const valueExpression = (() => {
       switch (targetType) {
@@ -1156,7 +1156,7 @@ const buildLookupToBasicFieldMigrationStatements = (
           return numericValueExpression;
         case 'rating': {
           const max = (newField as RatingField).ratingMax().toNumber();
-          return `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${buildRatingConversionExpression(firstValueExpression, max)} ELSE NULL END`;
+          return String.raw`CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${buildRatingConversionExpression(firstValueExpression, max)} ELSE NULL END`;
         }
         case 'checkbox':
           return `CASE WHEN lower((${firstValueExpression})::text) IN ('true', 't', '1', 'yes', 'y') THEN TRUE WHEN lower((${firstValueExpression})::text) IN ('false', 'f', '0', 'no', 'n') THEN FALSE WHEN (${firstValueExpression}) IS NOT NULL AND (${firstValueExpression}) <> '' THEN TRUE ELSE NULL END`;
@@ -1235,7 +1235,7 @@ function buildFormulaMigrationSql(
     }
     if (isString) {
       // Try to parse string as number; non-numeric → NULL
-      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${asTextSql(tmp)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${tmp}::double precision ELSE NULL END ${whereNotNull}`;
+      return String.raw`UPDATE ${tbl} SET ${dst} = CASE WHEN ${asTextSql(tmp)} ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${tmp}::double precision ELSE NULL END ${whereNotNull}`;
     }
     // dateTime, boolean → number: incompatible (v1 returns null)
     return null;
@@ -2110,7 +2110,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     return ok([
       this.alterColumnTypeUsing(
         'double precision',
-        `CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
+        String.raw`CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
       ),
     ]);
   }
@@ -2125,7 +2125,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     return ok([
       this.alterColumnTypeUsing(
         'double precision',
-        `CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${buildRatingConversionExpression(col, max)} ELSE NULL END`
+        String.raw`CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${buildRatingConversionExpression(col, max)} ELSE NULL END`
       ),
     ]);
   }
@@ -2183,7 +2183,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     const statements: TableSchemaStatementBuilder[] = [];
     // CSV-aware regex: matches either "quoted content" or unquoted field
     // E-string \\n/\\r → PG \n/\r → literal newline/CR in regex
-    const csvFieldRegex = `E' *(?:"([^"]*)"|([^,\\n\\r]+))'`;
+    const csvFieldRegex = String.raw`E' *(?:"([^"]*)"|([^,\n\r]+))'`;
 
     const optionsStatement = buildSelectOptionsFromValuesStatement(
       this.params,

@@ -36,6 +36,8 @@ export const getBaseItemSchema = z.object({
   lastModifiedTime: z.string().nullable().optional(),
   createdTime: z.string().nullable().optional(),
   createdBy: z.string(),
+  /** The caller's own position for this base; only with `orderBy=personal` and once saved. */
+  personalOrder: z.number().optional(),
   template: z
     .object({
       id: z.string(),
@@ -62,7 +64,8 @@ export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;
 export const GetBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE,
-  description: 'Get a base by baseId',
+  title: 'Get project',
+  description: 'Retrieve a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -70,7 +73,7 @@ export const GetBaseRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns information about a base.',
+      description: 'Returns information about a project.',
       content: {
         'application/json': {
           schema: getBaseVoSchema,

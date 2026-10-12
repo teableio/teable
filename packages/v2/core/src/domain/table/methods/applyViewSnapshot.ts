@@ -38,7 +38,7 @@ export const applyViewSnapshot = function (
   this: Table,
   snapshotView: View
 ): Result<ApplyViewSnapshotMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<ApplyViewSnapshotMethodResult, DomainError>(function* () {
     const currentResult = table.getView(snapshotView.id());
     if (currentResult.isErr()) {

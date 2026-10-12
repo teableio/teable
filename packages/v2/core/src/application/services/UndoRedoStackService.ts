@@ -41,6 +41,7 @@ import {
   type UndoRedoArchiveTrashRow,
   type UndoRedoCommandData,
   type UndoRedoCommandLeafData,
+  type UndoRedoReplayMode,
   type UndoRedoSetButtonValueCommandData,
   type UndoRedoUpdateCommandData,
   type UndoRedoUpdateRecordsCommandData,
@@ -144,6 +145,17 @@ export type UndoRedoReplayProgress = {
 
 export type UndoRedoReplayOptions = {
   readonly onProgress?: (progress: UndoRedoReplayProgress) => void;
+  /**
+   * Host veto over the reserved entry, called once before any of its commands
+   * execute. Returning an error aborts the reservation so the entry stays on
+   * the stack; the host uses it to refuse a replay the actor may no longer
+   * perform. Not called for an entry that already executed and only awaits
+   * its cursor commit — a veto cannot take back work that already happened.
+   */
+  readonly beforeReplay?: (
+    entry: UndoEntry,
+    mode: UndoRedoReplayMode
+  ) => Promise<Result<void, DomainError>>;
 };
 
 type UndoRedoReplayProgressState = {
@@ -587,7 +599,7 @@ export class UndoRedoStackService {
     mode: 'undo' | 'redo',
     options?: UndoRedoReplayOptions
   ): Promise<Result<UndoEntry | null, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UndoEntry | null, DomainError>(async function* () {
       const scope = yield* service.resolveScope(context, tableId, windowId);
       const reserved = yield* await service.runInSpan(
@@ -611,17 +623,26 @@ export class UndoRedoStackService {
       const commandData = mode === 'undo' ? reserved.entry.undoCommand : reserved.entry.redoCommand;
 
       if (reserved.executionStatus !== 'succeeded') {
+        if (options?.beforeReplay) {
+          const vetoResult = await options.beforeReplay(reserved.entry, mode);
+          if (vetoResult.isErr()) {
+            await service.undoRedoStore.abort(scope, reserved.token);
+            return err(vetoResult.error);
+          }
+        }
         yield* await service.undoRedoStore.renew(scope, reserved.token);
         const executeContext = service.buildReplayExecutionContext(
           context,
           mode,
           reserved.operationId
         );
-        const progressState: UndoRedoReplayProgressState =
-          service.createReplayProgressState(commandData, options) ?? {
-            totalCount: 0,
-            processedCount: 0,
-          };
+        const progressState: UndoRedoReplayProgressState = service.createReplayProgressState(
+          commandData,
+          options
+        ) ?? {
+          totalCount: 0,
+          processedCount: 0,
+        };
         progressState.executedLeafIndex = reserved.executedLeafIndex;
         progressState.skipAlreadyExecuted =
           commandData.type !== 'Batch' && reserved.executedLeafIndex >= 1;
@@ -630,10 +651,8 @@ export class UndoRedoStackService {
           return service.undoRedoStore.markProgress(scope, reserved.token, index);
         };
 
-        const executeResult = await service.withReservationHeartbeat(
-          scope,
-          reserved.token,
-          () => service.executeCommandData(executeContext, commandData, progressState)
+        const executeResult = await service.withReservationHeartbeat(scope, reserved.token, () =>
+          service.executeCommandData(executeContext, commandData, progressState)
         );
         if (executeResult.isErr()) {
           await service.undoRedoStore.abort(scope, reserved.token);
@@ -835,9 +854,7 @@ export class UndoRedoStackService {
       return progressState.onLeafExecuted(index);
     };
 
-    const flushPendingUpdates = async (
-      nextIndex: number
-    ): Promise<Result<void, DomainError>> => {
+    const flushPendingUpdates = async (nextIndex: number): Promise<Result<void, DomainError>> => {
       if (!pendingUpdates.length) {
         return ok(undefined);
       }

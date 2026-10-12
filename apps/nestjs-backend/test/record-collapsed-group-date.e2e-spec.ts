@@ -86,7 +86,9 @@ describe('OpenAPI collapsed date group (e2e)', () => {
         expect(headers.length).toBe(2);
 
         const allIds = await getDocIds(table.id, { viewId, groupBy });
-        expect([...allIds].sort()).toEqual([novAId, novBId, decAId].sort());
+        expect([...allIds].sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+          [novAId, novBId, decAId].sort((a, b) => Number(a > b) - Number(a < b))
+        );
 
         // Collapse the first (ascending) group: both of its rows must disappear
         // while the other group's row stays visible.

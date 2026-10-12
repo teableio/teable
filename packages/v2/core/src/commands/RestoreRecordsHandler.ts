@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -15,12 +15,11 @@ import { RecordId } from '../domain/table/records/RecordId';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
 import type { Table } from '../domain/table/Table';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { RestoreRecordsCommand, type RestoreRecordInput } from './RestoreRecordsCommand';
 import { resolveRestoreRecordsBatchSize } from './shared/streamBatchSize';
@@ -46,10 +45,8 @@ export class RestoreRecordsHandler
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -116,40 +113,37 @@ export class RestoreRecordsHandler
 
       const restoreRecordsById = this.buildRestoreRecordsById(batch);
       const tableRecordRepository = this.tableRecordRepository;
-      const persistedResult = await this.unitOfWork.withTransaction(
+      const committed = await this.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
-          return safeTry<void, DomainError>(async function* () {
-            yield* await tableRecordRepository.insertMany(
-              transactionContext,
-              table,
-              records.value,
-              {
-                restoreRecordsById,
-                cleanupTrashRecordIds: batch.map((record) => record.recordId),
-                ...(command.cleanupAttachmentRefs
-                  ? { cleanupAttachmentRefRecordIds: batch.map((record) => record.recordId) }
-                  : {}),
-              }
-            );
-            return ok(undefined);
-          });
+          const insertResult = await tableRecordRepository.insertMany(
+            transactionContext,
+            table,
+            records.value,
+            {
+              restoreRecordsById,
+              cleanupTrashRecordIds: batch.map((record) => record.recordId),
+              ...(command.cleanupAttachmentRefs
+                ? { cleanupAttachmentRefRecordIds: batch.map((record) => record.recordId) }
+                : {}),
+            }
+          );
+          if (insertResult.isErr()) {
+            return err(insertResult.error);
+          }
+          return ok(
+            domainWrite.fromEvents(undefined, this.buildBatchCreatedEvents(table, batch), {
+              tables: [table],
+            })
+          );
         }
       );
-      if (persistedResult.isErr()) {
-        return err(persistedResult.error);
+      if (committed.isErr()) {
+        return err(committed.error);
       }
 
       restoredCount += records.value.length;
-
-      const batchEvents = this.buildBatchCreatedEvents(table, batch);
-      if (batchEvents.length > 0) {
-        const publishResult = await this.eventBus.publishMany(context, batchEvents);
-        if (publishResult.isErr()) {
-          return err(publishResult.error);
-        }
-        events.push(...batchEvents);
-      }
+      events.push(...committed.value.events);
     }
 
     return ok(RestoreRecordsResult.create(restoredCount, events));

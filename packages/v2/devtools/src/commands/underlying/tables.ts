@@ -25,7 +25,7 @@ const handler = (args: { readonly connection: Option.Option<string>; readonly ba
       yield* output.empty(
         'underlying.tables',
         input,
-        `No tables found in base "${args.baseId}". Check if the base ID is correct.`
+        `No tables found in project "${args.baseId}". Check if the project ID is correct.`
       );
       return;
     }
@@ -40,4 +40,4 @@ export const underlyingTables = Command.make(
     baseId: baseIdOption,
   },
   handler
-).pipe(Command.withDescription('List all tables in a base from underlying database'));
+).pipe(Command.withDescription('List all tables in a project from underlying database'));

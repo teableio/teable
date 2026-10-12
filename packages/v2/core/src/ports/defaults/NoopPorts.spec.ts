@@ -54,12 +54,12 @@ describe('NoopEventBus', () => {
   it('publishes events with ok results', async () => {
     const bus = new NoopEventBus();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const event = { name: { toString: () => 'Test' }, occurredAt: { toDate: () => new Date() } };
-    (await bus.publish(context, event as never))._unsafeUnwrap();
-    (await bus.publishMany(context, [event as never]))._unsafeUnwrap();
+    expect((await bus.publish(context, event as never)).isOk()).toBe(true);
+    expect((await bus.publishMany(context, [event as never])).isOk()).toBe(true);
   });
 });
 
@@ -68,13 +68,13 @@ describe('NoopTableRepository', () => {
     const table = buildTable();
     const repo = new NoopTableRepository();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
-    (await repo.insert(context, table))._unsafeUnwrap();
+    expect((await repo.insert(context, table)).isOk()).toBe(true);
     const queryResult = await repo.findOne(context, { isSatisfiedBy: () => true } as never);
-    queryResult._unsafeUnwrapErr();
-    (await repo.delete(context, table))._unsafeUnwrap();
+    expect(queryResult.isErr()).toBe(true);
+    expect((await repo.delete(context, table)).isOk()).toBe(true);
   });
 });
 
@@ -97,7 +97,7 @@ describe('NoopTableRecordRepository', () => {
     const record = buildRecord(table);
     const repo = new NoopTableRecordRepository();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const deleteSpec = TableRecord.specs().recordId(record.id()).build()._unsafeUnwrap();
@@ -106,9 +106,9 @@ describe('NoopTableRecordRepository', () => {
       mutate: () => ok(record),
       accept: () => ok(undefined),
     };
-    (await repo.insert(context, table, record))._unsafeUnwrap();
-    (await repo.updateOne(context, table, record.id(), mutateSpec))._unsafeUnwrap();
-    (await repo.deleteMany(context, table, deleteSpec))._unsafeUnwrap();
+    expect((await repo.insert(context, table, record)).isOk()).toBe(true);
+    expect((await repo.updateOne(context, table, record.id(), mutateSpec)).isOk()).toBe(true);
+    expect((await repo.deleteMany(context, table, deleteSpec)).isOk()).toBe(true);
   });
 });
 
@@ -117,7 +117,7 @@ describe('NoopTableSchemaRepository', () => {
     const table = buildTable();
     const repo = new NoopTableSchemaRepository();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const mutateSpec: ISpecification<Table, ITableSpecVisitor> = {
@@ -125,9 +125,9 @@ describe('NoopTableSchemaRepository', () => {
       mutate: () => ok(table),
       accept: () => ok(undefined),
     };
-    (await repo.insert(context, table))._unsafeUnwrap();
-    (await repo.update(context, table, mutateSpec))._unsafeUnwrap();
-    (await repo.delete(context, table))._unsafeUnwrap();
+    expect((await repo.insert(context, table)).isOk()).toBe(true);
+    expect((await repo.update(context, table, mutateSpec)).isOk()).toBe(true);
+    expect((await repo.delete(context, table)).isOk()).toBe(true);
   });
 });
 
@@ -138,31 +138,33 @@ describe('NoopUndoRedoStore', () => {
     const tableId = TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap();
     const scope = { actorId, tableId, windowId: 'window-1' };
 
-    (
-      await store.append(scope, {
-        scope,
-        undoCommand: createUndoRedoCommand('UpdateRecord', {
-          tableId: tableId.toString(),
-          recordId: `rec${'b'.repeat(16)}`,
-          fields: { fld: 'old' },
-          fieldKeyType: 'id',
-          typecast: false,
-        }),
-        redoCommand: createUndoRedoCommand('UpdateRecord', {
-          tableId: tableId.toString(),
-          recordId: `rec${'b'.repeat(16)}`,
-          fields: { fld: 'new' },
-          fieldKeyType: 'id',
-          typecast: false,
-        }),
-        recordVersionBefore: 1,
-        recordVersionAfter: 2,
-        createdAt: new Date().toISOString(),
-      })
-    )._unsafeUnwrap();
-    (await store.undo(scope))._unsafeUnwrap();
-    (await store.redo(scope))._unsafeUnwrap();
-    (await store.list(scope))._unsafeUnwrap();
+    expect(
+      (
+        await store.append(scope, {
+          scope,
+          undoCommand: createUndoRedoCommand('UpdateRecord', {
+            tableId: tableId.toString(),
+            recordId: `rec${'b'.repeat(16)}`,
+            fields: { fld: 'old' },
+            fieldKeyType: 'id',
+            typecast: false,
+          }),
+          redoCommand: createUndoRedoCommand('UpdateRecord', {
+            tableId: tableId.toString(),
+            recordId: `rec${'b'.repeat(16)}`,
+            fields: { fld: 'new' },
+            fieldKeyType: 'id',
+            typecast: false,
+          }),
+          recordVersionBefore: 1,
+          recordVersionAfter: 2,
+          createdAt: new Date().toISOString(),
+        })
+      ).isOk()
+    ).toBe(true);
+    expect((await store.undo(scope)).isOk()).toBe(true);
+    expect((await store.redo(scope)).isOk()).toBe(true);
+    expect((await store.list(scope)).isOk()).toBe(true);
   });
 });
 
@@ -186,20 +188,22 @@ describe('NoopRealtimeEngine', () => {
   it('accepts changes without errors', async () => {
     const engine = new NoopRealtimeEngine();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const docIdResult = RealtimeDocId.create('doc-1');
     const docId = docIdResult._unsafeUnwrap();
 
-    (await engine.ensure(context, docId, { title: 'init' }))._unsafeUnwrap();
-    (
-      await engine.applyChange(context, docId, {
-        type: 'set',
-        path: ['title'],
-        value: 'next',
-      })
-    )._unsafeUnwrap();
+    expect((await engine.ensure(context, docId, { title: 'init' })).isOk()).toBe(true);
+    expect(
+      (
+        await engine.applyChange(context, docId, {
+          type: 'set',
+          path: ['title'],
+          value: 'next',
+        })
+      ).isOk()
+    ).toBe(true);
   });
 });
 
@@ -218,11 +222,11 @@ describe('NoopUnitOfWork', () => {
   it('wraps work without failing', async () => {
     const unit = new NoopUnitOfWork();
     const actorIdResult = ActorId.create('system');
-    actorIdResult._unsafeUnwrap();
+    expect(actorIdResult.isOk()).toBe(true);
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const result = await unit.withTransaction(context, async () => ok('ok'));
-    result._unsafeUnwrap();
+    expect(result.isOk()).toBe(true);
   });
 
   it('returns error when work throws', async () => {

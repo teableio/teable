@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, TimeFormatting, defaultDatetimeFormatting } from '@teable/core';
 import type { IInplaceImportOptionRo, IImportStreamEvent } from '@teable/openapi';
@@ -130,14 +130,11 @@ const genTestFiles = async () => {
     const stats = fs.statSync(tmpPath);
 
     const { token, requestHeaders } = (
-      await apiGetSignature(
-        {
-          type: UploadType.Import,
-          contentLength: stats.size,
-          contentType: contentType,
-        },
-        undefined
-      )
+      await apiGetSignature({
+        type: UploadType.Import,
+        contentLength: stats.size,
+        contentType: contentType,
+      })
     ).data;
 
     await apiUploadFile(token, file, requestHeaders);
@@ -196,14 +193,11 @@ const uploadImportFile = async (
   fs.writeFileSync(tmpPath, contents);
   const stats = fs.statSync(tmpPath);
   const { token, requestHeaders } = (
-    await apiGetSignature(
-      {
-        type: UploadType.Import,
-        contentLength: stats.size,
-        contentType,
-      },
-      undefined
-    )
+    await apiGetSignature({
+      type: UploadType.Import,
+      contentLength: stats.size,
+      contentType,
+    })
   ).data;
   await apiUploadFile(token, fs.createReadStream(tmpPath), requestHeaders);
   const {
@@ -408,10 +402,11 @@ describe('OpenAPI ImportController (e2e)', () => {
       const csvPath = testFiles[TestFileFormat.CSV].path;
       const stats = fs.statSync(csvPath);
       const { token, requestHeaders } = (
-        await apiGetSignature(
-          { type: UploadType.Import, contentLength: stats.size, contentType: 'text/csv' },
-          undefined
-        )
+        await apiGetSignature({
+          type: UploadType.Import,
+          contentLength: stats.size,
+          contentType: 'text/csv',
+        })
       ).data;
       await apiUploadFile(token, fs.createReadStream(csvPath), requestHeaders);
       const {

@@ -124,7 +124,7 @@ export const myPluginConfig: IOfficialPluginConfig = {
   i18n: {
     zh: {
       name: '我的插件',
-      helpUrl: 'https://help.teable.cn',
+      helpUrl: 'https://help.teable.ai',
       description: '插件描述',
       detailDesc: '详细描述',
     },

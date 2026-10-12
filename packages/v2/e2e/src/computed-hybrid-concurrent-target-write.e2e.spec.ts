@@ -18,20 +18,22 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
-  v2RecordRepositoryPostgresTokens,
-  type ComputedUpdateWorker,
-} from '../../adapter-table-repository-postgres/src';
-import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { getRandomString } from '@teable/v2-core';
+import { getRandomString, type DomainError } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
+import type { Result } from 'neverthrow';
 import { afterEach, describe, expect, it } from 'vitest';
+import {
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateWorker,
+  type IComputedUpdateOutbox,
+} from '../../adapter-table-repository-postgres/src';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -229,7 +231,7 @@ const waitForOutboxQuiesce = async (harness: TestHarness, rounds = 80) => {
 };
 
 describe('computed hybrid concurrent target writeback (e2e) T6300', () => {
-  it('converges lookup + formula chain after dual-worker parent/child updates', async () => {
+  it('converges exact values after source and target writes overtake a claimed worker', async () => {
     const harness = await createHarness({
       computedUpdate: {
         hybridConfig: {
@@ -331,6 +333,13 @@ describe('computed hybrid concurrent target writeback (e2e) T6300', () => {
       [childLinkFieldId]: { id: parent.id },
     });
 
+    const unrelatedParent = await createRecord(harness, parentTable.id, {
+      [parentNameFieldId]: 'Untouched',
+    });
+    const unrelatedChild = await createRecord(harness, childTable.id, {
+      [childStatusFieldId]: 'Draft',
+      [childLinkFieldId]: { id: unrelatedParent.id },
+    });
     await waitForOutboxQuiesce(harness);
 
     const baseline = await listRecordsWithoutDrain(harness, childTable.id);
@@ -341,43 +350,108 @@ describe('computed hybrid concurrent target writeback (e2e) T6300', () => {
         parseArrayCell(baselineChild?.fields[childLookupFieldId])[0] ??
           baselineChild?.fields[childLookupFieldId]
       )
-    ).toContain('First-020');
-    expect(cellText(baselineChild?.fields[orderCardFieldId])).toContain('Open|First-020');
+    ).toBe('First-020');
+    expect(cellText(baselineChild?.fields[orderCardFieldId])).toBe('Open|First-020-L2-L3');
 
-    // Enqueue two independent seed tasks that both write the child computed columns.
+    // Commit a source task, then stop its worker after the real claim transaction
+    // but before any computed writes. New source/target writes must overtake it.
     await updateRecord(harness, parentTable.id, parent.id, {
       [parentNameFieldId]: 'First-020-updated',
     });
-    await updateRecord(harness, childTable.id, child.id, {
-      [childStatusFieldId]: 'Paid',
-    });
-
-    const pendingBefore = await sql<{ cnt: number }>`
-      SELECT count(*)::int as cnt
-      FROM computed_update_outbox
-      WHERE status = 'pending'
-    `.execute(harness.testContainer.db);
-    expect(Number(pendingBefore.rows[0]?.cnt ?? 0)).toBeGreaterThanOrEqual(2);
 
     const worker = harness.testContainer.container.resolve(
       v2RecordRepositoryPostgresTokens.computedUpdateWorker
     ) as ComputedUpdateWorker;
 
-    // Dual workers claim distinct seed-table tasks under base concurrency=2.
-    const [first, second] = await Promise.all([
-      worker.runOnce({ workerId: 't6300-worker-a', limit: 1 }),
-      worker.runOnce({ workerId: 't6300-worker-b', limit: 1 }),
-    ]);
-    expect(first.isOk()).toBe(true);
-    expect(second.isOk()).toBe(true);
+    const outbox = harness.testContainer.container.resolve<IComputedUpdateOutbox>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+    );
+    const realClaim = outbox.claimBatch;
+    let announceClaim!: () => void;
+    let releaseClaim!: () => void;
+    let announceSecondClaim!: () => void;
+    const claimed = new Promise<void>((resolve) => {
+      announceClaim = resolve;
+    });
+    const released = new Promise<void>((resolve) => {
+      releaseClaim = resolve;
+    });
+    const secondClaimed = new Promise<void>((resolve) => {
+      announceSecondClaim = resolve;
+    });
+    let blocked = false;
+    outbox.claimBatch = async function (params, context) {
+      const result = await realClaim.call(this, params, context);
+      if (
+        !blocked &&
+        params.workerId === 't6300-worker-a' &&
+        result.isOk() &&
+        result.value.length > 0
+      ) {
+        blocked = true;
+        announceClaim();
+        await released;
+      }
+      if (params.workerId === 't6300-worker-b' && result.isOk() && result.value.length > 0) {
+        announceSecondClaim();
+      }
+      return result;
+    };
+    const firstRun = worker.runOnce({ workerId: 't6300-worker-a', limit: 1 });
+    let secondRun: Promise<Result<number, DomainError>> | undefined;
+    try {
+      await Promise.race([
+        claimed,
+        firstRun.then(() => {
+          throw new Error('Worker finished without reaching the claim barrier');
+        }),
+      ]);
+      const processing = await harness.testContainer.db
+        .selectFrom('computed_update_outbox')
+        .select('id')
+        .where('status', '=', 'processing')
+        .execute();
+      expect(processing.length).toBeGreaterThan(0);
+      await Promise.all([
+        updateRecord(harness, parentTable.id, parent.id, {
+          [parentNameFieldId]: 'First-020-latest',
+        }),
+        updateRecord(harness, childTable.id, child.id, {
+          [childStatusFieldId]: 'Paid',
+        }),
+      ]);
+      // Keep A's real claim held until B owns a distinct nonempty claim.
+      secondRun = worker.runOnce({ workerId: 't6300-worker-b', limit: 1 });
+      await Promise.race([
+        secondClaimed,
+        secondRun.then(() => {
+          throw new Error('Second worker finished without claiming concurrent work');
+        }),
+      ]);
+      releaseClaim();
+      const [first, second] = await Promise.all([firstRun, secondRun]);
+      expect(first.isOk()).toBe(true);
+      expect(second.isOk()).toBe(true);
+    } finally {
+      releaseClaim();
+      outbox.claimBatch = realClaim;
+      await Promise.allSettled(secondRun ? [firstRun, secondRun] : [firstRun]);
+    }
 
-    await waitForOutboxQuiesce(harness);
+    const reader = await createHarness({
+      connectionString: harness.testContainer.connectionString,
+      seedBase: false,
+      computedUpdate: {
+        hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
+      },
+    });
+    await waitForOutboxQuiesce(reader);
 
-    const expectedCard = 'Paid|First-020-updated-L2-L3';
-    const expectedLookup = 'First-020-updated';
+    const expectedCard = 'Paid|First-020-latest-L2-L3';
+    const expectedLookup = 'First-020-latest';
 
     const assertConverged = async () => {
-      const records = await listRecordsWithoutDrain(harness, childTable.id);
+      const records = await listRecordsWithoutDrain(reader, childTable.id);
       const row = records.find((record) => record.id === child.id);
       expect(row).toBeDefined();
       const lookup = cellText(
@@ -393,15 +467,30 @@ describe('computed hybrid concurrent target writeback (e2e) T6300', () => {
       expect(l2).toBe(`${expectedLookup}-L2`);
       expect(l3).toBe(`${expectedLookup}-L2-L3`);
       expect(card).toBe(expectedCard);
+      const untouched = records.find((record) => record.id === unrelatedChild.id);
+      expect(cellText(untouched?.fields[childStatusFieldId])).toBe('Draft');
+      expect(parseArrayCell(untouched?.fields[childLookupFieldId])).toEqual(['Untouched']);
+      expect(cellText(untouched?.fields[profileSeedFieldId])).toBe('Untouched');
+      expect(cellText(untouched?.fields[profileL2FieldId])).toBe('Untouched-L2');
+      expect(cellText(untouched?.fields[profileL3FieldId])).toBe('Untouched-L2-L3');
+      expect(cellText(untouched?.fields[orderCardFieldId])).toBe('Draft|Untouched-L2-L3');
     };
 
     await assertConverged();
 
-    // Stability window: values must not regress after outbox is empty.
-    for (let i = 0; i < 5; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      await assertConverged();
-    }
+    // A fresh drain is a no-op on the settled values, without a timing window.
+    await reader.testContainer.processOutbox();
+    await assertConverged();
+    const parents = await listRecordsWithoutDrain(reader, parentTable.id);
+    expect(parents.find((record) => record.id === parent.id)?.fields[parentNameFieldId]).toBe(
+      expectedLookup
+    );
+    expect(
+      parents.find((record) => record.id === unrelatedParent.id)?.fields[parentNameFieldId]
+    ).toBe('Untouched');
+    expect(
+      await reader.testContainer.db.selectFrom('computed_update_outbox').select('id').execute()
+    ).toEqual([]);
 
     const dead = await sql<{ cnt: number }>`
       SELECT count(*)::int as cnt FROM computed_update_dead_letter

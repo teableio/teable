@@ -68,7 +68,7 @@ const splitSaveFailedLabel = (label: string) => {
   };
 };
 
-const ResourceDescriptionDialog = ({
+export const ResourceDescriptionDialog = ({
   description,
   open,
   onOpenChange,

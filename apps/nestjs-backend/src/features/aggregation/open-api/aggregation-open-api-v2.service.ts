@@ -1,4 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import type {
   IAggregationRo,
@@ -7,6 +8,8 @@ import type {
   ICalendarDailyCollectionVo,
   IGroupPointsRo,
   IGroupPointsVo,
+  IRecordIndexRo,
+  IRecordIndexVo,
   IRowCountRo,
   IRowCountVo,
   ISearchCountRo,
@@ -28,18 +31,22 @@ import {
   type IExecutionContext,
   type IQueryBus,
   type ITableRepository,
+  ListTableRecordsQuery,
+  type ListTableRecordsResult,
   MAX_RECORDS_LIMIT,
   RecordQueryOperationKind,
   type RecordQueryPluginRunner,
   type RecordQueryPluginScope,
   type Table,
   TableByIdSpec,
+  isTableProvisionPendingError,
   TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { type IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
@@ -50,51 +57,85 @@ import {
   throwV2QueryDomainError,
 } from './aggregation-v2-result.mapper';
 
-interface IPreparedV2Read {
+import { provisionReadyCache } from './provision-ready-cache';
+
+interface IPreparedV2TableRead {
   container: DependencyContainer;
   context: IExecutionContext;
   queryBus: IQueryBus;
+  table: Table;
+  viewId?: string;
   queryScope?: RecordQueryPluginScope;
 }
 
 /**
  * V2 read path for the authed `/api/table/:tableId/aggregation` routes.
  *
- * Each `try*` method returns `undefined` when the request cannot be served by
- * the v2 query bus with v1-identical semantics — the caller must then fall
- * back to the v1 implementation. Aggregate/calendar reads still fail closed
- * when their query types cannot thread a restricted plugin scope. Row-count
- * and search-count use CountTableRecordsQuery and carry the same queryScope as
- * list records, preserving masked filters and row-scope intersection.
+ * All selected-v2 requests execute natively. The host prepares the same
+ * permission scope used by record reads; each query enforces its row
+ * restrictions, readable fields, and field masks.
  */
 @Injectable()
 export class AggregationOpenApiV2Service {
+  private readonly provisionNoWait = new AsyncLocalStorage<boolean>();
+
+  /** Cache hits are immediate; cache misses probe outside the cache's lock. */
+  async withProvisionReadyCache<T>(
+    tableId: string,
+    getCached: () => Promise<{ data: T } | null>,
+    load: () => Promise<T>
+  ): Promise<T> {
+    const raw = process.env.V2_TABLE_PROVISION_READY_WAIT_MS;
+    const configured = raw == null || raw.trim() === '' ? 10_000 : Number(raw);
+    const budget = Number.isFinite(configured) && configured >= 0 ? Math.floor(configured) : 10_000;
+    return provisionReadyCache({
+      getCached,
+      budgetMs: budget,
+      wait: async (remainingMs) => {
+        const preparationStarted = Date.now();
+        const container = await this.v2ContainerService.getContainerForTable(tableId);
+        const context = await this.v2ContextFactory.createContext(container);
+        const repository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+        const id = TableId.create(tableId);
+        if (id.isErr()) throwV2QueryDomainError(id.error);
+        if (!repository.waitForReady)
+          throw new Error('Table repository does not support readiness probes');
+        const ready = await repository.waitForReady(context, TableByIdSpec.create(id.value), {
+          provisionWaitMs: Math.max(0, remainingMs - (Date.now() - preparationStarted)),
+        });
+        if (ready.isErr()) throwV2QueryDomainError(ready.error);
+      },
+      loadWithoutWait: () => this.provisionNoWait.run(true, load),
+      isPending: (error) =>
+        error instanceof CustomHttpException &&
+        isTableProvisionPendingError({ code: error.data?.domainCode }),
+    });
+  }
+
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @Optional()
+    private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
 
-  async tryGetRowCount(tableId: string, query: IRowCountRo = {}): Promise<IRowCountVo | undefined> {
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery, {
-      allowRestrictedScope: true,
-    });
-    if (!prepared) {
-      return undefined;
-    }
+  async getRowCount(tableId: string, query: IRowCountRo = {}): Promise<IRowCountVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
     const scopedProjection =
       query.projection?.length && query.search ? query.projection : undefined;
     const rowCount = await this.executeCountQuery(prepared, {
       tableId,
-      viewId: query.viewId,
+      viewId: prepared.viewId,
       ignoreViewQuery: query.ignoreViewQuery,
       filter,
       search: query.search,
@@ -107,33 +148,16 @@ export class AggregationOpenApiV2Service {
     return { rowCount };
   }
 
-  async tryGetAggregation(
-    tableId: string,
-    query: IAggregationRo = {}
-  ): Promise<IAggregationVo | undefined> {
-    // The v2 aggregate query always evaluates within a view.
-    if (!query.viewId || query.ignoreViewQuery) {
-      return undefined;
-    }
-    // Link-cell and selection filters are not expressible on the v2 aggregate query.
-    if (
-      query.filterLinkCellCandidate ||
-      query.filterLinkCellSelected ||
-      query.selectedRecordIds?.length
-    ) {
-      return undefined;
-    }
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery);
-    if (!prepared) {
-      return undefined;
-    }
+  async getAggregation(tableId: string, query: IAggregationRo = {}): Promise<IAggregationVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
     const requestedFields = query.field
       ? Object.entries(query.field).flatMap(([statisticFunc, fieldIds]) =>
@@ -142,40 +166,32 @@ export class AggregationOpenApiV2Service {
       : undefined;
     const result = await this.executeAggregateQuery(prepared, {
       tableId,
-      viewId: query.viewId,
+      viewId: prepared.viewId,
+      ignoreViewQuery: query.ignoreViewQuery,
+      filterLinkCellSelected: query.filterLinkCellSelected,
+      filterLinkCellCandidate: query.filterLinkCellCandidate,
+      selectedRecordIds: query.selectedRecordIds,
       filter,
       search: query.search,
       fields: requestedFields?.length ? requestedFields : undefined,
       groupBy: query.groupBy ?? undefined,
     });
-    return mapAggregationResult(result, query.groupBy ?? undefined);
+    return mapAggregationResult(result);
   }
 
-  async tryGetSelectionAggregation(
+  async getSelectionAggregation(
     tableId: string,
     query: ISelectionAggregationRo
-  ): Promise<IAggregationVo | undefined> {
-    if (!query.viewId) {
-      return undefined;
-    }
-    if (
-      query.filterLinkCellCandidate ||
-      query.filterLinkCellSelected ||
-      query.selectedRecordIds?.length
-    ) {
-      return undefined;
-    }
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery);
-    if (!prepared) {
-      return undefined;
-    }
+  ): Promise<IAggregationVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
     const groupBy = (query.groupBy ?? []).map((item) => ({
       fieldId: item.fieldId,
@@ -192,7 +208,10 @@ export class AggregationOpenApiV2Service {
     }));
     const result = await this.executeAggregateQuery(prepared, {
       tableId,
-      viewId: query.viewId,
+      viewId: prepared.viewId,
+      filterLinkCellSelected: query.filterLinkCellSelected,
+      filterLinkCellCandidate: query.filterLinkCellCandidate,
+      selectedRecordIds: query.selectedRecordIds,
       filter,
       search: query.search,
       fields: requestedFields?.length ? requestedFields : undefined,
@@ -203,32 +222,26 @@ export class AggregationOpenApiV2Service {
       ignoreViewQuery: query.ignoreViewQuery,
       collapsedGroupIds: query.collapsedGroupIds,
     });
-    return mapAggregationResult(result, undefined);
+    return mapAggregationResult(result);
   }
 
-  async tryGetGroupPoints(
-    tableId: string,
-    query: IGroupPointsRo = {}
-  ): Promise<IGroupPointsVo | undefined> {
+  async getGroupPoints(tableId: string, query: IGroupPointsRo = {}): Promise<IGroupPointsVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const groupBy = query.groupBy?.slice(0, 3);
-    if (!query.viewId || query.ignoreViewQuery || !groupBy?.length) {
-      return undefined;
-    }
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery);
-    if (!prepared) {
-      return undefined;
-    }
+    if (!groupBy?.length) return null;
     const { container, context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
     const result = await this.executeAggregateQuery(prepared, {
       tableId,
-      viewId: query.viewId,
+      viewId: prepared.viewId,
+      ignoreViewQuery: query.ignoreViewQuery,
       filter,
       search: query.search,
       fields: [{ fieldId: groupBy[0].fieldId, statisticFunc: 'count' }],
@@ -240,35 +253,41 @@ export class AggregationOpenApiV2Service {
     return mapGroupPointsResult(result, new Set(query.collapsedGroupIds), attachmentDecorator);
   }
 
-  async tryGetCalendarDailyCollection(
+  async getCalendarDailyCollection(
     tableId: string,
     query: ICalendarDailyCollectionRo
-  ): Promise<ICalendarDailyCollectionVo | undefined> {
-    if (!query.viewId || query.ignoreViewQuery) {
-      return undefined;
-    }
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery);
-    if (!prepared) {
-      return undefined;
-    }
+  ): Promise<ICalendarDailyCollectionVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
-    const calendarQuery = GetCalendarDailyCollectionQuery.create({
-      tableId,
-      viewId: query.viewId,
-      startDate: query.startDate,
-      endDate: query.endDate,
-      startDateFieldId: query.startDateFieldId,
-      endDateFieldId: query.endDateFieldId,
-      filter,
-      search: query.search,
-    });
+    const calendarQuery = GetCalendarDailyCollectionQuery.create(
+      {
+        tableId,
+        viewId: prepared.viewId,
+        ignoreViewQuery: query.ignoreViewQuery,
+        startDate: query.startDate,
+        endDate: query.endDate,
+        startDateFieldId: query.startDateFieldId,
+        endDateFieldId: query.endDateFieldId,
+        filter,
+        search: query.search,
+      },
+      {
+        queryScope: prepared.queryScope,
+        table: prepared.table,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table: prepared.table,
+          search: query.search,
+        }),
+      }
+    );
     if (calendarQuery.isErr()) {
       throwV2QueryDomainError(calendarQuery.error);
     }
@@ -290,18 +309,13 @@ export class AggregationOpenApiV2Service {
     return { countMap: { ...result.value.countMap }, records };
   }
 
-  async tryGetSearchCount(
+  async getSearchCount(
     tableId: string,
     query: ISearchCountRo,
     projection?: string[]
-  ): Promise<ISearchCountVo | undefined> {
+  ): Promise<ISearchCountVo> {
     this.assertSearchQuery(query.search);
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery, {
-      allowRestrictedScope: true,
-    });
-    if (!prepared) {
-      return undefined;
-    }
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const [searchValue, searchFieldKeys] = query.search;
     const filter = await normalizeLegacyFilterViaQueryBus(
@@ -309,12 +323,13 @@ export class AggregationOpenApiV2Service {
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
     const scopedProjection = projection?.length ? projection : undefined;
     const count = await this.executeCountQuery(prepared, {
       tableId,
-      viewId: query.viewId,
+      viewId: prepared.viewId,
       ignoreViewQuery: query.ignoreViewQuery,
       filter,
       search: [searchValue, searchFieldKeys ?? '', true],
@@ -324,11 +339,11 @@ export class AggregationOpenApiV2Service {
     return { count };
   }
 
-  async tryGetSearchIndex(
+  async getSearchIndex(
     tableId: string,
     query: ISearchIndexByQueryRo,
     projection?: string[]
-  ): Promise<ISearchIndexVo | undefined> {
+  ): Promise<ISearchIndexVo> {
     if (query.take > 1000) {
       throw new CustomHttpException(
         'The maximum search index result is 1000',
@@ -341,12 +356,7 @@ export class AggregationOpenApiV2Service {
       );
     }
     this.assertSearchQuery(query.search);
-    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery, {
-      allowRestrictedScope: true,
-    });
-    if (!prepared) {
-      return undefined;
-    }
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus, queryScope } = prepared;
     const [searchValue, searchFieldKeys, hideNotMatchRow] = query.search;
     const filter = await normalizeLegacyFilterViaQueryBus(
@@ -354,13 +364,14 @@ export class AggregationOpenApiV2Service {
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      prepared.table
     );
-    const finalProjection = query.projection
-      ? projection
-        ? projection.filter((fieldId) => query.projection?.includes(fieldId))
-        : query.projection
-      : projection;
+    const requestedProjection = query.projection;
+    let finalProjection = requestedProjection ?? projection;
+    if (requestedProjection && projection) {
+      finalProjection = projection.filter((fieldId) => requestedProjection.includes(fieldId));
+    }
     const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
       fieldId: item.fieldId,
       order: item.order,
@@ -377,39 +388,113 @@ export class AggregationOpenApiV2Service {
         includeSearchMatches: true,
         searchIndexMode: hideNotMatchRow ? 'matched' : 'view',
         search: [searchValue, searchFieldKeys ?? '', true],
-        ...(query.viewId ? { viewId: query.viewId } : {}),
-        ...(query.ignoreViewQuery !== undefined ? { ignoreViewQuery: query.ignoreViewQuery } : {}),
-        ...(filter ? { filter } : {}),
-        ...(sort.length ? { sort } : {}),
-        ...(query.groupBy?.length ? { groupBy: query.groupBy.map((item) => item.fieldId) } : {}),
-        ...(finalProjection?.length ? { projection: finalProjection } : {}),
-        ...(query.filterLinkCellSelected
-          ? { filterLinkCellSelected: query.filterLinkCellSelected }
-          : {}),
-        ...(query.filterLinkCellCandidate
-          ? { filterLinkCellCandidate: query.filterLinkCellCandidate }
-          : {}),
-        ...(query.selectedRecordIds?.length ? { selectedRecordIds: query.selectedRecordIds } : {}),
+        viewId: prepared.viewId,
+        ignoreViewQuery: query.ignoreViewQuery,
+        filter: filter ?? undefined,
+        sort,
+        groupBy: query.groupBy?.map((item) => item.fieldId),
+        projection: finalProjection?.length ? finalProjection : undefined,
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        selectedRecordIds: query.selectedRecordIds,
       },
       queryBus,
-      { queryScope }
+      {
+        queryScope,
+        table: prepared.table,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table: prepared.table,
+          search: query.search,
+        }),
+      }
     );
 
-    if (result.status === 200 && result.body.ok) {
-      const matches = result.body.data.searchMatches;
-      if (!matches?.length) {
-        return null;
-      }
-      return matches.map((match) => ({
-        index: match.index,
-        fieldId: match.fieldId,
-        recordId: match.recordId,
-      }));
-    }
     if (!result.body.ok) {
       throwV2Error(result.body.error, result.status);
     }
-    throw new HttpException('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
+    if (result.status !== 200) {
+      throw new HttpException('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    const matches = result.body.data.searchMatches;
+    if (!matches?.length) return null;
+    return matches.map((match) => ({
+      index: match.index,
+      fieldId: match.fieldId,
+      recordId: match.recordId,
+    }));
+  }
+  async getRecordIndex(tableId: string, query: IRecordIndexRo): Promise<IRecordIndexVo> {
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
+    const { context, queryBus, table, queryScope } = prepared;
+    let filter = await normalizeLegacyFilterViaQueryBus(
+      tableId,
+      query.filter,
+      context.actorId.toString(),
+      queryBus,
+      context,
+      table
+    );
+    if (query.collapsedGroupIds?.length && query.groupBy?.length) {
+      const grouped = await this.executeAggregateQuery(prepared, {
+        tableId,
+        viewId: prepared.viewId,
+        ignoreViewQuery: query.ignoreViewQuery,
+        filter,
+        search: query.search,
+        fields: [{ fieldId: query.groupBy[0].fieldId, statisticFunc: 'count' }],
+        groupBy: query.groupBy,
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        selectedRecordIds: query.selectedRecordIds,
+      });
+      const collapsed = table.createCollapsedGroupExclusionFilter(
+        query.groupBy,
+        grouped.values.flatMap((value) =>
+          value.groupValues?.length === query.groupBy!.length
+            ? [{ groupValues: value.groupValues }]
+            : []
+        ),
+        new Set(query.collapsedGroupIds)
+      );
+      if (collapsed.isErr()) throwV2QueryDomainError(collapsed.error);
+      if (collapsed.value) {
+        filter = filter
+          ? { conjunction: 'and', items: [filter, collapsed.value] }
+          : collapsed.value;
+      }
+    }
+    const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])];
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table,
+        search: query.search,
+      });
+    const listQuery = ListTableRecordsQuery.create(
+      {
+        tableId,
+        viewId: prepared.viewId,
+        ignoreViewQuery: query.ignoreViewQuery,
+        filter,
+        search: query.search,
+        sort: sort.length ? sort : undefined,
+        groupBy: query.groupBy?.map((item) => item.fieldId),
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        selectedRecordIds: query.selectedRecordIds,
+        fieldKeyType: FieldKeyType.Id,
+        projection: [],
+        includeTotal: false,
+      },
+      { queryScope, table, recordSearchAccessPath, recordIndexId: query.recordId }
+    );
+    if (listQuery.isErr()) throwV2QueryDomainError(listQuery.error);
+    const result = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+      context,
+      listQuery.value
+    );
+    if (result.isErr()) throwV2QueryDomainError(result.error);
+    const index = result.value.recordIndex;
+    return index == null ? null : { index };
   }
 
   private assertSearchQuery(
@@ -425,7 +510,7 @@ export class AggregationOpenApiV2Service {
   }
 
   private async executeCountQuery(
-    prepared: IPreparedV2Read,
+    prepared: IPreparedV2TableRead,
     input: {
       tableId: string;
       viewId?: string;
@@ -439,6 +524,11 @@ export class AggregationOpenApiV2Service {
       selectedRecordIds?: IRowCountRo['selectedRecordIds'];
     }
   ): Promise<number> {
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table: prepared.table,
+        search: input.search,
+      });
     const countQuery = CountTableRecordsQuery.create(
       {
         tableId: input.tableId,
@@ -454,10 +544,14 @@ export class AggregationOpenApiV2Service {
         ...(input.filterLinkCellCandidate
           ? { filterLinkCellCandidate: input.filterLinkCellCandidate }
           : {}),
-        ...(input.selectedRecordIds?.length ? { selectedRecordIds: input.selectedRecordIds } : {}),
+        ...(input.selectedRecordIds !== undefined
+          ? { selectedRecordIds: input.selectedRecordIds }
+          : {}),
       },
       {
         queryScope: prepared.queryScope,
+        table: prepared.table,
+        recordSearchAccessPath,
         ...(input.searchFieldScope ? { searchFieldScope: input.searchFieldScope } : {}),
       }
     );
@@ -475,10 +569,10 @@ export class AggregationOpenApiV2Service {
   }
 
   private async executeAggregateQuery(
-    prepared: IPreparedV2Read,
+    prepared: IPreparedV2TableRead,
     input: {
       tableId: string;
-      viewId: string;
+      viewId?: string;
       filter: unknown;
       search: unknown;
       fields?: ReadonlyArray<{ fieldId: string; statisticFunc: string }>;
@@ -490,10 +584,21 @@ export class AggregationOpenApiV2Service {
       take?: number;
       ignoreViewQuery?: boolean;
       collapsedGroupIds?: ReadonlyArray<string>;
+      filterLinkCellSelected?: IRowCountRo['filterLinkCellSelected'];
+      filterLinkCellCandidate?: IRowCountRo['filterLinkCellCandidate'];
+      selectedRecordIds?: IRowCountRo['selectedRecordIds'];
     }
   ): Promise<AggregateTableRecordsResult> {
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table: prepared.table,
+        search: input.search,
+      });
     const aggregationQuery = AggregateTableRecordsQuery.create(input, {
       maxGroupPoints: this.thresholdConfig.maxGroupPoints,
+      queryScope: prepared.queryScope,
+      table: prepared.table,
+      recordSearchAccessPath,
     });
     if (aggregationQuery.isErr()) {
       throwV2QueryDomainError(aggregationQuery.error);
@@ -508,24 +613,22 @@ export class AggregationOpenApiV2Service {
     return result.value;
   }
 
-  /**
-   * Resolve the v2 container/context and run the record query plugin guard.
-   * Returns undefined when the resulting plugin scope restricts rows or
-   * fields — the aggregate queries below cannot enforce it, so v1 keeps
-   * authority for those requests.
-   */
-  private async prepareV2Read(
+  /** Prepare the native record-query authority scope without inventing a view. */
+  private async prepareV2TableRead(
     tableId: string,
     viewId: string | undefined,
-    ignoreViewQuery: boolean | undefined,
-    options?: { allowRestrictedScope?: boolean }
-  ): Promise<IPreparedV2Read | undefined> {
+    ignoreViewQuery: boolean | undefined
+  ): Promise<IPreparedV2TableRead> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const context = await this.v2ContextFactory.createContext(container);
+    const baseContext = await this.v2ContextFactory.createContext(container);
+    const context = this.provisionNoWait.getStore()
+      ? { ...baseContext, config: { ...baseContext.config, tableProvisionWaitMs: 0 } }
+      : baseContext;
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(context, container, tableId);
 
+    let queryScope: RecordQueryPluginScope | undefined;
     if (container.isRegistered(v2CoreTokens.recordQueryPluginRunner)) {
-      const table = await this.loadTable(context, container, tableId);
       const runner = container.resolve<RecordQueryPluginRunner>(
         v2CoreTokens.recordQueryPluginRunner
       );
@@ -535,38 +638,16 @@ export class AggregationOpenApiV2Service {
         table,
         payload: { viewId, ignoreViewQuery },
       });
-      if (prepared.isErr()) {
-        throwV2QueryDomainError(prepared.error);
-      }
+      if (prepared.isErr()) throwV2QueryDomainError(prepared.error);
       const execution = prepared.value;
       const guardResult = await execution.guard();
-      if (guardResult.isErr()) {
-        throwV2QueryDomainError(guardResult.error);
-      }
+      if (guardResult.isErr()) throwV2QueryDomainError(guardResult.error);
       const scopeResult = execution.getScope();
-      if (scopeResult.isErr()) {
-        throwV2QueryDomainError(scopeResult.error);
-      }
-      const queryScope = scopeResult.value;
-      if (this.queryScopeRestrictsAccess(queryScope) && !options?.allowRestrictedScope) {
-        return undefined;
-      }
-      return { container, context, queryBus, queryScope };
+      if (scopeResult.isErr()) throwV2QueryDomainError(scopeResult.error);
+      queryScope = scopeResult.value;
     }
 
-    return { container, context, queryBus };
-  }
-
-  private queryScopeRestrictsAccess(scope: RecordQueryPluginScope | undefined): boolean {
-    if (!scope) {
-      return false;
-    }
-    return Boolean(
-      scope.recordSpec ||
-        scope.fieldMasks?.length ||
-        scope.readableFieldIds != null ||
-        scope.skipRecordSpec
-    );
+    return { container, context, queryBus, table, viewId, queryScope };
   }
 
   private async loadTable(
@@ -581,7 +662,8 @@ export class AggregationOpenApiV2Service {
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const tableResult = await tableRepository.findOne(
       context,
-      TableByIdSpec.create(tableIdResult.value)
+      TableByIdSpec.create(tableIdResult.value),
+      { provisionWaitMs: context.config?.tableProvisionWaitMs }
     );
     if (tableResult.isErr()) {
       throwV2QueryDomainError(tableResult.error);

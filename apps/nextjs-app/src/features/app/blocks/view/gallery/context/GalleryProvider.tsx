@@ -24,7 +24,9 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const { commentReadable, commentWritable } = useCommentPermission();
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
-  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
+  const visibleFieldIds = useDeepCompareMemoize(
+    fields.map(({ id }) => id).sort((a, b) => Number(a > b) - Number(a < b))
+  ) as string[];
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
@@ -52,7 +54,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     // projection is a field-id set, not a sequence: keep it order-stable so
     // downstream cache keys don't churn when fields are reordered
     const ids = coverField ? new Set([...visibleFieldIds, coverField.id]) : visibleFieldIds;
-    return [...ids].sort();
+    return [...ids].sort((a, b) => Number(a > b) - Number(a < b));
   }, [coverField, visibleFieldIds]);
 
   const recordQuery = useMemo(() => {

@@ -13,6 +13,27 @@ import type { RatingField } from './types/RatingField';
 import type { RollupField } from './types/RollupField';
 import type { UserField } from './types/UserField';
 
+export function isLastModifiedSystemField(f: Field): boolean {
+  return (
+    f.type().equals(FieldType.lastModifiedTime()) || f.type().equals(FieldType.lastModifiedBy())
+  );
+}
+
+export function isDeferredComputedField(f: Field): boolean {
+  return (
+    f.computed().toBoolean() ||
+    f.type().equals(FieldType.lookup()) ||
+    f.type().equals(FieldType.conditionalLookup()) ||
+    f.type().equals(FieldType.formula()) ||
+    f.type().equals(FieldType.rollup()) ||
+    f.type().equals(FieldType.conditionalRollup())
+  );
+}
+
+export function isOmittedComputedEventField(f: Field): boolean {
+  return isDeferredComputedField(f) && !isLastModifiedSystemField(f);
+}
+
 export function isFormulaField(f: Field): f is FormulaField {
   return f.type().equals(FieldType.formula());
 }

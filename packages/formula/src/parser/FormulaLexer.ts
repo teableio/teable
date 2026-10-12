@@ -5,9 +5,6 @@ import { ATNDeserializer } from 'antlr4ts/atn/ATNDeserializer.js';
 import { CharStream } from 'antlr4ts/CharStream.js';
 import { Lexer } from 'antlr4ts/Lexer.js';
 import { LexerATNSimulator } from 'antlr4ts/atn/LexerATNSimulator.js';
-import { NotNull } from 'antlr4ts/Decorators.js';
-import { Override } from 'antlr4ts/Decorators.js';
-import { RuleContext } from 'antlr4ts/RuleContext.js';
 import { Vocabulary } from 'antlr4ts/Vocabulary.js';
 import { VocabularyImpl } from 'antlr4ts/VocabularyImpl.js';
 

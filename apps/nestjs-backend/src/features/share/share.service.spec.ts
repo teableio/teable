@@ -54,7 +54,8 @@ describe('ShareService.getShareViewV2', () => {
       { getRecords: recordRead } as never,
       {} as never,
       {} as never,
-      {} as never,
+      // field-visibility checks are covered by the share e2e suite
+      { assertQueryFieldsVisible: vi.fn().mockResolvedValue(undefined) } as never,
       { getPluginInstall: pluginRead } as never,
       { getRowCount: vi.fn() } as never,
       { get: vi.fn() } as never,

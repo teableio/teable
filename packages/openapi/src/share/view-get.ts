@@ -19,8 +19,12 @@ export const shareViewGetVoSchema = z.object({
     .describe(
       'The share id of the view. Use it to access the shared view at `${endpoint}/share/{shareId}/view` (e.g. https://app.teable.ai/share/shrH7kunpHv8U9kfZyD/view).'
     ),
-  shareMeta: shareViewMetaSchema.optional(),
-  view: viewVoSchema.optional(),
+  // The share password never leaves the server; the guard answers 401 until the
+  // visitor authenticates, so the client does not need to know it exists.
+  shareMeta: shareViewMetaSchema.omit({ password: true }).optional(),
+  view: viewVoSchema
+    .extend({ shareMeta: shareViewMetaSchema.omit({ password: true }).optional() })
+    .optional(),
   fields: fieldVoSchema.array(),
   records: recordSchema.array().meta({ description: 'first 50 records' }),
   extra: z

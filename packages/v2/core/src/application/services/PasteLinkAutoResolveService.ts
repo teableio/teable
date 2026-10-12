@@ -67,7 +67,7 @@ export class PasteLinkAutoResolveService {
     context: IExecutionContext,
     input: IPasteLinkAutoResolveInput
   ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<IPasteLinkAutoResolveResult, DomainError>(async function* () {
       const entries = yield* await service.collectEntries(input);

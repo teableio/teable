@@ -6,13 +6,23 @@ import {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
   TableId,
   TableName,
   ViewId,
+  FieldId,
 } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+} from 'kysely';
 import { describe, expect, it } from 'vitest';
 
 import { TableWhereVisitor } from './TableWhereVisitor';
@@ -192,6 +202,49 @@ describe('TableWhereVisitor', () => {
       type: 'comparison',
       args: ['is_primary', '=', true],
     });
+    expect(typeof result._unsafeUnwrap()).toBe('function');
+  });
+
+  it('records a Field child hydration projection without filtering the Table root', () => {
+    const fieldIds = [
+      FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap(),
+      FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap(),
+    ];
+    const visitor = new TableWhereVisitor('active');
+    const result = visitor.visitTableWithFieldIds(TableWithFieldIdsSpec.create(fieldIds));
+    const eb = createExpressionBuilder();
+
+    expect(result.isOk()).toBe(true);
+    expect(visitor.describe()).toEqual({
+      specName: 'TableWithFieldIdsSpec',
+      fieldIds: fieldIds.map((fieldId) => fieldId.toString()),
+    });
+    const fieldWhere = visitor.fieldWhere()?.(eb as never) as ExpressionResult;
+    expect(fieldWhere.type).toBe('or');
+    expect(fieldWhere.args[0]).toEqual({
+      type: 'comparison',
+      args: ['id', 'in', fieldIds.map((fieldId) => fieldId.toString())],
+    });
+    expect(fieldWhere.args[1]).toEqual({
+      type: 'comparison',
+      args: ['is_primary', '=', true],
+    });
+    expect(fieldWhere.args).toHaveLength(3);
+
+    const compiled = new Kysely<V1TeableDatabase>({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => new DummyDriver(),
+        createIntrospector: (db) => new PostgresIntrospector(db),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    })
+      .selectFrom('field')
+      .select('id')
+      .where((queryEb) => visitor.fieldWhere()!(queryEb))
+      .compile();
+    expect(compiled.sql).toContain('lookup_linked_field_id');
+    expect(compiled.sql).toContain('"field" as "lookup_src"');
     expect(typeof result._unsafeUnwrap()).toBe('function');
   });
 

@@ -21,12 +21,14 @@ export class SingleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
-    const cellValue = String(value).replace(/\n|\r/g, ' ').trim();
+    const cellValue = String(value)
+      .replace(/[\n\r]/g, ' ')
+      .trim();
     if (shouldExtend) {
       return cellValue;
     }
 
-    if (this.options.choices.find((c) => c.name === cellValue)) {
+    if (this.options.choices.some((c) => c.name === cellValue)) {
       return cellValue;
     }
 

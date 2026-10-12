@@ -39,7 +39,7 @@
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/papaparse": "5.3.15",
     "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",

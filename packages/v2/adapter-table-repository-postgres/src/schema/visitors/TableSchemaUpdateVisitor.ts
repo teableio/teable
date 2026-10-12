@@ -35,6 +35,7 @@ import type {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -109,6 +110,7 @@ import type { Result } from 'neverthrow';
 import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntrospector';
 import { createSchemaRuleContext } from '../rules/context/SchemaRuleContext';
 import type { TableSchemaStatementBuilder } from '../rules/core';
+import type { TableSchemaStatementExecutorProvider } from '../rules/core/ISchemaRule';
 import { createFieldSchemaRules } from '../rules/field/FieldSchemaRulesFactory';
 import { ForeignKeyRule } from '../rules/field/ForeignKeyRule';
 import { ReferenceRule } from '../rules/field/ReferenceRule';
@@ -143,8 +145,7 @@ type SelectOptionRecordUpdateRow = {
   newValue: unknown;
 };
 
-const toRecordVersionNumber = (value: number | string | bigint): number =>
-  typeof value === 'bigint' ? Number(value) : Number(value);
+const toRecordVersionNumber: (value: number | string | bigint) => number = Number;
 
 const quoteSqlLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
 
@@ -171,6 +172,12 @@ export class TableSchemaUpdateVisitor
     super();
   }
 
+  /**
+   * One schema update can emit both managed-search statements for the same
+   * field; they must agree, so the retire decision is read once per update.
+   */
+  private readonly managedSearchRetireDecisions = new Map<string, Promise<boolean>>();
+
   // ============ Search index (GIN trigram) helpers ============
 
   /**
@@ -186,8 +193,7 @@ export class TableSchemaUpdateVisitor
     const maxLen = 63;
     const delimiterLen = 3; // three underscores between parts
     const maxTableDbNameLen = maxLen - fieldId.length - prefix.length - delimiterLen;
-    const tableDbNameLen =
-      maxTableDbNameLen < tableName.length ? maxTableDbNameLen : tableName.length;
+    const tableDbNameLen = Math.min(maxTableDbNameLen, tableName.length);
     const dbFieldNameLen =
       maxTableDbNameLen < tableName.length
         ? 0
@@ -256,6 +262,74 @@ export class TableSchemaUpdateVisitor
   }
 
   /**
+   * Whether the managed search documents must be retired before a field schema
+   * change. PostgreSQL rejects ALTER COLUMN TYPE / DROP COLUMN while a stored
+   * generated document still references the source column, so the documents are
+   * only kept when the recorded search contract can PROVE the field belongs to
+   * no document at all (for example a field created after the document was
+   * built, which the document never searched). Anything unreadable or
+   * inconclusive retires, exactly as before this gate existed.
+   *
+   * The contract lives on the metadata plane while the documents live on the
+   * data plane, and those are different databases for byodb spaces. The
+   * decision therefore reads the contract through the metadata executor instead
+   * of assuming the data handle can see the management tables.
+   */
+  private managedSearchRetireDecision(
+    metaDb: TableSchemaStatementExecutorProvider,
+    fieldId: string
+  ): Promise<boolean> {
+    const cached = this.managedSearchRetireDecisions.get(fieldId);
+    if (cached) return cached;
+
+    const decision = this.readManagedSearchRetireDecision(metaDb, fieldId);
+    this.managedSearchRetireDecisions.set(fieldId, decision);
+    return decision;
+  }
+
+  private async readManagedSearchRetireDecision(
+    metaDb: TableSchemaStatementExecutorProvider,
+    fieldId: string
+  ): Promise<boolean> {
+    const { tableId } = this.params;
+    const relation = await metaDb.executeQuery<{ relationName: string | null }>(
+      sql<{ relationName: string | null }>`
+        SELECT to_regclass('table_query_search_vector_config')::text AS "relationName"
+      `.compile(metaDb)
+    );
+    if (!relation.rows[0]?.relationName) {
+      // No contract to read: keep retiring, as the unconditional path did.
+      return true;
+    }
+
+    // Only a contract with recorded, non-empty coverage that excludes the field
+    // proves the field belongs to no document. Unknown shapes (no row, null
+    // ids, an empty id list) count as covering. The empty list is compared by
+    // value, not by jsonb_array_length, so a non-array value can never raise
+    // 22023 regardless of how PostgreSQL orders the FILTER operands.
+    const coverage = await metaDb.executeQuery<{ rows: number; covering: number }>(
+      sql<{ rows: number; covering: number }>`
+        SELECT
+          count(*)::int AS "rows",
+          count(*) FILTER (
+            WHERE field_ids IS NULL
+              OR jsonb_typeof(field_ids) <> 'array'
+              OR field_ids = '[]'::jsonb
+              OR field_ids @> ${JSON.stringify([fieldId])}::jsonb
+          )::int AS "covering"
+        FROM table_query_search_vector_config
+        WHERE table_id = ${tableId}
+      `.compile(metaDb)
+    );
+    const row = coverage.rows[0];
+    if (!row || Number(row.rows) === 0) {
+      return true;
+    }
+
+    return Number(row.covering) > 0;
+  }
+
+  /**
    * A managed stored search document depends on its source columns, so PostgreSQL
    * rejects ALTER COLUMN TYPE until the managed column is removed. Drop every
    * matching generated column in one ALTER TABLE so field-delete / conversion
@@ -268,8 +342,13 @@ export class TableSchemaUpdateVisitor
    * query always returns one row, and format() renders a NULL %s as the empty
    * string, so testing the fully-formatted statement for NULL would EXECUTE a
    * bare "ALTER TABLE" (syntax error) on tables with no managed columns.
+   *
+   * The statement owns the data plane while the document contract lives on the
+   * metadata plane, so the retire decision is read from the metadata executor
+   * and only its SQL runs on the data handle.
    */
-  private dropManagedSearchVectorColumnsStatement(): TableSchemaStatementBuilder {
+  private dropManagedSearchVectorColumnsStatement(fieldId: string): TableSchemaStatementBuilder {
+    const visitor = this;
     const { db, schema, tableName } = this.params;
     const pgSchema = schema ?? 'public';
     const statement = `
@@ -290,7 +369,7 @@ export class TableSchemaUpdateVisitor
             ${managedSearchDocumentColumnPrefixes
               .map(
                 (prefix) =>
-                  `a.attname LIKE ${quoteSqlLiteral(managedSearchPrefixLikePattern(prefix))} ESCAPE '\\'`
+                  String.raw`a.attname LIKE ${quoteSqlLiteral(managedSearchPrefixLikePattern(prefix))} ESCAPE '\'`
               )
               .join('\n            OR ')}
           );
@@ -308,17 +387,35 @@ export class TableSchemaUpdateVisitor
     return {
       scope: 'data',
       compile: () => sql.raw(statement).compile(db),
+      execute: async ({ scopedDb, metaDb }) => {
+        if (!(await visitor.managedSearchRetireDecision(metaDb, fieldId))) {
+          return;
+        }
+
+        await scopedDb.executeQuery(sql.raw(statement).compile(scopedDb));
+      },
     };
   }
 
+  /**
+   * Retiring a document also unpublishes it, so the runtime stops resolving an
+   * access path whose managed column is going away. Both effects belong to the
+   * same decision as the column drop above, read from the metadata plane.
+   */
   private markSearchVectorConfigRebuildPendingStatement(
-    reason: string
+    reason: string,
+    fieldId: string
   ): TableSchemaStatementBuilder {
+    const visitor = this;
     const { db, tableId } = this.params;
     const statement = `
       DO $teable_search_vector$
       BEGIN
-        IF to_regclass('public.table_query_search_vector_config') IS NOT NULL THEN
+        UPDATE table_meta
+        SET search_index = NULL, version = version + 1
+        WHERE id = ${quoteSqlLiteral(tableId)};
+
+        IF to_regclass('table_query_search_vector_config') IS NOT NULL THEN
           UPDATE table_query_search_vector_config
           SET status = 'rebuild_pending',
               last_inspection = jsonb_build_object(
@@ -326,14 +423,8 @@ export class TableSchemaUpdateVisitor
                 'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
               ),
               last_modified_time = now()
-          WHERE id = (
-            SELECT id
-            FROM table_query_search_vector_config
-            WHERE table_id = ${quoteSqlLiteral(tableId)}
-              AND status IN ('ready', 'rebuild_pending')
-            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
-            LIMIT 1
-          );
+          WHERE table_id = ${quoteSqlLiteral(tableId)}
+            AND status IN ('ready', 'rebuild_pending');
         END IF;
       END
       $teable_search_vector$;
@@ -341,6 +432,13 @@ export class TableSchemaUpdateVisitor
     return {
       scope: 'meta',
       compile: () => sql.raw(statement).compile(db),
+      execute: async ({ scopedDb, metaDb }) => {
+        if (!(await visitor.managedSearchRetireDecision(metaDb, fieldId))) {
+          return;
+        }
+
+        await scopedDb.executeQuery(sql.raw(statement).compile(scopedDb));
+      },
     };
   }
 
@@ -400,7 +498,7 @@ export class TableSchemaUpdateVisitor
             AND tablename = '${tableName}'
             AND indexname LIKE 'idx_trgm%'
         ) THEN
-          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" ${useBtree ? `USING btree (${expression.replace(/'/g, "''")})` : `USING gin ((${expression.replace(/'/g, "''")}) gin_trgm_ops)`}';
+          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" ${useBtree ? `USING btree (${expression.replaceAll("'", "''")})` : `USING gin ((${expression.replaceAll("'", "''")}) gin_trgm_ops)`}';
         END IF;
       END
       $$;
@@ -627,9 +725,16 @@ export class TableSchemaUpdateVisitor
     if (previousFieldResult.isErr()) return err(previousFieldResult.error);
     const nextFieldResult = this.buildFormulaFieldWithExpression(field, spec.nextExpression());
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
-    spec.markDbStorageTypeChanged(
-      formulaStorageTypeChanged(previousFieldResult.value, nextFieldResult.value)
+    const storageTypeChanged = formulaStorageTypeChanged(
+      previousFieldResult.value,
+      nextFieldResult.value
     );
+    spec.markDbStorageTypeChanged(storageTypeChanged);
+    const generated = field.isPersistedAsGeneratedColumn();
+    if (generated.isErr()) return err(generated.error);
+    if (!storageTypeChanged && !generated.value) {
+      return this.regenerateFieldReferences(previousFieldResult.value, nextFieldResult.value);
+    }
 
     const dbFieldNameResult = this.resolveDbFieldNameText(field);
     if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
@@ -717,14 +822,14 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_added'),
-        ...(yield* spec.field().accept(fieldVisitor)),
-      ];
+      // Existing generated-text documents intentionally keep their configured
+      // field set when a new field is added. The new field becomes searchable
+      // only after an explicit search access-path reconfiguration.
+      const statements = [...(yield* spec.field().accept(fieldVisitor))];
       const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
@@ -738,13 +843,11 @@ export class TableSchemaUpdateVisitor
   visitTableAddFields(
     spec: TableAddFieldsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements: TableSchemaStatementBuilder[] = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_fields_added'),
-      ];
+      const statements: TableSchemaStatementBuilder[] = [];
       for (const field of spec.fields()) {
         statements.push(...(yield* field.accept(fieldVisitor)));
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
@@ -759,43 +862,16 @@ export class TableSchemaUpdateVisitor
   }
 
   visitTableAddView(
-    spec: TableAddViewSpec
+    _spec: TableAddViewSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (spec.view().type().toString() !== 'grid') {
-      const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
-      return this.addCond(statements).map(() => statements);
-    }
-
-    const { db, schema, tableName } = this.params;
-    const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
-    const fullTableName = schema
-      ? `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`
-      : quoteIdentifier(tableName);
-    const columnName = spec.view().id().toRowOrderColumnName();
-    const indexName = `idx_${columnName}`;
-    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [
-      {
-        scope: 'data',
-        compile: () =>
-          sql`ALTER TABLE ${sql.raw(fullTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(columnName)} double precision`.compile(
-            db
-          ),
-      },
-      {
-        scope: 'data',
-        compile: () =>
-          sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(columnName)} = "__auto_number" WHERE ${sql.ref(columnName)} IS NULL`.compile(
-            db
-          ),
-      },
-      {
-        scope: 'data',
-        compile: () =>
-          sql`CREATE INDEX IF NOT EXISTS ${sql.raw(quoteIdentifier(indexName))} ON ${sql.raw(fullTableName)} (${sql.ref(columnName)})`.compile(
-            db
-          ),
-      },
-    ];
+    // Adding a view creates no `__row_<viewId>` storage (T7569): a missing
+    // column reads as `__auto_number` order. Writes that need a manual order
+    // create it online before their transaction (ensureRowOrderColumnOnline,
+    // or ITableSchemaRepository.prepareViewRowOrderStorage for
+    // TableEnsureViewRowOrderSpec). Emitting ALTER/UPDATE/CREATE INDEX here
+    // would hold AccessExclusiveLock through a full-table backfill until the
+    // request transaction commits (T7251, T7541).
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);
   }
 
@@ -843,7 +919,7 @@ export class TableSchemaUpdateVisitor
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       // Another live field can map to the same physical column when db field
@@ -860,9 +936,13 @@ export class TableSchemaUpdateVisitor
       const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(visitor.params, {
         preserveSharedColumn,
       });
+      const removedFieldId = spec.field().id().toString();
       const statements = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_removed'),
-        visitor.dropManagedSearchVectorColumnsStatement(),
+        visitor.markSearchVectorConfigRebuildPendingStatement(
+          'source_field_removed',
+          removedFieldId
+        ),
+        visitor.dropManagedSearchVectorColumnsStatement(removedFieldId),
         ...(yield* spec.field().accept(fieldVisitor)),
       ];
       yield* addCond(statements);
@@ -922,7 +1002,7 @@ export class TableSchemaUpdateVisitor
   visitTableDuplicateField(
     spec: TableDuplicateFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
 
@@ -1011,6 +1091,16 @@ export class TableSchemaUpdateVisitor
     );
   }
 
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithFieldIdsSpec is not supported for table schema updates',
+      })
+    );
+  }
+
   visitTableByIncomingReferenceToTable(
     _: TableByIncomingReferenceToTableSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -1064,7 +1154,7 @@ export class TableSchemaUpdateVisitor
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const previousName = yield* spec.previousDbFieldName().value();
@@ -1092,7 +1182,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldType(
     spec: TableUpdateFieldTypeSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
@@ -1130,18 +1220,20 @@ export class TableSchemaUpdateVisitor
       if (oldField.unique().toBoolean() && !newField.unique().toBoolean()) {
         const constraintName = `${tableName}_${dbFieldName}_unique`;
         const quotedIndexName = schema ? `"${schema}"."${constraintName}"` : `"${constraintName}"`;
-        constraintCleanupStatements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
-              visitor.params.db
-            ),
-        });
-        constraintCleanupStatements.push({
-          scope: 'data',
-          compile: () =>
-            sql`DROP INDEX IF EXISTS ${sql.raw(quotedIndexName)}`.compile(visitor.params.db),
-        });
+        constraintCleanupStatements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
+                visitor.params.db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`DROP INDEX IF EXISTS ${sql.raw(quotedIndexName)}`.compile(visitor.params.db),
+          }
+        );
       }
       if (oldField.notNull().toBoolean() && !newField.notNull().toBoolean()) {
         constraintCleanupStatements.push({
@@ -1191,8 +1283,11 @@ export class TableSchemaUpdateVisitor
       const statements: TableSchemaStatementBuilder[] = [];
       if (needsSearchMaintenance) {
         statements.push(
-          visitor.markSearchVectorConfigRebuildPendingStatement('source_field_type_changed'),
-          visitor.dropManagedSearchVectorColumnsStatement(),
+          visitor.markSearchVectorConfigRebuildPendingStatement(
+            'source_field_type_changed',
+            fieldId
+          ),
+          visitor.dropManagedSearchVectorColumnsStatement(fieldId),
           visitor.dropSearchIndexStatement(fieldId, dbFieldName)
         );
       }
@@ -1213,7 +1308,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldConstraints(
     spec: TableUpdateFieldConstraintsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1289,8 +1384,7 @@ export class TableSchemaUpdateVisitor
             });
             for (const rule of rules) {
               if (!(rule instanceof ForeignKeyRule)) continue;
-              statements.push(...(yield* rule.down(ruleCtx)));
-              statements.push(...(yield* rule.up(ruleCtx)));
+              statements.push(...(yield* rule.down(ruleCtx)), ...(yield* rule.up(ruleCtx)));
             }
           }
         }
@@ -1312,18 +1406,20 @@ export class TableSchemaUpdateVisitor
           });
         } else {
           // Remove UNIQUE constraint
-          statements.push({
-            scope: 'data',
-            compile: () =>
-              sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
-                db
-              ),
-          });
-          statements.push({
-            scope: 'data',
-            compile: () =>
-              sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
-          });
+          statements.push(
+            {
+              scope: 'data',
+              compile: () =>
+                sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
+                  db
+                ),
+            },
+            {
+              scope: 'data',
+              compile: () =>
+                sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
+            }
+          );
         }
       }
 
@@ -1335,7 +1431,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldHasError(
     spec: TableUpdateFieldHasErrorSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements: TableSchemaStatementBuilder[] = [];
@@ -1502,7 +1598,7 @@ export class TableSchemaUpdateVisitor
       return this.addCond(statements).map(() => statements);
     }
 
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1557,7 +1653,7 @@ export class TableSchemaUpdateVisitor
       return this.addCond(statements).map(() => statements);
     }
 
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1644,7 +1740,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateButtonWorkflow(
     spec: UpdateButtonWorkflowSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
@@ -1682,7 +1778,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateSingleSelectOptions(
     spec: UpdateSingleSelectOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1758,7 +1854,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateMultipleSelectOptions(
     spec: UpdateMultipleSelectOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1854,7 +1950,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateFormulaExpression(
     spec: UpdateFormulaExpressionSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements = yield* visitor.buildFormulaConversionStatements(spec);
@@ -2214,20 +2310,22 @@ export class TableSchemaUpdateVisitor
         const statements: TableSchemaStatementBuilder[] = [];
 
         // 1. Create FK columns on the new host table.
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
-              db
-            ),
-        });
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
-              db
-            ),
-        });
+        statements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
+                db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
+                db
+              ),
+          }
+        );
 
         // 2. Move relationships from old host FK to new host FK.
         statements.push({
@@ -2249,20 +2347,22 @@ export class TableSchemaUpdateVisitor
         });
 
         // 3. Drop old FK columns from the old host table.
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
-              db
-            ),
-        });
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
-              db
-            ),
-        });
+        statements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
+                db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
+                db
+              ),
+          }
+        );
 
         statements.push(...buildLinkValueShapeRewriteStatements());
 
@@ -2727,7 +2827,7 @@ $v2_link_trim$;`;
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const field = spec.field();

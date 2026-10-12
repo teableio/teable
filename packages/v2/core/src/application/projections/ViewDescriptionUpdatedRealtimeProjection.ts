@@ -22,7 +22,6 @@ import {
   withPersistedViewAuditChanges,
 } from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 @ProjectionHandler(ViewDescriptionUpdated)
@@ -69,28 +68,6 @@ export class ViewDescriptionUpdatedRealtimeProjection
           const viewIndex = snapshot.views.findIndex((view) => view.id === event.viewId.toString());
           if (viewIndex === -1) return ok(undefined);
           const viewDto = snapshot.views[viewIndex];
-
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `${tableCollectionPrefix}_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-          yield* (
-            await realtimeEngine.applyChange(
-              context,
-              tableDocId,
-              withPersistedViewAuditChanges(
-                viewDto,
-                {
-                  type: 'set',
-                  path: ['views', viewIndex, 'description'],
-                  value: viewDto.description,
-                },
-                ['views', viewIndex]
-              )
-            )
-          ).safeUnwrap();
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `${viewCollectionPrefix}_${event.tableId.toString()}`,
             event.viewId.toString()
@@ -99,7 +76,8 @@ export class ViewDescriptionUpdatedRealtimeProjection
             await realtimeEngine.ensure(
               context,
               viewDocId,
-              toStandaloneViewRealtimeSnapshot(viewDto)
+              toStandaloneViewRealtimeSnapshot(viewDto),
+              { expectExisting: true }
             )
           ).safeUnwrap();
           return realtimeEngine.applyChange(

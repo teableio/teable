@@ -39,7 +39,7 @@ export type ITableTrashItemsFilter = Pick<
 export const GetTrashItemsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_TRASH_ITEMS,
-  description: 'Get trash items for base or table',
+  description: 'Get trash items for project or table',
   request: {
     query: trashItemsRoSchema,
   },

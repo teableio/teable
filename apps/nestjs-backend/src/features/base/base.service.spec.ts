@@ -534,6 +534,7 @@ describe('BaseService', () => {
       for (const table of [
         'computed_update_outbox_seed',
         'computed_update_stage_ledger',
+        'computed_update_change_frontier',
         'computed_update_outbox',
         'computed_update_dead_letter',
         'computed_update_run_history',

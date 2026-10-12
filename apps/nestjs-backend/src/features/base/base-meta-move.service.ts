@@ -1,5 +1,9 @@
 export const BASE_META_MOVE_SERVICE = Symbol('BASE_META_MOVE_SERVICE');
 
 export interface IBaseMetaMoveService {
-  applyMetaMoveBase(baseId: string, targetSpaceId: string): Promise<void>;
+  applyMetaMoveBase(
+    baseId: string,
+    targetSpaceId: string,
+    options?: { dataDbChanged: boolean }
+  ): Promise<void>;
 }

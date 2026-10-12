@@ -1,18 +1,20 @@
 'use client';
 
 import { Check, ArrowUpRight, Database, Zap, AlertTriangle, RotateCw } from '@teable/icons';
+import { findDuplicateProviderModel } from '@teable/openapi';
 import type {
   ISettingVo,
   LLMProvider,
   IChatModelAbility,
   IImageModelAbility,
-  IAIIntegrationConfig,
+  IAIConfigVo,
   IAttachmentTestResult,
   ITestLLMRo,
 } from '@teable/openapi';
 import { Button, Input, Label, cn, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Control } from 'react-hook-form';
 import { useEnv } from '@/features/app/hooks/useEnv';
@@ -33,7 +35,7 @@ interface ILLMApiConfigStepProps {
   // Custom provider config
   llmProviders: LLMProvider[];
   onProvidersChange: (providers: LLMProvider[]) => void;
-  control: Control<IAIIntegrationConfig>;
+  control: Control<IAIConfigVo>;
   modelTestResults: Map<string, IModelTestResult>;
   onModelTestResultsChange: (results: Map<string, IModelTestResult>) => void;
   testingProviders: Set<string>;
@@ -56,7 +58,10 @@ interface ILLMApiConfigStepProps {
   onSave?: () => Promise<void>;
   isSaving?: boolean;
   isDirty?: boolean;
+  hasClearedProviders?: boolean;
   onResetGateway?: () => void;
+  /** Rendered at the start of the step's action row (e.g. an enterprise model catalog tool). */
+  footerExtension?: ReactNode;
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -82,7 +87,9 @@ export function LLMApiConfigStep({
   onSave,
   isSaving,
   isDirty,
+  hasClearedProviders,
   onResetGateway,
+  footerExtension,
 }: ILLMApiConfigStepProps) {
   const { t } = useTranslation('common');
   const { publicOrigin } = useEnv();
@@ -116,7 +123,10 @@ export function LLMApiConfigStep({
     testResult === 'success' ||
     (testResult !== 'error' && Boolean(savedGatewayKey) && isCurrentGatewayConfig);
 
-  const canProceed = mode === 'gateway' ? isGatewayKeyVerified || !localGatewayKey : hasProviders;
+  const canProceed =
+    (mode === 'gateway'
+      ? isGatewayKeyVerified || !localGatewayKey
+      : hasProviders || Boolean(hasClearedProviders)) && !findDuplicateProviderModel(llmProviders);
 
   // Get saved attachment test from aiConfig
   const savedAttachmentTest = useMemo(() => aiConfig?.attachmentTest, [aiConfig?.attachmentTest]);
@@ -628,25 +638,28 @@ export function LLMApiConfigStep({
       )}
 
       {/* Step actions */}
-      <div className="flex justify-end gap-2">
-        {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
-          <Button type="button" variant="outline" onClick={handleClearGatewayKey}>
-            <RotateCw className="me-1.5 size-3.5" />
-            {t('email.resetConfig')}
+      <div className="flex items-center justify-between gap-2">
+        <div>{footerExtension}</div>
+        <div className="flex justify-end gap-2">
+          {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
+            <Button type="button" variant="outline" onClick={handleClearGatewayKey}>
+              <RotateCw className="me-1.5 size-3.5" />
+              {t('email.resetConfig')}
+            </Button>
+          )}
+          <Button
+            type="button"
+            onClick={async () => {
+              if (isDirty) {
+                await onSave?.();
+              }
+              onComplete?.();
+            }}
+            disabled={!canProceed || isSaving}
+          >
+            {isDirty ? t('admin.setting.ai.wizard.saveAndContinue') : t('actions.continue')}
           </Button>
-        )}
-        <Button
-          type="button"
-          onClick={async () => {
-            if (isDirty) {
-              await onSave?.();
-            }
-            onComplete?.();
-          }}
-          disabled={!canProceed || isSaving}
-        >
-          {isDirty ? t('admin.setting.ai.wizard.saveAndContinue') : t('actions.continue')}
-        </Button>
+        </div>
       </div>
     </div>
   );

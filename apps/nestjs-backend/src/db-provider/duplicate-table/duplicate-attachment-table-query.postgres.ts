@@ -39,9 +39,9 @@ export class DuplicateAttachmentTableQueryPostgres extends DuplicateAttachmentTa
       'name',
       'token',
       'record_id',
-      this.knex.raw(`'${targetTableId}' AS table_id`),
-      this.knex.raw(`'${targetFieldId}' AS field_id`),
-      this.knex.raw(`'${userId}' AS created_by`),
+      this.knex.raw('? AS table_id', [targetTableId]),
+      this.knex.raw('? AS field_id', [targetFieldId]),
+      this.knex.raw('? AS created_by', [userId]),
     ];
 
     const newColumnList = targetColumns.map((col) => `"${col}"`).join(', ');

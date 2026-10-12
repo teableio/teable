@@ -27,7 +27,6 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       'visitTableAddFields',
       'visitTableAddView',
       'visitTableAddSelectOptions',
-      'visitTableRemoveField',
       'visitTableUpdateViewColumnMeta',
       'visitTableUpdateViewQueryDefaults',
       'visitTableByBaseId',
@@ -35,6 +34,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       'visitTableByViewId',
       'visitTableWithViewIds',
       'visitTableWithPrimaryField',
+      'visitTableWithFieldIds',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',
@@ -67,7 +67,6 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       'visitUpdateMultipleSelectAutoNewOptions',
       'visitUpdateFormulaFormatting',
       'visitUpdateFormulaShowAs',
-      'visitRemoveSymmetricLinkField',
     ] as const;
 
     for (const method of noOpMethods) {
@@ -78,7 +77,39 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
     expect(visitor.valueChangedFields()).toEqual([]);
     expect(visitor.selfBackfillFields()).toEqual([]);
     expect(visitor.deferredBackfillFields()).toEqual([]);
+    expect(visitor.removedFields()).toEqual([]);
     expect(visitor.hasDbStorageTypeChange()).toBe(false);
+  });
+
+  it('tracks the symmetric link field dropped by a twoWay to oneWay conversion', () => {
+    const visitor = new FieldValueChangeCollectorVisitor();
+    const symmetricField = createTextField(
+      'symCovered',
+      'Symmetric link',
+      'sym_covered_col'
+    )._unsafeUnwrap();
+
+    visitor.visitRemoveSymmetricLinkField({ fieldId: () => symmetricField.id() } as never);
+
+    expect(visitor.removedFields().map((fieldId) => fieldId.toString())).toEqual([
+      symmetricField.id().toString(),
+    ]);
+    expect(visitor.valueChangedFields()).toEqual([]);
+    expect(visitor.selfBackfillFields()).toEqual([]);
+  });
+
+  it('tracks removed fields without touching the other tracked sets', () => {
+    const visitor = new FieldValueChangeCollectorVisitor();
+    const removedField = createTextField('removeCovered', 'Removed', 'removed_col')._unsafeUnwrap();
+
+    visitor.visitTableRemoveField({ field: () => removedField } as never);
+
+    expect(visitor.removedFields().map((fieldId) => fieldId.toString())).toEqual([
+      removedField.id().toString(),
+    ]);
+    expect(visitor.valueChangedFields()).toEqual([]);
+    expect(visitor.selfBackfillFields()).toEqual([]);
+    expect(visitor.deferredBackfillFields()).toEqual([]);
   });
 
   it('tracks computed field duplication but skips non-computed duplicates', () => {

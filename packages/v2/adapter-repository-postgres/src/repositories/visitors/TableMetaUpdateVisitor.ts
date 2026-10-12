@@ -13,6 +13,7 @@ import {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -714,6 +715,16 @@ export class TableMetaUpdateVisitor
     );
   }
 
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithFieldIdsSpec is not supported for table updates',
+      })
+    );
+  }
+
   visitTableByIncomingReferenceToTable(
     _: TableByIncomingReferenceToTableSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
@@ -830,7 +841,7 @@ export class TableMetaUpdateVisitor
           description: row.description,
           type: row.type,
           options: row.options,
-          meta: row.meta,
+          meta: this.preserveFormulaSafetyMeta(row),
           cell_value_type: row.cell_value_type,
           is_multiple_cell_value: row.is_multiple_cell_value,
           db_field_type: row.db_field_type,
@@ -941,6 +952,9 @@ export class TableMetaUpdateVisitor
         .updateTable('field')
         .set({
           options: rowResult.value.options,
+          ...(rowResult.value.type === 'formula' && !rowResult.value.is_lookup
+            ? { meta: this.preserveFormulaSafetyMeta(rowResult.value) }
+            : {}),
           version: this.fieldVersionIncrement,
           last_modified_time: this.params.now,
           last_modified_by: this.params.actorId,
@@ -970,7 +984,7 @@ export class TableMetaUpdateVisitor
         .set({
           type: row.type,
           options: row.options,
-          meta: row.meta,
+          meta: this.preserveFormulaSafetyMeta(row),
           cell_value_type: row.cell_value_type,
           is_multiple_cell_value: row.is_multiple_cell_value,
           db_field_type: row.db_field_type,
@@ -1294,6 +1308,21 @@ export class TableMetaUpdateVisitor
     return [...inner];
   }
 
+  private preserveFormulaSafetyMeta(row: TableFieldRow): string | null | RawBuilder<string> {
+    if (row.type !== 'formula' || row.is_lookup) return row.meta;
+
+    // Restoring old snapshots must not erase an already enabled policy, including
+    // a future version this server cannot execute. Admission owns upgrades.
+    const nextMeta = sql`coalesce(${row.meta}::jsonb, field.meta::jsonb, '{}'::jsonb)`;
+    return sql<string>`case
+      when field.meta::jsonb ? 'formulaSafetyVersion' then
+        jsonb_set(${nextMeta}, '{formulaSafetyVersion}',
+          greatest(field.meta::jsonb -> 'formulaSafetyVersion',
+            ${nextMeta} -> 'formulaSafetyVersion'))::text
+      else ${row.meta}
+    end`;
+  }
+
   private buildInsertOrReviveFieldStatement(fieldRow: TableFieldRow): TableUpdateBuilder {
     return this.params.db
       .insertInto('field')
@@ -1303,7 +1332,7 @@ export class TableMetaUpdateVisitor
           name: fieldRow.name,
           description: fieldRow.description,
           options: fieldRow.options,
-          meta: fieldRow.meta,
+          meta: this.preserveFormulaSafetyMeta(fieldRow),
           ai_config: fieldRow.ai_config,
           type: fieldRow.type,
           cell_value_type: fieldRow.cell_value_type,

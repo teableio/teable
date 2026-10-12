@@ -34,12 +34,12 @@ exports[`error handling > 'AndTypeError': 'And with non-convertible type' 1`] = 
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -153,12 +153,12 @@ exports[`error handling > 'IfTypeError': 'If with non-convertible type' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -340,12 +340,12 @@ exports[`error handling > 'NotTypeError': 'Not with non-convertible type' 1`] = 
     },
   },
   "result": "true",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -364,12 +364,12 @@ exports[`error handling > 'OrTypeError': 'Or with non-convertible type' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 

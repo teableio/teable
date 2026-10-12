@@ -86,7 +86,7 @@ export class RecordBatchCreationService {
     context: IExecutionContext,
     input: IRecordBatchCreationInput
   ): Promise<Result<IRecordBatchCreationResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<IRecordBatchCreationResult, DomainError>(async function* () {
       const resolvedRecordsFieldValues = yield* service.resolveFieldValues(input);

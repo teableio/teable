@@ -7,6 +7,8 @@ import type {
   RecordFilterNode,
 } from '../../../queries/RecordFilterDto';
 import { type DomainError } from '../../shared/DomainError';
+import { DateTimeFormatting } from '../fields/types/DateTimeFormatting';
+import { FormulaField } from '../fields/types/FormulaField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
 import type { Table } from '../Table';
 import type { ViewQueryGroupItem } from '../views/ViewQueryDefaults';
@@ -26,7 +28,7 @@ const stringifyGroupValue = (value: unknown): number | string | null => {
 const hashGroupFlag = (value: string): number => {
   let hash = 5381;
   let index = value.length;
-  while (index) hash = (hash * 33) ^ value.charCodeAt(--index);
+  while (index) hash = (hash * 33) ^ value.charCodeAt(--index); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   return hash >>> 0;
 };
 
@@ -99,6 +101,16 @@ export function createCollapsedGroupExclusionFilter(
             value = value ? false : null;
           } else if (value == null) {
             operator = 'isNotEmpty';
+          } else if (field instanceof FormulaField && !valueType.isMultipleCellValue.isMultiple()) {
+            const formatting = field.formatting();
+            if (formatting instanceof DateTimeFormatting) {
+              // Formula date group keys identify display buckets, not exact timestamps.
+              value = {
+                mode: 'exactFormatDate',
+                exactDate: value instanceof Date ? value.toISOString() : value,
+                timeZone: formatting.timeZone().toString(),
+              };
+            }
           } else if (
             valueType.isMultipleCellValue.isMultiple() &&
             [

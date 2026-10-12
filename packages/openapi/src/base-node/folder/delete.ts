@@ -8,7 +8,8 @@ export const DELETE_BASE_NODE_FOLDER = '/base/{baseId}/node/folder/{folderId}';
 export const DeleteBaseNodeFolderRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_NODE_FOLDER,
-  description: 'Delete a node folder and move its children to parent',
+  title: 'Delete project folder',
+  description: 'Delete a folder from a project and move its children to the parent.',
   request: {
     params: z.object({
       baseId: z.string(),

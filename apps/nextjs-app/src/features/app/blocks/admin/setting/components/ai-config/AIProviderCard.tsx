@@ -1,5 +1,5 @@
 import type {
-  IAIIntegrationConfig,
+  IAIConfigVo,
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
@@ -22,7 +22,7 @@ import type { IModelTestResult } from './LlmproviderManage';
 import { LLMProviderManage } from './LlmproviderManage';
 
 interface IAIProviderCardProps {
-  control: Control<IAIIntegrationConfig>;
+  control: Control<IAIConfigVo>;
   onChange?: (value: LLMProvider[]) => void;
   /** Test function - accepts full ITestLLMRo for capability testing */
   onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
@@ -80,6 +80,7 @@ export const AIProviderCard = ({
               <FormControl>
                 <LLMProviderManage
                   {...field}
+                  value={field.value ?? []}
                   onChange={(value) => onChange?.(value)}
                   onTest={onTest}
                   modelTestResults={modelTestResults}

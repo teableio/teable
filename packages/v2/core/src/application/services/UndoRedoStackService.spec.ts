@@ -1087,9 +1087,7 @@ describe('UndoRedoStackService', () => {
     ]);
 
     const outcomes = [first, second];
-    const succeeded = outcomes.filter(
-      (result) => result.isOk() && result._unsafeUnwrap() !== null
-    );
+    const succeeded = outcomes.filter((result) => result.isOk() && result._unsafeUnwrap() !== null);
     const conflicts = outcomes.filter((result) => result.isErr());
     expect(succeeded).toHaveLength(1);
     expect(conflicts).toHaveLength(1);
@@ -1274,6 +1272,51 @@ describe('UndoRedoStackService', () => {
       context.windowId
     );
     expect(result.isOk()).toBe(true);
+    expect(bus.commands).toHaveLength(1);
+  });
+
+  it('lets the host veto the reserved entry before replay and keeps it on the stack', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+
+    await service.appendRecordUpdate(toUndoRedoStackAppendContext(context), {
+      tableId,
+      recordId,
+      oldValues: { fld1: 'old' },
+      newValues: { fld1: 'new' },
+      recordVersionBefore: 1,
+      recordVersionAfter: 2,
+    });
+
+    const seen: Array<{ type: string; mode: string }> = [];
+    const vetoed = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      {
+        beforeReplay: async (entry, mode) => {
+          seen.push({ type: entry.undoCommand.type, mode });
+          return err(domainError.forbidden({ message: 'no longer allowed' }));
+        },
+      }
+    );
+    expect(vetoed.isErr()).toBe(true);
+    expect(vetoed._unsafeUnwrapErr().message).toBe('no longer allowed');
+    expect(seen).toEqual([{ type: 'UpdateRecord', mode: 'undo' }]);
+    expect(bus.commands).toHaveLength(0);
+
+    // The veto aborted the reservation: the same entry replays once allowed.
+    const allowed = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      { beforeReplay: async () => ok(undefined) }
+    );
+    expect(allowed.isOk()).toBe(true);
+    expect(allowed._unsafeUnwrap()?.undoCommand.type).toBe('UpdateRecord');
     expect(bus.commands).toHaveLength(1);
   });
 });

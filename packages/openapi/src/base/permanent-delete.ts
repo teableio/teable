@@ -8,7 +8,8 @@ export const PERMANENT_DELETE_BASE = '/base/{baseId}/permanent';
 export const PermanentDeleteBaseRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: PERMANENT_DELETE_BASE,
-  description: 'Permanently delete a base by baseId',
+  title: 'Permanently delete project',
+  description: 'Permanently delete a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

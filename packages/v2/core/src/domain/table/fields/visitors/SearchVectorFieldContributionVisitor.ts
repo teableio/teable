@@ -28,7 +28,6 @@ import type { UserField } from '../types/UserField';
 import { FieldValueTypeVisitor } from './FieldValueTypeVisitor';
 import type { IFieldVisitor } from './IFieldVisitor';
 import {
-  isAllowedSubstringSearchIndexProjection,
   isSearchFieldTextProjection,
   resolveSearchFieldTextShape,
   type SearchFieldTextProjection,
@@ -65,14 +64,14 @@ export class SearchDocumentFieldContributionVisitor
   implements IFieldVisitor<SearchDocumentFieldContribution>
 {
   /**
-   * Include only the substring-index allow list (plain/multiline text and
-   * string formula/lookup). SearchFieldTextShape still describes ILIKE
-   * projections for rejected types; those stay sequential, not in the document.
+   * Cover every canonical text projection used by substring search. The
+   * narrower per-field index policy must not restrict this document: an
+   * omitted searchable field makes the entire all-field prefilter unusable.
    */
   private byShape(field: Field): Result<SearchDocumentFieldContribution, DomainError> {
     return resolveSearchFieldTextShape(field).andThen((shape) =>
       field.accept(valueTypeVisitor).map(({ cellValueType }) => {
-        if (isAllowedSubstringSearchIndexProjection(field, shape)) {
+        if (isSearchFieldTextProjection(shape)) {
           return {
             fieldId: field.id().toString(),
             fieldType: field.type().toString(),
@@ -80,9 +79,6 @@ export class SearchDocumentFieldContributionVisitor
             included: true,
             textProjection: shape,
           } satisfies SearchDocumentFieldContribution;
-        }
-        if (isSearchFieldTextProjection(shape)) {
-          return skip(field, 'unsupported_search_field_type', cellValueType.toString());
         }
         return skip(field, 'non_text_value', cellValueType.toString());
       })

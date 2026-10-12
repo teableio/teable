@@ -7,6 +7,10 @@ import type {
   IImportGoogleSheetRo,
   IImportGoogleSheetVo,
 } from '@teable/openapi';
+import { CreateRecordAction } from '@teable/openapi';
+import { Events } from '../../event-emitter/events';
+import { AuditScope } from '../audit/audit-scope';
+import { auditBaseCreated } from '../base/base-create-audit';
 import { BaseService } from '../base/base.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
@@ -86,6 +90,7 @@ export class GoogleSheetImportService {
     private readonly baseService: BaseService,
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    private readonly audit: AuditScope,
     @Optional()
     @Inject(GOOGLE_SHEET_IMPORT_TOKEN_RESOLVER)
     private readonly tokenResolver?: IGoogleSheetImportTokenResolver
@@ -224,11 +229,29 @@ export class GoogleSheetImportService {
     }
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- orchestrates the linear import pipeline
+  /**
+   * One audit operation per import, so the tables and records it creates carry `base.import` (a new
+   * base) or `table.import` (tabs added to an existing base) as their rootAction.
+   */
   async importSpreadsheet(
     ro: IImportGoogleSheetRo,
     onProgress?: IGoogleSheetImportProgressReporter,
     /** Polled between chunks: a disconnected SSE client stops the crawl. */
+    isAborted?: () => boolean
+  ): Promise<IImportGoogleSheetVo> {
+    return this.audit.withOperation(
+      {
+        rootAction: ro.baseId ? CreateRecordAction.Import : CreateRecordAction.BaseImport,
+        resourceId: ro.baseId ?? ro.spaceId,
+      },
+      () => this.runImport(ro, onProgress, isAborted)
+    );
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- orchestrates the linear import pipeline
+  private async runImport(
+    ro: IImportGoogleSheetRo,
+    onProgress?: IGoogleSheetImportProgressReporter,
     isAborted?: () => boolean
   ): Promise<IImportGoogleSheetVo> {
     const importRecords = ro.importRecords ?? true;
@@ -263,6 +286,8 @@ export class GoogleSheetImportService {
         spaceId: ro.spaceId,
         name: ro.baseName ?? title,
       });
+      // The stream route has no controller BASE_CREATE event to record the new base.
+      await auditBaseCreated(this.audit, base, { importSource: 'google-sheet' });
     }
 
     const issues: IImportGoogleSheetIssue[] = [];
@@ -638,12 +663,31 @@ export class GoogleSheetImportService {
   ): Promise<never> {
     const createdBase = !ro.baseId;
     if (createdBase && Object.keys(tableIdMap).length === 0) {
-      await this.baseService.deleteBase(base.id).catch((cleanupError) => {
-        this.logger.warn(
-          `[google-sheet-import] failed to clean up empty base ${base.id}: ` +
-            `${cleanupError instanceof Error ? cleanupError.message : cleanupError}`
-        );
-      });
+      const removed = await this.baseService.deleteBase(base.id).then(
+        () => true,
+        (cleanupError) => {
+          this.logger.warn(
+            `[google-sheet-import] failed to clean up empty base ${base.id}: ` +
+              `${cleanupError instanceof Error ? cleanupError.message : cleanupError}`
+          );
+          return false;
+        }
+      );
+      // Pairs the base.create row written when the base was made: it is gone again.
+      if (removed) {
+        await this.audit
+          .emitAtomic({
+            action: Events.BASE_DELETE,
+            resourceId: base.id,
+            params: {
+              baseId: base.id,
+              spaceId: base.spaceId,
+              importSource: 'google-sheet',
+              reason: 'import-failed',
+            },
+          })
+          .catch(() => undefined);
+      }
       throw error;
     }
     throw new GoogleSheetImportPartialError(error, { base, tableIdMap, issues });

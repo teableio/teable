@@ -1,16 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
-import type { IBaseRole } from '@teable/core';
 import {
   generatePluginInstallId,
   generatePluginPanelId,
   getUniqName,
   HttpErrorCode,
   nullsToUndefined,
-  Role,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, PluginPosition, PrincipalType } from '@teable/openapi';
+import { PluginPosition } from '@teable/openapi';
 import type {
   IPluginPanelRenameRo,
   IPluginPanelUpdateLayoutRo,
@@ -26,8 +24,10 @@ import type {
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { installablePluginWhere } from '../plugin/utils';
 
 @Injectable()
 export class PluginPanelService {
@@ -35,7 +35,8 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly audit: AuditScope
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {
@@ -193,10 +194,11 @@ export class PluginPanelService {
     const { pluginId, name } = installPluginPanelRo;
     const currentUser = this.cls.get('user.id');
     const baseId = await this.getBaseId(tableId);
-    return this.prismaService.$tx(async (prisma) => {
-      const plugin = await prisma.plugin.findUnique({
+    const installed = await this.prismaService.$tx(async (prisma) => {
+      const plugin = await prisma.plugin.findFirst({
         where: {
           id: pluginId,
+          ...installablePluginWhere(currentUser),
         },
       });
       if (!plugin) {
@@ -228,28 +230,8 @@ export class PluginPanelService {
         },
       });
       if (pluginInstall.plugin.pluginUser) {
-        // invite pluginUser to base
-        const exist = await this.prismaService.txClient().collaborator.count({
-          where: {
-            principalId: pluginInstall.plugin.pluginUser,
-            principalType: PrincipalType.User,
-            resourceId: baseId,
-            resourceType: CollaboratorType.Base,
-          },
-        });
-
-        if (!exist) {
-          await this.collaboratorService.createBaseCollaborator({
-            collaborators: [
-              {
-                principalId: pluginInstall.plugin.pluginUser,
-                principalType: PrincipalType.User,
-              },
-            ],
-            baseId,
-            role: Role.Owner as IBaseRole,
-          });
-        }
+        // invite pluginUser to base, never above the installer's own role
+        await this.collaboratorService.addPluginUserToBase(baseId, pluginInstall.plugin.pluginUser);
       }
       const pluginPanel = await prisma.pluginPanel.findUnique({
         where: {
@@ -285,12 +267,25 @@ export class PluginPanelService {
         pluginInstallId: pluginInstall.id,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.install',
+      resourceId: installed.pluginInstallId,
+      params: {
+        pluginId,
+        name: installed.name,
+        location: PluginPosition.Panel,
+        baseId,
+        tableId,
+        pluginPanelId,
+      },
+    });
+    return installed;
   }
 
   async removePluginPanelPlugin(tableId: string, pluginPanelId: string, pluginInstallId: string) {
     const baseId = await this.getBaseId(tableId);
-    await this.prismaService.$tx(async (prisma) => {
-      await prisma.pluginInstall.delete({
+    const removed = await this.prismaService.$tx(async (prisma) => {
+      const pluginInstall = await prisma.pluginInstall.delete({
         where: { id: pluginInstallId, positionId: pluginPanelId, baseId },
       });
 
@@ -320,6 +315,19 @@ export class PluginPanelService {
           },
         });
       }
+      return pluginInstall;
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.uninstall',
+      resourceId: pluginInstallId,
+      params: {
+        pluginId: removed.pluginId,
+        name: removed.name,
+        location: PluginPosition.Panel,
+        baseId,
+        tableId,
+        pluginPanelId,
+      },
     });
   }
 

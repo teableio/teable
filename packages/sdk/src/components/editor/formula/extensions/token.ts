@@ -15,11 +15,16 @@ enum TokenGroup {
   Comment = 'comment',
 }
 
+// `{field name}`; a `}` preceded by a backslash does not close it. Anchored because StringStream.match
+// searches the rest of the line, and written so every character has one way to match (linear time on
+// saved formulas of any length).
+export const FORMULA_VARIABLE_REG = /^\{(?:[^\\}]|\\+[^\\])*\}/;
+
 const FORMULA_GRAMMARS = [
   {
     group: TokenGroup.Variable,
     type: FormulaLexer.IDENTIFIER_VARIABLE,
-    reg: /(\{\})|(\{(\\[{}])*[\s\S]*?[^\\]\})/,
+    reg: FORMULA_VARIABLE_REG,
   },
   {
     group: TokenGroup.String,

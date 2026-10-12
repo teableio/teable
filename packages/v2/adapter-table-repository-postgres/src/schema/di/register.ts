@@ -37,6 +37,10 @@ class NoopComputedUpdateOutbox {
   async discardBySeedTable() {
     return ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] });
   }
+
+  async discardFieldBackfills() {
+    return ok({ discardedTaskIds: [], trimmedTaskIds: [], discardedDeadLetterTaskIds: [] });
+  }
 }
 
 export const registerV2PostgresDdlAdapter = async (

@@ -289,6 +289,93 @@ describe('ImportDotTeaStructureHandler', () => {
     expect(importedField?.description()).toBe('field description from .tea');
   });
 
+  it('remaps aiConfig field references to the imported field ids', async () => {
+    const tableId = `tbl${'t'.repeat(16)}`;
+    const sourcePrimaryFieldId = `fld${'p'.repeat(16)}`;
+    const sourceClassifyFieldId = `fld${'c'.repeat(16)}`;
+    const sourcePromptFieldId = `fld${'q'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+
+    const parser = new FakeDotTeaParser(
+      ok({
+        id: `bse${'s'.repeat(16)}`,
+        tables: [
+          {
+            id: tableId,
+            name: 'Inbox',
+            fields: [
+              {
+                id: sourcePrimaryFieldId,
+                name: 'Comment',
+                type: 'singleLineText',
+                isPrimary: true,
+              },
+              {
+                id: sourceClassifyFieldId,
+                name: 'Sentiment',
+                type: 'singleLineText',
+                aiConfig: {
+                  type: 'classification',
+                  modelKey: 'test-e2e',
+                  sourceFieldId: sourcePrimaryFieldId,
+                },
+              },
+              {
+                id: sourcePromptFieldId,
+                name: 'Reply draft',
+                type: 'longText',
+                aiConfig: {
+                  type: 'customization',
+                  modelKey: 'test-e2e',
+                  prompt: `Reply to {${sourcePrimaryFieldId}} politely`,
+                },
+              },
+            ],
+            views: [{ id: viewId, type: 'grid', name: 'Grid' }],
+          },
+        ],
+      })
+    );
+
+    const tableCreationService = new FakeTableCreationService();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRepository(),
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    const { fieldIdMap } = result._unsafeUnwrap();
+    const targetPrimaryFieldId = fieldIdMap[sourcePrimaryFieldId];
+    expect(targetPrimaryFieldId).toBeDefined();
+    expect(targetPrimaryFieldId).not.toBe(sourcePrimaryFieldId);
+
+    const fields = tableCreationService.lastInput?.tables[0]?.getFields() ?? [];
+    const classifyField = fields.find((field) => field.name().toString() === 'Sentiment');
+    const promptField = fields.find((field) => field.name().toString() === 'Reply draft');
+
+    expect(classifyField?.aiConfig()).toEqual({
+      type: 'classification',
+      modelKey: 'test-e2e',
+      sourceFieldId: targetPrimaryFieldId,
+    });
+    expect(promptField?.aiConfig()).toEqual({
+      type: 'customization',
+      modelKey: 'test-e2e',
+      prompt: `Reply to {${targetPrimaryFieldId}} politely`,
+    });
+  });
+
   it('imports tables and publishes events', async () => {
     const tableId = `tbl${'t'.repeat(16)}`;
     const fieldId = `fld${'f'.repeat(16)}`;

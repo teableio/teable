@@ -7,18 +7,32 @@ import {
   CreateRecordsCommand,
   CreateTableCommand,
   GetTableByIdQuery,
+  ProjectionMessageCodecRegistry,
+  recordProjectionCodecs,
   type CreateFieldResult,
   type CreateRecordsResult,
   type CreateTableResult,
   type GetTableByIdResult,
   type ICommandBus,
+  type IDurableProjectionContext,
+  type IDurableProjectionHandler,
   type IQueryBus,
+  type ProjectionDeliveryError,
+  type ProjectionDeliveryOutcome,
+  type ProjectionMessageJson,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
+import { ok, type Result } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DomainEventOutboxWorker } from '../../projection/DomainEventOutboxWorker';
+import {
+  RECORD_VALIDATION_CONSUMER_ID,
+  ValidationInboxDurableProjection,
+} from '../../projection/ValidationInboxDurableProjection';
+import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
 import { getV2NodeTestContainer, setV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
 type DynamicDb = V1TeableDatabase & Record<string, Record<string, unknown>>;
@@ -221,6 +235,7 @@ describe('CreateRecordsHandler (db)', () => {
   it('returns error when table not found', async () => {
     const { container } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
 
     const createRecordsCommand = CreateRecordsCommand.create({
       tableId: `tbl${'x'.repeat(16)}`,
@@ -234,6 +249,8 @@ describe('CreateRecordsHandler (db)', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message.toLowerCase()).toContain('not found');
+    const outboxRows = await db.selectFrom('domain_event_outbox').selectAll().execute();
+    expect(outboxRows).toHaveLength(0);
   });
 
   it('handles mixed field sets across records', async () => {
@@ -407,5 +424,245 @@ describe('CreateRecordsHandler (db)', () => {
 
     const formulaDbField = formulaField.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap();
     expect(row[formulaDbField]).toBe('');
+  });
+
+  it('writes a domain event outbox row and the worker settles validation delivery', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const { table } = await createTestTable(commandBus, baseId.toString(), 'Domain Event Outbox');
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const createResult = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+      createContext(),
+      CreateRecordsCommand.create({
+        tableId: table.id().toString(),
+        records: [{ fields: { [titleField.id().toString()]: 'Outbox record' } }],
+      })._unsafeUnwrap()
+    );
+    expect(createResult.isOk()).toBe(true);
+
+    const outboxRows = await db.selectFrom('domain_event_outbox').selectAll().execute();
+    expect(outboxRows.length).toBeGreaterThan(0);
+    expect(outboxRows.some((row) => row.base_id === baseId.toString())).toBe(true);
+
+    const worker = container.resolve<DomainEventOutboxWorker>(
+      v2RecordRepositoryPostgresTokens.domainEventOutboxWorker
+    );
+    const poll = await worker.pollOnce();
+    expect(poll.isOk()).toBe(true);
+
+    const inboxRows = await db.selectFrom('domain_event_inbox').selectAll().execute();
+    expect(inboxRows.some((row) => row.consumer_id === 'record.validation.v1')).toBe(true);
+  });
+
+  it('skips claim for unknown consumers without burning attempts or dead-lettering', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const { table } = await createTestTable(
+      commandBus,
+      baseId.toString(),
+      'Unknown Consumer Outbox'
+    );
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const createResult = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+      createContext(),
+      CreateRecordsCommand.create({
+        tableId: table.id().toString(),
+        records: [{ fields: { [titleField.id().toString()]: 'Unknown consumer' } }],
+      })._unsafeUnwrap()
+    );
+    expect(createResult.isOk()).toBe(true);
+
+    const outboxRows = await db.selectFrom('domain_event_outbox').selectAll().execute();
+    expect(outboxRows.length).toBeGreaterThan(0);
+
+    await db
+      .insertInto('domain_event_delivery')
+      .values({
+        id: crypto.randomUUID().replaceAll('-', '').slice(0, 20),
+        event_id: outboxRows[0]!.id,
+        consumer_id: 'unknown.future.consumer',
+        status: 'pending',
+        attempts: 0,
+        max_attempts: 12,
+      })
+      .execute();
+
+    const worker = container.resolve<DomainEventOutboxWorker>(
+      v2RecordRepositoryPostgresTokens.domainEventOutboxWorker
+    );
+    const poll = await worker.pollOnce();
+    expect(poll.isOk()).toBe(true);
+
+    const unknown = await db
+      .selectFrom('domain_event_delivery')
+      .selectAll()
+      .where('consumer_id', '=', 'unknown.future.consumer')
+      .executeTakeFirstOrThrow();
+    expect(unknown.status).toBe('pending');
+    expect(unknown.attempts).toBe(0);
+    expect(unknown.lease_token).toBeNull();
+  });
+
+  it('skips claim when a known consumer is not subscribed to the message', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const { table } = await createTestTable(commandBus, baseId.toString(), 'Unsubscribed Message');
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const createResult = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+      createContext(),
+      CreateRecordsCommand.create({
+        tableId: table.id().toString(),
+        records: [{ fields: { [titleField.id().toString()]: 'Unsubscribed' } }],
+      })._unsafeUnwrap()
+    );
+    expect(createResult.isOk()).toBe(true);
+
+    const codecs = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+    expect(codecs.isOk()).toBe(true);
+    const handler = new ValidationInboxDurableProjection(db);
+    const worker = new DomainEventOutboxWorker(
+      db,
+      new Map([[handler.consumerId, handler]]),
+      codecs._unsafeUnwrap(),
+      container.resolve(v2CoreTokens.logger),
+      undefined,
+      [
+        {
+          consumerId: RECORD_VALIDATION_CONSUMER_ID,
+          messageName: 'table.record.updated.v1',
+          schemaVersion: 1,
+        },
+      ]
+    );
+    const poll = await worker.pollOnce();
+    expect(poll.isOk()).toBe(true);
+
+    const deliveries = await db
+      .selectFrom('domain_event_delivery')
+      .selectAll()
+      .where('consumer_id', '=', RECORD_VALIDATION_CONSUMER_ID)
+      .execute();
+    expect(deliveries.length).toBeGreaterThan(0);
+    expect(deliveries.every((row) => row.status === 'pending' && row.attempts === 0)).toBe(true);
+  });
+
+  it('skips claim for unsupported decoder versions without burning attempts', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const { table } = await createTestTable(commandBus, baseId.toString(), 'Unsupported Decoder');
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const createResult = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+      createContext(),
+      CreateRecordsCommand.create({
+        tableId: table.id().toString(),
+        records: [{ fields: { [titleField.id().toString()]: 'Unsupported decoder' } }],
+      })._unsafeUnwrap()
+    );
+    expect(createResult.isOk()).toBe(true);
+
+    const source = await db.selectFrom('domain_event_outbox').selectAll().executeTakeFirstOrThrow();
+    await db
+      .updateTable('domain_event_outbox')
+      .set({ schema_version: 99 })
+      .where('id', '=', source.id)
+      .execute();
+
+    const worker = container.resolve<DomainEventOutboxWorker>(
+      v2RecordRepositoryPostgresTokens.domainEventOutboxWorker
+    );
+    const poll = await worker.pollOnce();
+    expect(poll.isOk()).toBe(true);
+
+    const unsupported = await db
+      .selectFrom('domain_event_delivery')
+      .selectAll()
+      .where('event_id', '=', source.id)
+      .executeTakeFirstOrThrow();
+    expect(unsupported.status).toBe('pending');
+    expect(unsupported.attempts).toBe(0);
+  });
+
+  it('does not complete a delivery after its lease expires', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const { table } = await createTestTable(commandBus, baseId.toString(), 'Expired Lease');
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const createResult = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+      createContext(),
+      CreateRecordsCommand.create({
+        tableId: table.id().toString(),
+        records: [{ fields: { [titleField.id().toString()]: 'Expired lease' } }],
+      })._unsafeUnwrap()
+    );
+    expect(createResult.isOk()).toBe(true);
+
+    class ExpireLeaseHandler implements IDurableProjectionHandler<ProjectionMessageJson> {
+      readonly consumerId = RECORD_VALIDATION_CONSUMER_ID;
+
+      async handle(
+        context: IDurableProjectionContext,
+        _message: ProjectionMessageJson
+      ): Promise<Result<ProjectionDeliveryOutcome, ProjectionDeliveryError>> {
+        await db
+          .updateTable('domain_event_delivery')
+          .set({ lease_expires_at: new Date(Date.now() - 1_000) })
+          .where('id', '=', context.deliveryId)
+          .execute();
+        await db
+          .insertInto('domain_event_inbox')
+          .values({
+            consumer_id: context.consumerId,
+            event_id: context.eventId,
+          })
+          .execute();
+        return ok({
+          kind: 'applied',
+          effectReceipt: {
+            kind: 'destination-inbox',
+            identity: RECORD_VALIDATION_CONSUMER_ID,
+          },
+        });
+      }
+    }
+
+    const codecs = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+    expect(codecs.isOk()).toBe(true);
+    const handler = new ExpireLeaseHandler();
+    const worker = new DomainEventOutboxWorker(
+      db,
+      new Map([[handler.consumerId, handler]]),
+      codecs._unsafeUnwrap(),
+      container.resolve(v2CoreTokens.logger)
+    );
+    const poll = await worker.pollOnce();
+    expect(poll.isOk()).toBe(true);
+
+    const deliveries = await db
+      .selectFrom('domain_event_delivery')
+      .selectAll()
+      .where('consumer_id', '=', RECORD_VALIDATION_CONSUMER_ID)
+      .execute();
+    expect(deliveries.some((row) => row.status === 'succeeded')).toBe(false);
+    expect(deliveries.some((row) => row.status === 'processing' && row.attempts >= 1)).toBe(true);
   });
 });

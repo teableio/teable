@@ -703,6 +703,6 @@ export class Value extends NumericFunc {
     const numberReg = /[^\d.+-]/g;
     const symbolReg = /([+\-.])+/g;
     value = String(value).replace(numberReg, '').replace(symbolReg, '$1');
-    return parseFloat(value);
+    return Number.parseFloat(value);
   }
 }

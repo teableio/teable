@@ -10,7 +10,7 @@ import { TeableJwtService } from '../jwt/teable-jwt.service';
 import { pickUserMe } from '../utils';
 import { JWT_TOKEN_STRATEGY_NAME } from './constant';
 import type { IJwtAuthInternalInfo, IJwtAuthInfo } from './types';
-import { JwtAuthInternalType } from './types';
+import { JwtAuthInternalType, jwtAuthInternalInfoSchema } from './types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_NAME) {
@@ -32,7 +32,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
 
   async validate(req: Request, payload: IJwtAuthInfo | IJwtAuthInternalInfo) {
     if ('baseId' in payload) {
-      return this.validateInternalToken(payload, req);
+      // A base-scoped token is only ever minted by getTempInternalToken with an
+      // explicit `type`. Anything else that merely carries a baseId (e.g. a
+      // forged `{ baseId }` payload) must not fall through to the automation
+      // robot branch, which would grant owner authority on that base.
+      const parsed = jwtAuthInternalInfoSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new UnauthorizedException('Invalid internal token');
+      }
+      return this.validateInternalToken(parsed.data, req);
     }
     return this.validateUserToken(payload);
   }
@@ -99,6 +107,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     this.cls.set('user.name', user.name);
     this.cls.set('user.email', user.email);
     this.cls.set('user.isAdmin', user.isAdmin);
+    if (payload.source) {
+      this.cls.set('authSource', payload.source);
+    }
+    if (payload.sandboxPrincipal) {
+      this.cls.set('sandboxPrincipal', payload.sandboxPrincipal);
+    }
     return pickUserMe(user);
   }
 }

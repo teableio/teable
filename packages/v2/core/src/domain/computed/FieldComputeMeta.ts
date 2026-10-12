@@ -7,6 +7,13 @@ import { domainError, type DomainError } from '../shared/DomainError';
 import { tableDataSafetyLimitErrors } from '../shared/TableDataSafetyLimits';
 import { FieldId } from '../table/fields/FieldId';
 import { TableId } from '../table/TableId';
+import {
+  computeReliabilitySchema,
+  isComputeSafetyLimitCode,
+  publicComputeError,
+  sameComputeReliability,
+  type ComputeReliability,
+} from './ComputeReliability';
 import { FieldComputeStatus, type FieldComputeStatusValue } from './ComputeStatus';
 
 export const COMPUTED_CELL_VALUE_MAX_BYTES_CODE =
@@ -17,10 +24,6 @@ export type FieldComputeLastError = {
   message: string;
   context?: Record<string, unknown>;
 };
-
-export const isStickyComputedCellLimitError = (
-  lastError: FieldComputeLastError | null | undefined
-): boolean => lastError?.code === COMPUTED_CELL_VALUE_MAX_BYTES_CODE;
 
 const lastErrorSchema = z
   .object({
@@ -68,6 +71,7 @@ export type FieldComputeMetaDto = {
   lastCompletedAt?: string | null;
   lastDurationMs?: number | null;
   lastError?: FieldComputeLastError | null;
+  reliability?: ComputeReliability;
   extensions?: Record<string, unknown>;
 };
 
@@ -122,8 +126,6 @@ export type FieldComputeTarget = {
   tableId: TableId;
 };
 
-const MAX_RECENT = 0; // field meta does not keep recent list
-
 /**
  * Pure projection of a field's compute activity.
  * Mutable in-memory aggregate used by the computed activity projector.
@@ -134,7 +136,7 @@ export class FieldComputeMeta {
   private terminalFailurePending = false;
 
   private constructor(
-    private state: FieldComputeMetaDto,
+    private readonly state: FieldComputeMetaDto,
     private readonly fieldIdValue: FieldId,
     private readonly tableIdValue: TableId,
     private readonly baseIdValue: BaseId
@@ -190,11 +192,49 @@ export class FieldComputeMeta {
   toDto(): FieldComputeMetaDto {
     return {
       ...this.state,
+      reliability: this.reliability(),
       fieldId: this.fieldIdValue.toString(),
       tableId: this.tableIdValue.toString(),
       baseId: this.baseIdValue.toString(),
       extensions: this.state.extensions ? { ...this.state.extensions } : undefined,
     };
+  }
+
+  reliability(): ComputeReliability | undefined {
+    const result = computeReliabilitySchema.safeParse(this.state.extensions?.reliability);
+    return result.success ? result.data : undefined;
+  }
+
+  syncReliability(reliability: ComputeReliability, now: Date): void {
+    const previous = this.reliability();
+    const failed = reliability.unresolvedCount > 0;
+    const status = FieldComputeStatus.fromActive({
+      activeTaskCount: this.state.activeTaskCount,
+      processingTaskCount: this.state.processingTaskCount,
+      failed:
+        failed ||
+        (this.state.status === 'failed' &&
+          (isComputeSafetyLimitCode(this.state.lastError?.code) ||
+            ((previous?.unresolvedCount ?? 0) === 0 &&
+              this.state.lastError?.code !== 'computed.unresolved_issue'))),
+    }).toString();
+    if (sameComputeReliability(previous, reliability) && status === this.state.status) return;
+    this.state.extensions = { ...this.state.extensions, reliability };
+    if (
+      failed &&
+      this.state.activeTaskCount === 0 &&
+      !isComputeSafetyLimitCode(this.state.lastError?.code)
+    ) {
+      this.state.lastError = {
+        code: 'computed.unresolved_issue',
+        message: 'Computed results have not been updated',
+      };
+    } else if (!failed && this.state.lastError?.code === 'computed.unresolved_issue') {
+      this.state.lastError = null;
+    }
+    this.state.status = status;
+    this.state.generation = Math.max(this.state.generation, this.initialGeneration + 1);
+    this.state.updatedAt = now.toISOString();
   }
 
   /** Public read-model subset for field DTO. */
@@ -212,7 +252,7 @@ export class FieldComputeMeta {
       estimatedDirtyRecords: this.state.estimatedDirtyRecords || undefined,
       startedAt: this.state.startedAt ?? undefined,
       lastDurationMs: this.state.lastDurationMs ?? undefined,
-      lastError: this.state.lastError ?? undefined,
+      lastError: publicComputeError(this.state.lastError) ?? undefined,
     };
   }
 
@@ -387,7 +427,7 @@ export class FieldComputeMeta {
     const now = params.now ?? new Date();
     this.applyTaskFinishedMetadata(params, now);
     this.terminalFailurePending =
-      params.error != null || isStickyComputedCellLimitError(this.state.lastError);
+      params.error != null || isComputeSafetyLimitCode(this.state.lastError?.code);
     this.dirty = true;
   }
 
@@ -427,7 +467,7 @@ export class FieldComputeMeta {
     if (params.wasProcessing) {
       this.state.processingTaskCount = Math.max(0, this.state.processingTaskCount - 1);
     }
-    const stickyLimit = isStickyComputedCellLimitError(this.state.lastError);
+    const stickyLimit = isComputeSafetyLimitCode(this.state.lastError?.code);
     if (this.state.activeTaskCount === 0 && params.error == null && !stickyLimit) {
       this.state.lastError = null;
     }
@@ -516,7 +556,7 @@ export class FieldComputeMeta {
     }
     if (params.error !== undefined) {
       const keepSticky =
-        params.error == null && isStickyComputedCellLimitError(this.state.lastError);
+        params.error == null && isComputeSafetyLimitCode(this.state.lastError?.code);
       if (!keepSticky) this.state.lastError = params.error;
     }
     if (params.durationMs != null && params.durationMs >= 0) {
@@ -537,6 +577,5 @@ export class FieldComputeMeta {
     this.state.updatedAt = now.toISOString();
     this.dirty = false;
     this.terminalFailurePending = false;
-    void MAX_RECENT;
   }
 }

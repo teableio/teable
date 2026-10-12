@@ -67,7 +67,7 @@ const NewQueryJoin = (props: { onSubmit: (value: IBaseQueryJoin) => void }) => {
   const [type, setType] = useState<BaseQueryJoinType>(BaseQueryJoinType.Left);
   const [table, setTable] = useState<string>();
   const [on, setOn] = useState<[string, string]>();
-  const disabled = !table || !on || !on[0] || !on[1] || !type;
+  const disabled = !table || !on?.[0] || !on[1] || !type;
   const onAdd = () => {
     if (disabled) {
       return;

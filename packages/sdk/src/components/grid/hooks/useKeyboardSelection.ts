@@ -96,16 +96,14 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         } else if (isHotkeyPressed('right')) {
           columnIndex = columnCount - 1;
         }
-      } else {
-        if (isHotkeyPressed('up')) {
-          rowIndex = Math.max(rowIndex - 1, 0);
-        } else if (isHotkeyPressed('down')) {
-          rowIndex = Math.min(rowIndex + 1, pureRowCount - 1);
-        } else if (isHotkeyPressed('left')) {
-          columnIndex = Math.max(columnIndex - 1, 0);
-        } else if (isHotkeyPressed('right')) {
-          columnIndex = Math.min(columnIndex + 1, columnCount - 1);
-        }
+      } else if (isHotkeyPressed('up')) {
+        rowIndex = Math.max(rowIndex - 1, 0);
+      } else if (isHotkeyPressed('down')) {
+        rowIndex = Math.min(rowIndex + 1, pureRowCount - 1);
+      } else if (isHotkeyPressed('left')) {
+        columnIndex = Math.max(columnIndex - 1, 0);
+      } else if (isHotkeyPressed('right')) {
+        columnIndex = Math.min(columnIndex + 1, columnCount - 1);
       }
 
       const newRange = <IRange>[columnIndex, rowIndex];

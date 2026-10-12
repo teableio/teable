@@ -1,4 +1,8 @@
-import { createTrustedUrlPredicate, getSafeFetchAgent } from '@teable/v2-utils';
+import {
+  createTrustedUrlPredicate,
+  getSafeFetchAgent,
+  type ISafeAgentOptions,
+} from '@teable/v2-utils';
 import nodeFetch, { type RequestInit, type Response } from 'node-fetch';
 
 /**
@@ -8,11 +12,28 @@ import nodeFetch, { type RequestInit, type Response } from 'node-fetch';
  * server-configured endpoints over their own agents.
  */
 
-export { getSafeAxiosAgents } from '@teable/v2-utils';
+export { getSafeAxiosAgents, type ISafeAgentOptions } from '@teable/v2-utils';
+
+/**
+ * SSRF-filtering `http.Agent` for one request to `url`, for clients that take a
+ * per-request agent but are not fetch/axios. `undefined` means the default agent:
+ * the URL is a trusted first-party origin, or protection is disabled.
+ */
+export const getSafeAgentForUrl = (url: string, options?: ISafeAgentOptions) => {
+  const filteringAgent = getSafeFetchAgent(options);
+  if (!filteringAgent) {
+    return undefined;
+  }
+  return createTrustedUrlPredicate()(url) ? undefined : filteringAgent(new URL(url));
+};
 
 /** SSRF-safe `node-fetch`; trust is re-evaluated for every redirect. */
-export const safeFetch = (url: string, init?: RequestInit): Promise<Response> => {
-  const filteringAgent = getSafeFetchAgent();
+export const safeFetch = (
+  url: string,
+  init?: RequestInit,
+  options?: ISafeAgentOptions
+): Promise<Response> => {
+  const filteringAgent = getSafeFetchAgent(options);
   if (!filteringAgent) {
     return nodeFetch(url, init);
   }

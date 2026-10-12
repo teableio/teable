@@ -43,6 +43,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
@@ -423,6 +424,34 @@ class FakeRecordOrderCalculator implements IRecordOrderCalculator {
   }
 }
 
+const createHandler = (
+  tableQueryService: TableQueryService,
+  recordRepository: ITableRecordRepository,
+  recordQueryRepository: ITableRecordQueryRepository,
+  recordMutationSpecResolver: RecordMutationSpecResolverService,
+  recordWritePluginRunner = createRecordWritePluginRunner(),
+  tableUpdateFlow: TableUpdateFlow,
+  eventBus: IEventBus,
+  undoRedoStackService: UndoRedoStackService,
+  unitOfWork: IUnitOfWork,
+  foreignTableLoader?: ConstructorParameters<typeof UpdateRecordHandler>[12]
+) =>
+  new UpdateRecordHandler(
+    tableQueryService,
+    recordRepository,
+    recordQueryRepository,
+    new FakeRecordOrderCalculator(),
+    recordMutationSpecResolver,
+    noopRecordChangedValueDecoratorService,
+    recordWritePluginRunner,
+    new RecordWriteSideEffectService(),
+    noopRecordWriteUndoRedoPlanService,
+    tableUpdateFlow,
+    new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+    undoRedoStackService,
+    foreignTableLoader
+  );
+
 class FakeRecordMutationSpecResolverService {
   needsResolutionValue = false;
   resolveCalls: ICellValueSpec[] = [];
@@ -531,16 +560,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -594,16 +619,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -659,16 +680,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -744,16 +761,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -801,16 +814,12 @@ describe('UpdateRecordHandler', () => {
     const unitOfWork = new FakeUnitOfWork();
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -861,16 +870,12 @@ describe('UpdateRecordHandler', () => {
         }),
     };
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([scopedPlugin]),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -930,16 +935,12 @@ describe('UpdateRecordHandler', () => {
         }),
     };
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([scopedPlugin]),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -986,16 +987,12 @@ describe('UpdateRecordHandler', () => {
     const resolver = new FakeRecordMutationSpecResolverService();
     resolver.needsResolutionValue = true;
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1036,16 +1033,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1114,16 +1107,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1175,16 +1164,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1225,16 +1210,12 @@ describe('UpdateRecordHandler', () => {
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.failFindOne = domainError.notFound({ message: 'Record missing' });
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       new FakeTableRecordRepository(),
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1270,16 +1251,12 @@ describe('UpdateRecordHandler', () => {
       version: 1,
     };
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1320,16 +1297,12 @@ describe('UpdateRecordHandler', () => {
 
     const eventBus = new FakeEventBus();
     const undoRedoService = new FakeUndoRedoService();
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, new FakeUnitOfWork()),
       eventBus,
       undoRedoService as unknown as UndoRedoStackService,
@@ -1388,16 +1361,12 @@ describe('UpdateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new UpdateRecordHandler(
+    const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
-      new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
-      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
-      new RecordWriteSideEffectService(),
-      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1458,16 +1427,12 @@ describe('UpdateRecordHandler', () => {
         },
       };
 
-      const handler = new UpdateRecordHandler(
+      const handler = createHandler(
         tableQueryService,
         recordRepository,
         recordQueryRepository,
-        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
-        new RecordWriteSideEffectService(),
-        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1517,16 +1482,12 @@ describe('UpdateRecordHandler', () => {
         },
       };
 
-      const handler = new UpdateRecordHandler(
+      const handler = createHandler(
         tableQueryService,
         recordRepository,
         recordQueryRepository,
-        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
-        new RecordWriteSideEffectService(),
-        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoStackService,
@@ -1568,16 +1529,12 @@ describe('UpdateRecordHandler', () => {
         fields: { [textFieldId.toString()]: 'Old Title' },
       };
 
-      const handler = new UpdateRecordHandler(
+      const handler = createHandler(
         tableQueryService,
         new FakeTableRecordRepository(),
         recordQueryRepository,
-        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
-        new RecordWriteSideEffectService(),
-        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoStackService,

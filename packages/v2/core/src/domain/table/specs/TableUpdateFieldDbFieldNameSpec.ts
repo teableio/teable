@@ -1,4 +1,3 @@
-import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../shared/DomainError';

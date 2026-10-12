@@ -30,7 +30,7 @@ export class RecordWriteUndoRedoPlanService {
     table: Table,
     fieldIds: ReadonlyArray<FieldId>
   ): Promise<Result<RecordWriteUndoRedoPlan, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RecordWriteUndoRedoPlan, DomainError>(async function* () {
       const undoCommands: UndoRedoCommandLeafData[] = [];
       const redoCommands: UndoRedoCommandLeafData[] = [];
@@ -72,7 +72,7 @@ export class RecordWriteUndoRedoPlanService {
     afterTable: Table,
     effects: RecordWriteSideEffects
   ): Promise<Result<RecordWriteUndoRedoPlan, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RecordWriteUndoRedoPlan, DomainError>(async function* () {
       // Side effects may contain multiple mutations for the same field across different batches.
       // Undo/redo is intentionally command-scoped: restore each affected field from the table

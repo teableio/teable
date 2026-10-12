@@ -26,6 +26,7 @@ export enum MailType {
 
 export enum EmailVerifyCodeType {
   Signup = 'signup',
+  Signin = 'signin',
   ChangeEmail = 'changeEmail',
   DomainVerification = 'domainVerification',
 }
@@ -35,15 +36,17 @@ export enum MailBodyType {
   Html = 'html',
 }
 
+export const mailAuthSchema = z.object({
+  user: z.string(),
+  pass: z.string(),
+});
+
 export const mailTransportConfigSchema = z.object({
   senderName: z.string().optional(),
   sender: z.string(),
   host: z.string(),
   port: z.number(),
   secure: z.boolean().optional(),
-  auth: z.object({
-    user: z.string(),
-    pass: z.string(),
-  }),
+  auth: mailAuthSchema,
 });
 export type IMailTransportConfig = z.infer<typeof mailTransportConfigSchema>;

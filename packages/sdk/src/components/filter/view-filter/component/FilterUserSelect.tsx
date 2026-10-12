@@ -162,7 +162,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string}
           displayRender={displayRender}
           optionRender={optionRender}
-          className={cn('flex h-8 overflow-hidden px-2', className ? className : 'w-40')}
+          className={cn('flex h-8 overflow-hidden px-2', className || 'w-40')}
           popoverClassName="w-max min-w-40 max-w-[min(360px,calc(100vw-32px))] [&_[cmdk-input-wrapper]]:h-8 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-0 [&_[cmdk-input]]:h-8"
           onSearch={onSearch}
         />
@@ -175,7 +175,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string[]}
           displayRender={displayRender}
           optionRender={optionRender}
-          className={cn('h-8 px-2', className ? className : 'w-40')}
+          className={cn('h-8 px-2', className || 'w-40')}
           popoverClassName="w-max min-w-40 max-w-[min(360px,calc(100vw-32px))] [&_[cmdk-input-wrapper]]:h-8 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-0 [&_[cmdk-input]]:h-8"
           onSearch={onSearch}
         />

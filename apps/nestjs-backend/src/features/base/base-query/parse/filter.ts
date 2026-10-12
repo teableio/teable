@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { HttpErrorCode, type IFilter, type IFilterSet } from '@teable/core';
 import { type IBaseQueryFilter } from '@teable/openapi';
 import type { Knex } from 'knex';

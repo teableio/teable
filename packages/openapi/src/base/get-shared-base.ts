@@ -17,9 +17,11 @@ export type IGetSharedBaseVo = z.infer<typeof getSharedBaseVoSchema>;
 export const GetSharedBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_SHARED_BASE,
+  title: 'List projects shared with me',
+  description: 'List projects shared with the current user or their departments.',
   responses: {
     200: {
-      description: 'Returns information about a shared base.',
+      description: 'Returns information about a shared project.',
       content: {
         'application/json': {
           schema: getSharedBaseVoSchema,

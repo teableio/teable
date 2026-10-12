@@ -18,6 +18,7 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type {
   IExecutionContext,
   IUnitOfWorkTransaction,
@@ -362,7 +363,7 @@ const createHandler = (
     tableRepository,
     tableSchemaRepository,
     tableRecordRepository,
-    eventBus,
+    new EventBusDomainWriteTransaction(unitOfWork, eventBus),
     unitOfWork,
     undefined,
     createTableLimitPluginRunner(tableRepository)

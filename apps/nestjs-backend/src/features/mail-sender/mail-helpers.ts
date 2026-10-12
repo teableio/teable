@@ -27,7 +27,7 @@ export const helpers = (config: ConfigService) => {
 };
 
 export const verifyTransport = async (config: IMailTransportConfig) => {
-  const transporter = createTransport(config);
+  const transporter = createTransport(config); // NOSONAR typescript:S5332 -- SMTP transport security (STARTTLS/TLS) comes from the administrator-provided config
   try {
     await transporter.verify();
   } catch (error) {

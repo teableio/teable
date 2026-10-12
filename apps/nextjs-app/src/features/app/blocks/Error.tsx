@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { useBrand } from '@/features/app/hooks/useBrand';
 
-export const Error: FC<{ message: string }> = (props) => {
+const ErrorPage: FC<{ message: string }> = (props) => {
   const { message } = props;
   const { brandName } = useBrand();
 
@@ -18,3 +18,6 @@ export const Error: FC<{ message: string }> = (props) => {
     </div>
   );
 };
+
+// Exported under the historical name; the declaration avoids shadowing the global Error.
+export { ErrorPage as Error };

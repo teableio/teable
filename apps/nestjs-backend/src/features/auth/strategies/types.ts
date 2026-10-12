@@ -10,6 +10,10 @@ export type IFromExtractor = (req: Request) => string | null;
 export interface IJwtAuthInfo {
   userId: string;
   allowSystemUser?: boolean;
+  /** Where the token is used from; `sandbox` = an AI agent acting on the user's behalf. */
+  source?: 'sandbox';
+  /** Whose chat minted the token; the user stays the actor but credentials resolve for this principal. */
+  sandboxPrincipal?: { principalType: string; principalId: string; chatId?: string };
 }
 
 export enum JwtAuthInternalType {
@@ -22,6 +26,11 @@ const workflowContextSchema = z.object({
   actionId: z.string(),
   workflowId: z.string(),
   workflowName: z.string().optional(),
+  // Set by the engine for a running workflow; audit rows written through the automation
+  // token carry them as `payload.automation`.
+  runId: z.string().optional(),
+  // The user whose activation the run executes under.
+  triggeredBy: z.string().optional(),
 });
 
 export type IWorkflowContext = z.infer<typeof workflowContextSchema>;

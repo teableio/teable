@@ -1,15 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
-import type { IBaseRole } from '@teable/core';
 import {
   generateDashboardId,
   generatePluginInstallId,
   getUniqName,
   HttpErrorCode,
-  Role,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
+import { BaseNodeResourceType, PluginPosition } from '@teable/openapi';
 import type {
   IBaseJson,
   ICreateDashboardRo,
@@ -26,8 +24,11 @@ import type {
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
+import { PermissionService } from '../auth/permission.service';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { installablePluginWhere } from '../plugin/utils';
 
 @Injectable()
 export class DashboardService {
@@ -35,13 +36,44 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly audit: AuditScope,
+    private readonly permissionService: PermissionService
   ) {}
 
+  /**
+   * Dashboard routes are authorized against the base id, so a node-scoped base
+   * share passes the guard for every dashboard of the base. The node restriction
+   * is applied here: null means the request is not a node-scoped share.
+   */
+  private getShareVisibleDashboardIds(baseId: string) {
+    return this.permissionService.getBaseShareVisibleResourceIds(
+      baseId,
+      BaseNodeResourceType.Dashboard
+    );
+  }
+
+  private async assertDashboardVisibleInShare(baseId: string, dashboardId: string) {
+    const visibleIds = await this.getShareVisibleDashboardIds(baseId);
+    if (visibleIds && !visibleIds.has(dashboardId)) {
+      throw new CustomHttpException(
+        `Dashboard ${dashboardId} is not accessible via share`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+  }
+
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
+    const visibleIds = await this.getShareVisibleDashboardIds(baseId);
     return this.prismaService.dashboard.findMany({
       where: {
         baseId,
+        ...(visibleIds ? { id: { in: [...visibleIds] } } : {}),
       },
       select: {
         id: true,
@@ -54,6 +86,7 @@ export class DashboardService {
   }
 
   async getDashboardById(baseId: string, id: string): Promise<IGetDashboardVo> {
+    await this.assertDashboardVisibleInShare(baseId, id);
     const dashboard = await this.prismaService.dashboard
       .findFirstOrThrow({
         where: {
@@ -202,15 +235,7 @@ export class DashboardService {
       .findFirstOrThrow({
         where: {
           id: pluginId,
-          OR: [
-            {
-              status: PluginStatus.Published,
-            },
-            {
-              status: { not: PluginStatus.Published },
-              createdBy: this.cls.get('user.id'),
-            },
-          ],
+          ...installablePluginWhere(this.cls.get('user.id')),
         },
       })
       .catch(() => {
@@ -226,7 +251,7 @@ export class DashboardService {
     const userId = this.cls.get('user.id');
     await this.validatePluginPublished(baseId, ro.pluginId);
 
-    return this.prismaService.$tx(async () => {
+    const installed = await this.prismaService.$tx(async () => {
       const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
         data: {
           id: generatePluginInstallId(),
@@ -249,28 +274,11 @@ export class DashboardService {
         },
       });
       if (newInstallPlugin.plugin.pluginUser) {
-        // invite pluginUser to base
-        const exist = await this.prismaService.txClient().collaborator.count({
-          where: {
-            principalId: newInstallPlugin.plugin.pluginUser,
-            principalType: PrincipalType.User,
-            resourceId: baseId,
-            resourceType: CollaboratorType.Base,
-          },
-        });
-
-        if (!exist) {
-          await this.collaboratorService.createBaseCollaborator({
-            collaborators: [
-              {
-                principalId: newInstallPlugin.plugin.pluginUser,
-                principalType: PrincipalType.User,
-              },
-            ],
-            baseId,
-            role: Role.Owner as IBaseRole,
-          });
-        }
+        // invite pluginUser to base, never above the installer's own role
+        await this.collaboratorService.addPluginUserToBase(
+          baseId,
+          newInstallPlugin.plugin.pluginUser
+        );
       }
 
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
@@ -305,9 +313,22 @@ export class DashboardService {
         name: ro.name,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.install',
+      resourceId: installed.pluginInstallId,
+      params: {
+        pluginId: installed.pluginId,
+        name: installed.name,
+        location: PluginPosition.Dashboard,
+        baseId,
+        dashboardId: id,
+      },
+    });
+    return installed;
   }
 
   private async validateDashboard(baseId: string, dashboardId: string) {
+    await this.assertDashboardVisibleInShare(baseId, dashboardId);
     await this.prismaService
       .txClient()
       .dashboard.findFirstOrThrow({
@@ -326,8 +347,8 @@ export class DashboardService {
   }
 
   async removePlugin(baseId: string, dashboardId: string, pluginInstallId: string) {
-    return this.prismaService.$tx(async () => {
-      await this.prismaService
+    const removed = await this.prismaService.$tx(async () => {
+      const pluginInstall = await this.prismaService
         .txClient()
         .pluginInstall.delete({
           where: {
@@ -335,17 +356,7 @@ export class DashboardService {
             baseId,
             positionId: dashboardId,
             position: PluginPosition.Dashboard,
-            plugin: {
-              OR: [
-                {
-                  status: PluginStatus.Published,
-                },
-                {
-                  status: { not: PluginStatus.Published },
-                  createdBy: this.cls.get('user.id'),
-                },
-              ],
-            },
+            plugin: installablePluginWhere(this.cls.get('user.id')),
           },
         })
         .catch(() => {
@@ -377,6 +388,18 @@ export class DashboardService {
           },
         });
       }
+      return pluginInstall;
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.uninstall',
+      resourceId: pluginInstallId,
+      params: {
+        pluginId: removed.pluginId,
+        name: removed.name,
+        location: PluginPosition.Dashboard,
+        baseId,
+        dashboardId,
+      },
     });
   }
 
@@ -393,17 +416,7 @@ export class DashboardService {
           baseId,
           positionId: dashboardId,
           position: PluginPosition.Dashboard,
-          plugin: {
-            OR: [
-              {
-                status: PluginStatus.Published,
-              },
-              {
-                status: { not: PluginStatus.Published },
-                createdBy: this.cls.get('user.id'),
-              },
-            ],
-          },
+          plugin: installablePluginWhere(this.cls.get('user.id')),
         },
       })
       .catch(() => {

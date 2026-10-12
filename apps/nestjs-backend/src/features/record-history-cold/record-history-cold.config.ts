@@ -1,5 +1,8 @@
 import { readBoolEnv, readNonNegativeIntEnv, readPositiveIntEnv } from '../cold-archive/env';
 
+/** redis set of table ids the flusher wrote parts for since the last compaction */
+export const RECORD_HISTORY_COMPACT_PENDING_KEY = 'record-history-cold:compact-pending';
+
 export interface IRecordHistoryColdConfig {
   /** daily BullMQ flush scheduler (on unless disabled) */
   flushSchedulerEnabled: boolean;

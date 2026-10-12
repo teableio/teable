@@ -160,6 +160,7 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       'visitTableByViewId',
       'visitTableWithViewIds',
       'visitTableWithPrimaryField',
+      'visitTableWithFieldIds',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByNameLike',

@@ -23,7 +23,7 @@ interface IOrderProps {
   triggerClassName?: string;
 }
 
-function OrderSelect(props: IOrderProps) {
+function OrderSelect(props: Readonly<IOrderProps>) {
   const { value, onSelect, fieldId, triggerClassName } = props;
   const { t } = useTranslation();
 

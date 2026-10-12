@@ -45,6 +45,26 @@ describe('FieldClipboardValueVisitor', () => {
     expect(decimal.accept(new FieldClipboardValueVisitor(null))._unsafeUnwrap()).toBe('');
   });
 
+  it('copies numbers beyond safe integers with the digits the API returns', () => {
+    const decimal = NumberField.create({
+      id: fieldId('a'),
+      name: fieldName('Decimal'),
+      formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const integer = NumberField.create({
+      id: fieldId('b'),
+      name: fieldName('Integer'),
+      formatting: NumberFormatting.create({ type: 'decimal', precision: 0 })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const num = 22800101040067320000;
+
+    expect(decimal.accept(new FieldClipboardValueVisitor(num))._unsafeUnwrap()).toBe(
+      '22800101040067320000.00'
+    );
+    expect(integer.accept(new FieldClipboardValueVisitor(num))._unsafeUnwrap()).toBe(String(num));
+    expect(decimal.accept(new FieldClipboardValueVisitor(1e21))._unsafeUnwrap()).toBe('1e+21');
+  });
+
   it('formats dates in the Field timezone and selected display pattern', () => {
     const field = DateField.create({
       id: fieldId('d'),

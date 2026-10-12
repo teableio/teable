@@ -56,7 +56,7 @@ export const SECRET_SPECS = {
     // to their legacy literals, not to SECRET_KEY derivations (see
     // resolve-secret.ts) — so describe only what actually reads it.
     usedFor:
-      'JWT/session fallback, BYODB URL key derivation, EE env-variable encryption, AI-config key encryption, invitation-code HMAC, plugin secret fallback',
+      'JWT/session fallback, BYODB URL key derivation, EE env-variable encryption, AI-config key encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback',
     // 'defaultSecretKey' was only ever the dev fallback for EE env-variable
     // encryption; deployments that relied on it must pin it to keep decrypting.
     legacyDefault: 'defaultSecretKey',

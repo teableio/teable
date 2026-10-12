@@ -2045,7 +2045,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       // delete-capture order (its pre-delete select has no ORDER BY).
       const expectedIds = [table.records[1].id, table.records[0].id];
       if (isForceV2) {
-        expect([...result.data.ids].sort()).toEqual([...expectedIds].sort());
+        expect([...result.data.ids].sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+          [...expectedIds].sort((a, b) => Number(a > b) - Number(a < b))
+        );
       } else {
         expect(result.data.ids).toEqual(expectedIds);
       }

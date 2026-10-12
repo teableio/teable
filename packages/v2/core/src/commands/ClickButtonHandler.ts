@@ -19,7 +19,7 @@ import { RecordConditionSpecBuilder } from '../domain/table/records/specs/Record
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import * as ButtonClickWorkflowServicePort from '../ports/ButtonClickWorkflowService';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import { IExecutionContext } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -28,7 +28,6 @@ import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import {
   buildSanitizedRecordConditionSpec,
   replaceCurrentUserTagInFilter,
@@ -81,14 +80,12 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.buttonClickWorkflowService)
     private readonly buttonClickWorkflowService: ButtonClickWorkflowServicePort.IButtonClickWorkflowService,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -96,7 +93,7 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
     context: IExecutionContext,
     command: ClickButtonCommand
   ): Promise<Result<ClickButtonResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ClickButtonResult, DomainError>(async function* () {
       const tableSpecBuilder = Table.specs().byId(command.tableId);
       if (command.shareScope) tableSpecBuilder.withViewId(command.shareScope.viewId);
@@ -159,10 +156,10 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
         );
       }
 
-      const mutation = yield* await handler.unitOfWork.withTransaction(
+      const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) =>
-          safeTry<TableRecordRepositoryPort.RecordMutationResult, DomainError>(async function* () {
+          safeTry(async function* () {
             yield* await pluginExecution.beforePersist(transactionContext);
             const result = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
@@ -183,52 +180,52 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
                 })
               );
             }
-            return ok(result);
+            const snapshot = yield* requireRecordUpdateSnapshot(
+              {
+                operation: 'update',
+                tableId: table.id().toString(),
+                recordId: command.recordId.toString(),
+              },
+              result.updateSnapshot
+            );
+            const oldValue = snapshot.previous.fields[command.fieldId.toString()];
+            const newValue = snapshot.current.fields[command.fieldId.toString()];
+            const changes: RecordFieldChangeDTO[] = [
+              {
+                fieldId: command.fieldId.toString(),
+                oldValue,
+                newValue,
+              },
+            ];
+            const count =
+              newValue != null && typeof newValue === 'object' && !Array.isArray(newValue)
+                ? Number((newValue as { count?: unknown }).count) || 0
+                : 0;
+            const buttonClicked = ButtonClicked.create({
+              tableId: table.id(),
+              baseId: table.baseId(),
+              recordId: command.recordId,
+              fieldId: command.fieldId,
+              count,
+              workflowId: plan.workflowId(),
+            });
+            const events: IDomainEvent[] = [
+              RecordUpdated.create({
+                tableId: table.id(),
+                baseId: table.baseId(),
+                recordId: command.recordId,
+                oldVersion: snapshot.oldVersion,
+                newVersion: snapshot.newVersion,
+                changes,
+                source: 'user',
+              }),
+              buttonClicked,
+            ];
+            return ok(domainWrite.fromEvents({ snapshot, buttonClicked, newValue }, events));
           })
       );
-
-      const snapshot = yield* requireRecordUpdateSnapshot(
-        {
-          operation: 'update',
-          tableId: table.id().toString(),
-          recordId: command.recordId.toString(),
-        },
-        mutation.updateSnapshot
-      );
-      const oldValue = snapshot.previous.fields[command.fieldId.toString()];
-      const newValue = snapshot.current.fields[command.fieldId.toString()];
-      const changes: RecordFieldChangeDTO[] = [
-        {
-          fieldId: command.fieldId.toString(),
-          oldValue,
-          newValue,
-        },
-      ];
-      const count =
-        newValue != null && typeof newValue === 'object' && !Array.isArray(newValue)
-          ? Number((newValue as { count?: unknown }).count) || 0
-          : 0;
-      const buttonClicked = ButtonClicked.create({
-        tableId: table.id(),
-        baseId: table.baseId(),
-        recordId: command.recordId,
-        fieldId: command.fieldId,
-        count,
-        workflowId: plan.workflowId(),
-      });
-      const events: IDomainEvent[] = [
-        RecordUpdated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          recordId: command.recordId,
-          oldVersion: snapshot.oldVersion,
-          newVersion: snapshot.newVersion,
-          changes,
-          source: 'user',
-        }),
-        buttonClicked,
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
+      const { snapshot, buttonClicked, newValue } = committed.value;
+      const events = committed.events;
       yield* await handler.undoRedoStackService.appendButtonValueUpdateFromSnapshot(
         toUndoRedoStackAppendContext(context),
         {
