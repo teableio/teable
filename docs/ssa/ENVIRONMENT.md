@@ -51,7 +51,7 @@ uses the same credentials for digests and alerts (`GMAIL_*` variables below).
 | `SSA_INTERNAL_TOKEN` | long random string | Shared secret for `X-SSA-Token` on `/api/ssa/*`; unset ⇒ internal API disabled |
 | `SSA_EVENTS_WEBHOOK_URL` | `http://127.0.0.1:4600/events` | Where record events are POSTed; unset ⇒ forwarding off |
 | `SSA_EVENTS_WEBHOOK_SECRET` | long random string | HMAC-SHA256 key for `X-SSA-Signature` |
-| `SSA_EVENTS_BASE_TABLES` | optional comma list of table ids | Optional allow-list to limit forwarded tables |
+| `SSA_EVENTS_TABLES` | optional comma list of table ids | Optional allow-list to limit forwarded tables |
 | `SSA_EVENTS_TIMEOUT_MS` | `3000` | Forward timeout; events are dropped (logged) after this |
 
 ## 3. `ssa/services/notify` (M3)

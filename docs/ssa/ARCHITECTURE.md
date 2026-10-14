@@ -57,13 +57,41 @@ flowchart LR
 
 | Piece | Responsibility |
 |---|---|
-| `ssa.module.ts` | wires controller/service/listener |
+| `ssa.module.ts` | wires controller/services/listeners; V2 projections are discovered app-wide via `DiscoveryService` |
 | `ssa-bootstrap.service.ts` | when `SSA_SINGLE_TENANT=true`: forces `disallowSignUp=true`, disables waitlist; idempotent on every boot |
-| `ssa-events.listener.ts` | subscribes `table.record.create/update/delete`, forwards a compact event JSON to `SSA_EVENTS_WEBHOOK_URL` with HMAC (`SSA_EVENTS_WEBHOOK_SECRET`); bounded payload/size/timeout; fire-and-forget |
-| `ssa.controller.ts` | `GET /api/ssa/health`, `POST /api/ssa/notify` (shared-secret header `SSA_INTERNAL_TOKEN`) → bell notification via NotificationService |
+| `ssa-event-forwarder.ts` | shared HMAC-signed webhook client: resolves `baseId` (cached), bounds body size (256 KB), 3 s timeout, suppresses duplicate emissions (operation-based, 10 s window) |
+| `ssa-events.listener.ts` | **V1** bus listeners (`operation.records.create/update/delete`) + pure payload builders (`buildCreateEvent`, …) |
+| `ssa-v2-projections.ts` | **V2** domain-event projections (`RecordCreated`, `RecordsBatchCreated`, `RecordUpdated`, `RecordsBatchUpdated`, `RecordsDeleted`) registered into the v2 container; skips undo/redo replays |
+| `ssa.controller.ts` | `GET /api/ssa/health`, `POST /api/ssa/notify` (shared-secret header `X-SSA-Token`) → bell notification via `NotificationService.sendCommonNotify` (DB insert + realtime push) |
 
-Design rules: the listener never blocks the request path; failures are logged, not
-rethrown; the internal API is disabled when `SSA_INTERNAL_TOKEN` is unset.
+> **Write paths:** Teable routes writes through v1 or v2 depending on canary
+> config — **new bases default to V2** (`x-teable-v2: true` response header).
+> The legacy `table.record.*` bus events are NOT emitted on every REST write,
+> which is why the forwarder listens to `operation.records.*` (V1) *and* the V2
+> domain events. Both observe the same operation in some flows, hence the
+> dedupe window. `record.updated` on the V1 path requires an app-UI window id
+> header (`x-window-id`); v2 updates are always forwarded.
+
+**Forwarded payload contract** (JSON body, HMAC-SHA256 in `X-SSA-Signature`,
+event name in `X-SSA-EVENT`):
+
+```jsonc
+{
+  "version": 1,
+  "event": "record.created",   // record.created | record.updated | record.deleted
+  "tableId": "tbl…", "baseId": "bse…",
+  "recordIds": ["rec…"], "recordCount": 1, "isBulk": false, "truncated": false,
+  "user": { "id": "usr…", "name": "…", "email": "…" },   // when known
+  "timestamp": "…", "source": "user",                     // source: v2 only
+  "records": [{ "id": "rec…", "fields": { "fld…": "…" } }],  // sampled, max 25
+  "changes": { "fieldIds": ["fld…"], "cellContexts": [ … ] } // updates only, max 50
+}
+```
+
+Design rules: listeners never block the request path; failures are logged, not
+rethrown; the internal API is disabled when `SSA_INTERNAL_TOKEN` is unset;
+forwarding is disabled when `SSA_EVENTS_WEBHOOK_URL` is unset and can be limited
+to a table allow-list via `SSA_EVENTS_TABLES`.
 
 ### 3. `ssa/services/notify` (Node + Fastify)
 
