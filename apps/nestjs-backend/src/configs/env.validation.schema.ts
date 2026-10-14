@@ -126,6 +126,9 @@ export const envValidationSchema = Joi.object({
   SIGNIN_ACCOUNT_LOCKOUT_ENABLED: Joi.boolean().optional(),
   SIGNIN_MAX_LOGIN_ATTEMPTS: Joi.number().integer().positive().optional(),
   SIGNIN_ACCOUNT_LOCKOUT_MINUTES: Joi.number().integer().positive().optional(),
+
+  // SSA fork: single-tenant hardening (see docs/ssa/ENVIRONMENT.md)
+  SSA_SINGLE_TENANT: Joi.string().valid('true', 'false', '1', '0').optional(),
 })
   .custom((env: Record<string, unknown>, helpers) => {
     if (
