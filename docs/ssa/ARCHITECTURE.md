@@ -110,10 +110,12 @@ to a table allow-list via `SSA_EVENTS_TABLES`.
   `SSA_AI_TEMPERATURE`). Works with the OpenCode gateway, DeepSeek, or a local Ollama
   (`http://host:11434/v1`).
 - Tool calling against the Teable REST API with a scoped token: `list_tables`,
-  `get_table_schema`, `query_records`, `create_record`, `update_record`, `summarize_table`.
-- `POST /chat` streams SSE; the web app calls it through the Next.js route
-  `/api/assistant/*` proxy so the API key never reaches the browser and sessions are
-  same-origin.
+  `get_table_schema`, `query_records`, `create_records`, `update_records` — no delete tool.
+- `POST /chat` streams SSE; the in-app drawer talks to the **backend proxy**
+  `/api/ssa/assistant/*` (`SsaAssistantController`), which the global user auth guard
+  protects — only signed-in users reach the model and the API key stays server-side.
+  (Next.js API routes are unreachable in the embedded Nest+Next deployment, which is
+  why the proxy lives in Nest.)
 
 ### 5. `ssa/voice` (Python + Pipecat)
 

@@ -56,8 +56,8 @@ const sampleRecords = (
 
 const baseEvent = (
   options: IForwardOptions,
-  fields: Pick<ISsaRecordEvent, 'event' | 'tableId' | 'recordIds' | 'user' | 'isBulk'> &
-    Partial<Pick<ISsaRecordEvent, 'records' | 'changes' | 'truncated'>>
+  fields: Pick<ISsaRecordEvent, 'event' | 'tableId' | 'recordIds'> &
+    Partial<Pick<ISsaRecordEvent, 'records' | 'changes' | 'truncated' | 'isBulk' | 'user'>>
 ): ISsaRecordEvent => ({
   version: SSA_EVENT_VERSION,
   event: fields.event,

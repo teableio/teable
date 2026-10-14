@@ -135,6 +135,8 @@ export const envValidationSchema = Joi.object({
   SSA_EVENTS_WEBHOOK_SECRET: Joi.string().optional(),
   SSA_EVENTS_TIMEOUT_MS: Joi.number().integer().positive().optional(),
   SSA_EVENTS_TABLES: Joi.string().optional(),
+  SSA_ASSISTANT_ENABLED: Joi.string().valid('true', 'false', '1', '0').optional(),
+  SSA_ASSISTANT_SERVICE_URL: Joi.string().uri().optional(),
 })
   .custom((env: Record<string, unknown>, helpers) => {
     if (

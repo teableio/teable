@@ -49,6 +49,12 @@ export const ssaConfig = registerAs('ssa', () => ({
     /** Optional allow-list of table ids whose events are forwarded. */
     tables: asList(process.env.SSA_EVENTS_TABLES),
   },
+  assistant: {
+    /** Renders/activates the in-app assistant drawer. */
+    enabled: asBoolean(process.env.SSA_ASSISTANT_ENABLED, false),
+    /** Base URL of `ssa/services/ai` (proxied by the backend). */
+    serviceUrl: process.env.SSA_ASSISTANT_SERVICE_URL ?? '',
+  },
 }));
 
 export const SsaConfig = () => Inject(ssaConfig.KEY);
