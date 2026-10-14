@@ -130,8 +130,10 @@ standard-library only and covered by `python -m unittest`; the Pipecat runtime
    PRISMA_DATABASE_URL=postgresql://neondb_owner:…@ep-…aws.neon.tech/neondb?sslmode=require&statement_cache_size=0
    ```
 
-4. Put it in `.env` / deployment secrets. Teable migrations run automatically on boot
-   (`prisma migrate deploy`), creating its metadata schema plus one schema per base.
+4. Put it in `.env` / deployment secrets. With the official Docker image, the
+   entrypoint runs `prisma migrate deploy` (advisory-locked) before the app
+   starts — it only applies pending migrations and never resets data; see
+   `DEPLOY.md` §5 "Redeploys & data persistence" for the full boot sequence.
 
 Free-tier notes: Neon free projects scale to zero after inactivity (first request wakes
 them; expect a cold-start second or two) and include ~0.5 GB storage — plenty for a
