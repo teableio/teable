@@ -10,7 +10,7 @@ reviewable pushes — never one giant commit). Branch naming: `ssa/mX-<slug>`.
 | M2  | `ssa/m2-events-bridge` | Event forwarder (v1 `operation.records.*` + v2 domain events → HMAC webhook) + internal notification API used by companion services | ✅ done |
 | M3  | `ssa/m3-notify`        | `ssa/services/notify`: daily Gmail digest (cron), event alerts, in-app notify bridge, CI for `ssa/**`                               | ✅ done |
 | M4  | `ssa/m4-ai-assistant`  | `ssa/services/ai` (OpenAI-compatible, env-configured) + assistant drawer in the web app + session-gated backend proxy               | ✅ done |
-| M5  | `ssa/m5-voice-agent`   | `ssa/voice`: Pipecat voice agent (inbound/outbound), tool calls into tables, carrier runbook                                        | ⏳      |
+| M5  | `ssa/m5-voice-agent`   | `ssa/voice`: Pipecat voice agent (inbound/outbound), tool calls into tables, carrier runbook                                        | ✅ done |
 | M6  | `ssa/m6-handoff`       | Deployment runbook finalisation (Neon), screenshots, operator handbook                                                              | ⏳      |
 
 ## Milestone acceptance criteria (short form)

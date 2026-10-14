@@ -1,0 +1,5 @@
+# Voice runtime requirements. The logging/tools core (src/teable.py,
+# src/tools.py, scripts/*.py) uses only the Python standard library and needs
+# none of these — install this file only to run src/bot.py with a real agent.
+pipecat-ai[deepgram,cartesia,openai,silero,local]>=0.0.70
+python-dotenv>=1.0.0

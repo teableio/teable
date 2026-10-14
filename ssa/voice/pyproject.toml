@@ -1,0 +1,21 @@
+[project]
+name = "ssa-voice"
+version = "0.1.0"
+description = "SSA voice agent: Pipecat-based phone AI with Teable call logging"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Voice runtime (heavy: pulls in pipecat + provider SDKs). The tool/logging
+# core in src/teable.py and src/tools.py needs none of this.
+voice = [
+  "pipecat-ai[deepgram,cartesia,openai,silero,local]>=0.0.70",
+  "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]

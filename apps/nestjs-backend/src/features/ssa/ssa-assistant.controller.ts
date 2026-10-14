@@ -42,6 +42,9 @@ export class SsaAssistantController {
       return;
     }
 
+    const controller = new AbortController();
+    request.on('close', () => controller.abort());
+
     let upstream: Awaited<ReturnType<typeof safeFetch>>;
     try {
       // The service URL is operator-configured, hence `allowPrivateNetwork`;
@@ -55,6 +58,7 @@ export class SsaAssistantController {
             'x-ssa-token': internalToken,
           },
           body: JSON.stringify(body ?? {}),
+          signal: controller.signal,
         },
         { allowPrivateNetwork: true }
       );
@@ -78,11 +82,6 @@ export class SsaAssistantController {
       return;
     }
 
-    // node-fetch body is a Node.js Readable — stream it to the response and
-    // abort upstream when the client disconnects.
-    request.on('close', () => {
-      upstream.body?.destroy?.();
-    });
     upstream.body.pipe(reply);
   }
 }
