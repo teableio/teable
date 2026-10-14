@@ -102,17 +102,17 @@ SSA_INTERNAL_TOKEN=<same token>
 
 ## 5. `ssa/voice` (M5)
 
-| Variable                                                         | Example                    | Purpose                                      |
-| ---------------------------------------------------------------- | -------------------------- | -------------------------------------------- |
-| `SSA_AI_BASE_URL` / `SSA_AI_API_KEY` / `SSA_AI_MODEL`            | as above                   | LLM inside the voice pipeline                |
+| Variable                                                         | Example                    | Purpose                                                                                |
+| ---------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| `SSA_AI_BASE_URL` / `SSA_AI_API_KEY` / `SSA_AI_MODEL`            | as above                   | LLM inside the voice pipeline                                                          |
 | `SSA_TEABLE_BASE_URL` / `SSA_TEABLE_API_TOKEN`                   | as above                   | Logging call outcomes (token needs `table\|create`, `field\|create`, `record\|create`) |
-| `SSA_CALL_LOG_TABLE_ID`                                          | `tbl…`                     | Call Log table created by `scripts/setup_call_log.py` |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | carrier credentials        | Telephony mode (Twilio)                      |
-| `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_PHONE_NUMBER`        | alternative carrier        | Telephony mode (Plivo)                       |
-| `DEEPGRAM_API_KEY`                                               | STT (or use local Whisper) | Speech recognition                           |
-| `ELEVENLABS_API_KEY` / `CARTESIA_API_KEY`                        | TTS (or Piper local)       | Speech synthesis                             |
-| `SSA_VOICE_MODE`                                                 | `local` \| `telephony`     | `local` = mic/speaker demo, no carrier costs |
-| `SSA_VOICE_AGENT_NAME` / `SSA_VOICE_DISCLOSURE`                  | `SSA Assistant` / sentence | Agent identity + AI disclosure line          |
+| `SSA_CALL_LOG_TABLE_ID`                                          | `tbl…`                     | Call Log table created by `scripts/setup_call_log.py`                                  |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | carrier credentials        | Telephony mode (Twilio)                                                                |
+| `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_PHONE_NUMBER`        | alternative carrier        | Telephony mode (Plivo)                                                                 |
+| `DEEPGRAM_API_KEY`                                               | STT (or use local Whisper) | Speech recognition                                                                     |
+| `ELEVENLABS_API_KEY` / `CARTESIA_API_KEY`                        | TTS (or Piper local)       | Speech synthesis                                                                       |
+| `SSA_VOICE_MODE`                                                 | `local` \| `telephony`     | `local` = mic/speaker demo, no carrier costs                                           |
+| `SSA_VOICE_AGENT_NAME` / `SSA_VOICE_DISCLOSURE`                  | `SSA Assistant` / sentence | Agent identity + AI disclosure line                                                    |
 
 The logging/tools core (`src/teable.py`, `src/tools.py`, `scripts/*.py`) is
 standard-library only and covered by `python -m unittest`; the Pipecat runtime
@@ -120,7 +120,7 @@ standard-library only and covered by `python -m unittest`; the Pipecat runtime
 
 ## 6. Neon (free Postgres) — 5 minute setup
 
-1. Create an account at <https://neon.tech> → “New project”.
+1. Create an account at <https://neon.tech>, then click "New project".
 2. Copy the **connection string** (it already contains `sslmode=require`).
 3. Append `&statement_cache_size=0` (Prisma/pgBouncer friendly), e.g.
 
