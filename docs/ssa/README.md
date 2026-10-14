@@ -6,14 +6,14 @@ This repository is a fork of [Teable Community Edition](https://github.com/teabl
 record history, formulas, REST API, SQL query) and layers on the operations a
 monday.com-style workflow needs:
 
-| Capability | Where |
-|---|---|
-| Real-time in-app notifications (bell) from business events | `apps/nestjs-backend/src/features/ssa` + `ssa/services/notify` |
-| Daily Gmail digest + event-based email alerts | `ssa/services/notify` |
-| In-app AI assistant (chat with your data, field drafting) | `ssa/services/ai` + assistant drawer in `apps/nextjs-app` |
-| AI voice agent (real phone calls, call outcomes logged to tables) | `ssa/voice` |
-| Single-tenant hardening (invite-only, no public signup) | env `SSA_SINGLE_TENANT` + backend bootstrap |
-| Free-tier deployment (Neon Postgres, local attachments) | `docs/ssa/ENVIRONMENT.md`, `docs/ssa/DEPLOY.md` |
+| Capability                                                        | Where                                                          |
+| ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| Real-time in-app notifications (bell) from business events        | `apps/nestjs-backend/src/features/ssa` + `ssa/services/notify` |
+| Daily Gmail digest + event-based email alerts                     | `ssa/services/notify`                                          |
+| In-app AI assistant (chat with your data, field drafting)         | `ssa/services/ai` + assistant drawer in `apps/nextjs-app`      |
+| AI voice agent (real phone calls, call outcomes logged to tables) | `ssa/voice`                                                    |
+| Single-tenant hardening (invite-only, no public signup)           | env `SSA_SINGLE_TENANT` + backend bootstrap                    |
+| Free-tier deployment (Neon Postgres, local attachments)           | `docs/ssa/ENVIRONMENT.md`, `docs/ssa/DEPLOY.md`                |
 
 Everything added by this fork is open source and lives under `ssa/` (plus small,
 documented integration patches inside the Teable tree). No cloud storage service is
@@ -40,11 +40,11 @@ apps/nextjs-app/src/features/app/components/assistant/  # assistant drawer UI
 
 ## Branch strategy (upstream-friendly)
 
-| Branch | Purpose |
-|---|---|
+| Branch             | Purpose                                                     |
+| ------------------ | ----------------------------------------------------------- |
 | `develop` / `main` | **Pristine mirrors of upstream Teable.** Never commit here. |
-| `ssa/main` | Our default branch. All SSA work lands here via small PRs. |
-| `ssa/mX-*` | One short-lived branch per milestone (see `ROADMAP.md`). |
+| `ssa/main`         | Our default branch. All SSA work lands here via small PRs.  |
+| `ssa/mX-*`         | One short-lived branch per milestone (see `ROADMAP.md`).    |
 
 Sync with upstream when desired:
 

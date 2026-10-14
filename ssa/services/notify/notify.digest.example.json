@@ -1,0 +1,21 @@
+{
+  "subject": "SSA daily digest — {{date}} ({{count}} records)",
+  "intro": "Here is what needs attention today.",
+  "sections": [
+    {
+      "name": "Open tasks",
+      "baseId": "bseREPLACE_WITH_BASE_ID",
+      "tableId": "tblREPLACE_WITH_TABLE_ID",
+      "viewId": "viwREPLACE_WITH_VIEW_ID_OPTIONAL",
+      "take": 10,
+      "columns": ["Task", "Status", "Due date", "Assignee"]
+    },
+    {
+      "name": "Overdue follow-ups",
+      "tableId": "tblREPLACE_WITH_TABLE_ID",
+      "viewId": "viwREPLACE_WITH_FILTERED_VIEW_ID",
+      "take": 10,
+      "recipients": ["sales@yourdomain.com"]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "rules": [
+    {
+      "name": "Urgent task created",
+      "event": "record.created",
+      "tableId": "tblREPLACE_WITH_TABLE_ID",
+      "matchFields": {
+        "fldREPLACE_WITH_STATUS_FIELD_ID": "🔴 Urgent"
+      },
+      "email": ["ops@yourdomain.com"],
+      "inApp": {
+        "toEmail": ["ops@yourdomain.com"],
+        "severity": "warning"
+      },
+      "subject": "[SSA] Urgent task: {{recordCount}} new",
+      "cooldownSeconds": 120
+    },
+    {
+      "name": "Task completed",
+      "event": "record.updated",
+      "tableId": "tblREPLACE_WITH_TABLE_ID",
+      "matchFields": {
+        "fldREPLACE_WITH_STATUS_FIELD_ID": "✅ Done"
+      },
+      "email": ["ops@yourdomain.com"],
+      "cooldownSeconds": 0
+    },
+    {
+      "name": "Record deleted (audit)",
+      "event": "record.deleted",
+      "tableId": "tblREPLACE_WITH_TABLE_ID",
+      "email": ["audit@yourdomain.com"],
+      "cooldownSeconds": 0
+    }
+  ]
+}

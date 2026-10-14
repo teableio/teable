@@ -89,4 +89,6 @@ ssa/**/.env.*
 ssa/**/*.log
 ssa/voice/.venv/
 ssa/voice/**/__pycache__/
+ssa/**/notify.rules.json
+ssa/**/notify.digest.json
 .ssa-*.log
