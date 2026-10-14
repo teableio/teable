@@ -75,6 +75,11 @@ export default function withEnv<P extends { [key: string]: any }>(
         embedMode: isEmbedModeRequest(context) ? true : undefined,
         task,
         trash,
+        // SSA fork: surface the operator's brand through the existing
+        // `useBrand()`/`TeableLogo` seam. Teable brand assets are untouched —
+        // see docs/ssa/BRANDING.md.
+        brandName: process.env.SSA_BRAND_NAME || process.env.BRAND_NAME,
+        brandLogo: process.env.SSA_BRAND_LOGO || process.env.BRAND_LOGO,
       },
       isUndefined
     );

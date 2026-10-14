@@ -39,10 +39,12 @@ uses the same credentials for digests and alerts (`GMAIL_*` variables below).
 
 ### 1.2 Single-tenant hardening (provided by this fork)
 
-| Variable                      | Default | Purpose                                                                                                             |
-| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `SSA_SINGLE_TENANT`           | `false` | When `true` the backend forces `disallowSignUp=true` and disables the waitlist at every boot → invite-only instance |
-| `SSA_DISABLE_PASSWORD_SIGNIN` | `false` | Optional: also set `PASSWORD_LOGIN_DISABLED=true` semantics (maps to upstream env)                                  |
+| Variable                      | Default | Purpose                                                                                                                                         |
+| ----------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SSA_SINGLE_TENANT`           | `false` | When `true` the backend forces `disallowSignUp=true` and disables the waitlist at every boot → invite-only instance                             |
+| `SSA_DISABLE_PASSWORD_SIGNIN` | `false` | Optional: also set `PASSWORD_LOGIN_DISABLED=true` semantics (maps to upstream env)                                                              |
+| SSA_BRAND_NAME                | SSA     | Operator brand shown through the app brand seam and mirrored into the randName setting (see docs/ssa/BRANDING.md; Teable assets stay untouched) |
+| SSA_BRAND_LOGO                | —       | Logo URL/path rendered by the sidebar header via the app supported override                                                                     |
 
 ## 2. SSA `features/ssa` integration (backend patch, M1/M2)
 

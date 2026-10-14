@@ -137,6 +137,8 @@ export const envValidationSchema = Joi.object({
   SSA_EVENTS_TABLES: Joi.string().optional(),
   SSA_ASSISTANT_ENABLED: Joi.string().valid('true', 'false', '1', '0').optional(),
   SSA_ASSISTANT_SERVICE_URL: Joi.string().uri().optional(),
+  SSA_BRAND_NAME: Joi.string().max(64).optional(),
+  SSA_BRAND_LOGO: Joi.string().optional(),
 })
   .custom((env: Record<string, unknown>, helpers) => {
     if (
