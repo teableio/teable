@@ -15,6 +15,7 @@ import { mailConfig } from './mail.config';
 import { oauthConfig } from './oauth.config';
 import { riskControlConfig } from './risk-control.config';
 import { enforceSecretsPolicy } from './secrets/secrets-policy';
+import { ssaConfig } from './ssa.config';
 import { storageConfig } from './storage';
 import { thresholdConfig } from './threshold.config';
 import { trashConfig } from './trash.config';
@@ -32,6 +33,7 @@ const configurations = [
   oauthConfig,
   trashConfig,
   riskControlConfig,
+  ssaConfig,
 ];
 
 // The env files live in the nextjs-app package. NEXTJS_DIR is relative to the

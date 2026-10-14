@@ -47,6 +47,7 @@ import { SettingOpenApiModule } from './features/setting/open-api/setting-open-a
 import { ShareModule } from './features/share/share.module';
 import { ShortLinkModule } from './features/short-link/short-link.module';
 import { SpaceModule } from './features/space/space.module';
+import { SsaModule } from './features/ssa/ssa.module';
 import { TemplateOpenApiModule } from './features/template/template-open-api.module';
 import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
@@ -87,6 +88,7 @@ export const appModules = {
     ShortLinkModule,
     BaseShareModule,
     NotificationModule,
+    SsaModule,
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,
