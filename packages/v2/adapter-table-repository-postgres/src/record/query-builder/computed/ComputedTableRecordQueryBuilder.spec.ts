@@ -2799,8 +2799,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('cast("x"."val" as text) <> \'\'');
     });
 
-    test('returns NULL rollup when rollup foreign table mismatches link foreign table', () => {
-      const db = createTestDb();
+    test('rejects rollup when foreign table mismatches link foreign table', () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
       const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
@@ -2883,36 +2882,12 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .done();
       mainBuilder.view().defaultGrid().done();
 
-      const mainTable = mainBuilder
-        .build({ foreignTables: [foreignTable, staleForeignTable] })
-        ._unsafeUnwrap();
-      mainTable
-        .getFields()[0]
-        .setDbFieldName(DbFieldName.rehydrate('col_single_line_text')._unsafeUnwrap())
-        ._unsafeUnwrap();
-      mainTable
-        .getFields()[1]
-        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
-        ._unsafeUnwrap();
-      mainTable
-        .getFields()[2]
-        .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
-        ._unsafeUnwrap();
+      const result = mainBuilder.build({ foreignTables: [foreignTable, staleForeignTable] });
 
-      const foreignTables = new Map([
-        [foreignTableId.toString(), foreignTable],
-        [staleForeignTableId.toString(), staleForeignTable],
-      ]);
-      const rollupField = mainTable.getFields()[2];
-      const { sql } = compileQuery(
-        db,
-        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
-          .from(mainTable)
-          .select([rollupField.id()])
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toBe(
+        'RollupField foreign table does not match link field target'
       );
-
-      expect(sql).toContain('NULL as "col_rollup"');
-      expect(sql).not.toContain('inner join lateral');
     });
   });
 
@@ -3291,14 +3266,17 @@ describe('ComputedTableRecordQueryBuilder', () => {
     test('conditional rollup with a deleted sort field falls back to default ordering', () => {
       const db = createTestDb();
       const missingSortFieldId = `fld${'y'.repeat(16)}`;
-      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
-        filter: {
-          conjunction: 'and',
-          filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+          },
+          sort: { fieldId: missingSortFieldId, order: 'desc' },
+          limit: 1,
         },
-        sort: { fieldId: missingSortFieldId, order: 'desc' },
-        limit: 1,
-      });
+        { expression: 'array_compact({values})' }
+      );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
       const builder = new ComputedTableRecordQueryBuilder(db, {
@@ -3750,7 +3728,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
           },
           limit: 10,
         },
-        { expression: 'max({values})' }
+        { expression: 'array_compact({values})' }
       );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
@@ -4030,7 +4008,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
           },
           limit: 10,
         },
-        { expression: 'countall({values})' }
+        { expression: 'array_compact({values})' }
       );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
@@ -4051,7 +4029,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
       );
       expect(sql).not.toContain('"f".*');
-      expect(sql).toContain('"f"."__id"');
+      expect(sql).toContain('"f"."col_number"');
       expect(parameters).toEqual([10]);
     });
 
@@ -4072,7 +4050,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
           },
           limit: 10,
         },
-        { expression: 'countall({values})' }
+        { expression: 'array_compact({values})' }
       );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);

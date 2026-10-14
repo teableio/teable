@@ -15,7 +15,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * - T6520: unchecked checkbox cells are stored as null and must stay null
  *   (never backfilled to false) in the duplicated tables.
  */
-describe('base duplicate parity (e2e)', () => {
+describe('[B07] base duplicate parity (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

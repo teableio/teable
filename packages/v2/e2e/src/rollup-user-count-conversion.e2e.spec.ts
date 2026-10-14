@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 // T7144: sanitized structure from a oneMany rollup over a scalar member field.
-describe('rollup member array_unique to countall', () => {
+describe('[F13] rollup member array_unique to countall', () => {
   let ctx: SharedTestContext;
   const tableIds: string[] = [];
 

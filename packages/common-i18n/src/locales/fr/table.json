@@ -1125,14 +1125,6 @@
     "collapseAllGroups": "Réduire tous les groupes",
     "addToChat": "Ajouter au chat"
   },
-  "connection": {
-    "title": "Connexion à la base de données",
-    "description": "Vous pouvez accéder directement à la base de données via la connexion à la base de données, y compris toutes les tables sous le projet actuel",
-    "noPermission": "Vous n'avez pas la permission d'accéder à la base de données",
-    "connectionCountTip": "Le nombre maximum de connexions à la base de données est <b>{{max}}</b> et les connexions actuelles sont <b>{{current}}</b>",
-    "createFailed": "Veuillez vérifier que la variable d'environnement PUBLIC_DATABASE_PROXY est correctement configurée",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "Ajouter un enregistrement",
     "searchView": "Rechercher une vue...",
@@ -1500,6 +1492,8 @@
       "submit": "Soumettre"
     },
     "newChat": "Nouveau Chat",
+    "alreadyInNewChat": "Vous êtes déjà dans une nouvelle conversation",
+    "initChatFailed": "Échec de l’initialisation de la conversation",
     "clearChat": "Effacer la conversation",
     "expand": "Développer",
     "history": "Historique",
@@ -1536,8 +1530,11 @@
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
     "pin": "Épingler",
     "unpin": "Désépingler",
+    "markRead": "Marquer comme lu",
+    "markUnread": "Marquer comme non lu",
+    "markAllRead": "Tout marquer comme lu ({{count}})",
     "archive": "Archiver",
-    "archivedToast": "Conversation archivée. Retrouvez-la dans Paramètres › Conversations archivées.",
+    "archivedToast": "Conversation archivée",
     "unread": "Non lu",
     "timeGroup": {
       "pinned": "Épinglées",
@@ -1690,7 +1687,6 @@
       "pausedHidden": "Nouvelle tentative en pause — ouvrez cet onglet pour vous reconnecter.",
       "maxAttemptsReached": "Reconnexion automatique impossible. Veuillez actualiser la page manuellement."
     },
-    "initChatFailed": "Échec de l’initialisation de la conversation",
     "app": {
       "loadingChatHistory": "Chargement de l’historique de la conversation...",
       "generatorTitle": "Générateur d’applications IA",
@@ -1752,6 +1748,58 @@
         "stale": "Reconstruction nécessaire",
         "unknown": "Inconnu"
       }
+    },
+    "moveToBase": {
+      "menu": "Déplacer",
+      "title": "Déplacer « {{name}} » vers un autre projet",
+      "confirm": "Déplacer",
+      "targetLabel": "Projet cible",
+      "targetPlaceholder": "Sélectionner un projet",
+      "noTarget": "Aucun autre projet de cet espace ne peut accueillir ce nœud.",
+      "checking": "Vérification des éléments concernés par ce déplacement…",
+      "blockers": {
+        "same_base": "Le nœud se trouve déjà dans ce projet.",
+        "target_not_found": "Le projet cible n'existe plus.",
+        "different_space": "Les nœuds ne peuvent être déplacés qu'entre des projets du même espace.",
+        "v2_mismatch": "Les deux projets utilisent des versions différentes du moteur de stockage.",
+        "source_not_writable": "Ce projet est actuellement en lecture seule.",
+        "target_not_writable": "Le projet cible est actuellement en lecture seule.",
+        "no_source_permission": "Vous ne pouvez pas retirer ce nœud du projet actuel.",
+        "no_target_permission": "Vous ne pouvez pas créer ce type de nœud dans le projet cible.",
+        "folder_name_conflict": "Un dossier portant le même nom existe déjà dans le projet cible.",
+        "unsupported_resource": "Ce type de nœud ne peut pas encore être déplacé.",
+        "pending_computed_tasks": "Des calculs sont encore en cours sur cette table. Réessayez dans un instant.",
+        "unknown": "Ce déplacement n'est pas autorisé."
+      },
+      "movingCount_one": "{{count}} nœud sera déplacé",
+      "movingCount_many": "{{count}} nœuds seront déplacés",
+      "movingCount_other": "{{count}} nœuds seront déplacés",
+      "moveClosure": "Déplacer tout ce qui est référencé",
+      "moveClosureHint": "Seuls les nœuds référencés sont déplacés. Les tables liées restent où elles sont ; leurs liens s'étendent simplement sur deux projets et continuent de fonctionner.",
+      "breakingCount_one": "{{count}} élément pourrait ne plus fonctionner après le déplacement",
+      "breakingCount_many": "{{count}} éléments pourraient ne plus fonctionner après le déplacement",
+      "breakingCount_other": "{{count}} éléments pourraient ne plus fonctionner après le déplacement",
+      "occurrences_one": "{{count}} endroit",
+      "occurrences_many": "{{count}} endroits",
+      "occurrences_other": "{{count}} endroits",
+      "uninspectableTitle_one": "{{count}} application n'a pas pu être vérifiée ; à contrôler après le déplacement",
+      "uninspectableTitle_many": "{{count}} applications n'ont pas pu être vérifiées ; à contrôler après le déplacement",
+      "uninspectableTitle_other": "{{count}} applications n'ont pas pu être vérifiées ; à contrôler après le déplacement",
+      "droppedRules_one": "{{count}} règle d'autorisation sera supprimée",
+      "droppedRules_many": "{{count}} règles d'autorisation seront supprimées",
+      "droppedRules_other": "{{count}} règles d'autorisation seront supprimées",
+      "droppedRulesDetail": "Ces règles sont liées aux nœuds déplacés ; ce sont les paramètres d'autorisation du projet cible qui s'appliquent à la place.",
+      "successTitle": "Déplacé",
+      "successDescription": "« {{name}} » se trouve désormais dans {{baseName}}.",
+      "open": "Ouvrir",
+      "appEmbeddedId_one": "{{count}} application mentionne l'ancien projet dans son code ; à mettre à jour vous-même",
+      "appEmbeddedId_many": "{{count}} applications mentionnent l'ancien projet dans leur code ; à mettre à jour vous-même",
+      "appEmbeddedId_other": "{{count}} applications mentionnent l'ancien projet dans leur code ; à mettre à jour vous-même",
+      "appEmbeddedIdDetail": "{{apps}}. Leur code reste exactement tel qu'il est écrit ; ouvrez chacune d'elles après le déplacement et mettez-la à jour, sinon elle continuera à lire le projet qu'elle a quitté.",
+      "referencesLabel": "Références",
+      "linkedAcrossProjects_one": "{{count}} table sera liée entre deux projets",
+      "linkedAcrossProjects_many": "{{count}} tables seront liées entre deux projets",
+      "linkedAcrossProjects_other": "{{count}} tables seront liées entre deux projets"
     }
   }
 }

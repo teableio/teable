@@ -7,7 +7,7 @@ import {
   seedAttachment,
 } from './update-field/attachment/testUtils';
 
-describe('duplicateField', () => {
+describe('[B07] duplicateField', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

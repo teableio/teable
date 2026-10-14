@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
+import { SetButtonValueSpec } from '../../records/specs/values/SetButtonValueSpec';
 import type { SetAttachmentValueSpec } from '../../records/specs/values/SetAttachmentValueSpec';
 import type { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import type { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
@@ -34,11 +34,11 @@ describe('SetFieldValueSpecFactoryVisitor', () => {
       name: createFieldName('Action'),
     })._unsafeUnwrap();
 
-    it('returns NoopCellValueSpec for button fields', () => {
-      const visitor = new SetFieldValueSpecFactoryVisitor('Click');
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it('persists validated button counts', () => {
+      const visitor = new SetFieldValueSpecFactoryVisitor({ count: 3 });
+      const spec = field.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetButtonValueSpec);
+      expect((spec as SetButtonValueSpec).value.toValue()).toEqual({ count: 3 });
     });
   });
 

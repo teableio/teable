@@ -9,6 +9,7 @@ import type {
   FieldDeletionReaction,
   OnTeableFieldDeleted,
 } from '../../OnTeableFieldDeleted';
+import { implementsOnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
 import { UpdateUserMultiplicitySpec } from '../../specs/field-updates/UpdateUserMultiplicitySpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
@@ -385,8 +386,9 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
       return ok(undefined);
     }
 
-    const shouldSetError = this.dependsOnDeletedField(deletedField.id(), context.table, new Set());
-    if (!shouldSetError) {
+    const shouldSetError = this.dependsOnDeletedField(deletedField, context, new Set());
+    if (shouldSetError.isErr()) return err(shouldSetError.error);
+    if (!shouldSetError.value) {
       return ok(undefined);
     }
 
@@ -397,32 +399,48 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
   }
 
   private dependsOnDeletedField(
-    deletedFieldId: FieldId,
-    table: Table,
+    deletedField: Field,
+    context: FieldDeletionContext,
     visitedFormulaIds: Set<string>
-  ): boolean {
+  ): Result<boolean, DomainError> {
     const currentFormulaId = this.id().toString();
     if (visitedFormulaIds.has(currentFormulaId)) {
-      return false;
+      return ok(false);
     }
     visitedFormulaIds.add(currentFormulaId);
 
     const referencedFieldIds = this.referencedFieldIdsForDeleteCheck();
-    if (referencedFieldIds.some((fieldId) => fieldId.equals(deletedFieldId))) {
-      return true;
+    if (referencedFieldIds.some((fieldId) => fieldId.equals(deletedField.id()))) {
+      return ok(true);
     }
 
     for (const referencedFieldId of referencedFieldIds) {
-      const referencedField = table.getFields((field) => field.id().equals(referencedFieldId))[0];
-      if (!(referencedField instanceof FormulaField)) {
-        continue;
-      }
-      if (referencedField.dependsOnDeletedField(deletedFieldId, table, visitedFormulaIds)) {
-        return true;
+      const referencedField = context.table.getFields((field) =>
+        field.id().equals(referencedFieldId)
+      )[0];
+      if (referencedField instanceof FormulaField) {
+        const dependsOnDeleted = referencedField.dependsOnDeletedField(
+          deletedField,
+          context,
+          visitedFormulaIds
+        );
+        if (dependsOnDeleted.isErr()) return err(dependsOnDeleted.error);
+        if (dependsOnDeleted.value) return ok(true);
+      } else if (implementsOnTeableFieldDeleted(referencedField)) {
+        // Reuse the dependency's deletion semantics: a link display fallback or
+        // an optional sort cleanup does not invalidate the consuming formula.
+        const reaction = referencedField.onFieldDeleted(deletedField, context);
+        if (reaction.isErr()) return err(reaction.error);
+        if (
+          reaction.value?.spec instanceof TableUpdateFieldHasErrorSpec &&
+          reaction.value.spec.isSettingError()
+        ) {
+          return ok(true);
+        }
       }
     }
 
-    return false;
+    return ok(false);
   }
 
   private referencedFieldIdsForDeleteCheck(): ReadonlyArray<FieldId> {

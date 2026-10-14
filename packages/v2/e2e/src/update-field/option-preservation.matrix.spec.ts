@@ -147,7 +147,7 @@ const choiceNames = (field: { options?: unknown } | undefined) => {
     .sort();
 };
 
-describe('update-field: option preservation matrix (e2e)', () => {
+describe('[B06][D12] update-field: option preservation matrix (e2e)', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let fieldIdCounter = 0;

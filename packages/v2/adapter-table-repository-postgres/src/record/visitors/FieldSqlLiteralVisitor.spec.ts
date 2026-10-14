@@ -317,11 +317,11 @@ const createFieldTestCases = (): Record<FieldTypeLiteral, FieldSqlLiteralTestCas
     },
     button: {
       type: 'button',
-      category: 'computed',
+      category: 'jsonb',
       canSimplyCreate: true,
-      sampleValue: 'click',
-      expectedSampleLiteral: 'NULL',
-      expectedNullLiteral: 'NULL',
+      sampleValue: '{"count":3}',
+      expectedSampleLiteral: `'{"count":3}'::jsonb`,
+      expectedNullLiteral: 'NULL::jsonb',
     },
     conditionalRollup: {
       type: 'conditionalRollup',

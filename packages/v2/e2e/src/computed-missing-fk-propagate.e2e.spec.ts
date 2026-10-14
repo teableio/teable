@@ -9,15 +9,15 @@
  *
  * No customer identifiers or values.
  */
-import { sql } from 'kysely';
 import { getRandomString } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 const createFieldId = () => `fld${getRandomString(16)}`;
 
-describe('computed propagate skips missing manyOne FK column (e2e)', () => {
+describe('[C14][S19] computed propagate skips missing manyOne FK column (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

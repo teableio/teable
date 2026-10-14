@@ -36,13 +36,13 @@ const cellText = (value: unknown): string => {
   return String(value);
 };
 
-describe('v2 computed large-scale timeout (e2e)', () => {
+describe('[C14][C18][S19] v2 computed large-scale timeout (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldSeq = 0;
 
   const fid = (label: string) => {
     fieldSeq += 1;
-    const suffix = `${label}${fieldSeq}`.replaceAll(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+    const suffix = `${label}${fieldSeq}`.replaceAll(/[^a-z0-9]/gi, '').slice(0, 16);
     return `fld${suffix.padEnd(16, '0')}`;
   };
 

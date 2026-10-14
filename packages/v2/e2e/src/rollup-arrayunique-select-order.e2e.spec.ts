@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 rollup ARRAYUNIQUE first-appearance order on API create (e2e)', () => {
+describe('[F13][R03] v2 rollup ARRAYUNIQUE first-appearance order on API create (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

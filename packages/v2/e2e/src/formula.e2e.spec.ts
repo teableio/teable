@@ -29,7 +29,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 http formula (e2e)', () => {
+describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
   let ctx: SharedTestContext;
   const publicAvatarUrl = 'https://storage-public.test';
   const previousPublicAvatarUrl = process.env.BACKEND_STORAGE_PUBLIC_URL;
@@ -6677,9 +6677,16 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:ERROR function
      * Formula:ERROR("custom error")
-     * Expect: returns error
+     * Expect: custom errors are visible on existing and newly created records.
      */
-    it('should return error - ERROR("custom error")', async () => {
+    it.each([
+      { expression: 'ERROR("custom error")', expected: '#ERROR: custom error' },
+      { expression: 'IF(TRUE, ERROR("custom error"), "ok")', expected: '#ERROR: custom error' },
+      { expression: 'IF(FALSE, ERROR("custom error"), "ok")', expected: 'ok' },
+      { expression: 'IS_ERROR(ERROR("custom error"))', expected: true },
+      { expression: 'ERROR(VALUE("not a number"))', expected: null },
+      { expression: '1 / 0', expected: null },
+    ])('should persist ERROR output - $expression', async ({ expression, expected }) => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -6696,6 +6703,8 @@ describe('v2 http formula (e2e)', () => {
       if (!tableParsed.success || !tableParsed.data.ok) return;
 
       const table = tableParsed.data.data.table;
+      // Match the product flow: the record exists before adding the formula.
+      const existingRecord = await ctx.createRecord(table.id, {});
 
       const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
         method: 'POST',
@@ -6707,7 +6716,7 @@ describe('v2 http formula (e2e)', () => {
             type: 'formula',
             name: 'ErrorValue',
             options: {
-              expression: `ERROR("custom error")`,
+              expression,
             },
           },
         }),
@@ -6735,13 +6744,108 @@ describe('v2 http formula (e2e)', () => {
 
       await processOutbox();
 
+      const persistedTable = await ctx.getTableById(table.id);
+      const persistedField = persistedTable.fields.find((field) => field.id === formulaFieldId);
+      expect(persistedField).toMatchObject({
+        type: 'formula',
+        options: { expression },
+      });
+      expect(persistedField?.hasError).toBeFalsy();
+      expect(persistedField?.isPending).toBeFalsy();
+
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      expect(record.fields[formulaFieldId]).toBeNull();
+      expect(record.fields[formulaFieldId]).toBe(expected);
+      expect(records.find((r) => r.id === existingRecord.id)?.fields[formulaFieldId]).toBe(
+        expected
+      );
     });
+
+    it('should persist ERROR output when only a dependent formula is recomputed', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: uniqueName('Stored ERROR dependency'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'formula', name: 'ErrorValue', options: { expression: 'ERROR("[")' } },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const nameFieldId = table.fields.find((field) => field.name === 'Name')!.id;
+      const errorFieldId = table.fields.find((field) => field.name === 'ErrorValue')!.id;
+      const record = await ctx.createRecord(table.id, { [nameFieldId]: 'before' });
+      await processOutbox();
+      const withDependent = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          type: 'formula',
+          name: 'Replaced',
+          options: {
+            expression: `REGEXP_REPLACE({${nameFieldId}}, {${errorFieldId}}, "replacement")`,
+          },
+        },
+      });
+      const dependentFieldId = withDependent.fields.find((field) => field.name === 'Replaced')!.id;
+      await processOutbox();
+      const before = (await listRecords(table.id)).find((row) => row.id === record.id);
+      expect(before?.fields[errorFieldId]).toBe('#ERROR: [');
+      expect(before?.fields[dependentFieldId]).toBe('#ERROR: [');
+
+      // The ERROR source is unchanged and must be read from storage, not a prior CTE.
+      // Treating its message as an ordinary regex would raise an invalid-pattern SQL error.
+      await ctx.updateRecord(table.id, record.id, { [nameFieldId]: 'after' });
+      await processOutbox();
+      const after = (await listRecords(table.id)).find((row) => row.id === record.id);
+      expect(after?.fields[nameFieldId]).toBe('after');
+      expect(after?.fields[errorFieldId]).toBe('#ERROR: [');
+      expect(after?.fields[dependentFieldId]).toBe('#ERROR: [');
+    });
+
+    it.each([false, true])(
+      'should persist ERROR output consistently for multiple text formulas (dependent: %s)',
+      async (dependent) => {
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: uniqueName('Multiple ERROR storage'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+        const nameFieldId = table.fields.find((field) => field.name === 'Name')!.id;
+        const existing = await ctx.createRecord(table.id, { [nameFieldId]: 'before' });
+        // A normal text branch gives PostgreSQL a concrete input type while retaining
+        // the multiple-string field / scalar lowered-expression mismatch under ERROR.
+        const condition = dependent ? `{${nameFieldId}}` : 'TRUE';
+        const expression = `TEXT_ALL(ARRAY_COMPACT(IF(${condition}, ERROR("custom error"), "ok")))`;
+        const withFormula = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: { type: 'formula', name: 'MultipleError', options: { expression } },
+        });
+        const formula = withFormula.fields.find((field) => field.name === 'MultipleError');
+        if (!formula) throw new Error('Multiple error formula not found');
+        expect(formula).toMatchObject({ cellValueType: 'string', isMultipleCellValue: true });
+        await processOutbox();
+        const backfilled = (await listRecords(table.id)).find((row) => row.id === existing.id);
+        expect(backfilled?.fields[formula.id]).toBeNull();
+
+        // Batch insertion must agree with field-creation backfill for JSON-backed output.
+        const created = await ctx.createRecord(table.id, { [nameFieldId]: 'created' });
+        await processOutbox();
+        const inserted = (await listRecords(table.id)).find((row) => row.id === created.id);
+        expect(inserted?.fields[formula.id]).toBeNull();
+
+        // Changing only the input recomputes the dependent variant through the batch path.
+        await ctx.updateRecord(table.id, existing.id, { [nameFieldId]: 'after' });
+        await processOutbox();
+        const recomputed = (await listRecords(table.id)).find((row) => row.id === existing.id);
+        expect(recomputed?.fields[nameFieldId]).toBe('after');
+        expect(recomputed?.fields[formula.id]).toBeNull();
+      }
+    );
 
     /**
      * Scenario:IS_ERROR function
@@ -6886,7 +6990,7 @@ describe('v2 http formula (e2e)', () => {
       expect(record).toBeDefined();
       if (!record) return;
 
-      expect(record.fields[alwaysErrorFieldId]).toBeNull();
+      expect(record.fields[alwaysErrorFieldId]).toBe('#ERROR: custom error');
       expect(record.fields[alwaysOkFieldId]).toBe(1);
       expect(record.fields[isErrorAlwaysErrorFieldId]).toBe(true);
       expect(record.fields[isErrorOkFieldId]).toBe(false);

@@ -116,6 +116,7 @@ type ComputedFieldCascadeService = {
       selfBackfillFieldIds: ReadonlyArray<FieldId>;
       valueChangedFieldIds: ReadonlyArray<FieldId>;
       deferredBackfillFieldIds?: ReadonlyArray<FieldId>;
+      preserveStoredFieldIds?: ReadonlyArray<FieldId>;
       hasDbStorageTypeChange?: boolean;
     }
   ): Promise<Result<void, DomainError>>;
@@ -125,6 +126,7 @@ type FieldValueChangeSet = {
   selfBackfillFieldIds: ReadonlyArray<FieldId>;
   valueChangedFieldIds: ReadonlyArray<FieldId>;
   deferredBackfillFieldIds: ReadonlyArray<FieldId>;
+  preserveStoredFieldIds: ReadonlyArray<FieldId>;
   removedFieldIds: ReadonlyArray<FieldId>;
   hasDbStorageTypeChange: boolean;
 };
@@ -958,6 +960,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           selfBackfillFieldIds: valueChanges.selfBackfillFieldIds,
           valueChangedFieldIds: valueChanges.valueChangedFieldIds,
           deferredBackfillFieldIds: valueChanges.deferredBackfillFieldIds,
+          preserveStoredFieldIds: valueChanges.preserveStoredFieldIds,
           hasDbStorageTypeChange: valueChanges.hasDbStorageTypeChange,
         });
       }
@@ -1012,6 +1015,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       selfBackfillFieldIds: valueChangeVisitor.selfBackfillFields(),
       valueChangedFieldIds: valueChangeVisitor.valueChangedFields(),
       deferredBackfillFieldIds: valueChangeVisitor.deferredBackfillFields(),
+      preserveStoredFieldIds: valueChangeVisitor.preservedStoredFields(),
       removedFieldIds: valueChangeVisitor.removedFields(),
       hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
     });

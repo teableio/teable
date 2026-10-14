@@ -19,6 +19,9 @@ import {
   ICreateBaseNodeRo,
   IDuplicateBaseNodeRo,
   IMoveBaseNodeRo,
+  moveBaseNodeCheckRoSchema,
+  IMoveBaseNodeCheckRo,
+  type IMoveBaseNodeCheckVo,
   updateBaseNodeRoSchema,
   IUpdateBaseNodeRo,
   type IBaseNodeTreeVo,
@@ -42,6 +45,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import { BaseNodeMoveService } from './base-node-move.service';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeAction } from './types';
@@ -56,7 +60,8 @@ export class BaseNodeController {
 
   constructor(
     private readonly baseNodeService: BaseNodeService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly baseNodeMoveService: BaseNodeMoveService
   ) {}
 
   @Get('list')
@@ -201,7 +206,21 @@ export class BaseNodeController {
     @Param('nodeId') nodeId: string,
     @Body(new ZodValidationPipe(moveBaseNodeRoSchema)) ro: IMoveBaseNodeRo
   ): Promise<IBaseNodeVo> {
+    if (ro.targetBaseId && ro.targetBaseId !== baseId) {
+      const movedNodeId = await this.baseNodeMoveService.move(baseId, nodeId, ro);
+      return this.baseNodeService.getNodeVo(ro.targetBaseId, movedNodeId);
+    }
     return this.baseNodeService.move(baseId, nodeId, ro);
+  }
+
+  @Post(':nodeId/move-check')
+  @Permissions('base|update')
+  async moveCheck(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string,
+    @Body(new ZodValidationPipe(moveBaseNodeCheckRoSchema)) ro: IMoveBaseNodeCheckRo
+  ): Promise<IMoveBaseNodeCheckVo> {
+    return this.baseNodeMoveService.check(baseId, nodeId, ro.targetBaseId, ro.additionalNodeIds);
   }
 
   @Delete(':nodeId')

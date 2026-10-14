@@ -46,6 +46,16 @@ export const projectionPayloadTooLargeError = (payloadBytes: number): DomainErro
   });
 };
 
+// JSON.stringify escapes lone UTF-16 surrogates as `\udxxx`, which Postgres
+// jsonb rejects ("invalid input syntax for type json") and rolls back the
+// whole write. Replace them with U+FFFD before the payload reaches the DB.
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+export const serializeProjectionPayload = (payload: unknown): string =>
+  JSON.stringify(payload, (_key, value: unknown) =>
+    typeof value === 'string' ? value.replace(LONE_SURROGATE, '\uFFFD') : value
+  );
+
 @injectable()
 export class PostgresTransactionalProjectionMessageJournal
   implements ITransactionalProjectionMessageJournal
@@ -79,7 +89,7 @@ export class PostgresTransactionalProjectionMessageJournal
       if (message.mode === 'shadow') {
         continue;
       }
-      const payloadJson = JSON.stringify(message.payload);
+      const payloadJson = serializeProjectionPayload(message.payload);
       const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
       const tooLarge = projectionPayloadTooLargeError(payloadBytes);
       if (tooLarge) {

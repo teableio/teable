@@ -129,7 +129,7 @@ export const buttonConfirmSchema = z.object({
 export const buttonOptionsSchema = z.object({
   label: z.string().optional(),
   color: fieldColorSchema.optional(),
-  maxCount: z.number().optional(),
+  maxCount: z.number().nullish(),
   resetCount: z.boolean().optional(),
   workflow: buttonWorkflowSchema.optional().nullable(),
   confirm: buttonConfirmSchema.optional().nullable(),

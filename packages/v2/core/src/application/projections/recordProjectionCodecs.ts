@@ -20,9 +20,13 @@ const compactCellValue = (value: unknown): unknown => {
     return value;
   }
   if (typeof value === 'string') {
-    return value.length <= MAX_DURABLE_CELL_JSON_CHARS
-      ? value
-      : value.slice(0, MAX_DURABLE_CELL_JSON_CHARS);
+    if (value.length <= MAX_DURABLE_CELL_JSON_CHARS) {
+      return value;
+    }
+    const cut = value.slice(0, MAX_DURABLE_CELL_JSON_CHARS);
+    // Don't split a surrogate pair (emoji); a lone high surrogate breaks jsonb.
+    const last = cut.charCodeAt(cut.length - 1);
+    return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
   }
   try {
     const json = JSON.stringify(value);

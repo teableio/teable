@@ -2474,6 +2474,14 @@ export const parseTableFieldSpec = (
     }
   }
 
+  const replayMode = options.executionContext?.undoRedo?.mode;
+  if (field.type === 'button' && replayMode !== 'undo' && replayMode !== 'redo') {
+    const maxCount = field.options?.maxCount;
+    if (maxCount != null && (!Number.isSafeInteger(maxCount) || maxCount <= 0)) {
+      return err(domainError.validation({ message: 'Button maxCount must be a positive integer' }));
+    }
+  }
+
   return optional(field.id, FieldId.create).andThen((id) =>
     FieldName.create(field.name).andThen((name) =>
       resolveFieldValidation(field).andThen((validation) =>

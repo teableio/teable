@@ -1120,14 +1120,6 @@
     "collapseAllGroups": "Tüm grupları daralt",
     "addToChat": "Sohbete ekle"
   },
-  "connection": {
-    "title": "Veritabanı Bağlantısı",
-    "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz; mevcut projedeki tüm tablolar buna dahildir.",
-    "noPermission": "Veritabanına erişim izniniz yok",
-    "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
-    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "Kayıt ekle",
     "searchView": "Görünüm ara...",
@@ -1482,6 +1474,8 @@
       "submit": "Gönder"
     },
     "newChat": "Yeni sohbet",
+    "alreadyInNewChat": "Zaten yeni bir sohbettesiniz",
+    "initChatFailed": "Sohbet başlatılamadı",
     "clearChat": "Sohbeti temizle",
     "expand": "Genişlet",
     "history": "Geçmiş",
@@ -1517,8 +1511,11 @@
     "noFoundHistory": "Sohbet geçmişi bulunamadı, lütfen yeni bir konuşma başlatın",
     "pin": "Sabitle",
     "unpin": "Sabitlemeyi kaldır",
+    "markRead": "Okundu olarak işaretle",
+    "markUnread": "Okunmadı olarak işaretle",
+    "markAllRead": "Tümünü okundu olarak işaretle ({{count}})",
     "archive": "Arşivle",
-    "archivedToast": "Sohbet arşivlendi. Ayarlar › Arşivlenen sohbetler altında bulabilirsiniz.",
+    "archivedToast": "Sohbet arşivlendi",
     "unread": "Okunmadı",
     "timeGroup": {
       "pinned": "Sabitlenenler",
@@ -1669,7 +1666,6 @@
       "pausedHidden": "Yeniden deneme duraklatıldı — yeniden bağlanmak için bu sekmeyi açın.",
       "maxAttemptsReached": "Otomatik olarak yeniden bağlanılamadı. Lütfen sayfayı elle yenileyin."
     },
-    "initChatFailed": "Sohbet başlatılamadı",
     "app": {
       "loadingChatHistory": "Sohbet geçmişi yükleniyor...",
       "generatorTitle": "Yapay Zekâ Uygulama Oluşturucu",
@@ -1731,6 +1727,51 @@
         "stale": "Yeniden oluşturulmalı",
         "unknown": "Bilinmiyor"
       }
+    },
+    "moveToBase": {
+      "menu": "Taşı",
+      "title": "\"{{name}}\" ögesini başka bir projeye taşı",
+      "confirm": "Taşı",
+      "targetLabel": "Hedef proje",
+      "targetPlaceholder": "Bir proje seçin",
+      "noTarget": "Bu alanda bu düğümü kabul edebilecek başka bir proje yok.",
+      "checking": "Bu taşımanın nelere etki ettiği kontrol ediliyor…",
+      "blockers": {
+        "same_base": "Düğüm zaten bu projede.",
+        "target_not_found": "Hedef proje artık mevcut değil.",
+        "different_space": "Düğümler yalnızca aynı alandaki projeler arasında taşınabilir.",
+        "v2_mismatch": "İki proje farklı depolama motoru sürümleri kullanıyor.",
+        "source_not_writable": "Bu proje şu anda salt okunur.",
+        "target_not_writable": "Hedef proje şu anda salt okunur.",
+        "no_source_permission": "Bu düğümü mevcut projeden kaldıramazsınız.",
+        "no_target_permission": "Hedef projede bu türde bir düğüm oluşturamazsınız.",
+        "folder_name_conflict": "Hedef projede aynı ada sahip bir klasör zaten var.",
+        "unsupported_resource": "Bu türde bir düğüm henüz taşınamıyor.",
+        "pending_computed_tasks": "Bu tabloda hesaplamalar hâlâ sürüyor. Birazdan tekrar deneyin.",
+        "unknown": "Bu taşımaya izin verilmiyor."
+      },
+      "movingCount_one": "{{count}} düğüm taşınacak",
+      "movingCount_other": "{{count}} düğüm taşınacak",
+      "moveClosure": "Referans verilen her şeyi taşı",
+      "moveClosureHint": "Yalnızca referans verilen düğümler taşınır. Bağlantılı tablolar yerinde kalır; bağlantıları bundan sonra iki projeye yayılır ve çalışmaya devam eder.",
+      "breakingCount_one": "{{count}} öğe taşımadan sonra çalışmayabilir",
+      "breakingCount_other": "{{count}} öğe taşımadan sonra çalışmayabilir",
+      "occurrences_one": "{{count}} yer",
+      "occurrences_other": "{{count}} yer",
+      "uninspectableTitle_one": "{{count}} uygulama denetlenemedi; taşımadan sonra kontrol edin",
+      "uninspectableTitle_other": "{{count}} uygulama denetlenemedi; taşımadan sonra kontrol edin",
+      "droppedRules_one": "{{count}} izin kuralı kaldırılacak",
+      "droppedRules_other": "{{count}} izin kuralı kaldırılacak",
+      "droppedRulesDetail": "Bu kurallar taşınan düğümlere bağlıdır; bunun yerine hedef projenin izin ayarları geçerli olur.",
+      "successTitle": "Taşındı",
+      "successDescription": "\"{{name}}\" artık {{baseName}} içinde.",
+      "open": "Aç",
+      "appEmbeddedId_one": "{{count}} uygulamanın kodunda eski proje geçiyor; kendiniz güncelleyin",
+      "appEmbeddedId_other": "{{count}} uygulamanın kodunda eski proje geçiyor; kendiniz güncelleyin",
+      "appEmbeddedIdDetail": "{{apps}}. Kod tam olarak yazıldığı gibi bırakılır; taşımadan sonra her birini açıp güncelleyin, aksi halde ayrıldığı projeyi okumaya devam eder.",
+      "referencesLabel": "Referanslar:",
+      "linkedAcrossProjects_one": "{{count}} tablo iki proje arasında bağlantılı olacak",
+      "linkedAcrossProjects_other": "{{count}} tablo iki proje arasında bağlantılı olacak"
     }
   }
 }

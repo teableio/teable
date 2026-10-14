@@ -15,6 +15,7 @@
     "delete": "删除",
     "clear": "清除",
     "cancel": "取消",
+    "undo": "撤销",
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "back": "返回",
@@ -569,7 +570,6 @@
     "overLimitsDescription": "用量已超出了当前订阅版本的限制，您可以升级到更高级的版本以解锁更多功能用量。",
     "userLimitExceededDescription": "当前实例已达到许可证允许的最大用户数限制，请停用超限的用户或升级许可证以继续使用。",
     "unavailableInPlanTips": "当前订阅计划不支持此功能",
-    "unavailableConnectionTips": "数据链接功能即将移除，未来仅在公有云企业版和自托管版本中提供。",
     "levelTips": "当前空间使用的是{{level}}计划",
     "enterpriseFeature": "企业版功能",
     "automationRequiresUpgrade": "升级到企业版以启用自动化",
@@ -1171,6 +1171,8 @@
     "addConfig": "添加配置",
     "editConfig": "编辑配置",
     "resetConfig": "重置",
+    "unsubscribeLink": "添加退订链接",
+    "unsubscribeLinkDescription": "营销邮件请开启：附带一键退订链接，并跳过已退订的收件人。回复和通知类邮件保持关闭。",
     "testEmail": "测试邮箱",
     "testEmailPlaceholder": "请输入测试邮箱",
     "testEmailError": "请输入正确的测试邮箱地址",
@@ -1598,6 +1600,10 @@
   },
   "chat": {
     "serverError": "服务端发生错误",
+    "chatGone": "对话已不存在",
+    "chatGoneDescription": "这个对话已在其他地方被删除，无法继续发送。",
+    "chatArchived": "对话已归档",
+    "chatArchivedDescription": "这个对话已归档，无法继续发送。",
     "modelNotSupported": "所选模型不支持 Agent 模式，建议切换为 GPT-6 Astra 以获得最佳体验。",
     "byokModelNotSupported": "您的自定义模型不支持 Agent 模式，建议切换为 GPT-6 Astra 以获得最佳体验。",
     "modelServiceUnavailable": "模型服务暂时不可用，请稍后重试。",
@@ -1633,6 +1639,7 @@
   "modelTier": {
     "title": "模型",
     "uses": "使用 {{model}}",
+    "spaceModels": "空间模型",
     "xl": {
       "label": "Ultra",
       "description": "顶级能力，适合高要求、高风险的工作。"
@@ -1829,5 +1836,13 @@
       "summaryTitle": "Teable",
       "summary": "{{count}} 个对话有新结果。"
     }
+  },
+  "cookieConsent": {
+    "title": "Cookie 使用同意",
+    "body": "我们使用 Cookie 及类似技术来了解产品的使用情况、改善你的体验并衡量推广效果。",
+    "accept": "全部接受",
+    "reject": "全部拒绝",
+    "policy": "Cookie 政策",
+    "settings": "Cookie 设置"
   }
 }

@@ -14,7 +14,7 @@ export {
   stringifyJsonArray,
   stringifyJsonArrayWithStrategy,
 } from './PgSqlHelpers';
-export { makeExpr, guardValueSql } from './SqlExpression';
+export { makeExpr, guardValueSql, guardFormulaValueSql } from './SqlExpression';
 export type { SqlExpr, SqlValueType, SqlStorageKind } from './SqlExpression';
 export {
   formatDatetimeStringSql,

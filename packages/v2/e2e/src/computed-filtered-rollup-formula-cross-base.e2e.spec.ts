@@ -16,7 +16,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 filtered rollup formula cross-base cascade (e2e)', () => {
+describe('[C14][S19] v2 filtered rollup formula cross-base cascade (e2e)', () => {
   let ctx: SharedTestContext;
   let nameCounter = 0;
   let fieldIdCounter = 0;

@@ -522,7 +522,8 @@ export interface ITableRecordRepository {
    */
   duplicatePhysicalRows(
     context: IExecutionContext,
-    plan: PhysicalTableDuplicatePlan
+    plan: PhysicalTableDuplicatePlan,
+    targetTable: Table
   ): Promise<Result<PhysicalTableDuplicateResult, DomainError>>;
 
   /**

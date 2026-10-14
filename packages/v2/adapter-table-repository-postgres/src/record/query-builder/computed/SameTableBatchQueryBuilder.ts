@@ -21,7 +21,7 @@ import {
   type FormulaCompileBudgetConfig,
   type FormulaCompileBudgetOptions,
   isFormulaCompileBudgetError,
-  guardValueSql,
+  guardFormulaValueSql,
   makeExpr,
   normalizeToJsonArrayWithStrategy,
   type IPgTypeValidationStrategy,
@@ -571,9 +571,17 @@ export class SameTableBatchQueryBuilder {
               budget.sql`${budget.join(
                 raw.flatMap((expression, index) => {
                   const column = columns[index];
-                  const value = guardValueSql(
+                  const value = guardFormulaValueSql(
                     this.normalizeFormulaValueSql(formulas[index], expression, budget),
-                    expression.errorConditionSql,
+                    expression,
+                    formulas[index]
+                      .cellValueType()
+                      .map((type) => type.equals(CellValueType.string()))
+                      .unwrapOr(false) &&
+                      formulas[index]
+                        .isMultipleCellValue()
+                        .map((multiplicity) => !multiplicity.isMultiple())
+                        .unwrapOr(false),
                     budget
                   );
                   return [
@@ -648,9 +656,17 @@ export class SameTableBatchQueryBuilder {
 
     const expr = translated.value;
     const typedSql = translator.renderExpression(expr, (value, budget) =>
-      guardValueSql(
+      guardFormulaValueSql(
         this.normalizeFormulaValueSql(formulaField, value, budget),
-        value.errorConditionSql,
+        value,
+        formulaField
+          .cellValueType()
+          .map((type) => type.equals(CellValueType.string()))
+          .unwrapOr(false) &&
+          formulaField
+            .isMultipleCellValue()
+            .map((multiplicity) => !multiplicity.isMultiple())
+            .unwrapOr(false),
         budget
       )
     );
@@ -1041,6 +1057,19 @@ export const resolveStoredFormulaFieldSql = (
         }
 
         const typing = resolveFieldTyping(field);
+        if (
+          field.type().equals(FieldType.formula()) &&
+          typing.valueType === 'string' &&
+          !typing.isArray
+        ) {
+          return makeExpr(
+            ref,
+            typing.valueType,
+            typing.isArray,
+            budget.sql`(${ref})::text LIKE '#ERROR:%'`,
+            budget.sql`(${ref})::text`
+          );
+        }
         return makeExpr(ref, typing.valueType, typing.isArray);
       });
     })

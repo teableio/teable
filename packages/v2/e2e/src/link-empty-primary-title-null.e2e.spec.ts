@@ -9,7 +9,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  *
  * Fixture is sanitized/structure-equivalent: no customer ids or values.
  */
-describe('v2 link empty primary title null rewrite (e2e)', () => {
+describe('[F11] v2 link empty primary title null rewrite (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

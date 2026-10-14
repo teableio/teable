@@ -87,7 +87,9 @@ const nonDataAffectingSpecClasses = [
  * Two specs are predicate-dependent rather than absolute:
  * - reducing a rating max clamps stored cells (`UPDATE ... WHERE col > max`),
  *   while raising it touches nothing;
- * - setting hasError invalidates stored computed values, clearing it does not.
+ * - both setting and clearing hasError require a computed-value refresh: setting
+ *   invalidates stored values, while clearing restores values that were skipped
+ *   while the field was errored.
  */
 export const fieldUpdateSpecRequiresDataRewrite = (
   spec: ISpecification<Table, ITableSpecVisitor>
@@ -96,7 +98,7 @@ export const fieldUpdateSpecRequiresDataRewrite = (
     return spec.isMaxReducing();
   }
   if (spec instanceof TableUpdateFieldHasErrorSpec) {
-    return spec.isSettingError();
+    return true;
   }
   return !nonDataAffectingSpecClasses.some((specClass) => spec instanceof specClass);
 };

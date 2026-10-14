@@ -82,7 +82,7 @@ type ConditionalRollupValuesType = {
  * Key differences from RollupField:
  * - No linkFieldId - uses condition instead
  * - Queries foreign table directly based on condition
- * - Supports filter, sort, and limit in the condition
+ * - Sort and limit apply only to ordering-aware array/join aggregations
  */
 export class ConditionalRollupField
   extends Field
@@ -128,10 +128,12 @@ export class ConditionalRollupField
     showAs?: ConditionalRollupShowAs;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<ConditionalRollupField, DomainError> {
+    const config = ConditionalRollupField.normalizeConfig(params.config, params.expression);
+    if (config.isErr()) return err(config.error);
     const field = new ConditionalRollupField(
       params.id,
       params.name,
-      params.config,
+      config.value,
       params.expression,
       params.timeZone,
       params.formatting,
@@ -168,10 +170,12 @@ export class ConditionalRollupField
     resultType?: ConditionalRollupResultType;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<ConditionalRollupField, DomainError> {
+    const config = ConditionalRollupField.normalizeConfig(params.config, params.expression);
+    if (config.isErr()) return err(config.error);
     const field = new ConditionalRollupField(
       params.id,
       params.name,
-      params.config,
+      config.value,
       params.expression,
       params.timeZone,
       params.formatting,
@@ -185,6 +189,27 @@ export class ConditionalRollupField
       if (setResult.isErr()) return err(setResult.error);
     }
     return ok(field);
+  }
+
+  private static normalizeConfig(
+    config: ConditionalRollupConfig,
+    expression: RollupExpression
+  ): Result<ConditionalRollupConfig, DomainError> {
+    switch (expression.toString()) {
+      case 'array_join({values})':
+      case 'array_compact({values})':
+      case 'array_unique({values})':
+      case 'concatenate({values})':
+        return ok(config);
+      default: {
+        const condition = config.condition();
+        if (!condition.hasSort() && !condition.hasLimit()) return ok(config);
+        return ConditionalRollupConfig.create({
+          ...config.toDto(),
+          condition: { filter: condition.toDto().filter },
+        });
+      }
+    }
   }
 
   /**

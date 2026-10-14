@@ -23,6 +23,7 @@ export const RecordWriteOperationKind = {
   duplicate: 'duplicate',
   duplicateStream: 'duplicateStream',
   updateOne: 'updateOne',
+  buttonClick: 'buttonClick',
   updateMany: 'updateMany',
   deleteMany: 'deleteMany',
   archiveMany: 'archiveMany',
@@ -225,6 +226,11 @@ export type IRecordWriteUpdateOneContext = IRecordWritePluginContextBase<
   'updateOne',
   RecordWriteUpdateOnePayload
 >;
+// Clicking is a read-authorized action; the derived count is not a user cell update.
+export type IRecordWriteButtonClickContext = IRecordWritePluginContextBase<
+  'buttonClick',
+  RecordWriteUpdateOnePayload
+>;
 export type IRecordWriteUpdateManyContext = IRecordWritePluginContextBase<
   'updateMany',
   RecordWriteUpdateManyPayload
@@ -254,6 +260,7 @@ export type RecordWritePluginContextMap = {
   duplicate: IRecordWriteDuplicateContext;
   duplicateStream: IRecordWriteDuplicateStreamContext;
   updateOne: IRecordWriteUpdateOneContext;
+  buttonClick: IRecordWriteButtonClickContext;
   updateMany: IRecordWriteUpdateManyContext;
   deleteMany: IRecordWriteDeleteManyContext;
   archiveMany: IRecordWriteArchiveManyContext;

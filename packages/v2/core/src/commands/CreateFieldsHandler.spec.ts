@@ -15,6 +15,7 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { LookupField } from '../domain/table/fields/types/LookupField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -323,6 +324,79 @@ describe('CreateFieldsHandler', () => {
       addFields: 1,
       updateViewColumnMeta: 1,
     });
+  });
+
+  it('uses Label for omitted batch link displays and preserves explicit displays', async () => {
+    const baseId = `bse${'a'.repeat(16)}`;
+    const hostTableId = `tbl${'b'.repeat(16)}`;
+    const foreignTableId = `tbl${'c'.repeat(16)}`;
+    const primaryId = `fld${'d'.repeat(16)}`;
+    const labelId = `fld${'e'.repeat(16)}`;
+    const repository = new InMemoryTableRepository();
+    repository.tables.push(
+      buildTable({
+        baseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: `fld${'f'.repeat(16)}`,
+      }),
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Target',
+        primaryFieldId: primaryId,
+      })
+    );
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const handler = new CreateFieldsHandler(
+      flow,
+      new FieldCreationSideEffectService(flow),
+      new ForeignTableLoaderService(repository),
+      new TrackingUndoRedoService() as unknown as UndoRedoStackService,
+      new TrackingFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService
+    );
+    const labelResult = await handler.handle(
+      createContext(),
+      CreateFieldsCommand.create({
+        baseId,
+        tableId: foreignTableId,
+        fields: [{ id: labelId, type: 'singleLineText', name: 'Label' }],
+      })._unsafeUnwrap()
+    );
+    expect(labelResult.isOk()).toBe(true);
+    const result = await handler.handle(
+      createContext(),
+      CreateFieldsCommand.create({
+        baseId,
+        tableId: hostTableId,
+        fields: [
+          {
+            type: 'link',
+            name: 'Default display',
+            options: { relationship: 'manyOne', foreignTableId, isOneWay: true },
+          },
+          {
+            type: 'link',
+            name: 'Explicit display',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: primaryId,
+              isOneWay: true,
+            },
+          },
+        ],
+      })._unsafeUnwrap()
+    );
+    const links = result
+      ._unsafeUnwrap()
+      .fields.filter((field): field is LinkField => field.type().toString() === 'link');
+    expect(links.map((field) => field.lookupFieldId().toString())).toEqual([labelId, primaryId]);
   });
 
   it('creates same-table dependent fields and applies link side effects once', async () => {

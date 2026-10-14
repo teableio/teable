@@ -3,13 +3,13 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import {
   SetAttachmentValueSpec,
   type AttachmentItem,
 } from '../../records/specs/values/SetAttachmentValueSpec';
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
+import { SetFieldValueSpecFactory } from '../../records/specs/values/SetFieldValueSpecFactory';
 import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec, type LinkItem } from '../../records/specs/values/SetLinkValueSpec';
 import { SetLongTextValueSpec } from '../../records/specs/values/SetLongTextValueSpec';
@@ -630,9 +630,9 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     );
   }
 
-  visitButtonField(_field: ButtonField): Result<ICellValueSpec, DomainError> {
-    // Button fields don't store values - ignore any provided input
-    return ok(NoopCellValueSpec.create());
+  visitButtonField(field: ButtonField): Result<ICellValueSpec, DomainError> {
+    const result = SetFieldValueSpecFactory.create(field, this.value);
+    return this.typecast && result.isErr() ? SetFieldValueSpecFactory.create(field, null) : result;
   }
 
   visitConditionalRollupField(field: ConditionalRollupField): Result<ICellValueSpec, DomainError> {

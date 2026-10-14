@@ -704,8 +704,7 @@ export class FieldUndoRedoReplayService {
     const updateResult = await this.tableUpdateFlow.execute(
       context,
       { table },
-      (candidate) =>
-        spec.mutate(candidate).map((updated) => TableUpdateResult.create(updated, spec)),
+      (candidate) => candidate.update((mutator) => mutator.applySpecs([spec])),
       { publishEvents: true }
     );
     if (updateResult.isErr()) {

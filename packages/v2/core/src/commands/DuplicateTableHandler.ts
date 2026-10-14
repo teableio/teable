@@ -203,7 +203,8 @@ export class DuplicateTableHandler
             if (physicalPlan?.isOk()) {
               const physical = yield* await handler.tableRecordRepository.duplicatePhysicalRows(
                 dataTransactionContext,
-                physicalPlan.value
+                physicalPlan.value,
+                persistedTable
               );
               physicalRecordIds = physical.recordIds;
               usedPhysicalRowCopy = true;

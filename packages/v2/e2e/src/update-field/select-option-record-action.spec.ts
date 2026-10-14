@@ -52,7 +52,7 @@ const deleteTableSafe = async (ctx: SharedTestContext, tableId: string | undefin
   } catch {}
 };
 
-describe('update-field: select option record realtime', () => {
+describe('[S13] update-field: select option record realtime', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

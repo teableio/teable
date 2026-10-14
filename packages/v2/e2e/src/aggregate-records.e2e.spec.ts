@@ -39,7 +39,7 @@ import {
  * semantics: cleared ""/false/[] values are stored as NULL and therefore count
  * as Empty / UnChecked.
  */
-describe('aggregate records via query bus (e2e, v1 parity)', () => {
+describe('[A02][A03][A04][A09][A11][A12] aggregate records via query bus (e2e, v1 parity)', () => {
   let ctx: SharedTestContext;
   let queryBus: IQueryBus;
   const actorId = ActorId.create(TEST_USER.id)._unsafeUnwrap();

@@ -133,6 +133,58 @@ describe('ConditionalRollupConfig.create', () => {
   });
 });
 
+describe('ConditionalRollupField ordering normalization', () => {
+  it.each([
+    ['sum({values})', false],
+    ['average({values})', false],
+    ['countall({values})', false],
+    ['min({values})', false],
+    ['max({values})', false],
+    ['array_compact({values})', true],
+    ['array_unique({values})', true],
+    ['array_join({values})', true],
+    ['concatenate({values})', true],
+  ] as const)('normalizes ordering for %s on both creation paths', (rawExpression, ordered) => {
+    const valuesField = NumberField.create({
+      id: createFieldId('v'),
+      name: FieldName.create('Amount')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const config = ConditionalRollupConfig.create({
+      baseId: createBaseId('x').toString(),
+      foreignTableId: createTableId('a').toString(),
+      lookupFieldId: valuesField.id().toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: valuesField.id().toString(), operator: 'isGreater', value: 0 }],
+        },
+        sort: { fieldId: valuesField.id().toString(), order: 'desc' },
+        limit: 1,
+      },
+    })._unsafeUnwrap();
+    const params = {
+      id: createFieldId('r'),
+      name: FieldName.create('Total')._unsafeUnwrap(),
+      expression: RollupExpression.create(rawExpression)._unsafeUnwrap(),
+      config,
+    };
+    const fields = [
+      ConditionalRollupField.create({ ...params, valuesField })._unsafeUnwrap(),
+      ConditionalRollupField.createPending(params)._unsafeUnwrap(),
+    ];
+    for (const field of fields) {
+      expect(field.configDto()).toEqual({
+        ...config.toDto(),
+        condition: ordered
+          ? config.condition().toDto()
+          : { filter: config.condition().toDto().filter },
+      });
+    }
+    expect(config.condition().hasSort()).toBe(true);
+    expect(config.condition().limit()).toBe(1);
+  });
+});
+
 describe('ConditionalRollupField without filter', () => {
   it('creates a pending field with no-filter config', () => {
     const config = ConditionalRollupConfig.create({
@@ -322,9 +374,9 @@ describe('ConditionalRollupField.onFieldDeleted', () => {
       id: createFieldId('r'),
       name: FieldName.create('Conditional Rollup Sorted')._unsafeUnwrap(),
       config,
-      expression: RollupExpression.default(),
+      expression: RollupExpression.create('array_join({values})')._unsafeUnwrap(),
       resultType: {
-        cellValueType: CellValueType.number(),
+        cellValueType: CellValueType.string(),
         isMultipleCellValue: CellValueMultiplicity.single(),
       },
     })._unsafeUnwrap();
@@ -377,9 +429,9 @@ describe('ConditionalRollupField.onFieldDeleted', () => {
           limit: 1,
         },
       })._unsafeUnwrap(),
-      expression: RollupExpression.default(),
+      expression: RollupExpression.create('array_join({values})')._unsafeUnwrap(),
       resultType: {
-        cellValueType: CellValueType.number(),
+        cellValueType: CellValueType.string(),
         isMultipleCellValue: CellValueMultiplicity.single(),
       },
     })._unsafeUnwrap();

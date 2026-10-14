@@ -115,7 +115,7 @@ describe.skip('v2 http cross-base lookup (e2e)', () => {
     ctx = await getSharedTestContext();
   });
 
-  describe('one-way cross-base link', () => {
+  describe('[F21] one-way cross-base link', () => {
     it('should create one-way link from host base to foreign base', async () => {
       // Create foreign base
       const foreignBaseId = await createBase('ForeignBase_OneWay');

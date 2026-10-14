@@ -166,7 +166,7 @@ export class FieldSqlLiteralVisitor implements IFieldVisitor<string> {
   }
 
   visitButtonField(_field: ButtonField): Result<string, DomainError> {
-    return ok('NULL');
+    return ok(this.jsonbLiteral(this.value));
   }
 
   visitConditionalRollupField(_field: ConditionalRollupField): Result<string, DomainError> {

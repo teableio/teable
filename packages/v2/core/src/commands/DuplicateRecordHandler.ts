@@ -18,6 +18,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -116,8 +117,8 @@ export class DuplicateRecordHandler
       const fields = table.getFields();
 
       for (const field of fields) {
-        // Skip computed fields - they will be recalculated
-        if (field.computed().toBoolean()) {
+        // Recalculate computed fields and start button click state fresh on the copy.
+        if (field.computed().toBoolean() || field.type().equals(FieldType.button())) {
           continue;
         }
 

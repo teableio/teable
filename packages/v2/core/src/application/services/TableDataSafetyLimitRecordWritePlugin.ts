@@ -29,6 +29,7 @@ const recordsFromContext = (
     case RecordWriteOperationKind.submit:
     case RecordWriteOperationKind.duplicate:
     case RecordWriteOperationKind.updateOne:
+    case RecordWriteOperationKind.buttonClick:
       return [context.payload.fieldValues];
     case RecordWriteOperationKind.createMany:
     case RecordWriteOperationKind.createStream:
@@ -60,6 +61,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
     case RecordWriteOperationKind.submit:
     case RecordWriteOperationKind.duplicate:
     case RecordWriteOperationKind.updateOne:
+    case RecordWriteOperationKind.buttonClick:
       return 1;
     case RecordWriteOperationKind.createMany:
     case RecordWriteOperationKind.createStream:

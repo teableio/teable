@@ -31,4 +31,25 @@ describe('recordsBatchCreatedProjectionCodec', () => {
     expect(bytes).toBeLessThan(MAX_PROJECTION_PAYLOAD_BYTES);
     expect(bytes).toBeGreaterThan(1_000_000);
   });
+
+  it('does not split a surrogate pair when truncating long text', () => {
+    const event = RecordsBatchCreated.create({
+      tableId: TableId.generate()._unsafeUnwrap(),
+      baseId: BaseId.generate()._unsafeUnwrap(),
+      source: { type: 'import' },
+      records: [
+        {
+          recordId: 'rec0000000000000001',
+          fields: [{ fieldId: 'fld0000000000000001', value: `${'a'.repeat(255)}🧀 tail` }],
+        },
+      ],
+    });
+
+    const payload = recordsBatchCreatedProjectionCodec.encode(event)._unsafeUnwrap() as {
+      records: Array<{ fields: Array<{ value: string }> }>;
+    };
+    const value = payload.records[0]!.fields[0]!.value;
+    expect(value).toBe('a'.repeat(255));
+    expect(JSON.stringify(value)).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/i);
+  });
 });

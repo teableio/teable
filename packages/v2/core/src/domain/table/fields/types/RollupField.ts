@@ -376,8 +376,15 @@ export class RollupField
     const [linkField] = context.hostTable.getFields(linkFieldSpecResult.value);
     if (!linkField)
       return err(domainError.notFound({ message: 'RollupField link field not found' }));
-    if (linkField.type().toString() !== 'link') {
+    if (!(linkField instanceof LinkField)) {
       return err(domainError.validation({ message: 'RollupField link field must be a LinkField' }));
+    }
+    if (!linkField.foreignTableId().equals(this.foreignTableId())) {
+      return err(
+        domainError.validation({
+          message: 'RollupField foreign table does not match link field target',
+        })
+      );
     }
 
     const foreignTable = context.foreignTables.find((candidate) =>
@@ -388,7 +395,7 @@ export class RollupField
 
     const lookupField = ForeignTable.from(foreignTable)
       .fieldById(this.lookupFieldId())
-      .mapErr(() => domainError.notFound({ message: 'RollupField lookup field not found' }));
+      .mapErr(() => domainError.validation({ message: 'RollupField lookup field not found' }));
     if (lookupField.isErr()) return err(lookupField.error);
 
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
@@ -528,18 +535,23 @@ export class RollupField
     context: FieldUpdateContext
   ): Result<RollupField, DomainError> {
     return this.resolveUpdatedLookupField(updatedField, updateSpecs, context).andThen(
-      (valuesField) =>
-        RollupField.create({
-          id: this.id(),
-          name: this.name(),
-          config: this.configValue,
-          expression: this.expressionValue,
-          valuesField,
-          timeZone: this.timeZoneValue,
-          formatting: this.formattingValue,
-          showAs: this.showAsValue,
-          dependencies: this.dependencies(),
-        })
+      (valuesField) => {
+        const build = (clearStyle: boolean): Result<RollupField, DomainError> =>
+          RollupField.create({
+            id: this.id(),
+            name: this.name(),
+            config: this.configValue,
+            expression: this.expressionValue,
+            valuesField,
+            timeZone: this.timeZoneValue,
+            formatting: clearStyle ? undefined : this.formattingValue,
+            showAs: clearStyle ? undefined : this.showAsValue,
+            dependencies: this.dependencies(),
+          });
+
+        const rebuilt = build(false);
+        return rebuilt.isOk() ? rebuilt : build(true);
+      }
     );
   }
 

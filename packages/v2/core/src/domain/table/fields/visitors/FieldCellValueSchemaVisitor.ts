@@ -132,14 +132,20 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       // No options defined, only accept null (matching v1 behavior)
       // v1's validateCellValue uses innerChoicesMap which will be empty,
       // so no non-null value will pass validation
-      return ok(z.null());
+      return ok(z.union([z.null(), FieldCellValueSchemaVisitor.clearedCell()]));
     }
 
     // Accept both option IDs and names to align with v1 behavior.
     const optionValues = options.flatMap((opt) => [opt.id().toString(), opt.name().toString()]);
     // Deduplicate in case ID and name are the same
     const uniqueValues = [...new Set(optionValues)];
-    const baseSchema = z.enum(uniqueValues as [string, ...string[]]);
+    // T6520: a cleared "" is stored as NULL. The value is not a legal option,
+    // so without this arm the clear would be rejected instead of applied, which
+    // is the one field type that disagreed with text/checkbox/multi-select.
+    const baseSchema = z.union([
+      z.enum(uniqueValues as [string, ...string[]]),
+      FieldCellValueSchemaVisitor.clearedCell(),
+    ]);
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
@@ -148,10 +154,13 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
     if (options.length === 0) {
       // No options defined, only accept null/empty array (matching v1 behavior)
       return ok(
-        z
-          .array(z.never())
-          .transform((val) => (val.length === 0 ? null : val))
-          .nullable()
+        z.union([
+          z
+            .array(z.never())
+            .transform((val) => (val.length === 0 ? null : val))
+            .nullable(),
+          FieldCellValueSchemaVisitor.clearedCell(),
+        ])
       );
     }
 
@@ -159,10 +168,14 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
     const optionValues = options.flatMap((opt) => [opt.id().toString(), opt.name().toString()]);
     // Deduplicate in case ID and name are the same
     const uniqueValues = [...new Set(optionValues)];
-    // Align with v1: empty arrays are stored as null, not [].
-    const baseSchema = z
-      .array(z.enum(uniqueValues as [string, ...string[]]))
-      .transform((val) => (val.length === 0 ? null : val));
+    // Align with v1: empty arrays are stored as null, not [] — and so is a
+    // cleared "" (T6520).
+    const baseSchema = z.union([
+      z
+        .array(z.enum(uniqueValues as [string, ...string[]]))
+        .transform((val) => (val.length === 0 ? null : val)),
+      FieldCellValueSchemaVisitor.clearedCell(),
+    ]);
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
@@ -238,8 +251,7 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
   }
 
   visitButtonField(_field: ButtonField): Result<ZodSchema, DomainError> {
-    // Button field doesn't store user values
-    return ok(z.null().optional());
+    return ok(z.object({ count: z.number().int() }).nullable().optional());
   }
 
   visitLinkField(field: LinkField): Result<ZodSchema, DomainError> {
@@ -287,5 +299,15 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       return schema;
     }
     return schema.nullable();
+  }
+
+  /**
+   * T6520: a cleared `""` is stored as NULL for every field type. Field types
+   * whose cell value is not a string have to accept the cleared form explicitly,
+   * because `""` is not a legal value for them and would otherwise be rejected
+   * instead of clearing the cell.
+   */
+  private static clearedCell(): z.ZodType<null> {
+    return z.literal('').transform(() => null);
   }
 }

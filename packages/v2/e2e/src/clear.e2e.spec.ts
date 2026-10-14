@@ -15,7 +15,7 @@ import {
  *
  * Uses shared test context for faster test execution.
  */
-describe('v2 http clear (e2e)', () => {
+describe('[B10] v2 http clear (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

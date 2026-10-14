@@ -27,7 +27,7 @@ const isNumberField = (field: IFieldDto): field is NumberFieldDto => {
   return field.type === 'number';
 };
 
-describe('update-field: number property updates', () => {
+describe('[D01][F03][S01][S02][S08] update-field: number property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let fieldIdCounter = 0;

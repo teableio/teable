@@ -2,7 +2,7 @@
 import { describe, beforeAll, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 link field title with multi-value lookup (e2e)', () => {
+describe('[F11] v2 link field title with multi-value lookup (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

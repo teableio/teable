@@ -5,7 +5,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 // T7513: neutral scalar source -> two-way manyMany lookup -> parent aggregation.
 // Compare singleton lookups with identically scoped scalar fields before exercising
 // multi-element lookups, shared-source edits, reassignment, and unlinking.
-describe('rollup lookup values (e2e)', () => {
+describe('[F13] rollup lookup values (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
   const runId = Math.random().toString(36).slice(2, 8).padEnd(6, '0');

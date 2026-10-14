@@ -1581,6 +1581,15 @@ export class FieldOpenApiService {
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
     await this.assertTableWritable(tableId);
+    if (
+      updateFieldRo.unique !== undefined ||
+      updateFieldRo.notNull !== undefined ||
+      updateFieldRo.options !== undefined
+    ) {
+      throw new BadRequestException(
+        'Patching constraints and options requires v2; use field conversion on v1'
+      );
+    }
     const ops: IOtOperation[] = [];
     if (updateFieldRo.name) {
       const op = await this.updateUniqProperty(tableId, fieldId, 'name', updateFieldRo.name);

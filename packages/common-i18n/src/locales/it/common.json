@@ -15,6 +15,7 @@
     "delete": "Elimina",
     "clear": "Cancella",
     "cancel": "Annulla",
+    "undo": "Annulla",
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "back": "Indietro",
@@ -570,7 +571,6 @@
     "overLimitsDescription": "Il tuo abbonamento attuale ha superato il limite di utilizzo. Si prega di aggiornare il piano per continuare a utilizzare questa funzione senza interruzioni.",
     "userLimitExceededDescription": "L'istanza corrente ha raggiunto il numero massimo di utenti consentiti dalla tua licenza. Si prega di disattivare alcuni utenti o aggiornare la licenza.",
     "unavailableInPlanTips": "Il piano di abbonamento attuale non supporta questa funzione",
-    "unavailableConnectionTips": "La funzione di connessione al database verrà rimossa in futuro e sarà disponibile solo nella versione Enterprise e nelle versioni self-hosted.",
     "levelTips": "Questo spazio è attualmente sul piano {{level}}",
     "enterpriseFeature": "Funzionalità Enterprise",
     "automationRequiresUpgrade": "Aggiorna a Enterprise Edition (EE) per abilitare l'automazione",
@@ -1172,6 +1172,8 @@
     "addConfig": "Aggiungi Configurazione",
     "editConfig": "Modifica Configurazione",
     "resetConfig": "Resetta",
+    "unsubscribeLink": "Aggiungi link di disiscrizione",
+    "unsubscribeLinkDescription": "Attivalo per le email di marketing: aggiunge un link di disiscrizione con un clic e salta i destinatari che si sono disiscritti. Lascialo disattivato per risposte e notifiche.",
     "testEmail": "Email di Test",
     "testEmailPlaceholder": "Inserisci l'email di test",
     "testEmailError": "Inserisci un indirizzo email di test valido",
@@ -1599,6 +1601,10 @@
   },
   "chat": {
     "serverError": "Si è verificato un errore del server",
+    "chatGone": "Questa chat non esiste più",
+    "chatGoneDescription": "È stata eliminata da un’altra scheda o dispositivo, quindi qui non si può più inviare nulla.",
+    "chatArchived": "Questa chat è archiviata",
+    "chatArchivedDescription": "Non si può inviare nulla a una chat archiviata.",
     "modelNotSupported": "Il modello selezionato non è supportato in modalità agente. Passa a GPT-6 Astra per un’esperienza ottimale.",
     "byokModelNotSupported": "Il tuo modello personalizzato non è compatibile con la modalità agente. Passa a GPT-6 Astra per un’esperienza ottimale.",
     "modelServiceUnavailable": "Il servizio del modello è temporaneamente non disponibile. Riprova più tardi.",
@@ -1634,6 +1640,7 @@
   "modelTier": {
     "title": "Modello",
     "uses": "Usa {{model}}",
+    "spaceModels": "Modelli dello spazio",
     "xl": {
       "label": "Ultra",
       "description": "Capacità massima per lavori impegnativi e ad alto rischio."
@@ -1832,5 +1839,13 @@
       "summaryTitle": "Teable",
       "summary": "{{count}} conversazioni hanno novità."
     }
+  },
+  "cookieConsent": {
+    "title": "Consenso ai cookie",
+    "body": "Utilizziamo cookie e tecnologie simili per capire come viene usato Teable, migliorare la tua esperienza e misurare il nostro marketing.",
+    "accept": "Accetta tutto",
+    "reject": "Rifiuta tutto",
+    "policy": "Cookie Policy",
+    "settings": "Impostazioni cookie"
   }
 }

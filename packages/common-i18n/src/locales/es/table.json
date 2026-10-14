@@ -1125,14 +1125,6 @@
     "collapseAllGroups": "Colapsar todos los grupos",
     "addToChat": "Añadir al chat"
   },
-  "connection": {
-    "title": "Conexiones",
-    "description": "Puede acceder a la base de datos directamente a través de la conexión de la base de datos, incluidas todas las tablas bajo el proyecto actual",
-    "noPermission": "No tiene permiso para acceder a la base de datos",
-    "connectionCountTip": "El número máximo de conexiones a la base de datos es <b>{{max}}</b> y las conexiones actuales son <b>{{current}}</b>",
-    "createFailed": "Asegúrese de que la variable de entorno public_database_proxy esté configurada correctamente",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "Agregar registro",
     "searchView": "Vista de búsqueda ...",
@@ -1500,6 +1492,8 @@
       "submit": "Enviar"
     },
     "newChat": "Nuevo chat",
+    "alreadyInNewChat": "Ya estás en un chat nuevo",
+    "initChatFailed": "No se pudo inicializar el chat",
     "clearChat": "Borrar chat",
     "expand": "Expandir",
     "history": "Historial",
@@ -1536,8 +1530,11 @@
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
     "pin": "Fijar",
     "unpin": "Dejar de fijar",
+    "markRead": "Marcar como leído",
+    "markUnread": "Marcar como no leído",
+    "markAllRead": "Marcar todo como leído ({{count}})",
     "archive": "Archivar",
-    "archivedToast": "Chat archivado. Lo encontrarás en Ajustes › Chats archivados.",
+    "archivedToast": "Chat archivado",
     "unread": "Sin leer",
     "timeGroup": {
       "pinned": "Fijados",
@@ -1690,7 +1687,6 @@
       "pausedHidden": "Reintento en pausa: abre esta pestaña para reconectar.",
       "maxAttemptsReached": "No se pudo reconectar automáticamente. Actualiza la página manualmente."
     },
-    "initChatFailed": "No se pudo inicializar el chat",
     "app": {
       "loadingChatHistory": "Cargando el historial del chat...",
       "generatorTitle": "Generador de apps con IA",
@@ -1752,6 +1748,58 @@
         "stale": "Requiere reconstrucción",
         "unknown": "Desconocido"
       }
+    },
+    "moveToBase": {
+      "menu": "Mover",
+      "title": "Mover \"{{name}}\" a otro proyecto",
+      "confirm": "Mover",
+      "targetLabel": "Proyecto de destino",
+      "targetPlaceholder": "Selecciona un proyecto",
+      "noTarget": "Ningún otro proyecto de este espacio admite este nodo.",
+      "checking": "Comprobando a qué afecta este traslado…",
+      "blockers": {
+        "same_base": "El nodo ya está en este proyecto.",
+        "target_not_found": "El proyecto de destino ya no existe.",
+        "different_space": "Los nodos solo se pueden mover entre proyectos del mismo espacio.",
+        "v2_mismatch": "Los dos proyectos usan versiones distintas del motor de almacenamiento.",
+        "source_not_writable": "Este proyecto es de solo lectura en este momento.",
+        "target_not_writable": "El proyecto de destino es de solo lectura en este momento.",
+        "no_source_permission": "No puedes quitar este nodo del proyecto actual.",
+        "no_target_permission": "No puedes crear este tipo de nodo en el proyecto de destino.",
+        "folder_name_conflict": "Ya existe una carpeta con el mismo nombre en el proyecto de destino.",
+        "unsupported_resource": "Este tipo de nodo todavía no se puede mover.",
+        "pending_computed_tasks": "Todavía se están ejecutando cálculos en esta tabla. Inténtalo de nuevo en un momento.",
+        "unknown": "Este traslado no está permitido."
+      },
+      "movingCount_one": "Se moverá {{count}} nodo",
+      "movingCount_many": "Se moverán {{count}} nodos",
+      "movingCount_other": "Se moverán {{count}} nodos",
+      "moveClosure": "Mover todo lo referenciado",
+      "moveClosureHint": "Solo se mueven los nodos referenciados. Las tablas enlazadas se quedan donde están; sus enlaces pasan simplemente a abarcar dos proyectos y siguen funcionando.",
+      "breakingCount_one": "{{count}} elemento puede dejar de funcionar tras el traslado",
+      "breakingCount_many": "{{count}} elementos pueden dejar de funcionar tras el traslado",
+      "breakingCount_other": "{{count}} elementos pueden dejar de funcionar tras el traslado",
+      "occurrences_one": "{{count}} lugar",
+      "occurrences_many": "{{count}} lugares",
+      "occurrences_other": "{{count}} lugares",
+      "uninspectableTitle_one": "No se pudo revisar {{count}} aplicación; compruébala tras el traslado",
+      "uninspectableTitle_many": "No se pudieron revisar {{count}} aplicaciones; compruébalas tras el traslado",
+      "uninspectableTitle_other": "No se pudieron revisar {{count}} aplicaciones; compruébalas tras el traslado",
+      "droppedRules_one": "Se eliminará {{count}} regla de permisos",
+      "droppedRules_many": "Se eliminarán {{count}} reglas de permisos",
+      "droppedRules_other": "Se eliminarán {{count}} reglas de permisos",
+      "droppedRulesDetail": "Estas reglas están vinculadas a los nodos que se mueven; en su lugar se aplica la configuración de permisos del proyecto de destino.",
+      "successTitle": "Trasladado",
+      "successDescription": "\"{{name}}\" ya está en {{baseName}}.",
+      "open": "Abrir",
+      "appEmbeddedId_one": "{{count}} aplicación menciona el proyecto anterior en su código; actualízala por tu cuenta",
+      "appEmbeddedId_many": "{{count}} aplicaciones mencionan el proyecto anterior en su código; actualízalas por tu cuenta",
+      "appEmbeddedId_other": "{{count}} aplicaciones mencionan el proyecto anterior en su código; actualízalas por tu cuenta",
+      "appEmbeddedIdDetail": "{{apps}}. Su código se deja exactamente como está escrito; abre cada una después del traslado y actualízala, o seguirá leyendo el proyecto del que salió.",
+      "referencesLabel": "Referencias",
+      "linkedAcrossProjects_one": "{{count}} tabla quedará enlazada entre dos proyectos",
+      "linkedAcrossProjects_many": "{{count}} tablas quedarán enlazadas entre dos proyectos",
+      "linkedAcrossProjects_other": "{{count}} tablas quedarán enlazadas entre dos proyectos"
     }
   }
 }

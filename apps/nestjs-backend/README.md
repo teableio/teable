@@ -17,3 +17,12 @@ values underneath the live document and need `null` to override older values.
 
 Regression coverage: `test/record-socket-gap-recovery.e2e-spec.ts` exercises a
 retained document after unlinking, and bulk recovery of an entirely empty record.
+
+## Attachment write validation
+
+V2 attachment uploads and inserts reject computed fields before checking their
+attachment type. This preserves the read-only rejection for system fields such as
+created time without uploading a file or changing the cell. Writable non-attachment
+fields retain their type error; valid attachment writes still append to existing files.
+Regression coverage: `test/attachment.e2e-spec.ts` exercises multipart uploads,
+attachment inserts, unchanged stored values, and successful attachment appends.

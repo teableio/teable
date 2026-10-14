@@ -41,6 +41,7 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import type {
   DynamicDB,
@@ -78,27 +79,26 @@ const fieldTracksAll = (field: object): boolean =>
     ? field.isTrackAll() === true
     : false;
 
-type FieldSourceField = {
-  type: () => FieldType;
-  dbFieldName: () => Result<{ value: () => Result<string, DomainError> }, DomainError>;
-};
-
 type FieldSourceLayout =
   | { kind: 'column'; column: string }
   | { kind: 'createdBy'; snapshotColumn: string }
   | { kind: 'lastModifiedBy'; snapshotColumn: string; trackAll: boolean };
 
-const resolveFieldSourceLayout = (
-  field: FieldSourceField
-): Result<FieldSourceLayout, DomainError> => {
+const resolveFieldSourceLayout = (field: Field): Result<FieldSourceLayout, DomainError> => {
   if (field.type().equals(FieldType.autoNumber())) {
     return ok({ kind: 'column', column: '__auto_number' });
   }
   if (field.type().equals(FieldType.createdTime())) {
     return ok({ kind: 'column', column: '__created_time' });
   }
-  if (field.type().equals(FieldType.lastModifiedTime()) && fieldTracksAll(field)) {
-    return ok({ kind: 'column', column: '__last_modified_time' });
+  if (field.type().equals(FieldType.lastModifiedTime())) {
+    return isPersistedAsGeneratedColumn(field).andThen((generated) =>
+      generated
+        ? ok({ kind: 'column' as const, column: '__last_modified_time' })
+        : field
+            .dbFieldName()
+            .andThen((name) => name.value().map((column) => ({ kind: 'column' as const, column })))
+    );
   }
   return field.dbFieldName().andThen((dbFieldName) =>
     dbFieldName.value().map((columnName) => {
@@ -2804,7 +2804,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   private getFieldSourceExpr(
-    field: FieldSourceField,
+    field: Field,
     tableAlias: string
   ): Result<{ expr: RawBuilder<unknown>; isJsonbStorage?: boolean }, DomainError> {
     return resolveFieldSourceLayout(field).map((layout) => {
@@ -3709,13 +3709,14 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               ? field.isTrackAll() === true
               : true;
           if (fieldType.equals(FieldType.lastModifiedTime())) {
-            if (isTrackAll) {
-              return ok({ column: '__last_modified_time' });
-            }
-            return field
-              .dbFieldName()
-              .andThen((dbFieldName) => dbFieldName.value())
-              .map((column) => ({ column }));
+            return isPersistedAsGeneratedColumn(field).andThen((generated) =>
+              generated
+                ? ok({ column: '__last_modified_time' })
+                : field
+                    .dbFieldName()
+                    .andThen((dbFieldName) => dbFieldName.value())
+                    .map((column) => ({ column }))
+            );
           }
           if (fieldType.equals(FieldType.createdBy())) {
             return ok({

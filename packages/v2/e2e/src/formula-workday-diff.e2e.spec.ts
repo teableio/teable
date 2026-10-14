@@ -4,180 +4,106 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 const toNumber = (value: unknown): number => {
+  expect(value).not.toBeNull();
+  expect(value).not.toBeUndefined();
   const parsed = typeof value === 'number' ? value : Number(value);
   expect(Number.isFinite(parsed)).toBe(true);
   return parsed;
 };
 
-describe('v2 http formula WORKDAY_DIFF (e2e)', () => {
+describe('[C08] v2 http formula WORKDAY_DIFF (e2e)', () => {
   let ctx: SharedTestContext;
-
-  const uniqueName = (prefix: string) =>
-    `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   beforeAll(async () => {
     ctx = await getSharedTestContext();
   }, 30000);
 
-  it('excludes weekends, supports holiday list, and differs from DATETIME_DIFF across weekends', async () => {
+  it('includes both workday endpoints for same-day, weekend and reverse ranges', async () => {
     const table = await ctx.createTable({
       baseId: ctx.baseId,
-      name: uniqueName('formula-workday-diff'),
+      name: 'Inclusive workdays',
       fields: [
         { type: 'singleLineText', name: 'Name', isPrimary: true },
-        { type: 'date', name: 'StartDate' },
-        { type: 'date', name: 'EndDate' },
+        {
+          type: 'date',
+          name: 'Start',
+          options: { formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' } },
+        },
+        {
+          type: 'date',
+          name: 'End',
+          options: { formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' } },
+        },
       ],
       views: [{ type: 'grid' }],
     });
-
-    const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
-    const startDateFieldId = table.fields.find((field) => field.name === 'StartDate')?.id ?? '';
-    const endDateFieldId = table.fields.find((field) => field.name === 'EndDate')?.id ?? '';
-
-    let latestTable = await ctx.createField({
-      baseId: ctx.baseId,
-      tableId: table.id,
-      field: {
-        type: 'formula',
-        name: 'CalendarDiff',
-        options: {
-          expression: `DATETIME_DIFF({${endDateFieldId}}, {${startDateFieldId}}, "day")`,
-          timeZone: 'utc',
-        },
-      },
-    });
-
-    latestTable = await ctx.createField({
-      baseId: ctx.baseId,
-      tableId: table.id,
-      field: {
-        type: 'formula',
-        name: 'WorkdayDiff',
-        options: {
-          expression: `WORKDAY_DIFF({${startDateFieldId}}, {${endDateFieldId}})`,
-          timeZone: 'utc',
-        },
-      },
-    });
-
-    latestTable = await ctx.createField({
-      baseId: ctx.baseId,
-      tableId: table.id,
-      field: {
-        type: 'formula',
-        name: 'WorkdayDiffHoliday',
-        options: {
-          expression: `WORKDAY_DIFF({${startDateFieldId}}, {${endDateFieldId}}, "2026-02-24")`,
-          timeZone: 'utc',
-        },
-      },
-    });
-
-    latestTable = await ctx.createField({
-      baseId: ctx.baseId,
-      tableId: table.id,
-      field: {
-        type: 'formula',
-        name: 'WorkdayInverse',
-        options: {
-          expression: `WORKDAY_DIFF({${startDateFieldId}}, WORKDAY({${startDateFieldId}}, 5))`,
-          timeZone: 'utc',
-        },
-      },
-    });
-
-    const calendarDiffFieldId = latestTable.fields.find(
-      (field) => field.name === 'CalendarDiff'
-    )?.id;
-    const workdayDiffFieldId = latestTable.fields.find((field) => field.name === 'WorkdayDiff')?.id;
-    const workdayDiffHolidayFieldId = latestTable.fields.find(
-      (field) => field.name === 'WorkdayDiffHoliday'
-    )?.id;
-    const workdayInverseFieldId = latestTable.fields.find(
-      (field) => field.name === 'WorkdayInverse'
-    )?.id;
-
-    expect(calendarDiffFieldId).toBeTruthy();
-    expect(workdayDiffFieldId).toBeTruthy();
-    expect(workdayDiffHolidayFieldId).toBeTruthy();
-    expect(workdayInverseFieldId).toBeTruthy();
-    if (
-      !calendarDiffFieldId ||
-      !workdayDiffFieldId ||
-      !workdayDiffHolidayFieldId ||
-      !workdayInverseFieldId
-    ) {
-      return;
+    const nameId = table.fields.find((field) => field.isPrimary)!.id;
+    const startId = table.fields.find((field) => field.name === 'Start')!.id;
+    const endId = table.fields.find((field) => field.name === 'End')!.id;
+    const formulas = [
+      ['Workdays', `WORKDAY_DIFF({${startId}}, {${endId}})`],
+      ['CalendarDays', `DATETIME_DIFF({${endId}}, {${startId}}, "day")`],
+      [
+        'WithHolidays',
+        `WORKDAY_DIFF({${startId}}, {${endId}}, "2026-03-09,2026-03-09,2026-03-13,2026-03-14")`,
+      ],
+      ['OffsetCount', `WORKDAY_DIFF({${startId}}, WORKDAY({${startId}}, 5))`],
+    ];
+    const formulaIds: Record<string, string> = {};
+    for (const [name, expression] of formulas) {
+      const updated = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: { type: 'formula', name, options: { expression, timeZone: 'Asia/Singapore' } },
+      });
+      formulaIds[name] = updated.fields.find((field) => field.name === name)!.id;
     }
 
-    await ctx.createRecord(table.id, {
-      [nameFieldId]: 'MonToFri',
-      [startDateFieldId]: '2026-02-23',
-      [endDateFieldId]: '2026-02-27',
-    });
-    await ctx.createRecord(table.id, {
-      [nameFieldId]: 'MonToNextMon',
-      [startDateFieldId]: '2026-02-23',
-      [endDateFieldId]: '2026-03-02',
-    });
-    await ctx.createRecord(table.id, {
-      [nameFieldId]: 'FriToMon',
-      [startDateFieldId]: '2026-02-27',
-      [endDateFieldId]: '2026-03-02',
-    });
-    await ctx.createRecord(table.id, {
-      [nameFieldId]: 'SatToSun',
-      [startDateFieldId]: '2026-02-28',
-      [endDateFieldId]: '2026-03-01',
-    });
-    await ctx.createRecord(table.id, {
-      [nameFieldId]: 'ReverseMonRange',
-      [startDateFieldId]: '2026-03-02',
-      [endDateFieldId]: '2026-02-23',
-    });
-
-    await ctx.drainOutbox();
-
-    const records = await ctx.listRecords(table.id);
-    const byName = (name: string) => records.find((record) => record.fields[nameFieldId] === name);
-
-    const monToFri = byName('MonToFri');
-    const monToNextMon = byName('MonToNextMon');
-    const friToMon = byName('FriToMon');
-    const satToSun = byName('SatToSun');
-    const reverseMonRange = byName('ReverseMonRange');
-
-    expect(monToFri).toBeDefined();
-    expect(monToNextMon).toBeDefined();
-    expect(friToMon).toBeDefined();
-    expect(satToSun).toBeDefined();
-    expect(reverseMonRange).toBeDefined();
-    if (!monToFri || !monToNextMon || !friToMon || !satToSun || !reverseMonRange) return;
-
-    expect(toNumber(monToFri.fields[calendarDiffFieldId])).toBe(4);
-    expect(toNumber(monToFri.fields[workdayDiffFieldId])).toBe(4);
-    expect(toNumber(monToFri.fields[workdayDiffHolidayFieldId])).toBe(3);
-
-    expect(toNumber(monToNextMon.fields[calendarDiffFieldId])).toBe(7);
-    expect(toNumber(monToNextMon.fields[workdayDiffFieldId])).toBe(5);
-    expect(toNumber(monToNextMon.fields[workdayDiffHolidayFieldId])).toBe(4);
-
-    expect(toNumber(friToMon.fields[calendarDiffFieldId])).toBe(3);
-    expect(toNumber(friToMon.fields[workdayDiffFieldId])).toBe(1);
-    expect(toNumber(friToMon.fields[workdayDiffHolidayFieldId])).toBe(1);
-
-    expect(toNumber(satToSun.fields[calendarDiffFieldId])).toBe(1);
-    expect(toNumber(satToSun.fields[workdayDiffFieldId])).toBe(0);
-    expect(toNumber(satToSun.fields[workdayDiffHolidayFieldId])).toBe(0);
-
-    expect(toNumber(reverseMonRange.fields[calendarDiffFieldId])).toBe(-7);
-    expect(toNumber(reverseMonRange.fields[workdayDiffFieldId])).toBe(-5);
-    expect(toNumber(reverseMonRange.fields[workdayDiffHolidayFieldId])).toBe(-4);
-
-    expect(toNumber(monToNextMon.fields[workdayInverseFieldId])).toBe(5);
-    expect(toNumber(monToNextMon.fields[workdayDiffFieldId])).toBeLessThan(
-      toNumber(monToNextMon.fields[calendarDiffFieldId])
+    const cases = [
+      { name: 'OneWeek', start: '2026-03-09', end: '2026-03-13', expected: 5 },
+      { name: 'TwoWeeks', start: '2026-03-09', end: '2026-03-20', expected: 10 },
+      { name: 'ThreeWeeks', start: '2026-03-09', end: '2026-03-27', expected: 15 },
+      { name: 'SameWeekday', start: '2026-03-09', end: '2026-03-09', expected: 1 },
+      { name: 'SameWeekend', start: '2026-03-14', end: '2026-03-14', expected: 0 },
+      { name: 'FridayToMonday', start: '2026-03-13', end: '2026-03-16', expected: 2 },
+      { name: 'OnlyWeekend', start: '2026-03-14', end: '2026-03-15', expected: 0 },
+      { name: 'MondayToMonday', start: '2026-03-09', end: '2026-03-16', expected: 6 },
+      { name: 'ReverseWeek', start: '2026-03-13', end: '2026-03-09', expected: -5 },
+    ];
+    await ctx.createRecords(
+      table.id,
+      cases.map(({ name, start, end }) => ({
+        fields: {
+          [nameId]: name,
+          [startId]: `${start}T00:00:00.000Z`,
+          [endId]: `${end}T00:00:00.000Z`,
+        },
+      }))
     );
+    await ctx.drainOutbox();
+    const records = await ctx.listRecords(table.id);
+    for (const testCase of cases) {
+      const record = records.find((row) => row.fields[nameId] === testCase.name)!;
+      expect(record, testCase.name).toBeDefined();
+      expect(toNumber(record.fields[formulaIds.Workdays]), testCase.name).toBe(testCase.expected);
+    }
+
+    const oneWeek = records.find((row) => row.fields[nameId] === 'OneWeek')!;
+    const sameDay = records.find((row) => row.fields[nameId] === 'SameWeekday')!;
+    const reverse = records.find((row) => row.fields[nameId] === 'ReverseWeek')!;
+    expect(toNumber(oneWeek.fields[formulaIds.CalendarDays])).toBe(4);
+    expect(toNumber(oneWeek.fields[formulaIds.WithHolidays])).toBe(3);
+    expect(toNumber(sameDay.fields[formulaIds.WithHolidays])).toBe(0);
+    expect(toNumber(reverse.fields[formulaIds.WithHolidays])).toBe(-3);
+    expect(toNumber(oneWeek.fields[formulaIds.OffsetCount])).toBe(6);
+
+    await ctx.updateRecord(table.id, oneWeek.id, {
+      [startId]: '2026-03-14T00:00:00.000Z',
+      [endId]: '2026-03-16T00:00:00.000Z',
+    });
+    await ctx.drainOutbox();
+    const updated = (await ctx.listRecords(table.id)).find((row) => row.id === oneWeek.id)!;
+    expect(toNumber(updated.fields[formulaIds.Workdays])).toBe(1);
+    expect(toNumber(updated.fields[formulaIds.WithHolidays])).toBe(1);
   });
 });

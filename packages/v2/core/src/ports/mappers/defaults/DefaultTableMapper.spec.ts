@@ -1121,6 +1121,78 @@ describe('DefaultTableMapper', () => {
     expect((persisted?.options as { timeZone?: string } | undefined)?.timeZone).toBeUndefined();
   });
 
+  it.each([
+    {
+      label: 'scalar ring',
+      multiple: false,
+      showAs: { type: 'ring', color: 'blue', showValue: true, maxValue: 100 },
+      retained: true,
+    },
+    {
+      label: 'scalar bar',
+      multiple: false,
+      showAs: { type: 'bar', color: 'blue', showValue: true, maxValue: 100 },
+      retained: true,
+    },
+    {
+      label: 'multiple ring',
+      multiple: true,
+      showAs: { type: 'ring', color: 'blue', showValue: true, maxValue: 100 },
+      retained: false,
+    },
+    {
+      label: 'multiple scalar bar',
+      multiple: true,
+      showAs: { type: 'bar', color: 'blue', showValue: true, maxValue: 100 },
+      retained: false,
+    },
+    {
+      label: 'multiple bar',
+      multiple: true,
+      showAs: { type: 'bar', color: 'blue' },
+      retained: true,
+    },
+    {
+      label: 'multiple line',
+      multiple: true,
+      showAs: { type: 'line', color: 'blue' },
+      retained: true,
+    },
+  ] as const)('normalizes lookup display for $label (T7745)', ({ multiple, showAs, retained }) => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+    const lookupId = `fld${'q'.repeat(16)}`;
+    const formatting = { type: 'currency' as const, precision: 1, symbol: '¥' };
+    const table = mapper
+      .toDomain({
+        ...dto,
+        fields: [
+          ...dto.fields,
+          {
+            id: lookupId,
+            name: 'Display Lookup',
+            type: 'number',
+            isLookup: true,
+            isComputed: true,
+            isMultipleCellValue: multiple,
+            cellValueType: 'number',
+            options: { formatting, showAs },
+            lookupOptions: {
+              foreignTableId: `tbl${'r'.repeat(16)}`,
+              linkFieldId: `fld${'s'.repeat(16)}`,
+              lookupFieldId: `fld${'t'.repeat(16)}`,
+            },
+          },
+        ],
+      })
+      ._unsafeUnwrap();
+    const persisted = mapper
+      .toDTO(table)
+      ._unsafeUnwrap()
+      .fields.find((field) => field.id === lookupId);
+    expect(persisted?.options).toEqual(retained ? { formatting, showAs } : { formatting });
+  });
+
   it('restores lookup display options patch after reload', () => {
     const mapper = new DefaultTableMapper();
     const dto = {

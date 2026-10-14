@@ -14,7 +14,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * Assertions intentionally re-read via getRecordById. Create/update response
  * bodies can echo request values and are not proof of storage.
  */
-describe('v2 rating typecast domain (e2e)', () => {
+describe('[F08] v2 rating typecast domain (e2e)', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let titleFieldId: string;

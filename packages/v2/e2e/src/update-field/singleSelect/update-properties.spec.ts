@@ -42,7 +42,7 @@ const getDomainEventName = (event: unknown): string | undefined => {
   return name.toString();
 };
 
-describe('update-field: singleSelect property updates', () => {
+describe('[D01][F05][S01] update-field: singleSelect property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

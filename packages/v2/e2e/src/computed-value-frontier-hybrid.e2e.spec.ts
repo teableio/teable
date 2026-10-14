@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+// [C14][S19] Computed dependency frontier: value propagation and the
+// convergence states a formula/lookup/rollup moves through. This file keeps its
+// cases at the top level, so the requirement IDs live here instead of in a
+// describe title.
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
@@ -53,6 +57,9 @@ const createHarness = async (
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {

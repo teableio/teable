@@ -3,8 +3,6 @@ import {
   SortFunc,
   clampConditionalLimit,
   normalizeConditionalLimit,
-  CONDITIONAL_QUERY_DEFAULT_LIMIT,
-  CONDITIONAL_QUERY_MAX_LIMIT,
 } from '@teable/core';
 import { FieldCommand, FieldSelector, OrderSelect } from '@teable/sdk';
 import { useFields } from '@teable/sdk/hooks';
@@ -23,21 +21,17 @@ export interface ISortOrderValue {
 interface ILinkedRecordSortLimitConfigProps {
   sort?: ISortOrderValue;
   limit?: number;
-  defaultLimit?: number;
   onSortChange: (sort?: ISortOrderValue) => void;
   onLimitChange: (limit?: number) => void;
   onDisable?: () => void;
   toggleTestId?: string;
 }
 
-const DEFAULT_LIMIT = CONDITIONAL_QUERY_DEFAULT_LIMIT;
-const MAX_LIMIT = CONDITIONAL_QUERY_MAX_LIMIT;
 const TOGGLE_FALLBACK_LIMIT = 1;
 
 export const LinkedRecordSortLimitConfig = ({
   sort,
   limit,
-  defaultLimit = DEFAULT_LIMIT,
   onSortChange,
   onLimitChange,
   onDisable,
@@ -49,7 +43,9 @@ export const LinkedRecordSortLimitConfig = ({
   const sortLabel = t('table:field.editor.conditionalLookup.sortLabel');
   const limitLabel = t('table:field.editor.conditionalLookup.limitLabel');
   const limitPlaceholder = t('table:field.editor.conditionalLookup.limitPlaceholder');
-  const limitHint = t('table:field.editor.conditionalLookup.limitHint', { limit: MAX_LIMIT });
+  const limitHint = t('table:field.editor.conditionalLookup.limitHint', {
+    limit: normalizeConditionalLimit(limit),
+  });
   const sortMissingTitle = t('table:field.editor.conditionalLookup.sortMissingWarningTitle');
   const sortMissingDescription = t(
     'table:field.editor.conditionalLookup.sortMissingWarningDescription'
@@ -100,16 +96,6 @@ export const LinkedRecordSortLimitConfig = ({
       setLocalOverride(checked);
 
       if (checked) {
-        if (limit == null) {
-          const baseDefault =
-            Number.isInteger(defaultLimit) && defaultLimit > 0 ? defaultLimit : DEFAULT_LIMIT;
-          const toggleDefault = baseDefault >= MAX_LIMIT ? TOGGLE_FALLBACK_LIMIT : baseDefault;
-          const normalizedDefault =
-            clampConditionalLimit(toggleDefault) ??
-            normalizeConditionalLimit(TOGGLE_FALLBACK_LIMIT);
-          setLimitDraft(String(normalizedDefault));
-          onLimitChange(normalizedDefault);
-        }
         return;
       }
 
@@ -121,7 +107,7 @@ export const LinkedRecordSortLimitConfig = ({
       onSortChange(undefined);
       onLimitChange(undefined);
     },
-    [defaultLimit, limit, onDisable, onLimitChange, onSortChange]
+    [onDisable, onLimitChange, onSortChange]
   );
 
   const handleSortFieldChange = useCallback(
@@ -153,6 +139,7 @@ export const LinkedRecordSortLimitConfig = ({
       }
 
       if (value === '') {
+        setLocalOverride(true);
         setLimitDraft('');
         onLimitChange(undefined);
         return;

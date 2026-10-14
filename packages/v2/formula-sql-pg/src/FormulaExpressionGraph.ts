@@ -5,6 +5,7 @@ import type { SqlExpr } from './SqlExpression';
 
 export type FormulaExpressionNode = {
   readonly id: number;
+  readonly timeZone?: string;
 } & (
   | { readonly kind: 'leaf'; readonly expression: SqlExpr }
   | { readonly kind: 'field'; readonly field: Field; readonly value: FormulaExpressionNode }
@@ -62,10 +63,12 @@ export class FormulaExpressionGraph {
   }
 
   private key(node: NodeInput): string {
+    const timeZone = node.timeZone ?? '';
     switch (node.kind) {
       case 'leaf':
         return this.budget.json([
           'leaf',
+          timeZone,
           node.expression.valueSql,
           node.expression.valueType,
           node.expression.isArray,
@@ -76,15 +79,15 @@ export class FormulaExpressionGraph {
           node.expression.field?.id().toString(),
         ]);
       case 'field':
-        return this.budget.json(['field', node.field.id().toString(), node.value.id]);
+        return this.budget.json(['field', timeZone, node.field.id().toString(), node.value.id]);
       case 'unary':
-        return this.budget.json(['unary', node.operator, node.operand.id]);
+        return this.budget.json(['unary', timeZone, node.operator, node.operand.id]);
       case 'binary':
-        return this.budget.json(['binary', node.operator, node.left.id, node.right.id]);
+        return this.budget.json(['binary', timeZone, node.operator, node.left.id, node.right.id]);
       case 'call':
         // The supported formula functions are deterministic or statement-stable
         // (NOW/TODAY). A future volatile function must opt out of interning here.
-        return this.budget.json(['call', node.name, node.args.map((arg) => arg.id)]);
+        return this.budget.json(['call', timeZone, node.name, node.args.map((arg) => arg.id)]);
     }
   }
 }

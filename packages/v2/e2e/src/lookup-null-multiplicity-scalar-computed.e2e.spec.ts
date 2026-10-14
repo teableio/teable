@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('lookup NULL multiplicity scalar computed (e2e)', () => {
+describe('[F21] lookup NULL multiplicity scalar computed (e2e)', () => {
   let ctx: SharedTestContext;
   let foreignTableId: string | undefined;
   let hostTableId: string | undefined;

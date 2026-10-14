@@ -6,6 +6,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Field visitor interfaces and default implementations.
 - Enable subtype-specific dispatch logic.
+- Button record writes validate integer `{ count }` values and persist them through
+  `SetButtonValueSpec`; they do not invoke the button-click workflow or enforce its click limit.
+  The Postgres insert and batch-update visitors serialize the same cell as JSON,
+  including an explicit JSONB cast for batch SQL literals.
 
 ## Files
 

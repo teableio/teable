@@ -52,7 +52,7 @@ const getBatchChangedFieldIds = (event: unknown): string[] => {
   return changedFieldIds;
 };
 
-describe('update-field: formula property updates', () => {
+describe('[D01][S01] update-field: formula property updates', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

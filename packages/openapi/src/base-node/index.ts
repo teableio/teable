@@ -3,6 +3,7 @@ export * from './get';
 export * from './get-tree';
 export * from './get-list';
 export * from './move';
+export * from './move-check';
 export * from './create';
 export * from './duplicate';
 export * from './update';

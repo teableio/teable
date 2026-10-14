@@ -58,6 +58,9 @@ const createHarness = async (
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -197,7 +200,7 @@ const work = (harness: TestHarness, tableId: string) => {
   };
 };
 
-describe('stage-final actual value frontier through the production worker', () => {
+describe('[C14][S19] stage-final actual value frontier through the production worker', () => {
   it.each([false, true])(
     'preserves mixed-row values and versions (tiny dirty budget=%s)',
     async (tinyBudget) => {

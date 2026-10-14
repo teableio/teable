@@ -3,8 +3,6 @@ import { sqlText, type FormulaCompileBudget } from '@teable/v2-formula-sql-pg';
 import { sql, type RawBuilder } from 'kysely';
 import { ok, type Result } from 'neverthrow';
 
-import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
-
 type InnerFieldHost = Field & {
   innerField?: () => Result<Field, DomainError>;
 };
@@ -107,18 +105,15 @@ const buildActorAwareFallbackObjectExpr = (
 
   const actorTitle = actorFallback.actorName ?? actorFallback.actorId;
   const actorEmail = actorFallback.actorEmail ?? null;
-  const actorAvatarUrl = buildUserAvatarUrl(actorFallback.actorId);
   const actorIdExpr = sql`${actorFallback.actorId}::text`;
   const actorTitleExpr = sql`${actorTitle}::text`;
   const actorEmailExpr = actorEmail == null ? sql`NULL::text` : sql`${actorEmail}::text`;
-  const actorAvatarUrlExpr = sql`${actorAvatarUrl}::text`;
 
   return sql`CASE
     WHEN ${fallbackExpr} = ${actorIdExpr} THEN jsonb_build_object(
       'id', ${actorIdExpr},
       'title', ${actorTitleExpr},
-      'email', ${actorEmailExpr},
-      'avatarUrl', ${actorAvatarUrlExpr}
+      'email', ${actorEmailExpr}
     )
     ELSE jsonb_build_object('id', ${fallbackExpr}, 'title', ${fallbackExpr})
   END`;
@@ -185,8 +180,7 @@ export const buildUserJsonObjectFromSnapshotWithLookupExpr = (
     SELECT jsonb_strip_nulls(jsonb_build_object(
       'id', u.id,
       'title', COALESCE(u.name, u.id),
-      'email', u.email,
-      'avatarUrl', '/api/attachments/read/public/avatar/'::text || u.id
+      'email', u.email
     ))
     FROM public.users u
     WHERE u.id = ${idFallbackExpr}::text
@@ -210,15 +204,14 @@ export const buildUserJsonObjectFromSnapshotWithLookupExpr = (
           ${snapshotObject}->>'id',
           ${idFallbackExpr}
         ),
-        'email', COALESCE(${snapshotObject}->>'email', ${lookupObject}->>'email'),
-        'avatarUrl', COALESCE(${snapshotObject}->>'avatarUrl', ${lookupObject}->>'avatarUrl')
+        'email', COALESCE(${snapshotObject}->>'email', ${lookupObject}->>'email')
       )
     END
   )`;
 };
 
-// User cells persist the collaborator snapshot taken at write time (email,
-// avatarUrl, ...), so grouping by the raw column splits one collaborator into
+// User cells persist the collaborator snapshot taken at write time (email and,
+// in historical cells, avatarUrl), so grouping by the raw column splits one collaborator into
 // one bucket per snapshot generation. This expression reduces a cell to its
 // presentation identity (id + title), matching the header walk in
 // record-open-api-v2's buildGroupQueryExtra. Legacy scalar cells that store a

@@ -27,6 +27,8 @@
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-e2e.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-e2e": "vitest run --silent --bail 1",
+    "traceability:check": "node scripts/refresh-requirement-case-ids.mjs --check",
+    "traceability:refresh": "node scripts/refresh-requirement-case-ids.mjs",
     "test-unit": "pnpm test-e2e",
     "test-unit-cover": "vitest run --silent --coverage --bail 1",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"

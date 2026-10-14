@@ -1120,14 +1120,6 @@
     "collapseAllGroups": "Alle Gruppen einklappen",
     "addToChat": "Zum Chat hinzufügen"
   },
-  "connection": {
-    "title": "Datenbankverbindung",
-    "description": "Sie können über die Datenbankverbindung direkt auf die Datenbank zugreifen, einschließlich aller Tabellen im aktuellen Projekt",
-    "noPermission": "Sie haben keine Berechtigung zum Zugriff auf die Datenbank",
-    "connectionCountTip": "Die maximale Anzahl von Datenbankverbindungen beträgt <b>{{max}}</b> und die aktuellen Verbindungen sind <b>{{current}}</b>",
-    "createFailed": "Bitte stellen Sie sicher, dass die Umgebungsvariable PUBLIC_DATABASE_PROXY korrekt gesetzt ist",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "Datensatz hinzufügen",
     "searchView": "Ansicht durchsuchen...",
@@ -1481,6 +1473,8 @@
       "submit": "Abschicken"
     },
     "newChat": "Neue Chat",
+    "alreadyInNewChat": "Du bist bereits in einem neuen Chat",
+    "initChatFailed": "Chat konnte nicht initialisiert werden",
     "clearChat": "Chat leeren",
     "expand": "Erweitern",
     "history": "Verlauf",
@@ -1516,8 +1510,11 @@
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
     "pin": "Anheften",
     "unpin": "Loslösen",
+    "markRead": "Als gelesen markieren",
+    "markUnread": "Als ungelesen markieren",
+    "markAllRead": "Alle als gelesen markieren ({{count}})",
     "archive": "Archivieren",
-    "archivedToast": "Chat archiviert. Zu finden unter Einstellungen › Archivierte Chats.",
+    "archivedToast": "Chat archiviert",
     "unread": "Ungelesen",
     "timeGroup": {
       "pinned": "Angeheftet",
@@ -1668,7 +1665,6 @@
       "pausedHidden": "Wiederholung pausiert – öffnen Sie diesen Tab, um die Verbindung wiederherzustellen.",
       "maxAttemptsReached": "Automatische Wiederverbindung fehlgeschlagen. Bitte laden Sie die Seite manuell neu."
     },
-    "initChatFailed": "Chat konnte nicht initialisiert werden",
     "app": {
       "loadingChatHistory": "Chatverlauf wird geladen...",
       "generatorTitle": "KI-App-Generator",
@@ -1730,6 +1726,51 @@
         "stale": "Neuaufbau erforderlich",
         "unknown": "Unbekannt"
       }
+    },
+    "moveToBase": {
+      "menu": "Verschieben",
+      "title": "„{{name}}“ in ein anderes Projekt verschieben",
+      "confirm": "Verschieben",
+      "targetLabel": "Zielprojekt",
+      "targetPlaceholder": "Projekt auswählen",
+      "noTarget": "Kein anderes Projekt in diesem Space kann diesen Knoten aufnehmen.",
+      "checking": "Auswirkungen dieser Verschiebung werden geprüft…",
+      "blockers": {
+        "same_base": "Der Knoten befindet sich bereits in diesem Projekt.",
+        "target_not_found": "Das Zielprojekt existiert nicht mehr.",
+        "different_space": "Knoten können nur zwischen Projekten desselben Space verschoben werden.",
+        "v2_mismatch": "Die beiden Projekte verwenden unterschiedliche Versionen der Speicher-Engine.",
+        "source_not_writable": "Dieses Projekt ist derzeit schreibgeschützt.",
+        "target_not_writable": "Das Zielprojekt ist derzeit schreibgeschützt.",
+        "no_source_permission": "Sie können diesen Knoten nicht aus dem aktuellen Projekt entfernen.",
+        "no_target_permission": "Sie können diese Art von Knoten im Zielprojekt nicht erstellen.",
+        "folder_name_conflict": "Im Zielprojekt existiert bereits ein Ordner mit demselben Namen.",
+        "unsupported_resource": "Diese Art von Knoten kann noch nicht verschoben werden.",
+        "pending_computed_tasks": "Für diese Tabelle laufen noch Berechnungen. Bitte versuchen Sie es gleich erneut.",
+        "unknown": "Diese Verschiebung ist nicht zulässig."
+      },
+      "movingCount_one": "{{count}} Knoten wird verschoben",
+      "movingCount_other": "{{count}} Knoten werden verschoben",
+      "moveClosure": "Alles Referenzierte mitverschieben",
+      "moveClosureHint": "Nur referenzierte Knoten werden mitverschoben. Verknüpfte Tabellen bleiben, wo sie sind; ihre Verknüpfungen reichen danach einfach über zwei Projekte und funktionieren weiterhin.",
+      "breakingCount_one": "{{count}} Element funktioniert nach dem Verschieben möglicherweise nicht mehr",
+      "breakingCount_other": "{{count}} Elemente funktionieren nach dem Verschieben möglicherweise nicht mehr",
+      "occurrences_one": "{{count}} Stelle",
+      "occurrences_other": "{{count}} Stellen",
+      "uninspectableTitle_one": "{{count}} App konnte nicht geprüft werden; nach dem Verschieben selbst prüfen",
+      "uninspectableTitle_other": "{{count}} Apps konnten nicht geprüft werden; nach dem Verschieben selbst prüfen",
+      "droppedRules_one": "{{count}} Berechtigungsregel wird entfernt",
+      "droppedRules_other": "{{count}} Berechtigungsregeln werden entfernt",
+      "droppedRulesDetail": "Diese Regeln sind an die verschobenen Knoten gebunden; stattdessen gelten die Berechtigungseinstellungen des Zielprojekts.",
+      "successTitle": "Verschoben",
+      "successDescription": "„{{name}}“ befindet sich jetzt in {{baseName}}.",
+      "open": "Öffnen",
+      "appEmbeddedId_one": "{{count}} App nennt das alte Projekt in ihrem Code; bitte selbst aktualisieren",
+      "appEmbeddedId_other": "{{count}} Apps nennen das alte Projekt in ihrem Code; bitte selbst aktualisieren",
+      "appEmbeddedIdDetail": "{{apps}}. Der Code bleibt genau so, wie er geschrieben ist; jede App nach dem Verschieben öffnen und aktualisieren, sonst liest sie weiterhin das Projekt, das sie verlassen hat.",
+      "referencesLabel": "Referenzen",
+      "linkedAcrossProjects_one": "{{count}} Tabelle wird projektübergreifend verknüpft",
+      "linkedAcrossProjects_other": "{{count}} Tabellen werden projektübergreifend verknüpft"
     }
   }
 }

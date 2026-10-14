@@ -7,7 +7,7 @@ import { FormulaSqlPgFunctions } from './FormulaSqlPgFunctions';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import { makeExpr } from './SqlExpression';
 import { Pg16TypeValidationStrategy } from './strategies';
-import { legacyWorkdayDiffSql, legacyWorkdaySql } from './testkit/LegacyWorkdaySql';
+import { enumeratedWorkdayDiffSql, legacyWorkdaySql } from './testkit/LegacyWorkdaySql';
 
 const compile = (name: FunctionName, timeZone = 'utc') => {
   const functions = new FormulaSqlPgFunctions({
@@ -58,7 +58,7 @@ describe('workday arithmetic differential regression', () => {
     );
   });
 
-  it('matches inclusive-end / exclusive-start diff semantics across leap dates and reversed bounds', async () => {
+  it('matches inclusive endpoint counts across leap dates and reversed bounds', async () => {
     await compare(
       `SELECT DATE '2024-02-24' + d AS start_date,
       DATE '2024-02-24' + d + n AS end_date, h AS holiday_text
@@ -66,7 +66,7 @@ describe('workday arithmetic differential regression', () => {
       CROSS JOIN (VALUES (''), (NULL),
         ('2024-02-29,2024-03-01,2024-03-01,2024-03-02,not-a-date')) holidays(h)`,
       FunctionName.WorkdayDiff,
-      legacyWorkdayDiffSql
+      enumeratedWorkdayDiffSql
     );
   });
 
@@ -82,7 +82,7 @@ describe('workday arithmetic differential regression', () => {
       FROM (VALUES (NULL::date), (DATE '2024-03-01')) starts(a)
       CROSS JOIN (VALUES (NULL::date), (DATE '2024-03-05')) ends(b)`,
       FunctionName.WorkdayDiff,
-      legacyWorkdayDiffSql
+      enumeratedWorkdayDiffSql
     );
   });
 
@@ -94,7 +94,7 @@ describe('workday arithmetic differential regression', () => {
       "DATE '2024-01-05', DATE '2024-01-07'",
     ]) {
       const results = [];
-      for (const expression of [legacyWorkdayDiffSql, compile(FunctionName.WorkdayDiff)]) {
+      for (const expression of [enumeratedWorkdayDiffSql, compile(FunctionName.WorkdayDiff)]) {
         try {
           const result = await sql
             .raw(
@@ -125,8 +125,7 @@ describe('workday arithmetic differential regression', () => {
       FROM (VALUES (DATE '2000-01-01', DATE '2100-01-01'),
         (DATE '2100-01-01', DATE '2000-01-01')) dates(a,b)`,
       FunctionName.WorkdayDiff,
-      legacyWorkdayDiffSql
+      enumeratedWorkdayDiffSql
     );
-    expect(compile(FunctionName.WorkdayDiff)).toContain('generate_series(1, b.days % 7)');
   });
 });

@@ -401,7 +401,6 @@
       "baseInviteEmail": "プロジェクトにメールで招待",
       "baseInviteLink": "プロジェクトにリンクで招待",
       "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
-      "baseDbConnect": "データベースに接続",
       "tableCreate": "テーブルの作成",
       "tableRead": "テーブルを読み取り",
       "tableDelete": "テーブルを削除",
@@ -1098,15 +1097,11 @@
       "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "不明なデータセット：{{datasetId}}",
       "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
       "triggerFailed": "スクレイプトリガーに失敗しました：{{detail}}",
-      "snapshotError": "スクレイプスナップショットエラー：{{detail}}",
-      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました",
       "catalogFailed": "スクレイプカタログのリクエストに失敗しました：{{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy は生のデータセット ID にのみ適用され、{{datasetId}} には使えません",
-      "tooManyRecords": "このスクレイプは最大 {{estimated}} 件を返すため、1 回あたりの上限 {{max}} 件を超えています",
-      "creditEstimateExceeded": "このスクレイプの推定クレジットが現在利用可能な量を超えています"
+      "creditEstimateExceeded": "このスクレイプの推定クレジットが現在利用可能な量を超えています",
+      "runOverLimit": "このスクレイプは最大 {{maxCredits}} クレジットを消費する可能性があり、1回の実行で許可される上限の {{limit}} クレジットを超えています。"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
@@ -1152,7 +1147,9 @@
       "folderDepthLimitExceeded": "フォルダーの深さ制限を超えました",
       "folderNotFound": "フォルダーが見つかりません",
       "anchorNotFound": "アンカーノードが見つかりません",
-      "nameAlreadyExists": "名前がすでに存在します"
+      "nameAlreadyExists": "名前がすでに存在します",
+      "targetBaseRequired": "移動先のプロジェクトは必須です",
+      "moveBlocked": "ノードを移動先のプロジェクトへ移動できません ({{code}})"
     },
     "routine": {
       "notFound": "ルーティンが見つかりません",
@@ -1169,6 +1166,7 @@
     "chat": {
       "notFound": "チャットが見つかりません",
       "accessDenied": "このチャットにアクセスする権限がありません",
+      "archived": "チャットはアーカイブ済みです",
       "serverAuthoredType": "{{type}} タイプのチャットはサーバーが作成します"
     },
     "dashboard": {
@@ -1224,12 +1222,6 @@
     },
     "pluginChart": {
       "queryNotFound": "プラグインチャートのクエリが見つかりません"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
-      "onlyOwnerCanRemove": "プロジェクト {{baseId}} のデータベース接続を削除できるのはプロジェクト所有者のみです",
-      "onlyOwnerCanCreate": "プロジェクト {{baseId}} のデータベース接続を作成できるのはプロジェクト所有者のみです",
-      "roleNotExist": "データベースロール {{role}} は存在しません"
     },
     "baseQuery": {
       "queryFailed": "クエリが失敗しました: {{message}}",
@@ -1305,6 +1297,7 @@
       "lookupAndLinkLengthMatch": "lookupValues の長さは linkCellValues の長さと同じである必要があります",
       "cycleDetected": "循環が検出されました",
       "cycleDetectedCreateField": "循環が検出されました、フィールド {{name}}[{{id}}] を作成できません",
+      "cycleDetectedCreateFieldGeneric": "循環が検出されたため、フィールドを作成できません",
       "recordMapNotFound": "テーブル {{tableName}} のフィールド {{fieldName}} のレコードが見つかりません",
       "forbidDeletePrimaryField": "プライマリフィールドの削除は禁止されています",
       "foreignTableIdInvalid": "外部テーブル {{foreignTableId}} が無効です",

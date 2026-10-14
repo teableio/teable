@@ -6,7 +6,8 @@
  */
 import type { Field } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql } from 'kysely';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
 import { executeTableSchemaStatements } from '../../../shared/db';
@@ -167,7 +168,6 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
               id: 'usr_alice',
               title: 'Alice',
               email: 'alice@example.com',
-              avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
             },
           },
           { __id: 'rec_missing', user_text: null },
@@ -177,7 +177,6 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
               id: 'usr_bob',
               title: 'Bob',
               email: null,
-              avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
             },
           },
         ]);
@@ -223,13 +222,11 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
             id: 'usr_alice',
             title: 'Alice',
             email: 'alice@example.com',
-            avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
           },
           {
             id: 'usr_bob',
             title: 'Bob',
             email: null,
-            avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
           },
         ]);
       } finally {

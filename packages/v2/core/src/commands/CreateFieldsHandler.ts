@@ -388,7 +388,12 @@ export class CreateFieldsHandler
       ...field,
       options: {
         ...field.options,
-        lookupFieldId: foreignTable.primaryFieldId().toString(),
+        lookupFieldId: (
+          foreignTable
+            .getFields()
+            .find((candidate) => candidate.name().toString() === 'Label')
+            ?.id() ?? foreignTable.primaryFieldId()
+        ).toString(),
       },
     };
   }

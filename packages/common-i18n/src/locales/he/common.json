@@ -15,6 +15,7 @@
     "delete": "מחיקה",
     "clear": "ניקוי",
     "cancel": "ביטול",
+    "undo": "ביטול",
     "zoomIn": "הגדלה",
     "zoomOut": "הקטנה",
     "back": "חזרה",
@@ -570,7 +571,6 @@
     "overLimitsDescription": "המנוי הנוכחי חרג ממגבלת השימוש. יש לשדרג את התוכנית כדי להמשיך להשתמש בתכונה זו ללא הפרעה.",
     "userLimitExceededDescription": "המופע הנוכחי הגיע למספר המשתמשים המרבי שהרישיון מתיר. יש להשבית משתמשים או לשדרג את הרישיון.",
     "unavailableInPlanTips": "תוכנית המנוי הנוכחית אינה תומכת בתכונה זו",
-    "unavailableConnectionTips": "תכונת החיבור למסד הנתונים תוסר ותהיה זמינה רק בתוכנית Enterprise ובגרסאות בהתקנה עצמית.",
     "levelTips": "מרחב זה נמצא כעת בתוכנית {{level}}",
     "enterpriseFeature": "תכונת Enterprise",
     "automationRequiresUpgrade": "יש לשדרג ל-Enterprise Edition (EE) כדי להפעיל אוטומציה",
@@ -1178,6 +1178,8 @@
     "addConfig": "הוספת הגדרות",
     "editConfig": "עריכת הגדרות",
     "resetConfig": "איפוס",
+    "unsubscribeLink": "הוספת קישור להסרה מרשימת התפוצה",
+    "unsubscribeLinkDescription": "הפעילו עבור הודעות שיווק: מוסיף קישור להסרה בלחיצה אחת ומדלג על נמענים שהוסרו. השאירו כבוי עבור תשובות והתראות.",
     "testEmail": "אימייל בדיקה",
     "testEmailPlaceholder": "יש להזין את כתובת אימייל הבדיקה",
     "testEmailError": "יש להזין כתובת אימייל בדיקה חוקית",
@@ -1605,6 +1607,10 @@
   },
   "chat": {
     "serverError": "אירעה שגיאת שרת",
+    "chatGone": "השיחה הזו כבר לא קיימת",
+    "chatGoneDescription": "היא נמחקה מלשונית או ממכשיר אחר, ולכן לא ניתן לשלוח כאן עוד.",
+    "chatArchived": "השיחה הזו בארכיון",
+    "chatArchivedDescription": "לא ניתן לשלוח לשיחה שבארכיון.",
     "modelNotSupported": "המודל שנבחר אינו נתמך במצב סוכן. מומלץ לעבור ל-GPT-6 Astra לחוויה הטובה ביותר.",
     "byokModelNotSupported": "המודל המותאם אישית אינו תואם למצב סוכן. מומלץ לעבור ל-GPT-6 Astra לחוויה הטובה ביותר.",
     "modelServiceUnavailable": "שירות המודל אינו זמין באופן זמני. יש לנסות שוב מאוחר יותר.",
@@ -1640,6 +1646,7 @@
   "modelTier": {
     "title": "מודל",
     "uses": "משתמש ב-{{model}}",
+    "spaceModels": "מודלים של המרחב",
     "xl": {
       "label": "Ultra",
       "description": "היכולת הגבוהה ביותר לעבודה תובענית ובעלת חשיבות גבוהה."
@@ -1838,5 +1845,13 @@
       "summaryTitle": "Teable",
       "summary": "ב-{{count}} שיחות יש תוצאות חדשות."
     }
+  },
+  "cookieConsent": {
+    "title": "הסכמה לעוגיות",
+    "body": "אנו משתמשים בעוגיות ובטכנולוגיות דומות כדי להבין כיצד משתמשים ב-Teable, לשפר את החוויה שלך ולמדוד את השיווק שלנו.",
+    "accept": "קבל הכל",
+    "reject": "דחה הכל",
+    "policy": "מדיניות עוגיות",
+    "settings": "הגדרות עוגיות"
   }
 }

@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
 import { ButtonField } from '../../../fields/types/ButtonField';
-import { NoopCellValueSpec } from './NoopCellValueSpec';
+import { ClearFieldValueSpec } from './ClearFieldValueSpec';
+import { SetButtonValueSpec } from './SetButtonValueSpec';
 import { SetFieldValueSpecFactory } from './SetFieldValueSpecFactory';
 
 const createFieldId = (seed: string) =>
@@ -17,16 +18,28 @@ describe('SetFieldValueSpecFactory', () => {
       name: createFieldName('Action'),
     })._unsafeUnwrap();
 
-    it('returns NoopCellValueSpec when creating with raw value', () => {
-      const result = SetFieldValueSpecFactory.create(field, 'Click');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it.each([0, 3])('persists a raw count of %s', (count) => {
+      const spec = SetFieldValueSpecFactory.create(field, { count })._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetButtonValueSpec);
+      expect((spec as SetButtonValueSpec).value.toValue()).toEqual({ count });
     });
 
-    it('returns NoopCellValueSpec when creating from validated value', () => {
-      const result = SetFieldValueSpecFactory.createFromValidated(field, 'Click');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it('persists a validated count', () => {
+      const spec = SetFieldValueSpecFactory.createFromValidated(field, {
+        count: 3,
+      })._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetButtonValueSpec);
+      expect((spec as SetButtonValueSpec).value.toValue()).toEqual({ count: 3 });
+    });
+
+    it.each(['Click', {}, { count: '3' }, { count: 1.5 }])('rejects invalid input %j', (value) => {
+      expect(SetFieldValueSpecFactory.create(field, value).isErr()).toBe(true);
+    });
+
+    it('clears null values', () => {
+      expect(SetFieldValueSpecFactory.create(field, null)._unsafeUnwrap()).toBeInstanceOf(
+        ClearFieldValueSpec
+      );
     });
   });
 });

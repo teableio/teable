@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 rollup ARRAY_UNIQUE / COUNT over single-select (e2e)', () => {
+describe('[F13] v2 rollup ARRAY_UNIQUE / COUNT over single-select (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

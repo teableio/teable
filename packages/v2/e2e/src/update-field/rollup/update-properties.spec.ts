@@ -21,7 +21,7 @@ const isRollupField = (field: IFieldDto | undefined): field is RollupFieldDto =>
   return field?.type === 'rollup';
 };
 
-describe('update-field: rollup property updates', () => {
+describe('[D01][S01] update-field: rollup property updates', () => {
   let ctx: SharedTestContext;
   let hostTableId: string;
   let foreignTableId: string;

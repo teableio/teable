@@ -14,7 +14,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  *
  * Host A has two matching MatchKey rows: one hits the OR group, one does not.
  */
-describe('conditionalRollup nested OR groups (T7080)', () => {
+describe('[F14][R05] conditionalRollup nested OR groups (T7080)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
   const tableIds: string[] = [];

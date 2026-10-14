@@ -927,6 +927,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     const readableGroup = group.filter(({ fieldId }) => fieldMap[fieldId]);
     return readableGroup.reduce(
       (prev, { fieldId }, depth) => {
+        // A button's count is execution history, never a default for a new record.
+        if (fieldMap[fieldId]?.type === FieldType.Button) return prev;
         const cellValue = record?.getCellValue(fieldId);
         const value = cellValue === undefined ? groupValues?.[depth] : cellValue;
         if (value !== undefined) {

@@ -16,8 +16,6 @@ export const baseConfig = registerAs('base', () => ({
   // decrypt-only while a rotation is in flight (jwt oldSecret pattern).
   envVariableSecret: resolveSecret(SECRET_SPECS.envVariableSecret),
   envVariableSecretOld: process.env.BACKEND_ENV_VARIABLE_SECRET_OLD || undefined,
-  publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
-  defaultMaxBaseDBConnections: Number(process.env.DEFAULT_MAX_BASE_DB_CONNECTIONS ?? 20),
   templateSpaceId: process.env.TEMPLATE_SPACE_ID,
   recordHistoryDisabled: process.env.RECORD_HISTORY_DISABLED === 'true',
   pluginServerPort: process.env.PLUGIN_SERVER_PORT || '3002',

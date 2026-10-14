@@ -1,20 +1,26 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import {
+  buttonFieldOptionsSchema,
   Colors,
   DateFormattingPreset,
   FieldAIActionType,
   FieldType,
+  generateWorkflowId,
   NumberFormattingType,
   RatingIcon,
   Relationship,
+  SingleNumberDisplayType,
   SingleLineTextDisplayType,
   TimeFormatting,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
+import { deleteField, ensureUndoRedoWindowIdHeader, getFields, redo, undo } from '@teable/openapi';
 import {
   convertField,
   createField,
+  createFields,
   createTable,
   getField,
   initApp,
@@ -335,6 +341,121 @@ describe('OpenAPI field option preservation (e2e)', () => {
     }
   );
 
+  it('rejects invalid button click limits and clears disabled limits (T7768 T7769)', async () => {
+    await withForceV2All(async () => {
+      const options = { label: 'Run', color: Colors.Teal, maxCount: 3, resetCount: true };
+      const created = await createField(table.id, {
+        name: 'Button limit',
+        type: FieldType.Button,
+        options,
+      });
+
+      for (const maxCount of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+        await convertField(
+          table.id,
+          created.id,
+          { type: FieldType.Button, options: { ...options, maxCount } },
+          400
+        );
+        expect((await getField(table.id, created.id)).options).toMatchObject(options);
+      }
+
+      await convertField(table.id, created.id, {
+        type: FieldType.Button,
+        options: { ...options, maxCount: null, resetCount: false },
+      });
+      const disabled = (await getField(table.id, created.id)).options;
+      expect(disabled).not.toHaveProperty('maxCount');
+      expect(disabled).toMatchObject({ resetCount: false });
+
+      for (const maxCount of [1, 5, 10, Number.MAX_SAFE_INTEGER]) {
+        await convertField(table.id, created.id, {
+          type: FieldType.Button,
+          options: { ...options, maxCount, resetCount: false },
+        });
+        expect((await getField(table.id, created.id)).options).toMatchObject({
+          maxCount,
+          resetCount: false,
+        });
+      }
+    });
+  });
+
+  it('loads and repairs legacy button limits without losing other options (T7768 T7769)', async () => {
+    await withForceV2All(async () => {
+      const preserved = {
+        label: 'Legacy action',
+        color: Colors.Red,
+        resetCount: true,
+        workflow: { id: generateWorkflowId(), name: 'Legacy workflow', isActive: false },
+        confirm: { title: 'Confirm action', description: 'Keep this', confirmText: 'Run' },
+      };
+      const created = await createField(table.id, {
+        name: 'Legacy button',
+        type: FieldType.Button,
+        options: { ...preserved, maxCount: 3 },
+      });
+      for (const maxCount of [0, -1, 1.5]) {
+        const legacy = { ...preserved, maxCount };
+        await app.get(PrismaService).field.update({
+          where: { id: created.id },
+          data: { options: JSON.stringify(legacy) },
+        });
+        const loaded = await getField(table.id, created.id);
+        expect(buttonFieldOptionsSchema.parse(loaded.options)).toEqual(legacy);
+        ensureUndoRedoWindowIdHeader(`win-button-repair-${maxCount}-${Date.now()}`);
+        await convertField(table.id, created.id, {
+          type: FieldType.Button,
+          name: created.name,
+          options: { ...legacy, maxCount: 1 },
+        });
+        expect((await getField(table.id, created.id)).options).toEqual({
+          ...preserved,
+          maxCount: 1,
+        });
+        expect((await undo(table.id)).data.status).toBe('fulfilled');
+        expect((await getField(table.id, created.id)).options).toEqual(legacy);
+        expect((await redo(table.id)).data.status).toBe('fulfilled');
+        expect((await getField(table.id, created.id)).options).toEqual({
+          ...preserved,
+          maxCount: 1,
+        });
+        expect((await undo(table.id)).data.status).toBe('fulfilled');
+        await deleteField(table.id, created.id);
+        expect((await undo(table.id)).data.status).toBe('fulfilled');
+        expect((await getField(table.id, created.id)).options).toEqual(legacy);
+      }
+      const unlimited = await createField(table.id, {
+        name: 'New unlimited button',
+        type: FieldType.Button,
+        options: { label: 'Run', color: Colors.Teal, maxCount: null, resetCount: false },
+      });
+      expect(unlimited.options).not.toHaveProperty('maxCount');
+      expect(unlimited.options).toMatchObject({ resetCount: false });
+    });
+  });
+
+  it('rejects invalid button limits in a batch before adding any field (T7769)', async () => {
+    const before = (await getFields(table.id)).data;
+    for (const maxCount of [0, -1, 1.5]) {
+      await expect(
+        createFields(
+          table.id,
+          [
+            { name: 'Valid batch field', type: FieldType.SingleLineText },
+            {
+              name: 'Invalid batch button',
+              type: FieldType.Button,
+              options: { label: 'Run', color: Colors.Teal, maxCount },
+            },
+          ],
+          app
+        )
+      ).rejects.toThrow();
+      expect((await getFields(table.id)).data).toEqual(before);
+    }
+  });
+
   it('keeps longText markdown when convert sends empty options (T6956)', async () => {
     await withForceV2All(async () => {
       const created = await createField(table.id, {
@@ -439,6 +560,114 @@ describe('OpenAPI field option preservation (e2e)', () => {
           foreignTableId: foreign.id,
           isOneWay: true,
         });
+      } finally {
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+  });
+
+  it('drops incompatible inherited ring only for multiple lookups (T7745)', async () => {
+    await withForceV2All(async () => {
+      const formatting = {
+        type: NumberFormattingType.Currency,
+        precision: 1,
+        symbol: '¥',
+      } as const;
+      const showAs = {
+        type: SingleNumberDisplayType.Ring,
+        color: Colors.Blue,
+        showValue: true,
+        maxValue: 100,
+      } as const;
+      const foreign = await createTable(baseId, {
+        name: 'lookup-display-source',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Amount', type: FieldType.Number, options: { formatting, showAs } },
+        ],
+      });
+      try {
+        const amount = foreign.fields.find((field) => field.name === 'Amount');
+        if (!amount) throw new Error('Amount field missing');
+        for (const relationship of [Relationship.ManyOne, Relationship.ManyMany]) {
+          const link = await createField(table.id, {
+            name: `Related ${relationship}`,
+            type: FieldType.Link,
+            options: { relationship, foreignTableId: foreign.id },
+          });
+          const created = await createField(table.id, {
+            name: `Amount ${relationship}`,
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              lookupFieldId: amount.id,
+              linkFieldId: link.id,
+            },
+          });
+          const stored = await getField(table.id, created.id);
+          for (const field of [created, stored]) {
+            expect(field.isMultipleCellValue === true).toBe(relationship === Relationship.ManyMany);
+            expect(field.options).toEqual(
+              relationship === Relationship.ManyMany ? { formatting } : { formatting, showAs }
+            );
+          }
+          const persisted = await app.get(PrismaService).field.findUniqueOrThrow({
+            where: { id: created.id },
+            select: { options: true },
+          });
+          expect(JSON.parse(persisted.options ?? 'null')).toEqual(
+            relationship === Relationship.ManyMany ? { formatting } : { formatting, showAs }
+          );
+        }
+        expect((await getField(foreign.id, amount.id)).options).toEqual({ formatting, showAs });
+      } finally {
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+  });
+
+  it('inherits a compatible source display added after lookup creation (T7745)', async () => {
+    await withForceV2All(async () => {
+      const foreign = await createTable(baseId, {
+        name: 'lookup-late-display-source',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Amount', type: FieldType.Number },
+        ],
+      });
+      try {
+        const amount = foreign.fields.find((field) => field.name === 'Amount');
+        if (!amount) throw new Error('Amount field missing');
+        const link = await createField(table.id, {
+          name: 'Related without display',
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyOne, foreignTableId: foreign.id },
+        });
+        const lookup = await createField(table.id, {
+          name: 'Amount without display',
+          type: FieldType.Number,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: amount.id,
+            linkFieldId: link.id,
+          },
+        });
+        expect(lookup.options).not.toHaveProperty('showAs');
+        const showAs = {
+          type: SingleNumberDisplayType.Ring,
+          color: Colors.Blue,
+          showValue: true,
+          maxValue: 100,
+        } as const;
+        await convertField(foreign.id, amount.id, {
+          type: FieldType.Number,
+          options: { ...amount.options, showAs },
+        });
+        const stored = await getField(table.id, lookup.id);
+        expect(stored.isMultipleCellValue).not.toBe(true);
+        expect(stored.options).toMatchObject({ showAs });
       } finally {
         await permanentDeleteTable(baseId, foreign.id);
       }

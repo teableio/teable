@@ -78,7 +78,6 @@ describe('FieldInsertValueVisitor', () => {
       'visitCreatedByField',
       'visitLastModifiedByField',
       'visitAutoNumberField',
-      'visitButtonField',
       'visitConditionalRollupField',
       'visitConditionalLookupField',
     ] as const) {
@@ -88,6 +87,20 @@ describe('FieldInsertValueVisitor', () => {
       });
     }
   });
+
+  it.each([{ count: 3 }, { count: 0 }, null, undefined])(
+    'maps button count %j into its JSON storage column',
+    (value) => {
+      const visitor = FieldInsertValueVisitor.create(value, {
+        recordId: 'recSource00000001',
+        dbFieldName: 'button_col',
+      });
+      expect(visitor.visitButtonField({} as never)._unsafeUnwrap()).toEqual({
+        columnValues: { button_col: value == null ? null : JSON.stringify(value) },
+        queryExecutors: [],
+      });
+    }
+  );
 
   it('maps single and multiple select values into stored payloads', () => {
     const singleVisitor = FieldInsertValueVisitor.create('choRed00000001', {

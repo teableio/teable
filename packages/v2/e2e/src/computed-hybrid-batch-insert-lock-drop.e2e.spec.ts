@@ -21,10 +21,6 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
-  v2RecordRepositoryPostgresTokens,
-  type ComputedUpdateWorker,
-} from '../../adapter-table-repository-postgres/src';
-import {
   createFieldOkResponseSchema,
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
@@ -36,6 +32,10 @@ import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterEach, describe, expect, it } from 'vitest';
+import {
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateWorker,
+} from '../../adapter-table-repository-postgres/src';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -77,6 +77,9 @@ const createHarness = async (
   const listeningServer = app.listen(0, '127.0.0.1', () => signalServerReady(listeningServer));
   listeningServer.once('error', failServerReady);
   const server = await serverReady;
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -380,7 +383,7 @@ const collectEmptyComputed = (
   return empty;
 };
 
-describe('computed hybrid batch insert lock drop (e2e) T7018', () => {
+describe('[C14][S19] computed hybrid batch insert lock drop (e2e) T7018', () => {
   it('converges reciprocal lookup/formula after sequential 100-row hybrid inserts', async () => {
     const harness = await createHarness({
       computedUpdate: {

@@ -408,6 +408,12 @@ export class LinkField
       !cellValueType.equals(CellValueType.string()) ||
       !isMultipleCellValue.equals(CellValueMultiplicity.single())
     ) {
+      // Text formulas may resolve existing titles, but a computed non-text
+      // primary cannot resolve titles or be populated by paste auto-creation.
+      if (primaryFieldResult.value.computed().toBoolean()) {
+        return foreignTable.validateCreateWithPrimaryOnly();
+      }
+
       return err(
         domainError.validation({
           code: 'paste.link_auto_create_requires_text_primary',

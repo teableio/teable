@@ -18,8 +18,7 @@ export const CellEditorWrap = (props: ICellValueEditor) => {
           readonly={readonly}
           fieldId={field.id}
           recordId={recordId}
-          displayType={readonly ? LinkDisplayType.List : LinkDisplayType.Grid}
-          isSelectedRowBgVisible={false}
+          displayType={LinkDisplayType.List}
         />
       </div>
     );

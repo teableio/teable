@@ -346,7 +346,7 @@ export class LookupField
     // 2. Validate that link field points to our foreign table
     if (!linkField.foreignTableId().equals(this.foreignTableId())) {
       return err(
-        domainError.unexpected({
+        domainError.validation({
           message: 'LookupField foreign table does not match link field target',
         })
       );
@@ -365,7 +365,12 @@ export class LookupField
     const lookupFieldResult = ft.fieldById(this.lookupFieldId());
     if (lookupFieldResult.isErr()) {
       return err(
-        domainError.notFound({ message: 'LookupField lookup field not found in foreign table' })
+        domainError.validation({ message: 'LookupField lookup field not found in foreign table' })
+      );
+    }
+    if (lookupFieldResult.value.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a lookup source' })
       );
     }
     if (this.legacyMultiplicityDerivationEnabled) {

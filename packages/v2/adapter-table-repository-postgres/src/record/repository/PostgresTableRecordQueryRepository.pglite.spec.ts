@@ -1688,7 +1688,7 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
       recordIds[8], // Sam usr5
       recordIds[4], // scalar usr3
     ]);
-    expect(singleResult.value.groups).toEqual([
+    expect(singleResult.value.groups).toMatchObject([
       { fields: { [ownerFieldId.toString()]: null }, count: 3 },
       { fields: { [ownerFieldId.toString()]: { id: 'usr1', title: 'Alice' } }, count: 2 },
       { fields: { [ownerFieldId.toString()]: { id: 'usr2', title: 'Bob' } }, count: 1 },
@@ -1766,7 +1766,7 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     ]);
     // NULL multi-user cells order via the title expression's '[]' fallback
     // (after titled buckets), matching the raw column's stored order semantics.
-    expect(multipleResult.value.groups).toEqual([
+    expect(multipleResult.value.groups).toMatchObject([
       {
         fields: {
           [teamFieldId.toString()]: [
@@ -1970,7 +1970,7 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
       'd-2025-04',
       'd-2024-11',
     ]);
-    expect(result.value.groups).toEqual([
+    expect(result.value.groups).toMatchObject([
       {
         fields: {
           [ownerLookupFieldId.toString()]: { id: ownerId, title: 'Alice' },

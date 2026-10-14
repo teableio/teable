@@ -14,6 +14,7 @@ import type {
   Expression,
   ExpressionBuilder,
   Kysely,
+  RawBuilder,
   SqlBool,
   UpdateQueryBuilder,
   UpdateResult,
@@ -22,6 +23,7 @@ import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isUserCellField } from '../../shared/userAvatarUrl';
 import type { DynamicDB, QB } from '../query-builder';
 import { COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
 
@@ -362,6 +364,7 @@ type FieldMapping = {
   isLookup: boolean;
   isLookupMultiValue: boolean;
   isLookupAutoNumber: boolean;
+  isUserCell: boolean;
   dbFieldType: string;
   /**
    * FK column of a required FK-hosting link (manyOne / hosting oneOne). A null
@@ -565,10 +568,12 @@ const buildLookupAssignmentFromRef = (
   sourceRef: unknown,
   lookupDbFieldType: string,
   isLookupMultiValue: boolean,
-  isLookupAutoNumber: boolean
+  isLookupAutoNumber: boolean,
+  isUserCell: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
-  const refJson = buildNullableLookupSourceJson(sourceRef);
+  const sourceJson = buildNullableLookupSourceJson(sourceRef);
+  const refJson = isUserCell ? buildUserCellAssignment(sourceJson) : sourceJson;
 
   if (normalizedType === 'jsonb') {
     if (isLookupMultiValue && !isLookupAutoNumber) {
@@ -582,6 +587,25 @@ const buildLookupAssignmentFromRef = (
   END)`;
   return buildLookupScalarCast(scalarText, normalizedType);
 };
+
+// Strip presentation-only URLs at the shared persistence projection so backfill,
+// distinct comparisons and UPDATE ... RETURNING all use the same stored value.
+const buildUserCellAssignment = (expression: RawBuilder<unknown>) => sql`(CASE
+  WHEN jsonb_typeof(${expression}) = 'object' THEN ${expression} - 'avatarUrl'
+  WHEN jsonb_typeof(${expression}) = 'array' THEN (
+    SELECT COALESCE(
+      jsonb_agg(
+        CASE WHEN jsonb_typeof(member.value) = 'object'
+          THEN member.value - 'avatarUrl'
+          ELSE member.value
+        END ORDER BY member.ordinality
+      ),
+      '[]'::jsonb
+    )
+    FROM jsonb_array_elements(${expression}) WITH ORDINALITY AS member(value, ordinality)
+  )
+  ELSE ${expression}
+END)`;
 
 const buildFieldMappings = (
   table: Table,
@@ -687,6 +711,7 @@ const buildFieldMappings = (
         isLookup,
         isLookupMultiValue,
         isLookupAutoNumber,
+        isUserCell: isUserCellField(field),
         dbFieldType,
         requiredLinkFkColumn: resolveRequiredLinkFkColumn(field),
       });
@@ -752,15 +777,19 @@ class UpdateAssignmentPlan {
     const sourceRef = eb.ref(`${sourceAlias}.${this.column}`);
 
     switch (this.strategy) {
-      case 'lookup':
+      case 'lookup': {
         return buildLookupAssignmentFromRef(
           sourceRef,
           this.mapping.dbFieldType,
           this.mapping.isLookupMultiValue,
-          this.mapping.isLookupAutoNumber
+          this.mapping.isLookupAutoNumber,
+          this.mapping.isUserCell
         );
-      case 'json':
-        return buildNullableJsonProjectionSource(sourceRef);
+      }
+      case 'json': {
+        const expression = buildNullableJsonProjectionSource(sourceRef);
+        return this.mapping.isUserCell ? buildUserCellAssignment(expression) : expression;
+      }
       case 'numeric':
         return buildNumericCastExpression(sql`${sourceRef}`, this.normalizedDbType);
       case 'scalar':

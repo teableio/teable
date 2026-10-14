@@ -1,0 +1,142 @@
+/**
+ * Cookie-consent model shared by the marketing site and the app.
+ *
+ * Opt-in jurisdictions (GDPR / ePrivacy family): EU 27 + EEA (IS/LI/NO) +
+ * UK + CH. Visitors there get the consent banner and non-essential storage
+ * stays off until they accept. Everywhere else consent law is opt-out, so
+ * tracking defaults to granted and the banner is skipped (an explicit
+ * "Reject all" from the Cookie settings dialog is still honoured).
+ *
+ * Mirrors teable-official src/lib/consent-region.ts — keep the country list
+ * in sync. Unknown origin (no geo header) falls back to opt-in.
+ */
+export const CONSENT_REGION_COOKIE_NAME = 'teable_consent_region';
+
+export type ConsentRegion = 'eea' | 'row';
+
+const OPT_IN_CONSENT_COUNTRIES = new Set([
+  // EU 27
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
+  // EEA
+  'IS',
+  'LI',
+  'NO',
+  // UK + Switzerland (UK GDPR / revFADP)
+  'GB',
+  'CH',
+]);
+
+export const consentRegionForCountry = (country: string | null | undefined): ConsentRegion =>
+  !country || OPT_IN_CONSENT_COUNTRIES.has(country.trim().toUpperCase()) ? 'eea' : 'row';
+
+export type ConsentStatus = 'granted' | 'denied';
+
+// Keys are Google Consent Mode's category names, shared with the marketing
+// site's cookie payload — not ours to rename.
+/* eslint-disable @typescript-eslint/naming-convention */
+export interface IMarketingConsent {
+  analytics_storage: ConsentStatus;
+  ad_storage: ConsentStatus;
+  ad_user_data: ConsentStatus;
+  ad_personalization: ConsentStatus;
+}
+/* eslint-enable @typescript-eslint/naming-convention */
+
+/** One year: consent is re-asked after this, per EDPB/CNIL guidance. */
+export const MARKETING_CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+
+/** Recorded with every consent event so a choice can be tied to the text shown. */
+export const CONSENT_BANNER_VERSION = '2026-10';
+
+export const allConsent = (status: ConsentStatus): IMarketingConsent => ({
+  analytics_storage: status,
+  ad_storage: status,
+  ad_user_data: status,
+  ad_personalization: status,
+});
+
+const isStatus = (value: unknown): value is ConsentStatus =>
+  value === 'granted' || value === 'denied';
+
+/**
+ * Parses the `teable_consent` cookie value (percent-encoded JSON, possibly
+ * double-encoded by older writers). Returns undefined when no valid choice
+ * is recorded — never throws.
+ */
+export const parseMarketingConsent = (
+  raw: string | null | undefined
+): Partial<IMarketingConsent> | undefined => {
+  if (!raw) {
+    return undefined;
+  }
+  let parsed: Record<string, unknown> | null = null;
+  for (const candidate of [raw, safeDecode(raw), safeDecode(safeDecode(raw))]) {
+    try {
+      parsed = JSON.parse(candidate);
+      break;
+    } catch {
+      // try the next decoding
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return undefined;
+  }
+  const result: Partial<IMarketingConsent> = {};
+  for (const key of [
+    'analytics_storage',
+    'ad_storage',
+    'ad_user_data',
+    'ad_personalization',
+  ] as const) {
+    const value = parsed[key];
+    if (isStatus(value)) {
+      result[key] = value;
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
+};
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Whether a category may use non-essential storage: opt-out regions default
+ * to granted unless explicitly denied; opt-in regions need an explicit grant.
+ */
+export const isConsentGranted = (
+  region: ConsentRegion,
+  consent: Partial<IMarketingConsent> | undefined,
+  category: keyof IMarketingConsent
+): boolean =>
+  region === 'row' ? consent?.[category] !== 'denied' : consent?.[category] === 'granted';

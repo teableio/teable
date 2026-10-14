@@ -46,6 +46,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `RealtimeDocId.ts` - Role: realtime value object; Purpose: validate doc identifiers.
 - `RealtimeEngine.ts` - Role: realtime port; Purpose: abstract realtime storage and fanout, including version-aware apply and delete operations for optimistic ShareDB sequencing.
 - `RecordWritePlugin.ts` - Role: plugin port; Purpose: define typed record-write plugin hooks and operation contexts.
+  `buttonClick` is distinct from `updateOne`: it persists a derived click count under record/field
+  read authorization, including row scope and cell visibility. Ordinary edits and button resets
+  retain update authorization.
 - `RecordQueryPlugin.ts` - Role: plugin port; Purpose: read-side scope/guard hooks. `table` is `ITableReadModel`, not the mutating aggregate (T7092).
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
 - `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.

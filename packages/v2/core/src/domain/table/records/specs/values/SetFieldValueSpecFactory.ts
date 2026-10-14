@@ -5,7 +5,6 @@ import type { Result } from 'neverthrow';
 import z from 'zod';
 import { domainError, type DomainError } from '../../../../shared/DomainError';
 import type { Field } from '../../../fields/Field';
-import { FieldType } from '../../../fields/FieldType';
 import {
   FieldCellValueSchemaVisitor,
   type FieldCellValueSchema,
@@ -13,7 +12,6 @@ import {
 import { SetFieldValueSpecFactoryVisitor } from '../../../fields/visitors/SetFieldValueSpecFactoryVisitor';
 import { ClearFieldValueSpec } from './ClearFieldValueSpec';
 import type { ICellValueSpec } from './ICellValueSpecVisitor';
-import { NoopCellValueSpec } from './NoopCellValueSpec';
 
 /**
  * Factory for creating SetValueSpec instances.
@@ -41,9 +39,6 @@ export class SetFieldValueSpecFactory {
     value: unknown,
     schema?: FieldCellValueSchema
   ): Result<ICellValueSpec, DomainError> {
-    if (field.type().equals(FieldType.button())) {
-      return ok(NoopCellValueSpec.create());
-    }
     // Null values use ClearFieldValueSpec for optimized SQL generation
     if (value === null || value === undefined) {
       if (field.notNull().toBoolean()) {
@@ -104,9 +99,6 @@ export class SetFieldValueSpecFactory {
     field: Field,
     validatedValue: unknown
   ): Result<ICellValueSpec, DomainError> {
-    if (field.type().equals(FieldType.button())) {
-      return ok(NoopCellValueSpec.create());
-    }
     // Null values use ClearFieldValueSpec for optimized SQL generation
     if (validatedValue === null || validatedValue === undefined) {
       return ok(ClearFieldValueSpec.create(field));

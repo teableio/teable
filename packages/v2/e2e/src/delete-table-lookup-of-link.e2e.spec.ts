@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 delete table with lookup of link (e2e)', () => {
+describe('[R11] v2 delete table with lookup of link (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

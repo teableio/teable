@@ -44,6 +44,7 @@ import {
   Archive,
   CopyPlus,
   FileInputIcon,
+  FolderInput,
   Info,
   Pen,
   ShieldCheck,
@@ -75,6 +76,7 @@ import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
 import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
+import { MoveNodeToBaseDialog } from './MoveNodeToBaseDialog';
 import { NodeShareDialog } from './NodeShareDialog';
 
 const useNode = (resourceId: string) => {
@@ -163,6 +165,8 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   canPermanentDelete?: boolean;
   canDuplicate?: boolean;
   canShare?: boolean;
+  /** defaults to whatever allows removing the node from this project */
+  canMoveToBase?: boolean;
   nodeTypeLabel: string;
 }
 
@@ -182,6 +186,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     canPermanentDelete = false,
     canDuplicate = false,
     canShare = false,
+    canMoveToBase: canMoveToBaseProp,
     nodeTypeLabel,
     extraActions = [],
   } = props;
@@ -192,10 +197,12 @@ const CommonOperation = (props: ICommonOperationProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
+  const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const node = useNode(resourceId);
   const nodeName = node?.resourceMeta?.name;
   const shareNodeId = canShare && node ? node.id : undefined;
+  const canMoveToBase = Boolean(node) && (canMoveToBaseProp ?? (canDelete || canPermanentDelete));
 
   const defaultName = useMemo(
     () => `${nodeName ?? nodeTypeLabel} ${t('space:baseModal.copy')}`,
@@ -325,6 +332,13 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
+        {canMoveToBase && (
+          <ListMenuItem
+            icon={<FolderInput className="size-4" />}
+            label={t('table:baseNode.moveToBase.menu')}
+            onClick={() => setMoveToBaseOpen(true)}
+          />
+        )}
         {canPermanentDelete && (
           <ListMenuItem
             icon={<Trash className="size-4" />}
@@ -354,6 +368,13 @@ const CommonOperation = (props: ICommonOperationProps) => {
             node={node}
             open={nodeInfoDialogOpen}
             onOpenChange={setNodeInfoDialogOpen}
+          />
+        )}
+        {node && canMoveToBase && (
+          <MoveNodeToBaseDialog
+            node={node}
+            open={moveToBaseOpen}
+            onOpenChange={setMoveToBaseOpen}
           />
         )}
       </>
@@ -402,6 +423,12 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:baseNode.info.menu')}
             </DropdownMenuItem>
           )}
+          {canMoveToBase && (
+            <DropdownMenuItem onClick={() => setMoveToBaseOpen(true)}>
+              <FolderInput className="me-2 size-4" />
+              {t('table:baseNode.moveToBase.menu')}
+            </DropdownMenuItem>
+          )}
           {canPermanentDelete && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -437,6 +464,9 @@ const CommonOperation = (props: ICommonOperationProps) => {
           open={nodeInfoDialogOpen}
           onOpenChange={setNodeInfoDialogOpen}
         />
+      )}
+      {node && canMoveToBase && (
+        <MoveNodeToBaseDialog node={node} open={moveToBaseOpen} onOpenChange={setMoveToBaseOpen} />
       )}
     </>
   );
@@ -546,6 +576,7 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   const canPermanentDelete = !node?.children?.length && Boolean(permission?.['base|update']);
   const canDuplicate = false;
   const canShare = Boolean(permission?.['base|update']);
+  const canMoveToBase = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
@@ -556,6 +587,7 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
       canShare={canShare}
+      canMoveToBase={canMoveToBase}
     />
   );
 };
@@ -610,6 +642,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
+  const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const tableName = table?.name ?? node?.resourceMeta?.name ?? resourceId;
@@ -727,6 +760,9 @@ export const TableOperation = (props: ITableOperationProps) => {
   // Dialogs - shared between both variants
   const dialogs = (
     <>
+      {node && menuPermission.deleteTable && (
+        <MoveNodeToBaseDialog node={node} open={moveToBaseOpen} onOpenChange={setMoveToBaseOpen} />
+      )}
       {importVisible && (
         <TableImport
           open={importVisible}
@@ -987,6 +1023,13 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
+        {node && menuPermission.deleteTable && (
+          <ListMenuItem
+            icon={<FolderInput className="size-4" />}
+            label={t('table:baseNode.moveToBase.menu')}
+            onClick={() => setMoveToBaseOpen(true)}
+          />
+        )}
         {menuPermission.deleteTable && (
           <ListMenuItem
             icon={<Trash className="size-4" />}
@@ -1169,6 +1212,13 @@ export const TableOperation = (props: ITableOperationProps) => {
             <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
               <Info className="me-2 size-4" />
               {t('table:baseNode.info.menu')}
+            </DropdownMenuItem>
+          )}
+
+          {node && menuPermission.deleteTable && (
+            <DropdownMenuItem onClick={() => setMoveToBaseOpen(true)}>
+              <FolderInput className="me-2 size-4" />
+              {t('table:baseNode.moveToBase.menu')}
             </DropdownMenuItem>
           )}
 

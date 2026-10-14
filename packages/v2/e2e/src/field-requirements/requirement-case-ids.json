@@ -1,0 +1,815 @@
+{
+  "$comment": "Snapshot of the Teable requirement worklist. The Teable row is authoritative; regenerate with `node scripts/refresh-requirement-case-ids.mjs`.",
+  "batch": "FIELD-REQ-20261012",
+  "artifact": "https://app.teable.ai/artifact/art44REDA6fQWlJYtHR",
+  "tableView": "https://app.teable.ai/base/bserJ2pmgiLHFHfXNwE/table/tblhjrcP0ZgLtKdbkIz/viwojUW1RQBOVPu3X4S",
+  "table": "tblhjrcP0ZgLtKdbkIz",
+  "pr": "https://github.com/teableio/teable-ee/pull/3841",
+  "cases": {
+    "F01": {
+      "caseId": "Y2528",
+      "caseSeq": 2528,
+      "localId": "FLD-F01",
+      "section": "§2 全字段能力矩阵",
+      "title": "单行文本字段可配置文本默认值并支持普通/邮箱/电话/URL 动作"
+    },
+    "F02": {
+      "caseId": "Y2529",
+      "caseSeq": 2529,
+      "localId": "FLD-F02",
+      "section": "§2 全字段能力矩阵",
+      "title": "长文本字段普通与 Markdown 为同一源值的两种渲染模式"
+    },
+    "F03": {
+      "caseId": "Y2530",
+      "caseSeq": 2530,
+      "localId": "FLD-F03",
+      "section": "§2 全字段能力矩阵",
+      "title": "数字字段默认值支持 0/负数/小数，格式支持小数、百分比、货币与条形环形"
+    },
+    "F04": {
+      "caseId": "Y2531",
+      "caseSeq": 2531,
+      "localId": "FLD-F04",
+      "section": "§2 全字段能力矩阵",
+      "title": "日期字段只支持 now 形式的默认值，静态日期被拒绝"
+    },
+    "F05": {
+      "caseId": "Y2532",
+      "caseSeq": 2532,
+      "localId": "FLD-F05",
+      "section": "§2 全字段能力矩阵",
+      "title": "单选字段默认值必须指向已存在的合法选项"
+    },
+    "F06": {
+      "caseId": "Y2533",
+      "caseSeq": 2533,
+      "localId": "FLD-F06",
+      "section": "§2 全字段能力矩阵",
+      "title": "多选字段默认值为选项集合，按配置顺序落库且不去重"
+    },
+    "F07": {
+      "caseId": "Y2534",
+      "caseSeq": 2534,
+      "localId": "FLD-F07",
+      "section": "§2 全字段能力矩阵",
+      "title": "复选框默认值支持 true/false 且可清除，落库统一为 true 或空"
+    },
+    "F08": {
+      "caseId": "Y2535",
+      "caseSeq": 2535,
+      "localId": "FLD-F08",
+      "section": "§2 全字段能力矩阵",
+      "title": "评分字段无可配置默认值，支持 8 种图标、3 种颜色与 1–10 最大值"
+    },
+    "F09": {
+      "caseId": "Y2536",
+      "caseSeq": 2536,
+      "localId": "FLD-F09",
+      "section": "§2 全字段能力矩阵",
+      "title": "成员字段默认值支持指定用户与 me，区分单人/多人形态"
+    },
+    "F10": {
+      "caseId": "Y2537",
+      "caseSeq": 2537,
+      "localId": "FLD-F10",
+      "section": "§2 全字段能力矩阵",
+      "title": "附件字段无可配置默认值，单元格存文件元数据并支持大小统计"
+    },
+    "F11": {
+      "caseId": "Y2538",
+      "caseSeq": 2538,
+      "localId": "FLD-F11",
+      "section": "§2 全字段能力矩阵",
+      "title": "关联字段四种关系形态各自约束单值与多值"
+    },
+    "F12": {
+      "caseId": "Y2539",
+      "caseSeq": 2539,
+      "localId": "FLD-F12",
+      "section": "§2 全字段能力矩阵",
+      "title": "公式字段按表达式计算结果并参与依赖重算"
+    },
+    "F13": {
+      "caseId": "Y2540",
+      "caseSeq": 2540,
+      "localId": "FLD-F13",
+      "section": "§2 全字段能力矩阵",
+      "title": "汇总字段从关联记录的目标字段产生值"
+    },
+    "F14": {
+      "caseId": "Y2541",
+      "caseSeq": 2541,
+      "localId": "FLD-F14",
+      "section": "§2 全字段能力矩阵",
+      "title": "条件汇总从目标表满足条件的数据产生值"
+    },
+    "F15": {
+      "caseId": "Y2542",
+      "caseSeq": 2542,
+      "localId": "FLD-F15",
+      "section": "§2 全字段能力矩阵",
+      "title": "创建时间由系统生成且不可写入或配置默认值"
+    },
+    "F16": {
+      "caseId": "Y2543",
+      "caseSeq": 2543,
+      "localId": "FLD-F16",
+      "section": "§2 全字段能力矩阵",
+      "title": "最后修改时间按 trackedFieldIds 限定更新范围"
+    },
+    "F17": {
+      "caseId": "Y2544",
+      "caseSeq": 2544,
+      "localId": "FLD-F17",
+      "section": "§2 全字段能力矩阵",
+      "title": "创建人由系统生成且不可写入"
+    },
+    "F18": {
+      "caseId": "Y2545",
+      "caseSeq": 2545,
+      "localId": "FLD-F18",
+      "section": "§2 全字段能力矩阵",
+      "title": "最后修改人按 trackedFieldIds 限定更新范围"
+    },
+    "F19": {
+      "caseId": "Y2546",
+      "caseSeq": 2546,
+      "localId": "FLD-F19",
+      "section": "§2 全字段能力矩阵",
+      "title": "自动编号在并发与批量创建下唯一且不重复使用已删除号"
+    },
+    "F20": {
+      "caseId": "Y2547",
+      "caseSeq": 2547,
+      "localId": "FLD-F20",
+      "section": "§2 全字段能力矩阵",
+      "title": "按钮字段只保存配置，不承载单元格值"
+    },
+    "F21": {
+      "caseId": "Y2548",
+      "caseSeq": 2548,
+      "localId": "FLD-F21",
+      "section": "§2 全字段能力矩阵",
+      "title": "普通查找引用随源记录与源字段产生值"
+    },
+    "F22": {
+      "caseId": "Y2549",
+      "caseSeq": 2549,
+      "localId": "FLD-F22",
+      "section": "§2 全字段能力矩阵",
+      "title": "条件查找引用按当前记录条件动态选取源数据"
+    },
+    "D01": {
+      "caseId": "Y2550",
+      "caseSeq": 2550,
+      "localId": "FLD-D01",
+      "section": "§3 默认值与自动值需求",
+      "title": "支持默认值的类型可设置保存重开修改与清除默认值"
+    },
+    "D02": {
+      "caseId": "Y2551",
+      "caseSeq": 2551,
+      "localId": "FLD-D02",
+      "section": "§3 默认值与自动值需求",
+      "title": "修改名称描述或样式等非默认值配置不会清空已有默认值"
+    },
+    "D03": {
+      "caseId": "Y2552",
+      "caseSeq": 2552,
+      "localId": "FLD-D03",
+      "section": "§3 默认值与自动值需求",
+      "title": "清除默认值真正持久化且之后新建记录不再使用旧默认值"
+    },
+    "D04": {
+      "caseId": "Y2553",
+      "caseSeq": 2553,
+      "localId": "FLD-D04",
+      "section": "§3 默认值与自动值需求",
+      "title": "区分缺省 null 空字符串 0 false 空数组对默认值的影响"
+    },
+    "D05": {
+      "caseId": "Y2554",
+      "caseSeq": 2554,
+      "localId": "FLD-D05",
+      "section": "§3 默认值与自动值需求",
+      "title": "默认值只在创建时按缺省生效，不覆盖显式有效输入"
+    },
+    "D06": {
+      "caseId": "Y2555",
+      "caseSeq": 2555,
+      "localId": "FLD-D06",
+      "section": "§3 默认值与自动值需求",
+      "title": "新增字段改默认值与开启必填对存量数据的回填规则明确"
+    },
+    "D07": {
+      "caseId": "Y2556",
+      "caseSeq": 2556,
+      "localId": "FLD-D07",
+      "section": "§3 默认值与自动值需求",
+      "title": "普通编辑或清空既有记录不会再次补默认值"
+    },
+    "D08": {
+      "caseId": "Y2557",
+      "caseSeq": 2557,
+      "localId": "FLD-D08",
+      "section": "§3 默认值与自动值需求",
+      "title": "文本默认值保留中文符号内部空格与换行，仅去除首尾空白"
+    },
+    "D09": {
+      "caseId": "Y2558",
+      "caseSeq": 2558,
+      "localId": "FLD-D09",
+      "section": "§3 默认值与自动值需求",
+      "title": "数字默认值支持 0 负数与小数且拒绝非数值"
+    },
+    "D10": {
+      "caseId": "Y2559",
+      "caseSeq": 2559,
+      "localId": "FLD-D10",
+      "section": "§3 默认值与自动值需求",
+      "title": "日期 now 默认值在每条记录创建时独立取时"
+    },
+    "D11": {
+      "caseId": "Y2560",
+      "caseSeq": 2560,
+      "localId": "FLD-D11",
+      "section": "§3 默认值与自动值需求",
+      "title": "单选与多选默认值必须对应合法选项"
+    },
+    "D12": {
+      "caseId": "Y2561",
+      "caseSeq": 2561,
+      "localId": "FLD-D12",
+      "section": "§3 默认值与自动值需求",
+      "title": "选项改名或删除时默认值保持有效否则明确报错"
+    },
+    "D13": {
+      "caseId": "Y2562",
+      "caseSeq": 2562,
+      "localId": "FLD-D13",
+      "section": "§3 默认值与自动值需求",
+      "title": "复选框 false 默认值与未配置可区分，清除可保存"
+    },
+    "D14": {
+      "caseId": "Y2563",
+      "caseSeq": 2563,
+      "localId": "FLD-D14",
+      "section": "§3 默认值与自动值需求",
+      "title": "成员默认值 me 按实际创建主体解析"
+    },
+    "D15": {
+      "caseId": "Y2564",
+      "caseSeq": 2564,
+      "localId": "FLD-D15",
+      "section": "§3 默认值与自动值需求",
+      "title": "无法解析的默认成员有明确处理规则且不重复触发通知"
+    },
+    "D16": {
+      "caseId": "Y2565",
+      "caseSeq": 2565,
+      "localId": "FLD-D16",
+      "section": "§3 默认值与自动值需求",
+      "title": "系统与派生字段不能被用户默认值配置或写入覆盖"
+    },
+    "D17": {
+      "caseId": "Y2566",
+      "caseSeq": 2566,
+      "localId": "FLD-D17",
+      "section": "§3 默认值与自动值需求",
+      "title": "默认值与必填唯一约束共同作用时结果合法且失败信息明确"
+    },
+    "D18": {
+      "caseId": "Y2567",
+      "caseSeq": 2567,
+      "localId": "FLD-D18",
+      "section": "§3 默认值与自动值需求",
+      "title": "各创建入口对默认值的应用矩阵明确"
+    },
+    "D19": {
+      "caseId": "Y2568",
+      "caseSeq": 2568,
+      "localId": "FLD-D19",
+      "section": "§3 默认值与自动值需求",
+      "title": "删除恢复撤销重做与复制场景下默认配置与已有值规则明确"
+    },
+    "S01": {
+      "caseId": "Y2569",
+      "caseSeq": 2569,
+      "localId": "FLD-S01",
+      "section": "§4 显示样式需求",
+      "title": "样式保存重开刷新后保留且改名称不丢样式"
+    },
+    "S02": {
+      "caseId": "Y2570",
+      "caseSeq": 2570,
+      "localId": "FLD-S02",
+      "section": "§4 显示样式需求",
+      "title": "格式化不修改原始数字与时间值"
+    },
+    "S03": {
+      "caseId": "Y2571",
+      "caseSeq": 2571,
+      "localId": "FLD-S03",
+      "section": "§4 显示样式需求",
+      "title": "数字小数位范围为 0–5，未配置格式时回退小数 2 位"
+    },
+    "S04": {
+      "caseId": "Y2572",
+      "caseSeq": 2572,
+      "localId": "FLD-S04",
+      "section": "§4 显示样式需求",
+      "title": "百分比按原值乘 100 展示，编辑存值规则明确"
+    },
+    "S05": {
+      "caseId": "Y2573",
+      "caseSeq": 2573,
+      "localId": "FLD-S05",
+      "section": "§4 显示样式需求",
+      "title": "货币按所选符号与位数展示，负号千分位与零值规则稳定"
+    },
+    "S06": {
+      "caseId": "Y2574",
+      "caseSeq": 2574,
+      "localId": "FLD-S06",
+      "section": "§4 显示样式需求",
+      "title": "四舍五入超大极小值与负零的显示策略明确"
+    },
+    "S07": {
+      "caseId": "Y2575",
+      "caseSeq": 2575,
+      "localId": "FLD-S07",
+      "section": "§4 显示样式需求",
+      "title": "数值条形/环形支持颜色是否显示值与 maxValue 参考值"
+    },
+    "S08": {
+      "caseId": "Y2576",
+      "caseSeq": 2576,
+      "localId": "FLD-S08",
+      "section": "§4 显示样式需求",
+      "title": "多值数字显示支持条形或折线，不能与单值环形配置混用"
+    },
+    "S09": {
+      "caseId": "Y2577",
+      "caseSeq": 2577,
+      "localId": "FLD-S09",
+      "section": "§4 显示样式需求",
+      "title": "邮箱电话按配置展示动作，URL 自动识别兼容旧配置"
+    },
+    "S10": {
+      "caseId": "Y2578",
+      "caseSeq": 2578,
+      "localId": "FLD-S10",
+      "section": "§4 显示样式需求",
+      "title": "长文本普通与 Markdown 保存同一原文且可切换"
+    },
+    "S11": {
+      "caseId": "Y2579",
+      "caseSeq": 2579,
+      "localId": "FLD-S11",
+      "section": "§4 显示样式需求",
+      "title": "日期预设支持美式欧式亚洲 ISO 年月月日年月日，时间支持无 12 24 小时"
+    },
+    "S12": {
+      "caseId": "Y2580",
+      "caseSeq": 2580,
+      "localId": "FLD-S12",
+      "section": "§4 显示样式需求",
+      "title": "日期按字段时区展示，仅隐藏时间不截断已存时刻"
+    },
+    "S13": {
+      "caseId": "Y2581",
+      "caseSeq": 2581,
+      "localId": "FLD-S13",
+      "section": "§4 显示样式需求",
+      "title": "单多选颜色与名称对应正确，改名改色同步到记录与默认值"
+    },
+    "S14": {
+      "caseId": "Y2582",
+      "caseSeq": 2582,
+      "localId": "FLD-S14",
+      "section": "§4 显示样式需求",
+      "title": "评分图标颜色与最大值配置保存，改最大值后已有评分策略明确"
+    },
+    "S15": {
+      "caseId": "Y2583",
+      "caseSeq": 2583,
+      "localId": "FLD-S15",
+      "section": "§4 显示样式需求",
+      "title": "成员附件关联按钮与系统字段的默认外观与可配项边界清晰"
+    },
+    "S16": {
+      "caseId": "Y2584",
+      "caseSeq": 2584,
+      "localId": "FLD-S16",
+      "section": "§4 显示样式需求",
+      "title": "公式汇总查找按结果类型提供样式，结果类型变化后清理不兼容配置"
+    },
+    "S17": {
+      "caseId": "Y2585",
+      "caseSeq": 2585,
+      "localId": "FLD-S17",
+      "section": "§4 显示样式需求",
+      "title": "网格记录详情表单分享页与其它视图显示同一业务值"
+    },
+    "S18": {
+      "caseId": "Y2586",
+      "caseSeq": 2586,
+      "localId": "FLD-S18",
+      "section": "§4 显示样式需求",
+      "title": "复制粘贴导出与接口明确返回原值或格式化值且可预测往返"
+    },
+    "S19": {
+      "caseId": "Y2587",
+      "caseSeq": 2587,
+      "localId": "FLD-S19",
+      "section": "§4 显示样式需求",
+      "title": "空值错误与计算中状态可区分，不用旧值冒充结果"
+    },
+    "C01": {
+      "caseId": "Y2588",
+      "caseSeq": 2588,
+      "localId": "FLD-C01",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "支持的运算符优先级括号字段引用与函数名以编辑器清单为准"
+    },
+    "C02": {
+      "caseId": "Y2589",
+      "caseSeq": 2589,
+      "localId": "FLD-C02",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "各注册函数的输入输出类型明确且目录与文档一致"
+    },
+    "C03": {
+      "caseId": "Y2590",
+      "caseSeq": 2590,
+      "localId": "FLD-C03",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "必需参数缺失类型不可转换与语法错误给出可定位提示"
+    },
+    "C04": {
+      "caseId": "Y2591",
+      "caseSeq": 2591,
+      "localId": "FLD-C04",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "数值函数覆盖舍入取整正负零指数对数取模与字符串转数"
+    },
+    "C05": {
+      "caseId": "Y2592",
+      "caseSeq": 2592,
+      "localId": "FLD-C05",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "文本函数明确位置索引找不到结果大小写中文 emoji 与正则规则"
+    },
+    "C06": {
+      "caseId": "Y2593",
+      "caseSeq": 2593,
+      "localId": "FLD-C06",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "IF SWITCH AND OR XOR NOT 的类型转换与条件真值规则明确"
+    },
+    "C07": {
+      "caseId": "Y2594",
+      "caseSeq": 2594,
+      "localId": "FLD-C07",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "BLANK ERROR IS_ERROR 区分空结果与计算错误且错误可按规则捕获或传播"
+    },
+    "C08": {
+      "caseId": "Y2595",
+      "caseSeq": 2595,
+      "localId": "FLD-C08",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "日期函数明确时区单位默认单位与跨月跨年闰年行为"
+    },
+    "C09": {
+      "caseId": "Y2596",
+      "caseSeq": 2596,
+      "localId": "FLD-C09",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "NOW TODAY FROMNOW TONOW 的刷新周期与触发方式明确"
+    },
+    "C10": {
+      "caseId": "Y2597",
+      "caseSeq": 2597,
+      "localId": "FLD-C10",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "日期格式化与解析函数使用约定格式时区且非法日期有明确结果"
+    },
+    "C11": {
+      "caseId": "Y2598",
+      "caseSeq": 2598,
+      "localId": "FLD-C11",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "COUNTALL COUNTA COUNT 对空值 0 false 空数组的计数语义分别定义"
+    },
+    "C12": {
+      "caseId": "Y2599",
+      "caseSeq": 2599,
+      "localId": "FLD-C12",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "ARRAY_JOIN UNIQUE FLATTEN COMPACT 定义分隔符扁平层级去重与保序"
+    },
+    "C13": {
+      "caseId": "Y2600",
+      "caseSeq": 2600,
+      "localId": "FLD-C13",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "公式字段按依赖更新多级依赖最终一致"
+    },
+    "C14": {
+      "caseId": "Y2601",
+      "caseSeq": 2601,
+      "localId": "FLD-C14",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "源字段改名后引用保持，删除或改类型后按策略报错或迁移"
+    },
+    "C15": {
+      "caseId": "Y2602",
+      "caseSeq": 2602,
+      "localId": "FLD-C15",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "直接间接与跨表循环依赖可被识别且不无限计算"
+    },
+    "C16": {
+      "caseId": "Y2603",
+      "caseSeq": 2603,
+      "localId": "FLD-C16",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "单多值与字符串数字日期布尔结果类型能正确推断及展示"
+    },
+    "C17": {
+      "caseId": "Y2604",
+      "caseSeq": 2604,
+      "localId": "FLD-C17",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "前端预览记录落库接口筛选排序分组使用一致计算语义"
+    },
+    "C18": {
+      "caseId": "Y2605",
+      "caseSeq": 2605,
+      "localId": "FLD-C18",
+      "section": "§5 计算需求：公式与依赖",
+      "title": "大量记录或批量变化后不漏算不残留旧结果且无关记录不产生错误变化"
+    },
+    "R01": {
+      "caseId": "Y2606",
+      "caseSeq": 2606,
+      "localId": "FLD-R01",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "关联关系约束决定允许单值或多值且双向单向按配置同步"
+    },
+    "R02": {
+      "caseId": "Y2607",
+      "caseSeq": 2607,
+      "localId": "FLD-R02",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "普通查找取指定关联的指定源字段且关联或源值变化后重算"
+    },
+    "R03": {
+      "caseId": "Y2608",
+      "caseSeq": 2608,
+      "localId": "FLD-R03",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "查找过滤去重按明确规则执行且去重保留类型与首次出现顺序"
+    },
+    "R04": {
+      "caseId": "Y2609",
+      "caseSeq": 2609,
+      "localId": "FLD-R04",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "条件查找与条件汇总按当前记录条件及源表数据动态选取"
+    },
+    "R05": {
+      "caseId": "Y2610",
+      "caseSeq": 2610,
+      "localId": "FLD-R05",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "条件汇总按过滤排序数量限制再聚合的顺序计算"
+    },
+    "R06": {
+      "caseId": "Y2611",
+      "caseSeq": 2611,
+      "localId": "FLD-R06",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "汇总函数与目标字段类型匹配，不对字符串开放数值聚合"
+    },
+    "R07": {
+      "caseId": "Y2612",
+      "caseSeq": 2612,
+      "localId": "FLD-R07",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "基础汇总支持 countall counta count join unique compact concatenate"
+    },
+    "R08": {
+      "caseId": "Y2613",
+      "caseSeq": 2613,
+      "localId": "FLD-R08",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "数值汇总额外支持 sum average max min，日期额外支持 max min"
+    },
+    "R09": {
+      "caseId": "Y2614",
+      "caseSeq": 2614,
+      "localId": "FLD-R09",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "布尔汇总额外支持 and or xor 且空集合逻辑结果明确"
+    },
+    "R10": {
+      "caseId": "Y2615",
+      "caseSeq": 2615,
+      "localId": "FLD-R10",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "空关联无条件匹配或全部源值为空时各函数返回 null 0 空数组或错误的规则明确"
+    },
+    "R11": {
+      "caseId": "Y2616",
+      "caseSeq": 2616,
+      "localId": "FLD-R11",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "关联或源字段与源记录删除恢复及跨表批量更新触发正确重算"
+    },
+    "R12": {
+      "caseId": "Y2617",
+      "caseSeq": 2617,
+      "localId": "FLD-R12",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "单多值查找嵌套与查找引用公式汇总及跨表多级依赖按类型处理且不漏算"
+    },
+    "R13": {
+      "caseId": "Y2618",
+      "caseSeq": 2618,
+      "localId": "FLD-R13",
+      "section": "§6 计算需求：关联、查找与汇总",
+      "title": "跨 base 能力与权限套餐边界明确且只读分享不泄露无权数据"
+    },
+    "A01": {
+      "caseId": "Y2619",
+      "caseSeq": 2619,
+      "localId": "FLD-A01",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "统计菜单按字段类型结果类型与单多值展示合法统计方式"
+    },
+    "A02": {
+      "caseId": "Y2620",
+      "caseSeq": 2620,
+      "localId": "FLD-A02",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "字符串提供记录数空非空唯一数及对应比例"
+    },
+    "A03": {
+      "caseId": "Y2621",
+      "caseSeq": 2621,
+      "localId": "FLD-A03",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "数值额外提供和平均最小最大"
+    },
+    "A04": {
+      "caseId": "Y2622",
+      "caseSeq": 2622,
+      "localId": "FLD-A04",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "日期提供记录数空非空唯一及比例最早最晚与天月范围"
+    },
+    "A05": {
+      "caseId": "Y2623",
+      "caseSeq": 2623,
+      "localId": "FLD-A05",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "复选框提供记录数已勾未勾及比例"
+    },
+    "A06": {
+      "caseId": "Y2624",
+      "caseSeq": 2624,
+      "localId": "FLD-A06",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "附件提供总大小与通用空非空统计不提供唯一值统计"
+    },
+    "A07": {
+      "caseId": "Y2625",
+      "caseSeq": 2625,
+      "localId": "FLD-A07",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "关联提供记录数空非空及比例，单值成员另有唯一统计多值成员不提供"
+    },
+    "A08": {
+      "caseId": "Y2626",
+      "caseSeq": 2626,
+      "localId": "FLD-A08",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "空非空唯一与百分比判定及分母定义明确，零记录不出现非法值"
+    },
+    "A09": {
+      "caseId": "Y2627",
+      "caseSeq": 2627,
+      "localId": "FLD-A09",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "视图筛选搜索分组折叠组行权限对统计范围的影响明确"
+    },
+    "A10": {
+      "caseId": "Y2628",
+      "caseSeq": 2628,
+      "localId": "FLD-A10",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "分组统计计算组内值，全表统计独立计算不能直接平均各组平均值"
+    },
+    "A11": {
+      "caseId": "Y2629",
+      "caseSeq": 2629,
+      "localId": "FLD-A11",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "多值数字统计明确按记录还是展开元素计算且不重复或遗漏关联值"
+    },
+    "A12": {
+      "caseId": "Y2630",
+      "caseSeq": 2630,
+      "localId": "FLD-A12",
+      "section": "§7 计算需求：底部统计、分组与筛选",
+      "title": "写入删除撤销筛选改变与计算字段重算后统计及分组结果最终一致"
+    },
+    "B01": {
+      "caseId": "Y2631",
+      "caseSeq": 2631,
+      "localId": "FLD-B01",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "创建时间与创建人在记录创建时生成且普通后续编辑不改变"
+    },
+    "B02": {
+      "caseId": "Y2632",
+      "caseSeq": 2632,
+      "localId": "FLD-B02",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "最后修改字段明确跟踪所有字段或指定字段，未跟踪变化不更新"
+    },
+    "B03": {
+      "caseId": "Y2633",
+      "caseSeq": 2633,
+      "localId": "FLD-B03",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "无实际值变化与改配置是否更新修改人时间须定义"
+    },
+    "B04": {
+      "caseId": "Y2634",
+      "caseSeq": 2634,
+      "localId": "FLD-B04",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "自动编号并发与批量创建不重复且起点缺号删除恢复策略明确"
+    },
+    "B05": {
+      "caseId": "Y2635",
+      "caseSeq": 2635,
+      "localId": "FLD-B05",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "按钮标签颜色可用状态点击上限及动作产生字段更新的规则明确"
+    },
+    "B06": {
+      "caseId": "Y2636",
+      "caseSeq": 2636,
+      "localId": "FLD-B06",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "字段类型转换后值默认配置样式依赖与约束有明确转换或清理规则"
+    },
+    "B07": {
+      "caseId": "Y2637",
+      "caseSeq": 2637,
+      "localId": "FLD-B07",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "复制字段复制表导入导出与保存模板后保留可移植配置并重映射依赖"
+    },
+    "B08": {
+      "caseId": "Y2638",
+      "caseSeq": 2638,
+      "localId": "FLD-B08",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "排序筛选分组采用字段业务类型，不被颜色小数位货币符号误导"
+    },
+    "B09": {
+      "caseId": "Y2639",
+      "caseSeq": 2639,
+      "localId": "FLD-B09",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "隐藏字段调整列宽行高列顺序不改变原值默认配置或依赖"
+    },
+    "B10": {
+      "caseId": "Y2640",
+      "caseSeq": 2640,
+      "localId": "FLD-B10",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "单格批量编辑粘贴清空撤销重做满足相同类型校验且失败不静默部分覆盖"
+    },
+    "B11": {
+      "caseId": "Y2641",
+      "caseSeq": 2641,
+      "localId": "FLD-B11",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "刷新与多用户实时编辑后配置与计算结果同步且冲突有可解释结果"
+    },
+    "B12": {
+      "caseId": "Y2642",
+      "caseSeq": 2642,
+      "localId": "FLD-B12",
+      "section": "§8 系统字段、配置变更及表格基础交互",
+      "title": "只读字段权限表单与分享模式限制编辑配置操作且允许读取的显示与计算正确"
+    }
+  }
+}

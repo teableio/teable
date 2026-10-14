@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 rollup ARRAYUNIQUE over multi-select values (e2e)', () => {
+describe('[F13] v2 rollup ARRAYUNIQUE over multi-select values (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

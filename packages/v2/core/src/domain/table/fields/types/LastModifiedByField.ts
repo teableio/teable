@@ -1,6 +1,12 @@
 import { ok, type Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
@@ -10,7 +16,7 @@ import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { FieldComputed } from './FieldComputed';
 import { GeneratedColumnMeta } from './GeneratedColumnMeta';
 
-export class LastModifiedByField extends Field {
+export class LastModifiedByField extends Field implements OnTeableFieldDeleted {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -51,6 +57,29 @@ export class LastModifiedByField extends Field {
 
   isTrackAll(): boolean {
     return this.trackedFieldIdsValue.length === 0;
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
+    if (
+      !context.sourceTable.id().equals(context.table.id()) ||
+      !this.trackedFieldIdsValue.some((id) => id.equals(deletedField.id()))
+    ) {
+      return ok(undefined);
+    }
+
+    return LastModifiedByField.create({
+      id: this.id(),
+      name: this.name(),
+      trackedFieldIds: this.trackedFieldIdsValue.filter((id) => !id.equals(deletedField.id())),
+    }).andThen((updatedField) =>
+      updatedField.setDescription(this.description()).map(() => ({
+        spec: TableUpdateFieldTypeSpec.create(this, updatedField),
+        relatedFieldIds: [this.id()],
+      }))
+    );
   }
 
   duplicate(params: FieldDuplicateParams): Result<Field, DomainError> {

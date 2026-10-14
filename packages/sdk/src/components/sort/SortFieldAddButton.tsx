@@ -1,25 +1,23 @@
-import { FieldType } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
-import { useFields } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 import { NestedDrawer, useInDrawer } from '../adaptive-panel';
 import { FieldCommand } from '../field/FieldCommand';
 
 interface ISortFieldSelectProps {
+  fields: IFieldInstance[];
   selectedFieldIds?: string[];
   addBtnText?: string;
   onSelect: (colum: string) => void;
 }
 
 function SortFieldAddButton(props: Readonly<ISortFieldSelectProps>) {
-  const { selectedFieldIds = [], addBtnText, onSelect } = props;
+  const { fields, selectedFieldIds = [], addBtnText, onSelect } = props;
   const { t } = useTranslation();
   const inDrawer = useInDrawer();
   const [open, setOpen] = useState(false);
-  const defaultFields = useFields({ withHidden: true, withDenied: true });
-  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
 
   const selectHandler = (value: string) => {
     setOpen(!open);

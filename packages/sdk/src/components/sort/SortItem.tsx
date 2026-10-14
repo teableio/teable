@@ -1,12 +1,13 @@
-import { FieldType, type ISortItem } from '@teable/core';
+import type { ISortItem } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useTranslation } from '../../context/app/i18n';
-import { useFields } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 import { useInDrawer } from '../adaptive-panel';
 import { FieldSelector } from '../field/FieldSelector';
 import { OrderSelect } from './OrderSelect';
 
 export interface ISortItemProps {
+  fields: IFieldInstance[];
   index: number;
   value: ISortItem;
   selectedFields?: string[];
@@ -19,7 +20,7 @@ enum ISortKey {
 }
 
 function SortItem(props: Readonly<ISortItemProps>) {
-  const { index, value, onSelect, selectedFields, ...restProps } = props;
+  const { fields, index, value, onSelect, selectedFields, ...restProps } = props;
   const { t } = useTranslation();
   const inDrawer = useInDrawer();
 
@@ -28,9 +29,6 @@ function SortItem(props: Readonly<ISortItemProps>) {
   const selectHandler = (_key: keyof ISortItem, _value: ISortItem[keyof ISortItem]) => {
     onSelect?.(index, { ...value, [_key]: _value });
   };
-
-  const defaultFields = useFields({ withHidden: true, withDenied: true });
-  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
 
   return (
     <div className={cn('flex', inDrawer && 'min-w-0 flex-1 items-center gap-2')}>

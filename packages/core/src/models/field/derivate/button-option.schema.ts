@@ -5,7 +5,10 @@ import { Colors } from '../colors';
 export const buttonFieldOptionsSchema = z.object({
   label: z.string().meta({ description: 'Button label' }),
   color: z.enum(Colors).meta({ description: 'Button color' }),
-  maxCount: z.number().optional().meta({ description: 'Max count of button clicks' }),
+  maxCount: z
+    .number()
+    .nullish()
+    .meta({ description: 'Max count of button clicks; null removes it' }),
   resetCount: z.boolean().optional().meta({ description: 'Reset count' }),
   workflow: z
     .object({

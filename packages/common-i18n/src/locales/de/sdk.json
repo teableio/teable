@@ -405,7 +405,6 @@
       "baseInviteEmail": "per E-Mail in das Projekt einladen",
       "baseInviteLink": "per Link in das Projekt einladen",
       "baseAuthorityMatrixConfig": "Authority Matrix konfigurieren",
-      "baseDbConnect": "Zu Datenbank verbinden",
       "tableCreate": "Tabelle erstellen",
       "tableRead": "Tabelle lesen",
       "tableDelete": "Tabelle löschen",
@@ -1102,15 +1101,11 @@
       "listMailboxesFailed": "Postfächerliste konnte nicht abgerufen werden: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Unbekannter Datensatz: {{datasetId}}",
       "apiKeyNotConfigured": "Scrape-Dienst ist nicht konfiguriert",
       "triggerFailed": "Scrape-Auslösung fehlgeschlagen: {{detail}}",
-      "snapshotError": "Scrape-Snapshot-Fehler: {{detail}}",
-      "timeout": "Scrape-Zeitüberschreitung nach {{seconds}}s",
       "catalogFailed": "Scrape-Katalog-Anfrage fehlgeschlagen: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy gilt nur für rohe Dataset-IDs, nicht für {{datasetId}}",
-      "tooManyRecords": "Der Scrape würde bis zu {{estimated}} Datensätze liefern und überschreitet damit das Limit von {{max}} pro Auslösung",
-      "creditEstimateExceeded": "Die geschätzten Credits für diesen Scrape übersteigen das derzeit verfügbare Guthaben"
+      "creditEstimateExceeded": "Die geschätzten Credits für diesen Scrape übersteigen das derzeit verfügbare Guthaben",
+      "runOverLimit": "Dieser Scrape kann bis zu {{maxCredits}} Credits kosten und liegt damit über dem Limit von {{limit}} Credits pro Ausführung."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1156,7 +1151,9 @@
       "folderDepthLimitExceeded": "Ordnertiefenlimit überschritten",
       "folderNotFound": "Ordner nicht gefunden",
       "anchorNotFound": "Ankerknoten nicht gefunden",
-      "nameAlreadyExists": "Name existiert bereits"
+      "nameAlreadyExists": "Name existiert bereits",
+      "targetBaseRequired": "Zielprojekt ist erforderlich",
+      "moveBlocked": "Knoten kann nicht in das Zielprojekt verschoben werden ({{code}})"
     },
     "routine": {
       "notFound": "Routine nicht gefunden",
@@ -1173,6 +1170,7 @@
     "chat": {
       "notFound": "Chat nicht gefunden",
       "accessDenied": "Sie dürfen auf diesen Chat nicht zugreifen",
+      "archived": "Chat ist archiviert",
       "serverAuthoredType": "Chats vom Typ {{type}} werden vom Server erstellt"
     },
     "dashboard": {
@@ -1228,12 +1226,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Plugin-Diagramm-Abfrage nicht gefunden"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Nicht unterstützter Datenbanktreiber: {{driver}}",
-      "onlyOwnerCanRemove": "Nur der Projekt-Besitzer kann die Datenbankverbindung für Projekt {{baseId}} entfernen",
-      "onlyOwnerCanCreate": "Nur der Projekt-Besitzer kann eine Datenbankverbindung für Projekt {{baseId}} erstellen",
-      "roleNotExist": "Datenbankrolle {{role}} existiert nicht"
     },
     "baseQuery": {
       "queryFailed": "Abfrage fehlgeschlagen: {{message}}",
@@ -1309,6 +1301,7 @@
       "lookupAndLinkLengthMatch": "lookupValues-Länge sollte gleich linkCellValues-Länge sein",
       "cycleDetected": "Zyklus erkannt",
       "cycleDetectedCreateField": "Zyklus erkannt, Feld {{name}}[{{id}}] kann nicht erstellt werden",
+      "cycleDetectedCreateFieldGeneric": "Zyklus erkannt, Feld kann nicht erstellt werden",
       "recordMapNotFound": "Datensatz nicht gefunden in Tabelle {{tableName}} für Feld {{fieldName}}",
       "forbidDeletePrimaryField": "Löschen des Primärfeldes verboten",
       "foreignTableIdInvalid": "Fremdtabelle {{foreignTableId}} ungültig",

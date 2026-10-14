@@ -78,6 +78,9 @@ const createHarness = async (
   const listeningServer = app.listen(0, '127.0.0.1', () => signalServerReady(listeningServer));
   listeningServer.once('error', failServerReady);
   const server = await serverReady;
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -220,7 +223,7 @@ const expectedFormulaValues = (title: string, status: string, lookups: string[])
   return { seed, l2, l3, l4, card };
 };
 
-describe('computed fanout overlap convergence (e2e) T6629', () => {
+describe('[C14][S19] computed fanout overlap convergence (e2e) T6629', () => {
   it('converges the shared formula chain after overlapping wide/narrow cascades', async () => {
     const harness = await createHarness({
       computedUpdate: {

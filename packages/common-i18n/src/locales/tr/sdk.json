@@ -405,7 +405,6 @@
       "baseInviteEmail": "Projede e-posta ile davet et",
       "baseInviteLink": "Projede bağlantı ile davet et",
       "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
-      "baseDbConnect": "Veritabanına bağlan",
       "tableCreate": "Tablo oluştur",
       "tableRead": "Tablo oku",
       "tableDelete": "Tablo sil",
@@ -1102,15 +1101,11 @@
       "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Bilinmeyen veri seti: {{datasetId}}",
       "apiKeyNotConfigured": "Kazıma servisi yapılandırılmamış",
       "triggerFailed": "Kazıma tetiklemesi başarısız: {{detail}}",
-      "snapshotError": "Kazıma anlık görüntü hatası: {{detail}}",
-      "timeout": "Kazıma {{seconds}}s sonra zaman aşımına uğradı",
       "catalogFailed": "Kazıma kataloğu isteği başarısız oldu: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy yalnızca ham veri kümesi kimlikleri için geçerlidir, {{datasetId}} için değil",
-      "tooManyRecords": "Bu tarama en fazla {{estimated}} kayıt döndürür ve tetikleme başına izin verilen {{max}} sınırını aşıyor",
-      "creditEstimateExceeded": "Bu taramanın tahmini kredisi şu anda kullanılabilir olanı aşıyor"
+      "creditEstimateExceeded": "Bu taramanın tahmini kredisi şu anda kullanılabilir olanı aşıyor",
+      "runOverLimit": "Bu tarama en fazla {{maxCredits}} kredi tutabilir, bu da tek bir çalıştırma için izin verilen {{limit}} kredilik sınırı aşıyor."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1156,7 +1151,9 @@
       "folderDepthLimitExceeded": "Klasör derinlik sınırı aşıldı",
       "folderNotFound": "Klasör bulunamadı",
       "anchorNotFound": "Bağlantı düğümü bulunamadı",
-      "nameAlreadyExists": "İsim zaten mevcut"
+      "nameAlreadyExists": "İsim zaten mevcut",
+      "targetBaseRequired": "Hedef proje gereklidir",
+      "moveBlocked": "Düğüm hedef projeye taşınamıyor ({{code}})"
     },
     "routine": {
       "notFound": "Rutin bulunamadı",
@@ -1173,6 +1170,7 @@
     "chat": {
       "notFound": "Sohbet bulunamadı",
       "accessDenied": "Bu sohbete erişim izniniz yok",
+      "archived": "Sohbet arşivlenmiş",
       "serverAuthoredType": "{{type}} türündeki sohbetler sunucu tarafından oluşturulur"
     },
     "dashboard": {
@@ -1228,12 +1226,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Eklenti grafik sorgusu bulunamadı"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
-      "onlyOwnerCanRemove": "Yalnızca proje sahibi, proje {{baseId}} için veritabanı bağlantısını kaldırabilir",
-      "onlyOwnerCanCreate": "Yalnızca proje sahibi, proje {{baseId}} için veritabanı bağlantısı oluşturabilir",
-      "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
     },
     "baseQuery": {
       "queryFailed": "Sorgu başarısız: {{message}}",
@@ -1309,6 +1301,7 @@
       "lookupAndLinkLengthMatch": "lookupValues uzunluğu linkCellValues uzunluğu ile aynı olmalıdır",
       "cycleDetected": "Döngü tespit edildi",
       "cycleDetectedCreateField": "Döngü tespit edildi, alan {{name}}[{{id}}] oluşturulamıyor",
+      "cycleDetectedCreateFieldGeneric": "Döngü tespit edildi, alan oluşturulamıyor",
       "recordMapNotFound": "Tablo {{tableName}} içinde alan {{fieldName}} için kayıt bulunamadı",
       "forbidDeletePrimaryField": "Birincil alanı silmek yasaktır",
       "foreignTableIdInvalid": "Yabancı tablo {{foreignTableId}} geçersiz",

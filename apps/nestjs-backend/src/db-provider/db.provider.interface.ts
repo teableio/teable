@@ -71,6 +71,13 @@ export interface IDbProvider {
 
   renameTableName(oldTableName: string, newTableName: string): string[];
 
+  /**
+   * Move a physical table (with its indexes, constraints and owned sequences)
+   * into another schema. Both arguments are schema-qualified names whose table
+   * part must match; only the schema changes.
+   */
+  setTableSchema(oldTableName: string, newTableName: string): string;
+
   getForeignKeysInfo(dbTableName: string): string;
 
   dropTable(tableName: string): string;

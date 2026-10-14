@@ -23,6 +23,7 @@ import ukTable from '@teable/common-i18n/src/locales/uk/table.json';
 import zhSdk from '@teable/common-i18n/src/locales/zh/sdk.json';
 import zhTable from '@teable/common-i18n/src/locales/zh/table.json';
 import { HttpErrorCode } from '@teable/core';
+import { get } from 'lodash';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { sdkErrorI18nKeys, tableI18nKeys } from '../../../../i18n-keys/src';
 import type { ILocaleFunction } from './i18n';
@@ -206,6 +207,22 @@ describe('httpError code locale coverage', () => {
 });
 
 describe('getHttpErrorMessage', () => {
+  it('shows a Chinese cycle message instead of the diagnostic field ID chain', () => {
+    const translate: ILocaleFunction = (key) => get(zhSdk, key) ?? key;
+    const message = getHttpErrorMessage(
+      {
+        message: 'Circular dependency detected in fields: fldFirst → fldSecond → fldFirst',
+        data: {
+          localization: { i18nKey: 'httpErrors.field.cycleDetectedCreateFieldGeneric' },
+        },
+      },
+      translate
+    );
+
+    expect(message).toBe('检测到循环依赖，无法创建字段');
+    expect(message).not.toMatch(/fld|Circular dependency|→/);
+  });
+
   it('translates the localization the server attached', () => {
     const message = getHttpErrorMessage(
       {

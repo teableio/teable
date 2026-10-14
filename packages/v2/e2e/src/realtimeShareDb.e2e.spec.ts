@@ -17,8 +17,16 @@ import {
   pasteOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { NoopLogger } from '@teable/v2-core';
+import {
+  ActorId,
+  DeleteFieldCommand,
+  MemoryUndoRedoStore,
+  NoopLogger,
+  UndoCommand,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type {
+  ICommandBus,
   ICreateTableCommandInput,
   ILogger,
   ITableFieldPersistenceDTO,
@@ -292,7 +300,7 @@ const deleteShareDbBackendDoc = async (params: {
   }
 };
 
-describe('v2 realtime sharedb (e2e)', () => {
+describe('[B11] v2 realtime sharedb (e2e)', () => {
   let server: Server | undefined;
   let shareDbRuntime: ShareDbRuntime | undefined;
   let testContainer: Awaited<ReturnType<typeof createV2NodeTestContainer>> | undefined;
@@ -322,6 +330,7 @@ describe('v2 realtime sharedb (e2e)', () => {
     shareDbUrl = `ws://127.0.0.1:${runtime.port}/socket`;
 
     testContainer = await createE2eTestContainer();
+    testContainer.container.registerInstance(v2CoreTokens.undoRedoStore, new MemoryUndoRedoStore());
     registerRealtime(testContainer.container, runtime);
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
@@ -986,6 +995,114 @@ describe('v2 realtime sharedb (e2e)', () => {
       expect(socketErrors).toEqual([]);
     } finally {
       doc.destroy();
+      connection.close();
+      socket.close();
+    }
+  });
+
+  it('clears subscribed lookup rollup and formula errors after undo without refetching', async () => {
+    if (!testContainer) throw new Error('Missing test container');
+    const commandBus = testContainer.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = {
+      actorId: ActorId.create('usr0000000000000000')._unsafeUnwrap(),
+      windowId: 'realtime-error-undo',
+    };
+    const amountId = createFieldId();
+    const sourceResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime Error Source',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', id: amountId, name: 'Amount' },
+        ],
+      }),
+    });
+    expect(sourceResponse.status).toBe(201);
+    const sourceResult = createTableOkResponseSchema.parse(await sourceResponse.json());
+    if (!sourceResult.ok) throw new Error('Source table creation failed');
+    const sourceId = sourceResult.data.table.id;
+    const linkId = createFieldId();
+    const lookupId = createFieldId();
+    const rollupId = createFieldId();
+    const formulaId = createFieldId();
+    const hostResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime Error Host',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkId,
+            name: 'Sources',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceId,
+              lookupFieldId: sourceResult.data.table.fields[0]!.id,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupId,
+            name: 'Amounts',
+            options: { linkFieldId: linkId, foreignTableId: sourceId, lookupFieldId: amountId },
+          },
+          {
+            type: 'rollup',
+            id: rollupId,
+            name: 'Total',
+            options: { expression: 'sum({values})' },
+            config: { linkFieldId: linkId, foreignTableId: sourceId, lookupFieldId: amountId },
+          },
+          {
+            type: 'formula',
+            id: formulaId,
+            name: 'Doubled',
+            options: { expression: `{${rollupId}} * 2` },
+          },
+        ],
+      }),
+    });
+    expect(hostResponse.status, await hostResponse.clone().text()).toBe(201);
+    const hostResult = createTableOkResponseSchema.parse(await hostResponse.json());
+    if (!hostResult.ok) throw new Error('Host table creation failed');
+    const tableId = hostResult.data.table.id;
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const docs = [lookupId, rollupId, formulaId].map(
+      (id) => connection.get(`fld_${tableId}`, id) as Doc<ITableFieldPersistenceDTO>
+    );
+    try {
+      await Promise.all(
+        docs.map(
+          (doc) =>
+            new Promise<void>((resolve, reject) => {
+              doc.subscribe((error) => (error ? reject(error) : resolve()));
+            })
+        )
+      );
+      expect(docs.every((doc) => !doc.data?.hasError)).toBe(true);
+      (
+        await commandBus.execute(
+          context,
+          DeleteFieldCommand.create({ baseId, tableId, fieldId: linkId })._unsafeUnwrap()
+        )
+      )._unsafeUnwrap();
+      await expect.poll(() => docs.map((doc) => doc.data?.hasError)).toEqual([true, true, true]);
+      (
+        await commandBus.execute(
+          context,
+          UndoCommand.create({ tableId, windowId: context.windowId })._unsafeUnwrap()
+        )
+      )._unsafeUnwrap();
+      await expect.poll(() => docs.map((doc) => doc.data?.hasError)).toEqual([false, false, false]);
+    } finally {
+      for (const doc of docs) doc.destroy();
       connection.close();
       socket.close();
     }

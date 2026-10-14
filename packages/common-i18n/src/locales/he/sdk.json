@@ -409,7 +409,6 @@
       "baseInviteEmail": "הזמנה באימייל בפרויקט",
       "baseInviteLink": "הזמנה בקישור בפרויקט",
       "baseAuthorityMatrixConfig": "הגדרת מטריצת ההרשאות",
-      "baseDbConnect": "חיבור למסד הנתונים",
       "tableCreate": "יצירת טבלה",
       "tableRead": "קריאת טבלה",
       "tableDelete": "מחיקת טבלה",
@@ -722,8 +721,8 @@
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "מחזירה את מספר ימי העבודה שאחרי [startDate] ועד [endDate] ועד בכלל. זו ספירה של ימי עסקים ולא הפרש בימים קלנדריים, ולכן סופי שבוע ורשימת חגים אופציונלית אינם נכללים. לחישוב הזמן שחלף בימים קלנדריים יש להשתמש ב-`DATETIME_DIFF(endDate, startDate, \"day\")`. התוצאה שלילית כאשר [endDate] מוקדם מ-[startDate], ו-WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) מחזירה n.",
-      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+      "summary": "מחזירה את מספר ימי העבודה בין [startDate] ל-[endDate], כולל שני הקצוות כאשר הם ימי עבודה. סופי שבוע ורשימת חגים אופציונלית אינם נספרים. התוצאה שלילית כאשר [endDate] מוקדם מ-[startDate]. אותו יום עבודה מחזיר 1, ואותו יום חופש מחזיר 0. לחישוב ימים קלנדריים שחלפו השתמשו ב-`DATETIME_DIFF(endDate, startDate, \"day\")`.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "משווה בין שני תאריכים ברמת היחידה שצוינה וקובעת אם הם זהים. מחזירה true אם כן, ו-false אם לא.",
@@ -1106,15 +1105,11 @@
       "listMailboxesFailed": "טעינת רשימת תיבות הדואר נכשלה: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "מערך נתונים לא ידוע: {{datasetId}}",
       "apiKeyNotConfigured": "שירות גריפת הנתונים אינו מוגדר",
       "triggerFailed": "הפעלת גריפת הנתונים נכשלה: {{detail}}",
-      "snapshotError": "שגיאה בתמונת המצב של גריפת הנתונים: {{detail}}",
-      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s",
       "catalogFailed": "בקשת קטלוג הגריפה נכשלה: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy חל רק על מזהי מערכי נתונים גולמיים, לא על {{datasetId}}",
-      "tooManyRecords": "הגריפה תחזיר עד {{estimated}} רשומות, מעל המגבלה של {{max}} לכל הפעלה",
-      "creditEstimateExceeded": "הקרדיטים המשוערים לגריפה זו עולים על הזמין כרגע"
+      "creditEstimateExceeded": "הקרדיטים המשוערים לגריפה זו עולים על הזמין כרגע",
+      "runOverLimit": "גריפה זו עשויה לעלות עד {{maxCredits}} קרדיטים, מעבר למגבלה של {{limit}} קרדיטים להרצה אחת."
     },
     "integration": {
       "oauthCodeExchangeFailed": "החלפת קוד ה-OAuth נכשלה: {{detail}}",
@@ -1160,7 +1155,9 @@
       "folderDepthLimitExceeded": "חריגה ממגבלת עומק התיקיות",
       "folderNotFound": "התיקייה לא נמצאה",
       "anchorNotFound": "פריט העוגן לא נמצא",
-      "nameAlreadyExists": "השם כבר קיים"
+      "nameAlreadyExists": "השם כבר קיים",
+      "targetBaseRequired": "נדרש פרויקט יעד",
+      "moveBlocked": "לא ניתן להעביר את הפריט לפרויקט היעד ({{code}})"
     },
     "routine": {
       "notFound": "רוטינה לא נמצאה",
@@ -1177,6 +1174,7 @@
     "chat": {
       "notFound": "הצ'אט לא נמצא",
       "accessDenied": "אין לך הרשאה לגשת לצ'אט הזה",
+      "archived": "השיחה בארכיון",
       "serverAuthoredType": "צ'אטים מסוג {{type}} נוצרים על ידי השרת"
     },
     "dashboard": {
@@ -1232,12 +1230,6 @@
     },
     "pluginChart": {
       "queryNotFound": "שאילתת התרשים של התוסף לא נמצאה"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "מנהל ההתקן של מסד הנתונים אינו נתמך: {{driver}}",
-      "onlyOwnerCanRemove": "רק הבעלים של הפרויקט יכולים להסיר את החיבור למסד הנתונים של הפרויקט {{baseId}}",
-      "onlyOwnerCanCreate": "רק הבעלים של הפרויקט יכולים ליצור חיבור למסד הנתונים של הפרויקט {{baseId}}",
-      "roleNotExist": "התפקיד {{role}} אינו קיים במסד הנתונים"
     },
     "baseQuery": {
       "queryFailed": "השאילתה נכשלה: {{message}}",
@@ -1313,6 +1305,7 @@
       "lookupAndLinkLengthMatch": "אורך lookupValues חייב להיות זהה לאורך linkCellValues",
       "cycleDetected": "זוהתה תלות מעגלית",
       "cycleDetectedCreateField": "זוהתה תלות מעגלית, לא ניתן ליצור את השדה {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "זוהתה תלות מעגלית, לא ניתן ליצור את השדה",
       "recordMapNotFound": "לא נמצאה רשומה בטבלה {{tableName}} עבור השדה {{fieldName}}",
       "forbidDeletePrimaryField": "לא ניתן למחוק את השדה הראשי",
       "foreignTableIdInvalid": "הטבלה המקושרת {{foreignTableId}} אינה חוקית",

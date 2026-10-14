@@ -237,7 +237,7 @@ const drainOutbox = async (harness: TestHarness, rounds = 120): Promise<number> 
   throw new Error('Outbox did not quiesce under stage budget');
 };
 
-describe('computed stage budget continuation (e2e)', () => {
+describe('[C14][S19] computed stage budget continuation (e2e)', () => {
   it('batches async filtered rollup backfills across continuation tasks T7075', async () => {
     const harness = await createHarness({ fieldBackfillBatchSize: 2 }, { mode: 'async' });
 

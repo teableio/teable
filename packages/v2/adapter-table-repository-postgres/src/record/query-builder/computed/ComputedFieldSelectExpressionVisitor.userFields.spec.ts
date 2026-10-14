@@ -203,22 +203,6 @@ describe('ComputedTableRecordQueryBuilder with CreatedBy/LastModifiedBy fields',
     expect(parameters).toContain('test@teable.ai');
   });
 
-  it('should optionally resolve system user snapshots through users during backfill', () => {
-    const db = createTestDb();
-    const table = createTableWithUserFields();
-
-    const qb = new ComputedTableRecordQueryBuilder(db, {
-      typeValidationStrategy,
-      resolveSystemUserSnapshotsFromUsers: true,
-    });
-    const { sql, parameters } = compileQuery(db, qb.from(table));
-
-    expect(sql).toContain('FROM public.users u');
-    expect(sql).toContain('COALESCE(u.name, u.id)');
-    expect(sql).toContain("'/api/attachments/read/public/avatar/'");
-    expect(parameters).toEqual([]);
-  });
-
   it('should treat formula references to system user snapshots as scalar titles', () => {
     const db = createTestDb();
     const table = createTableWithUserFields({ includeFormulaFields: true });

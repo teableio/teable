@@ -36,6 +36,51 @@ describe('field Schema Test', () => {
     expect(result.success).toBe(true);
   });
 
+  describe('conditional rollup creation defaults', () => {
+    const options = {
+      foreignTableId: 'tblForeign000000001',
+      lookupFieldId: 'fldAmount0000000001',
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: 'fldAmount0000000001', operator: 'isGreater', value: 15 }],
+      },
+    };
+
+    it('defaults an omitted expression to countall without mutating the input', () => {
+      const input = { type: FieldType.ConditionalRollup, options };
+      const result = createFieldRoSchema.parse(input);
+      expect(result.options).toEqual({ ...options, expression: 'countall({values})' });
+      expect(input.options).not.toHaveProperty('expression');
+    });
+
+    it('preserves explicit expressions and rejects invalid expressions', () => {
+      const input = { type: FieldType.ConditionalRollup, options };
+      expect(
+        createFieldRoSchema.parse({
+          ...input,
+          options: { ...options, expression: 'sum({values})' },
+        }).options
+      ).toEqual({ ...options, expression: 'sum({values})' });
+      for (const expression of ['', null, 'invalid({values})']) {
+        expect(
+          createFieldRoSchema.safeParse({ ...input, options: { ...options, expression } }).success
+        ).toBe(false);
+      }
+    });
+
+    it('does not default conversion requests or bypass required filters', () => {
+      expect(
+        convertFieldRoSchema.safeParse({ type: FieldType.ConditionalRollup, options }).success
+      ).toBe(false);
+      expect(
+        createFieldRoSchema.safeParse({
+          type: FieldType.ConditionalRollup,
+          options: { ...options, filter: null },
+        }).success
+      ).toBe(false);
+    });
+  });
+
   // T6606: a defaulted passthrough union member must not inject a phantom
   // `expression` into other field types' options (e.g. longText showAs).
   it('should not inject a default expression into longText options', () => {

@@ -424,7 +424,6 @@
       "baseInviteEmail": "الدعوة عبر البريد الإلكتروني في المشروع",
       "baseInviteLink": "الدعوة عبر رابط في المشروع",
       "baseAuthorityMatrixConfig": "إعداد مصفوفة الصلاحيات",
-      "baseDbConnect": "الاتصال بقاعدة البيانات",
       "tableCreate": "إنشاء جدول",
       "tableRead": "قراءة الجدول",
       "tableDelete": "حذف الجدول",
@@ -737,8 +736,8 @@
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "تُرجع عدد أيام العمل بعد [startDate] حتى [endDate] وشاملة له. وهذا عدّ لأيام العمل لا فرق أيام تقويمية، لذا تُستثنى عطلات نهاية الأسبوع وقائمة عطلات اختيارية. وللحصول على الوقت المنقضي بالأيام التقويمية استخدم `DATETIME_DIFF(endDate, startDate, \"day\")`. وتكون النتيجة سالبة عندما يسبق [endDate] التاريخ [startDate]، كما تُرجع WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) القيمة n.",
-      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+      "summary": "تُرجع عدد أيام العمل بين [startDate] و[endDate] مع احتساب تاريخَي البداية والنهاية إذا كانا يومَي عمل. تُستثنى عطلات نهاية الأسبوع وقائمة العطلات الاختيارية. تكون النتيجة سالبة عندما يسبق [endDate] تاريخ [startDate]. يُرجع يوم العمل نفسه 1، ويُرجع يوم العطلة نفسه 0. لحساب الأيام التقويمية المنقضية استخدم `DATETIME_DIFF(endDate, startDate, \"day\")`.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "تقارن تاريخين حتى وحدة محددة وتحدد ما إذا كانا متطابقين. تُرجع true إذا كانا كذلك، وfalse إن لم يكونا.",
@@ -1121,15 +1120,11 @@
       "listMailboxesFailed": "فشل سرد صناديق البريد: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "مجموعة بيانات غير معروفة: {{datasetId}}",
       "apiKeyNotConfigured": "لم يتم إعداد خدمة استخراج البيانات",
       "triggerFailed": "فشل تشغيل الاستخراج: {{detail}}",
-      "snapshotError": "خطأ في لقطة الاستخراج: {{detail}}",
-      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية",
       "catalogFailed": "فشل طلب فهرس الاستخراج: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy ينطبق فقط على معرّفات مجموعات البيانات الخام، وليس على {{datasetId}}",
-      "tooManyRecords": "ستعيد عملية الاستخراج ما يصل إلى {{estimated}} سجل، وهو ما يتجاوز الحد المسموح به وهو {{max}} لكل تشغيل",
-      "creditEstimateExceeded": "الأرصدة المقدّرة لعملية الاستخراج هذه تتجاوز المتاح حاليًا"
+      "creditEstimateExceeded": "الأرصدة المقدّرة لعملية الاستخراج هذه تتجاوز المتاح حاليًا",
+      "runOverLimit": "قد تصل تكلفة عملية الاستخراج هذه إلى {{maxCredits}} من الأرصدة، وهذا يتجاوز الحد البالغ {{limit}} من الأرصدة لعملية التشغيل الواحدة."
     },
     "integration": {
       "oauthCodeExchangeFailed": "فشل تبادل رمز OAuth: {{detail}}",
@@ -1175,7 +1170,9 @@
       "folderDepthLimitExceeded": "تم تجاوز حد عمق المجلدات",
       "folderNotFound": "المجلد غير موجود",
       "anchorNotFound": "عقدة المرساة غير موجودة",
-      "nameAlreadyExists": "الاسم موجود بالفعل"
+      "nameAlreadyExists": "الاسم موجود بالفعل",
+      "targetBaseRequired": "المشروع الهدف مطلوب",
+      "moveBlocked": "تعذّر نقل العقدة إلى المشروع الهدف ({{code}})"
     },
     "routine": {
       "notFound": "الروتين غير موجود",
@@ -1192,6 +1189,7 @@
     "chat": {
       "notFound": "المحادثة غير موجودة",
       "accessDenied": "غير مسموح لك بالوصول إلى هذه المحادثة",
+      "archived": "المحادثة مؤرشفة",
       "serverAuthoredType": "المحادثات من النوع {{type}} ينشئها الخادم"
     },
     "dashboard": {
@@ -1247,12 +1245,6 @@
     },
     "pluginChart": {
       "queryNotFound": "استعلام مخطط المكوّن الإضافي غير موجود"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "مشغّل قاعدة بيانات غير مدعوم: {{driver}}",
-      "onlyOwnerCanRemove": "لا يمكن إلا لمالك المشروع إزالة اتصال قاعدة البيانات لـ {{baseId}}",
-      "onlyOwnerCanCreate": "لا يمكن إلا لمالك المشروع إنشاء اتصال قاعدة البيانات لـ {{baseId}}",
-      "roleNotExist": "دور قاعدة البيانات {{role}} غير موجود"
     },
     "baseQuery": {
       "queryFailed": "فشل الاستعلام: {{message}}",
@@ -1328,6 +1320,7 @@
       "lookupAndLinkLengthMatch": "يجب أن يتطابق طول lookupValues مع طول linkCellValues",
       "cycleDetected": "تم اكتشاف دورة",
       "cycleDetectedCreateField": "تم اكتشاف دورة، ولا يمكن إنشاء الحقل {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "تم اكتشاف دورة، ولا يمكن إنشاء الحقل",
       "recordMapNotFound": "لم يتم العثور على السجل في الجدول {{tableName}} للحقل {{fieldName}}",
       "forbidDeletePrimaryField": "يُمنع حذف الحقل الأساسي",
       "foreignTableIdInvalid": "الجدول الخارجي {{foreignTableId}} غير صالح",

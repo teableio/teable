@@ -223,7 +223,7 @@ const runScenario = async (profile: typeof baseProfile): Promise<ScenarioResult>
   }
 };
 
-describe('computed fanout split amplification', () => {
+describe('[C14][S19] computed fanout split amplification', () => {
   it('bounds the fanout split on a cyclic link cascade and still converges', async () => {
     const control = await runScenario(staged('t7401-fanout-off', 0));
     const enabled = await runScenario(staged('t7401-fanout-on', 10));

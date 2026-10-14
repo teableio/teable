@@ -17,7 +17,7 @@
 import { describe, beforeAll, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 http formula metadata-aware coercion (e2e)', () => {
+describe('[C16] v2 http formula metadata-aware coercion (e2e)', () => {
   let ctx: SharedTestContext;
   const uniqueName = (prefix: string) =>
     `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2)}`;

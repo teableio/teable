@@ -72,9 +72,12 @@ import {
   ClearStreamCommand,
   ClickButtonCommand,
   buildUserAvatarUrl,
+  createLinkField,
   DeleteByRangeStreamCommand,
   DuplicateRecordsStreamCommand,
   FieldClipboardValueVisitor,
+  FieldId,
+  FieldName,
   FieldOptionsDtoVisitor,
   FieldType as V2FieldType,
   FieldValueTypeVisitor,
@@ -85,6 +88,8 @@ import {
   type GetRecordCollaboratorsResult,
   GetRecordStatusQuery,
   type GetRecordStatusResult,
+  type LinkField,
+  LinkFieldConfig,
   ListTableRecordsQuery,
   PasteStreamCommand,
   ResetButtonCommand,
@@ -115,6 +120,7 @@ import {
   type ListTableRecordsResult,
   type LookupField,
   type PasteStreamResult,
+  type PasteLinkAutoResolveService,
   type ResetButtonResult,
   type RecordCreateSource,
   type RecordFilter,
@@ -2802,17 +2808,17 @@ export class RecordOpenApiV2Service {
       );
     }
     const field = fieldResult.value;
-    if (!field.type().equals(V2FieldType.attachment())) {
-      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.field.notAttachment',
-        },
-      });
-    }
     if (field.computed().toBoolean()) {
       throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
+    }
+    if (!field.type().equals(V2FieldType.attachment())) {
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
         },
       });
     }
@@ -2962,6 +2968,79 @@ export class RecordOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async validatePasteLinkTargets(
+    tableId: string,
+    records: ReadonlyArray<{ fields: IRecord['fields'] }>,
+    plannedFields: ReadonlyArray<IFieldVo> = []
+  ): Promise<void> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const table = await this.loadV2Table(context, container, tableId);
+    const plannedLinks: LinkField[] = [];
+    for (const field of plannedFields) {
+      if (
+        field.type !== FieldType.Link ||
+        field.isComputed ||
+        !records.some((record) => Object.hasOwn(record.fields, field.id))
+      )
+        continue;
+      const plannedLink = FieldId.create(field.id).andThen((id) =>
+        FieldName.create(field.name).andThen((name) =>
+          LinkFieldConfig.create(field.options).andThen((config) =>
+            createLinkField({ id, name, config })
+          )
+        )
+      );
+      if (plannedLink.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(plannedLink.error),
+          mapDomainErrorToHttpStatus(plannedLink.error)
+        );
+      }
+      const link = plannedLink.value as LinkField;
+      plannedLinks.push(link);
+      await this.crossBaseLinkAccess.assertForeignTableReadable(
+        tableId,
+        link.foreignTableId().toString()
+      );
+    }
+    const linkFields = [...table.getFields(), ...plannedLinks].filter(
+      (field) =>
+        field.type().equals(V2FieldType.link()) &&
+        !field.computed().toBoolean() &&
+        records.some((record) => Object.hasOwn(record.fields, field.id().toString()))
+    );
+    if (!linkFields.length || !records.length) return;
+    await this.crossBaseLinkAccess.assertForeignTablesReadable(
+      tableId,
+      linkFields.map((field) => field.id().toString())
+    );
+
+    const resolver = container.resolve<PasteLinkAutoResolveService>(
+      v2CoreTokens.pasteLinkAutoResolveService
+    );
+    const result = await resolver.validateTitleResolutionTargets(
+      context,
+      {
+        table,
+        editableColumns: linkFields.map((field, columnIndex) => ({
+          fieldId: field.id(),
+          columnIndex,
+        })),
+        rowDataList: records.map((record) =>
+          linkFields.map((field) => record.fields[field.id().toString()])
+        ),
+      },
+      plannedLinks
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
   }
 
   async paste(

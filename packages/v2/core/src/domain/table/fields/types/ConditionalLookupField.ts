@@ -315,6 +315,11 @@ export class ConditionalLookupField
     }
 
     const resolvedInnerField = lookupFieldResult.value;
+    if (resolvedInnerField.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a lookup source' })
+      );
+    }
     // Keep explicit inner type/options (for example conditional lookup -> formula convert).
     // Only backfill from lookup target when the field is still pending.
     if (!this.innerFieldValue) {

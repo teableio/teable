@@ -92,7 +92,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       [FunctionName.Error]: (params) => this.errorFunc(params),
       [FunctionName.IsError]: (params) => this.isError(params),
 
-      [FunctionName.Today]: () => makeExpr('CURRENT_DATE', 'datetime', false),
+      [FunctionName.Today]: () =>
+        // Store local midnight as an instant so downstream timezone conversion preserves 00:00.
+        makeExpr(
+          this.budget
+            .sql`(((CURRENT_TIMESTAMP AT TIME ZONE ${this.formulaTimeZoneSql()})::date::timestamp) AT TIME ZONE ${this.formulaTimeZoneSql()})`,
+          'datetime',
+          false
+        ),
       [FunctionName.Now]: () => makeExpr('NOW()', 'datetime', false),
       [FunctionName.Year]: (params) => this.extractDatePart('YEAR', params),
       [FunctionName.Month]: (params) => this.extractDatePart('MONTH', params),
@@ -1921,19 +1928,20 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ),
       bounds AS (
         SELECT
-          LEAST(p.start_date, p.end_date) AS min_date,
+          CASE WHEN p.start_date IS NULL OR p.end_date IS NULL THEN NULL
+            ELSE LEAST(p.start_date, p.end_date) END AS min_date,
           GREATEST(p.start_date, p.end_date) AS max_date,
           CASE WHEN p.end_date >= p.start_date THEN 1 ELSE -1 END AS direction
         FROM params p
       ),
       span AS (
-        SELECT b.*, COALESCE(b.max_date - b.min_date, 0) AS days
+        SELECT b.*, COALESCE(b.max_date - b.min_date + 1, 0) AS days
         FROM bounds b
       ),
       weekday_counts AS (
         -- Whole weeks contribute five days; at most six remainder dates are scanned.
         SELECT b.*, (b.days / 7) * 5 + (
-          SELECT COUNT(*) FROM generate_series(1, b.days % 7) AS r(n)
+          SELECT COUNT(*) FROM generate_series(0, b.days % 7 - 1) AS r(n)
           WHERE EXTRACT(ISODOW FROM b.min_date + r.n)::integer <= 5
         ) AS weekday_count
         FROM span b
@@ -1943,7 +1951,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       SELECT CASE WHEN b.weekday_count = 0 THEN 0 ELSE (b.direction * (
         b.weekday_count - (
           SELECT COUNT(*) FROM holiday_dates h
-          WHERE h.holiday_date > b.min_date AND h.holiday_date <= b.max_date
+          WHERE h.holiday_date >= b.min_date AND h.holiday_date <= b.max_date
             AND EXTRACT(ISODOW FROM h.holiday_date)::integer <= 5
         )
       ))::integer END

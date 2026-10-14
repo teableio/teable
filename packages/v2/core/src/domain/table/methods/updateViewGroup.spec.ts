@@ -79,7 +79,15 @@ describe('Table.updateViewGroup', () => {
     );
   });
 
-  it('rejects missing aggregate children, missing fields, Button fields, and invalid input', () => {
+  it('accepts button fields for grouping by click count', () => {
+    const table = buildTable();
+    const group = [{ fieldId: table.getFields()[2]!.id().toString(), order: 'asc' as const }];
+    const result = table.updateViewGroup(table.views()[0]!.id(), group)._unsafeUnwrap();
+    expect(result.nextGroup).toEqual(group);
+    expect(result.nextQueryDefaults.group()).toEqual(group);
+  });
+
+  it('rejects missing aggregate children, missing fields, and invalid input', () => {
     const table = buildTable();
     const viewId = table.views()[0]!.id();
     expect(
@@ -92,13 +100,6 @@ describe('Table.updateViewGroup', () => {
         .updateViewGroup(viewId, [{ fieldId: `fld${'z'.repeat(16)}`, order: 'asc' }])
         ._unsafeUnwrapErr().code
     ).toBe('field.not_found');
-    expect(
-      table
-        .updateViewGroup(viewId, [
-          { fieldId: table.getFields()[2]!.id().toString(), order: 'desc' },
-        ])
-        ._unsafeUnwrapErr().code
-    ).toBe('view.group_unsupported_field_type');
     expect(table.updateViewGroup(viewId, [{ fieldId: 'bad', order: 'up' }]).isErr()).toBe(true);
   });
 });

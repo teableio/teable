@@ -2,7 +2,6 @@ import { err, ok, safeTry, type Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { FieldId } from '../fields/FieldId';
-import { FieldType } from '../fields/FieldType';
 import type { Table } from '../Table';
 import type { TableUpdateResult } from '../TableMutator';
 import type { View } from '../views/View';
@@ -31,14 +30,6 @@ const validateGroupFields = (table: Table, group: ViewGroupDTO): Result<void, Do
         domainError.notFound({
           code: 'field.not_found',
           message: `Group field ${item.fieldId} not found in table ${table.id().toString()}`,
-        })
-      );
-    }
-    if (field.value.type().equals(FieldType.button())) {
-      return err(
-        domainError.validation({
-          code: 'view.group_unsupported_field_type',
-          message: `Group field ${item.fieldId} has unsupported Button type`,
         })
       );
     }

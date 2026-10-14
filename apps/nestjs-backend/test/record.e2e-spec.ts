@@ -14,6 +14,7 @@ import {
   buttonClick,
   buttonReset,
   deleteRecords as apiDeleteRecords,
+  duplicateRecord as apiDuplicateRecord,
   updateRecords,
   type ITableFullVo,
 } from '@teable/openapi';
@@ -1157,6 +1158,42 @@ describe('OpenAPI RecordController (e2e)', () => {
       } finally {
         legacySpy.mockRestore();
       }
+    });
+
+    it('duplicates a v2 record without copying button click count or changing the source', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Run',
+          color: Colors.Teal,
+          workflow: { id: generateWorkflowId(), name: 'Workflow', isActive: true },
+        },
+      });
+      const titleField = table.fields[0];
+      const { records } = await createRecords(table.id, {
+        records: [{ fields: { [titleField.id]: 'Source' } }],
+      });
+      const sourceId = records[0].id;
+      for (const count of [1, 2]) {
+        const clicked = await buttonClick(table.id, sourceId, field.id);
+        expect(clicked.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        expect(clicked.data.record.fields[field.id]).toEqual({ count });
+      }
+      const source = await getRecord(table.id, sourceId);
+      expect(source.fields[field.id]).toEqual({ count: 2 });
+
+      const duplicated = await apiDuplicateRecord(table.id, sourceId);
+      expect(duplicated.status).toBe(201);
+      expect(duplicated.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      expect(duplicated.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('duplicateRecord');
+      expect(duplicated.data.id).not.toBe(sourceId);
+      expect(duplicated.data.fields[titleField.id]).toBe('Source');
+      expect(duplicated.data.fields[field.id]).toBeUndefined();
+
+      const copy = await getRecord(table.id, duplicated.data.id);
+      expect(copy.fields[titleField.id]).toBe('Source');
+      expect(copy.fields[field.id]).toBeUndefined();
+      expect((await getRecord(table.id, sourceId)).fields).toEqual(source.fields);
     });
 
     it('should not click a button field without workflow', async () => {

@@ -84,6 +84,90 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     await permanentDeleteTable(baseId, table.id);
   });
 
+  describe('v2 attachment write validation', () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+
+    beforeAll(() => {
+      process.env.FORCE_V2_ALL = 'true';
+    });
+
+    afterAll(() => {
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    });
+
+    it('rejects computed attachment writes before type validation without changing stored cells', async () => {
+      const created = await createField(table.id, { type: FieldType.CreatedTime });
+      const text = table.fields.find((field) => field.type === FieldType.SingleLineText)!;
+      const attachment = await createField(table.id, { type: FieldType.Attachment });
+      const recordId = table.records[0].id;
+      const before = await getRecord(table.id, recordId, { fieldKeyType: FieldKeyType.Id });
+      expect(before.data.fields[created.id]).toEqual(expect.any(String));
+
+      const uploaded = await uploadAttachment(
+        table.id,
+        recordId,
+        attachment.id,
+        fs.createReadStream(filePath)
+      );
+      expect(uploaded.status).toBe(201);
+      expect(uploaded.headers['x-teable-v2']).toBe('true');
+      const item = (uploaded.data.fields[attachment.id] as IAttachmentCellValue)[0]!;
+      const uploadFile = vi.spyOn(app.get(AttachmentsService), 'uploadFile');
+
+      try {
+        for (const [fieldId, i18nKey] of [
+          [created.id, 'httpErrors.field.isComputed'],
+          [text.id, 'httpErrors.field.notAttachment'],
+        ]) {
+          const url = `/table/${table.id}/record/${recordId}/${fieldId}`;
+          const multipart = await defaultAxios.postForm(
+            `${url}/uploadAttachment`,
+            { file: fs.createReadStream(filePath) },
+            { validateStatus: () => true }
+          );
+          const inserted = await defaultAxios.post(
+            `${url}/insertAttachment`,
+            { attachments: [item] },
+            { validateStatus: () => true }
+          );
+          for (const response of [multipart, inserted]) {
+            expect(response.status).toBe(400);
+            expect(response.headers['x-teable-v2']).toBe('true');
+            expect(response.data).toMatchObject({
+              code: 'validation_error',
+              data: { localization: { i18nKey } },
+            });
+          }
+        }
+        expect(uploadFile).not.toHaveBeenCalled();
+        const after = await getRecord(table.id, recordId, { fieldKeyType: FieldKeyType.Id });
+        expect(after.data.fields[created.id]).toEqual(before.data.fields[created.id]);
+        expect(after.data.fields[text.id]).toEqual(before.data.fields[text.id]);
+        expect(
+          (after.data.fields[attachment.id] as IAttachmentCellValue).map(({ id }) => id)
+        ).toEqual([item.id]);
+      } finally {
+        uploadFile.mockRestore();
+      }
+
+      const appended = await uploadAttachment(
+        table.id,
+        recordId,
+        attachment.id,
+        fs.createReadStream(filePath)
+      );
+      expect(appended.status).toBe(201);
+      const items = appended.data.fields[attachment.id] as IAttachmentCellValue;
+      expect(items).toHaveLength(2);
+      expect(items[0]!.id).toBe(item.id);
+      expect(items[1]!.id).not.toBe(item.id);
+    });
+  });
+
   it('should upload and typecast attachment', async () => {
     const field = await createField(table.id, { type: FieldType.Attachment });
 

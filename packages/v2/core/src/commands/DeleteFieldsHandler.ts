@@ -20,6 +20,7 @@ import { composeAndSpecsOrUndefined } from '../domain/shared/specification/compo
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { Field } from '../domain/table/fields/Field';
 import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldDeletionSideEffectVisitor } from '../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
 import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import {
   implementsOnTeableFieldDeleted,
@@ -27,6 +28,7 @@ import {
   type FieldDeletionReaction,
 } from '../domain/table/OnTeableFieldDeleted';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
+import { TableRemoveFieldSpec } from '../domain/table/specs/TableRemoveFieldSpec';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewOptionsSpec } from '../domain/table/specs/TableUpdateViewOptionsSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
@@ -446,7 +448,7 @@ export class DeleteFieldsHandler
           latestSourceTable = updateResult.table;
         }
         tableState.tablesById.set(updateResult.table.id().toString(), updateResult.table);
-        events.push(...updateResult.events);
+        events.push(...updateResult.events, ...updateResult.postPersistEvents);
       }
 
       return ok({
@@ -484,18 +486,34 @@ export class DeleteFieldsHandler
         snapshot: UndoRedoFieldSnapshot;
       }> = [];
 
-      for (const deletedField of deletedFields) {
+      const deletionTargets = deletedFields.map((field) => ({ table: sourceTable, field }));
+      const sideEffects = yield* FieldDeletionSideEffectVisitor.collect(deletedFields, {
+        table: sourceTable,
+        foreignTables: orderedTables,
+      });
+      for (const sideEffect of sideEffects) {
+        if (sideEffect.mutateSpec instanceof TableRemoveFieldSpec) {
+          deletionTargets.push({
+            table: sideEffect.foreignTable,
+            field: sideEffect.mutateSpec.field(),
+          });
+        }
+      }
+      const capturedFieldIds = new Set<string>();
+      for (const deletion of deletionTargets) {
         for (const candidateTable of orderedTables) {
-          const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletedField, {
+          const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletion.field, {
             table: candidateTable,
-            sourceTable,
-            previousSourceTable: sourceTable,
+            sourceTable: deletion.table,
+            previousSourceTable: deletion.table,
           });
           if (cleanupResult.isErr()) {
             return err(cleanupResult.error);
           }
 
           for (const relatedFieldId of cleanupResult.value.relatedFieldIds) {
+            if (capturedFieldIds.has(relatedFieldId.toString())) continue;
+            capturedFieldIds.add(relatedFieldId.toString());
             const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
               context,
               candidateTable,

@@ -87,7 +87,7 @@ const enqueuePlan = async (ctx: SharedTestContext, plan: ComputedUpdatePlan, run
   }
 };
 
-describe('computed tasks skip trashed tables (e2e)', () => {
+describe('[C14][S19] computed tasks skip trashed tables (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

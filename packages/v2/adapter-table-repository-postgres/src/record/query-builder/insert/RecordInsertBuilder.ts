@@ -6,7 +6,6 @@ import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
@@ -705,8 +704,7 @@ export class RecordInsertBuilder {
       setValues[dbFieldName] = sql`jsonb_build_object(
         'id', ${sql.ref(systemColumn)},
         'title', ${sql.ref(systemColumn)},
-        'email', NULL::text,
-        'avatarUrl', '/api/attachments/read/public/avatar/'::text || ${sql.ref(systemColumn)}
+        'email', NULL::text
       )`;
     }
 
@@ -735,6 +733,5 @@ function buildUserFieldJsonValue(params: {
     id: params.userId,
     title: params.userName ?? params.userId,
     email: params.userEmail ?? null,
-    avatarUrl: buildUserAvatarUrl(params.userId),
   });
 }
