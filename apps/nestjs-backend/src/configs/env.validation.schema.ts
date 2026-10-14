@@ -127,8 +127,14 @@ export const envValidationSchema = Joi.object({
   SIGNIN_MAX_LOGIN_ATTEMPTS: Joi.number().integer().positive().optional(),
   SIGNIN_ACCOUNT_LOCKOUT_MINUTES: Joi.number().integer().positive().optional(),
 
-  // SSA fork: single-tenant hardening (see docs/ssa/ENVIRONMENT.md)
+  // SSA fork: single-tenant hardening + companion-service integration
+  // (see docs/ssa/ENVIRONMENT.md)
   SSA_SINGLE_TENANT: Joi.string().valid('true', 'false', '1', '0').optional(),
+  SSA_INTERNAL_TOKEN: Joi.string().optional(),
+  SSA_EVENTS_WEBHOOK_URL: Joi.string().uri().optional(),
+  SSA_EVENTS_WEBHOOK_SECRET: Joi.string().optional(),
+  SSA_EVENTS_TIMEOUT_MS: Joi.number().integer().positive().optional(),
+  SSA_EVENTS_TABLES: Joi.string().optional(),
 })
   .custom((env: Record<string, unknown>, helpers) => {
     if (
