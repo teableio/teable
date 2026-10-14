@@ -1,0 +1,17 @@
+{
+  "name": "@ssa/workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SSA companion services for the single-tenant Teable deployment",
+  "packageManager": "pnpm@9.13.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "dev": "pnpm -r --parallel dev"
+  }
+}

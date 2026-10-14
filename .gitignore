@@ -79,3 +79,14 @@ pnpm-debug.log*
 # LocalStorage assets
 
 **/.assets
+
+# ── SSA companion workspace ────────────────────────────────────────────────
+ssa/**/node_modules/
+ssa/**/dist/
+ssa/**/.env
+ssa/**/.env.*
+!ssa/.env.example
+ssa/**/*.log
+ssa/voice/.venv/
+ssa/voice/**/__pycache__/
+.ssa-*.log
