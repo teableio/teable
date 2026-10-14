@@ -55,19 +55,19 @@ flowchart LR
 
 ### 2. `features/ssa` (inside `apps/nestjs-backend`) — the only core patch
 
-| Piece | Responsibility |
-|---|---|
-| `ssa.module.ts` | wires controller/services/listeners; V2 projections are discovered app-wide via `DiscoveryService` |
-| `ssa-bootstrap.service.ts` | when `SSA_SINGLE_TENANT=true`: forces `disallowSignUp=true`, disables waitlist; idempotent on every boot |
-| `ssa-event-forwarder.ts` | shared HMAC-signed webhook client: resolves `baseId` (cached), bounds body size (256 KB), 3 s timeout, suppresses duplicate emissions (operation-based, 10 s window) |
-| `ssa-events.listener.ts` | **V1** bus listeners (`operation.records.create/update/delete`) + pure payload builders (`buildCreateEvent`, …) |
-| `ssa-v2-projections.ts` | **V2** domain-event projections (`RecordCreated`, `RecordsBatchCreated`, `RecordUpdated`, `RecordsBatchUpdated`, `RecordsDeleted`) registered into the v2 container; skips undo/redo replays |
-| `ssa.controller.ts` | `GET /api/ssa/health`, `POST /api/ssa/notify` (shared-secret header `X-SSA-Token`) → bell notification via `NotificationService.sendCommonNotify` (DB insert + realtime push) |
+| Piece                      | Responsibility                                                                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ssa.module.ts`            | wires controller/services/listeners; V2 projections are discovered app-wide via `DiscoveryService`                                                                                           |
+| `ssa-bootstrap.service.ts` | when `SSA_SINGLE_TENANT=true`: forces `disallowSignUp=true`, disables waitlist; idempotent on every boot                                                                                     |
+| `ssa-event-forwarder.ts`   | shared HMAC-signed webhook client: resolves `baseId` (cached), bounds body size (256 KB), 3 s timeout, suppresses duplicate emissions (operation-based, 10 s window)                         |
+| `ssa-events.listener.ts`   | **V1** bus listeners (`operation.records.create/update/delete`) + pure payload builders (`buildCreateEvent`, …)                                                                              |
+| `ssa-v2-projections.ts`    | **V2** domain-event projections (`RecordCreated`, `RecordsBatchCreated`, `RecordUpdated`, `RecordsBatchUpdated`, `RecordsDeleted`) registered into the v2 container; skips undo/redo replays |
+| `ssa.controller.ts`        | `GET /api/ssa/health`, `POST /api/ssa/notify` (shared-secret header `X-SSA-Token`) → bell notification via `NotificationService.sendCommonNotify` (DB insert + realtime push)                |
 
 > **Write paths:** Teable routes writes through v1 or v2 depending on canary
 > config — **new bases default to V2** (`x-teable-v2: true` response header).
 > The legacy `table.record.*` bus events are NOT emitted on every REST write,
-> which is why the forwarder listens to `operation.records.*` (V1) *and* the V2
+> which is why the forwarder listens to `operation.records.*` (V1) _and_ the V2
 > domain events. Both observe the same operation in some flows, hence the
 > dedupe window. `record.updated` on the V1 path requires an app-UI window id
 > header (`x-window-id`); v2 updates are always forwarded.
@@ -101,7 +101,8 @@ to a table allow-list via `SSA_EVENTS_TABLES`.
 - `cron` (node-cron) — daily digest: pull configured views/tables from the Teable REST
   API (personal access token), render an HTML summary (created today / due today /
   overdue / assigned to me), send one email per recipient to Gmail.
-- `GET /healthz` — liveness + last digest run info.
+- `GET /healthz` — liveness + config + last digest run info.
+- `POST /digest/run` — run the digest on demand (shared-secret guarded; for testing).
 
 ### 4. `ssa/services/ai` (Node + Fastify)
 
