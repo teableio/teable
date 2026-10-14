@@ -103,8 +103,8 @@ describe('deterministic scalar backfill fusion', () => {
           await pglite.query<Record<string, unknown>>('SELECT * FROM scalar_fusion ORDER BY __id')
         ).rows;
         expect(updateCount()).toBe(8);
-        // Existing persisted formula behavior stores the explicit error as NULL.
-        expect(expected[2].col_10).toBeNull();
+        // Explicit custom errors remain visible in both singleton and fused backfills.
+        expect(expected[2].col_10).toBe('#ERROR: zero');
         expect(expected[2].col_11).toBe(true);
         expect(expected[1].col_11).toBe(false);
         expect(expected[1].col_6).toBe('FOO');

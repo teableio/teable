@@ -11,7 +11,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  *
  * Fixture uses neutral names only; no customer identifiers/values.
  */
-describe('v2 link empty foreign title rewrite (e2e)', () => {
+describe('[F11] v2 link empty foreign title rewrite (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

@@ -16,7 +16,7 @@ type UserFieldDto = IFieldDto & {
 
 const isUserField = (field: IFieldDto): field is UserFieldDto => field.type === 'user';
 
-describe('update-field: user property updates', () => {
+describe('[D01][F09][S01] update-field: user property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

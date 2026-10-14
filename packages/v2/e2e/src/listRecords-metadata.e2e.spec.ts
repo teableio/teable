@@ -3,7 +3,7 @@ import { FieldKeyType } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 listRecords metadata contract (e2e)', () => {
+describe('[B09] v2 listRecords metadata contract (e2e)', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let nameFieldId: string;

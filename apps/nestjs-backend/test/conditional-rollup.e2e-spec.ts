@@ -11,6 +11,7 @@ import type {
   IFilter,
   IFilterItem,
   IUserFieldOptions,
+  IHttpError,
 } from '@teable/core';
 import {
   CellValueType,
@@ -25,7 +26,14 @@ import {
   SortFunc,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { DELETE_URL, RangeType, X_CANARY_HEADER, axios, urlBuilder } from '@teable/openapi';
+import {
+  CONVERT_FIELD,
+  DELETE_URL,
+  RangeType,
+  X_CANARY_HEADER,
+  axios,
+  urlBuilder,
+} from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
@@ -3499,6 +3507,86 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       }
     });
 
+    it('sums every matching row when created with stale ordering options', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalRollup_SumCreate_Source',
+          fields: [
+            { name: 'Label', type: FieldType.SingleLineText },
+            { name: 'Amount', type: FieldType.Number },
+          ],
+          records: [
+            { fields: { Label: 'First', Amount: 10 } },
+            { fields: { Label: 'Second', Amount: 20 } },
+            { fields: { Label: 'Third', Amount: 30 } },
+          ],
+        });
+        const amountId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+        host = await createTable(baseId, {
+          name: 'ConditionalRollup_SumCreate_Host',
+          fields: [{ name: 'Label', type: FieldType.SingleLineText }],
+          records: ['One', 'Two', 'Three'].map((Label) => ({ fields: { Label } })),
+        });
+        const options: IConditionalRollupFieldOptions = {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: amountId, operator: isGreater.value, value: 0 }],
+          },
+          sort: { fieldId: amountId, order: SortFunc.Desc },
+          limit: 1,
+        };
+        const field = await createField(host.id, {
+          name: 'Matching Total',
+          type: FieldType.ConditionalRollup,
+          options,
+        });
+        const stored = await getField(host.id, field.id);
+        const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        expect.soft((stored.options as IConditionalRollupFieldOptions).sort).toBeUndefined();
+        expect.soft((stored.options as IConditionalRollupFieldOptions).limit).toBeUndefined();
+        expect(records.records.map((record) => record.fields[field.id])).toEqual([60, 60, 60]);
+
+        await convertField(host.id, field.id, {
+          type: FieldType.ConditionalRollup,
+          options: { ...options, limit: 2 },
+        });
+        const updated = await getField(host.id, field.id);
+        expect((updated.options as IConditionalRollupFieldOptions).sort).toBeUndefined();
+        expect((updated.options as IConditionalRollupFieldOptions).limit).toBeUndefined();
+        expect((await getRecord(host.id, host.records[0].id)).fields[field.id]).toBe(60);
+
+        for (const expression of [
+          'array_compact({values})',
+          'array_unique({values})',
+          'array_join({values})',
+          'concatenate({values})',
+        ] as const) {
+          await convertField(host.id, field.id, {
+            type: FieldType.ConditionalRollup,
+            options: { ...options, expression, limit: 2 },
+          });
+          const ordered = await getField(host.id, field.id);
+          expect((ordered.options as IConditionalRollupFieldOptions).sort).toEqual(options.sort);
+          expect((ordered.options as IConditionalRollupFieldOptions).limit).toBe(2);
+          const value = (await getRecord(host.id, host.records[0].id)).fields[field.id];
+          expect(value).toEqual(
+            expression === 'array_compact({values})' || expression === 'array_unique({values})'
+              ? [30, 20]
+              : '30, 20'
+          );
+        }
+      } finally {
+        if (host) await permanentDeleteTable(baseId, host.id);
+        if (foreign) await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
     it('drops ordering when converting an array rollup to a sum aggregation', async () => {
       let foreign: ITableFullVo | undefined;
       let host: ITableFullVo | undefined;
@@ -3680,6 +3768,96 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
   });
 
   describe('circular dependency detection', () => {
+    it('localizes a v2 conditional rollup filter cycle without changing the field', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'FilterCycle_Source',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Amount', type: FieldType.Number },
+          ],
+          records: [{ fields: { Name: 'Sample', Amount: 10 } }],
+        });
+        host = await createTable(baseId, {
+          name: 'FilterCycle_Host',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Threshold', type: FieldType.Number },
+          ],
+          records: [{ fields: { Name: 'Sample', Threshold: 0 } }],
+        });
+        const amountId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+        const thresholdId = host.fields.find((field) => field.name === 'Threshold')!.id;
+        const options: IConditionalRollupFieldOptions = {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: amountId,
+                operator: 'isGreaterEqual',
+                value: { type: 'field', fieldId: thresholdId },
+              },
+            ],
+          },
+        };
+        const rollup = await createField(host.id, {
+          name: 'Total',
+          type: FieldType.ConditionalRollup,
+          options,
+        });
+        const formula = await createField(host.id, {
+          name: 'Derived',
+          type: FieldType.Formula,
+          options: { expression: `{${rollup.id}} + 1` },
+        });
+        const before = await getField(host.id, rollup.id);
+
+        const response = await axios.put<IHttpError>(
+          urlBuilder(CONVERT_FIELD, { tableId: host.id, fieldId: rollup.id }),
+          {
+            type: FieldType.ConditionalRollup,
+            options: {
+              ...options,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: amountId,
+                    operator: 'isGreaterEqual',
+                    value: { type: 'field', fieldId: formula.id },
+                  },
+                ],
+              },
+            },
+          },
+          { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
+        );
+
+        expect(response.status).toBe(400);
+        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.data).toMatchObject({
+          code: 'validation_error',
+          data: {
+            localization: { i18nKey: 'httpErrors.field.cycleDetectedCreateFieldGeneric' },
+          },
+        });
+        expect(await getField(host.id, rollup.id)).toEqual(before);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+
     it('rejects converting conditional rollups into a cycle', async () => {
       let alpha: ITableFullVo | undefined;
       let beta: ITableFullVo | undefined;

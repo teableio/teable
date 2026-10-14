@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import type { IFieldVo } from '@teable/core';
 import {
-  createFieldRoSchema,
   getFieldsQuerySchema,
   IFieldRo,
   IGetFieldsQuery,
@@ -25,6 +24,7 @@ import {
   IUpdateFieldRo,
 } from '@teable/core';
 import {
+  createFieldRequestSchema,
   deleteFieldsQuerySchema,
   fieldDeleteReferencesQuerySchema,
   IAutoFillFieldRo,
@@ -115,7 +115,7 @@ export class FieldOpenApiController {
   @Post('/plan')
   async planFieldCreate(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
+    @Body(new ZodValidationPipe(createFieldRequestSchema)) fieldRo: IFieldRo
   ): Promise<IPlanFieldVo> {
     if (this.cls.get('useV2')) {
       return await this.fieldOpenApiV2Service.planFieldCreate(tableId, fieldRo);
@@ -128,7 +128,7 @@ export class FieldOpenApiController {
   @Post()
   async createField(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo,
+    @Body(new ZodValidationPipe(createFieldRequestSchema)) fieldRo: IFieldRo,
     @Headers('x-window-id') windowId: string
   ): Promise<IFieldVo> {
     if (this.cls.get('useV2')) {

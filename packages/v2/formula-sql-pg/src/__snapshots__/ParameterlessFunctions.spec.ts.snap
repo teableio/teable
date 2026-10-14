@@ -49,7 +49,7 @@ exports[`parameterless functions > 'ParamlessToday' returns expected SQL and res
 {
   "formula": "TODAY()",
   "funcId": "ParamlessToday",
-  "result": "0000-00-00",
-  "sql": "CURRENT_DATE",
+  "result": "0000-00-00 00:00:00+00",
+  "sql": "(((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date::timestamp) AT TIME ZONE 'UTC')",
 }
 `;

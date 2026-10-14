@@ -14,15 +14,25 @@ interface ISortProps {
   addBtnText?: string;
   /** Shown in place of the add button once `limit` is reached. Drawer only. */
   limitTip?: string;
+  allowButtonFields?: boolean;
   onChange: (sort?: NonNullable<ISort>['sortObjs']) => void;
 }
 
 export function SortContent(props: Readonly<ISortProps>) {
-  const { onChange, sortValues = [], addBtnText, limitTip, limit = Infinity } = props;
+  const {
+    onChange,
+    sortValues = [],
+    addBtnText,
+    limitTip,
+    limit = Infinity,
+    allowButtonFields = false,
+  } = props;
   const inDrawer = useInDrawer();
 
   const defaultFields = useFields({ withHidden: true, withDenied: true });
-  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
+  const fields = allowButtonFields
+    ? defaultFields
+    : defaultFields.filter((f) => f.type !== FieldType.Button);
 
   const selectedFieldIds = useMemo(
     () => sortValues.map((sort) => sort.fieldId) || [],
@@ -72,6 +82,7 @@ export function SortContent(props: Readonly<ISortProps>) {
       >
         <DraggableSortList
           sorts={sortValues}
+          fields={fields}
           selectedFields={selectedFieldIds}
           onChange={onSortChange}
         />
@@ -87,6 +98,7 @@ export function SortContent(props: Readonly<ISortProps>) {
         <div className={cn(inDrawer && 'sticky bottom-0 w-full border-t bg-background p-4')}>
           <SortFieldAddButton
             addBtnText={addBtnText}
+            fields={fields}
             selectedFieldIds={selectedFieldIds}
             onSelect={onFieldAdd}
           />

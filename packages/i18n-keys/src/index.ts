@@ -19,6 +19,9 @@ export const sdkErrorI18nKeys = {
     fieldRequiredExistingValues: 'httpErrors.custom.fieldRequiredExistingValues',
     fieldUniqueExistingValues: 'httpErrors.custom.fieldUniqueExistingValues',
   },
+  field: {
+    cycleDetectedCreateFieldGeneric: 'httpErrors.field.cycleDetectedCreateFieldGeneric',
+  },
   user: {
     notFound: 'httpErrors.user.notFound',
   },
@@ -68,6 +71,7 @@ export type SdkErrorI18nKey =
   | 'httpErrors.custom.fieldMaxColumnLimit'
   | 'httpErrors.custom.fieldRequiredExistingValues'
   | 'httpErrors.custom.fieldUniqueExistingValues'
+  | 'httpErrors.field.cycleDetectedCreateFieldGeneric'
   | 'httpErrors.limit.fieldOptionsMaxBytes'
   | 'httpErrors.limit.selectChoicesMax'
   | 'httpErrors.limit.selectChoiceNameMaxLength'

@@ -4,7 +4,6 @@ import type { Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import {
   buildAttachmentTableBatchReplaceQueries,
   type AttachmentTableReplaceInput,
@@ -436,6 +435,5 @@ function buildLastModifiedByJsonValue(context: RecordUpdateBuilderContext): stri
     id: context.actorId,
     title,
     email,
-    avatarUrl: buildUserAvatarUrl(context.actorId),
   });
 }

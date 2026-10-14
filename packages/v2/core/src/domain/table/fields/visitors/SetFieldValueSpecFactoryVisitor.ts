@@ -3,11 +3,14 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import {
   SetAttachmentValueSpec,
   type AttachmentItem,
 } from '../../records/specs/values/SetAttachmentValueSpec';
+import {
+  SetButtonValueSpec,
+  type ButtonCellValue,
+} from '../../records/specs/values/SetButtonValueSpec';
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueSpec, type LinkItem } from '../../records/specs/values/SetLinkValueSpec';
@@ -190,9 +193,11 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
     return err(domainError.validation({ message: 'Cannot set value for auto number field' }));
   }
 
-  visitButtonField(_field: ButtonField): Result<ICellValueSpec, DomainError> {
-    // Button field doesn't store values - ignore any provided input
-    return ok(NoopCellValueSpec.create());
+  visitButtonField(field: ButtonField): Result<ICellValueSpec, DomainError> {
+    const cellValue = CellValue.fromValidated<ButtonCellValue>(
+      this.value as ButtonCellValue | null
+    );
+    return ok(new SetButtonValueSpec(field.id(), cellValue));
   }
 
   visitLinkField(field: LinkField): Result<ICellValueSpec, DomainError> {

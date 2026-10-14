@@ -204,7 +204,7 @@ const drainOutbox = async (testContainer: IV2NodeTestContainer, rounds = 6): Pro
   }
 };
 
-describe('v2 computed record events and realtime projection (e2e)', () => {
+describe('[C14][S19] v2 computed record events and realtime projection (e2e)', () => {
   let server: Server | undefined;
   let shareDbRuntime: ShareDbRuntime | undefined;
   let shareDbUrl: string;
@@ -506,6 +506,8 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
           [linkFieldId]: { id: foreignRecord.id },
         });
         await drainOutbox(testContainer);
+        const sourceSnapshot = await getRecordSnapshot(foreignTable.id, foreignRecord.id);
+        expect(sourceSnapshot.fields[foreignUserFieldId]).toEqual([aliceCell]);
 
         return {
           hostTableId: hostTable.id,
@@ -517,6 +519,8 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
             await updateRecord(foreignTable.id, foreignRecord.id, {
               [foreignUserFieldId]: [aliceCell, bobCell],
             });
+            const sourceSnapshot = await getRecordSnapshot(foreignTable.id, foreignRecord.id);
+            expect(sourceSnapshot.fields[foreignUserFieldId]).toEqual([aliceCell, bobCell]);
           },
         };
       },
@@ -770,6 +774,9 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
     server = await new Promise<Server>((resolve) => {
       const s = app.listen(0, '127.0.0.1', () => resolve(s));
     });
+    // Outbox drains run CPU-heavy work between requests; keep the connection open until
+    // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+    server.keepAliveTimeout = 0;
 
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;

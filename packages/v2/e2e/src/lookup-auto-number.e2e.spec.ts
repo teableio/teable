@@ -33,7 +33,7 @@ const valueAt = (value: unknown) => {
   return value;
 };
 
-describe('lookup autoNumber regression', () => {
+describe('[F21] lookup autoNumber regression', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

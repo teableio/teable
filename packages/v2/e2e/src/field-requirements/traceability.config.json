@@ -1,0 +1,27 @@
+{
+  "$comment": "Hand-maintained rules for the traceability check. The generated half lives in requirement-case-ids.json.",
+  "requirementIdPattern": "^[FDSCARB][0-9]{2}$",
+  "expectedCaseCount": 115,
+  "expectedSectionByGroup": {
+    "F": "§2 全字段能力矩阵",
+    "D": "§3 默认值与自动值需求",
+    "S": "§4 显示样式需求",
+    "C": "§5 计算需求：公式与依赖",
+    "R": "§6 计算需求：关联、查找与汇总",
+    "A": "§7 计算需求：底部统计、分组与筛选",
+    "B": "§8 系统字段、配置变更及表格基础交互"
+  },
+  "$comment_knownNotAssertable": "Requirements no test can assert in this package. The check fails if an id here becomes assertable, and if an id outside this list stops being assertable, so the list cannot go stale.",
+  "knownNotAssertable": {
+    "S17": "Grid / record detail / form / share must render the same business value. That is a front-end contract: this package can only assert that every read path returns the same stored value, which the S06/S18 cases do. Needs a component or browser test."
+  },
+  "$comment_readmeReferenceExclusions": "Tokens that look like file paths in README.md but are not meant to resolve. Every entry needs a reason, so a broken path cannot hide by being added here silently.",
+  "readmeReferenceExclusions": {
+    ".matrix.spec.ts": "a file-name suffix described in prose, not a path",
+    "update-field/<systemType>/update-properties.spec.ts": "documented placeholder for the per-type naming pattern",
+    "update-field/{attachment,user,link}/update-properties.spec.ts": "documented brace shorthand"
+  },
+  "$comment_codeSearch": "Where a requirement id counts as present in the code. The JSON snapshot and the README are deliberately excluded: neither is evidence that a test exists.",
+  "codeSearchGlobs": ["src/**/*.spec.ts", "src/**/*.test.ts"],
+  "codeSearchExclude": ["src/field-requirements/traceability.spec.ts"]
+}

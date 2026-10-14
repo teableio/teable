@@ -208,6 +208,43 @@ export class UpdateRecordHandler
         }
       }
 
+      // Computed assignments are ignored, but only after checking the record and write scope.
+      // Count known computed IDs so unknown fields still reach normal field validation.
+      if (!command.order && resolvedFieldValues.size > 0) {
+        let computedAssignmentCount = 0;
+        for (const field of table.getFields()) {
+          if (field.computed().toBoolean() && resolvedFieldValues.has(field.id().toString())) {
+            computedAssignmentCount++;
+          }
+        }
+        if (computedAssignmentCount === resolvedFieldValues.size) {
+          const fields = { ...currentRecord.fields };
+          const fieldKeyMapping: FieldKeyMapping = new Map();
+          for (const field of table.getFields()) {
+            const fieldId = field.id().toString();
+            if (
+              fields[fieldId] == null ||
+              (field.type().equals(FieldType.link()) && !isResolvedLinkCellValue(fields[fieldId]))
+            ) {
+              delete fields[fieldId];
+            }
+            if (command.fieldKeyType !== FieldKeyType.Id) {
+              fieldKeyMapping.set(
+                fieldId,
+                FieldKeyResolverService.getFieldKey(field, command.fieldKeyType)
+              );
+            }
+          }
+          const record = yield* TableRecord.fromRawFieldValues({
+            id: command.recordId.toString(),
+            tableId: table.id(),
+            fields,
+          });
+          updateRecordSpan?.end();
+          return ok(UpdateRecordResult.create(record, [], fieldKeyMapping));
+        }
+      }
+
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
         context,
         table,

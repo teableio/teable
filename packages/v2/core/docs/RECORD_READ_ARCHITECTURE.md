@@ -81,6 +81,22 @@ interface RecordQueryPluginScope {
    explicitly listed under “Remaining gaps” (today: search-hit extra and the
    conditional-mask ShareDB compatibility fallback).
 
+## User avatar presentation (T7729)
+
+- User-cell persistence omits `avatarUrl`; identity/title/email remain in the snapshot.
+  This applies to member writes, audit-user snapshots, and text-to-user conversion.
+  Write responses and direct record events hydrate SQL RETURNING values at the adapter boundary.
+- Record reads reconstruct avatars from the current public-storage configuration and user ID,
+  including historical absolute URLs and user/audit-user lookup or conditional-lookup values.
+  Computed change payloads use the same presentation after persistence and byte-limit checks.
+- Existing rows need no data migration: reads do not rewrite cells, bump record versions,
+  or trigger recomputation. Physical table/base copies can retain legacy snapshot bytes;
+  the same read normalization covers their avatars. Rewriting a member cell drops its saved URL.
+- This does not change avatar-object storage or add user-profile cache-version lookups.
+  V2 cell URLs use the stable `avatar/<userId>` path without the profile's `?v=` parameter.
+  Avatar uploads retain the existing `Cache-Control: public, max-age=3600` policy;
+  this fix does not promise immediate invalidation of a previously cached image.
+
 ## Phased delivery
 
 | Phase | Deliverable                                                                                   | Status |

@@ -57,7 +57,6 @@ import type {
   IBaseDataDbMoveJobStatusVo,
   IBaseErdVo,
   ICreateBaseVo,
-  IDbConnectionVo,
   IGetBaseAllVo,
   IGetBasePermissionVo,
   IDuplicateBaseCheckVo,
@@ -93,7 +92,6 @@ import { BaseExportService } from './base-export.service';
 import { BaseImportService, formatBaseImportError } from './base-import.service';
 import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseService } from './base.service';
-import { DbConnectionService } from './db-connection.service';
 
 @Controller('api/base/')
 export class BaseController {
@@ -102,7 +100,6 @@ export class BaseController {
     private readonly baseExportService: BaseExportService,
     private readonly baseExportV2Service: BaseExportV2Service,
     private readonly baseImportService: BaseImportService,
-    private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly invitationService: InvitationService,
     private readonly baseDuplicateService: BaseDuplicateService,
@@ -365,25 +362,6 @@ export class BaseController {
   @EmitControllerEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.deleteBase(baseId);
-  }
-
-  @Permissions('base|db_connection')
-  @Post(':baseId/connection')
-  async createDbConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo | null> {
-    return await this.dbConnectionService.create(baseId);
-  }
-
-  @Permissions('base|db_connection')
-  @Get(':baseId/connection')
-  async getDBConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo | null> {
-    return await this.dbConnectionService.retrieve(baseId);
-  }
-
-  @Permissions('base|db_connection')
-  @Delete(':baseId/connection')
-  async deleteDbConnection(@Param('baseId') baseId: string) {
-    await this.dbConnectionService.remove(baseId);
-    return null;
   }
 
   @Permissions('base|read')

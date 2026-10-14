@@ -33,7 +33,10 @@ import type {
   PreparedDirtyState,
   StepChangeData,
 } from '../ComputedFieldUpdater';
-import { collapseRecordChangesByRecordId } from '../ComputedFieldUpdater';
+import {
+  canInsertEdgeChangeTargets,
+  collapseRecordChangesByRecordId,
+} from '../ComputedFieldUpdater';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
@@ -608,6 +611,23 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           steps: asyncSteps,
         };
 
+        if (currentPlan.changeType === 'insert' && syncSteps.length > 0) {
+          // Decide inert insert edges while the synchronous sources are still in
+          // the plan. The remainder consumes those changes, not a fresh insert.
+          const insertFieldIds = new Set(stageFieldIds.map((id) => id.toString()));
+          asyncPlan = {
+            ...asyncPlan,
+            changeType: 'update',
+            edges: currentPlan.edges.filter((edge) =>
+              canInsertEdgeChangeTargets(currentPlan, edge, insertFieldIds)
+            ),
+            // Initial insert extras are lock-only, not changed source rows.
+            extraSeedRecords: currentPlan.seedAllTableIds?.length
+              ? currentPlan.extraSeedRecords
+              : [],
+          };
+        }
+
         if (gated.length > 0) {
           const executedSyncFieldIds = new Set(
             syncSteps.flatMap((step) => step.fieldIds.map((fieldId) => fieldId.toString()))
@@ -632,7 +652,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           const asyncOnlyGatedTargets = asyncSteps.every((step) =>
             step.fieldIds.every((fieldId) => gatedTargetFieldIds.has(fieldId.toString()))
           );
-          const restrictedEdges = currentPlan.edges.map((edge) => {
+          const restrictedEdges = asyncPlan.edges.map((edge) => {
             const key = `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`;
             if (!gatedKeys.has(key) || !gatedSourcesExecuted(edge)) return edge;
             const ids = recordIdsChangedForFields(

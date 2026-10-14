@@ -13,7 +13,7 @@ import {
 /**
  * E2E tests for v2 paste command.
  */
-describe('v2 http paste (e2e)', () => {
+describe('[B10] v2 http paste (e2e)', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let viewId: string;
@@ -176,7 +176,7 @@ describe('v2 http paste (e2e)', () => {
     expect(records[2].fields[textFieldId]).toBe('Single Cell Value');
   });
 
-  it('should ignore paste values for button fields', async () => {
+  it('should not update an empty button cell when pasted input normalizes to null', async () => {
     const table = await ctx.createTable({
       baseId: ctx.baseId,
       name: 'Paste Button Field Table',
@@ -203,7 +203,8 @@ describe('v2 http paste (e2e)', () => {
       typecast: true,
     });
 
-    expect(result.updatedCount).toBe(1);
+    // Invalid typecast input normalizes to the existing null value, so no record changes.
+    expect(result.updatedCount).toBe(0);
 
     const records = await ctx.listRecords(table.id);
     expect(records[0].fields[primaryFieldId]).toBe('Row 1');
@@ -1286,6 +1287,59 @@ describe('v2 http paste (e2e)', () => {
         error?: { code?: string; message?: string };
       };
       expect(rawBody.error?.code).toBe('paste.link_auto_create_computed_primary_unsupported');
+    });
+
+    it('rejects auto-number primary paste with the computed-primary error without mutations', async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Auto-number paste targets',
+        fields: [{ name: 'Sequence', type: 'autoNumber', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createRecord(foreignTable.id, {});
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Auto-number paste sources',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Target',
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignTable.fields[0].id,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createRecord(hostTable.id, { [hostTable.fields[0].id]: 'Row A' });
+      const beforeTargets = await ctx.listRecords(foreignTable.id);
+      const beforeSources = await ctx.listRecords(hostTable.id);
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['Missing target']],
+          typecast: true,
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        error: { code: 'paste.link_auto_create_computed_primary_unsupported' },
+      });
+      expect(await ctx.listRecords(foreignTable.id)).toEqual(beforeTargets);
+      expect(await ctx.listRecords(hostTable.id)).toEqual(beforeSources);
     });
 
     it('rejects auto create for self-link fields', async () => {

@@ -109,10 +109,10 @@ export const RollupOptions = (props: {
   );
 
   useEffect(() => {
-    if (!availableExpressions || availableExpressions.length === 0) {
+    if (!expression || !availableExpressions || availableExpressions.length === 0) {
       return;
     }
-    if (expression && availableExpressions.includes(expression)) {
+    if (availableExpressions.includes(expression)) {
       return;
     }
     const fallbackExpression = availableExpressions[0];
@@ -278,6 +278,7 @@ export const RollupOptions = (props: {
             modal
             className="h-9 w-full"
             placeholder={t('field.default.rollup.selectAnRollupFunction')}
+            selectPlaceholder={t('field.default.rollup.selectAnRollupFunction')}
             options={candidates}
             value={expression || null}
             onSelect={(id) => {

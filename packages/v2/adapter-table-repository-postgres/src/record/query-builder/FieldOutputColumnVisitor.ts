@@ -30,6 +30,8 @@ import {
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isUserCellField } from '../../shared/userAvatarUrl';
+
 export type FieldOutputColumn = {
   readonly fieldId: FieldId;
   readonly columnAlias: string;
@@ -160,7 +162,7 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
   }
 
   visitLookupField(field: LookupField): Result<FieldOutputColumn, DomainError> {
-    return this.addColumn(field);
+    return this.addColumn(field, isUserCellField(field) ? 'user' : undefined);
   }
 
   visitRollupField(field: RollupField): Result<FieldOutputColumn, DomainError> {
@@ -176,6 +178,6 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
   visitConditionalLookupField(
     field: ConditionalLookupField
   ): Result<FieldOutputColumn, DomainError> {
-    return this.addColumn(field);
+    return this.addColumn(field, isUserCellField(field) ? 'user' : undefined);
   }
 }

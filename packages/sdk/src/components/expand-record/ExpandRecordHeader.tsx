@@ -132,7 +132,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               isMobile ? 'text-base' : 'text-xl'
             )}
           >
-            {title || t('common.unnamedRecord')}
+            {title || t('common.untitled')}
           </h4>
           {foreignTableName && (
             <p className="truncate text-xs text-muted-foreground">

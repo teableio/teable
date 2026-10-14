@@ -286,10 +286,9 @@ exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -445,10 +444,9 @@ exports[`array functions > 'ArrayCompact' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -1201,10 +1199,9 @@ exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -1352,10 +1349,9 @@ exports[`array functions > 'ArrayFlatten' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -2031,7 +2027,6 @@ exports[`array functions > 'ArrayJoin' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "System",
@@ -2160,7 +2155,6 @@ exports[`array functions > 'ArrayJoin' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "System",
@@ -2810,10 +2804,9 @@ exports[`array functions > 'ArrayUnique' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -2961,10 +2954,9 @@ exports[`array functions > 'ArrayUnique' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
@@ -3581,7 +3573,6 @@ exports[`array functions > 'Count' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",
@@ -3668,7 +3659,6 @@ exports[`array functions > 'Count' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",
@@ -4100,7 +4090,6 @@ exports[`array functions > 'CountA' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",
@@ -4187,7 +4176,6 @@ exports[`array functions > 'CountA' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",
@@ -4615,7 +4603,6 @@ exports[`array functions > 'CountAll' with 'createdBy' 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",
@@ -4702,7 +4689,6 @@ exports[`array functions > 'CountAll' with 'lastModifiedBy' 1`] = `
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
   "result": "1",

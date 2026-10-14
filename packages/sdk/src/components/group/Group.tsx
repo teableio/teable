@@ -53,6 +53,7 @@ export const Group = (props: IGroupProps) => {
         <>
           {!isDrawer && <div className="px-4 pt-3 text-[13px]">{t('group.setTips')}</div>}
           <SortContent
+            allowButtonFields
             limit={GROUP_LIMIT}
             limitTip={t('group.maxLimitTip', { count: GROUP_LIMIT })}
             sortValues={group ?? undefined}

@@ -517,6 +517,14 @@ export class ShareService {
       });
     }
 
+    // allowCopy only governs clipboard access to records the share exposes; when
+    // record sharing is disabled there is nothing to copy. The V1 path must
+    // mirror the V2 copy behaviour and return empty content, otherwise copy
+    // leaks records the share hides.
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return { content: '', header: [] };
+    }
+
     const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, shareViewCopyRo);
     // SelectionService resolves an explicit projection before it applies the
     // view's hidden-column filter, so bound it to the share scope here.
@@ -975,6 +983,12 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query: IShareViewCalendarDailyCollectionRo
   ) {
+    // When record sharing is disabled the view exposes no records; the V1 path
+    // must mirror the V2 guard (shared-view-record-query-v2.service.ts) and
+    // return nothing, otherwise the calendar endpoint leaks the hidden records.
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return { countMap: {}, records: [] };
+    }
     const shareVisibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
     const result = await this.aggregationService.getCalendarDailyCollection(shareInfo.tableId, {
       ...query,

@@ -14,7 +14,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 nested user ARRAY_JOIN create (e2e)', () => {
+describe('[C14][S19] v2 nested user ARRAY_JOIN create (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldSequence = 0;
   let cleanupTableIds: string[] = [];

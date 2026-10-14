@@ -27,6 +27,8 @@ import {
 } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
+import { serializeUserCellValue } from '../serializeUserCellValue';
+
 /**
  * Visitor that transforms cell values to their database storage format.
  *
@@ -153,11 +155,7 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
   }
 
   visitUserField(_field: UserField): Result<unknown, DomainError> {
-    // Users are stored as JSONB
-    if (this.rawValue === null || this.rawValue === undefined) {
-      return ok(null);
-    }
-    return ok(JSON.stringify(this.rawValue));
+    return ok(serializeUserCellValue(this.rawValue));
   }
 
   visitLinkField(_field: LinkField): Result<unknown, DomainError> {

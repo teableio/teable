@@ -401,7 +401,6 @@
       "baseInviteEmail": "通过电子邮件邀请进入项目",
       "baseInviteLink": "通过链接邀请进入项目",
       "baseAuthorityMatrixConfig": "配置权限矩阵",
-      "baseDbConnect": "连接数据库",
       "tableCreate": "创建表格",
       "tableRead": "查看表格",
       "tableDelete": "删除表格",
@@ -650,8 +649,8 @@
       "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
     },
     "ERROR": {
-      "summary": "返回错误值。",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "summary": "返回自定义错误。文本公式单元格显示 #ERROR: 及错误信息，IS_ERROR 返回真。",
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "如果表达式导致错误，则返回真。",
@@ -714,8 +713,8 @@
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "返回从 [startDate] 之后到 [endDate]（包含 [endDate]）之间的工作日数。这是工作日差值，不是自然日差值，因此会排除周末和可选的节假日列表。若要计算自然日经过时间，请使用 `DATETIME_DIFF(endDate, startDate, \"day\")`。如果 [endDate] 早于 [startDate]，结果会是负数，并且 WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) 会返回 n。",
-      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+      "summary": "返回 [startDate] 到 [endDate] 之间的工作日数，起止日期为工作日时都计入。排除周末和可选的节假日列表；[endDate] 早于 [startDate] 时结果为负数。同一个工作日返回 1，同一个周末或节假日返回 0。计算自然日经过时间请使用 `DATETIME_DIFF(endDate, startDate, \"day\")`。",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "比较两个日期直到指定的单位，并确定它们是否相同。如果是，则返回 true，否则返回 false。",
@@ -1102,15 +1101,11 @@
       "listMailboxesFailed": "获取邮箱文件夹列表失败: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "未知的数据集：{{datasetId}}",
       "apiKeyNotConfigured": "抓取服务未配置",
       "triggerFailed": "抓取触发失败：{{detail}}",
-      "snapshotError": "抓取快照错误：{{detail}}",
-      "timeout": "抓取超时，已等待 {{seconds}} 秒",
       "catalogFailed": "抓取目录请求失败：{{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy 只用于原始数据集 id，不适用于 {{datasetId}}",
-      "tooManyRecords": "本次抓取最多返回 {{estimated}} 条记录，超过单次允许的 {{max}} 条",
-      "creditEstimateExceeded": "本次抓取预计消耗的算力超出当前可用额度"
+      "creditEstimateExceeded": "本次抓取预计消耗的算力超出当前可用额度",
+      "runOverLimit": "本次抓取最多可能消耗 {{maxCredits}} 算力，超过单次 {{limit}} 算力的上限。"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
@@ -1156,7 +1151,9 @@
       "folderDepthLimitExceeded": "文件夹深度超限",
       "folderNotFound": "文件夹未找到",
       "anchorNotFound": "锚点节点未找到",
-      "nameAlreadyExists": "名称已存在"
+      "nameAlreadyExists": "名称已存在",
+      "targetBaseRequired": "目标项目不能为空",
+      "moveBlocked": "无法将节点移动到目标项目（{{code}}）"
     },
     "routine": {
       "notFound": "任务未找到",
@@ -1173,6 +1170,7 @@
     "chat": {
       "notFound": "会话不存在",
       "accessDenied": "你无权访问此会话",
+      "archived": "会话已归档",
       "serverAuthoredType": "{{type}} 类型的会话由服务端创建"
     },
     "dashboard": {
@@ -1228,12 +1226,6 @@
     },
     "pluginChart": {
       "queryNotFound": "未找到插件图表查询"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
-      "onlyOwnerCanRemove": "只有项目所有者可以移除项目 {{baseId}} 的连接",
-      "onlyOwnerCanCreate": "只有项目所有者可以创建项目 {{baseId}} 的连接",
-      "roleNotExist": "数据库角色 {{role}} 不存在"
     },
     "baseQuery": {
       "queryFailed": "查询失败：{{message}}",
@@ -1309,6 +1301,7 @@
       "lookupAndLinkLengthMatch": "lookupValues 长度应与 linkCellValues 长度相同",
       "cycleDetected": "检测到循环依赖",
       "cycleDetectedCreateField": "检测到循环依赖，无法创建字段 {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "检测到循环依赖，无法创建字段",
       "recordMapNotFound": "在表 {{tableName}} 中找不到字段 {{fieldName}} 的记录",
       "forbidDeletePrimaryField": "不允许删除主字段",
       "foreignTableIdInvalid": "关联表 {{foreignTableId}} 无效",

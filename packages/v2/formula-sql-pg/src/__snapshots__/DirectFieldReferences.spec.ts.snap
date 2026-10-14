@@ -139,10 +139,9 @@ exports[`direct field references > direct reference to 'createdBy' field 1`] = `
       "fieldType": "createdBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+  "result": "{"id": "system", "email": null, "title": "System"}",
   "sql": ""t"."CreatedBy"",
 }
 `;
@@ -222,10 +221,9 @@ exports[`direct field references > direct reference to 'lastModifiedBy' field 1`
       "fieldType": "lastModifiedBy",
       "formattedValue": "System",
       "formatting": undefined,
-      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
     },
   },
-  "result": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+  "result": "{"id": "system", "email": null, "title": "System"}",
   "sql": ""t"."LastModifiedBy"",
 }
 `;

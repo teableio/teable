@@ -359,6 +359,15 @@ describe('LocalStorage', () => {
   });
 
   describe('getPreviewUrl', () => {
+    // Freeze the clock so the expected expiry is computed in the same second the token was minted.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     const mockBucket = 'mock-bucket';
     const mockPath = 'mock/file/path';
     const mockExpiresIn = 3600;

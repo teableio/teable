@@ -15,6 +15,7 @@
     "delete": "Delete",
     "clear": "Clear",
     "cancel": "Cancel",
+    "undo": "Undo",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "back": "Back",
@@ -571,7 +572,6 @@
     "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
     "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
-    "unavailableConnectionTips": "Database connection feature will be removed and only available in Enterprise Plan and self-hosted versions.",
     "levelTips": "This space is currently on the {{level}} plan",
     "enterpriseFeature": "Enterprise feature",
     "automationRequiresUpgrade": "Upgrade to Enterprise Edition (EE) to enable automation",
@@ -1173,6 +1173,8 @@
     "addConfig": "Add config",
     "editConfig": "Edit config",
     "resetConfig": "Reset",
+    "unsubscribeLink": "Add unsubscribe link",
+    "unsubscribeLinkDescription": "Turn on for marketing emails: adds a one-click unsubscribe link and skips recipients who unsubscribed. Leave off for replies and notifications.",
     "testEmail": "Test email",
     "testEmailPlaceholder": "Please enter the test email",
     "testEmailError": "Please enter a valid test email address",
@@ -1600,6 +1602,10 @@
   },
   "chat": {
     "serverError": "Server error occurred",
+    "chatGone": "This chat no longer exists",
+    "chatGoneDescription": "It was deleted from another tab or device, so nothing more can be sent here.",
+    "chatArchived": "This chat is archived",
+    "chatArchivedDescription": "An archived chat cannot be sent to.",
     "modelNotSupported": "The selected model is not supported in agent mode. Please switch to GPT-6 Astra for the best experience.",
     "byokModelNotSupported": "Your custom model is not compatible with agent mode. Please switch to GPT-6 Astra for the best experience.",
     "modelServiceUnavailable": "The model service is temporarily unavailable. Please try again later.",
@@ -1635,6 +1641,7 @@
   "modelTier": {
     "title": "Model",
     "uses": "Uses {{model}}",
+    "spaceModels": "Space models",
     "xl": {
       "label": "Ultra",
       "description": "Top capability for demanding, high-stakes work."
@@ -1832,5 +1839,13 @@
       "summaryTitle": "Teable",
       "summary": "{{count}} conversations have news."
     }
+  },
+  "cookieConsent": {
+    "title": "Cookie consent",
+    "body": "We use cookies and similar technologies to understand how Teable is used, improve your experience and measure our marketing.",
+    "accept": "Accept all",
+    "reject": "Reject all",
+    "policy": "Cookie Policy",
+    "settings": "Cookie settings"
   }
 }

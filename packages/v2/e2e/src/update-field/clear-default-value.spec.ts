@@ -16,7 +16,7 @@ const Colors = {
   GreenBright: 'greenBright',
 } as const;
 
-describe('e2e API: clear field defaultValue T6107', () => {
+describe('[D01][D03] e2e API: clear field defaultValue T6107', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

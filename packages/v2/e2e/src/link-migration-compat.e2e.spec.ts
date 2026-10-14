@@ -22,7 +22,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  *
  * Each step logs its raw input and output so we can see exactly where IDs diverge.
  */
-describe('v2 link migration compatibility – step-by-step debug', () => {
+describe('[F11] v2 link migration compatibility – step-by-step debug', () => {
   let ctx: SharedTestContext;
 
   // -------- helpers (thin wrappers that return raw JSON for inspection) --------

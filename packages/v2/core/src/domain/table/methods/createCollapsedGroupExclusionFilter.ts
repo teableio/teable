@@ -101,6 +101,13 @@ export function createCollapsedGroupExclusionFilter(
             value = value ? false : null;
           } else if (value == null) {
             operator = 'isNotEmpty';
+          } else if (
+            fieldType === 'button' &&
+            typeof value === 'object' &&
+            'count' in value &&
+            typeof value.count === 'number'
+          ) {
+            value = value.count;
           } else if (field instanceof FormulaField && !valueType.isMultipleCellValue.isMultiple()) {
             const formatting = field.formatting();
             if (formatting instanceof DateTimeFormatting) {

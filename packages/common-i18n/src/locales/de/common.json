@@ -15,6 +15,7 @@
     "delete": "Löschen",
     "clear": "Leeren",
     "cancel": "Abbrechen",
+    "undo": "Rückgängig",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "back": "Zurück",
@@ -568,7 +569,6 @@
     "overLimitsDescription": "Ihr aktuelles Abonnement hat sein Nutzungslimit überschritten. Bitte aktualisieren Sie Ihr Abonnement, um diese Funktion weiterhin ohne Unterbrechung nutzen zu können.",
     "userLimitExceededDescription": "Die aktuelle Instanz hat die maximale Anzahl von Benutzern erreicht, die Ihre Lizenz erlaubt. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz.",
     "unavailableInPlanTips": "Der aktuelle Abonnementplan unterstützt diese Funktion nicht",
-    "unavailableConnectionTips": "Die Datenbankverbindungsfunktion wird in Zukunft entfernt und ist nur in der Enterprise-Edition von öffentlicher Cloud und selbstgehosteten Versionen verfügbar.",
     "levelTips": "Dieser Space befindet sich derzeit auf dem {{level}} Plan",
     "enterpriseFeature": "Enterprise-Funktion",
     "automationRequiresUpgrade": "Upgrade auf Enterprise Edition (EE) um Automatisierung zu aktivieren",
@@ -1170,6 +1170,8 @@
     "addConfig": "Konfiguration hinzufügen",
     "editConfig": "Konfiguration bearbeiten",
     "resetConfig": "Zurücksetzen",
+    "unsubscribeLink": "Abmeldelink hinzufügen",
+    "unsubscribeLinkDescription": "Für Marketing-E-Mails aktivieren: fügt einen Abmeldelink mit einem Klick hinzu und überspringt abgemeldete Empfänger. Für Antworten und Benachrichtigungen deaktiviert lassen.",
     "testEmail": "Test-E-Mail",
     "testEmailPlaceholder": "Geben Sie die E-Mail-Adressen ein und trennen Sie sie mit der Eingabetaste",
     "testEmailError": "Bitte korrekte Test-E-Mail-Adresse eingeben",
@@ -1597,6 +1599,10 @@
   },
   "chat": {
     "serverError": "Ein Serverfehler ist aufgetreten",
+    "chatGone": "Dieser Chat existiert nicht mehr",
+    "chatGoneDescription": "Er wurde in einem anderen Tab oder auf einem anderen Gerät gelöscht; hier kann nichts mehr gesendet werden.",
+    "chatArchived": "Dieser Chat ist archiviert",
+    "chatArchivedDescription": "In einen archivierten Chat kann nichts gesendet werden.",
     "modelNotSupported": "Das ausgewählte Modell wird im Agent-Modus nicht unterstützt. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
     "byokModelNotSupported": "Ihr benutzerdefiniertes Modell ist nicht mit dem Agent-Modus kompatibel. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
     "modelServiceUnavailable": "Der Modelldienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
@@ -1632,6 +1638,7 @@
   "modelTier": {
     "title": "Modell",
     "uses": "Verwendet {{model}}",
+    "spaceModels": "Space-Modelle",
     "xl": {
       "label": "Ultra",
       "description": "Höchste Leistung für anspruchsvolle, kritische Aufgaben."
@@ -1829,5 +1836,13 @@
       "summaryTitle": "Teable",
       "summary": "{{count}} Unterhaltungen haben Neuigkeiten."
     }
+  },
+  "cookieConsent": {
+    "title": "Cookie-Einwilligung",
+    "body": "Wir verwenden Cookies und ähnliche Technologien, um zu verstehen, wie Teable genutzt wird, Ihr Erlebnis zu verbessern und unser Marketing zu messen.",
+    "accept": "Alle akzeptieren",
+    "reject": "Alle ablehnen",
+    "policy": "Cookie-Richtlinie",
+    "settings": "Cookie-Einstellungen"
   }
 }

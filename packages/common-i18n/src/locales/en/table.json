@@ -1130,14 +1130,6 @@
     "collapseAllGroups": "Collapse all groups",
     "addToChat": "Add to Chat"
   },
-  "connection": {
-    "title": "Database connection",
-    "description": "You can access the database directly through the database connection, including all the tables under the current project",
-    "noPermission": "You don't have permission to access the database",
-    "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
-    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "Add record",
     "searchView": "Search view...",
@@ -1488,6 +1480,8 @@
       "submit": "Submit"
     },
     "newChat": "New Chat",
+    "alreadyInNewChat": "You're already in a new chat",
+    "initChatFailed": "Failed to initialize chat",
     "clearChat": "Clear Chat",
     "expand": "Expand",
     "history": "History",
@@ -1523,8 +1517,11 @@
     "noFoundHistory": "No chat history found, please start a new conversation",
     "pin": "Pin",
     "unpin": "Unpin",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "markAllRead": "Mark all as read ({{count}})",
     "archive": "Archive",
-    "archivedToast": "Chat archived. Find it under Settings › Archived chats.",
+    "archivedToast": "Chat archived",
     "unread": "Unread",
     "timeGroup": {
       "pinned": "Pinned",
@@ -1645,7 +1642,6 @@
       "pausedHidden": "Retry paused — open this tab to reconnect.",
       "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
     },
-    "initChatFailed": "Failed to initialize chat",
     "app": {
       "loadingChatHistory": "Loading chat history...",
       "generatorTitle": "AI App Generator",
@@ -1740,6 +1736,45 @@
         "stale": "Needs rebuild",
         "unknown": "Unknown"
       }
+    },
+    "moveToBase": {
+      "menu": "Move",
+      "title": "Move <b>{{name}}</b> to another project",
+      "confirm": "Move",
+      "targetLabel": "Target project",
+      "targetPlaceholder": "Select a project",
+      "noTarget": "No other project in this space accepts this node.",
+      "checking": "Checking what this move affects…",
+      "blockers": {
+        "same_base": "The node is already in this project.",
+        "target_not_found": "The target project no longer exists.",
+        "different_space": "Nodes can only move between projects of the same space.",
+        "v2_mismatch": "The two projects run different storage engine versions.",
+        "source_not_writable": "This project is read-only right now.",
+        "target_not_writable": "The target project is read-only right now.",
+        "no_source_permission": "You cannot remove this node from the current project.",
+        "no_target_permission": "You cannot create this kind of node in the target project.",
+        "folder_name_conflict": "A folder with the same name already exists in the target project.",
+        "unsupported_resource": "This kind of node cannot be moved yet.",
+        "pending_computed_tasks": "Calculations are still running on this table. Try again in a moment.",
+        "unknown": "This move is not allowed."
+      },
+      "movingCount": "{{count}} node(s) will move",
+      "moveClosure": "Move everything referenced",
+      "moveClosureHint": "Only referenced nodes travel. Linked tables stay where they are; their links simply span two projects afterwards and keep working.",
+      "breakingCount": "{{count}} node(s) may stop working after the move",
+      "referencesLabel": "References",
+      "appEmbeddedId": "{{count}} app(s) name the old project in their code; update them yourself",
+      "appEmbeddedIdDetail": "{{apps}}. Their code is left exactly as written; open each one after the move and update it, or it will keep reading the project it left.",
+      "occurrences": "{{count}} place(s)",
+      "uninspectableTitle": "{{count}} app(s) could not be checked; confirm them after the move",
+      "droppedRules": "{{count}} permission rule(s) will be removed and cannot be restored",
+      "droppedRulesDetail": "A permission rule is bound to a role that belongs to this project, so it cannot travel with the node. The moved nodes fall under the target project's permission settings instead; set the same restrictions up again there if you need them.",
+      "successTitle": "Moved",
+      "open": "Open",
+      "linkedAcrossProjects": "{{count}} table(s) will be linked across projects",
+      "successDescription_one": "<b>{{count}}</b> node moved to <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> nodes moved to <b>{{baseName}}</b>"
     }
   }
 }

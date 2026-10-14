@@ -23,6 +23,10 @@ export const sendEmailRoSchema = z
     bcc: emailOrArray,
     replyTo: z.email().optional(),
     smtp: mailTransportConfigSchema.optional(),
+    unsubscribe: z.boolean().optional().meta({
+      description:
+        'With `smtp`: add an unsubscribe link and List-Unsubscribe headers and skip unsubscribed recipients, for marketing email. Emails sent through the default server always do.',
+    }),
     bodyType: z.enum(MailBodyType).default(MailBodyType.Markdown),
   })
   .refine(

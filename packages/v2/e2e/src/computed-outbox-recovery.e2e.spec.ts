@@ -52,6 +52,9 @@ const createHarness = async (
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -352,7 +355,7 @@ const prepareLockContentionScenario = async (harness: TestHarness) => {
   };
 };
 
-describe('computed outbox recovery (e2e)', () => {
+describe('[C14][S19] computed outbox recovery (e2e)', () => {
   it.each(['before commit', 'after commit'] as const)(
     'recovers exact staged values after failure %s and duplicate continuation delivery',
     async (failureBoundary) => {

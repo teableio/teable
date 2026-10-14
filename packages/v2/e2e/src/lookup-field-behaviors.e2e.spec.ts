@@ -22,7 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 lookup field behaviors (e2e)', () => {
+describe('[F21][R02] v2 lookup field behaviors (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
   const runId = Math.random().toString(36).slice(2, 8).padEnd(6, '0');

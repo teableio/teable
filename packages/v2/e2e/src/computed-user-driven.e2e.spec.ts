@@ -50,7 +50,7 @@ const asUserCellArray = (value: unknown): Array<{ id?: string; title?: string }>
   return single ? [single] : [];
 };
 
-describe('v2 user-field-driven computed updates (e2e)', () => {
+describe('[C14][S19] v2 user-field-driven computed updates (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { Selector } from '@/components/Selector';
 import {
   friendlyFormatStrings,
@@ -24,35 +25,32 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
   const friendlyDateFormatting = getFormatStringForLanguage(i18n.language, friendlyFormatStrings);
   const localDateFormatting = getFormatStringForLanguage(i18n.language, localFormatStrings);
 
-  const optionsWithExample = (text: string, formatting: string) => {
+  const optionsWithExample = (text: string, formatting: string, id = formatting) => {
     return {
+      id,
       text: `${text} (${dayjs().format(formatting)})`,
       value: formatting,
     };
   };
 
   const dateFormattingPresetOptions = [
-    optionsWithExample(t('table:field.default.date.local'), localDateFormatting),
-    optionsWithExample(t('table:field.default.date.friendly'), friendlyDateFormatting),
+    optionsWithExample(t('table:field.default.date.local'), localDateFormatting, 'local'),
+    optionsWithExample(t('table:field.default.date.friendly'), friendlyDateFormatting, 'friendly'),
     optionsWithExample(t('table:field.default.date.us'), DateFormattingPreset.US),
     optionsWithExample(t('table:field.default.date.european'), DateFormattingPreset.European),
     optionsWithExample(t('table:field.default.date.asia'), DateFormattingPreset.Asian),
-  ];
-  if (localDateFormatting !== DateFormattingPreset.ISO) {
-    dateFormattingPresetOptions.push(optionsWithExample('ISO', DateFormattingPreset.ISO));
-  }
-  dateFormattingPresetOptions.push(
+    optionsWithExample('ISO', DateFormattingPreset.ISO),
     optionsWithExample(t('table:field.default.date.yearMonth'), DateFormattingPreset.YM),
     optionsWithExample(t('table:field.default.date.monthDay'), DateFormattingPreset.MD),
     optionsWithExample(t('table:field.default.date.year'), DateFormattingPreset.Y),
     optionsWithExample(t('table:field.default.date.month'), DateFormattingPreset.M),
-    optionsWithExample(t('table:field.default.date.day'), DateFormattingPreset.D)
-  );
+    optionsWithExample(t('table:field.default.date.day'), DateFormattingPreset.D),
+  ];
 
   // add [Custom] option if currentDateFormatting not in the list
   if (!dateFormattingPresetOptions.some((option) => option.value === currentDateFormatting)) {
     dateFormattingPresetOptions.push(
-      optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting)
+      optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting, 'custom')
     );
   }
 
@@ -97,7 +95,15 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange, cla
     timeZone: formatting?.timeZone || systemTimeZone,
   };
 
-  const { date, time } = useSelectInfoMap(formatting.date);
+  const currentDateFormatting = formatting.date;
+  const { date, time } = useSelectInfoMap(currentDateFormatting);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>();
+  // Only the format is persisted. Reopening uses the first matching preset (Local
+  // when equivalent); within this editor, keep the explicitly selected identity.
+  const selectedDatePreset =
+    date.list.find(
+      (item) => item.id === selectedPresetId && item.value === currentDateFormatting
+    ) ?? date.list.find((item) => item.value === currentDateFormatting);
 
   const onFormattingChange = (value: string, typeKey: string) => {
     onChange?.({
@@ -112,9 +118,15 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange, cla
         <Label className="text-sm font-medium">{date.label}</Label>
         <Selector
           className="w-full"
-          candidates={date.list.map((item) => ({ id: item.value, name: item.text }))}
-          selectedId={formatting.date}
-          onChange={(value) => onFormattingChange(value, 'date')}
+          candidates={date.list.map((item) => ({ id: item.id, name: item.text }))}
+          selectedId={selectedDatePreset?.id}
+          onChange={(id) => {
+            const preset = date.list.find((item) => item.id === id);
+            if (preset) {
+              setSelectedPresetId(id);
+              onFormattingChange(preset.value, 'date');
+            }
+          }}
         />
       </div>
       <div className="space-y-2">

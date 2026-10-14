@@ -8,6 +8,7 @@ import {
   isNotExactly,
   CellValueType,
   exactFormatDate,
+  buttonFieldCelValueSchema,
 } from '@teable/core';
 import type { IFieldInstance } from '../features/field/model/factory';
 
@@ -56,6 +57,8 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     value = !value || null;
   } else if (value == null) {
     operator = isNotEmpty.value;
+  } else if (type === FieldType.Button) {
+    value = buttonFieldCelValueSchema.parse(value).count;
   } else if (
     type === FieldType.Date ||
     (type === FieldType.Formula && cellValueType === CellValueType.DateTime)

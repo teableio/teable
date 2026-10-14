@@ -524,7 +524,7 @@ export class WorkdayDiff extends DateTimeFunc {
       normalizedEndDate.isAfter(normalizedStartDate, 'day');
     const minDate = isForward ? normalizedStartDate : normalizedEndDate;
     const maxDate = isForward ? normalizedEndDate : normalizedStartDate;
-    let currentDay = minDate.add(1, 'day');
+    let currentDay = minDate;
     let count = 0;
 
     while (currentDay.isSame(maxDate, 'day') || currentDay.isBefore(maxDate, 'day')) {

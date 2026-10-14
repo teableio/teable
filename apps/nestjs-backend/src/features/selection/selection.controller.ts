@@ -181,6 +181,13 @@ export class SelectionController {
     const { updatePayload, createPayload, fieldIds, recordIds, createdFieldIds } =
       await this.selectionService.buildPasteByIdPayload(tableId, pasteRo, {
         recordIds: targetRecordIds,
+        validateBeforeExpansion: async (updatePayload, createPayload, plannedFields) => {
+          await this.recordOpenApiV2Service.validatePasteLinkTargets(
+            tableId,
+            [...updatePayload.records, ...createPayload.records],
+            plannedFields
+          );
+        },
       });
     const beforeSnapshot = await this.selectionService.createPasteByIdMutationSnapshot(
       tableId,

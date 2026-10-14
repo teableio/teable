@@ -975,6 +975,10 @@ const buildIsCondition = (
 
     const literalOperand = yield* expectLiteralOperand(operand);
 
+    if (field.type().equals(core.FieldType.button())) {
+      return ok(sql`(${columnRef} ->> 'count')::numeric = ${literalOperand.value}`);
+    }
+
     if (isUserOrLinkLike) {
       const rightLiteral = String(literalOperand.value);
       if (!isMultiple) {
@@ -1130,6 +1134,10 @@ const buildIsNotCondition = (
     }
 
     const literalOperand = yield* expectLiteralOperand(operand);
+
+    if (field.type().equals(core.FieldType.button())) {
+      return ok(sql`(${columnRef} ->> 'count')::numeric IS DISTINCT FROM ${literalOperand.value}`);
+    }
 
     if (isUserOrLinkLike) {
       const rightLiteral = String(literalOperand.value);

@@ -118,6 +118,9 @@ function OrderSelect(props: Readonly<IOrderProps>) {
     if (fieldType === FieldType.SingleSelect || fieldType === FieldType.MultipleSelect) {
       option = SELECTOPTIONS;
     }
+    if (fieldType === FieldType.Button) {
+      option = NUMBEROPTIONS;
+    }
 
     return option || DEFAULTOPTIONS;
   }, [field?.cellValueType, field?.type, t]);

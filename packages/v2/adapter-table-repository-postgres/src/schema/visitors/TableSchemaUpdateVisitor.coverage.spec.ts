@@ -221,13 +221,13 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     const uniqueDisabledSqls = uniqueDisabledResult
       ._unsafeUnwrap()
       .map((statement) => normalizeSql(statement.compile(db).sql));
-    expect(uniqueDisabledSqls).toHaveLength(2);
+    expect(uniqueDisabledSqls).toHaveLength(1);
     expect(uniqueDisabledSqls[0]).toContain(
-      'ALTER TABLE "bseTableSchemaTest"."tblVisitorCoverage" DROP CONSTRAINT IF EXISTS "tblVisitorCoverage_constraint_col_unique"'
+      `to_regclass('"bseTableSchemaTest"."tblVisitorCoverage"')`
     );
-    expect(uniqueDisabledSqls[1]).toContain(
-      'DROP INDEX IF EXISTS "bseTableSchemaTest"."tblVisitorCoverage_constraint_col_unique"'
-    );
+    expect(uniqueDisabledSqls[0]).toContain("attname = 'constraint_col'");
+    expect(uniqueDisabledSqls[0]).toContain('conkey = ARRAY[target_column]::smallint[]');
+    expect(uniqueDisabledSqls[0]).toContain('indnkeyatts = 1 AND indkey[0] = target_column');
   });
 
   it('rebuilds a required manyOne FK as RESTRICT while keeping display NOT NULL', () => {

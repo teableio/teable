@@ -25,7 +25,7 @@ const createFieldId = () => {
 const getSelectOptions = (field?: { options?: unknown }): SelectFieldOptions =>
   (field?.options as SelectFieldOptions | undefined) ?? {};
 
-describe('update-field: multipleSelect property updates', () => {
+describe('[D01][F06][S01] update-field: multipleSelect property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

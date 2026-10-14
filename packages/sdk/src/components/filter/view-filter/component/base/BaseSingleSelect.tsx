@@ -134,7 +134,7 @@ function SelectCommandList(props: Readonly<ISelectCommandListProps>) {
 }
 
 function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
-  props: Readonly<IBaseSelect<V, O>>
+  props: Readonly<IBaseSelect<V, O> & { selectPlaceholder?: string }>
 ) {
   const [searchValue, setSearchValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -154,6 +154,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     search = true,
     onSearch,
     placeholder = t('common.search.placeholder'),
+    selectPlaceholder = t('common.selectPlaceHolder'),
     cancelable = false,
     defaultLabel = t('common.untitled'),
     modal,
@@ -261,7 +262,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
         )
       ) : (
         <span className={cn('text-sm font-normal text-muted-foreground', placeholderClassName)}>
-          {t('common.selectPlaceHolder')}
+          {selectPlaceholder}
         </span>
       )}
       <ChevronDown

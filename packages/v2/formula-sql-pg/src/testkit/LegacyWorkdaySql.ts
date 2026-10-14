@@ -1,5 +1,5 @@
-// Frozen enumeration SQL from develop before the arithmetic optimization.
-// Used only as an independent differential oracle and benchmark baseline.
+// Enumeration SQL used as independent references for the arithmetic implementations.
+// WORKDAY retains its original offset semantics; WORKDAY_DIFF counts both endpoints.
 export const legacyWorkdaySql = `(
       SELECT CASE
         WHEN p.day_count = 0 THEN p.start_date::timestamp
@@ -33,7 +33,7 @@ export const legacyWorkdaySql = `(
       ) p
     )`;
 
-export const legacyWorkdayDiffSql = `(
+export const enumeratedWorkdayDiffSql = `(
       WITH params AS (
         SELECT c.start_date AS start_date, c.end_date AS end_date, COALESCE(c.holiday_text, '') AS holiday_text
       ),
@@ -51,7 +51,8 @@ export const legacyWorkdayDiffSql = `(
       ),
       bounds AS (
         SELECT
-          LEAST(p.start_date, p.end_date) AS min_date,
+          CASE WHEN p.start_date IS NULL OR p.end_date IS NULL THEN NULL
+            ELSE LEAST(p.start_date, p.end_date) END AS min_date,
           GREATEST(p.start_date, p.end_date) AS max_date,
           CASE WHEN p.end_date >= p.start_date THEN 1 ELSE -1 END AS direction
         FROM params p
@@ -59,7 +60,7 @@ export const legacyWorkdayDiffSql = `(
       candidates AS (
         SELECT d::date AS candidate_date
         FROM bounds b
-        CROSS JOIN LATERAL generate_series(b.min_date + 1, b.max_date, INTERVAL '1 day') AS d
+        CROSS JOIN LATERAL generate_series(b.min_date, b.max_date, INTERVAL '1 day') AS d
       ),
       workdays AS (
         SELECT c.candidate_date

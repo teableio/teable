@@ -413,7 +413,6 @@
       "baseInviteEmail": "Запросити електронною поштою в проєкті",
       "baseInviteLink": "Запросити за посиланням у проєкті",
       "baseAuthorityMatrixConfig": "Налаштувати матрицю повноважень",
-      "baseDbConnect": "Підключитися до бази даних",
       "tableCreate": "Створити таблицю",
       "tableRead": "Читати таблицю",
       "tableDelete": "Видалити таблицю",
@@ -1110,15 +1109,11 @@
       "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Невідомий набір даних: {{datasetId}}",
       "apiKeyNotConfigured": "Сервіс скрейпінгу не налаштовано",
       "triggerFailed": "Помилка запуску скрейпінгу: {{detail}}",
-      "snapshotError": "Помилка знімка скрейпінгу: {{detail}}",
-      "timeout": "Час очікування скрейпінгу вичерпано після {{seconds}}с",
       "catalogFailed": "Помилка запиту каталогу скрейпінгу: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy застосовується лише до сирих id датасетів, не до {{datasetId}}",
-      "tooManyRecords": "Збір поверне до {{estimated}} записів, що перевищує ліміт {{max}} за один запуск",
-      "creditEstimateExceeded": "Розрахункові кредити для цього збору перевищують доступні зараз"
+      "creditEstimateExceeded": "Розрахункові кредити для цього збору перевищують доступні зараз",
+      "runOverLimit": "Цей збір може коштувати до {{maxCredits}} кредитів, що перевищує ліміт у {{limit}} кредитів для одного запуску."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1164,7 +1159,9 @@
       "folderDepthLimitExceeded": "Перевищено ліміт глибини папки",
       "folderNotFound": "Папку не знайдено",
       "anchorNotFound": "Якірний вузол не знайдено",
-      "nameAlreadyExists": "Ім'я вже існує"
+      "nameAlreadyExists": "Ім'я вже існує",
+      "targetBaseRequired": "Потрібно вказати цільовий проєкт",
+      "moveBlocked": "Не вдалося перемістити вузол до цільового проєкту ({{code}})"
     },
     "routine": {
       "notFound": "Рутина не знайдена",
@@ -1181,6 +1178,7 @@
     "chat": {
       "notFound": "Чат не знайдено",
       "accessDenied": "У вас немає доступу до цього чату",
+      "archived": "Чат в архіві",
       "serverAuthoredType": "Чати типу {{type}} створює сервер"
     },
     "dashboard": {
@@ -1236,12 +1234,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Запит діаграми плагіна не знайдено"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
-      "onlyOwnerCanRemove": "Тільки власник проєкту може видалити підключення до бази даних для проєкту {{baseId}}",
-      "onlyOwnerCanCreate": "Тільки власник проєкту може створити підключення до бази даних для проєкту {{baseId}}",
-      "roleNotExist": "Роль бази даних {{role}} не існує"
     },
     "baseQuery": {
       "queryFailed": "Запит не виконано: {{message}}",
@@ -1317,6 +1309,7 @@
       "lookupAndLinkLengthMatch": "Довжина lookupValues повинна бути такою ж, як довжина linkCellValues",
       "cycleDetected": "Виявлено цикл",
       "cycleDetectedCreateField": "Виявлено цикл, неможливо створити поле {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Виявлено цикл, неможливо створити поле",
       "recordMapNotFound": "Запис не знайдено в таблиці {{tableName}} для поля {{fieldName}}",
       "forbidDeletePrimaryField": "Заборонено видаляти первинне поле",
       "foreignTableIdInvalid": "Зовнішня таблиця {{foreignTableId}} недійсна",

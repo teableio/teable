@@ -790,20 +790,30 @@ describe('DateTime', () => {
       expect(result).toBe(73);
     });
 
-    it('should exclude the start date when calculating forward workday ranges', () => {
+    it.each([
+      ['2026-03-09', '2026-03-13', 5],
+      ['2026-03-09', '2026-03-20', 10],
+      ['2026-03-09', '2026-03-27', 15],
+      ['2026-03-09', '2026-03-09', 1],
+      ['2026-03-14', '2026-03-14', 0],
+      ['2026-03-13', '2026-03-16', 2],
+      ['2026-03-14', '2026-03-15', 0],
+      ['2026-03-09', '2026-03-16', 6],
+      ['2026-03-13', '2026-03-09', -5],
+    ])('counts both workday endpoints from %s to %s', (start, end, expected) => {
       const result = workdayDiffFunc.eval(
         [
-          new TypedValue(new Date('2026-02-23').toISOString(), CellValueType.DateTime, false),
-          new TypedValue(new Date('2026-02-27').toISOString(), CellValueType.DateTime, false),
+          new TypedValue(`${start}T00:00:00.000Z`, CellValueType.DateTime, false),
+          new TypedValue(`${end}T00:00:00.000Z`, CellValueType.DateTime, false),
         ],
         {
           record: {} as IRecord,
           dependencies: {},
-          timeZone: 'America/Los_Angeles',
+          timeZone: 'Asia/Singapore',
         }
       );
 
-      expect(result).toBe(4);
+      expect(result).toBe(expected);
     });
   });
 
@@ -1427,7 +1437,7 @@ describe('DateTime', () => {
 
       const result = workdayDiffFunc.eval([start, end, holidays], context);
 
-      expect(result).toBe(6);
+      expect(result).toBe(7);
     });
 
     it('should return a negative count for reverse workday ranges', () => {
@@ -1436,10 +1446,10 @@ describe('DateTime', () => {
 
       const result = workdayDiffFunc.eval([start, end], context);
 
-      expect(result).toBe(-5);
+      expect(result).toBe(-6);
     });
 
-    it('should stay inverse to WORKDAY for business-day offsets', () => {
+    it('includes the start day in a WORKDAY-derived range', () => {
       const start = new TypedValue('2026-02-23T00:00:00.000Z', CellValueType.DateTime, false);
       const offset = new TypedValue(5, CellValueType.Number, false);
       const end = workdayFunc.eval([start, offset], context);
@@ -1452,7 +1462,7 @@ describe('DateTime', () => {
         context
       );
 
-      expect(result).toBe(5);
+      expect(result).toBe(6);
     });
   });
 

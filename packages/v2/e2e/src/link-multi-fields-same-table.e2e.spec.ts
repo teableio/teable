@@ -10,7 +10,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 link fields to the same foreign table (e2e)', () => {
+describe('[F11] v2 link fields to the same foreign table (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

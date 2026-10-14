@@ -24,6 +24,7 @@ export type CascadeInput = {
   selfBackfillFieldIds: ReadonlyArray<FieldId>;
   valueChangedFieldIds: ReadonlyArray<FieldId>;
   deferredBackfillFieldIds?: ReadonlyArray<FieldId>;
+  preserveStoredFieldIds?: ReadonlyArray<FieldId>;
   /**
    * True when a field conversion changed the underlying DB column type
    * (cellValueType or isMultipleCellValue changed).  Dependent computed
@@ -63,9 +64,15 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         selfBackfillFieldIds,
         valueChangedFieldIds,
         deferredBackfillFieldIds = [],
+        preserveStoredFieldIds = [],
         hasDbStorageTypeChange,
       } = input;
       const backfilledFieldIdSet = new Set<string>();
+      // Only explicit same-type configuration changes preserve history. A
+      // deferred type-conversion replay must still initialize its new columns.
+      const preservedStoredFieldIdSet = new Set(
+        preserveStoredFieldIds.map((fieldId) => fieldId.toString())
+      );
       const deferredFieldIdSet = new Set(
         deferredBackfillFieldIds.map((fieldId) => fieldId.toString())
       );
@@ -77,7 +84,11 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         fields.filter((field) => !deferredFieldIdSet.has(field.id().toString()));
 
       const filterAlreadyBackfilledFields = (fields: ReadonlyArray<Field>): Field[] =>
-        fields.filter((field) => !backfilledFieldIdSet.has(field.id().toString()));
+        fields.filter(
+          (field) =>
+            !backfilledFieldIdSet.has(field.id().toString()) &&
+            !preservedStoredFieldIdSet.has(field.id().toString())
+        );
 
       const markBackfilled = (fields: ReadonlyArray<Field>): void => {
         for (const field of fields) {

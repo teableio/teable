@@ -837,7 +837,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const options: LastModifiedTimeOptionsDto = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
-      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+      trackedFieldIds,
     };
     return ok({
       ...this.baseField(field),
@@ -877,7 +877,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   visitLastModifiedByField(field: LastModifiedByField): Result<IFieldDto, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: LastModifiedByOptionsDto = {
-      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+      trackedFieldIds,
     };
     return ok({
       ...this.baseField(field),

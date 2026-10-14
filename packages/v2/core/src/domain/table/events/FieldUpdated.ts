@@ -35,6 +35,10 @@ export const serializeFieldUpdatedValue = (value: unknown): unknown => {
       return serializeFieldUpdatedValue(value.toDto());
     }
 
+    if ('toBoolean' in value && typeof value.toBoolean === 'function') {
+      return value.toBoolean();
+    }
+
     if ('value' in value && typeof value.value === 'function') {
       return serializeFieldUpdatedValue(value.value());
     }

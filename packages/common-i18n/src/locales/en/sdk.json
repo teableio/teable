@@ -406,7 +406,6 @@
       "baseInviteEmail": "Invite via email in project",
       "baseInviteLink": "Invite via link in project",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
-      "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",
       "tableRead": "Read table",
       "tableDelete": "Delete table",
@@ -655,8 +654,8 @@
       "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
     },
     "ERROR": {
-      "summary": "Returns the error value.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "summary": "Returns a custom error. Text formula cells display #ERROR: followed by the message; IS_ERROR returns true.",
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Returns true if the expression causes an error.",
@@ -719,8 +718,8 @@
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "Returns the number of working days after [startDate] up to and including [endDate]. This is a business-day count, not a calendar-day diff, so weekends and an optional list of holidays are excluded. For calendar-day elapsed time, use `DATETIME_DIFF(endDate, startDate, \"day\")`. The result is negative when [endDate] is earlier than [startDate], and WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) returns n.",
-      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+      "summary": "Returns the number of working days between [startDate] and [endDate], including both endpoints when they are working days. Weekends and an optional list of holidays are excluded. The result is negative when [endDate] is earlier than [startDate]. The same working day returns 1; the same weekend or holiday returns 0. For elapsed calendar days, use `DATETIME_DIFF(endDate, startDate, \"day\")`.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "Compares two dates up to a unit and determines whether they are identical. Returns true if yes, false if no.",
@@ -1107,15 +1106,11 @@
       "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Unknown dataset: {{datasetId}}",
       "apiKeyNotConfigured": "Scrape service is not configured",
       "triggerFailed": "Scrape trigger failed: {{detail}}",
-      "snapshotError": "Scrape snapshot error: {{detail}}",
-      "timeout": "Scrape timed out after {{seconds}}s",
       "catalogFailed": "Scrape catalog request failed: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy applies only to raw dataset ids, not to {{datasetId}}",
-      "tooManyRecords": "Scrape would return up to {{estimated}} records, over the {{max}} allowed per trigger",
-      "creditEstimateExceeded": "This scrape's estimated credits exceed what is available right now"
+      "creditEstimateExceeded": "This scrape's estimated credits exceed what is available right now",
+      "runOverLimit": "This scrape can cost up to {{maxCredits}} credits, over the {{limit}} allowed for one run."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1161,7 +1156,9 @@
       "folderDepthLimitExceeded": "Folder depth limit exceeded",
       "folderNotFound": "Folder not found",
       "anchorNotFound": "Anchor node not found",
-      "nameAlreadyExists": "Name already exists"
+      "nameAlreadyExists": "Name already exists",
+      "targetBaseRequired": "Target project is required",
+      "moveBlocked": "Cannot move node to the target project ({{code}})"
     },
     "routine": {
       "notFound": "Routine not found",
@@ -1178,6 +1175,7 @@
     "chat": {
       "notFound": "Chat not found",
       "accessDenied": "You are not allowed to access this chat",
+      "archived": "Chat is archived",
       "serverAuthoredType": "Chats of type {{type}} are created by the server"
     },
     "dashboard": {
@@ -1233,12 +1231,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Plugin chart query not found"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Unsupported database driver: {{driver}}",
-      "onlyOwnerCanRemove": "Only the project owner can remove database connection for project {{baseId}}",
-      "onlyOwnerCanCreate": "Only the project owner can create database connection for project {{baseId}}",
-      "roleNotExist": "Database role {{role}} does not exist"
     },
     "baseQuery": {
       "queryFailed": "Query failed: {{message}}",
@@ -1314,6 +1306,7 @@
       "lookupAndLinkLengthMatch": "lookupValues length should be same as linkCellValues length",
       "cycleDetected": "Cycle detected",
       "cycleDetectedCreateField": "Cycle detected, cannot create field {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Cycle detected, cannot create field",
       "recordMapNotFound": "Record not found in table {{tableName}} for field {{fieldName}}",
       "forbidDeletePrimaryField": "Forbid delete primary field",
       "foreignTableIdInvalid": "Foreign table {{foreignTableId}} invalid",

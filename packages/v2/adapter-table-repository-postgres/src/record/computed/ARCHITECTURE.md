@@ -37,6 +37,11 @@ The check is deliberately after the current level's dirty-count resolution. Gene
 - Initial INSERT extras can be lock-only inputs. A completed stage's deferred plan
   uses UPDATE semantics for its actual dirty outputs; it must not promote untouched
   lock-only rows. DELETE retains its original semantics and before-images.
+- Hybrid INSERT handoff evaluates inert return edges against the full stage before
+  removing synchronous steps, then queues the remainder with UPDATE semantics.
+  Sources computed in the synchronous prefix remain propagation inputs even when
+  absent from the remaining steps. Preserve the filtered edges and omit lock-only
+  extra seeds so continuation does not reintroduce inert sibling fan-out.
 - A partial floor batch persists `partialStageBudget` with its ledger scope and
   whole-table cursors. Later batches must use the same partition even if worker
   configuration changes. Only a completed stage can reset that boundary.

@@ -11,7 +11,7 @@ import { FieldKeyType } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 link formula lookup single-value (e2e)', () => {
+describe('[F11] v2 link formula lookup single-value (e2e)', () => {
   let ctx: SharedTestContext;
 
   const createTable = async (payload: ICreateTableCommandInput) => {

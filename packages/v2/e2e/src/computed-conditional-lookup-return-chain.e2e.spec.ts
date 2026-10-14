@@ -6,7 +6,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 
 const createFieldId = () => `fld${getRandomString(16)}`;
 
-describe('computed conditional lookup return chain (e2e)', () => {
+describe('[C14][S19] computed conditional lookup return chain (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

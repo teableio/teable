@@ -99,6 +99,7 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   private readonly valueChangedFieldIdSet = new Map<string, FieldId>();
   private readonly deferredBackfillFieldIdSet = new Map<string, FieldId>();
   private readonly removedFieldIdSet = new Map<string, FieldId>();
+  private readonly preservedStoredFieldIdSet = new Map<string, FieldId>();
   private dbStorageTypeChanged = false;
 
   selfBackfillFields(): ReadonlyArray<FieldId> {
@@ -113,6 +114,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return [...this.deferredBackfillFieldIdSet.values()];
   }
 
+  preservedStoredFields(): ReadonlyArray<FieldId> {
+    return [...this.preservedStoredFieldIdSet.values()];
+  }
+
   /**
    * Fields this mutation removes (including symmetric link fields removed as a
    * side effect). Their physical columns are dropped with them, so pending
@@ -123,10 +128,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   /**
-   * Whether any field conversion changed the underlying DB column type
-   * (cellValueType or isMultipleCellValue changed).
-   * When true, dependent computed fields may have stale column types,
-   * making IS DISTINCT FROM comparisons unsafe.
+   * Whether backfill must avoid DISTINCT comparisons across possible type changes.
+   * Lookup retargeting sets this conservatively even when its result type is unchanged.
+   * It must not suppress dependency recomputation; deferredBackfillFields controls
+   * ordering when actual type conversions require updated dependent metadata first.
    */
   hasDbStorageTypeChange(): boolean {
     return this.dbStorageTypeChanged;
@@ -314,8 +319,6 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
         this.addSelfBackfill(fieldId);
       }
 
-      // Detect whether the underlying PG column type changed
-      // (cellValueType or isMultipleCellValue differs).
       const vtVisitor = new FieldValueTypeVisitor();
       const oldVt = spec.oldField().accept(vtVisitor);
       const newVt = spec.newField().accept(vtVisitor);
@@ -326,8 +329,20 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
           !oldVt.value.isMultipleCellValue.equals(newVt.value.isMultipleCellValue))
       ) {
         this.dbStorageTypeChanged = true;
+        // Revisit the dependency closure after field-update side effects have
+        // brought every computed field's metadata and physical column up to date.
+        this.addDeferredBackfill(fieldId);
       }
     } else if (spec.newField().computed().toBoolean()) {
+      const fieldType = spec.newField().type().toString();
+      if (fieldType === 'lastModifiedTime' || fieldType === 'lastModifiedBy') {
+        // Tracking configuration controls future writes, not historical stamps.
+        // Keep stored values for undo while still refreshing dependents.
+        this.addValueChanged(spec.newField().id());
+        this.preservedStoredFieldIdSet.set(spec.newField().id().toString(), spec.newField().id());
+        return ok(undefined);
+      }
+
       const oldField = spec.oldField() as {
         type(): { toString(): string };
         conditionalLookupOptions?: () => { equals(other: unknown): boolean };
@@ -373,6 +388,8 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   visitTableUpdateFieldHasError(spec: TableUpdateFieldHasErrorSpec): Result<void, DomainError> {
     if (spec.isSettingError()) {
       this.addValueChanged(spec.fieldId());
+    } else {
+      this.addSelfBackfill(spec.fieldId());
     }
     return ok(undefined);
   }
@@ -545,6 +562,7 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
       // Formula expression changes may alter the result DB type (e.g. number -> text).
       // Skip DISTINCT filtering during backfill to avoid cross-type comparison errors.
       this.dbStorageTypeChanged = true;
+      this.addDeferredBackfill(spec.fieldId());
     }
     return ok(undefined);
   }

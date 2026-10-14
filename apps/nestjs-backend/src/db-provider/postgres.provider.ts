@@ -88,6 +88,19 @@ export class PostgresProvider implements IDbProvider {
     return `${baseId}.${name}`;
   }
 
+  setTableSchema(oldTableName: string, newTableName: string): string {
+    const [oldSchema, oldName] = this.splitTableName(oldTableName);
+    const [newSchema, newName] = this.splitTableName(newTableName);
+    if (oldName !== newName) {
+      throw new Error(
+        `setTableSchema only changes the schema: ${oldTableName} -> ${newTableName} renames the table`
+      );
+    }
+    return this.knex
+      .raw('ALTER TABLE ??.?? SET SCHEMA ??', [oldSchema, oldName, newSchema])
+      .toQuery();
+  }
+
   getForeignKeysInfo(dbTableName: string) {
     const [schemaName, tableName] = this.splitTableName(dbTableName);
     // Anchor on pg_constraint.conrelid (the exact constrained table). Constraint

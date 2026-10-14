@@ -17,7 +17,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-describe('v2 conditional rollup dynamic date filters (e2e)', () => {
+describe('[F14][R05] v2 conditional rollup dynamic date filters (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
   const runId = Math.random().toString(36).slice(2, 8).padEnd(6, '0');

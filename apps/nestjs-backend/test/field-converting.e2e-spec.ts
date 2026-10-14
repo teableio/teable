@@ -770,12 +770,10 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const options = newField.options as IButtonFieldOptions;
       const options2 = buttonFieldRo2.options as IButtonFieldOptions;
       expect(newField.name).toEqual(buttonFieldRo1.name);
-      // v2 convert is a patch-style update: button options omitted from the
-      // request keep their previous values instead of being reset (v1 replaced
-      // the options object wholesale). Here `resetCount: true` survives from
-      // buttonFieldRo1; `maxCount: 10` is also kept server-side but the v2
-      // response normalizes the default `maxCount: 10` away.
-      expect(options).toEqual(isForceV2 ? { ...options2, resetCount: true } : options2);
+      // Partial v2 conversion preserves omitted click-limit and reset options.
+      expect(options).toEqual(
+        isForceV2 ? { ...options2, maxCount: 10, resetCount: true } : options2
+      );
     });
   });
 

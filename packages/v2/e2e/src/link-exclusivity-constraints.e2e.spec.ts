@@ -20,7 +20,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * 5. Errors return 4xx (not 5xx) for validation failures
  */
 
-describe('v2 link field exclusivity constraints (e2e)', () => {
+describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
   let ctx: SharedTestContext;
 
   const createRecordRaw = async (tableId: string, fields: Record<string, unknown>) => {

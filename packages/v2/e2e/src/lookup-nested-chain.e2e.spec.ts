@@ -38,7 +38,7 @@ const expectEmptyLookup = (value: unknown) => {
   expect(isEmpty).toBe(true);
 };
 
-describe('nested lookup chain regression', () => {
+describe('[F21][R12] nested lookup chain regression', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

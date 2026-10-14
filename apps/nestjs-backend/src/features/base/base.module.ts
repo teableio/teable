@@ -33,7 +33,6 @@ import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseQueryService } from './base-query/base-query.service';
 import { BaseController } from './base.controller';
 import { BaseService } from './base.service';
-import { DbConnectionService } from './db-connection.service';
 
 @Module({
   controllers: [BaseController],
@@ -69,7 +68,6 @@ import { DbConnectionService } from './db-connection.service';
     BaseExportService,
     BaseExportV2Service,
     BaseImportService,
-    DbConnectionService,
     BaseDuplicateService,
     BaseDuplicateV2Service,
     BaseQueryService,
@@ -79,7 +77,6 @@ import { DbConnectionService } from './db-connection.service';
     BaseService,
     BasePersonalOrderService,
     BaseDataDbMoveService,
-    DbConnectionService,
     BaseDuplicateService,
     BaseDuplicateV2Service,
     BaseExportService,

@@ -48,6 +48,7 @@ import {
   resolveColumnName,
 } from '../../schema/visitors/PostgresTableSchemaFieldColumn';
 import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
@@ -1414,10 +1415,13 @@ export class ComputedFieldUpdater {
           ? plan.edges.filter((edge) => isValueGatedLinkEdge(edge, plan, tableById))
           : [];
         const valueGatedEdgeSet = new Set(valueGatedEdges);
-        const edgesToPropagate =
-          valueGatedEdges.length === 0
-            ? plan.edges
-            : plan.edges.filter((edge) => !valueGatedEdgeSet.has(edge));
+        const stageFieldIds = new Set(
+          plan.steps.flatMap((step) => step.fieldIds.map((fieldId) => fieldId.toString()))
+        );
+        const edgesToPropagate = plan.edges.filter(
+          (edge) =>
+            !valueGatedEdgeSet.has(edge) && canInsertEdgeChangeTargets(plan, edge, stageFieldIds)
+        );
         const valueGatedPropagateOptions = {
           ...(options?.maxDirtyRecords !== undefined
             ? { maxDirtyRecords: options.maxDirtyRecords }
@@ -1489,17 +1493,6 @@ export class ComputedFieldUpdater {
               ? { wholeTableSeedTables: [...wholeTableSeededTables] }
               : {}),
           };
-        }
-
-        if (
-          plan.changeType === 'insert' &&
-          (plan.seedAllTableIds?.length ?? 0) === 0 &&
-          plan.seedRecordIds.length > 0 &&
-          !hasSameTableCrossRecordEdge(plan)
-        ) {
-          yield* await runWithSpan('teable.ComputedFieldUpdater.pruneInsertSeedSiblings', () =>
-            pruneInsertSeedTableDirtySiblings(db, plan.seedTableId, plan.seedRecordIds)
-          );
         }
 
         // Collect dirty stats - wrap with span
@@ -2432,6 +2425,27 @@ export class ComputedFieldUpdater {
               dirtyRecordCount: dirtyCount,
             };
 
+            // Persistence and byte-limit checks use raw cells; outgoing changes use
+            // the same user presentation as record reads, including lookup values.
+            const userFieldIds = new Set(
+              table
+                .getFields()
+                .filter(isUserCellField)
+                .map((field) => field.id().toString())
+            );
+            if (userFieldIds.size > 0) {
+              for (const record of recordChanges) {
+                for (const change of record.changes) {
+                  if (!userFieldIds.has(change.fieldId)) continue;
+                  const unchanged = Object.is(change.oldValue, change.newValue);
+                  change.newValue = normalizeStoredUserAvatarUrls(change.newValue);
+                  change.oldValue = unchanged
+                    ? change.newValue
+                    : normalizeStoredUserAvatarUrls(change.oldValue);
+                }
+              }
+            }
+
             return ok({
               traceInfo,
               recordChanges,
@@ -3301,40 +3315,38 @@ const seedDirtyRecords = async (
     );
   }
 };
-const hasSameTableCrossRecordEdge = (
-  plan: Pick<ComputedUpdatePlan, 'seedTableId' | 'edges'>
-): boolean => {
-  const seedTableId = plan.seedTableId.toString();
-  return plan.edges.some(
-    (edge) =>
-      edge.fromTableId.toString() === seedTableId && edge.toTableId.toString() === seedTableId
-  );
-};
 
-const pruneInsertSeedTableDirtySiblings = async (
-  db: Kysely<DynamicDB>,
-  seedTableId: TableId,
-  seedRecordIds: ReadonlyArray<{ toString(): string }>
-): Promise<Result<void, DomainError>> => {
-  if (seedRecordIds.length === 0) return ok(undefined);
-  try {
-    await db
-      .deleteFrom(DIRTY_TABLE)
-      .where(DIRTY_TABLE_ID_COL, '=', seedTableId.toString())
-      .where(
-        DIRTY_RECORD_ID_COL,
-        'not in',
-        seedRecordIds.map((recordId) => recordId.toString())
-      )
-      .execute();
-    return ok(undefined);
-  } catch (error) {
-    return err(
-      domainError.infrastructure({
-        message: `Failed to prune insert seed-table dirty siblings: ${describeError(error)}`,
-      })
-    );
+/**
+ * An INSERT changes only the new rows' own fields; every other row changes only
+ * through fields this stage computes. An edge into the seed table whose sources
+ * the stage does not compute (a shared parent's name behind a link title) cannot
+ * give a pre-existing sibling a new value, yet following it dirtied every sibling
+ * of that parent and everything linked to them. Edges whose sources the stage
+ * computes (a lookup of the parent's rollup) still reach the siblings, which must
+ * then be refreshed rather than pruned.
+ */
+export const canInsertEdgeChangeTargets = (
+  plan: Pick<
+    ComputedUpdatePlan,
+    'changeType' | 'seedTableId' | 'seedRecordIds' | 'seedAllTableIds'
+  >,
+  edge: ComputedDependencyEdge,
+  stageFieldIds: ReadonlySet<string>
+): boolean => {
+  if (
+    plan.changeType !== 'insert' ||
+    (plan.seedAllTableIds?.length ?? 0) > 0 ||
+    plan.seedRecordIds.length === 0
+  ) {
+    return true;
   }
+  if (!edge.toTableId.equals(plan.seedTableId) || edge.fromTableId.equals(plan.seedTableId)) {
+    return true;
+  }
+  // Legacy payloads lack provenance; fromFieldId alone cannot prove the path is inert.
+  const sourceFieldIds = edge.propagationSourceFieldIds;
+  if (!sourceFieldIds?.length) return true;
+  return sourceFieldIds.some((fieldId) => stageFieldIds.has(fieldId.toString()));
 };
 
 const seedExtraDirtyRecords = async (

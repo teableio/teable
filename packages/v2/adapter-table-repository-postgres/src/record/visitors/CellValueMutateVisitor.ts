@@ -39,7 +39,6 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
 import {
   buildAttachmentTableReplaceQueries,
   type AttachmentTableReplaceInput,
@@ -48,6 +47,7 @@ import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpressio
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
 import { dedupeLinkItemsById, normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
+import { serializeUserCellValue } from '../serializeUserCellValue';
 
 // System columns
 const RECORD_ID_COLUMN = '__id';
@@ -331,7 +331,6 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       id: this.ctx.actorId,
       title: this.ctx.actorName ?? this.ctx.actorId,
       email: this.ctx.actorEmail ?? null,
-      avatarUrl: buildUserAvatarUrl(this.ctx.actorId),
     });
   }
 
@@ -528,7 +527,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {
-    return this.addJsonValue(spec.fieldId, spec.value.toValue());
+    return this.addSimpleValue(spec.fieldId, serializeUserCellValue(spec.value.toValue()));
   }
 
   visitSetUserValueByIdentifier(_spec: SetUserValueByIdentifierSpec): Result<void, DomainError> {

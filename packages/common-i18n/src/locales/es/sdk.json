@@ -409,7 +409,6 @@
       "baseInviteEmail": "Invitar por correo electrónico en el proyecto",
       "baseInviteLink": "Invitar a través de un enlace en el proyecto",
       "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
-      "baseDbConnect": "Conectarse a la base de datos",
       "tableCreate": "Crear mesa",
       "tableRead": "Tabla de lectura",
       "tableDelete": "Eliminar mesa",
@@ -1106,15 +1105,11 @@
       "listMailboxesFailed": "Error al listar buzones: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Conjunto de datos desconocido: {{datasetId}}",
       "apiKeyNotConfigured": "El servicio de scraping no está configurado",
       "triggerFailed": "Error al activar el scraping: {{detail}}",
-      "snapshotError": "Error de snapshot de scraping: {{detail}}",
-      "timeout": "Tiempo de espera de scraping agotado después de {{seconds}}s",
       "catalogFailed": "Error en la solicitud del catálogo de extracción: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy solo se aplica a ids de dataset sin procesar, no a {{datasetId}}",
-      "tooManyRecords": "El scraping devolvería hasta {{estimated}} registros, por encima del límite de {{max}} por ejecución",
-      "creditEstimateExceeded": "Los créditos estimados de este scraping superan los disponibles ahora mismo"
+      "creditEstimateExceeded": "Los créditos estimados de este scraping superan los disponibles ahora mismo",
+      "runOverLimit": "Este scraping puede costar hasta {{maxCredits}} créditos, por encima del límite de {{limit}} créditos por ejecución."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1160,7 +1155,9 @@
       "folderDepthLimitExceeded": "Límite de profundidad de carpeta excedido",
       "folderNotFound": "Carpeta no encontrada",
       "anchorNotFound": "Nodo ancla no encontrado",
-      "nameAlreadyExists": "El nombre ya existe"
+      "nameAlreadyExists": "El nombre ya existe",
+      "targetBaseRequired": "El proyecto de destino es obligatorio",
+      "moveBlocked": "No se puede mover el nodo al proyecto de destino ({{code}})"
     },
     "routine": {
       "notFound": "Rutina no encontrada",
@@ -1177,6 +1174,7 @@
     "chat": {
       "notFound": "Chat no encontrado",
       "accessDenied": "No tienes permiso para acceder a este chat",
+      "archived": "La conversación está archivada",
       "serverAuthoredType": "Los chats de tipo {{type}} los crea el servidor"
     },
     "dashboard": {
@@ -1232,12 +1230,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Consulta de gráfico de plugin no encontrada"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Driver de base de datos no soportado: {{driver}}",
-      "onlyOwnerCanRemove": "Solo el propietario del proyecto puede eliminar la conexión de base de datos para el proyecto {{baseId}}",
-      "onlyOwnerCanCreate": "Solo el propietario del proyecto puede crear una conexión de base de datos para el proyecto {{baseId}}",
-      "roleNotExist": "El rol de base de datos {{role}} no existe"
     },
     "baseQuery": {
       "queryFailed": "Consulta fallida: {{message}}",
@@ -1313,6 +1305,7 @@
       "lookupAndLinkLengthMatch": "La longitud de lookupValues debe ser igual a la longitud de linkCellValues",
       "cycleDetected": "Ciclo detectado",
       "cycleDetectedCreateField": "Ciclo detectado, no se puede crear el campo {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Ciclo detectado, no se puede crear el campo",
       "recordMapNotFound": "Registro no encontrado en la tabla {{tableName}} para el campo {{fieldName}}",
       "forbidDeletePrimaryField": "Prohibido eliminar campo primario",
       "foreignTableIdInvalid": "Tabla externa {{foreignTableId}} inválida",

@@ -41,7 +41,7 @@ const linkTitles = (value: unknown): string[] => {
     .sort();
 };
 
-describe.skipIf(isPgliteConnection())('v2 JSON formula cascade (e2e)', () => {
+describe.skipIf(isPgliteConnection())('[C14][S19] v2 JSON formula cascade (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldSequence = 0;
   let cleanupTableIds: string[] = [];

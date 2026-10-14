@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 SWITCH formula mixed-storage branches (T6980)', () => {
+describe('[C14][S19] v2 SWITCH formula mixed-storage branches (T6980)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

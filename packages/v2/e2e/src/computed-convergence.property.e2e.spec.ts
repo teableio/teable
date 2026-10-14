@@ -41,41 +41,44 @@ const numRuns = Number(process.env.COMPUTED_PROPERTY_RUNS ?? 2);
 if (!Number.isInteger(seed) || !Number.isInteger(numRuns) || numRuns < 1)
   throw new Error('Invalid computation property seed/run count');
 
-describe.each(executionProfiles)('computed generated convergence / $name', (profile) => {
-  it('shrinks legal graphs and operation sequences against independent values', async () => {
-    const result = await fc.check(
-      fc.asyncProperty(scenario, async (input) => {
-        const harness = await createConvergenceHarness(profile);
-        try {
-          await runConvergenceScenario(harness, input);
-        } finally {
-          await harness.close();
+describe.each(executionProfiles)(
+  '[C14][C18][S19] computed generated convergence / $name',
+  (profile) => {
+    it('shrinks legal graphs and operation sequences against independent values', async () => {
+      const result = await fc.check(
+        fc.asyncProperty(scenario, async (input) => {
+          const harness = await createConvergenceHarness(profile);
+          try {
+            await runConvergenceScenario(harness, input);
+          } finally {
+            await harness.close();
+          }
+        }),
+        { seed, numRuns, path: process.env.COMPUTED_PROPERTY_PATH, endOnFailure: false }
+      );
+      if (result.failed) {
+        const failure = result.errorInstance;
+        const evidence = {
+          profile: profile.name,
+          seed: result.seed,
+          path: result.counterexamplePath,
+          schemaAndOperations: result.counterexample?.[0],
+          numRuns: result.numRuns,
+          numShrinks: result.numShrinks,
+          failure: result.error,
+          values:
+            failure && typeof failure === 'object' && 'actual' in failure && 'expected' in failure
+              ? { actual: failure.actual, expected: failure.expected }
+              : undefined,
+          replay: `COMPUTED_PROFILE_SCOPE=extended COMPUTED_PROPERTY_RUNS=${numRuns} COMPUTED_PROPERTY_SEED=${result.seed} COMPUTED_PROPERTY_PATH='${result.counterexamplePath}' pnpm --filter @teable/v2-e2e exec vitest run src/computed-convergence.property.e2e.spec.ts -t 'computed generated convergence / .*${profile.name}'`,
+        };
+        const artifactPath = process.env.COMPUTED_PROPERTY_ARTIFACT_PATH;
+        if (artifactPath) {
+          mkdirSync(dirname(artifactPath), { recursive: true });
+          writeFileSync(`${artifactPath}.${profile.name}.json`, JSON.stringify(evidence, null, 2));
         }
-      }),
-      { seed, numRuns, path: process.env.COMPUTED_PROPERTY_PATH, endOnFailure: false }
-    );
-    if (result.failed) {
-      const failure = result.errorInstance;
-      const evidence = {
-        profile: profile.name,
-        seed: result.seed,
-        path: result.counterexamplePath,
-        schemaAndOperations: result.counterexample?.[0],
-        numRuns: result.numRuns,
-        numShrinks: result.numShrinks,
-        failure: result.error,
-        values:
-          failure && typeof failure === 'object' && 'actual' in failure && 'expected' in failure
-            ? { actual: failure.actual, expected: failure.expected }
-            : undefined,
-        replay: `COMPUTED_PROFILE_SCOPE=extended COMPUTED_PROPERTY_RUNS=${numRuns} COMPUTED_PROPERTY_SEED=${result.seed} COMPUTED_PROPERTY_PATH='${result.counterexamplePath}' pnpm --filter @teable/v2-e2e exec vitest run src/computed-convergence.property.e2e.spec.ts -t 'computed generated convergence / .*${profile.name}'`,
-      };
-      const artifactPath = process.env.COMPUTED_PROPERTY_ARTIFACT_PATH;
-      if (artifactPath) {
-        mkdirSync(dirname(artifactPath), { recursive: true });
-        writeFileSync(`${artifactPath}.${profile.name}.json`, JSON.stringify(evidence, null, 2));
+        throw new Error(JSON.stringify(evidence, null, 2));
       }
-      throw new Error(JSON.stringify(evidence, null, 2));
-    }
-  }, 1_800_000);
-});
+    }, 1_800_000);
+  }
+);

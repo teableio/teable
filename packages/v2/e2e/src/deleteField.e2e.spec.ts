@@ -4,9 +4,16 @@ import {
   deleteFieldOkResponseSchema,
   type ITableDto,
 } from '@teable/v2-contract-http';
+import { DeleteFieldsCommand } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  buildUndoRedoContext,
+  executeRedo,
+  executeUndo,
+  getCommandBus,
+} from './undo-redo/shared/undoRedoE2eTestKit';
 
 describe('v2 http deleteField (e2e)', () => {
   let ctx: SharedTestContext;
@@ -1039,6 +1046,204 @@ describe('v2 http deleteField (e2e)', () => {
         await safeDeleteTable(foreignTableId);
       }
     });
+
+    it.each(['single', 'batch'])(
+      'propagates deleted many-many link errors through rollup and lookup formula chains (%s)',
+      async (mode) => {
+        let hostTableId: string | undefined;
+        let foreignTableId: string | undefined;
+        try {
+          const amountFieldId = createFieldId();
+          const foreign = await ctx.createTable({
+            baseId: ctx.baseId,
+            name: 'Deletion Error Source',
+            fields: [
+              { type: 'singleLineText', name: 'Name', isPrimary: true },
+              { type: 'number', id: amountFieldId, name: 'Amount' },
+            ],
+            records: [{ fields: { [amountFieldId]: 10 } }, { fields: { [amountFieldId]: 20 } }],
+          });
+          foreignTableId = foreign.id;
+          const host = await createTable('Deletion Error Host');
+          hostTableId = host.tableId;
+          const linkFieldId = createFieldId();
+          const lookupFieldId = createFieldId();
+          const rollupFieldId = createFieldId();
+          const formulaFieldId = createFieldId();
+          const tailFieldId = createFieldId();
+          const lookupFormulaFieldId = createFieldId();
+          const withLink = await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: host.tableId,
+            field: {
+              type: 'link',
+              id: linkFieldId,
+              name: 'Sources',
+              options: { relationship: 'manyMany', foreignTableId: foreign.id },
+            },
+          });
+          const link = withLink.fields.find((field) => field.id === linkFieldId);
+          if (link?.type !== 'link' || !link.options.symmetricFieldId) {
+            throw new Error('Expected symmetric link');
+          }
+          const reverseLookupId = createFieldId();
+          const reverseFormulaId = createFieldId();
+          await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: foreign.id,
+            field: {
+              type: 'lookup',
+              id: reverseLookupId,
+              name: 'Host Names',
+              options: {
+                linkFieldId: link.options.symmetricFieldId,
+                foreignTableId: host.tableId,
+                lookupFieldId: host.primaryFieldId,
+              },
+            },
+          });
+          await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: foreign.id,
+            field: {
+              type: 'formula',
+              id: reverseFormulaId,
+              name: 'Host Label',
+              options: { expression: `ARRAY_JOIN({${reverseLookupId}})` },
+            },
+          });
+          await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: host.tableId,
+            field: {
+              type: 'lookup',
+              id: lookupFieldId,
+              name: 'Amounts',
+              options: { linkFieldId, foreignTableId: foreign.id, lookupFieldId: amountFieldId },
+            },
+          });
+          await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: host.tableId,
+            field: {
+              type: 'rollup',
+              id: rollupFieldId,
+              name: 'Total',
+              options: { expression: 'sum({values})' },
+              config: { linkFieldId, foreignTableId: foreign.id, lookupFieldId: amountFieldId },
+            },
+          });
+          for (const [id, name, expression] of [
+            [formulaFieldId, 'Doubled', `{${rollupFieldId}} * 2`],
+            [tailFieldId, 'Tail', `{${formulaFieldId}} + 1`],
+            [lookupFormulaFieldId, 'Lookup Total', `SUM({${lookupFieldId}})`],
+          ]) {
+            await ctx.createField({
+              baseId: ctx.baseId,
+              tableId: host.tableId,
+              field: { type: 'formula', id, name, options: { expression } },
+            });
+          }
+          const sourceRecords = await ctx.listRecords(foreign.id);
+          const record = await ctx.createRecord(host.tableId, {
+            [host.primaryFieldId]: 'row',
+            [linkFieldId]: sourceRecords.map(({ id }) => ({ id })),
+          });
+          await ctx.drainOutbox();
+          const formulaDbName = await getFieldDbName(formulaFieldId);
+          expect(await getStoredCellValue(host.tableId, record.id, formulaDbName)).toBe(60);
+          expect(
+            (await ctx.listRecords(foreign.id)).map(({ fields }) => fields[reverseFormulaId])
+          ).toEqual(['row', 'row']);
+          const before = await ctx.getTableById(host.tableId);
+          expect(before.fields.every((field) => !field.hasError)).toBe(true);
+
+          if (mode === 'single') {
+            await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
+          } else {
+            (
+              await getCommandBus(ctx).execute(
+                buildUndoRedoContext(),
+                DeleteFieldsCommand.create({
+                  baseId: ctx.baseId,
+                  tableId: host.tableId,
+                  fieldIds: [linkFieldId],
+                })._unsafeUnwrap()
+              )
+            )._unsafeUnwrap();
+          }
+          await ctx.drainOutbox();
+          const after = await ctx.getTableById(host.tableId);
+          expect(after.fields.some(({ id }) => id === linkFieldId)).toBe(false);
+          for (const id of [
+            lookupFieldId,
+            rollupFieldId,
+            formulaFieldId,
+            tailFieldId,
+            lookupFormulaFieldId,
+          ]) {
+            expect(after.fields.find((field) => field.id === id)?.hasError, id).toBe(true);
+          }
+          expect(after.fields.find(({ id }) => id === host.primaryFieldId)?.hasError).toBeFalsy();
+          expect(await getStoredCellValue(host.tableId, record.id, formulaDbName)).toBeNull();
+          expect(
+            (await ctx.getTableById(foreign.id)).fields.find(({ id }) => id === reverseFormulaId)
+              ?.hasError
+          ).toBe(true);
+          await executeUndo(ctx, host.tableId);
+          await ctx.drainOutbox();
+          const restoredHost = await ctx.getTableById(host.tableId);
+          const restoredForeign = await ctx.getTableById(foreign.id);
+          for (const id of [
+            lookupFieldId,
+            rollupFieldId,
+            formulaFieldId,
+            tailFieldId,
+            lookupFormulaFieldId,
+          ]) {
+            expect
+              .soft(restoredHost.fields.find((field) => field.id === id)?.hasError, id)
+              .toBeFalsy();
+          }
+          expect
+            .soft(restoredForeign.fields.find(({ id }) => id === reverseFormulaId)?.hasError)
+            .toBeFalsy();
+          expect.soft(await getStoredCellValue(host.tableId, record.id, formulaDbName)).toBe(60);
+          expect
+            .soft(
+              await getStoredCellValue(
+                host.tableId,
+                record.id,
+                await getFieldDbName(lookupFormulaFieldId)
+              )
+            )
+            .toBe(30);
+          expect
+            .soft(
+              await getStoredCellValue(host.tableId, record.id, await getFieldDbName(tailFieldId))
+            )
+            .toBe(61);
+          const restoredSource = await ctx.listRecords(foreign.id);
+          expect
+            .soft(restoredSource.map(({ fields }) => fields[reverseFormulaId]))
+            .toEqual(['row', 'row']);
+          await executeRedo(ctx, host.tableId);
+          await ctx.drainOutbox();
+          expect(
+            (await ctx.getTableById(host.tableId)).fields.find(({ id }) => id === formulaFieldId)
+              ?.hasError
+          ).toBe(true);
+          expect(
+            (await ctx.getTableById(foreign.id)).fields.find(({ id }) => id === reverseFormulaId)
+              ?.hasError
+          ).toBe(true);
+          expect(await getStoredCellValue(host.tableId, record.id, formulaDbName)).toBeNull();
+        } finally {
+          await safeDeleteTable(hostTableId);
+          await safeDeleteTable(foreignTableId);
+        }
+      }
+    );
 
     /**
      * v1 reference:

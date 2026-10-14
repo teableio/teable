@@ -31,6 +31,7 @@ import { safeTry } from 'neverthrow';
 
 import { dedupeLinkItemsById } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
+import { serializeUserCellValue } from '../serializeUserCellValue';
 
 const RECORD_ID_COLUMN = '__id';
 
@@ -208,7 +209,7 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
   }
 
   visitUserField(_field: UserField): Result<FieldInsertResult, DomainError> {
-    return this.jsonValueFrom(this.rawValue);
+    return this.simpleValueFrom(serializeUserCellValue(this.rawValue));
   }
 
   visitLinkField(field: LinkField): Result<FieldInsertResult, DomainError> {
@@ -377,7 +378,7 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
   }
 
   visitButtonField(_field: ButtonField): Result<FieldInsertResult, DomainError> {
-    return this.computedField();
+    return this.jsonValueFrom(this.rawValue);
   }
 
   visitConditionalRollupField(

@@ -6,6 +6,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Built-in default mapper for Table persistence DTO <-> domain.
 - Uses Field/View visitors to map subtypes.
+- Regular numeric lookup options retain formatting and compatible displays; multiple-value results drop scalar ring/bar display settings before API projection and persistence.
 
 ## Files
 

@@ -133,7 +133,6 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
       id: ACTOR_ID,
       title: ACTOR_ID,
       email: null,
-      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
     });
     expect(values['col_created_by']).toBe(expectedUserSnapshot);
     expect(values['col_last_modified_by']).toBe(expectedUserSnapshot);
@@ -214,7 +213,6 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
       id: ACTOR_ID,
       title: 'Nee',
       email: 'nee@teable.io',
-      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
     });
     expect(values['col_created_by']).toBe(expectedUserSnapshot);
     expect(values['col_last_modified_by']).toBe(expectedUserSnapshot);

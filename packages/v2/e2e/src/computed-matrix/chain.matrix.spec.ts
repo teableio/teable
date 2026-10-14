@@ -40,7 +40,7 @@ const CHAIN_CASES = generateChainCases();
 // Test Suite
 // =============================================================================
 
-describe('cross-table chain matrix (e2e)', () => {
+describe('[R12] cross-table chain matrix (e2e)', () => {
   let ctx: TestContext;
 
   beforeAll(async () => {

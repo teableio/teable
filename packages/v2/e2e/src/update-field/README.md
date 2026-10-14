@@ -4,34 +4,61 @@ This directory contains end-to-end tests for the `updateField` command in Teable
 
 ## Directory Structure
 
+One directory per field type, named exactly as `FieldType.fieldTypeValues` names
+it, plus two shared buckets for behaviour that spans types:
+
 ```
 update-field/
-├── helpers.ts                     # Shared test utilities
-├── README.md                      # This file
-├── computed/
-│   ├── dependency-cascade.spec.ts  # Computed dependency cascades (metadata + seeding triggers)
-│   ├── record-value-seeding.spec.ts # Record-level value verification after computed seed
-│   ├── conversion.spec.ts          # Computed/system field type conversions
-│   └── update-properties.spec.ts   # Computed/system field property updates
-├── singleLineText/
-│   ├── update-properties.spec.ts  # Property updates (name, showAs, defaultValue, constraints)
+├── helpers.ts                     # Legacy helper bag; new specs use src/shared/requirementTestUtils.ts
+├── README.md
+├── <fieldType>/                   # one per registered field type
+│   ├── update-properties.spec.ts  # name / options / default value / constraints
 │   └── conversion/
-│       ├── to-number.spec.ts      # Text → Number
-│       ├── to-date.spec.ts        # Text → Date
-│       ├── to-checkbox.spec.ts    # Text → Checkbox
-│       ├── to-singleSelect.spec.ts # Text → SingleSelect (requires option generation)
-│       ├── to-multipleSelect.spec.ts # Text → MultipleSelect
-│       └── to-link.spec.ts        # Text → Link (NOT IMPLEMENTED)
-├── number/
-│   ├── update-properties.spec.ts  # Property updates (formatting, showAs)
-│   └── conversion/
-│       └── to-others.spec.ts      # Number → various types
-├── singleSelect/
-│   └── update-properties.spec.ts  # Options management, defaultValue
-├── link/
-│   └── update-properties.spec.ts  # Relationship changes (NOT IMPLEMENTED)
-└── ... (other field types)
+│       └── to-<targetType>.spec.ts   # converting this type INTO <targetType>
+├── dependency-cascade/            # crosses types: dependents recompute after a schema change
+│   ├── cascade-after-schema-update.spec.ts
+│   ├── dependency-cascade.spec.ts
+│   ├── force-v2-all-regressions.spec.ts
+│   ├── record-value-seeding.spec.ts
+│   ├── schema-refresh-no-record-events.spec.ts
+│   └── ai-trigger-guard.spec.ts
+├── system-field-conversion/       # the 5 system types + 2 conditional types, both directions
+│   └── conversion.spec.ts
+└── <cross-cutting>.spec.ts        # event-shape, field-id-stability, option-preservation, …
 ```
+
+The two buckets exist because their subject is not a field type:
+`dependency-cascade/` is about what happens to _dependents_ when any field
+changes, and `system-field-conversion/` covers seven field types symmetrically —
+splitting it into `update-field/<type>/conversion/to-singleLineText.spec.ts` would
+produce fourteen single-assertion files for one behaviour.
+
+Every `describe` title is prefixed with the requirement IDs it locks down, e.g.
+`describe('[D01][F03][S01][S02][S08] update-field: number property updates')`.
+The mapping lives in `../field-requirements/README.md`.
+
+## Storage-type conversion cascade
+
+`dependency-cascade/cascade-after-schema-update.spec.ts` covers numeric-to-date
+conversion with a same-table formula and a many-to-many rollup over the source.
+The regression asserts timestamp values, computed storage/result types, default
+date formatting, and removal of incompatible numeric display styles. Conversion
+backfills use the existing deferred transaction queue so dependent metadata and
+physical columns are updated before recomputation. The conservative
+`skipDistinctFilter` flag must not suppress same-type lookup-retarget cascades.
+
+## System-field value preservation
+
+`system-field-conversion/conversion.spec.ts` covers created-time conversion to
+text using the source date/time format and timezone, conversion to writable dates
+without changing the UTC instant, and creator conversion to text without losing
+names. Creator names containing commas remain quoted. Both legacy generated
+creator-ID columns and stored creator snapshots are covered through the HTTP API.
+Legacy timestamp-without-timezone values are interpreted as UTC before conversion;
+month names and bracketed date-format literals are preserved. Physical creator
+column types take precedence over stale generated-column metadata, and historical
+snapshot names/IDs use the same fallback as record reads. Creator identity lookup
+stays on the metadata database; tenant data statements only receive resolved values.
 
 ## V1 Parity Gaps
 

@@ -413,7 +413,6 @@
       "baseInviteEmail": "Пригласить по электронной почте в проект",
       "baseInviteLink": "Пригласить по ссылке в проект",
       "baseAuthorityMatrixConfig": "Настроить матрицу полномочий",
-      "baseDbConnect": "Подключение к базе данных",
       "tableCreate": "Создать таблицу",
       "tableRead": "Читать таблицу",
       "tableDelete": "Удалить таблицу",
@@ -1110,15 +1109,11 @@
       "listMailboxesFailed": "Не удалось получить список почтовых ящиков: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Неизвестный набор данных: {{datasetId}}",
       "apiKeyNotConfigured": "Сервис скрейпинга не настроен",
       "triggerFailed": "Ошибка запуска скрейпинга: {{detail}}",
-      "snapshotError": "Ошибка снимка скрейпинга: {{detail}}",
-      "timeout": "Таймаут скрейпинга после {{seconds}}с",
       "catalogFailed": "Ошибка запроса каталога скрейпинга: {{detail}}",
-      "discoverByOnCatalogDataset": "discoverBy применим только к сырым id датасетов, не к {{datasetId}}",
-      "tooManyRecords": "Сбор вернёт до {{estimated}} записей, что превышает лимит {{max}} за один запуск",
-      "creditEstimateExceeded": "Расчётные кредиты для этого сбора превышают доступные сейчас"
+      "creditEstimateExceeded": "Расчётные кредиты для этого сбора превышают доступные сейчас",
+      "runOverLimit": "Этот сбор может стоить до {{maxCredits}} кредитов, что превышает лимит в {{limit}} кредитов для одного запуска."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
@@ -1164,7 +1159,9 @@
       "folderDepthLimitExceeded": "Превышен лимит глубины папки",
       "folderNotFound": "Папка не найдена",
       "anchorNotFound": "Якорный узел не найден",
-      "nameAlreadyExists": "Имя уже существует"
+      "nameAlreadyExists": "Имя уже существует",
+      "targetBaseRequired": "Необходимо указать целевой проект",
+      "moveBlocked": "Не удалось переместить узел в целевой проект ({{code}})"
     },
     "routine": {
       "notFound": "Рутина не найдена",
@@ -1181,6 +1178,7 @@
     "chat": {
       "notFound": "Чат не найден",
       "accessDenied": "У вас нет доступа к этому чату",
+      "archived": "Чат в архиве",
       "serverAuthoredType": "Чаты типа {{type}} создаёт сервер"
     },
     "dashboard": {
@@ -1236,12 +1234,6 @@
     },
     "pluginChart": {
       "queryNotFound": "Запрос диаграммы плагина не найден"
-    },
-    "dbConnection": {
-      "unsupportedDriver": "Неподдерживаемый драйвер базы данных: {{driver}}",
-      "onlyOwnerCanRemove": "Только владелец проекта может удалить подключение к базе данных для проекта {{baseId}}",
-      "onlyOwnerCanCreate": "Только владелец проекта может создать подключение к базе данных для проекта {{baseId}}",
-      "roleNotExist": "Роль базы данных {{role}} не существует"
     },
     "baseQuery": {
       "queryFailed": "Запрос не выполнен: {{message}}",
@@ -1317,6 +1309,7 @@
       "lookupAndLinkLengthMatch": "Длина lookupValues должна быть такой же, как длина linkCellValues",
       "cycleDetected": "Обнаружен цикл",
       "cycleDetectedCreateField": "Обнаружен цикл, невозможно создать поле {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Обнаружен цикл, невозможно создать поле",
       "recordMapNotFound": "Запись не найдена в таблице {{tableName}} для поля {{fieldName}}",
       "forbidDeletePrimaryField": "Запрещено удалять первичное поле",
       "foreignTableIdInvalid": "Внешняя таблица {{foreignTableId}} недействительна",

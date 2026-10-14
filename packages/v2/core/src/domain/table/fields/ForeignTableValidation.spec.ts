@@ -57,6 +57,7 @@ const buildHostTable = (
     linkFieldId?: FieldId;
     lookupFieldId: string;
     rollupLinkFieldId?: string;
+    linkForeignTableId?: string;
   }
 ) => {
   const builder = Table.builder()
@@ -66,7 +67,7 @@ const buildHostTable = (
   const linkConfig = unwrap(
     LinkFieldConfig.create({
       relationship: 'manyMany',
-      foreignTableId: params.foreignTableId,
+      foreignTableId: params.linkForeignTableId ?? params.foreignTableId,
       lookupFieldId: params.lookupFieldId,
     })
   );
@@ -146,6 +147,26 @@ describe('ForeignTableValidation (rollup)', () => {
     })._unsafeUnwrapErr();
 
     expect(error.message).toBe('RollupField link field not found');
+  });
+
+  it('fails when rollup foreign table differs from link target', () => {
+    const baseId = unwrap(BaseId.generate());
+    const linkTarget = buildForeignTable(baseId);
+    const declaredTarget = buildForeignTable(baseId);
+    const host = buildHostTable(baseId, {
+      foreignTableId: declaredTarget.table.id().toString(),
+      linkForeignTableId: linkTarget.table.id().toString(),
+      valuesField: declaredTarget.lookupField,
+      lookupFieldId: declaredTarget.lookupFieldId.toString(),
+    });
+
+    const rollupFields = host.getFields(buildFieldSpec((specs) => specs.isRollup()));
+    const error = validateForeignTablesForFields(rollupFields, {
+      hostTable: host,
+      foreignTables: [linkTarget.table, declaredTarget.table],
+    })._unsafeUnwrapErr();
+
+    expect(error.message).toBe('RollupField foreign table does not match link field target');
   });
 
   it('fails when foreign table is missing', () => {

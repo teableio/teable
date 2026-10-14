@@ -106,7 +106,7 @@ describe('OpenAPI ViewController view group (e2e)', () => {
     expect(viewGroup).toEqual(assertGroup.group);
   });
 
-  it('should not allow to modify group for button field', async () => {
+  it('allows v2 button grouping (T7781)', async () => {
     const buttonField = await createField(tableId, {
       type: FieldType.Button,
     });
@@ -120,7 +120,15 @@ describe('OpenAPI ViewController view group (e2e)', () => {
       ],
     };
 
-    await expect(updateViewGroup(tableId, viewId, assertGroup)).rejects.toThrow();
+    const previousForceV2 = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+    try {
+      await updateViewGroup(tableId, viewId, assertGroup);
+      expect((await getView(tableId, viewId)).group).toEqual(assertGroup.group);
+    } finally {
+      if (previousForceV2 == null) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = previousForceV2;
+    }
   });
 });
 

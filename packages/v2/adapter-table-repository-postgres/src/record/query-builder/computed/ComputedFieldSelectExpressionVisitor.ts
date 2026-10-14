@@ -42,7 +42,7 @@ import {
   resolveFormulaCompileBudget,
   type FormulaCompileBudgetConfig,
   isFormulaCompileBudgetError,
-  guardValueSql,
+  guardFormulaValueSql,
   type IPgTypeValidationStrategy,
   type SqlExpr,
   type SqlValueType,
@@ -375,9 +375,13 @@ export class ComputedFieldSelectExpressionVisitor
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return field.isTrackAll()
-      ? this.systemScalarColumn(field, '__last_modified_time')
-      : this.simpleColumn(field);
+    return field
+      .isPersistedAsGeneratedColumn()
+      .andThen((generated) =>
+        generated
+          ? this.systemScalarColumn(field, '__last_modified_time')
+          : this.simpleColumn(field)
+      );
   }
 
   visitAutoNumberField(
@@ -489,7 +493,14 @@ export class ComputedFieldSelectExpressionVisitor
                 finalValueSql = budget.sql`NULLIF(BTRIM((${finalValueSql})::text), '')::double precision`;
               }
 
-              return guardValueSql(finalValueSql, expr.errorConditionSql, budget);
+              return guardFormulaValueSql(
+                finalValueSql,
+                expr,
+                fieldValueTypeResult.isOk() &&
+                  !formulaIsMultiple &&
+                  fieldValueTypeResult.value.cellValueType.equals(CellValueType.string()),
+                budget
+              );
             });
             return typedSql.map((value) => sql.raw(value).as(colAlias));
           })

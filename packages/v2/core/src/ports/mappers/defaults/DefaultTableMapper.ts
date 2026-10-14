@@ -552,7 +552,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const options: ILastModifiedTimeFieldOptionsDTO = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto(),
-      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+      trackedFieldIds,
     };
     const meta = field.meta();
 
@@ -595,7 +595,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
   ): Result<ITableFieldPersistenceDTO, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: ILastModifiedByFieldOptionsDTO = {
-      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+      trackedFieldIds,
     };
     const meta = field.meta();
 
@@ -783,6 +783,19 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           innerType: unwrappedInner.innerType ?? innerDto.type,
           normalizeRegularLookupFormulaOptions: true,
         });
+        // Numeric displays describe the lookup result, not the scalar source field.
+        // Keep formatting and compatible array charts, but do not inherit scalar charts.
+        if (
+          isMultipleCellValue &&
+          cellValueTypeResult.isOk() &&
+          cellValueTypeResult.value.equals(CellValueType.number()) &&
+          mergedInnerOptions &&
+          'showAs' in mergedInnerOptions &&
+          mergedInnerOptions.showAs &&
+          'showValue' in mergedInnerOptions.showAs
+        ) {
+          delete mergedInnerOptions.showAs;
+        }
         const {
           innerType: _innerType,
           innerOptions: _innerOptions,

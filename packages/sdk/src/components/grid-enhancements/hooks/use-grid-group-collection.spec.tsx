@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { ButtonField } from '../../../model/field/button.field';
 import { useGridGroupCollection } from './use-grid-group-collection';
 
 vi.mock('../../../hooks', () => ({
@@ -55,6 +56,24 @@ const setup = (field: IFieldInstance) => {
 };
 
 describe('useGridGroupCollection getGroupCell', () => {
+  it.each([0, 1, 2, 10, null])(
+    'renders button click count %s without a loading header',
+    (count) => {
+      const field = Object.assign(new ButtonField(), {
+        id: 'fldButtonCount',
+        name: 'Action',
+        type: FieldType.Button,
+        cellValueType: CellValueType.String,
+        options: { label: 'Run', color: 'teal' },
+      });
+      const getGroupCell = setup(field);
+      expect(getGroupCell(count === null ? null : { count }, 0)).toMatchObject({
+        data: count === null ? '(Empty)' : count,
+        displayData: count === null ? '(Empty)' : String(count),
+      });
+    }
+  );
+
   it('renders group value of a multi-value lookup date field instead of (Empty)', () => {
     const getGroupCell = setup(createDateField('fldLookupDateMulti', true));
 

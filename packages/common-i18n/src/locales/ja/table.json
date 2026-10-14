@@ -1115,14 +1115,6 @@
     "collapseAllGroups": "すべてのグループを折りたたむ",
     "addToChat": "チャットに追加"
   },
-  "connection": {
-    "title": "データベース接続",
-    "description": "データベース接続を介して、現在のプロジェクトにあるすべてのテーブルを含むデータベースに直接アクセスできます。",
-    "noPermission": "データベースにアクセスする権限がありません",
-    "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
-    "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
-  },
   "view": {
     "addRecord": "レコードを追加",
     "searchView": "ビューを検索...",
@@ -1462,6 +1454,8 @@
       "submit": "送信"
     },
     "newChat": "新しいチャット",
+    "alreadyInNewChat": "すでに新しいチャットです",
+    "initChatFailed": "チャットを初期化できませんでした",
     "clearChat": "チャットをクリア",
     "expand": "展開",
     "history": "履歴",
@@ -1496,8 +1490,11 @@
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
     "pin": "ピン留め",
     "unpin": "ピン留めを解除",
+    "markRead": "既読にする",
+    "markUnread": "未読にする",
+    "markAllRead": "すべて既読にする（{{count}}）",
     "archive": "アーカイブ",
-    "archivedToast": "チャットをアーカイブしました。「設定 › アーカイブ済みチャット」で確認できます。",
+    "archivedToast": "チャットをアーカイブしました",
     "unread": "未読",
     "timeGroup": {
       "pinned": "ピン留め",
@@ -1646,7 +1643,6 @@
       "pausedHidden": "再試行を一時停止しました — 再接続するにはこのタブを開いてください。",
       "maxAttemptsReached": "自動的に再接続できませんでした。手動でページを再読み込みしてください。"
     },
-    "initChatFailed": "チャットを初期化できませんでした",
     "app": {
       "loadingChatHistory": "チャット履歴を読み込み中...",
       "generatorTitle": "AI アプリジェネレーター",
@@ -1708,6 +1704,44 @@
         "stale": "再構築が必要",
         "unknown": "不明"
       }
+    },
+    "moveToBase": {
+      "menu": "移動",
+      "title": "「{{name}}」を別のプロジェクトへ移動",
+      "confirm": "移動",
+      "targetLabel": "移動先のプロジェクト",
+      "targetPlaceholder": "プロジェクトを選択",
+      "noTarget": "このスペースには、このノードを受け入れられる他のプロジェクトがありません。",
+      "checking": "この移動の影響を確認しています…",
+      "blockers": {
+        "same_base": "このノードはすでにこのプロジェクトにあります。",
+        "target_not_found": "移動先のプロジェクトは存在しません。",
+        "different_space": "ノードは同じスペース内のプロジェクト間でのみ移動できます。",
+        "v2_mismatch": "2 つのプロジェクトのストレージエンジンのバージョンが異なります。",
+        "source_not_writable": "このプロジェクトは現在読み取り専用です。",
+        "target_not_writable": "移動先のプロジェクトは現在読み取り専用です。",
+        "no_source_permission": "現在のプロジェクトからこのノードを削除する権限がありません。",
+        "no_target_permission": "移動先のプロジェクトでこの種類のノードを作成する権限がありません。",
+        "folder_name_conflict": "移動先のプロジェクトに同じ名前のフォルダーがすでに存在します。",
+        "unsupported_resource": "この種類のノードはまだ移動できません。",
+        "pending_computed_tasks": "このテーブルでは計算がまだ実行中です。しばらくしてからもう一度お試しください。",
+        "unknown": "この移動は許可されていません。"
+      },
+      "movingCount_other": "ノード {{count}} 件が移動します",
+      "moveClosure": "参照しているものをすべて移動",
+      "moveClosureHint": "移動するのは参照しているノードだけです。リンクされたテーブルはその場に残り、リンクは移動後に 2 つのプロジェクトをまたぐ形になりますが、そのまま使えます。",
+      "breakingCount_other": "項目 {{count}} 件が移動後に動作しなくなる可能性があります",
+      "occurrences_other": "{{count}} 箇所",
+      "uninspectableTitle_other": "アプリ {{count}} 件は確認できません。移動後にご確認ください",
+      "droppedRules_other": "権限ルール {{count}} 件は削除",
+      "droppedRulesDetail": "これらのルールは移動するノードに紐づいています。移動後は移動先プロジェクトの権限設定が適用されます。",
+      "successTitle": "移動しました",
+      "successDescription": "「{{name}}」は {{baseName}} に移動しました。",
+      "open": "開く",
+      "appEmbeddedId_other": "アプリ {{count}} 件のコードに古いプロジェクトが書かれています。ご自身で更新してください",
+      "appEmbeddedIdDetail": "{{apps}}。コードはそのまま変更されません。移動後にそれぞれ開いて更新してください。更新しない場合、移動前のプロジェクトを参照し続けます。",
+      "referencesLabel": "参照",
+      "linkedAcrossProjects_other": "テーブル {{count}} 件がプロジェクトをまたぐリンクになります"
     }
   }
 }

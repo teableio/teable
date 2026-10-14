@@ -36,7 +36,7 @@ const unwrapDomainId = <T>(result: {
   return result.value;
 };
 
-describe('computed activity lifecycle (e2e)', () => {
+describe('[C14][S19] computed activity lifecycle (e2e)', () => {
   let ctx: SharedTestContext;
   let activityProjector: ComputedActivityProjector;
 

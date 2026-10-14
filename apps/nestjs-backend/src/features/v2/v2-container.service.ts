@@ -93,7 +93,7 @@ const resolveTableQueryOpsWorkerId = (configured: unknown): string => {
 
 // Default is shadow: decisions and reasons are logged for the admin page without
 // executing any DDL until V2_TABLE_QUERY_OPS_AUTO_ACCEPT=auto is set explicitly.
-const resolveTableQueryAutoAcceptMode = (value: unknown): 'off' | 'shadow' | 'auto' => {
+export const resolveTableQueryAutoAcceptMode = (value: unknown): 'off' | 'shadow' | 'auto' => {
   if (typeof value !== 'string') return 'shadow';
   const normalized = value.trim().toLowerCase();
   return normalized === 'auto' || normalized === 'off' ? normalized : 'shadow';

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 /** T7180: account lookup array -> numeric order key + status -> summed amount. */
-describe('conditional rollup over numeric account lookup membership (T7180)', () => {
+describe('[F14][R05] conditional rollup over numeric account lookup membership (T7180)', () => {
   let ctx: SharedTestContext;
   const tables: string[] = [];
   let nextId = 0;

@@ -107,12 +107,14 @@ import type { Kysely, QueryExecutorProvider } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { isPersistedAsGeneratedColumn } from '../../record/computed';
 import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntrospector';
 import { createSchemaRuleContext } from '../rules/context/SchemaRuleContext';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import type { TableSchemaStatementExecutorProvider } from '../rules/core/ISchemaRule';
 import { createFieldSchemaRules } from '../rules/field/FieldSchemaRulesFactory';
 import { ForeignKeyRule } from '../rules/field/ForeignKeyRule';
+import { GeneratedColumnRule } from '../rules/field/GeneratedColumnRule';
 import { ReferenceRule } from '../rules/field/ReferenceRule';
 import type { TableIdentifier } from '../rules/helpers';
 import {
@@ -517,6 +519,68 @@ export class TableSchemaUpdateVisitor
     }
 
     return DbFieldName.rehydrate(field.id().toString()).andThen((name) => name.value());
+  }
+
+  /**
+   * Rebuilds a system column when its stored form flips between a GENERATED
+   * column and a plain stored column.
+   *
+   * `trackedFieldIds` is what decides the stored form (`[]` means "track all",
+   * persisted as GENERATED; a non-empty list is written by the mutation path),
+   * so a tracking-list edit with an otherwise unchanged field type still needs
+   * DDL. Without this the old generated expression keeps stamping the column on
+   * every write and the tracking list has no effect.
+   *
+   * GENERATED → plain uses `DROP EXPRESSION`, which converts the column in place
+   * and keeps the timestamps already stored for existing rows. plain → GENERATED
+   * rebuilds from the system source column, which always holds the authoritative
+   * instant.
+   */
+  private migrateGeneratedColumnState(
+    oldField: Field,
+    newField: Field
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    const { db, schema, tableName, tableId } = this.params;
+
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const wasGenerated = yield* isPersistedAsGeneratedColumn(oldField);
+      const becomesGenerated = yield* isPersistedAsGeneratedColumn(newField);
+      if (wasGenerated === becomesGenerated) return ok([]);
+
+      const dbFieldName = yield* visitor.resolveDbFieldNameText(newField);
+
+      if (!becomesGenerated) {
+        const fullTableName = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
+        const statement: TableSchemaStatementBuilder = {
+          scope: 'data',
+          compile: () =>
+            sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(
+              dbFieldName
+            )} DROP EXPRESSION`.compile(db),
+        };
+        return ok([statement]);
+      }
+
+      const rulesContext = { schema, tableName, tableId };
+      const ctx = createSchemaRuleContext({
+        db,
+        metaDb: db.withoutPlugins(),
+        introspector: new PostgresSchemaIntrospector(db),
+        schema,
+        tableName,
+        tableId,
+        field: newField,
+      });
+      const rules = yield* createFieldSchemaRules(newField, rulesContext);
+      const statements: TableSchemaStatementBuilder[] = [];
+      for (const rule of rules) {
+        if (rule instanceof GeneratedColumnRule) {
+          statements.push(...(yield* rule.up(ctx)));
+        }
+      }
+      return ok(statements);
+    });
   }
 
   private resolveSpecDbFieldNameText(
@@ -1189,10 +1253,23 @@ export class TableSchemaUpdateVisitor
       if (!spec.isTypeConversion()) {
         // Even without a type conversion, references may have changed
         // (e.g., ConditionalRollup filter/config changed). Regenerate reference entries.
-        const statements = yield* visitor.regenerateFieldReferences(
+        const referenceStatements = yield* visitor.regenerateFieldReferences(
           spec.oldField(),
           spec.newField()
         );
+        // A system field's stored form is decided by its configuration, not by
+        // its type: LastModifiedTime/LastModifiedBy switch between a GENERATED
+        // column and a plain stored column when trackedFieldIds changes. That
+        // transition has the same field type on both sides, so it must be
+        // handled here or the generated expression keeps stamping every write.
+        const generatedColumnStatements = yield* visitor.migrateGeneratedColumnState(
+          spec.oldField(),
+          spec.newField()
+        );
+        const statements: TableSchemaStatementBuilder[] = [
+          ...referenceStatements,
+          ...generatedColumnStatements,
+        ];
         yield* addCond(statements);
         return ok(statements);
       }
@@ -1323,10 +1400,7 @@ export class TableSchemaUpdateVisitor
       const fullTableName = schema
         ? `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`
         : quoteIdentifier(tableName);
-      const quoteIndexName = (indexName: string): string =>
-        schema
-          ? `${quoteIdentifier(schema)}.${quoteIdentifier(indexName)}`
-          : quoteIdentifier(indexName);
+      const quoteLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
 
       // Handle NOT NULL constraint changes
       if (spec.isNotNullChanging()) {
@@ -1405,21 +1479,42 @@ export class TableSchemaUpdateVisitor
               ),
           });
         } else {
-          // Remove UNIQUE constraint
-          statements.push(
-            {
-              scope: 'data',
-              compile: () =>
-                sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
-                  db
-                ),
-            },
-            {
-              scope: 'data',
-              compile: () =>
-                sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
-            }
-          );
+          // Resolve ownership from the catalog: names may be truncated by PostgreSQL
+          // or left unchanged by a column rename, and another column can share a prefix.
+          statements.push({
+            scope: 'data',
+            compile: () =>
+              sql
+                .raw(
+                  `DO $teable_unique$
+DECLARE
+  target_table oid := to_regclass(${quoteLiteral(fullTableName)});
+  target_column smallint;
+  owned record;
+BEGIN
+  SELECT attnum INTO target_column FROM pg_attribute
+    WHERE attrelid = target_table AND attname = ${quoteLiteral(dbFieldName)} AND NOT attisdropped;
+  FOR owned IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = target_table AND contype = 'u'
+      AND conkey = ARRAY[target_column]::smallint[]
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', target_table::regclass, owned.conname);
+  END LOOP;
+  FOR owned IN
+    SELECT indexrelid FROM pg_index
+    WHERE indrelid = target_table AND indisunique AND NOT indisprimary
+      AND indnkeyatts = 1 AND indkey[0] = target_column
+      AND indexprs IS NULL AND indpred IS NULL
+      AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conindid = indexrelid)
+  LOOP
+    EXECUTE format('DROP INDEX %s', owned.indexrelid::regclass);
+  END LOOP;
+END
+$teable_unique$`
+                )
+                .compile(db),
+          });
         }
       }
 

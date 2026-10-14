@@ -240,3 +240,73 @@ describe('ShareService.getShareViewV2', () => {
     expect(fixture.recordRead).not.toHaveBeenCalled();
   });
 });
+
+describe('ShareService record-sharing guards (v1)', () => {
+  const createGuardFixture = () => {
+    const getCalendarDailyCollection = vi.fn();
+    const copy = vi.fn();
+    const assertQueryFieldsVisible = vi.fn().mockResolvedValue(undefined);
+    const service = new ShareService(
+      {} as never, // prismaService
+      {} as never, // databaseRouter
+      {} as never, // fieldService
+      {} as never, // fieldOpenApiV2Service
+      {} as never, // recordService
+      { getCalendarDailyCollection } as never, // aggregationService
+      {} as never, // recordOpenApiService
+      {} as never, // recordOpenApiV2Service
+      { copy } as never, // selectionService
+      {} as never, // collaboratorService
+      { assertQueryFieldsVisible } as never, // shareSocketService
+      {} as never, // viewOpenApiV2Service
+      {} as never, // sharedViewRecordQueryV2Service
+      { get: vi.fn() } as never, // cls
+      {} as never, // dbProvider
+      {} as never // knex
+    );
+    return { service, getCalendarDailyCollection, copy, assertQueryFieldsVisible };
+  };
+
+  const shareInfoWith = (shareMeta: Record<string, unknown>) =>
+    ({
+      shareId: 'shrGuard',
+      tableId: 'tblGuard',
+      shareMeta,
+      view: { id: 'viwGuard', name: 'Guard', type: ViewType.Grid, columnMeta: {} },
+    }) as unknown as IShareViewInfo;
+
+  it('calendar: returns an empty collection and runs no aggregation when includeRecords is false', async () => {
+    const { service, getCalendarDailyCollection, assertQueryFieldsVisible } = createGuardFixture();
+
+    const result = await service.getViewCalendarDailyCollection(
+      shareInfoWith({ includeRecords: false }),
+      {} as never
+    );
+
+    expect(result).toEqual({ countMap: {}, records: [] });
+    expect(getCalendarDailyCollection).not.toHaveBeenCalled();
+    expect(assertQueryFieldsVisible).not.toHaveBeenCalled();
+  });
+
+  it('copy: returns empty content and runs no selection copy when includeRecords is false', async () => {
+    const { service, copy, assertQueryFieldsVisible } = createGuardFixture();
+
+    const result = await service.copy(
+      shareInfoWith({ includeRecords: false, allowCopy: true }),
+      {} as never
+    );
+
+    expect(result).toEqual({ content: '', header: [] });
+    expect(copy).not.toHaveBeenCalled();
+    expect(assertQueryFieldsVisible).not.toHaveBeenCalled();
+  });
+
+  it('copy: still rejects when copying is not allowed', async () => {
+    const { service, copy } = createGuardFixture();
+
+    await expect(
+      service.copy(shareInfoWith({ includeRecords: true, allowCopy: false }), {} as never)
+    ).rejects.toThrow('not allowed to copy');
+    expect(copy).not.toHaveBeenCalled();
+  });
+});

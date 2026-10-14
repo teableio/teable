@@ -1,4 +1,4 @@
-import { checkButtonClickable, Colors, ColorUtils } from '@teable/core';
+import { checkButtonClickable, Colors } from '@teable/core';
 import type { IButtonFieldCellValue, IButtonFieldOptions } from '@teable/core';
 import {
   Button,
@@ -7,11 +7,12 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useTheme,
 } from '@teable/ui-lib';
 import { useMemo } from 'react';
-import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
 import { useContentDir } from '../../../hooks/use-content-dir';
+import { getSelectColorPairs } from '../../../utils/select-color';
 import type { ICellValue } from '../type';
 
 interface ICellButton extends ICellValue<IButtonFieldCellValue> {
@@ -24,6 +25,7 @@ interface ICellButton extends ICellValue<IButtonFieldCellValue> {
 export const CellButton = (props: ICellButton) => {
   const { className, style, itemClassName, options: fieldOptions, value, isLookup } = props;
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
   const contentDir = useContentDir();
   const count = value?.count ?? 0;
   const maxCount = fieldOptions.maxCount ?? 0;
@@ -33,15 +35,17 @@ export const CellButton = (props: ICellButton) => {
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
-    const bgColor = ColorUtils.getHexForColor(rectColor);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
+    const { color: textColor, backgroundColor: bgColor } = getSelectColorPairs(
+      rectColor,
+      resolvedTheme
+    );
 
     return {
       bgColor,
       textColor,
       label: fieldOptions.label,
     };
-  }, [fieldOptions, isClickable]);
+  }, [fieldOptions, isClickable, resolvedTheme]);
 
   return (
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>

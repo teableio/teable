@@ -40,7 +40,6 @@ export const baseActions = [
   'base|table_import',
   'base|table_export',
   'base|authority_matrix_config',
-  'base|db_connection',
   'base|query_data',
 ] as const;
 export const baseActionSchema = z.enum(baseActions);

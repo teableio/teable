@@ -10,10 +10,24 @@ import {
   ensureSelectFieldOptionCountWithinLimit,
   ensureSelectFieldOptionNamesWithinLimit,
 } from '../../fields/types/SelectFieldOptionWriteConfig';
+import type { SelectDefaultValue } from '../../fields/types/SelectDefaultValue';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import { SingleSelectField } from '../../fields/types/SingleSelectField';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
+
+/**
+ * A default-value change that travels with the option rewrite.
+ *
+ * Renaming an option and re-pointing the default in the same request cannot be
+ * validated option-by-option: the old default no longer names a live option and
+ * the new default does not name an existing one yet. Carrying both in one spec
+ * lets the field be rebuilt once with the new options and the new default, so
+ * the pair validates as a whole instead of failing halfway.
+ */
+export interface SelectDefaultValueChange {
+  readonly next: SelectDefaultValue | undefined;
+}
 
 /**
  * Specification for updating a single select field's options.
@@ -27,7 +41,8 @@ export class UpdateSingleSelectOptionsSpec<
     private readonly dbFieldNameValue: DbFieldName,
     private readonly previousOptionsValue: ReadonlyArray<SelectOption>,
     private readonly nextOptionsValue: ReadonlyArray<SelectOption>,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly defaultValueChangeValue: SelectDefaultValueChange | undefined
   ) {
     super();
   }
@@ -37,15 +52,22 @@ export class UpdateSingleSelectOptionsSpec<
     dbFieldName: DbFieldName,
     previousOptions: ReadonlyArray<SelectOption>,
     nextOptions: ReadonlyArray<SelectOption>,
-    domainContext?: IDomainContext
+    domainContext?: IDomainContext,
+    defaultValueChange?: SelectDefaultValueChange
   ): UpdateSingleSelectOptionsSpec {
     return new UpdateSingleSelectOptionsSpec(
       fieldId,
       dbFieldName,
       previousOptions,
       nextOptions,
-      domainContext
+      domainContext,
+      defaultValueChange
     );
+  }
+
+  /** The default to write alongside the option rewrite, when one was requested. */
+  defaultValueChange(): SelectDefaultValueChange | undefined {
+    return this.defaultValueChangeValue;
   }
 
   fieldId(): FieldId {
@@ -134,12 +156,17 @@ export class UpdateSingleSelectOptionsSpec<
       return err(domainError.validation({ message: 'Field is not a single select field' }));
     }
 
-    // Create updated select field with new options
+    // Create updated select field with new options. When the request also
+    // changes the default, the new default is what has to validate against the
+    // new option names — carrying the old default across would reject a
+    // rename+repoint that is perfectly coherent as a whole.
     const updatedFieldResult = SingleSelectField.create({
       id: field.id(),
       name: field.name(),
       options: this.nextOptionsValue,
-      defaultValue: field.defaultValue(),
+      defaultValue: this.defaultValueChangeValue
+        ? this.defaultValueChangeValue.next
+        : field.defaultValue(),
       preventAutoNewOptions: field.preventAutoNewOptions(),
       domainContext: this.domainContextValue,
     });

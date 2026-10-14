@@ -12,10 +12,9 @@ export type ButtonCellValue = {
 };
 
 /**
- * Internal Button value mutation.
- *
- * Generic record input never creates this spec. It is only produced by the
- * owning Table aggregate after validating Button workflow and click limits.
+ * Button count mutation for record writes and dedicated button commands.
+ * Direct writes validate the cell value; click commands additionally validate
+ * workflow state and click limits in the owning Table aggregate.
  */
 export class SetButtonValueSpec extends MutateOnlySpec<TableRecord, ICellValueSpecVisitor> {
   constructor(

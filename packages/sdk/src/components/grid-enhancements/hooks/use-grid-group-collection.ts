@@ -1,4 +1,9 @@
-import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
+import type {
+  IAttachmentCellValue,
+  IButtonFieldCellValue,
+  INumberShowAs,
+  ISingleLineTextShowAs,
+} from '@teable/core';
 import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
 import { useTheme } from '@teable/ui-lib';
 import { LRUCache } from 'lru-cache';
@@ -81,6 +86,15 @@ const useGenerateGroupCellFn = () => {
         }
 
         switch (type) {
+          case FieldType.Button: {
+            const { count } = cellValue as IButtonFieldCellValue;
+            return {
+              type: CellType.Number,
+              data: count,
+              displayData: String(count),
+              contentAlign: 'left',
+            };
+          }
           case FieldType.SingleLineText: {
             const { showAs } = field.options;
 

@@ -481,7 +481,15 @@ export class SelectionService {
   async buildPasteByIdPayload(
     tableId: string,
     pasteRo: IPasteByIdRo,
-    options: { recordIds?: string[]; recordLoader?: SelectionRecordLoader } = {}
+    options: {
+      recordIds?: string[];
+      recordLoader?: SelectionRecordLoader;
+      validateBeforeExpansion?: (
+        updatePayload: IUpdateRecordsRo,
+        createPayload: ICreateRecordsRo,
+        plannedFields: IFieldVo[]
+      ) => Promise<void>;
+    } = {}
   ) {
     const { content, header } = pasteRo;
     const recordIds =
@@ -505,15 +513,22 @@ export class SelectionService {
     const contentColCount = pasteContent[0]?.length ?? 0;
     const numColsToExpand = Math.max(0, contentColCount - fields.length);
     const permissions = this.cls.get('permissions') ?? [];
+    const existingFieldIds = fields.filter((field) => !field.isPending).map((field) => field.id);
     const newFields =
       numColsToExpand && permissions.includes('field|create')
-        ? await this.expandColumns({ tableId, header, numColsToExpand })
+        ? await this.fieldSupplementService.prepareCreateFields(
+            tableId,
+            Array.from({ length: numColsToExpand }, (_, index) =>
+              this.fieldVoToRo(header?.[(header?.length ?? 0) - numColsToExpand + index])
+            )
+          )
         : [];
+    for (const field of newFields) {
+      if (field.type === FieldType.Button) {
+        delete (field.options as IButtonFieldOptions).workflow;
+      }
+    }
     fields = [...fields, ...newFields];
-    // Keep pending fields in `fields` so clipboard columns stay positionally aligned,
-    // but do not ask record reads or writes for columns that are not provisioned yet.
-    const fieldIds = fields.filter((field) => !field.isPending).map((field) => field.id);
-
     const tableData = this.expandPasteContent(pasteContent, [
       [0, 0],
       [Math.max(fields.length - 1, 0), Math.max(recordIds.length - 1, 0)],
@@ -523,19 +538,15 @@ export class SelectionService {
       : undefined;
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const recordsFromClipboard = sourceFields
-      ? this.cellValueToRecords({
-          tableData,
-          fields: fieldInstances,
-          sourceFields,
-        })
-      : this.tableDataToRecords({
-          tableData: tableData as string[][],
-          fields: fieldInstances,
-        });
+      ? this.cellValueToRecords({ tableData, fields: fieldInstances, sourceFields })
+      : this.tableDataToRecords({ tableData: tableData as string[][], fields: fieldInstances });
+    // Keep pending fields in `fields` so clipboard columns stay positionally aligned,
+    // but do not ask record reads or writes for columns that are not provisioned yet.
+    const fieldIds = fields.filter((field) => !field.isPending).map((field) => field.id);
 
     const existingRecords = options.recordLoader
-      ? await options.recordLoader(tableId, recordIds, fieldIds)
-      : await this.getRecordsByIdsForFields(tableId, recordIds, fieldIds);
+      ? await options.recordLoader(tableId, recordIds, existingFieldIds)
+      : await this.getRecordsByIdsForFields(tableId, recordIds, existingFieldIds);
     const updateRecordsRo = this.fillCells(
       existingRecords,
       recordsFromClipboard.slice(0, existingRecords.length)
@@ -553,6 +564,31 @@ export class SelectionService {
           records: newRecords,
         }
       : undefined;
+    await options.validateBeforeExpansion?.(
+      updatePayload,
+      createPayload ?? { fieldKeyType: FieldKeyType.Id, typecast: true, records: [] },
+      newFields
+    );
+    if (newFields.length) {
+      const views = await this.prismaService.txClient().view.findMany({
+        where: { tableId, deletedTime: null },
+        select: { id: true, columnMeta: true },
+      });
+      const viewOrders = views.map((view) => {
+        const columnMeta: Record<string, { order: number }> = JSON.parse(view.columnMeta);
+        const orders = Object.values(columnMeta).map(({ order }) => order);
+        return { id: view.id, order: orders.length ? Math.max(...orders) : -1 };
+      });
+      await this.fieldCreatingService.alterCreateFieldsInExistingTable(
+        tableId,
+        newFields.map((field, index) => ({
+          field: createFieldInstanceByVo(field),
+          columnMeta: Object.fromEntries(
+            viewOrders.map((view) => [view.id, { order: view.order + index + 1 }])
+          ),
+        }))
+      );
+    }
 
     return {
       fieldIds,

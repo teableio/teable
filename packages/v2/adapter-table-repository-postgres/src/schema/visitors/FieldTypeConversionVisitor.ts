@@ -44,7 +44,7 @@ import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
+import { buildUserTitleFromSnapshotSql } from '../../record/query-builder/userSnapshotSql';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import type { TableIdentifier } from '../rules/helpers';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
@@ -436,10 +436,11 @@ const buildTextUserPartsSql = (fullTableName: string, col: string): string => `
 const fetchTextUserMappings = async (
   ctx: TableSchemaStatementExecuteContext,
   fullTableName: string,
-  col: string
+  col: string,
+  identifierSql = buildTextUserPartsSql(fullTableName, col)
 ): Promise<ReadonlyArray<TextUserMapping>> => {
   const identifierRows = await sql<{ uid: string }>`
-    ${sql.raw(buildTextUserPartsSql(fullTableName, col))}
+    ${sql.raw(identifierSql)}
   `.execute(ctx.dataDb);
   const identifiers = [
     ...new Set(identifierRows.rows.map((row) => row.uid).filter((uid) => uid.length > 0)),
@@ -498,7 +499,6 @@ const buildTextToUserTransformSql = (
     return null;
   }
 
-  const avatarPrefix = resolveUserAvatarUrlPrefix();
   const mappingValues = mappings
     .map(
       (mapping) =>
@@ -508,9 +508,7 @@ const buildTextToUserTransformSql = (
     )
     .join(', ');
   const userJsonBuild = (alias: string) =>
-    `jsonb_build_object('id', ${alias}.id, 'title', ${alias}.title, 'email', ${alias}.email, 'avatarUrl', ${quoteLiteral(
-      avatarPrefix
-    )} || ${alias}.id)`;
+    `jsonb_build_object('id', ${alias}.id, 'title', ${alias}.title, 'email', ${alias}.email)`;
   const aggregationSql = isMultiple
     ? `SELECT rid, jsonb_agg(${userJsonBuild('matched_users')} ORDER BY part_idx)::text AS user_json
        FROM matched_users
@@ -945,20 +943,22 @@ const splitQualifiedTableName = (
 const dayjsFormatToPostgres = (dayjsFmt: string): string => {
   // Replace tokens from longest to shortest to avoid partial matches.
   // We use a single-pass replacement via alternation to prevent interference.
-  return dayjsFmt.replace(
-    /YYYY|MM|DD|HH|hh|mm|[MDA]/g,
-    (match) =>
-      ({
-        YYYY: 'YYYY',
-        MM: 'MM',
-        DD: 'DD',
-        HH: 'HH24',
-        hh: 'HH12',
-        mm: 'MI',
-        M: 'FMMM',
-        D: 'FMDD',
-        A: 'AM',
-      })[match] ?? match
+  return dayjsFmt.replace(/\[[^\]]*\]|YYYY|MMMM|MMM|MM|DD|HH|hh|mm|[MDA]/g, (match) =>
+    match.startsWith('[')
+      ? `"${match.slice(1, -1).replaceAll('"', '\\"')}"`
+      : {
+          YYYY: 'YYYY',
+          MMMM: 'FMMonth',
+          MMM: 'Mon',
+          MM: 'MM',
+          DD: 'DD',
+          HH: 'HH24',
+          hh: 'HH12',
+          mm: 'MI',
+          M: 'FMMM',
+          D: 'FMDD',
+          A: 'AM',
+        }[match] ?? match
   );
 };
 
@@ -2948,8 +2948,8 @@ class JsonFieldConversionVisitor extends BaseFieldConversionVisitor {
  * Source DB type: jsonb
  *
  * User field structure:
- * - Single: {"id": "...", "title": "...", "email": "...", "avatarUrl": "..."}
- * - Multiple: [{"id": "...", "title": "...", "email": "...", "avatarUrl": "..."}, ...]
+ * - Single: {"id": "...", "title": "...", "email": "..."}
+ * - Multiple: [{"id": "...", "title": "...", "email": "..."}, ...]
  */
 class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitSingleLineTextField(
@@ -3287,6 +3287,102 @@ export function generateFieldConversionStatements(
         oldField as LookupField | ConditionalLookupField,
         newField as BasicLookupConversionTargetField
       );
+      return ok(statements);
+    }
+
+    const oldType = oldField.type().toString();
+    const newType = newField.type().toString();
+    const isTextTarget = newType === 'singleLineText' || newType === 'longText';
+    if (
+      (oldType === 'createdTime' && (isTextTarget || newType === 'date')) ||
+      (oldType === 'createdBy' && isTextTarget)
+    ) {
+      const table = `${quoteIdent(params.schema ?? 'public')}.${quoteIdent(params.tableName)}`;
+      const column = quoteIdent(params.dbFieldName);
+      const previewSql = `ALTER TABLE ${table} ALTER COLUMN ${column} DROP EXPRESSION IF EXISTS`;
+      const statements: TableSchemaStatementBuilder[] = [
+        {
+          scope: 'data',
+          compile: () => sql.raw(previewSql).compile(params.db),
+          execute: async (ctx) => {
+            const physical = await sql<{ type: string }>`
+            SELECT t.typname AS type FROM pg_catalog.pg_attribute AS a
+            JOIN pg_catalog.pg_type AS t ON t.oid = a.atttypid
+            WHERE a.attrelid = ${table}::regclass AND a.attname = ${params.dbFieldName}
+              AND a.attnum > 0 AND NOT a.attisdropped
+          `.execute(ctx.dataDb);
+            const physicalType = physical.rows[0]?.type;
+            // Detach generated storage in place, including legacy columns with stale metadata.
+            await sql.raw(previewSql).execute(ctx.dataDb);
+            if (oldType === 'createdTime') {
+              // V1 timestamp-without-timezone columns contain UTC wall-clock values.
+              const instant =
+                physicalType === 'timestamp' ? `(${column} AT TIME ZONE 'UTC')` : column;
+              if (isTextTarget) {
+                const { pgFormat, timeZone } = buildPgDateTimeFormat(
+                  (oldField as CreatedTimeField).formatting()
+                );
+                await sql
+                  .raw(
+                    `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE text USING to_char(${instant} AT TIME ZONE ${quoteLiteral(timeZone === 'utc' ? 'UTC' : timeZone)}, ${quoteLiteral(pgFormat)})`
+                  )
+                  .execute(ctx.dataDb);
+              } else if (physicalType === 'timestamp') {
+                await sql
+                  .raw(
+                    `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE timestamptz USING ${instant}`
+                  )
+                  .execute(ctx.dataDb);
+              }
+            } else {
+              if (physicalType === 'jsonb' || physicalType === 'json') {
+                const snapshot = `to_jsonb(${column})`;
+                const identity = `COALESCE(${snapshot}->>'id', CASE WHEN jsonb_typeof(${snapshot}) = 'string' THEN ${snapshot} #>> '{}' END, ${quoteIdent('__created_by')})`;
+                const mappings = await fetchTextUserMappings(
+                  ctx,
+                  table,
+                  column,
+                  `SELECT DISTINCT ${identity} AS uid FROM ${table} WHERE ${identity} IS NOT NULL`
+                );
+                if (mappings.length) {
+                  const values = mappings
+                    .map((user) => `(${quoteLiteral(user.id)}, ${quoteLiteral(user.title)})`)
+                    .join(', ');
+                  // Public record reads prefer the current directory name over snapshot titles.
+                  await sql
+                    .raw(
+                      `UPDATE ${table} SET ${column} = jsonb_build_object('id', u.id, 'title', u.title) FROM (VALUES ${values}) AS u(id, title) WHERE ${identity} = u.id AND u.id LIKE 'usr%'`
+                    )
+                    .execute(ctx.dataDb);
+                }
+                await sql
+                  .raw(
+                    `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE text USING ${buildUserTitleFromSnapshotSql(column, quoteIdent('__created_by'))}`
+                  )
+                  .execute(ctx.dataDb);
+              } else {
+                // Resolve identities in the meta DB; tenant data SQL must not join users.
+                const mappings = await fetchTextUserMappings(ctx, table, column);
+                if (mappings.length) {
+                  const values = mappings
+                    .map((user) => `(${quoteLiteral(user.id)}, ${quoteLiteral(user.title)})`)
+                    .join(', ');
+                  await sql
+                    .raw(
+                      `UPDATE ${table} AS t SET ${column} = u.title FROM (VALUES ${values}) AS u(id, title) WHERE t.${column} = u.id`
+                    )
+                    .execute(ctx.dataDb);
+                }
+              }
+              await sql
+                .raw(
+                  `UPDATE ${table} SET ${column} = '"' || ${column} || '"' WHERE strpos(${column}, ',') > 0`
+                )
+                .execute(ctx.dataDb);
+            }
+          },
+        },
+      ];
       return ok(statements);
     }
 

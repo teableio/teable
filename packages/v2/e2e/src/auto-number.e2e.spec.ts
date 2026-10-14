@@ -7,7 +7,7 @@ import { FieldKeyType } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 auto-number continuity (e2e)', () => {
+describe('[F19] v2 auto-number continuity (e2e)', () => {
   let ctx: SharedTestContext;
   let tableCounter = 0;
 

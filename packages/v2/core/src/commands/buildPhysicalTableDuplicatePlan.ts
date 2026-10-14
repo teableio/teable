@@ -5,6 +5,8 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldType } from '../domain/table/fields/FieldType';
+import { LastModifiedByField } from '../domain/table/fields/types/LastModifiedByField';
+import { LastModifiedTimeField } from '../domain/table/fields/types/LastModifiedTimeField';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import type { Table } from '../domain/table/Table';
 import type {
@@ -100,6 +102,13 @@ export const buildPhysicalTableDuplicatePlan = (params: {
     // Non-link durable columns (including computed/formula stored values).
     for (const sourceField of params.sourceTable.getFields()) {
       if (sourceField.type().equals(FieldType.button())) {
+        continue;
+      }
+      // A copied record has no edit history, including field-specific tracking.
+      if (
+        sourceField instanceof LastModifiedTimeField ||
+        sourceField instanceof LastModifiedByField
+      ) {
         continue;
       }
       if (isLinkField(sourceField)) {

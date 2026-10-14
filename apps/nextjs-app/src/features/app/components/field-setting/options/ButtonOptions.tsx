@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
@@ -223,6 +223,15 @@ export const ButtonOptions = (props: {
   const { resolvedTheme } = useTheme();
   const bgColor = getSelectColorPairs(options?.color ?? Colors.Teal, resolvedTheme).backgroundColor;
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
+  const [maxCountInput, setMaxCountInput] = useState(String(options?.maxCount ?? ''));
+  const lastMaxCount = useRef(options?.maxCount);
+
+  useEffect(() => {
+    if (Object.is(lastMaxCount.current, options?.maxCount)) return;
+    lastMaxCount.current = options?.maxCount;
+    setMaxCountInput(String(options?.maxCount ?? ''));
+    setLimitClickCount((options?.maxCount ?? 0) > 0);
+  }, [options?.maxCount]);
 
   return (
     <div className="form-control space-y-4 border-t pt-4">
@@ -268,7 +277,9 @@ export const ButtonOptions = (props: {
                 checked={limitClickCount}
                 onCheckedChange={(checked) => {
                   setLimitClickCount(checked);
-                  onChange?.({ ...options, maxCount: checked ? 1 : 0 });
+                  setMaxCountInput(checked ? '1' : '');
+                  lastMaxCount.current = checked ? 1 : null;
+                  onChange?.({ ...options, maxCount: checked ? 1 : null, resetCount: false });
                 }}
               />
               <Label className="text-sm font-normal">
@@ -295,10 +306,15 @@ export const ButtonOptions = (props: {
                 </Label>
                 <Input
                   type="number"
-                  value={options?.maxCount}
-                  onChange={(e) =>
-                    onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
-                  }
+                  min={1}
+                  step={1}
+                  value={maxCountInput}
+                  onChange={(e) => {
+                    setMaxCountInput(e.target.value);
+                    const maxCount = Number(e.target.value);
+                    lastMaxCount.current = maxCount;
+                    onChange?.({ ...options, maxCount });
+                  }}
                 />
               </div>
             )}

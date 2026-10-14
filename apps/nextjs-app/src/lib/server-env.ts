@@ -43,7 +43,6 @@ export interface IServerEnv {
   maxSearchFieldCount?: number;
   chatContextAttachmentSize?: number;
   publicOrigin?: string;
-  publicDatabaseProxy?: string;
   changeEmailSendMailCodeRate?: number;
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;

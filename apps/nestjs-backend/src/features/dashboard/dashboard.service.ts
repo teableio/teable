@@ -230,6 +230,31 @@ export class DashboardService {
       });
   }
 
+  /**
+   * Re-home a dashboard and its plugin installs in another project. Plugin
+   * storage keeps whatever table ids it references; a chart pointing at a table
+   * that stayed behind fails at read time with the plugin token of the new
+   * project, which is the documented cold-handling of cross-project references.
+   */
+  async moveDashboardToBase(sourceBaseId: string, targetBaseId: string, id: string) {
+    const prisma = this.prismaService.txClient();
+    const updated = await prisma.dashboard.updateMany({
+      where: { id, baseId: sourceBaseId },
+      data: { baseId: targetBaseId, lastModifiedBy: this.cls.get('user.id') },
+    });
+    if (updated.count === 0) {
+      throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.dashboard.notFound',
+        },
+      });
+    }
+    await prisma.pluginInstall.updateMany({
+      where: { positionId: id, baseId: sourceBaseId },
+      data: { baseId: targetBaseId },
+    });
+  }
+
   private async validatePluginPublished(_baseId: string, pluginId: string) {
     return this.prismaService.plugin
       .findFirstOrThrow({

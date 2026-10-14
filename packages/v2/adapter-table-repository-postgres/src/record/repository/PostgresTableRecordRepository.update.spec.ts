@@ -742,7 +742,6 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       id: ACTOR_ID,
       title: 'Resolved User',
       email: 'resolved@example.com',
-      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
     });
 
     const { db, driver } = createRecordingDb((compiledQuery) => {
@@ -768,7 +767,6 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         id: ACTOR_ID,
         title: ACTOR_ID,
         email: null,
-        avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
       })
     );
 

@@ -7,6 +7,10 @@ import {
   FormulaExpression,
   RollupExpression,
   createFormulaField,
+  createLastModifiedByField,
+  createLastModifiedTimeField,
+  createNumberField,
+  TableUpdateFieldTypeSpec,
   UpdateButtonWorkflowSpec,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +22,51 @@ const mkFieldId = (seed: string) => FieldId.create(createValidFieldId(seed))._un
 const mkFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap();
 
 describe('FieldValueChangeCollectorVisitor coverage', () => {
+  it.each(['lastModifiedTime', 'lastModifiedBy'] as const)(
+    'cascades %s tracking changes without overwriting historical stamps',
+    (type) => {
+      const createField =
+        type === 'lastModifiedTime' ? createLastModifiedTimeField : createLastModifiedByField;
+      const oldField = createField({
+        id: mkFieldId('audit'),
+        name: mkFieldName('Audit'),
+        trackedFieldIds: [mkFieldId('tracked')],
+      })._unsafeUnwrap();
+      const newField = createField({
+        id: oldField.id(),
+        name: oldField.name(),
+        trackedFieldIds: [],
+        meta: oldField.meta(),
+      })._unsafeUnwrap();
+      for (const spec of [
+        TableUpdateFieldTypeSpec.create(oldField, newField),
+        TableUpdateFieldTypeSpec.create(newField, oldField),
+      ]) {
+        const visitor = new FieldValueChangeCollectorVisitor();
+        expect(spec.accept(visitor).isOk()).toBe(true);
+        expect(visitor.selfBackfillFields()).toEqual([]);
+        expect(visitor.valueChangedFields()).toEqual([oldField.id()]);
+        expect(visitor.preservedStoredFields()).toEqual([oldField.id()]);
+      }
+    }
+  );
+
+  it('keeps deferred initialization for number to modified-by conversion', () => {
+    const oldField = createNumberField({
+      id: mkFieldId('convert'),
+      name: mkFieldName('Value'),
+    })._unsafeUnwrap();
+    const newField = createLastModifiedByField({
+      id: oldField.id(),
+      name: oldField.name(),
+    })._unsafeUnwrap();
+    const visitor = new FieldValueChangeCollectorVisitor();
+    expect(TableUpdateFieldTypeSpec.create(oldField, newField).accept(visitor).isOk()).toBe(true);
+    expect(visitor.preservedStoredFields()).toEqual([]);
+    expect(visitor.selfBackfillFields()).toEqual([oldField.id()]);
+    expect(visitor.deferredBackfillFields()).toEqual([oldField.id()]);
+  });
+
   it('covers no-op visitor methods without mutating tracked field ids', () => {
     const visitor = new FieldValueChangeCollectorVisitor();
     const noOpMethods = [
@@ -140,6 +189,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
     const confirmFieldId = mkFieldId('confirmOnly');
     const formulaFieldId = mkFieldId('formulaTz');
     const rollupFieldId = mkFieldId('rollupTz');
+    const clearErrorFieldId = mkFieldId('clearError');
     const previousWorkflow = ButtonWorkflow.create({
       id: 'wflPreviousWorkflow',
       name: 'Previous',
@@ -159,7 +209,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
     } as never);
     visitor.visitTableUpdateFieldHasError({
       isSettingError: () => false,
-      fieldId: () => mkFieldId('clearError'),
+      fieldId: () => clearErrorFieldId,
       previousHasError: () => FieldHasError.error(),
       nextHasError: () => FieldHasError.ok(),
     } as never);
@@ -187,6 +237,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       workflowFieldId.toString(),
     ]);
     expect(visitor.selfBackfillFields().map((fieldId) => fieldId.toString())).toEqual([
+      clearErrorFieldId.toString(),
       formulaFieldId.toString(),
       rollupFieldId.toString(),
     ]);

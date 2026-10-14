@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { DraggableProvided } from '@hello-pangea/dnd';
-import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { ArrowDown, ArrowUp, History, Link, Maximize2, MessageSquare } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
@@ -153,7 +154,8 @@ export const KanbanCard = (props: IKanbanCardProps) => {
               });
               const cellValue = card.getCellValue(fieldId);
 
-              if (cellValue == null) return null;
+              // Buttons have a label before their first click creates a cell value.
+              if (cellValue == null && (type !== FieldType.Button || isLookup)) return null;
 
               return (
                 <div key={fieldId}>

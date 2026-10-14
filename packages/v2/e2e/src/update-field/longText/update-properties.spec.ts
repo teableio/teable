@@ -23,7 +23,7 @@ type SelectFieldLike = {
 const getChoiceNames = (field?: SelectFieldLike) =>
   (field?.options?.choices ?? []).map((c) => c.name).sort();
 
-describe('update-field: longText property updates', () => {
+describe('[D01][F02][S01][S10] update-field: longText property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let fieldIdCounter = 0;

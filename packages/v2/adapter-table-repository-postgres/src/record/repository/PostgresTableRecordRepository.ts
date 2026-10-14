@@ -35,6 +35,7 @@ import {
   toQualifiedIdentifierLiteral,
 } from '../../shared/sqlIdentifiers';
 import type { UndoLogRow } from '../../shared/undoCapture';
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import type {
   ComputedBeforeImageRecord,
   ComputedFieldUpdater,
@@ -100,6 +101,7 @@ type ChangedFieldColumn = {
   fieldId: core.FieldId;
   dbFieldName: string;
   alias: string;
+  isUserValue: boolean;
 };
 
 type BeforeImageCapturePlan = {
@@ -891,6 +893,7 @@ const toChangedFieldColumns = (
         fieldId,
         dbFieldName: yield* dbFieldName.value(),
         alias: `changed_${index}`,
+        isUserValue: isUserCellField(field),
       });
     }
     return ok(changedColumns);
@@ -909,14 +912,49 @@ const toChangedFieldsMap = (
   }
 
   const changedFields = new Map<string, unknown>();
-  for (const { fieldId, alias } of columns) {
+  for (const { fieldId, alias, isUserValue } of columns) {
     const fieldIdStr = fieldId.toString();
     if (allowedFieldIds && !allowedFieldIds.has(fieldIdStr)) {
       continue;
     }
-    changedFields.set(fieldIdStr, row[alias]);
+    const value = row[alias];
+    changedFields.set(fieldIdStr, isUserValue ? normalizeStoredUserAvatarUrls(value) : value);
   }
   return changedFields.size > 0 ? changedFields : undefined;
+};
+
+const presentUpdatedUserValues = (
+  table: core.Table,
+  records: core.UpdateManyResult['updatedRecords']
+): void => {
+  const userFieldIds = table
+    .getFields()
+    .filter(isUserCellField)
+    .map((field) => field.id().toString());
+  for (const record of records) {
+    let oldValues: Record<string, unknown> | undefined;
+    let changedFields: Map<string, unknown> | undefined;
+    for (const fieldId of userFieldIds) {
+      if (Object.hasOwn(record.oldFieldValues, fieldId)) {
+        const value = record.oldFieldValues[fieldId];
+        const displayed = normalizeStoredUserAvatarUrls(value);
+        if (displayed !== value) {
+          oldValues ??= { ...record.oldFieldValues };
+          oldValues[fieldId] = displayed;
+        }
+      }
+      if (record.changedFields?.has(fieldId)) {
+        const value = record.changedFields.get(fieldId);
+        const displayed = normalizeStoredUserAvatarUrls(value);
+        if (displayed !== value) {
+          changedFields ??= new Map(record.changedFields);
+          changedFields.set(fieldId, displayed);
+        }
+      }
+    }
+    if (oldValues) record.oldFieldValues = oldValues;
+    if (changedFields) record.changedFields = changedFields;
+  }
 };
 
 const buildBeforeImageFromTrackedValues = (
@@ -1825,7 +1863,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
    */
   async duplicatePhysicalRows(
     context: core.IExecutionContext,
-    plan: core.PhysicalTableDuplicatePlan
+    plan: core.PhysicalTableDuplicatePlan,
+    targetTable: core.Table
   ): Promise<Result<core.PhysicalTableDuplicateResult, DomainError>> {
     if (plan.columns.length === 0) {
       return ok({ rowCount: 0, recordIds: [] });
@@ -1835,8 +1874,20 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const sourceColumns = await listPhysicalColumnNames(db, plan.sourceTableName);
     const sourceColumnSet = new Set(sourceColumns);
+    const { schemaName, plainTableName } = splitSchemaQualifiedTableName(plan.targetTableName);
+    const generatedColumns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${schemaName ?? 'public'}
+        AND table_name = ${plainTableName}
+        AND is_generated = 'ALWAYS'
+    `.execute(db);
+    const generatedColumnSet = new Set(generatedColumns.rows.map((row) => row.column_name));
 
     const activeColumns = plan.columns.filter((column) => {
+      // Let the target compute generated values from its fresh system columns.
+      if (generatedColumnSet.has(column.targetColumn)) {
+        return false;
+      }
       // Constants like `1` are not source column references.
       const sourceColumnMatch = column.sourceSql.match(/^"((?:[^"]|"")*)"$/);
       if (!sourceColumnMatch) {
@@ -1925,6 +1976,46 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
 
     const recordIds = result.rows.map((row) => row.__id);
+    const resetFieldIds = targetTable
+      .getFields()
+      .filter(
+        (field) =>
+          field.type().equals(core.FieldType.autoNumber()) ||
+          field.type().equals(core.FieldType.createdTime()) ||
+          field.type().equals(core.FieldType.lastModifiedTime()) ||
+          field.type().equals(core.FieldType.lastModifiedBy())
+      )
+      .map((field) => field.id());
+    if (recordIds.length > 0 && resetFieldIds.length > 0) {
+      const seedRecordIds: core.RecordId[] = [];
+      for (const id of recordIds) {
+        const recordId = core.RecordId.create(id);
+        if (recordId.isErr()) return err(recordId.error);
+        seedRecordIds.push(recordId.value);
+      }
+      // These are changed system values, not edits: recompute their consumers without
+      // initializing modification fields or waiting for an eventual outbox update.
+      const computedPlan = await this.computedUpdatePlanner.plan(
+        {
+          table: targetTable,
+          changedFieldIds: this.expandComputedSeedFieldIds(targetTable, resetFieldIds, {
+            includeZeroReferenceFormulas: true,
+          }),
+          changedRecordIds: seedRecordIds,
+          changeType: 'update',
+          cyclePolicy: 'skip',
+        },
+        context,
+        {
+          tableProvisionStates: ['ready', 'pending'],
+          scopedPendingTableIds: [targetTable.id()],
+          includeComputedSeedFields: true,
+        }
+      );
+      if (computedPlan.isErr()) return err(computedPlan.error);
+      const computedResult = await this.computedFieldUpdater.execute(computedPlan.value, context);
+      if (computedResult.isErr()) return err(computedResult.error);
+    }
     return ok({ rowCount: recordIds.length, recordIds });
   }
 
@@ -2581,6 +2672,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await this.touchTableMeta(context, table.id().toString(), actorId);
           }
 
+          // Keep raw before-images for computation, then expose matching old/new presentation.
+          presentUpdatedUserValues(table, updatedRecords);
           return ok({
             totalUpdated: updatedRecordIds.length,
             updatedRecordIds,
@@ -3010,6 +3103,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(context, table.id().toString(), actorId);
         }
 
+        presentUpdatedUserValues(table, updatedRecords);
         return ok({ totalUpdated, updatedRecords });
       }.bind(this)
     );

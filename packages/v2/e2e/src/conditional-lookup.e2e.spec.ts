@@ -12,7 +12,7 @@ import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 http conditional lookup (e2e)', () => {
+describe('[F22][R04] v2 http conditional lookup (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

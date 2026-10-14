@@ -14,7 +14,7 @@ import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 http deleteRecords with links (e2e)', () => {
+describe('[R11] v2 http deleteRecords with links (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

@@ -18,7 +18,7 @@ const createGlobalFieldId = () => {
   return `fld${suffix}`;
 };
 
-describe('update-field: attachment property updates', () => {
+describe('[D01][F10][S01] update-field: attachment property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

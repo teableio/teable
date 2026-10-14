@@ -43,7 +43,7 @@ const expectEmptyLookup = (value: unknown) => {
   expect(isEmpty).toBe(true);
 };
 
-describe('lookup computed update scope regression', () => {
+describe('[F21] lookup computed update scope regression', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

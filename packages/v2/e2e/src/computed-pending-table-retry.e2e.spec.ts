@@ -7,8 +7,8 @@
  * outbox task, pending provision flip, then ready drain. No customer
  * identifiers or values.
  */
-import { sql } from 'kysely';
 import { getRandomString, v2CoreTokens, type IHasher } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -19,7 +19,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 
 const createFieldId = () => `fld${getRandomString(16)}`;
 
-describe('computed tasks retry pending provision tables (e2e)', () => {
+describe('[C14][S19] computed tasks retry pending provision tables (e2e)', () => {
   let ctx: SharedTestContext;
 
   const setProvisionState = async (tableId: string, state: 'pending' | 'ready') => {

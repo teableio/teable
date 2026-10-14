@@ -45,6 +45,7 @@ import { PENDING_ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
+import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
 @Injectable()
 export class BaseExportService {
   public static readonly CSV_CHUNK = 500;
@@ -197,23 +198,8 @@ export class BaseExportService {
     // create a stream pass through, ready to fill data
     const passThrough = new PassThrough();
 
-    const archive = archiver('zip', {
-      zlib: { level: 9 },
-    });
-
-    archive.on('warning', function (err) {
-      if (err.code === 'ENOENT') {
-        // log warning
-      } else {
-        // throw error
-        throw err;
-      }
-    });
-
-    archive.on('error', function (err) {
-      passThrough.emit('error', err);
-      throw err;
-    });
+    const archive = archiver('zip', EXPORT_ZIP_OPTIONS);
+    const guard = guardExportArchive(archive, passThrough);
 
     archive.pipe(passThrough);
 
@@ -236,22 +222,27 @@ export class BaseExportService {
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
       }
     );
+    // The upload runs alongside the archive; a part failing mid-export must stop the export
+    // instead of surfacing later as an unhandled rejection.
+    uploadPromise.catch(guard.fail);
 
     try {
       onProgress?.('exporting_archive');
-      await this.prismaService.$tx(
-        async (prisma) => {
-          await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-          await this.pipeArchive(archive, baseId, includeData, onProgress);
-        },
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-          timeout: this.thresholdConfig.bigTransactionTimeout,
-        }
+      await guard.run(
+        this.prismaService.$tx(
+          async (prisma) => {
+            await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+            await this.pipeArchive(archive, baseId, includeData, onProgress);
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+            timeout: this.thresholdConfig.bigTransactionTimeout,
+          }
+        )
       );
-      archive.finalize();
+      archive.finalize().catch(guard.fail);
       onProgress?.('uploading_archive');
-      const uploadResult = await uploadPromise;
+      const uploadResult = await guard.run(uploadPromise);
       const { path } = uploadResult;
       onProgress?.('generating_download_url');
       const previewUrl = await this.storageAdapter.getPreviewUrl(
@@ -662,9 +653,10 @@ export class BaseExportService {
     let hasMoreData = true;
     archive.append(csvStream, { name: `${filePath}/${id}.csv` });
 
+    // Logged only: the export archive guard fails the export on entry errors, while a
+    // throw here would just escape as an uncaught exception.
     csvStream.on('error', (err) => {
       this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-      throw err;
     });
 
     csvStream.on('end', () => {
@@ -673,11 +665,6 @@ export class BaseExportService {
 
     csvStream.on('finish', () => {
       console.log('CSV Stream finished');
-    });
-
-    archive.on('error', (err) => {
-      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
-      throw err;
     });
 
     // 2. write csv content
@@ -692,6 +679,10 @@ export class BaseExportService {
       if (csvChunk.length === 0) {
         hasMoreData = false;
         break;
+      }
+      if (csvStream.destroyed) {
+        // The export failed and its archive guard tore this entry down.
+        return;
       }
       const csvString = stringify(csvChunk, {
         columns: columnHeader,
@@ -756,9 +747,10 @@ export class BaseExportService {
 
     archive.append(csvStream, { name: `${filePath}/attachments.csv` });
 
+    // Logged only: the export archive guard fails the export on entry errors, while a
+    // throw here would just escape as an uncaught exception.
     csvStream.on('error', (err) => {
       this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-      throw err;
     });
 
     csvStream.on('end', () => {
@@ -767,11 +759,6 @@ export class BaseExportService {
 
     csvStream.on('finish', () => {
       console.log('CSV Stream finished');
-    });
-
-    archive.on('error', (err) => {
-      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
-      throw err;
     });
 
     const csvString = stringify(
@@ -816,9 +803,10 @@ export class BaseExportService {
     let hasMoreData = true;
     archive.append(csvStream, { name: `${filePath}/${fkHostTableName}.csv` });
 
+    // Logged only: the export archive guard fails the export on entry errors, while a
+    // throw here would just escape as an uncaught exception.
     csvStream.on('error', (err) => {
       this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-      throw err;
     });
 
     csvStream.on('end', () => {
@@ -827,11 +815,6 @@ export class BaseExportService {
 
     csvStream.on('finish', () => {
       console.log('CSV Stream finished');
-    });
-
-    archive.on('error', (err) => {
-      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
-      throw err;
     });
 
     // 2. write csv content
@@ -846,6 +829,10 @@ export class BaseExportService {
       if (csvChunk.length === 0) {
         hasMoreData = false;
         break;
+      }
+      if (csvStream.destroyed) {
+        // The export failed and its archive guard tore this entry down.
+        return;
       }
       const csvString = stringify(csvChunk, {
         columns: columnHeader,

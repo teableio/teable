@@ -241,6 +241,45 @@ describe('OpenAPI FieldController (e2e)', () => {
         }
       });
     });
+    it('updates a formula expression through PATCH in the v2 route', async () => {
+      await withForceV2All(async () => {
+        const table = await createTable(baseId, { name: 'patch-formula-expression' });
+        try {
+          const numberField = await createField(table.id, {
+            name: 'Amount',
+            type: FieldType.Number,
+          });
+          const formulaField = await createField(table.id, {
+            name: 'Double',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${numberField.id}} * 2`,
+              formatting: { type: NumberFormattingType.Decimal, precision: 0 },
+              showAs: {
+                type: SingleNumberDisplayType.Ring,
+                color: Colors.Blue,
+                showValue: true,
+                maxValue: 100,
+              },
+              timeZone: 'Asia/Shanghai',
+            },
+          });
+
+          const expression = `"x"&{${numberField.id}}`;
+          await updateField(table.id, formulaField.id, {
+            options: { expression },
+          });
+          const updatedField = await getField(table.id, formulaField.id);
+
+          expect(updatedField.options).toMatchObject({ expression, timeZone: 'Asia/Shanghai' });
+          expect(updatedField.cellValueType).toBe('string');
+          expect(updatedField.options).not.toHaveProperty('formatting');
+          expect(updatedField.options).not.toHaveProperty('showAs');
+        } finally {
+          await permanentDeleteTable(baseId, table.id);
+        }
+      });
+    });
   });
 
   describe('should generate default name and options for field', () => {

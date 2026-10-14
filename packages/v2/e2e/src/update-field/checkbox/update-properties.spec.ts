@@ -8,7 +8,7 @@ type CheckboxFieldOptions = {
   defaultValue?: boolean;
 };
 
-describe('update-field: checkbox property updates', () => {
+describe('[D01][F07][S01] update-field: checkbox property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let fieldIdCounter = 0;

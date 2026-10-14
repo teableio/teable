@@ -339,15 +339,13 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
               : true;
           const systemColumn = fieldType.equals(FieldType.createdTime())
             ? '__created_time'
-            : fieldType.equals(FieldType.lastModifiedTime()) && isTrackAll
-              ? '__last_modified_time'
-              : fieldType.equals(FieldType.createdBy())
-                ? '__created_by'
-                : fieldType.equals(FieldType.lastModifiedBy()) && isTrackAll
-                  ? '__last_modified_by'
-                  : fieldType.equals(FieldType.autoNumber())
-                    ? '__auto_number'
-                    : undefined;
+            : fieldType.equals(FieldType.createdBy())
+              ? '__created_by'
+              : fieldType.equals(FieldType.lastModifiedBy()) && isTrackAll
+                ? '__last_modified_by'
+                : fieldType.equals(FieldType.autoNumber())
+                  ? '__auto_number'
+                  : undefined;
           const columnResult = systemColumn
             ? ok(systemColumn)
             : field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());

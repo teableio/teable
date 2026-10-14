@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useBaseResource } from '../../hooks/useBaseResource';
-import { DbConnectionPanel } from '../db-connection/Panel';
 import { BaseDetail } from './BaseDetail';
 import { TableTabs } from './TableTabs';
 
@@ -43,13 +42,8 @@ export const Design = () => {
           </div>
 
           <div className="space-y-4 p-4 pb-8">
-            {/* Top Section: Base Info & Connection */}
             <div className="grid gap-4 md:grid-cols-2">
-              {/* Base Info */}
               <BaseDetail />
-
-              {/* Connection Info */}
-              <DbConnectionPanel className="overflow-hidden" />
             </div>
 
             <Separator />

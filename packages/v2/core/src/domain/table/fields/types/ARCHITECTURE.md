@@ -6,6 +6,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Field subtypes and type-specific value objects/config.
 - Validate with ValueObject + Result and expose serialization helpers.
+- Formula deletion errors propagate through formula chains and invalidated lookup/rollup dependencies. Reuse each dependency's deletion reaction so non-error repairs do not invalidate consumers; see `FormulaField.onFieldDeleted`.
+- Conditional rollup creation and updates discard sort/limit for order-insensitive aggregations
+  such as SUM. ARRAY_COMPACT, ARRAY_UNIQUE, ARRAY_JOIN and CONCATENATE retain them; scalar
+  result multiplicity alone does not determine whether ordering is supported.
+- Ordinary and conditional lookups reject button source fields during foreign-table validation,
+  before create or update can persist the lookup configuration.
 
 ## Files
 

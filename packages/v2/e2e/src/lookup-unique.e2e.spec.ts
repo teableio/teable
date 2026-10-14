@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('lookup unique values through the HTTP API', () => {
+describe('[F21][R03] lookup unique values through the HTTP API', () => {
   let ctx: SharedTestContext;
   let counter = 0;
   const fieldId = () => `fld${(counter++).toString(36).padStart(16, '0')}`;

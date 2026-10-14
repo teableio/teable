@@ -25,7 +25,7 @@ import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 const createFieldId = () => `fld${getRandomString(16)}`;
 
-describe('v2 record-update numeric-blank formula cascade (T7609)', () => {
+describe('[C14][S19] v2 record-update numeric-blank formula cascade (T7609)', () => {
   let testContainer: IV2NodeTestContainer;
   let server: Server;
   let baseUrl: string;

@@ -22,7 +22,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * Rows are inserted in an order unrelated to their value order, so a
  * formatting-based comparison cannot hide behind the view-row tie-breaker.
  */
-describe('v2 listRecords sort ignores field formatting (e2e)', () => {
+describe('[B08][S06][S18] v2 listRecords sort ignores field formatting (e2e)', () => {
   let ctx: SharedTestContext;
   let client: V2HttpClient;
 

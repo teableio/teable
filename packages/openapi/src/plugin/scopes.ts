@@ -11,8 +11,8 @@ import { z } from '../zod';
 
 // Scopes a plugin token may request. Anyone can create a plugin and install it
 // into a base they merely edit, so the base-management scopes that hand out
-// credentials or seats (db connection, invites, authority matrix) are never
-// available to a plugin token, whatever role the plugin user ends up holding.
+// seats or permissions (invites, authority matrix) are never available to a
+// plugin token, whatever role the plugin user ends up holding.
 export const pluginBaseActions = [
   'base|read',
   'base|update',

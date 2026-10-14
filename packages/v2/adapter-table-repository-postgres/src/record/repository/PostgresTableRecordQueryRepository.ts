@@ -44,7 +44,6 @@ import {
   OffsetPagination,
   PageLimit,
   PageOffset,
-  buildUserAvatarUrl,
   isFieldOrderBy,
   isSystemColumnOrderBy,
   getUnitOfWorkTransaction,
@@ -59,6 +58,7 @@ import type { Expression, Kysely, QueryResult, RawBuilder, SqlBool } from 'kysel
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import {
   applyStoredFieldOrderByClause,
@@ -113,7 +113,6 @@ const RECORD_VERSION_COLUMN = '__version';
 const TABLE_ALIAS = 't';
 const GROUP_RESULT_ALIAS = 'g';
 const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
-const LEGACY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 const TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY = Symbol.for('teable.v2.tableOps.sqlDiagnostics');
 
 // Single policy for which group expressions get identity-normalized: plain
@@ -1109,6 +1108,7 @@ export class PostgresTableRecordQueryRepository
           const groupFields: Array<
             FieldOrderBy & {
               column: string;
+              isUserField: boolean;
               valueExpression: RawBuilder<unknown>;
               orderByClauses: ReadonlyArray<StoredFieldOrderByClause>;
             }
@@ -1146,7 +1146,13 @@ export class PostgresTableRecordQueryRepository
                 groupIdentityCollation: true,
               }
             );
-            groupFields.push({ ...item, column, valueExpression, orderByClauses });
+            groupFields.push({
+              ...item,
+              column,
+              isUserField: isUserCellField(field),
+              valueExpression,
+              orderByClauses,
+            });
           }
 
           try {
@@ -1265,7 +1271,9 @@ export class PostgresTableRecordQueryRepository
                   groups: result.rows.map((row) => {
                     const fields: Record<string, unknown> = {};
                     for (const item of groupFields) {
-                      fields[item.fieldId.toString()] = row[item.fieldId.toString()];
+                      fields[item.fieldId.toString()] = item.isUserField
+                        ? normalizeStoredUserAvatarUrls(row[item.fieldId.toString()])
+                        : row[item.fieldId.toString()];
                     }
                     return {
                       fields,
@@ -2181,46 +2189,6 @@ const normalizeStoredGroupValue = (value: unknown): unknown => {
     return value.toISOString();
   }
   return value;
-};
-
-const normalizeStoredUserAvatarUrls = (value: unknown): unknown => {
-  if (typeof value === 'string') {
-    if (!value.includes(LEGACY_AVATAR_PREFIX)) {
-      return value;
-    }
-
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      const normalized = normalizeStoredUserAvatarUrls(parsed);
-      return normalized === parsed ? value : normalized;
-    } catch {
-      return value;
-    }
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeStoredUserAvatarUrls(item));
-  }
-
-  if (!value || typeof value !== 'object') {
-    return value;
-  }
-
-  const item = value as Record<string, unknown>;
-  const id = item.id;
-  if (typeof id !== 'string' || id.length === 0) {
-    return value;
-  }
-
-  const avatarUrl = item.avatarUrl;
-  if (typeof avatarUrl === 'string' && !avatarUrl.startsWith(LEGACY_AVATAR_PREFIX)) {
-    return value;
-  }
-
-  return {
-    ...item,
-    avatarUrl: buildUserAvatarUrl(id),
-  };
 };
 
 const describeError = (error: unknown): string => {

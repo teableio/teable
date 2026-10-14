@@ -59,7 +59,10 @@ export const checkBaseNodePermission = (
     workflowPermissionMap,
     routinePermissionMap,
   } = permissionContext;
-  const checkAction = map[resourceType][action];
+  // A type the map does not know (a row written by a newer edition, or a
+  // corrupt one) has no permission anyone could hold; it must not throw.
+  const checkAction = map[resourceType]?.[action];
+  if (!checkAction) return false;
   if (resourceType === BaseNodeResourceType.Table && tablePermissionMap) {
     return tablePermissionMap[resourceId]?.includes(checkAction as TableAction) ?? false;
   }

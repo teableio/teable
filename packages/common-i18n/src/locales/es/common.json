@@ -15,6 +15,7 @@
     "delete": "Eliminar",
     "clear": "Borrar",
     "cancel": "Cancelar",
+    "undo": "Deshacer",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "back": "Volver",
@@ -570,7 +571,6 @@
     "overLimitsDescription": "Tu suscripción actual ha excedido su límite de uso. Por favor, actualiza tu plan para continuar usando esta función sin interrupciones.",
     "userLimitExceededDescription": "La instancia actual ha alcanzado el número máximo de usuarios permitidos por tu licencia. Por favor, desactiva algunos usuarios o actualiza la licencia.",
     "unavailableInPlanTips": "El plan de suscripción actual no admite esta función",
-    "unavailableConnectionTips": "La función de conexión de base de datos se eliminará en el futuro y solo estará disponible en la edición Enterprise y en versiones autohospedadas.",
     "levelTips": "Este espacio se encuentra actualmente en el plan {{level}}",
     "enterpriseFeature": "Función Enterprise",
     "automationRequiresUpgrade": "Actualice a Enterprise Edition (EE) para habilitar la automatización",
@@ -1172,6 +1172,8 @@
     "addConfig": "Agregar Configuración",
     "editConfig": "Editar Configuración",
     "resetConfig": "Restablecer",
+    "unsubscribeLink": "Añadir enlace para darse de baja",
+    "unsubscribeLinkDescription": "Actívalo para emails de marketing: añade un enlace para darse de baja con un clic y omite a quienes ya se dieron de baja. Déjalo desactivado para respuestas y notificaciones.",
     "testEmail": "Correo de Prueba",
     "testEmailPlaceholder": "Por favor ingrese el correo de prueba",
     "testEmailError": "Por favor ingrese una dirección de correo de prueba válida",
@@ -1599,6 +1601,10 @@
   },
   "chat": {
     "serverError": "Se produjo un error del servidor",
+    "chatGone": "Esta conversación ya no existe",
+    "chatGoneDescription": "Se eliminó desde otra pestaña o dispositivo, así que aquí ya no se puede enviar nada.",
+    "chatArchived": "Esta conversación está archivada",
+    "chatArchivedDescription": "No se puede enviar nada a una conversación archivada.",
     "modelNotSupported": "El modelo seleccionado no se admite en el modo agente. Cambia a GPT-6 Astra para la mejor experiencia.",
     "byokModelNotSupported": "Tu modelo personalizado no es compatible con el modo agente. Cambia a GPT-6 Astra para la mejor experiencia.",
     "modelServiceUnavailable": "El servicio del modelo no está disponible temporalmente. Inténtalo más tarde.",
@@ -1634,6 +1640,7 @@
   "modelTier": {
     "title": "Modelo",
     "uses": "Usa {{model}}",
+    "spaceModels": "Modelos del espacio",
     "xl": {
       "label": "Ultra",
       "description": "Máxima capacidad para trabajos exigentes y de alto riesgo."
@@ -1832,5 +1839,13 @@
       "summaryTitle": "Teable",
       "summary": "{{count}} conversaciones tienen novedades."
     }
+  },
+  "cookieConsent": {
+    "title": "Consentimiento de cookies",
+    "body": "Usamos cookies y tecnologías similares para entender cómo se usa Teable, mejorar tu experiencia y medir nuestro marketing.",
+    "accept": "Aceptar todo",
+    "reject": "Rechazar todo",
+    "policy": "Política de cookies",
+    "settings": "Configuración de cookies"
   }
 }

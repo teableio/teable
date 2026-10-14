@@ -3536,12 +3536,8 @@ describe('OpenAPI ViewController (e2e)', () => {
       ).resolves.toEqual({ group: null });
     });
 
-    it('rejects missing fields and Button fields without persistence or v1 fallback', async () => {
+    it('rejects missing fields without persistence or v1 fallback', async () => {
       const view = (await getViews(table.id))[0]!;
-      const buttonField = await createField(table.id, {
-        name: 'Group action',
-        type: FieldType.Button,
-      });
       const rowBefore = await prismaService.view.findUniqueOrThrow({
         where: { id: view.id },
         select: { group: true, version: true },
@@ -3552,11 +3548,6 @@ describe('OpenAPI ViewController (e2e)', () => {
           fieldId: `fld${'z'.repeat(16)}`,
           domainCode: 'field.not_found',
           status: 404,
-        },
-        {
-          fieldId: buttonField.id,
-          domainCode: 'view.group_unsupported_field_type',
-          status: 400,
         },
       ];
 
@@ -3575,6 +3566,26 @@ describe('OpenAPI ViewController (e2e)', () => {
           select: { group: true, version: true },
         })
       ).resolves.toEqual(rowBefore);
+      expect(legacyPropertySpy).not.toHaveBeenCalled();
+    });
+
+    it('persists button grouping without v1 fallback (T7781)', async () => {
+      const view = (await getViews(table.id))[0]!;
+      const buttonField = await createField(table.id, {
+        name: 'Group action',
+        type: FieldType.Button,
+      });
+      const group = [{ fieldId: buttonField.id, order: SortFunc.Asc }];
+      const legacyPropertySpy = vi.spyOn(viewOpenApiService, 'setViewProperty');
+      const response = await updateViewGroup(table.id, view.id, { group });
+      expect(response.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('updateViewGroup');
+      expect((await getView(table.id, view.id)).group).toEqual(group);
+      await expect(
+        prismaService.view.findUniqueOrThrow({
+          where: { id: view.id },
+          select: { group: true },
+        })
+      ).resolves.toEqual({ group: JSON.stringify(group) });
       expect(legacyPropertySpy).not.toHaveBeenCalled();
     });
 

@@ -2,9 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Role } from '@teable/core';
 import type { ICreatePluginVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
-  axios,
   CREATE_PLUGIN,
-  createAxios,
   createPlugin,
   createPluginPanel,
   DELETE_PLUGIN,
@@ -14,14 +12,11 @@ import {
   duplicatePluginPanel,
   duplicatePluginPanelInstalledPlugin,
   emailBaseInvitation,
-  GET_DB_CONNECTION,
   getBaseCollaboratorList,
   getPluginPanel,
   getPluginPanelPlugin,
   installPluginPanel,
-  PLUGIN_GET_AUTH_CODE,
   PLUGIN_PANEL_INSTALL,
-  pluginGetToken,
   pluginPanelGetVoSchema,
   pluginPanelPluginGetVoSchema,
   PluginPosition,
@@ -385,14 +380,6 @@ describe('plugin panel', () => {
         { name: 'creator plugin', pluginId: creatorPlugin.id }
       );
 
-    const getAuthCode = async () => {
-      const res = await creatorUser.post<string>(
-        urlBuilder(PLUGIN_GET_AUTH_CODE, { pluginId: creatorPlugin.id }),
-        { baseId }
-      );
-      return res.data;
-    };
-
     it('seats the plugin user with the installer role, not owner', async () => {
       const res = await installAsCreator();
       expect(res.status).toBe(201);
@@ -402,38 +389,6 @@ describe('plugin panel', () => {
         (item) => item.type === PrincipalType.User && item.userId === creatorPlugin.pluginUser!.id
       );
       expect(pluginCollaborator?.role).toBe(Role.Creator);
-    });
-
-    it('never issues a plugin token that can read the database connection', async () => {
-      await installAsCreator();
-
-      const deniedAuthCode = await getAuthCode();
-      const scopeError = await getError(() =>
-        pluginGetToken(creatorPlugin.id, {
-          baseId,
-          secret: creatorPlugin.secret,
-          scopes: ['base|db_connection' as never],
-          authCode: deniedAuthCode,
-        })
-      );
-      expect(scopeError?.status).toBe(400);
-
-      const token = await pluginGetToken(creatorPlugin.id, {
-        baseId,
-        secret: creatorPlugin.secret,
-        scopes: ['base|read'],
-        authCode: await getAuthCode(),
-      });
-      // A clean client: the shared axios carries the owner's session cookie,
-      // which the auth guard would pick before the bearer token.
-      const pluginAxios = createAxios();
-      pluginAxios.defaults.baseURL = axios.defaults.baseURL;
-      const connectionError = await getError(() =>
-        pluginAxios.get(urlBuilder(GET_DB_CONNECTION, { baseId }), {
-          headers: { Authorization: `Bearer ${token.data.accessToken}` },
-        })
-      );
-      expect(connectionError?.status).toBe(403);
     });
 
     it('rejects installing an unpublished plugin of another user', async () => {

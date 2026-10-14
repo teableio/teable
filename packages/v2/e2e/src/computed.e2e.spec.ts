@@ -724,6 +724,107 @@ describe('v2 computed field updates (e2e)', () => {
         expect(afterParsed.getUTCMonth()).toBe(11); // December = 11 (0-indexed)
         expect(afterParsed.getUTCDate()).toBe(28);
       });
+      it('uses the formula timezone for TODAY at local midnight', async () => {
+        const nameFieldId = createFieldId();
+        const formulaFieldId = createFieldId();
+
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'FormulaTodayTimezoneTest',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'formula',
+              id: formulaFieldId,
+              name: 'TodayAtMidnight',
+              options: {
+                expression: 'DATETIME_FORMAT(TODAY(), "YYYY-MM-DD HH:mm")',
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const formatShanghaiDate = (instant: Date) => {
+          const parts = new Intl.DateTimeFormat('en', {
+            timeZone: 'Asia/Shanghai',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).formatToParts(instant);
+          const dateParts = Object.fromEntries(
+            parts
+              .filter(({ type }) => type === 'year' || type === 'month' || type === 'day')
+              .map(({ type, value }) => [type, value])
+          ) as Record<string, string>;
+          return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+        };
+        const requestStartDate = formatShanghaiDate(new Date());
+
+        await ctx.createRecord(table.id, { [nameFieldId]: 'Today' });
+
+        const records = await listRecords(table.id);
+        const requestEndDate = formatShanghaiDate(new Date());
+        const expectedValues = new Set(
+          [requestStartDate, requestEndDate].map((date) => `${date} 00:00`)
+        );
+
+        expect(expectedValues).toContain(records[0]?.fields[formulaFieldId]);
+      });
+      it('preserves the referenced formula timezone for TODAY', async () => {
+        const nameFieldId = createFieldId();
+        const localTodayFieldId = createFieldId();
+        const referencedTodayFieldId = createFieldId();
+
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'FormulaReferencedTimezoneTest',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'formula',
+              id: localTodayFieldId,
+              name: 'LocalToday',
+              options: {
+                expression: 'TODAY()',
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        await ctx.createRecord(table.id, { [nameFieldId]: 'Today' });
+
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            id: referencedTodayFieldId,
+            name: 'ReferencedToday',
+            options: {
+              expression: `{${localTodayFieldId}}`,
+              timeZone: 'utc',
+            },
+          },
+        });
+
+        const records = await listRecords(table.id);
+        const localToday = records[0]?.fields[localTodayFieldId];
+        const referencedToday = records[0]?.fields[referencedTodayFieldId];
+        expect(localToday).not.toBeNull();
+        expect(localToday).not.toBeUndefined();
+        expect(referencedToday).not.toBeNull();
+        expect(referencedToday).not.toBeUndefined();
+
+        const localTimestamp = Date.parse(String(localToday));
+        const referencedTimestamp = Date.parse(String(referencedToday));
+        expect(Number.isFinite(localTimestamp)).toBe(true);
+        expect(Number.isFinite(referencedTimestamp)).toBe(true);
+        expect(Math.abs(referencedTimestamp - localTimestamp) % (24 * 60 * 60 * 1000)).toBe(0);
+      });
 
       /**
        * Scenario: Formula field using DATETIME_PARSE with single-digit month.
@@ -7855,9 +7956,9 @@ describe('v2 computed field updates (e2e)', () => {
     });
 
     /**
-     * Scenario: ConditionalRollup with limit condition.
+     * Scenario: ConditionalRollup SUM ignores stale sort/limit configuration.
      */
-    it('updates conditionalRollup with limit condition', async () => {
+    it('sums all conditionalRollup matches despite a supplied limit', async () => {
       const foreignNameFieldId = createFieldId();
       const foreignValueFieldId = createFieldId();
       const foreignTable = await ctx.createTable({
@@ -7934,15 +8035,15 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
 
       const records = await listRecordsWithoutDrain(hostTable.id);
-      // Should sum only top 2 values (40 + 30 = 70)
-      expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '70');
+      // SUM consumes every matching value (10 + 20 + 30 + 40), unlike array rollups.
+      expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '100');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Limit Host]
           ------------------------
           #  | Name  | Limited Sum
           ------------------------
-          R0 | Host1 | 70
+          R0 | Host1 | 100
           ------------------------"
         `);
     });

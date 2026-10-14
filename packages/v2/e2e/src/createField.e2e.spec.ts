@@ -156,6 +156,122 @@ describe('v2 http createField (e2e)', () => {
     }
   });
 
+  describe.each(['lookup', 'conditionalLookup'] as const)(
+    '%s button source eligibility',
+    (type) => {
+      it.each(['create', 'update'] as const)(
+        'rejects a button source on %s without persisting changes',
+        async (operation) => {
+          const nameId = createFieldId();
+          const amountId = createFieldId();
+          const buttonId = createFieldId();
+          const source = await ctx.createTable({
+            baseId: ctx.baseId,
+            name: 'Source eligibility',
+            fields: [
+              { type: 'singleLineText', id: nameId, name: 'Name', isPrimary: true },
+              { type: 'number', id: amountId, name: 'Amount' },
+              {
+                type: 'button',
+                id: buttonId,
+                name: 'Action',
+                options: { label: 'Run', color: 'blue' },
+              },
+            ],
+            records: [{ fields: { [nameId]: 'Item', [amountId]: 10 } }],
+          });
+          expect(source.fields).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ id: nameId, type: 'singleLineText', isPrimary: true }),
+              expect.objectContaining({ id: amountId, type: 'number' }),
+              expect.objectContaining({ id: buttonId, type: 'button' }),
+            ])
+          );
+          const host = await ctx.createTable({
+            baseId: ctx.baseId,
+            name: 'Lookup eligibility',
+            fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          });
+          try {
+            const linkId = createFieldId();
+            await ctx.createField({
+              baseId: ctx.baseId,
+              tableId: host.id,
+              field: {
+                type: 'link',
+                id: linkId,
+                name: 'Source',
+                options: {
+                  relationship: 'manyMany',
+                  foreignTableId: source.id,
+                  lookupFieldId: nameId,
+                },
+              },
+            });
+            const lookupId = createFieldId();
+            const lookupInput = (lookupFieldId: string): ITableFieldInput => {
+              const common = { id: lookupId, name: 'Values' };
+              const options = { foreignTableId: source.id, lookupFieldId };
+              return type === 'lookup'
+                ? { ...common, type, options: { ...options, linkFieldId: linkId } }
+                : {
+                    ...common,
+                    type,
+                    options: {
+                      ...options,
+                      condition: {
+                        filter: {
+                          conjunction: 'and',
+                          filterSet: [{ fieldId: amountId, operator: 'isGreater', value: 0 }],
+                        },
+                      },
+                    },
+                  };
+            };
+            if (operation === 'update') {
+              await ctx.createField({
+                baseId: ctx.baseId,
+                tableId: host.id,
+                field: lookupInput(amountId),
+              });
+            }
+            const before = await getTableById(host.id);
+            expect(before.fields).toContainEqual(
+              expect.objectContaining({
+                id: linkId,
+                type: 'link',
+                options: expect.objectContaining({
+                  relationship: 'manyMany',
+                  foreignTableId: source.id,
+                }),
+              })
+            );
+            const response = await fetch(`${ctx.baseUrl}/tables/${operation}Field`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                baseId: ctx.baseId,
+                tableId: host.id,
+                ...(operation === 'update' ? { fieldId: lookupId } : {}),
+                field: lookupInput(buttonId),
+              }),
+            });
+            const body = await response.json();
+            expect(response.status, JSON.stringify(body)).toBe(400);
+            expect(body).toMatchObject({
+              ok: false,
+              error: { message: 'Button fields cannot be used as a lookup source' },
+            });
+            expect((await getTableById(host.id)).fields).toEqual(before.fields);
+          } finally {
+            await ctx.deleteTable(host.id);
+            await ctx.deleteTable(source.id);
+          }
+        }
+      );
+    }
+  );
+
   it('persists aiConfig when creating field', async () => {
     const fieldId = createFieldId();
     const aiConfig = {
@@ -1231,6 +1347,60 @@ describe('v2 http createField (e2e)', () => {
         expect(symmetricLinks[0].options.foreignTableId).toBe(tableId);
       } else {
         expect(symmetricLinks).toHaveLength(0);
+      }
+    });
+
+    test.each([
+      { labelName: 'Label', explicit: false, expected: 'label' },
+      { labelName: 'Other', explicit: false, expected: 'primary' },
+      { labelName: 'label', explicit: false, expected: 'primary' },
+      { labelName: 'Label', explicit: true, expected: 'primary' },
+    ])('resolves link display priority: $labelName, explicit=$explicit', async (entry) => {
+      const primaryId = createFieldId();
+      const labelId = createFieldId();
+      const target = await createTable({
+        baseId: ctx.baseId,
+        name: 'Link Display Target',
+        fields: [
+          { id: primaryId, type: 'singleLineText', name: 'Name', isPrimary: true },
+          { id: labelId, type: 'singleLineText', name: entry.labelName },
+        ],
+      });
+      const linkId = createFieldId();
+      try {
+        const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId,
+            field: {
+              id: linkId,
+              type: 'link',
+              name: `Display ${linkId}`,
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: target.id,
+                ...(entry.explicit ? { lookupFieldId: primaryId } : {}),
+              },
+            },
+          }),
+        });
+        expect(response.status).toBe(200);
+        const parsed = createFieldOkResponseSchema.parse(await response.json());
+        if (!parsed.ok) throw new Error('Link creation failed');
+        const created = parsed.data.table.fields.find((field) => field.id === linkId);
+        expect(created?.type).toBe('link');
+        if (created?.type !== 'link') throw new Error('Created link missing');
+        expect(created.options.lookupFieldId).toBe(
+          entry.expected === 'label' ? labelId : primaryId
+        );
+        const stored = await getTableById(tableId);
+        expect(stored.fields.find((field) => field.id === linkId)).toMatchObject({
+          options: { lookupFieldId: entry.expected === 'label' ? labelId : primaryId },
+        });
+      } finally {
+        await ctx.deleteTable(target.id);
       }
     });
 

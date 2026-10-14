@@ -31,9 +31,9 @@ export const LinkCard = (props: ILinkCardProps) => {
       <div
         dir={contentDir}
         className={cn('w-full font-mono text-sm', className)}
-        title={title || t('common.unnamedRecord')}
+        title={title || t('common.untitled')}
       >
-        {title || t('common.unnamedRecord')}
+        {title || t('common.untitled')}
       </div>
       {!readonly && (
         <Button

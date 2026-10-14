@@ -66,6 +66,9 @@ const createHarness = async (
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
+  // Outbox drains run CPU-heavy work between requests; keep the connection open until
+  // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -230,7 +233,7 @@ const waitForOutboxQuiesce = async (harness: TestHarness, rounds = 80) => {
   throw new Error(`Outbox did not quiesce: ${JSON.stringify(leftover.rows)}`);
 };
 
-describe('computed hybrid concurrent target writeback (e2e) T6300', () => {
+describe('[C14][S19] computed hybrid concurrent target writeback (e2e) T6300', () => {
   it('converges exact values after source and target writes overtake a claimed worker', async () => {
     const harness = await createHarness({
       computedUpdate: {

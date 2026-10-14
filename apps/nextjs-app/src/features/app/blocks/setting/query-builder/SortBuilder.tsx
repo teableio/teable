@@ -1,7 +1,8 @@
 import type { ISort } from '@teable/core';
-import { SortFunc } from '@teable/core';
+import { FieldType, SortFunc } from '@teable/core';
 import { DraggableSortList } from '@teable/sdk/components/sort/DraggableSortList';
 import { SortFieldAddButton } from '@teable/sdk/components/sort/SortFieldAddButton';
+import { useFields } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { developerConfig } from '@/features/i18n/developer.config';
@@ -14,6 +15,8 @@ interface ISortProps {
 export function OrderByBuilder(props: Readonly<ISortProps>) {
   const { onChange, orderBy = [] } = props;
   const { t } = useTranslation(developerConfig.i18nNamespaces);
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((field) => field.type !== FieldType.Button);
 
   const selectedFieldIds = useMemo(() => orderBy.map((sort) => sort.fieldId) || [], [orderBy]);
 
@@ -34,12 +37,14 @@ export function OrderByBuilder(props: Readonly<ISortProps>) {
     <div className="flex w-96 flex-col">
       <div className="max-h-96 overflow-auto p-3">
         <DraggableSortList
+          fields={fields}
           sorts={orderBy}
           selectedFields={selectedFieldIds}
           onChange={onSortChange}
         />
       </div>
       <SortFieldAddButton
+        fields={fields}
         addBtnText={t('developer:addSort')}
         selectedFieldIds={selectedFieldIds}
         onSelect={onFieldAdd}

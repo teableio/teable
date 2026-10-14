@@ -74,6 +74,27 @@ export const guardValueSql = (
   return (budget?.sql ?? sqlText)`(CASE WHEN ${errorConditionSql} THEN NULL ELSE ${valueSql} END)`;
 };
 
+/** Preserve explicit ERROR messages in text cells, without exposing other runtime errors. */
+export const guardFormulaValueSql = (
+  valueSql: string,
+  expr: SqlExpr,
+  isTextResult: boolean,
+  budget: FormulaCompileBudget
+): string => {
+  if (
+    !isTextResult ||
+    expr.valueType !== 'string' ||
+    expr.isArray ||
+    !expr.errorConditionSql ||
+    !expr.errorMessageSql
+  ) {
+    return guardValueSql(valueSql, expr.errorConditionSql, budget);
+  }
+  const message = expr.errorMessageSql;
+  const customErrorSql = budget.sql`CASE WHEN ${message} LIKE '#ERROR:USER:%' THEN '#ERROR: ' || SUBSTRING(${message} FROM 13) WHEN ${message} LIKE '#ERROR: %' THEN ${message} ELSE NULL END`;
+  return budget.sql`CASE WHEN ${expr.errorConditionSql} THEN ${customErrorSql} ELSE ${valueSql} END`;
+};
+
 export const withError = (
   expr: SqlExpr,
   errorConditionSql: string,

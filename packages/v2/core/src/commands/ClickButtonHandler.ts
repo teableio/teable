@@ -61,7 +61,7 @@ const buildScopedUpdateForbiddenError = (tableId: string) =>
     code: 'record_write_plugin.scope_forbidden',
     message: 'Record write target includes rows outside the allowed scope.',
     details: {
-      operation: RecordWriteOperationKind.updateOne,
+      operation: RecordWriteOperationKind.buttonClick,
       tableId,
       requestedRecordCount: 1,
       authorizedRecordCount: 0,
@@ -124,7 +124,7 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
       const fieldValues = new Map<string, unknown>([[command.fieldId.toString(), nextValue]]);
 
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
-        kind: RecordWriteOperationKind.updateOne,
+        kind: RecordWriteOperationKind.buttonClick,
         executionContext: context,
         table,
         payload: {
@@ -137,8 +137,21 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
       });
       yield* await pluginExecution.guard();
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
-      if (pluginRecordSpec && !pluginRecordSpec.isSatisfiedBy(currentRecordEntity)) {
-        return err(buildScopedUpdateForbiddenError(table.id().toString()));
+      if (pluginRecordSpec) {
+        const scopeSpec = yield* RecordConditionSpecBuilder.create()
+          .recordId(command.recordId)
+          .addConditionSpec(pluginRecordSpec)
+          .build();
+        // Read scopes may contain relative dates and other SQL-backed conditions.
+        const scopedRecords = yield* await handler.tableRecordQueryRepository.find(
+          context,
+          table,
+          scopeSpec,
+          { mode: 'stored', includeTotal: false }
+        );
+        if (!scopedRecords.records.length) {
+          return err(buildScopedUpdateForbiddenError(table.id().toString()));
+        }
       }
       const allowedFieldIds =
         yield* pluginExecution.getUpdateFieldIdsForRecord(currentRecordEntity);
@@ -148,7 +161,7 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
             code: 'record_write_plugin.update_fields_forbidden',
             message: 'Button Field is outside the allowed update scope.',
             details: {
-              operation: RecordWriteOperationKind.updateOne,
+              operation: RecordWriteOperationKind.buttonClick,
               tableId: table.id().toString(),
               deniedFieldIds: [command.fieldId.toString()],
             },

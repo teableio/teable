@@ -23,7 +23,7 @@ const isPgliteConnection = () => {
 };
 
 describe.skipIf(isPgliteConnection())(
-  'v2 high-cardinality bidirectional link projection (e2e)',
+  '[C14][S19] v2 high-cardinality bidirectional link projection (e2e)',
   () => {
     let ctx: SharedTestContext;
     let fieldSequence = 0;

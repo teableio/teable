@@ -2,6 +2,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import {
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
   CellValueType,
   DbFieldType,
   FieldKeyType,
@@ -9,6 +11,7 @@ import {
   generateFieldId,
   getDefaultFormatting,
   getDbFieldType,
+  HttpErrorCode,
   type IConvertFieldRo,
   type IFieldRo,
   type IFieldVo,
@@ -421,13 +424,6 @@ export class FieldOpenApiV2Service {
 
       if (raw.meta && typeof raw.meta === 'object') {
         delete raw.meta;
-      }
-    }
-
-    if (vo.type === FieldType.Button && vo.options && typeof vo.options === 'object') {
-      const buttonOpts = vo.options as Record<string, unknown>;
-      if (buttonOpts.maxCount === 10 || buttonOpts.maxCount === '10') {
-        delete buttonOpts.maxCount;
       }
     }
 
@@ -1073,6 +1069,18 @@ export class FieldOpenApiV2Service {
             }
             vo.options = nextOptions as IFieldVo['options'];
           }
+          // Source enrichment can reintroduce a scalar numeric display removed by the mapper.
+          const showAs = (vo.options as Record<string, unknown>).showAs;
+          if (
+            !vo.isConditionalLookup &&
+            vo.isMultipleCellValue &&
+            (vo.cellValueType ?? sourceVo.cellValueType) === CellValueType.Number &&
+            showAs &&
+            typeof showAs === 'object' &&
+            'showValue' in showAs
+          ) {
+            delete (vo.options as Record<string, unknown>).showAs;
+          }
           vo.options = this.denormalizeLegacyTimeZone(vo.options) as IFieldVo['options'];
         }
 
@@ -1197,6 +1205,26 @@ export class FieldOpenApiV2Service {
         ...(currentTableId ? { [TeableSpanAttributes.TABLE_ID]: currentTableId } : {}),
       }
     );
+    if (mappedField.type === FieldType.ConditionalRollup && !mappedField.name) {
+      const config = mappedField.config as
+        | { foreignTableId?: string; lookupFieldId?: string }
+        | undefined;
+      if (config?.foreignTableId && config.lookupFieldId) {
+        const foreignTableId = TableId.create(config.foreignTableId);
+        if (foreignTableId.isOk()) {
+          const foreignTable = await tableQueryService.getById(context, foreignTableId.value);
+          if (foreignTable.isErr()) {
+            throwV2Error(foreignTable.error, mapDomainErrorToHttpStatus(foreignTable.error));
+          }
+          const lookupField = foreignTable.value
+            .getFields()
+            .find((field) => field.id().toString() === config.lookupFieldId);
+          if (lookupField) {
+            mappedField.name = `${lookupField.name().toString()} Reference (${foreignTable.value.name().toString()})`;
+          }
+        }
+      }
+    }
     const v2Field = await withV2Span(
       context,
       'completeLegacyLinkDbConfigForCreate',
@@ -1423,9 +1451,9 @@ export class FieldOpenApiV2Service {
       case FieldType.Button:
         return 'Button';
       case FieldType.CreatedBy:
-        return 'Created By';
+        return 'Created by';
       case FieldType.LastModifiedBy:
-        return 'Last Modified By';
+        return 'Last modified by';
       case FieldType.Formula:
         return 'Calculation';
       default:
@@ -2330,6 +2358,36 @@ export class FieldOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
     const currentField = await this.getFieldFromV2(tableId, fieldId, context);
+    const isLookup = Boolean(currentField.isLookup || currentField.isConditionalLookup);
+    if (updateFieldRo.unique && !checkFieldUniqueValidationEnabled(currentField.type, isLookup)) {
+      throw new CustomHttpException(
+        `Field ${currentField.name}[${fieldId}] does not support field value unique validation`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.uniqueUnsupportedType',
+            context: { name: currentField.name, fieldId },
+          },
+        }
+      );
+    }
+    if (updateFieldRo.notNull && !checkFieldNotNullValidationEnabled(currentField.type, isLookup)) {
+      throw new CustomHttpException(
+        `Field ${currentField.name}[${fieldId}] does not support not null validation`,
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    if (
+      updateFieldRo.options?.trackedFieldIds !== undefined &&
+      (isLookup ||
+        (currentField.type !== FieldType.LastModifiedTime &&
+          currentField.type !== FieldType.LastModifiedBy))
+    ) {
+      throw new CustomHttpException(
+        'trackedFieldIds can only be patched on last modified time or last modified by fields',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
 
     const v2Field = this.mapLegacyUpdateFieldToV2(
       updateFieldRo,

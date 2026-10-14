@@ -15,6 +15,7 @@ import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
+import { TableMoveService } from '../table-move.service';
 import { TableModule } from '../table.module';
 import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
@@ -46,12 +47,13 @@ import { V2TableMutationCacheInvalidatorService } from './v2-table-mutation-cach
     TableOpenApiV2Service,
     TableIndexService,
     TableDuplicateService,
+    TableMoveService,
     V2TableMutationCacheInvalidatorService,
     {
       provide: TableMutationCacheInvalidator,
       useExisting: V2TableMutationCacheInvalidatorService,
     },
   ],
-  exports: [TableOpenApiService, TableOpenApiV2Service, TableDuplicateService],
+  exports: [TableOpenApiService, TableOpenApiV2Service, TableDuplicateService, TableMoveService],
 })
 export class TableOpenApiModule {}

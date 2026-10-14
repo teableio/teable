@@ -28,6 +28,11 @@ interface IConfirmDialogProps {
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Where focus goes when the dialog closes. Radix gives it back to the trigger; a dialog
+   * opened from state has none, and focus falls to the page unless the caller places it.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 export const ConfirmDialog = (props: IConfirmDialogProps) => {
   const {
@@ -46,6 +51,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     confirmButtonVariant,
     onConfirm,
     onCancel,
+    onCloseAutoFocus,
   } = props;
 
   return (
@@ -56,6 +62,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
         closeable={closeable}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
+        onCloseAutoFocus={onCloseAutoFocus}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >

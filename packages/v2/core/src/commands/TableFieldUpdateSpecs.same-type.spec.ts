@@ -30,6 +30,7 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import { UpdateButtonWorkflowSpec } from '../domain/table/specs/field-updates/UpdateButtonWorkflowSpec';
+import { UpdateMultipleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateMultipleSelectOptionsSpec';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
@@ -478,10 +479,12 @@ const sameTypeCases: SameTypeCase[] = [
           notNull: true,
           unique: true,
         },
+        // The default is folded into the options spec on purpose: a rename plus
+        // a re-point has to be validated as a pair (see
+        // UpdateSingleSelectOptionsSpec.defaultValueChange).
         expectedSpecNames: [
           'TableUpdateFieldNameSpec',
           'UpdateSingleSelectOptionsSpec',
-          'UpdateSingleSelectDefaultValueSpec',
           'UpdateSingleSelectAutoNewOptionsSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
@@ -495,6 +498,7 @@ const sameTypeCases: SameTypeCase[] = [
             'blueLight2',
             'blueLight1',
           ]);
+          expect(optionsSpec?.defaultValueChange()?.next?.toDto()).toBe('Done');
         },
       };
     },
@@ -527,13 +531,21 @@ const sameTypeCases: SameTypeCase[] = [
           notNull: true,
           unique: true,
         },
+        // See the singleSelect case: the default rides along with the option
+        // rewrite so a rename plus a re-point validates as a pair.
         expectedSpecNames: [
           'TableUpdateFieldNameSpec',
           'UpdateMultipleSelectOptionsSpec',
-          'UpdateMultipleSelectDefaultValueSpec',
           'UpdateMultipleSelectAutoNewOptionsSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
+        assertSpecs: (specs) => {
+          const optionsSpec = specs.find(
+            (spec): spec is UpdateMultipleSelectOptionsSpec =>
+              spec instanceof UpdateMultipleSelectOptionsSpec
+          );
+          expect(optionsSpec?.defaultValueChange()?.next?.toDto()).toEqual(['Todo', 'Done']);
+        },
       };
     },
   },

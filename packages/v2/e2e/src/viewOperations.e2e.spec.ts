@@ -8,7 +8,7 @@ import {
   type SharedTestContext,
 } from './shared/globalTestContext';
 
-describe('v2 http View operation contracts (e2e)', () => {
+describe('[B09] v2 http View operation contracts (e2e)', () => {
   let ctx: SharedTestContext;
   let client: ReturnType<typeof createV2HttpClient>;
   let tableId: string;

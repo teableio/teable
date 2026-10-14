@@ -43,9 +43,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DuplicateRecordsStreamHandler.ts` - Role: command handler; Purpose: expose bulk row duplication as an async progress stream.
 - `DeleteFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deleting a field.
 - `DeleteFieldHandler.ts` - Role: command handler; Purpose: remove field metadata/schema and publish
-  events for dependent View column/query cleanup.
-- `DeleteFieldsHandler.ts` - Role: command handler; Purpose: batch-remove field metadata/schema and
-  publish events for dependent View column/query cleanup.
+  events for dependent View column/query cleanup; capture dependency snapshots for both direct and
+  symmetric Link deletions so undo restores propagated error states.
+- `DeleteFieldsHandler.ts` - Role: command handler; Purpose: batch-remove field metadata/schema with
+  the same dependent cleanup and deduplicated direct/symmetric dependency snapshots.
 - `DeleteViewCommand.ts` - Role: command DTO + schema; Purpose: validate Table-owned View deletion.
 - `DeleteViewHandler.ts` - Role: command handler; Purpose: lock and load Table aggregate roots, persist
   View removal and cross-Table Link filter cleanup, then publish events after commit.
@@ -55,6 +56,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DuplicateTableCommand.ts` - Role: command DTO + schema; Purpose: validate table duplication inputs.
 - `DuplicateTableHandler.ts` - Role: command handler; Purpose: duplicate table structure/records via
   aggregate remapping and existing repositories.
+- `buildPhysicalTableDuplicatePlan.ts` - Role: physical row-copy plan; Purpose: remap durable
+  field/view columns while clearing modification history. The Postgres executor omits generated
+  target columns so auto numbers restart consecutively and creation times use the copy time;
+  modification time/by remain empty until an edit, including field-specific tracking.
+  Before the copy commits, the executor synchronously recalculates consumers of these reset
+  system fields, including transitive formulas, without treating the copy as an edit.
 - `ImportCsvCommand.ts` - Role: command DTO + schema; Purpose: validate CSV import inputs (table/source/columns only; no host folderId).
 - `ImportCsvHandler.ts` - Role: command handler; Purpose: parse CSV then create table/records via ImportTabularTableService.
 - `ImportExcelCommand.ts` - Role: command DTO + schema; Purpose: validate Excel create-table import inputs (no host folderId).
@@ -72,7 +79,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   row-order storage, persist View state, materialize record order, and append View history.
 - `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.
 - `UpdateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for updating a record.
-- `UpdateRecordHandler.ts` - Role: command handler; Purpose: update record, persist, publish.
+- `UpdateRecordHandler.ts` - Role: command handler; Purpose: update record, persist, publish. A field-only request containing exclusively known computed fields returns the unchanged record after write-scope checks, without persistence, events, or undo history; unknown fields still fail validation.
 
 ## Examples
 

@@ -31,6 +31,16 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `RecordBulkUpdateService.ts` - Role: application service; Purpose: prepare and execute selector
   or explicit-record batch updates, letting the domain model build specs/results while the service
   coordinates repository persistence, events, and undo/redo.
+- `PasteLinkAutoResolveService.ts` - Role: paste-specific link-title validation and resolution.
+  Both range paste and ID-based paste must validate textual link targets before record writes;
+  ID-based hosts also validate planned link columns before persisting column expansion. Clipboard
+  repetition uses the final planned width, and permission-filtered updates and creates share this
+  preflight. Generic typecast updates are not a substitute because unresolved titles can become
+  empty links.
+  Non-primary display fields reject title paste with `paste.link_auto_create_requires_primary_lookup`.
+  Computed non-text primaries (including auto-number) reject with
+  `paste.link_auto_create_computed_primary_unsupported`; text formulas may still resolve existing
+  titles. Explicit record IDs and empty link values do not request title resolution.
 - `RecordReorderService.ts` - Role: application service; Purpose: apply batched row-order updates
   and build reorder events plus undo/redo payloads for callers that need native v2 reorder flows.
 - `ImportTabularTableService.ts` - Role: application service; Purpose: shared create-table
@@ -46,6 +56,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   filter/group/sort semantic events without consuming later mutation versions. Physical schema
   completion publishes `TableProvisionReady` after ready is committed, even when mutation events
   are deferred with `publishEvents: false`; outer transactions own this notification after commit.
+- `FieldUndoRedoReplayService.ts` - Role: field snapshot replay; Purpose: restore field state through aggregate mutation when changing `hasError`, so persisted recovery also emits `FieldUpdated` to existing realtime subscribers.
 - `ViewPluginCreationService.ts` - Role: application service; Purpose: resolve external Plugin
   definitions and prepare/install Plugin View integrations around aggregate creation.
 - `ViewManualSortService.ts` - Role: application service; Purpose: execute aggregate-declared

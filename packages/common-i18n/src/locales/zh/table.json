@@ -1125,14 +1125,6 @@
     "collapseAllGroups": "收起所有分组",
     "addToChat": "添加到对话"
   },
-  "connection": {
-    "title": "数据库连接",
-    "description": "你可以通过数据库连接来直接访问数据库",
-    "noPermission": "你没有权限访问数据库连接",
-    "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
-    "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
-    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。"
-  },
   "view": {
     "addRecord": "添加记录",
     "searchView": "搜索视图...",
@@ -1469,6 +1461,8 @@
       "submit": "提交"
     },
     "newChat": "新对话",
+    "alreadyInNewChat": "已经在新对话中",
+    "initChatFailed": "初始化对话失败",
     "clearChat": "清除对话",
     "expand": "展开",
     "history": "历史记录",
@@ -1503,8 +1497,11 @@
     "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
     "pin": "置顶",
     "unpin": "取消置顶",
+    "markRead": "标为已读",
+    "markUnread": "标为未读",
+    "markAllRead": "全部标为已读（{{count}}）",
     "archive": "归档",
-    "archivedToast": "对话已归档，可在「设置 › 已归档对话」中查看。",
+    "archivedToast": "对话已归档",
     "unread": "未读",
     "timeGroup": {
       "pinned": "置顶",
@@ -1623,7 +1620,6 @@
       "pausedHidden": "已暂停重试，请切回此标签页以重新连接。",
       "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
-    "initChatFailed": "初始化对话失败",
     "app": {
       "loadingChatHistory": "加载对话历史...",
       "generatorTitle": "AI 应用生成器",
@@ -1718,6 +1714,44 @@
         "stale": "需要重建",
         "unknown": "状态未知"
       }
+    },
+    "moveToBase": {
+      "menu": "移动",
+      "title": "将 <b>{{name}}</b> 移动到其他项目",
+      "confirm": "移动",
+      "targetLabel": "目标项目",
+      "targetPlaceholder": "选择项目",
+      "noTarget": "该空间内没有其他项目可以接收此节点。",
+      "checking": "正在检查此次移动的影响…",
+      "blockers": {
+        "same_base": "该节点已在此项目中。",
+        "target_not_found": "目标项目已不存在。",
+        "different_space": "节点只能在同一空间的项目之间移动。",
+        "v2_mismatch": "两个项目使用的存储引擎版本不同。",
+        "source_not_writable": "当前项目目前为只读状态。",
+        "target_not_writable": "目标项目目前为只读状态。",
+        "no_source_permission": "没有权限将此节点从当前项目中移出。",
+        "no_target_permission": "没有权限在目标项目中创建此类节点。",
+        "folder_name_conflict": "目标项目中已存在同名文件夹。",
+        "unsupported_resource": "此类节点暂不支持移动。",
+        "pending_computed_tasks": "该表仍有计算任务在运行，请稍后重试。",
+        "unknown": "不允许执行此次移动。"
+      },
+      "movingCount": "共移动 {{count}} 个节点",
+      "moveClosure": "移动所有相关引用",
+      "moveClosureHint": "只移动被引用的节点。关联表不会移动，它们与被移动表的关联会变成跨项目关联，但仍可正常使用。",
+      "breakingCount": "{{count}} 个节点移动后可能无法使用",
+      "referencesLabel": "引用",
+      "appEmbeddedId": "{{count}} 个应用的代码中写有旧项目 ID，需自行更新",
+      "appEmbeddedIdDetail": "{{apps}}。这些应用的代码不会被修改；移动后请逐个打开更新，否则它们会继续读取原项目的数据。",
+      "occurrences": "{{count}} 处",
+      "uninspectableTitle": "{{count}} 个应用无法检查，移动后请自行确认",
+      "droppedRules": "{{count}} 条权限规则将被移除，且无法恢复",
+      "droppedRulesDetail": "权限规则绑定的角色属于当前项目，无法随节点一起移动。移动后这些节点改为适用目标项目的权限设置；如需相同限制，请在目标项目重新配置。",
+      "successTitle": "已移动",
+      "open": "打开",
+      "linkedAcrossProjects": "{{count}} 个表将变成跨项目关联",
+      "successDescription": "<b>{{count}}</b> 个节点已移动到 <b>{{baseName}}</b>"
     }
   }
 }

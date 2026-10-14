@@ -61,6 +61,13 @@ with one graph and binding scope, so different formulas also share common subtre
 Batch-level formula dependencies remain references to prior CTE columns; consumed computed layers and same-layer CSE have optimizer
 boundaries tested against native PostgreSQL.
 
+`TODAY()` computes the current calendar date and its midnight instant entirely in
+PostgreSQL using the defining formula field's time zone, not the JavaScript host
+or database session time zone. Recursive formula references retain that defining
+zone in the expression graph; ordinary lowering and fused array operations use
+the same zone for their coercions. A referencing field may format the result in
+another zone, but must not reinterpret the referenced formula's midnight.
+
 ## Regression acceptance
 
 - `FormulaExpressionGraph.spec.ts`: graph identity, dependency sharing, branches,

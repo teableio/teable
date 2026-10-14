@@ -16,16 +16,46 @@ export class FormulaSqlPgLowering {
   readonly bindings: FormulaSqlPgBindings;
   private readonly uses = new Map<number, number>();
   private readonly lowered = new Map<number, SqlExpr>();
+  private readonly translator: FormulaSqlPgTranslator;
   private readonly functions: FormulaSqlPgFunctions;
-  private readonly arrayFusion: FormulaSqlPgArrayFusion;
+  private readonly functionsByTimeZone = new Map<string, FormulaSqlPgFunctions>();
+  private readonly arrayFusionByTimeZone = new Map<string, FormulaSqlPgArrayFusion>();
 
   constructor(
     translator: FormulaSqlPgTranslator,
     readonly budget = new FormulaCompileBudget()
   ) {
+    this.translator = translator;
     this.bindings = new FormulaSqlPgBindings(budget);
     this.functions = new FormulaSqlPgFunctions(translator, this.bindings);
-    this.arrayFusion = new FormulaSqlPgArrayFusion(translator, this.bindings);
+    this.functionsByTimeZone.set(translator.timeZone, this.functions);
+    this.arrayFusionByTimeZone.set(
+      translator.timeZone,
+      new FormulaSqlPgArrayFusion(translator, this.bindings)
+    );
+  }
+
+  private functionsFor(timeZone?: string): FormulaSqlPgFunctions {
+    const effectiveTimeZone = timeZone ?? this.translator.timeZone;
+    const cached = this.functionsByTimeZone.get(effectiveTimeZone);
+    if (cached) return cached;
+    const functions = new FormulaSqlPgFunctions(
+      this.translator.withTimeZone(effectiveTimeZone),
+      this.bindings
+    );
+    this.functionsByTimeZone.set(effectiveTimeZone, functions);
+    return functions;
+  }
+  private arrayFusionFor(timeZone?: string): FormulaSqlPgArrayFusion {
+    const effectiveTimeZone = timeZone ?? this.translator.timeZone;
+    const cached = this.arrayFusionByTimeZone.get(effectiveTimeZone);
+    if (cached) return cached;
+    const arrayFusion = new FormulaSqlPgArrayFusion(
+      this.translator.withTimeZone(effectiveTimeZone),
+      this.bindings
+    );
+    this.arrayFusionByTimeZone.set(effectiveTimeZone, arrayFusion);
+    return arrayFusion;
   }
 
   lowerAll(nodes: ReadonlyArray<FormulaExpressionNode>): ReadonlyArray<SqlExpr> {
@@ -169,9 +199,12 @@ export class FormulaSqlPgLowering {
         };
       }
       case 'unary':
-        return this.functions.applyUnaryOp(node.operator, this.lower(node.operand));
+        return this.functionsFor(node.timeZone).applyUnaryOp(
+          node.operator,
+          this.lower(node.operand)
+        );
       case 'binary':
-        return this.functions.applyBinaryOp(
+        return this.functionsFor(node.timeZone).applyBinaryOp(
           node.operator,
           this.lower(node.left),
           this.lower(node.right)
@@ -179,8 +212,11 @@ export class FormulaSqlPgLowering {
       case 'call': {
         const fused = this.arrayFusionInputs(node);
         if (fused)
-          return this.arrayFusion.sumCompactTextSplit(this.lower(fused[0]), this.lower(fused[1]));
-        const handler = this.functions.getHandlers()[node.name as FunctionName];
+          return this.arrayFusionFor(node.timeZone).sumCompactTextSplit(
+            this.lower(fused[0]),
+            this.lower(fused[1])
+          );
+        const handler = this.functionsFor(node.timeZone).getHandlers()[node.name as FunctionName];
         if (!handler)
           return makeExpr(
             'NULL',

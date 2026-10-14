@@ -243,12 +243,7 @@ describe('PluginAuthService', () => {
   });
 
   it('never offers base-management scopes to a plugin token', () => {
-    const forbidden = [
-      'base|db_connection',
-      'base|authority_matrix_config',
-      'base|invite_email',
-      'base|invite_link',
-    ];
+    const forbidden = ['base|authority_matrix_config', 'base|invite_email', 'base|invite_link'];
     for (const scope of forbidden) {
       expect(pluginBaseActions).not.toContain(scope);
       expect(() => pluginGetTokenRoSchema.parse({ ...tokenRo, scopes: [scope] })).toThrow();

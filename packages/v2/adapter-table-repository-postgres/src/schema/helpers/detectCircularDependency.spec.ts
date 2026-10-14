@@ -68,6 +68,9 @@ describe('detectCircularDependency', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toMatch(/circular dependency/i);
+      expect(result.error.localization).toEqual({
+        i18nKey: 'httpErrors.field.cycleDetectedCreateFieldGeneric',
+      });
     }
   });
 

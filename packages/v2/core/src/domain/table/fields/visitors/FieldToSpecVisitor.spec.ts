@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
+import { ClearFieldValueSpec } from '../../records/specs/values/ClearFieldValueSpec';
 import { SetAttachmentValueSpec } from '../../records/specs/values/SetAttachmentValueSpec';
+import { SetButtonValueSpec } from '../../records/specs/values/SetButtonValueSpec';
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
@@ -279,18 +280,19 @@ describe('FieldToSpecVisitor', () => {
       name: createFieldName('Action'),
     })._unsafeUnwrap();
 
-    it('ignores provided value in non-typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create('Click', false);
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it.each([false, true])('persists button count (typecast=%s)', (typecast) => {
+      const spec = field.accept(FieldToSpecVisitor.create({ count: 3 }, typecast))._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetButtonValueSpec);
+      expect((spec as SetButtonValueSpec).value.toValue()).toEqual({ count: 3 });
     });
 
-    it('ignores provided value in typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create('Click', true);
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it('rejects invalid input in non-typecast mode', () => {
+      expect(field.accept(FieldToSpecVisitor.create('Click', false)).isErr()).toBe(true);
+    });
+
+    it('clears invalid input in typecast mode', () => {
+      const spec = field.accept(FieldToSpecVisitor.create('Click', true))._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(ClearFieldValueSpec);
     });
   });
 

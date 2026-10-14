@@ -35,9 +35,12 @@ export class FormulaSqlPgVisitor
     super();
   }
   private readonly resolved = new Map<ExprContext, FormulaExpressionNode>();
+  private intern(node: Parameters<FormulaExpressionGraph['intern']>[0]): FormulaExpressionNode {
+    return this.graph.intern({ ...node, timeZone: this.translator.timeZone });
+  }
 
   private leaf(expression: SqlExpr): FormulaExpressionNode {
-    return this.graph.intern({ kind: 'leaf', expression });
+    return this.intern({ kind: 'leaf', expression });
   }
 
   protected defaultResult(): FormulaExpressionNode {
@@ -123,7 +126,7 @@ export class FormulaSqlPgVisitor
     if (cached) return cached;
     const operand = ctx.expr().accept(this);
     if (ctx.MINUS()) {
-      return this.graph.intern({ kind: 'unary', operator: 'minus', operand });
+      return this.intern({ kind: 'unary', operator: 'minus', operand });
     }
     return this.leaf(makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR));
   }
@@ -135,46 +138,46 @@ export class FormulaSqlPgVisitor
     const right = ctx.expr(1).accept(this);
 
     if (ctx.PLUS()) {
-      return this.graph.intern({ kind: 'binary', operator: '+', left, right });
+      return this.intern({ kind: 'binary', operator: '+', left, right });
     }
     if (ctx.MINUS()) {
-      return this.graph.intern({ kind: 'binary', operator: '-', left, right });
+      return this.intern({ kind: 'binary', operator: '-', left, right });
     }
     if (ctx.STAR()) {
-      return this.graph.intern({ kind: 'binary', operator: '*', left, right });
+      return this.intern({ kind: 'binary', operator: '*', left, right });
     }
     if (ctx.SLASH()) {
-      return this.graph.intern({ kind: 'binary', operator: '/', left, right });
+      return this.intern({ kind: 'binary', operator: '/', left, right });
     }
     if (ctx.PERCENT()) {
-      return this.graph.intern({ kind: 'binary', operator: '%', left, right });
+      return this.intern({ kind: 'binary', operator: '%', left, right });
     }
     if (ctx.EQUAL()) {
-      return this.graph.intern({ kind: 'binary', operator: '=', left, right });
+      return this.intern({ kind: 'binary', operator: '=', left, right });
     }
     if (ctx.BANG_EQUAL()) {
-      return this.graph.intern({ kind: 'binary', operator: '<>', left, right });
+      return this.intern({ kind: 'binary', operator: '<>', left, right });
     }
     if (ctx.GT()) {
-      return this.graph.intern({ kind: 'binary', operator: '>', left, right });
+      return this.intern({ kind: 'binary', operator: '>', left, right });
     }
     if (ctx.GTE()) {
-      return this.graph.intern({ kind: 'binary', operator: '>=', left, right });
+      return this.intern({ kind: 'binary', operator: '>=', left, right });
     }
     if (ctx.LT()) {
-      return this.graph.intern({ kind: 'binary', operator: '<', left, right });
+      return this.intern({ kind: 'binary', operator: '<', left, right });
     }
     if (ctx.LTE()) {
-      return this.graph.intern({ kind: 'binary', operator: '<=', left, right });
+      return this.intern({ kind: 'binary', operator: '<=', left, right });
     }
     if (ctx.PIPE_PIPE()) {
-      return this.graph.intern({ kind: 'binary', operator: 'OR', left, right });
+      return this.intern({ kind: 'binary', operator: 'OR', left, right });
     }
     if (ctx.AMP_AMP()) {
-      return this.graph.intern({ kind: 'binary', operator: 'AND', left, right });
+      return this.intern({ kind: 'binary', operator: 'AND', left, right });
     }
     if (ctx.AMP()) {
-      return this.graph.intern({ kind: 'binary', operator: '&', left, right });
+      return this.intern({ kind: 'binary', operator: '&', left, right });
     }
 
     return this.leaf(makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR));
@@ -220,7 +223,7 @@ export class FormulaSqlPgVisitor
     const rawName = ctx.func_name().text.toUpperCase();
     const normalized = normalizeFunctionNameAlias(rawName);
     const args = ctx.expr().map((exprCtx: ExprContext) => exprCtx.accept(this));
-    return this.graph.intern({ kind: 'call', name: normalized, args });
+    return this.intern({ kind: 'call', name: normalized, args });
   }
 
   private unescapeString(str: string): string {

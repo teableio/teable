@@ -11,7 +11,7 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
-describe('update-field: lookup property updates', () => {
+describe('[D01][S01] update-field: lookup property updates', () => {
   let ctx: SharedTestContext;
   let sourceTableId: string;
   let foreignTableId: string;

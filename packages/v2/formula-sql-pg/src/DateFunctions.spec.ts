@@ -19,6 +19,31 @@ type DateFunctionCase = {
 const maskDigits = (value: string | null): string | null =>
   value ? value.replace(/\d/g, '0') : value;
 
+const workdayDiffResults: Record<string, string | null> = {
+  attachment: '#ERROR:TYPE:cannot_cast_to_datetime',
+  autoNumber: null,
+  button: '#ERROR:TYPE:cannot_cast_to_datetime',
+  checkbox: '#ERROR:TYPE:cannot_cast_boolean_to_datetime',
+  conditionalLookup: null,
+  conditionalRollup: null,
+  createdBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  createdTime: '0',
+  date: '1',
+  formula: null,
+  lastModifiedBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  lastModifiedTime: '0',
+  link: '#ERROR:TYPE:cannot_cast_to_datetime',
+  longText: '#ERROR:TYPE:cannot_cast_to_datetime',
+  lookup: '0',
+  multipleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  number: null,
+  rating: null,
+  rollup: null,
+  singleLineText: '#ERROR:TYPE:cannot_cast_to_datetime',
+  singleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  user: '#ERROR:TYPE:cannot_cast_to_datetime',
+};
+
 const dateFunctionCases: ReadonlyArray<DateFunctionCase> = [
   { id: 'Year', buildExpression: (fieldName) => `YEAR({${fieldName}})` },
   { id: 'Month', buildExpression: (fieldName) => `MONTH({${fieldName}})` },
@@ -212,6 +237,10 @@ const runDateFunctionSuite = (
 
         const context = await buildFormulaSnapshotContext(testTable, formulaName);
         const result = normalizeResult ? normalizeResult(context.result) : context.result;
+        if (funcId === 'WorkdayDiff') {
+          expect(result).toBe(workdayDiffResults[fieldCase.type]);
+          return;
+        }
         expect({
           funcId,
           fieldType: fieldCase.type,

@@ -1,6 +1,12 @@
 import { ok, type Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
@@ -12,7 +18,7 @@ import { FieldComputed } from './FieldComputed';
 import { FormulaExpression } from './FormulaExpression';
 import { GeneratedColumnMeta } from './GeneratedColumnMeta';
 
-export class LastModifiedTimeField extends Field {
+export class LastModifiedTimeField extends Field implements OnTeableFieldDeleted {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -75,6 +81,33 @@ export class LastModifiedTimeField extends Field {
 
   expression(): FormulaExpression {
     return this.expressionValue;
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
+    if (
+      !context.sourceTable.id().equals(context.table.id()) ||
+      !this.trackedFieldIdsValue.some((id) => id.equals(deletedField.id()))
+    ) {
+      return ok(undefined);
+    }
+
+    return LastModifiedTimeField.create({
+      id: this.id(),
+      name: this.name(),
+      formatting: this.formatting(),
+      trackedFieldIds: this.trackedFieldIdsValue.filter((id) => !id.equals(deletedField.id())),
+      // Track-all writes also support stored columns. Keep historical stamps so
+      // undoing this metadata-only cleanup can restore the original tracking.
+      meta: this.meta(),
+    }).andThen((updatedField) =>
+      updatedField.setDescription(this.description()).map(() => ({
+        spec: TableUpdateFieldTypeSpec.create(this, updatedField),
+        relatedFieldIds: [this.id()],
+      }))
+    );
   }
 
   duplicate(params: FieldDuplicateParams): Result<Field, DomainError> {

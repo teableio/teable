@@ -23,7 +23,7 @@ import {
   type SharedTestContext,
 } from './shared/globalTestContext';
 
-describe('remaining table API queries (e2e, v1 integration parity)', () => {
+describe('[C17] remaining table API queries (e2e, v1 integration parity)', () => {
   let ctx: SharedTestContext;
   let queryBus: IQueryBus;
   const actorId = ActorId.create(TEST_USER.id)._unsafeUnwrap();

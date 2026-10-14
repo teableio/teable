@@ -83,6 +83,7 @@ export class FormulaSqlPgTranslator {
   readonly tableAlias: string;
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   readonly timeZone: string;
+  private readonly table: Table;
   private readonly fieldById: Map<string, Field>;
   private readonly fieldByName: Map<string, Field>;
   private readonly resolveFieldSql: FieldSqlResolver;
@@ -90,7 +91,6 @@ export class FormulaSqlPgTranslator {
   private readonly skipFormulaExpansion: boolean;
   private readonly compileBudgetOptions: FormulaCompileBudgetOptions | undefined;
   private readonly budget?: FormulaCompileBudget;
-
   constructor(options: FormulaSqlPgTranslatorOptions) {
     if (options.compileBudget) assertFormulaCompileBudgetOptions(options.compileBudget);
     if (
@@ -102,6 +102,7 @@ export class FormulaSqlPgTranslator {
     )
       throw new Error('Formula compilation meter does not match configured policy');
     this.budget = options.budget;
+    this.table = options.table;
     const compileBudget = options.compileBudget ?? options.budget?.options;
     this.compileBudgetOptions = compileBudget ? Object.freeze({ ...compileBudget }) : undefined;
     this.tableAlias = options.tableAlias;
@@ -115,6 +116,19 @@ export class FormulaSqlPgTranslator {
     this.fieldByName = new Map(
       fields.map((field) => [field.name().toString().trim().toLowerCase(), field])
     );
+  }
+  withTimeZone(timeZone: string): FormulaSqlPgTranslator {
+    return new FormulaSqlPgTranslator({
+      table: this.table,
+      compileBudget: this.compileBudgetOptions,
+      budget: this.budget,
+      tableAlias: this.tableAlias,
+      resolveFieldSql: this.resolveFieldSql,
+      timeZone,
+      allowFieldNameFallback: this.allowNameFallback,
+      skipFormulaExpansion: this.skipFormulaExpansion,
+      typeValidationStrategy: this.typeValidationStrategy,
+    });
   }
 
   private readonly compiled = new WeakMap<
@@ -209,17 +223,21 @@ export class FormulaSqlPgTranslator {
       graph.budget.check('referenceDepth', graph.visitingFields.size + 1);
       graph.visitingFields.add(id);
     }
+    const formulaTimeZone = formula?.timeZone()?.toString() ?? 'utc';
     const result =
       formula && parsed && !useStored
         ? parsed.map((tree) =>
             graph.intern({
               kind: 'field',
               field,
-              value: tree.accept(new FormulaSqlPgVisitor(this, graph)),
+              timeZone: formulaTimeZone,
+              value: tree.accept(
+                new FormulaSqlPgVisitor(this.withTimeZone(formulaTimeZone), graph)
+              ),
             })
           )
         : this.resolveField(field, false).map((expression) =>
-            graph.intern({ kind: 'leaf', expression })
+            graph.intern({ kind: 'leaf', expression, timeZone: this.timeZone })
           );
     graph.visitingFields.delete(id);
     if (result.isOk()) {

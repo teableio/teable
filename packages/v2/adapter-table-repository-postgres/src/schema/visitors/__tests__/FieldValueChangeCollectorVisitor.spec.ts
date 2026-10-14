@@ -8,9 +8,11 @@ import {
   RatingMax,
   RollupExpression,
   RollupFieldConfig,
+  FieldHasError,
   RemoveSymmetricLinkFieldSpec,
   SelectOption,
   TableRemoveFieldSpec,
+  TableUpdateFieldHasErrorSpec,
   TableUpdateFieldNameSpec,
   TableUpdateFieldTypeSpec,
   UpdateFormulaExpressionSpec,
@@ -25,6 +27,7 @@ import {
   UpdateUserMultiplicitySpec,
   UserMultiplicity,
   createFormulaField,
+  createLongTextField,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
@@ -52,6 +55,30 @@ const mkLinkConfig = (params: {
 }) => LinkFieldConfig.create(params)._unsafeUnwrap();
 
 describe('FieldValueChangeCollectorVisitor', () => {
+  describe('visitTableUpdateFieldHasError', () => {
+    it('self-backfills the field when clearing an error', () => {
+      const fieldId = mkFieldId('clearError');
+      const spec = TableUpdateFieldHasErrorSpec.clearError(fieldId, FieldHasError.error());
+      const visitor = new FieldValueChangeCollectorVisitor();
+
+      spec.accept(visitor);
+
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.selfBackfillFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+    });
+
+    it('propagates dependents when setting an error', () => {
+      const fieldId = mkFieldId('setError');
+      const spec = TableUpdateFieldHasErrorSpec.setError(fieldId, FieldHasError.ok());
+      const visitor = new FieldValueChangeCollectorVisitor();
+
+      spec.accept(visitor);
+
+      expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+  });
+
   // ============ TableUpdateFieldTypeSpec ============
 
   describe('visitTableUpdateFieldType', () => {
@@ -148,6 +175,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       // text -> number changes cellValueType from 'string' to 'number'
       // which means the DB column type changes from text to double precision
       expect(visitor.hasDbStorageTypeChange()).toBe(true);
+      expect(visitor.deferredBackfillFields()).toEqual([newField.id()]);
     });
 
     it('should not detect hasDbStorageTypeChange when cellValueType stays the same', () => {
@@ -160,6 +188,19 @@ describe('FieldValueChangeCollectorVisitor', () => {
 
       // text -> text, no type conversion at all
       expect(visitor.hasDbStorageTypeChange()).toBe(false);
+    });
+    it('keeps DISTINCT filtering for text-to-longText without deferring unchanged storage', () => {
+      const oldField = createTextField('textKind', 'Text', 'text_col')._unsafeUnwrap();
+      const newField = createLongTextField({
+        id: oldField.id(),
+        name: oldField.name(),
+      })._unsafeUnwrap();
+      const visitor = new FieldValueChangeCollectorVisitor();
+      TableUpdateFieldTypeSpec.create(oldField, newField).accept(visitor)._unsafeUnwrap();
+
+      expect(visitor.valueChangedFields()).toEqual([newField.id()]);
+      expect(visitor.hasDbStorageTypeChange()).toBe(false);
+      expect(visitor.deferredBackfillFields()).toEqual([]);
     });
   });
 

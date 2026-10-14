@@ -161,7 +161,7 @@ const unwrap = <T, E extends { message: string }>(result: Result<T, E>): T => {
 const COMPUTE_ACTIVITY_CHANGED = 'computeActivityChanged';
 const actionTriggerChannel = (tableId: string) => `__action_trigger_${tableId}`;
 
-describe('computed activity realtime presence (e2e)', () => {
+describe('[C14][S19] computed activity realtime presence (e2e)', () => {
   let testContainer: IV2NodeTestContainer;
   let runtime: ShareDbRuntime | undefined;
   let httpServer: Server | undefined;
@@ -194,6 +194,9 @@ describe('computed activity realtime presence (e2e)', () => {
     httpServer = await new Promise<Server>((resolve) => {
       const server = app.listen(0, '127.0.0.1', () => resolve(server));
     });
+    // Outbox drains run CPU-heavy work between requests; keep the connection open until
+    // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+    httpServer.keepAliveTimeout = 0;
     const address = httpServer.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
   }, 120_000);

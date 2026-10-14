@@ -39,6 +39,7 @@ import { NotificationService } from '../notification/notification.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
+import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
 
 type ExportDb = Kysely<unknown>;
 
@@ -124,6 +125,7 @@ type AttachmentMetadataRow = {
 };
 
 const csvChunkSize = 500;
+const autoNumberColumn = '__auto_number';
 const fileSuffix = 'tea';
 
 const parseJson = (value: string | null | undefined): unknown => {
@@ -181,18 +183,8 @@ export class BaseExportV2Service {
     const base = await this.getBase(metaDb, baseId);
     const baseName = base.name;
     const passThrough = new PassThrough();
-    const archive = archiver('zip', {
-      zlib: { level: 9 },
-    });
-
-    archive.on('warning', (err) => {
-      if (err.code !== 'ENOENT') {
-        passThrough.emit('error', err);
-      }
-    });
-    archive.on('error', (err) => {
-      passThrough.emit('error', err);
-    });
+    const archive = archiver('zip', EXPORT_ZIP_OPTIONS);
+    const guard = guardExportArchive(archive, passThrough);
     archive.pipe(passThrough);
 
     const token = getRandomString(12);
@@ -208,21 +200,18 @@ export class BaseExportV2Service {
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
       }
     );
+    // The upload runs alongside the archive; a part failing mid-export must stop the export
+    // instead of surfacing later as an unhandled rejection.
+    uploadPromise.catch(guard.fail);
 
     try {
       onProgress?.('exporting_archive');
-      await this.processExportBaseZip(
-        metaDb,
-        dataDb,
-        container,
-        base,
-        includeData,
-        archive,
-        onProgress
+      await guard.run(
+        this.processExportBaseZip(metaDb, dataDb, container, base, includeData, archive, onProgress)
       );
-      await archive.finalize();
+      await guard.run(archive.finalize());
       onProgress?.('uploading_archive');
-      const uploadResult = await uploadPromise;
+      const uploadResult = await guard.run(uploadPromise);
       onProgress?.('generating_download_url');
       const previewUrl = await this.storageAdapter.getPreviewUrl(
         bucket,
@@ -718,23 +707,33 @@ export class BaseExportV2Service {
     onProgress?: ExportBaseProgressCallback
   ): AsyncGenerator<string> {
     yield `${headers.join(',')}\n`;
-    let offset = 0;
+    // Physical columns always win below, so the record query only matters for fields
+    // without one; for typical tables it is skipped entirely.
+    const needsRecordFields = headers.length > physicalHeaders.length;
+    let afterAutoNumber: unknown;
+    let batch = 0;
     let processedRows = 0;
-    let hasMore = true;
 
-    while (hasMore) {
-      const rawRows = await this.getRawRows(db, table.db_table_name, physicalHeaders, offset);
+    while (true) {
+      const rawRows = await this.getRawRows(
+        db,
+        table.db_table_name,
+        physicalHeaders,
+        afterAutoNumber
+      );
       if (rawRows.length === 0) {
-        hasMore = false;
         break;
       }
-      const recordFields = await this.getRecordFieldsByDbName(
-        queryBus,
-        context,
-        table.id,
-        fields,
-        rawRows.flatMap((row) => (typeof row.__id === 'string' ? [row.__id] : []))
-      );
+      afterAutoNumber = rawRows[rawRows.length - 1]![autoNumberColumn];
+      const recordFields = needsRecordFields
+        ? await this.getRecordFieldsByDbName(
+            queryBus,
+            context,
+            table.id,
+            fields,
+            rawRows.flatMap((row) => (typeof row.__id === 'string' ? [row.__id] : []))
+          )
+        : new Map<string, Record<string, unknown>>();
 
       const rows = rawRows.map((rawRow) => {
         const recordId = String(rawRow.__id ?? '');
@@ -748,7 +747,7 @@ export class BaseExportV2Service {
       });
 
       yield stringify(rows, { columns: headers });
-      offset += csvChunkSize;
+      batch += 1;
       processedRows += rawRows.length;
       onProgress?.('table_data_progress', table.name, {
         type: 'progress',
@@ -757,7 +756,7 @@ export class BaseExportV2Service {
         tableName: table.name,
         processedRows,
         batchProcessedRows: rawRows.length,
-        currentBatch: Math.ceil(offset / csvChunkSize),
+        currentBatch: batch,
       });
     }
   }
@@ -778,16 +777,20 @@ export class BaseExportV2Service {
     db: ExportDb,
     dbTableName: string,
     headers: string[],
-    offset: number
+    afterAutoNumber: unknown
   ): Promise<Array<Record<string, unknown>>> {
     const selectedColumns = headers.filter((header) => header !== '' && !header.includes('\u0000'));
     if (!selectedColumns.length) return [];
+    // Keyset instead of OFFSET: each page costs the same, and rows inserted or deleted
+    // mid-export (there is no snapshot here) can no longer shift pages into skips/duplicates.
+    // The cursor column is selected separately; it is a system field and never a CSV header.
     const result = await sql<Record<string, unknown>>`
-      select ${sql.join(selectedColumns.map((column) => sql.id(column)))}
+      select ${sql.join(selectedColumns.map((column) => sql.id(column)))},
+        ${sql.id(autoNumberColumn)}
       from ${identifier(dbTableName)}
-      order by "__auto_number" asc
+      ${afterAutoNumber === undefined ? sql`` : sql`where ${sql.id(autoNumberColumn)} > ${afterAutoNumber}`}
+      order by ${sql.id(autoNumberColumn)} asc
       limit ${csvChunkSize}
-      offset ${offset}
     `.execute(db);
     return [...result.rows];
   }
