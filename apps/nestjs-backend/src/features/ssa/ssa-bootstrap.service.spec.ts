@@ -5,6 +5,7 @@ import { SsaBootstrapService } from './ssa-bootstrap.service';
 
 const makeService = (options: {
   singleTenant: boolean;
+  brand?: { name: string; logo: string };
   currentSettings?: Record<string, unknown>;
 }) => {
   const upsert = vi.fn().mockResolvedValue({});
@@ -14,7 +15,10 @@ const makeService = (options: {
   };
 
   const service = new SsaBootstrapService(
-    { singleTenant: options.singleTenant } as ISsaConfig,
+    {
+      singleTenant: options.singleTenant,
+      brand: options.brand ?? { name: '', logo: '' },
+    } as ISsaConfig,
     { getSetting } as never,
     prismaService as never
   );
@@ -22,8 +26,8 @@ const makeService = (options: {
   return { service, upsert, getSetting };
 };
 
-describe('SsaBootstrapService (single-tenant hardening)', () => {
-  it('does nothing when SSA_SINGLE_TENANT is off', async () => {
+describe('SsaBootstrapService (env-driven settings)', () => {
+  it('does nothing when all features are off', async () => {
     const { service, upsert, getSetting } = makeService({ singleTenant: false });
 
     await service.onApplicationBootstrap();
@@ -62,9 +66,11 @@ describe('SsaBootstrapService (single-tenant hardening)', () => {
   it('is idempotent when the settings are already enforced', async () => {
     const { service, upsert } = makeService({
       singleTenant: true,
+      brand: { name: 'SSA', logo: '' },
       currentSettings: {
         [SettingKey.DISALLOW_SIGN_UP]: true,
         [SettingKey.ENABLE_WAITLIST]: false,
+        [SettingKey.BRAND_NAME]: 'SSA',
       },
     });
 
@@ -73,10 +79,33 @@ describe('SsaBootstrapService (single-tenant hardening)', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('mirrors the operator brand into the instance settings', async () => {
+    const { service, upsert } = makeService({
+      singleTenant: false,
+      brand: { name: 'SSA', logo: '/ssa-logo.svg' },
+    });
+
+    await service.onApplicationBootstrap();
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { name: SettingKey.BRAND_NAME },
+        create: expect.objectContaining({ content: '"SSA"', createdBy: 'system' }),
+      })
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { name: SettingKey.BRAND_LOGO },
+        update: expect.objectContaining({ content: '"/ssa-logo.svg"' }),
+      })
+    );
+  });
+
   it('never throws when the database is unavailable', async () => {
     const upsert = vi.fn();
     const service = new SsaBootstrapService(
-      { singleTenant: true } as ISsaConfig,
+      { singleTenant: true, brand: { name: '', logo: '' } } as ISsaConfig,
       { getSetting: vi.fn().mockRejectedValue(new Error('db down')) } as never,
       { txClient: () => ({ setting: { upsert } }) } as never
     );

@@ -55,6 +55,15 @@ export const ssaConfig = registerAs('ssa', () => ({
     /** Base URL of `ssa/services/ai` (proxied by the backend). */
     serviceUrl: process.env.SSA_ASSISTANT_SERVICE_URL ?? '',
   },
+  brand: {
+    /**
+     * Operator brand shown through the app's existing brand seam
+     * (`useBrand()` / `TeableLogo`). Teable brand assets must stay untouched —
+     * see docs/ssa/BRANDING.md.
+     */
+    name: process.env.SSA_BRAND_NAME ?? '',
+    logo: process.env.SSA_BRAND_LOGO ?? '',
+  },
 }));
 
 export const SsaConfig = () => Inject(ssaConfig.KEY);

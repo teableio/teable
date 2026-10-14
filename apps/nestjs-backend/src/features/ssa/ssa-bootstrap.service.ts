@@ -6,16 +6,25 @@ import { SettingKey } from '@teable/openapi';
 import { SsaConfig, ISsaConfig } from '../../configs/ssa.config';
 import { SettingService } from '../setting/setting.service';
 
+interface IEnforcedSetting {
+  name: SettingKey;
+  value: unknown;
+  description: string;
+}
+
 /**
- * Single-tenant hardening (fork-only).
+ * Env-driven instance settings (fork-only).
  *
- * When `SSA_SINGLE_TENANT=true`, every boot idempotently enforces:
- * - `disallowSignUp = true`  → new accounts only via invitation
- * - `enableWaitlist  = false`
+ * - `SSA_SINGLE_TENANT=true` → invite-only registration (`disallowSignUp`),
+ *   waitlist off.
+ * - `SSA_BRAND_NAME` / `SSA_BRAND_LOGO` → operator brand mirrored into the
+ *   instance settings (the client receives them through the env seam in
+ *   `withEnv`; see docs/ssa/BRANDING.md). Teable brand assets stay untouched.
  *
- * Writes go through Prisma directly (the settings cache is invalidated by the
- * Setting model middleware) because `SettingService.updateSetting` expects a
- * request-scoped user for `createdBy`, which does not exist at boot.
+ * Idempotent on every boot; writes go through Prisma directly (the settings
+ * cache is invalidated by the Setting model middleware) because
+ * `SettingService.updateSetting` expects a request-scoped user for `createdBy`,
+ * which does not exist at boot.
  */
 @Injectable()
 export class SsaBootstrapService implements OnApplicationBootstrap {
@@ -28,20 +37,44 @@ export class SsaBootstrapService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    if (!this.ssaConfig.singleTenant) {
-      return;
-    }
-
     try {
+      const enforced = await this.collectEnforcedSettings();
+      if (!enforced.length) {
+        this.logger.log('SSA settings already enforced');
+        return;
+      }
+
+      const prisma = this.prismaService.txClient();
+      for (const { name, value, description } of enforced) {
+        const content = JSON.stringify(value);
+        await prisma.setting.upsert({
+          where: { name },
+          update: { content, lastModifiedBy: SYSTEM_USER_ID },
+          create: { name, content, createdBy: SYSTEM_USER_ID },
+        });
+        this.logger.log(`SSA: ${name} = ${content} (${description})`);
+      }
+    } catch (error) {
+      // Never crash the API because settings could not be applied (e.g. a
+      // database that has not been migrated yet); surface it loudly instead.
+      this.logger.error(
+        'SSA bootstrap failed — verify migrations ran and the database is reachable',
+        error instanceof Error ? error.stack : String(error)
+      );
+    }
+  }
+
+  private async collectEnforcedSettings(): Promise<IEnforcedSetting[]> {
+    const enforced: IEnforcedSetting[] = [];
+
+    if (this.ssaConfig.singleTenant) {
       const current = await this.settingService.getSetting([
         SettingKey.DISALLOW_SIGN_UP,
         SettingKey.ENABLE_WAITLIST,
       ]);
 
-      const enforce: { name: SettingKey; value: boolean; description: string }[] = [];
-
       if (current[SettingKey.DISALLOW_SIGN_UP] !== true) {
-        enforce.push({
+        enforced.push({
           name: SettingKey.DISALLOW_SIGN_UP,
           value: true,
           description: 'public sign-up disabled (invite-only)',
@@ -49,35 +82,38 @@ export class SsaBootstrapService implements OnApplicationBootstrap {
       }
 
       if (current[SettingKey.ENABLE_WAITLIST] === true) {
-        enforce.push({
+        enforced.push({
           name: SettingKey.ENABLE_WAITLIST,
           value: false,
           description: 'waitlist disabled',
         });
       }
-
-      if (!enforce.length) {
-        this.logger.log('SSA single-tenant settings already enforced');
-        return;
-      }
-
-      const prisma = this.prismaService.txClient();
-      for (const { name, value, description } of enforce) {
-        const content = JSON.stringify(value);
-        await prisma.setting.upsert({
-          where: { name },
-          update: { content, lastModifiedBy: SYSTEM_USER_ID },
-          create: { name, content, createdBy: SYSTEM_USER_ID },
-        });
-        this.logger.log(`SSA single-tenant: ${name} = ${value} (${description})`);
-      }
-    } catch (error) {
-      // Never crash the API because hardening could not be applied (e.g. a
-      // database that has not been migrated yet); surface it loudly instead.
-      this.logger.error(
-        'SSA single-tenant bootstrap failed — verify migrations ran and the database is reachable',
-        error instanceof Error ? error.stack : String(error)
-      );
     }
+
+    const brandName = (this.ssaConfig.brand?.name ?? '').trim();
+    if (brandName) {
+      const current = await this.settingService.getSetting([SettingKey.BRAND_NAME]);
+      if (current[SettingKey.BRAND_NAME] !== brandName) {
+        enforced.push({
+          name: SettingKey.BRAND_NAME,
+          value: brandName,
+          description: 'operator brand name',
+        });
+      }
+    }
+
+    const brandLogo = (this.ssaConfig.brand?.logo ?? '').trim();
+    if (brandLogo) {
+      const current = await this.settingService.getSetting([SettingKey.BRAND_LOGO]);
+      if (current[SettingKey.BRAND_LOGO] !== brandLogo) {
+        enforced.push({
+          name: SettingKey.BRAND_LOGO,
+          value: brandLogo,
+          description: 'operator brand logo',
+        });
+      }
+    }
+
+    return enforced;
   }
 }
