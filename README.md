@@ -10,6 +10,12 @@
   <p>Try out Teable using our hosted version at <a href="https://teable.ai">teable.ai</a></p>
 </div>
 
+> [!NOTE]
+> **SSA fork:** this branch (`ssa/main`) is the Teable CE fork for SSA's single-tenant
+> deployment. It adds realtime notifications, daily Gmail digests, an in-app AI
+> assistant and a voice-agent module on top of the unmodified product. See
+> [`docs/ssa/`](docs/ssa/) for architecture, environment, roadmap and deployment.
+
 <div align="center">
 <a href="https://trendshift.io/repositories/8516" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8516" alt="teableio%2Fteable | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </div>
