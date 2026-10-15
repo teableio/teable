@@ -99,6 +99,10 @@ const config: PlaywrightTestConfig = {
   /* Maximum time one test can run for. */
   timeout: webServerConfig.testTimeout,
   retries: webServerConfig.retries,
+  /* Dev-mode first visits compile pages on demand; give assertions room. */
+  expect: {
+    timeout: 15_000,
+  },
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   // Artifacts folder where screenshots, videos, and traces are stored.

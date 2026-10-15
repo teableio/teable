@@ -110,42 +110,6 @@ describe('RequestInfoMiddleware', () => {
     expect(origin.path).toBe('/api/table/tbl1/selection/delete-by-id');
   });
 
-  it('captures the affiliate cookie into CLS, ignoring unrelated cookies', () => {
-    const clsValues = new Map<string, unknown>();
-    const cls = {
-      get: vi.fn(),
-      set: vi.fn((key: string, value: unknown) => {
-        clsValues.set(key, value);
-      }),
-    } as unknown as ClsService<IClsStore>;
-    const res = { once: vi.fn(), writableEnded: false, destroyed: false } as unknown as Response;
-    const middleware = new RequestInfoMiddleware(cls);
-
-    middleware.use(
-      createRequest({ headers: { cookie: 'session=abc; teable_affiliate_via=ariex; other=1' } }),
-      res,
-      vi.fn()
-    );
-    expect(clsValues.get('affiliateVia')).toBe('ariex');
-
-    // No affiliate cookie -> the CLS key is never set.
-    clsValues.clear();
-    middleware.use(createRequest({ headers: { cookie: 'session=abc' } }), res, vi.fn());
-    expect(clsValues.has('affiliateVia')).toBe(false);
-
-    // Values are URL-decoded; a cookie whose name merely ends with the target
-    // name must not match.
-    clsValues.clear();
-    middleware.use(
-      createRequest({
-        headers: { cookie: 'x_teable_affiliate_via=nope; teable_affiliate_via=k%20ol' },
-      }),
-      res,
-      vi.fn()
-    );
-    expect(clsValues.get('affiliateVia')).toBe('k ol');
-  });
-
   it('runs v2 background tasks only after the HTTP response finishes', async () => {
     vi.useFakeTimers();
     try {

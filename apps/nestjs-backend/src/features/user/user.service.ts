@@ -194,55 +194,35 @@ export class UserService {
    * via `throwIfEmailDeniedByRiskControl` instead.
    */
   /**
-   * Merges signup-time attribution into refMeta at the self-signup choke
-   * point so password and OAuth/SSO paths store one shape:
-   * - `attribution.via` — affiliate token (teable_affiliate_via cookie via CLS,
-   *   see apps/nextjs-app/src/lib/affiliate-cookie.ts)
-   * - `attribution.params` — first-touch utm/click-id params (teable_attribution
-   *   cookie via CLS, contract in @teable/core attribution.ts)
-   * - `attribution.fbp` / `fbc` — Meta pixel cookies as of signup
+   * Merges the OAuth login destination into refMeta at account creation, so
+   * `refMeta.query` exists for every signup path: password signups carry it
+   * from the login page, OAuth/SSO signups have no signup-page query of their
+   * own and use the verified state's redirectUri instead.
    *
    * Public because signup has TWO write paths: creation here, and the
    * password flow CLAIMING a user pre-created by an email invitation
-   * (local-auth's existing-user update branch) — both must merge, or
-   * invitees lose their first-touch attribution.
+   * (local-auth's existing-user update branch) — both must merge, or invitees
+   * lose the signal.
    */
   applySignupAttribution(
     refMeta: Prisma.UserCreateInput['refMeta']
   ): Prisma.UserCreateInput['refMeta'] {
-    const via = this.cls.get('affiliateVia');
-    // Banner ad_storage choice + signup IP: both feed the analytics event so
-    // ad-platform forwarding can be scoped by consent and by (PostHog-derived)
-    // geo — neither is readable at event time, hence the refMeta snapshot.
-    const adConsent = this.cls.get('marketingAdConsent');
-    const origin = this.cls.get('origin');
-    const attribution = {
-      ...(via ? { via } : {}),
-      ...this.cls.get('signupAttribution'),
-      ...(adConsent ? { adConsent } : {}),
-      ...(origin?.ip ? { ip: origin.ip } : {}),
-      // UA of the signup request — forwarded to ad platforms as a match key.
-      ...(origin?.userAgent ? { ua: origin.userAgent.slice(0, 500) } : {}),
-    };
-    const hasAttribution = Object.keys(attribution).length > 0;
-    // OAuth signups have no signup-page query snapshot; the oauth state's
-    // redirectUri is the equivalent signal, stored in the same `query` shape.
     const oauthRedirect = this.cls.get('oauthRedirectUri');
-    if (!hasAttribution && !oauthRedirect) {
+    if (!oauthRedirect) {
       return refMeta;
     }
     try {
       // `?? {}`: the column could hold the literal JSON "null".
       const parsed = refMeta ? JSON.parse(refMeta) ?? {} : {};
+      if (typeof parsed.query === 'string') {
+        return refMeta;
+      }
       return JSON.stringify({
         ...parsed,
-        ...(oauthRedirect && typeof parsed.query !== 'string'
-          ? { query: `?redirect=${encodeURIComponent(oauthRedirect)}` }
-          : {}),
-        ...(hasAttribution ? { attribution } : {}),
+        query: `?redirect=${encodeURIComponent(oauthRedirect)}`,
       });
     } catch {
-      // Attribution must never break account creation — keep refMeta as-is.
+      // Never break account creation — keep refMeta as-is.
       return refMeta;
     }
   }

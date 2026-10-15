@@ -166,14 +166,12 @@ describe('UserService', () => {
   it('never overwrites a real signup-page query snapshot with the OAuth destination', () => {
     const svc = createAttributionService({
       oauthRedirectUri: '/somewhere',
-      affiliateVia: 'ariex',
     });
 
     const refMeta = svc.applySignupAttribution(JSON.stringify({ query: '?utm_source=x' }));
 
     expect(JSON.parse(refMeta as string)).toEqual({
       query: '?utm_source=x',
-      attribution: { via: 'ariex' },
     });
   });
 

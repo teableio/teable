@@ -39,9 +39,6 @@ export default function ensureLogin<P extends { [key: string]: any }>(
       // User is logged in, redirect to home page if on login page
       if (!isAnonymous(user?.id) && isLoginPage) {
         const redirect = context.query.redirect;
-        // The affiliate token no longer rides redirect URLs — it lives in the
-        // first-party `teable_affiliate_via` cookie (see src/proxy.ts), which every
-        // downstream consumer (Rewardful bridge, backend attribution) reads.
         const destination =
           typeof redirect === 'string' && isValidRedirectPath(redirect) ? redirect : '/space';
 

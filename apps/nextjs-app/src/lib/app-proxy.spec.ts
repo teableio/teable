@@ -18,11 +18,11 @@ describe('app proxy SEO isolation', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 
-  it('keeps the noindex header on the existing affiliate redirect response', () => {
-    const response = proxy(makeRequest('https://app.teable.ai/space?via=partner&x=1'));
+  it('leaves query parameters untouched', () => {
+    const response = proxy(makeRequest('https://app.teable.ai/space?x=1'));
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://app.teable.ai/space?x=1');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
     expect(response.headers.get('X-Robots-Tag')).toBe(APP_ROBOTS_TAG);
   });
 });
