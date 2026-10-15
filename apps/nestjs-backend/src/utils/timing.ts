@@ -3,21 +3,21 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Logger } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
-import * as Sentry from '@sentry/nestjs';
 import { Span } from '../tracing/decorators/span';
+import * as ErrorReport from './error-report';
 
-type SentrySeverity = Extract<Parameters<typeof Sentry.captureMessage>[1], string>;
+type ReportSeverity = Extract<Parameters<typeof ErrorReport.captureMessage>[1], string>;
 
 type TimingOptions = {
   key?: string;
   thresholdMs?: number;
-  reportToSentry?: boolean;
-  sentryLevel?: SentrySeverity;
-  sentryTag?: string;
-  // Attach OTEL trace ids to Sentry context for correlation
+  reportOnThreshold?: boolean;
+  reportLevel?: ReportSeverity;
+  reportTag?: string;
+  // Attach OTEL trace ids to the report context for correlation
   attachActiveSpan?: boolean;
-  // Extra context for sentry; can be static or derived from method args/this
-  sentryContext?:
+  // Extra context for the report; can be static or derived from method args/this
+  reportContext?:
     | Record<string, unknown>
     | ((args: any[], instance: unknown) => Record<string, unknown> | undefined);
 };
@@ -31,11 +31,11 @@ export function Timing(customLoggerKeyOrOptions?: string | TimingOptions): Metho
   const {
     key,
     thresholdMs = 100,
-    reportToSentry = false,
-    sentryLevel = 'warning',
-    sentryTag,
+    reportOnThreshold = false,
+    reportLevel = 'warning',
+    reportTag,
     attachActiveSpan = true,
-    sentryContext,
+    reportContext,
   } = options;
 
   return (
@@ -63,17 +63,17 @@ export function Timing(customLoggerKeyOrOptions?: string | TimingOptions): Metho
           logger.log(
             `${className} - ${String(key || propertyKey)} Execution Time: ${durationMs} ms; Heap Usage: ${heapUsedMb} MB`
           );
-          if (reportToSentry) {
-            Sentry.withScope((scope) => {
-              scope.setLevel?.(sentryLevel);
+          if (reportOnThreshold) {
+            ErrorReport.withScope((scope) => {
+              scope.setLevel(reportLevel);
               scope.setTag('feature', 'timing');
               scope.setTag('timing.class', className);
               scope.setTag('timing.method', methodName);
-              if (sentryTag) {
-                scope.setTag('timing.tag', sentryTag);
+              if (reportTag) {
+                scope.setTag('timing.tag', reportTag);
               }
               const extraContext =
-                typeof sentryContext === 'function' ? sentryContext(args, this) : sentryContext;
+                typeof reportContext === 'function' ? reportContext(args, this) : reportContext;
               if (extraContext) {
                 scope.setContext('timing.extra', extraContext);
               }
@@ -93,9 +93,9 @@ export function Timing(customLoggerKeyOrOptions?: string | TimingOptions): Metho
                 traceId: spanContext?.traceId,
                 spanId: spanContext?.spanId,
               });
-              Sentry.captureMessage(
+              ErrorReport.captureMessage(
                 `${className}.${methodName} exceeded timing threshold (${durationMs}ms > ${thresholdMs}ms)`,
-                sentryLevel
+                reportLevel
               );
             });
           }

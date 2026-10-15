@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { PassThrough, Readable } from 'node:stream';
 import { Injectable, Logger } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
 import type { ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
@@ -32,6 +31,7 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
 import { resolveBuildVersion } from '../../utils/build-version';
+import * as ErrorReport from '../../utils/error-report';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -975,14 +975,14 @@ export class BaseExportV2Service {
     const err = error instanceof Error ? error : new Error(String(error));
     const userId = this.cls.get('user.id');
 
-    Sentry.withScope((scope) => {
+    ErrorReport.withScope((scope) => {
       scope.setTag('feature', 'base-export-v2');
       scope.setContext('base-export-v2', {
         ...context,
         userId,
       });
       scope.setLevel?.('error');
-      Sentry.captureException(err);
+      ErrorReport.captureException(err);
     });
 
     this.logger.error(`export v2 base zip failed: ${err.message}`, err.stack ?? undefined);

@@ -4,20 +4,20 @@ import Knex from 'knex';
 import { vi } from 'vitest';
 import { RecordService } from './record.service';
 
-const { captureException, sentryScope, withScope } = vi.hoisted(() => {
-  const sentryScope = {
+const { captureException, reportScope, withScope } = vi.hoisted(() => {
+  const reportScope = {
     setContext: vi.fn(),
     setLevel: vi.fn(),
     setTag: vi.fn(),
   };
   return {
     captureException: vi.fn(),
-    sentryScope,
-    withScope: vi.fn((callback: (scope: typeof sentryScope) => void) => callback(sentryScope)),
+    reportScope,
+    withScope: vi.fn((callback: (scope: typeof reportScope) => void) => callback(reportScope)),
   };
 });
 
-vi.mock('@sentry/nestjs', () => ({
+vi.mock('../../utils/error-report', () => ({
   captureException,
   withScope,
 }));
@@ -206,10 +206,10 @@ describe('RecordService', () => {
       expect.any(String)
     );
     expect(withScope).toHaveBeenCalledTimes(1);
-    expect(sentryScope.setTag).toHaveBeenCalledWith('feature', 'record-snapshot-presigned-url');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.version', 'v2');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('table.id', 'tblSnapshot');
-    expect(sentryScope.setContext).toHaveBeenCalledWith(
+    expect(reportScope.setTag).toHaveBeenCalledWith('feature', 'record-snapshot-presigned-url');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.version', 'v2');
+    expect(reportScope.setTag).toHaveBeenCalledWith('table.id', 'tblSnapshot');
+    expect(reportScope.setContext).toHaveBeenCalledWith(
       'record_snapshot_presigned_url',
       expect.objectContaining({
         tableId: 'tblSnapshot',

@@ -213,15 +213,6 @@ importers:
       '@prisma/instrumentation':
         specifier: 6.2.1
         version: 6.2.1(@opentelemetry/api@1.9.1)
-      '@sentry/nestjs':
-        specifier: 11.4.0
-        version: 11.4.0(@babel/core@7.29.0)(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@12.0.3)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))
-      '@sentry/opentelemetry':
-        specifier: 11.4.0
-        version: 11.4.0(@opentelemetry/api@1.9.1)
-      '@sentry/profiling-node':
-        specifier: 11.4.0
-        version: 11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))
       '@smithy/node-http-handler':
         specifier: ^3.1.1
         version: 3.3.3
@@ -10607,22 +10598,11 @@ packages:
     resolution: {integrity: sha512-vGcTGvNMgaL5J+LCwK+HVpubU/4/3TRAexVaJi0VcZmr9LnoGiZlWAQunjvWNsabvvkXs120WbXYc8nHysRNzw==}
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
 
-  '@sentry/nestjs@11.4.0':
-    resolution: {integrity: sha512-ZP7FRJz/QXOQmLTr5+EFFnRuzlEkfCakrPtySBDtJXty9OWMEC5ZbOXxDzwp0Ucl9+iYWYX6cJ8IaoQwIic+NA==}
-    engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
-    peerDependencies:
-      '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0
-      '@nestjs/core': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0
-
   '@sentry/nextjs@11.4.0':
     resolution: {integrity: sha512-MrEb0n9KsLfxjb+nX+zluPQH7ojKt2HqWkBU6CCi7pI5/tBZOXPTuQ74vkuyOEza5IhCmHxwevEdFIcBFPWJ4Q==}
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
     peerDependencies:
       next: ^14.0 || ^15.0.0-rc.0 || ^16.0.0-0
-
-  '@sentry/node-cpu-profiler@2.4.4':
-    resolution: {integrity: sha512-FaYbFWxEyTTVqXLJccokJCkwx2cTuvTiRaM9kA+O4HbZVT49xYXqSV9cNLI5UqJhgdHiZDhelBd5LB4wj7IIRA==}
-    engines: {node: '>=18'}
 
   '@sentry/node@11.4.0':
     resolution: {integrity: sha512-fW587LsZnsuGt1V++59xFCtZ/7jGO3GQq1F+l/Jx5DS18QApXQ99vlfS9H5bxuWixfi5/22ea9M8XjFpkkuzQg==}
@@ -10633,10 +10613,6 @@ packages:
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
-
-  '@sentry/profiling-node@11.4.0':
-    resolution: {integrity: sha512-AXaRcEsm7rn6KG0728doGafldpFFR7YfiXzR0C2gSmzH+BovHF3ybJ4TrIuO/z6IBwn9BHfZkkIfXoPt5ZeEow==}
-    engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
 
   '@sentry/react@11.4.0':
     resolution: {integrity: sha512-8HfNapqjif93dcQ2E6rH/TUyTOSaRe7EOfIKyjcXdkktK2DISbvAHdzVT2ctV9DQ8zBxuUaCzzHcF7s18EYf2w==}
@@ -29852,20 +29828,6 @@ snapshots:
       '@sentry/replay': 11.4.0
       '@sentry/replay-canvas': 11.4.0
 
-  '@sentry/bundler-plugins@11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))':
-    dependencies:
-      '@sentry/core': 11.4.0
-      dotenv: 17.4.2
-      glob: 13.0.6
-      magic-string: 1.0.0
-      oxc-parser: 0.152.0
-      sentry: 0.45.0
-      supports-color: 8.1.1
-    optionalDependencies:
-      '@babel/core': 7.29.0
-      rollup: 4.64.0
-      webpack: 5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0)
-
   '@sentry/bundler-plugins@11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23)))':
     dependencies:
       '@sentry/core': 11.4.0
@@ -29890,19 +29852,6 @@ snapshots:
     dependencies:
       '@sentry/core': 11.4.0
 
-  '@sentry/nestjs@11.4.0(@babel/core@7.29.0)(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@12.0.3)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))':
-    dependencies:
-      '@nestjs/common': 12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)
-      '@nestjs/core': 12.0.3(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/platform-express@12.0.3)(@nestjs/websockets@12.0.3)(reflect-metadata@0.2.1)(rxjs@7.8.1)
-      '@sentry/conventions': 0.25.0
-      '@sentry/core': 11.4.0
-      '@sentry/node': 11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))
-      '@sentry/server-utils': 11.4.0
-    transitivePeerDependencies:
-      - '@babel/core'
-      - rollup
-      - webpack
-
   '@sentry/nextjs@11.4.0(@babel/core@7.29.0)(next@16.3.5(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.57.0)(@types/node@24.13.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23)))':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -29926,25 +29875,6 @@ snapshots:
       - react-router
       - webpack
 
-  '@sentry/node-cpu-profiler@2.4.4':
-    dependencies:
-      detect-libc: 2.1.2
-      node-abi: 3.79.0
-
-  '@sentry/node@11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))':
-    dependencies:
-      '@opentelemetry/api': 1.9.1
-      '@sentry/bundler-plugins': 11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))
-      '@sentry/conventions': 0.25.0
-      '@sentry/core': 11.4.0
-      '@sentry/opentelemetry': 11.4.0(@opentelemetry/api@1.9.1)
-      '@sentry/server-runtime-injection': 11.4.0
-      '@sentry/server-utils': 11.4.0
-    transitivePeerDependencies:
-      - '@babel/core'
-      - rollup
-      - webpack
-
   '@sentry/node@11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23)))':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -29964,16 +29894,6 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@sentry/conventions': 0.25.0
       '@sentry/core': 11.4.0
-
-  '@sentry/profiling-node@11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))':
-    dependencies:
-      '@sentry/core': 11.4.0
-      '@sentry/node': 11.4.0(@babel/core@7.29.0)(rollup@4.64.0)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.23))(esbuild@0.23.0))
-      '@sentry/node-cpu-profiler': 2.4.4
-    transitivePeerDependencies:
-      - '@babel/core'
-      - rollup
-      - webpack
 
   '@sentry/react@11.4.0(react@19.2.3)':
     dependencies:

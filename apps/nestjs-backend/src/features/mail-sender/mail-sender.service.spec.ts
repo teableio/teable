@@ -255,7 +255,7 @@ describe('MailSenderService delivery error classification', () => {
     });
   });
 
-  it('leaves a system transport failure unclassified so it still reaches Sentry', async () => {
+  it('leaves a system transport failure unclassified so it is still reported', async () => {
     const service = createService();
 
     await expect(

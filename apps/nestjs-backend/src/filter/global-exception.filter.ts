@@ -12,23 +12,23 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { metrics, trace, SpanStatusCode } from '@opentelemetry/api';
-import * as Sentry from '@sentry/nestjs';
 import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { TemplateAppTokenNotAllowedException } from '../custom.exception';
 import {
+  applyV2AttributionTags,
   getV2Attribution,
   getV2AttributionLogContext,
   getV2AttributionSpanAttributes,
   setV2AttributionHeaders,
-  setV2AttributionOnSentryScope,
 } from '../features/canary/v2-attribution';
 import { ColdStorageUnavailableError } from '../features/cold-archive/cold-errors';
 import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
 import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
+import * as ErrorReport from '../utils/error-report';
 import { exceptionParse } from '../utils/exception-parse';
 
 const dataDbRuntimeErrorCounter = metrics
@@ -142,16 +142,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ) {
     if (this.isExpectedError(exception)) return;
 
-    Sentry.withScope((scope) => {
-      this.setSentryContext(scope);
-      this.setSentryDataDbContext(scope, dataDbError);
-      Sentry.captureException(exception, {
+    ErrorReport.withScope((scope) => {
+      this.setExceptionContext(scope);
+      this.setDataDbContext(scope, dataDbError);
+      ErrorReport.captureException(exception, {
         mechanism: { handled: false, type: 'auto.function.nestjs.exception_captured' },
       });
     });
   }
 
-  private setSentryContext(scope: Sentry.Scope) {
+  private setExceptionContext(scope: ErrorReport.Scope) {
     scope.setUser(null);
     if (!this.cls) return;
 
@@ -166,14 +166,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (spaceId) {
         scope.setTag('space.id', spaceId);
       }
-      setV2AttributionOnSentryScope(scope, getV2Attribution(this.cls));
+      applyV2AttributionTags(scope, getV2Attribution(this.cls));
     } catch {
       // CLS may not be active (e.g., non-HTTP contexts)
     }
   }
 
-  private setSentryDataDbContext(
-    scope: Sentry.Scope,
+  private setDataDbContext(
+    scope: ErrorReport.Scope,
     dataDbError?: IDataDbRuntimeErrorClassification | null
   ) {
     const dataDbContext = this.getDataDbContext();

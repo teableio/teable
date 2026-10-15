@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { metrics } from '@opentelemetry/api';
-import * as Sentry from '@sentry/nestjs';
 import {
   createTableQueryMetricAttributes,
   type ITableQueryObservability,
@@ -8,8 +7,9 @@ import {
   type TableQueryObservabilityEvent,
   type TableQuerySearchValidationEvent,
 } from '@teable/v2-core';
+import { getCurrentScope } from '../../utils/error-report';
 
-type SentryScopeLike = {
+type ReportScopeLike = {
   setTag(key: string, value: string): void;
   setContext(key: string, value: Record<string, unknown>): void;
 };
@@ -22,22 +22,8 @@ const parseAllowlist = (value: string | undefined): ReadonlySet<string> =>
       .filter(Boolean)
   );
 
-const getSentryScopes = (): SentryScopeLike[] => {
-  const sentryApi = Sentry as unknown as {
-    getCurrentScope?: () => SentryScopeLike | undefined;
-    getIsolationScope?: () => SentryScopeLike | undefined;
-    getCurrentHub?: () => { getScope?: () => SentryScopeLike | undefined };
-  };
-
-  return [
-    sentryApi.getCurrentScope?.(),
-    sentryApi.getIsolationScope?.(),
-    sentryApi.getCurrentHub?.()?.getScope?.(),
-  ].filter((scope): scope is SentryScopeLike => Boolean(scope));
-};
-
-const setSentryTag = (
-  scope: SentryScopeLike,
+const setTagIfPresent = (
+  scope: ReportScopeLike,
   key: string,
   value: string | number | boolean | undefined
 ) => {
@@ -132,18 +118,18 @@ export class TableQuerySearchMetricsService implements ITableQueryObservability 
         this.dbParentDuration.record(event.durationMs, attrs);
       }
     }
-    this.annotateSentry(event);
+    this.annotateReport(event);
   }
 
   recordError(event: TableQueryObservabilityEvent): void {
     const attrs = this.metricAttributes(event);
     this.errorTotal.add(1, attrs);
-    this.annotateSentry(event);
+    this.annotateReport(event);
   }
 
   recordSearchFallback(event: TableQueryObservabilityEvent): void {
     this.fallbackTotal.add(1, this.metricAttributes(event));
-    this.annotateSentry(event);
+    this.annotateReport(event);
   }
 
   recordSearchValidation(event: TableQuerySearchValidationEvent): void {
@@ -158,7 +144,7 @@ export class TableQuerySearchMetricsService implements ITableQueryObservability 
     if (event.costDeltaPct != null && Number.isFinite(event.costDeltaPct)) {
       this.validationCostDelta.record(event.costDeltaPct, attrs);
     }
-    this.annotateSentry(event);
+    this.annotateReport(event);
   }
 
   private metricAttributes(event: TableQueryObservabilityEvent): SpanAttributes {
@@ -168,30 +154,31 @@ export class TableQuerySearchMetricsService implements ITableQueryObservability 
     });
   }
 
-  private annotateSentry(event: TableQueryObservabilityEvent): void {
-    for (const scope of getSentryScopes()) {
-      setSentryTag(scope, 'teable.query.kind', event.queryKind);
-      setSentryTag(scope, 'teable.query.source', event.querySource);
-      setSentryTag(scope, 'teable.search.access_path', event.accessPath);
-      setSentryTag(scope, 'teable.search.mode', event.searchMode);
-      setSentryTag(scope, 'teable.search.fallback_reason', event.fallbackReason);
-      setSentryTag(scope, 'teable.table_id', event.tableId);
-      scope.setContext('table_query_search', {
-        queryKind: event.queryKind,
-        querySource: event.querySource,
-        tableId: event.tableId,
-        viewId: event.viewId,
-        searchMode: event.searchMode,
-        accessPath: event.accessPath,
-        searchScope: event.searchScope,
-        languageConfig: event.languageConfig,
-        fallbackReason: event.fallbackReason,
-        hasFilter: event.hasFilter,
-        hasSort: event.hasSort,
-        hasGroup: event.hasGroup,
-        includeTotal: event.includeTotal,
-        errorKind: event.errorKind,
-      });
-    }
+  private annotateReport(event: TableQueryObservabilityEvent): void {
+    const scope = getCurrentScope();
+    if (!scope) return;
+
+    setTagIfPresent(scope, 'teable.query.kind', event.queryKind);
+    setTagIfPresent(scope, 'teable.query.source', event.querySource);
+    setTagIfPresent(scope, 'teable.search.access_path', event.accessPath);
+    setTagIfPresent(scope, 'teable.search.mode', event.searchMode);
+    setTagIfPresent(scope, 'teable.search.fallback_reason', event.fallbackReason);
+    setTagIfPresent(scope, 'teable.table_id', event.tableId);
+    scope.setContext('table_query_search', {
+      queryKind: event.queryKind,
+      querySource: event.querySource,
+      tableId: event.tableId,
+      viewId: event.viewId,
+      searchMode: event.searchMode,
+      accessPath: event.accessPath,
+      searchScope: event.searchScope,
+      languageConfig: event.languageConfig,
+      fallbackReason: event.fallbackReason,
+      hasFilter: event.hasFilter,
+      hasSort: event.hasSort,
+      hasGroup: event.hasGroup,
+      includeTotal: event.includeTotal,
+      errorKind: event.errorKind,
+    });
   }
 }

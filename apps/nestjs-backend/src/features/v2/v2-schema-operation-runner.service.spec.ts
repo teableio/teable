@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 
 import type { ConfigService } from '@nestjs/config';
-import * as Sentry from '@sentry/nestjs';
 import {
   domainError,
   type SchemaOperationClaimNextResult,
@@ -11,20 +10,21 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as ErrorReport from '../../utils/error-report';
 
 import type { V2ContainerService } from './v2-container.service';
 import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.service';
 
-const sentryScope = {
+const reportScope = {
   setContext: vi.fn(),
   setFingerprint: vi.fn(),
   setLevel: vi.fn(),
   setTag: vi.fn(),
 };
 
-vi.mock('@sentry/nestjs', () => ({
+vi.mock('../../utils/error-report', () => ({
   captureException: vi.fn(),
-  withScope: vi.fn((callback: (scope: typeof sentryScope) => void) => callback(sentryScope)),
+  withScope: vi.fn((callback: (scope: typeof reportScope) => void) => callback(reportScope)),
 }));
 
 const operation = (
@@ -140,12 +140,12 @@ const createService = ({
 describe('V2SchemaOperationRunnerService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.mocked(Sentry.captureException).mockClear();
-    vi.mocked(Sentry.withScope).mockClear();
-    sentryScope.setContext.mockClear();
-    sentryScope.setFingerprint.mockClear();
-    sentryScope.setLevel.mockClear();
-    sentryScope.setTag.mockClear();
+    vi.mocked(ErrorReport.captureException).mockClear();
+    vi.mocked(ErrorReport.withScope).mockClear();
+    reportScope.setContext.mockClear();
+    reportScope.setFingerprint.mockClear();
+    reportScope.setLevel.mockClear();
+    reportScope.setTag.mockClear();
   });
 
   afterEach(() => {
@@ -196,7 +196,7 @@ describe('V2SchemaOperationRunnerService', () => {
     service.onModuleDestroy();
   });
 
-  it('captures terminal schema operation failures to Sentry with operation context', async () => {
+  it('captures terminal schema operation failures to the error report with operation context', async () => {
     const failure = domainError.notImplemented({
       code: 'schema_operation.repair_not_supported',
       message: 'Only missing-column table updates can be repaired automatically',
@@ -224,24 +224,24 @@ describe('V2SchemaOperationRunnerService', () => {
     await service.onApplicationBootstrap();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-    expect(Sentry.captureException).toHaveBeenCalledWith(
+    expect(ErrorReport.captureException).toHaveBeenCalledTimes(1);
+    expect(ErrorReport.captureException).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'V2SchemaOperationFailure',
         message:
           'Only missing-column table updates can be repaired automatically | original: Unexpected unit of work error: error: too many range table entries',
       })
     );
-    expect(sentryScope.setTag).toHaveBeenCalledWith('feature', 'v2-schema-operation-runner');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('table.id', 'tblSchemaOpRunner');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('schema_operation.id', 'sgoTerminal');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('schema_operation.created_by', 'system');
-    expect(sentryScope.setFingerprint).toHaveBeenCalledWith([
+    expect(reportScope.setTag).toHaveBeenCalledWith('feature', 'v2-schema-operation-runner');
+    expect(reportScope.setTag).toHaveBeenCalledWith('table.id', 'tblSchemaOpRunner');
+    expect(reportScope.setTag).toHaveBeenCalledWith('schema_operation.id', 'sgoTerminal');
+    expect(reportScope.setTag).toHaveBeenCalledWith('schema_operation.created_by', 'system');
+    expect(reportScope.setFingerprint).toHaveBeenCalledWith([
       'v2-schema-operation-runner',
       'table.create',
       'Unexpected unit of work error: error: too many range table entries',
     ]);
-    expect(sentryScope.setContext).toHaveBeenCalledWith(
+    expect(reportScope.setContext).toHaveBeenCalledWith(
       'schema_operation',
       expect.objectContaining({
         id: 'sgoTerminal',

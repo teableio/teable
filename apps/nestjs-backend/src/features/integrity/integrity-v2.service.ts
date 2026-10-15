@@ -1,5 +1,4 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
 import type {
   IV2BaseSchemaIntegrityRepairRo,
   IV2SchemaIntegrityFilterStatus,
@@ -45,6 +44,7 @@ import {
 } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { ok } from 'neverthrow';
+import * as ErrorReport from '../../utils/error-report';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 
@@ -826,8 +826,8 @@ export class IntegrityV2Service {
       spanAttributes[integrityRequiredAttribute] = result.required;
     }
 
-    const reportToSentry = () => {
-      Sentry.withScope((scope) => {
+    const reportFailure = () => {
+      ErrorReport.withScope((scope) => {
         scope.setLevel?.('error');
         scope.setTag('feature', schemaIntegrityRepairFeatureTag);
         scope.setTag('integrity.scope', telemetry.scope);
@@ -860,13 +860,13 @@ export class IntegrityV2Service {
           details: result?.details,
         });
 
-        Sentry.captureException(err);
+        ErrorReport.captureException(err);
       });
     };
 
     const tracer = telemetry.tracer;
     if (!tracer) {
-      reportToSentry();
+      reportFailure();
       return;
     }
 
@@ -874,7 +874,7 @@ export class IntegrityV2Service {
     try {
       span.recordError(err.message);
       await tracer.withSpan(span, async () => {
-        reportToSentry();
+        reportFailure();
       });
     } finally {
       span.end();

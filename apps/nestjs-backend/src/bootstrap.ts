@@ -99,8 +99,8 @@ export async function bootstrap() {
 
   process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
     // DomainError is intentionally a POJO (Result-based, not thrown). If one
-    // still escapes as an unhandled rejection, wrap it so Sentry gets a real
-    // stack-bearing Error instead of collapsing into activeSpanWrapper.
+    // still escapes as an unhandled rejection, wrap it so the logger records a
+    // real stack-bearing Error instead of a bare POJO.
     const normalized = isDomainError(reason) ? toError(reason) : reason;
     logger.error(`Unhandled Rejection at: ${promise}, reason: ${normalized}`);
     throw normalized;

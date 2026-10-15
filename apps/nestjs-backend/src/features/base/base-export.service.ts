@@ -2,7 +2,6 @@
 import { Readable, PassThrough } from 'node:stream';
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as Sentry from '@sentry/nestjs';
 import type {
   ILinkFieldOptions,
   ILocalization,
@@ -36,6 +35,7 @@ import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
 import { resolveBuildVersion } from '../../utils/build-version';
+import * as ErrorReport from '../../utils/error-report';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -45,12 +45,25 @@ import { PENDING_ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
+
+const addBaseIdFromJson = (json: string | null, target: Set<string>): void => {
+  try {
+    const parsed = json ? JSON.parse(json) : null;
+    const baseId = parsed?.baseId;
+    if (typeof baseId === 'string') {
+      target.add(baseId);
+    }
+  } catch {
+    // ignore malformed field options
+  }
+};
+
 @Injectable()
 export class BaseExportService {
   public static readonly CSV_CHUNK = 500;
   public static readonly FIELD_EXPORT_BATCH_SIZE = 500;
   public static readonly VIEW_EXPORT_BATCH_SIZE = 500;
-  private static readonly TABLE_ID_QUERY_CHUNK_SIZE = 100;
+  private static readonly tableIdQueryChunkSize = 100;
   public static readonly FILE_SUFFIX = 'tea';
   public static readonly EXPORT_FIELD_COLUMNS = [
     'id',
@@ -101,7 +114,7 @@ export class BaseExportService {
     const err = error instanceof Error ? error : new Error(String(error));
     const userId = this.cls.get('user.id');
 
-    Sentry.withScope((scope) => {
+    ErrorReport.withScope((scope) => {
       scope.setTag('feature', 'base-export');
       scope.setTag('export.stage', context.stage);
       scope.setContext('base-export', {
@@ -111,7 +124,7 @@ export class BaseExportService {
         userId,
       });
       scope.setLevel?.('error');
-      Sentry.captureException(err);
+      ErrorReport.captureException(err);
     });
 
     this.logger.error(
@@ -921,15 +934,8 @@ export class BaseExportService {
     const prisma = this.prismaService.txClient();
     const fieldRaws: Field[] = [];
 
-    for (
-      let index = 0;
-      index < tableIds.length;
-      index += BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
-    ) {
-      const tableIdChunk = tableIds.slice(
-        index,
-        index + BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
-      );
+    for (let index = 0; index < tableIds.length; index += BaseExportService.tableIdQueryChunkSize) {
+      const tableIdChunk = tableIds.slice(index, index + BaseExportService.tableIdQueryChunkSize);
       let cursor: string | undefined;
       let hasMore = true;
 
@@ -967,15 +973,8 @@ export class BaseExportService {
     const prisma = this.prismaService.txClient();
     const viewRaws: View[] = [];
 
-    for (
-      let index = 0;
-      index < tableIds.length;
-      index += BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
-    ) {
-      const tableIdChunk = tableIds.slice(
-        index,
-        index + BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
-      );
+    for (let index = 0; index < tableIds.length; index += BaseExportService.tableIdQueryChunkSize) {
+      const tableIdChunk = tableIds.slice(index, index + BaseExportService.tableIdQueryChunkSize);
       let cursor: string | undefined;
       let hasMore = true;
 
@@ -1235,20 +1234,8 @@ export class BaseExportService {
     if (!destSpaceId || isCrossSpaceReferenceAllowed()) return new Set();
     const foreignBaseIds = new Set<string>();
     for (const f of fieldRaws) {
-      try {
-        const opts = f.options ? JSON.parse(f.options as string) : null;
-        const baseId = opts?.baseId;
-        if (typeof baseId === 'string') foreignBaseIds.add(baseId);
-      } catch {
-        // ignore
-      }
-      try {
-        const lopts = f.lookupOptions ? JSON.parse(f.lookupOptions as string) : null;
-        const baseId = lopts?.baseId;
-        if (typeof baseId === 'string') foreignBaseIds.add(baseId);
-      } catch {
-        // ignore
-      }
+      addBaseIdFromJson(f.options as string | null, foreignBaseIds);
+      addBaseIdFromJson(f.lookupOptions as string | null, foreignBaseIds);
     }
     if (foreignBaseIds.size === 0) return new Set();
     const bases = await this.prismaService.txClient().base.findMany({

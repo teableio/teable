@@ -1,7 +1,6 @@
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as Sentry from '@sentry/nestjs';
 import {
   ActorId,
   type IExecutionContext,
@@ -11,6 +10,7 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import * as ErrorReport from '../../utils/error-report';
 
 import { V2ContainerService } from './v2-container.service';
 
@@ -256,7 +256,7 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
     const target = operation.target;
     const originalLastError = result.originalLastError ?? null;
     const runnerError = result.error.message;
-    // Prefer the original failure for Sentry titles/grouping. Repair handlers often
+    // Prefer the original failure for error titles/grouping. Repair handlers often
     // overwrite last_error with a generic "cannot repair" reason that hides the
     // real root cause (e.g. double precision = text during computed backfill).
     const diagnosticMessage =
@@ -264,7 +264,7 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
         ? `${runnerError} | original: ${originalLastError}`
         : runnerError;
 
-    Sentry.withScope((scope) => {
+    ErrorReport.withScope((scope) => {
       scope.setLevel('error');
       scope.setTag('feature', 'v2-schema-operation-runner');
       scope.setTag('teable.version', 'v2');
@@ -303,7 +303,7 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
 
       const error = new Error(diagnosticMessage);
       error.name = 'V2SchemaOperationFailure';
-      Sentry.captureException(error);
+      ErrorReport.captureException(error);
     });
   }
 }

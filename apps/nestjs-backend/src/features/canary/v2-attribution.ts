@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import * as Sentry from '@sentry/nestjs';
 import type { V2Feature } from '@teable/openapi';
 import type { Response } from 'express';
 import type { ClsService } from 'nestjs-cls';
@@ -16,7 +15,7 @@ export interface IV2Attribution {
   v2Feature?: V2Feature;
 }
 
-type SentryScopeLike = {
+type TagScope = {
   setTag(key: string, value: string): void;
 };
 
@@ -39,7 +38,7 @@ export const getV2Attribution = (cls?: ClsService<IClsStore>): IV2Attribution =>
 /**
  * Controllers that try a v2 read then fall back to v1 must stamp CLS before
  * returning. V2IndicatorInterceptor re-reads CLS after a successful handler,
- * so leaving useV2=true would mis-tag headers, Sentry, spans, and logs as v2.
+ * so leaving useV2=true would mis-tag headers, spans, and logs as v2.
  */
 export const markUnsupportedV2FeatureFallback = (
   cls: Pick<ClsService<IClsStore>, 'get' | 'set'>
@@ -63,23 +62,7 @@ const getRequestAttribution = (useV2: boolean | undefined): 'v1' | 'v2' | undefi
   return undefined;
 };
 
-const getSentryScopes = (): SentryScopeLike[] => {
-  const sentryApi = Sentry as unknown as {
-    getCurrentScope?: () => SentryScopeLike | undefined;
-    getIsolationScope?: () => SentryScopeLike | undefined;
-    getCurrentHub?: () => { getScope?: () => SentryScopeLike | undefined };
-  };
-
-  const scopes = [
-    sentryApi.getCurrentScope?.(),
-    sentryApi.getIsolationScope?.(),
-    sentryApi.getCurrentHub?.()?.getScope?.(),
-  ].filter((scope): scope is SentryScopeLike => Boolean(scope));
-
-  return [...new Set(scopes)];
-};
-
-const setSentryTag = (scope: SentryScopeLike, key: string, value: string | boolean | undefined) => {
+const setTagIfPresent = (scope: TagScope, key: string, value: string | boolean | undefined) => {
   if (value == null) {
     return;
   }
@@ -87,23 +70,14 @@ const setSentryTag = (scope: SentryScopeLike, key: string, value: string | boole
   scope.setTag(key, String(value));
 };
 
-export const setV2AttributionOnSentryScope = (
-  scope: SentryScopeLike,
-  attribution: IV2Attribution
-) => {
+export const applyV2AttributionTags = (scope: TagScope, attribution: IV2Attribution) => {
   const requestAttribution = getRequestAttribution(attribution.useV2);
 
-  setSentryTag(scope, 'teable.version', requestAttribution);
-  setSentryTag(scope, 'teable.v2.enabled', attribution.useV2);
-  setSentryTag(scope, 'teable.v2.reason', attribution.v2Reason);
-  setSentryTag(scope, 'teable.v2.feature', attribution.v2Feature);
-  setSentryTag(scope, TEABLE_REQUEST_ATTRIBUTION, requestAttribution);
-};
-
-export const setV2AttributionOnCurrentSentryScopes = (attribution: IV2Attribution) => {
-  for (const scope of getSentryScopes()) {
-    setV2AttributionOnSentryScope(scope, attribution);
-  }
+  setTagIfPresent(scope, 'teable.version', requestAttribution);
+  setTagIfPresent(scope, 'teable.v2.enabled', attribution.useV2);
+  setTagIfPresent(scope, 'teable.v2.reason', attribution.v2Reason);
+  setTagIfPresent(scope, 'teable.v2.feature', attribution.v2Feature);
+  setTagIfPresent(scope, TEABLE_REQUEST_ATTRIBUTION, requestAttribution);
 };
 
 export const getV2AttributionSpanAttributes = (attribution: IV2Attribution) => {

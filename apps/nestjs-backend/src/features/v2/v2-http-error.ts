@@ -21,7 +21,7 @@ export interface IV2DomainErrorLike {
  * treats calls as unreachable-after (`never` on a const arrow is not enough).
  *
  * When the source DomainError carries a creation-site stack, reattach it on the
- * thrown HttpException so Sentry/global filters group by the real failure site
+ * thrown HttpException so the global filter reports the real failure site
  * instead of this adapter frame.
  */
 export function throwV2Error(error: IV2DomainErrorLike, status: number): never {

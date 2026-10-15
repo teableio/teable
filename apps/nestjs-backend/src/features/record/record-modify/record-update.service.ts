@@ -40,9 +40,9 @@ export class RecordUpdateService {
   @Timing({
     key: 'updateRecords',
     thresholdMs: 2000,
-    reportToSentry: true,
-    sentryTag: 'record-update',
-    sentryContext: (args) => {
+    reportOnThreshold: true,
+    reportTag: 'record-update',
+    reportContext: (args) => {
       const [tableId, updateRecordsRo, windowId] = args as [
         string,
         Partial<IUpdateRecordsInternalRo>,
