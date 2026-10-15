@@ -30,7 +30,16 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   );
   // HSTS is configured at the WAF level. Disable it here to avoid sending duplicate
   // `Strict-Transport-Security` headers with potentially different max-age values.
-  app.use(helmet({ hsts: false }));
+  app.use(
+    helmet({
+      hsts: false,
+      // Next's dev server serves `_clientMiddlewareManifest.js` with an
+      // `application/json` content type (vercel/next.js#92180); `nosniff` makes
+      // Chrome refuse to execute that script tag. Production builds serve it as
+      // JavaScript, so the header stays there.
+      xContentTypeOptions: process.env.NODE_ENV === 'production',
+    })
+  );
   app.use(relaxOAuthPopupCoop);
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));

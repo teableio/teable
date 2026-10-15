@@ -37,6 +37,12 @@ export const PasswordInput = ({ value, onChange, className, ...props }: IPasswor
 
   useEffect(() => {
     const updateCapsLock = (event: KeyboardEvent | MouseEvent) => {
+      // Events synthesized by browser extensions, automation or the native shell
+      // may be plain `Event`s without the modifier-state API — never assume the
+      // prototype exposes it.
+      if (typeof event.getModifierState !== 'function') {
+        return;
+      }
       setCapsLock(event.getModifierState('CapsLock'));
     };
     const handleWindowBlur = () => {

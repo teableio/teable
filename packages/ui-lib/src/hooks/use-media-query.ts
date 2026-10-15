@@ -1,7 +1,10 @@
 import * as React from 'react';
 
+const canUseMatchMedia = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+
 const getMatches = (query: string, fallback: boolean) => {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+  if (!canUseMatchMedia()) {
     return fallback;
   }
   return window.matchMedia(query).matches;
@@ -11,11 +14,13 @@ export interface IUseMediaQueryOptions {
   /** Value returned when `matchMedia` is unavailable (SSR). Defaults to false. */
   fallback?: boolean;
   /**
-   * Resolve the query in an effect instead of during the first render.
+   * Resolve the query in an effect instead of during render.
    *
-   * The default (`false`) matches the query during the initial render, so a
-   * narrow viewport never paints the wide-viewport layout first. Pass `true`
-   * to keep the pre-existing "false until mounted" behaviour of a call site.
+   * The default (`false`) resolves the query as soon as the browser can —
+   * immediately on client-side renders, and right after hydration on hydrated
+   * ones (the server snapshot is kept during hydration so the tree never
+   * mismatches). Pass `true` to keep the pre-existing "false until mounted"
+   * behaviour of a call site.
    */
   deferToEffect?: boolean;
 }
@@ -29,22 +34,41 @@ export interface IUseMediaQueryOptions {
 export function useMediaQuery(query: string, options: IUseMediaQueryOptions = {}): boolean {
   const { fallback = false, deferToEffect = false } = options;
 
-  const [matches, setMatches] = React.useState<boolean>(() =>
-    deferToEffect ? fallback : getMatches(query, fallback)
+  const subscribe = React.useCallback(
+    (onStoreChange: () => void) => {
+      if (!canUseMatchMedia()) {
+        return () => undefined;
+      }
+
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onStoreChange);
+      return () => mql.removeEventListener('change', onStoreChange);
+    },
+    [query]
   );
 
+  const getSnapshot = React.useCallback(() => getMatches(query, fallback), [query, fallback]);
+
+  // During hydration React reads the server snapshot, so the markup matches the
+  // SSR output; it re-renders with the real query right after, before paint.
+  const getServerSnapshot = React.useCallback(() => fallback, [fallback]);
+
+  const matches = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  const [deferredMatches, setDeferredMatches] = React.useState(fallback);
+
   React.useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    if (!deferToEffect || !canUseMatchMedia()) return;
 
     const mql = window.matchMedia(query);
-    const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
+    const onChange = (event: MediaQueryListEvent) => setDeferredMatches(event.matches);
 
     // Re-sync on mount: the query may have changed, and deferred call sites
     // resolve for the first time here.
-    setMatches(mql.matches);
+    setDeferredMatches(mql.matches);
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
-  }, [query]);
+  }, [deferToEffect, query]);
 
-  return matches;
+  return deferToEffect ? deferredMatches : matches;
 }

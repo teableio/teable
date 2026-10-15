@@ -108,7 +108,13 @@ const secureHeaders = createSecureHeaders({
       }
     : {}),
   referrerPolicy: 'same-origin',
-});
+}).filter(
+  // The dev server injects `_clientMiddlewareManifest.js` as a <script> but
+  // serves it with an `application/json` content type (vercel/next.js#92180);
+  // `nosniff` makes Chrome refuse to execute it and log a MIME-type error on
+  // every page. Production serves the manifest as JavaScript, so keep it there.
+  (header) => isProd || header.key.toLowerCase() !== 'x-content-type-options'
+);
 
 /**
  * @type {import('next').NextConfig}
