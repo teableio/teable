@@ -1,4 +1,18 @@
-import { parseTrustProxy } from './bootstrap.config';
+import { parseSessionOriginCheck, parseTrustProxy } from './bootstrap.config';
+
+describe('parseSessionOriginCheck', () => {
+  it('is on by default in production and off in development', () => {
+    expect(parseSessionOriginCheck(undefined, 'production')).toBe(true);
+    expect(parseSessionOriginCheck(undefined, 'development')).toBe(false);
+  });
+
+  it('honours explicit opt-in and opt-out in every environment', () => {
+    expect(parseSessionOriginCheck('true', 'development')).toBe(true);
+    expect(parseSessionOriginCheck('true', 'production')).toBe(true);
+    expect(parseSessionOriginCheck('false', 'production')).toBe(false);
+    expect(parseSessionOriginCheck('false', 'development')).toBe(false);
+  });
+});
 
 describe('parseTrustProxy', () => {
   it('defaults to private-network proxies when unset or blank', () => {
