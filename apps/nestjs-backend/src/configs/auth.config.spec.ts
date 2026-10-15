@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePemPrivateKey, parseAppleClient } from './auth.config';
+import { getCookieSecure, normalizePemPrivateKey, parseAppleClient } from './auth.config';
 
 const PEM = '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEG\n-----END PRIVATE KEY-----';
+
+describe('getCookieSecure', () => {
+  it('turns Secure on for an https deployment by default', () => {
+    expect(getCookieSecure(undefined, 'https://workspace.example.com')).toBe(true);
+  });
+
+  it('keeps plain-http development working without the attribute', () => {
+    expect(getCookieSecure(undefined, 'http://localhost:3000')).toBeUndefined();
+    expect(getCookieSecure(undefined, undefined)).toBeUndefined();
+  });
+
+  it('honours an explicit override, including auto', () => {
+    expect(getCookieSecure('false', 'https://workspace.example.com')).toBe(false);
+    expect(getCookieSecure('true', 'http://localhost:3000')).toBe(true);
+    expect(getCookieSecure('auto', 'https://workspace.example.com')).toBe('auto');
+  });
+});
 
 describe('normalizePemPrivateKey', () => {
   it('passes a multi-line PEM through', () => {
