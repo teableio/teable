@@ -10,26 +10,55 @@ const webServerModes = ['DEV', 'START', 'BUILD_AND_START'] as const;
 type IWebServerMode = (typeof webServerModes)[number];
 
 const isCI = ['true', '1'].includes(process.env?.CI ?? '');
-const webServerMode = (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'NOT_SET';
+const webServerMode = (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'DEV';
 
-const webServerPort = 3000;
+// E2E_BASE_URL points the suite at an already-running instance (a manually
+// started local stack, a preview/deployed instance). Without it Playwright
+// starts and stops the local stack itself (see webServer below).
+const externalBaseUrl = process.env?.E2E_BASE_URL;
+
+const webServerPort = Number(process.env?.E2E_WEB_SERVER_PORT ?? process.env?.PORT ?? 3000);
+// 127.0.0.1 rather than localhost: next.config.js allow-lists it explicitly and
+// it sidesteps the IPv6/IPv4 split of `localhost` on Windows.
+const webServerUrl = `http://127.0.0.1:${webServerPort}`;
+
+// Drive the locally installed Google Chrome (the browser the rest of the
+// toolchain uses). Override with E2E_BROWSER_CHANNEL — e.g. `chromium` on CI
+// images that only carry the bundled browser.
+const browserChannel = process.env?.E2E_BROWSER_CHANNEL || 'chrome';
+
 const outputDir = path.join(__dirname, 'e2e/.out');
 
-type IWebServerConfig = { cmd: string; timeout: number; retries: number };
+/**
+ * There is no standalone `next dev` / `next start` script in apps/nextjs-app:
+ * the Nest backend (apps/nestjs-backend) mounts the Next.js app on PORT, so
+ * every mode boots the backend. Runbook: apps/nextjs-app/e2e/README.md.
+ */
+type IWebServerConfig = {
+  cmd: string;
+  /** Per-test timeout while this suite owns the server. */
+  testTimeout: number;
+  /** How long Playwright waits for the server before failing. */
+  serverTimeout: number;
+  retries: number;
+};
 const webServerConfigs: Record<IWebServerMode, IWebServerConfig> = {
-  START: {
-    cmd: `yarn start -p ${webServerPort}`,
-    timeout: isCI ? 90_000 : 30_000,
-    retries: isCI ? 3 : 1,
-  },
   DEV: {
-    cmd: `yarn dev -p ${webServerPort}`,
-    timeout: 30_000,
+    cmd: `pnpm -F @teable/backend dev`,
+    testTimeout: 90_000,
+    serverTimeout: 300_000,
     retries: 1,
   },
+  START: {
+    cmd: `pnpm -F @teable/backend start`,
+    testTimeout: 60_000,
+    serverTimeout: 300_000,
+    retries: isCI ? 3 : 1,
+  },
   BUILD_AND_START: {
-    cmd: `NEXT_IGNORE_TYPECHECKS=1 yarn build --no-lint && yarn start -p ${webServerPort}`,
-    timeout: isCI ? 180_000 : 120_000,
+    cmd: `pnpm -F @teable/app build-fast && pnpm -F @teable/backend build && pnpm -F @teable/backend start`,
+    testTimeout: 90_000,
+    serverTimeout: 900_000,
     retries: isCI ? 3 : 1,
   },
 };
@@ -39,6 +68,10 @@ if (typeof webServerConfigs?.[webServerMode] !== 'object') {
     `${pc.red('error')} - E2E_WEBSERVER_MODE must be one of '${webServerModes.join(', ')}'`
   );
   process.exit(1);
+} else if (externalBaseUrl) {
+  console.log(
+    `${pc.green('notice')} - E2E_BASE_URL is set ('${externalBaseUrl}'); no server will be started`
+  );
 } else {
   console.log(`${pc.green('notice')} - Using E2E_WEBSERVER_MODE: '${webServerMode}'`);
 }
@@ -64,7 +97,7 @@ function getNextJsEnv(): Record<string, string> {
 const config: PlaywrightTestConfig = {
   testDir: path.join(__dirname, 'e2e'),
   /* Maximum time one test can run for. */
-  timeout: webServerConfig.timeout,
+  timeout: webServerConfig.testTimeout,
   retries: webServerConfig.retries,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
@@ -84,15 +117,18 @@ const config: PlaywrightTestConfig = {
   ],
 
   // https://playwright.dev/docs/test-advanced#launching-a-development-web-server-during-the-tests
-  webServer: {
-    command: webServerConfig.cmd,
-    port: webServerPort,
-    timeout: webServerConfig.timeout,
-    reuseExistingServer: !isCI,
-    env: getNextJsEnv(),
-  },
+  webServer: externalBaseUrl
+    ? undefined
+    : {
+        command: webServerConfig.cmd,
+        port: webServerPort,
+        timeout: webServerConfig.serverTimeout,
+        reuseExistingServer: !isCI,
+        env: getNextJsEnv(),
+      },
 
   use: {
+    baseURL: externalBaseUrl ?? webServerUrl,
     // Retry a test if it's failing with enabled tracing. This allows you to analyse the DOM, console logs, network traffic etc.
     // More information: https://playwright.dev/docs/trace-viewer
     trace: 'retry-with-trace',
@@ -107,6 +143,7 @@ const config: PlaywrightTestConfig = {
       name: 'Desktop Chrome',
       use: {
         ...devices['Desktop Chrome'],
+        channel: browserChannel,
       },
     },
     // {
@@ -126,6 +163,7 @@ const config: PlaywrightTestConfig = {
       name: 'Mobile Chrome',
       use: {
         ...devices['Pixel 5'],
+        channel: browserChannel,
       },
     },
     // Mobile Safari is not supported on CI/Linux yet.

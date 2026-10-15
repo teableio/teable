@@ -29,6 +29,9 @@ node_modules
 /build
 /dist/
 
+# Playwright MCP browser artifacts (snapshots, console logs, screenshots)
+.playwright-mcp/
+
 # v2 packages build output
 packages/v2/**/dist/
 

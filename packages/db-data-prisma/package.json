@@ -21,7 +21,7 @@
     "src"
   ],
   "scripts": {
-    "build": "pnpm prisma-generate-ci && tsc && rm -rf ./dist/generated && mkdir -p ./dist/generated && cp -R ./src/generated/client ./dist/generated/client",
+    "build": "pnpm prisma-generate-ci && tsc && node -e \"const fs=require('node:fs');fs.rmSync('dist/generated',{recursive:true,force:true});fs.mkdirSync('dist/generated',{recursive:true});fs.cpSync('src/generated/client','dist/generated/client',{recursive:true})\"",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache ./src/generated",
     "dev": "tsc --watch",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
