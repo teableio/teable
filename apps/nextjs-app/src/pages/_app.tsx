@@ -8,7 +8,7 @@ import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { Guide } from '@/components/Guide';
-import { GoogleAnalytics, MetaPixel, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
+import { Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
 import { useMobileServiceWorker } from '@/features/app/hooks/useMobileServiceWorker';
@@ -73,17 +73,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
-        <GoogleAnalytics gaId={env.gaId} user={user} />
-        <PostHog
-          posthogKey={env.posthogKey}
-          posthogHost={env.posthogHost}
-          posthogWebHost={env.posthogWebHost}
-          posthogUiHost={env.posthogUiHost}
-          user={user}
-        />
-        <MetaPixel metaPixelId={env.metaPixelId} />
         <SideBarScript />
         <script
           dangerouslySetInnerHTML={{
