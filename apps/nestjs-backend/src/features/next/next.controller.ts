@@ -59,7 +59,7 @@ export class NextController {
     // The mobile app's Service Worker (`public/mobile-sw.js`, built by the app's postbuild).
     'mobile-sw.js',
     'home',
-    '404/{*splat}',
+    '404{/*splat}',
     '403{/*splat}',
     '402{/*splat}',
     'space{/*splat}',
