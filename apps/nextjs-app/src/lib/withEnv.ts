@@ -54,7 +54,6 @@ export default function withEnv<P extends { [key: string]: any }>(
         posthogWebHost: process.env.POSTHOG_WEB_HOST,
         posthogUiHost: process.env.POSTHOG_UI_HOST,
         metaPixelId: process.env.META_PIXEL_ID,
-        sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),
         passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true' ? true : undefined,

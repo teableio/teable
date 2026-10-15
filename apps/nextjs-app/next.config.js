@@ -43,21 +43,6 @@ const NEXT_DEV_ALLOWED_ORIGINS = [
     .filter(Boolean),
 ];
 
-const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
-);
-
-const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
-);
-const NEXT_BUILD_ENV_SENTRY_TRACING = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_TRACING ?? 'false'
-);
-// Whether to upload sourcemaps to Sentry (default: false for security)
-const NEXT_BUILD_ENV_SENTRY_SOURCEMAPS_UPLOAD = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_SOURCEMAPS_UPLOAD ?? 'false'
-);
-
 const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
 
 if (!NEXT_BUILD_ENV_SOURCEMAPS) {
@@ -107,7 +92,6 @@ const secureHeaders = createSecureHeaders({
           frameSrc: ["'self'", 'blob:', '*'],
           connectSrc: [
             "'self'",
-            'https://*.sentry.io',
             'https://*.teable.io',
             'https://*.teable.ai',
             'https://*.teable.cn',
@@ -168,8 +152,7 @@ const nextConfig = {
     maxInactiveAge: (isCI ? 3600 : 25) * 1000,
   },
 
-  // Note: sentry configuration moved to withSentryConfig wrapper
-  // See: https://docs.sentry.io/platforms/javascript/guides/nextjs/
+  // Note: sourcemaps are controlled by NEXT_BUILD_ENV_SOURCEMAPS (see above)
 
   // @link https://nextjs.org/docs/basic-features/image-optimization
   images: {
@@ -358,43 +341,10 @@ const nextConfig = {
   env: {
     APP_NAME: packageJson.name ?? 'not-in-package.json',
     APP_VERSION: packageJson.version ?? 'not-in-package.json',
-    // Note: Sentry debug/tracing variables are handled via webpack DefinePlugin
-    // and cannot be set via Next.js env config (reserved key format)
   },
 };
 
 let config = nextConfig;
-
-if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
-  try {
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/
-    const { withSentryConfig } = require('@sentry/nextjs/config');
-    // @ts-ignore because sentry does not match nextjs current definitions
-    config = withSentryConfig(config, {
-      // Additional config options for the Sentry webpack plugin. Keep in mind that
-      // the following options are set automatically, and overriding them is not
-      // recommended:
-      //   release, url, org, project, authToken, configFile, stripPrefix,
-      //   urlPrefix, include, ignore
-      // For all available options, see:
-      // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/build/
-      // silent: isProd, // Suppresses all logs
-      sourcemaps: {
-        // Upload only when explicitly enabled (default: disabled for security)
-        disable: !NEXT_BUILD_ENV_SENTRY_SOURCEMAPS_UPLOAD,
-        deleteSourcemapsAfterUpload: true, // Prevent .map files from leaking source code
-      },
-      bundleSizeOptimizations: {
-        excludeDebugStatements: !NEXT_BUILD_ENV_SENTRY_DEBUG,
-        excludeTracing: !NEXT_BUILD_ENV_SENTRY_TRACING,
-      },
-      silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
-    });
-    console.log(`- ${pc.green('info')} Sentry enabled for this build`);
-  } catch (e) {
-    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`, e);
-  }
-}
 
 if (tmModules.length > 0) {
   console.info(`${pc.green('notice')}- Will transpile [${tmModules.join(',')}]`);

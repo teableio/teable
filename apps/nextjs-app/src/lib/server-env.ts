@@ -18,7 +18,6 @@ export interface IServerEnv {
   posthogUiHost?: string;
   metaPixelId?: string;
   umamiUrl?: string;
-  sentryDsn?: string;
   socialAuthProviders?: string[];
   storage?: {
     provider?: 'local' | 'minio' | 's3';
