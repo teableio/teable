@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/nextjs';
 import type { IHttpError } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
@@ -8,7 +7,6 @@ import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
-import { useEffect } from 'react';
 import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MetaPixel, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
@@ -61,9 +59,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   const appBuildVersion = env.buildVersion ?? process.env.APP_VERSION ?? 'develop';
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
-  useEffect(() => {
-    Sentry.setUser(user ? { id: user.id, email: user.email } : null);
-  }, [user]);
 
   // Mobile app-shell service worker: only inside the native app's WebView.
   useMobileServiceWorker();
