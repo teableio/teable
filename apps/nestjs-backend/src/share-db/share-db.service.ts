@@ -5,6 +5,7 @@ import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
+import { BaseConfig, type IBaseConfig } from '../configs/base.config';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { SessionHandleService } from '../features/auth/session/session-handle.service';
@@ -54,6 +55,7 @@ export class ShareDbService extends ShareDBClass {
     @CacheConfig() private readonly cacheConfig: ICacheConfig,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly sessionHandleService: SessionHandleService,
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
     @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {
     super({
@@ -75,7 +77,7 @@ export class ShareDbService extends ShareDBClass {
     }
 
     registerQueryCancellation(this);
-    authMiddleware(this, this.sessionHandleService);
+    authMiddleware(this, this.sessionHandleService, this.baseConfig.publicOrigin);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
