@@ -1,10 +1,19 @@
 import { test, expect } from '@playwright/test';
-import commonJsonEn from '@teable/common-i18n/locales/en/common.json';
+import authJsonEn from '@teable/common-i18n/locales/en/auth.json';
 
-test.describe('404 page', () => {
-  test('should have the title in english by default', async ({ page }) => {
-    await page.goto('/404');
-    const title = await page.title();
-    expect(title).toBe(commonJsonEn.system.notFound.title);
+test.describe('root route', () => {
+  test('sends first-time visitors from / to sign-up, remembering /space', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/auth\/signup\?redirect=%2Fspace$/);
+    await expect(page).toHaveTitle(authJsonEn.page.signup);
+  });
+
+  test('sends returning browsers from / to sign-in', async ({ page, context, baseURL }) => {
+    await context.addCookies([
+      { name: 'teable_returning', value: '1', url: baseURL ?? 'http://127.0.0.1:3000' },
+    ]);
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/auth\/login\?redirect=%2Fspace$/);
+    await expect(page).toHaveTitle(authJsonEn.page.signin);
   });
 });
