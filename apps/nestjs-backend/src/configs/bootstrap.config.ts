@@ -27,12 +27,28 @@ export const parseTrustProxy = (raw: string | undefined): boolean | number | str
   return value;
 };
 
+/**
+ * Session-origin (CSRF) check policy. Cross-site state-changing requests that
+ * carry a session cookie are rejected by default in production, where the app
+ * is browser-facing; `BACKEND_SESSION_ORIGIN_CHECK_ENABLED=false` opts out and
+ * `=true` opts in outside production. The middleware allows PUBLIC_ORIGIN plus
+ * the origin the request was addressed to, so same-origin tooling and the dev
+ * server on a different loopback host keep working.
+ */
+export const parseSessionOriginCheck = (
+  value: string | undefined,
+  nodeEnv: string | undefined
+): boolean => value === 'true' || (nodeEnv === 'production' && value !== 'false');
+
 export const securityWebConfig = registerAs('security.web', () => ({
   cors: {
     enabled: true,
   },
   sessionOriginCheck: {
-    enabled: process.env.BACKEND_SESSION_ORIGIN_CHECK_ENABLED === 'true',
+    enabled: parseSessionOriginCheck(
+      process.env.BACKEND_SESSION_ORIGIN_CHECK_ENABLED,
+      process.env.NODE_ENV
+    ),
   },
   trustProxy: parseTrustProxy(process.env.BACKEND_TRUST_PROXY),
 }));
