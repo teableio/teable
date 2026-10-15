@@ -1,5 +1,7 @@
 import { ActionSendEmail, ChatApp, MagicAi } from '@teable/icons';
-import { useBaseId, useTable, useTableId } from '@teable/sdk/hooks';
+import { TableContext } from '@teable/sdk/context';
+import { useBaseId, useTableId } from '@teable/sdk/hooks';
+import type { Table } from '@teable/sdk/model';
 import {
   Button,
   Sheet,
@@ -8,7 +10,7 @@ import {
   SheetTitle,
   Textarea,
 } from '@teable/ui-lib/shadcn';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 interface IToolActivity {
   name: string;
@@ -106,7 +108,10 @@ const parseSseEvents = (buffer: string): { events: Record<string, unknown>[]; re
 export const AssistantPanel: React.FC<IAssistantPanelProps> = ({ open, onOpenChange }) => {
   const baseId = useBaseId();
   const tableId = useTableId();
-  const table = useTable();
+  // useTable() assumes a base layout, but this drawer is mounted in layouts
+  // without a TableContext too (e.g. /space): read the context defensively.
+  const tables = (useContext(TableContext) as { tables: Table[] } | null)?.tables;
+  const table = tables?.find((item) => item.id === tableId);
   const [messages, setMessages] = useState<IChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
