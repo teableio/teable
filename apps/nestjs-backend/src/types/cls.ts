@@ -1,4 +1,4 @@
-import type { Action, IFieldVo, ISignupAttribution, MarketingAdConsent } from '@teable/core';
+import type { Action, IFieldVo } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
 import type {
@@ -66,18 +66,6 @@ export interface IClsStore extends ClsStore {
     // never send it. Queries: `WHERE origin->>'client' LIKE 'mobile/%'`.
     client?: string;
   };
-  // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
-  // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
-  affiliateVia?: string;
-  // First-touch utm/click-id params (teable_attribution cookie) + Meta pixel
-  // cookies, parsed by RequestInfoMiddleware on every request but consumed only
-  // once, at account creation (user.service withAttribution → refMeta).
-  // Contract: @teable/core attribution.ts.
-  signupAttribution?: ISignupAttribution;
-  // Banner ad_storage choice (teable_consent parent-domain cookie), parsed by
-  // RequestInfoMiddleware; consumed at account creation to scope what may be
-  // forwarded to ad platforms for EEA users. undefined = no banner choice.
-  marketingAdConsent?: MarketingAdConsent;
   // OAuth login destination from the verified oauth state — the only
   // signup-time invite signal on OAuth paths (OauthStoreService.verify).
   oauthRedirectUri?: string;

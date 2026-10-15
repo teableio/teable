@@ -1,15 +1,8 @@
 import { isIP } from 'node:net';
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  AFFILIATE_COOKIE_NAME,
-  AFFILIATE_VIA_MAX_LENGTH,
-  parseMarketingAdConsent,
-  parseSignupAttributionCookies,
-} from '@teable/core';
 import { X_CANARY_HEADER } from '@teable/openapi';
 import { runWithPostgresQueryCancellation } from '@teable/v2-adapter-db-postgres-pg';
-import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
@@ -174,28 +167,6 @@ export class RequestInfoMiddleware implements NestMiddleware {
       ...(via ? { via } : {}),
       ...(client ? { client } : {}),
     });
-
-    const cookies = cookie.parse(req.headers.cookie ?? '');
-
-    // Affiliate attribution (?via= cookie) — see IClsStore.affiliateVia.
-    const affiliateVia = cookies[AFFILIATE_COOKIE_NAME];
-    if (affiliateVia) {
-      this.cls.set('affiliateVia', affiliateVia.slice(0, AFFILIATE_VIA_MAX_LENGTH));
-    }
-
-    // Signup attribution: first-touch utm/click-id cookie (planted by the
-    // Next proxy) + Meta pixel cookies. Parsing is defensive by contract —
-    // consumed only at account creation (user.service withAttribution).
-    const signupAttribution = parseSignupAttributionCookies(cookies);
-    if (signupAttribution) {
-      this.cls.set('signupAttribution', signupAttribution);
-    }
-
-    // Banner ad_storage choice (parent-domain cookie) — see IClsStore.marketingAdConsent.
-    const marketingAdConsent = parseMarketingAdConsent(cookies);
-    if (marketingAdConsent) {
-      this.cls.set('marketingAdConsent', marketingAdConsent);
-    }
 
     // Canary header for canary release override
     const canaryHeader = req.headers[X_CANARY_HEADER];
