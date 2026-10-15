@@ -1,0 +1,7 @@
+# Build context for the SSA companion service images (ssa/services/*/Dockerfile).
+**/node_modules
+**/dist
+**/.env
+**/.venv
+voice
+deploy

@@ -1,0 +1,13 @@
+# Caddy — free DuckDNS subdomain with a DNS-01 challenge (no inbound port 80).
+# Requires the custom image with the duckdns module:
+#   CADDYFILE=Caddyfile.duckdns
+#   CADDY_DOCKERFILE=Dockerfile.duckdns
+#   DUCKDNS_TOKEN=<token from duckdns.org>
+# DOMAIN must be the full DuckDNS hostname (e.g. yourname.duckdns.org).
+{$DOMAIN} {
+	tls {
+		dns duckdns {env.DUCKDNS_TOKEN}
+	}
+	encode zstd gzip
+	reverse_proxy teable:3000
+}

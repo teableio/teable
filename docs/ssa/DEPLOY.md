@@ -46,79 +46,41 @@ Cloudflare Worker variant, use `npx wrangler secret put NAME`.)
 
 ## 2. Compose deployment (recommended)
 
-`dockers/examples/standalone/` in this repo is the upstream baseline; extend it
-for SSA like this (create `ssa/docker-compose.ssa.yaml` on the host — not
-committed if you keep secrets there):
+The deployable bundle is committed in [`ssa/deploy/`](../../ssa/deploy/README.md):
+compose file, env templates, Caddy TLS (own domain or free DuckDNS) and an
+optional Cloudflare Tunnel profile. It builds the app image **from this fork**
+(`dockers/teable/Dockerfile`) — the upstream `ghcr.io/teableio/teable:latest`
+image does not contain the SSA backend features:
 
-```yaml
-services:
-  teable:
-    image: ghcr.io/teableio/teable:latest
-    restart: always
-    ports: ["127.0.0.1:3000:3000"] # expose only to the reverse proxy
-    volumes: ["teable-data:/app/.assets"]
-    env_file: [./teable.env]
-    depends_on:
-      teable-cache: { condition: service_healthy }
-
-  teable-cache:
-    image: redis:7.2.4
-    restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-
-  ssa-notify:
-    build: ./ssa/services/notify # image: node:22 + pnpm build
-    restart: always
-    env_file: [./ssa-notify.env] # ports 4600 internal only
-    depends_on: [teable]
-
-  ssa-ai:
-    build: ./ssa/services/ai
-    restart: always
-    env_file: [./ssa-ai.env] # ports 4700 internal only
-    depends_on: [teable]
-
-volumes: { teable-data: {}, redis-data: {} }
+```bash
+git clone <this fork's URL> ssa-teable && cd ssa-teable   # deploy from ssa/main
+cd ssa/deploy
+cp .env.example .env
+cp teable.env.example teable.env
+cp ssa-notify.env.example ssa-notify.env
+cp ssa-ai.env.example ssa-ai.env
+# edit all four (secrets, Neon URL, domain), then:
+docker compose --profile edge-caddy up -d --build     # or --profile edge-tunnel
 ```
 
-`teable.env` (see docs/ssa/ENVIRONMENT.md §1 for every variable):
+The templates carry the full variable sets: `teable.env` (Neon connection
+string, Gmail, `SSA_SINGLE_TENANT=true`, and the secret block the backend's own
+boot warning teaches — `openssl rand …` commands included) and the two service
+env files (docs/ssa/ENVIRONMENT.md §3/§4 with compose hostnames,
+`SSA_TEABLE_BASE_URL=http://teable:3000`, `SSA_BIND=0.0.0.0`). Secrets never
+live in the committed files — only in the git-ignored `*.env`. Caddy gets TLS
+automatically (`Caddyfile` for a real domain, `Caddyfile.duckdns` for a free
+DuckDNS subdomain); `--profile edge-tunnel` puts a Cloudflare Tunnel in front
+instead (no inbound ports). First boot runs the migrations against the external
+database and then serves the app — finish with the §3 checklist below.
 
-```env
-NODE_ENV=production
-PUBLIC_ORIGIN=https://workspace.example.com
-PRISMA_DATABASE_URL=postgresql://…@ep-…neon.tech/neondb?sslmode=require&statement_cache_size=0
-BACKEND_CACHE_REDIS_URI=redis://:${REDIS_PASSWORD}@teable-cache:6379/0
-BACKEND_STORAGE_PROVIDER=local
-BACKEND_STORAGE_LOCAL_PATH=/app/.assets
-BACKEND_MAIL_HOST=smtp.gmail.com
-BACKEND_MAIL_PORT=465
-BACKEND_MAIL_SECURE=true
-BACKEND_MAIL_SENDER=bot@yourdomain.com
-BACKEND_MAIL_AUTH_USER=bot@yourdomain.com
-BACKEND_MAIL_AUTH_PASS=…            # Gmail App Password
-BACKEND_JWT_SECRET=…
-BACKEND_SESSION_SECRET=…
-SECRET_KEY=…
-SSA_SINGLE_TENANT=true
-SSA_INTERNAL_TOKEN=…
-SSA_EVENTS_WEBHOOK_URL=http://ssa-notify:4600/events
-SSA_EVENTS_WEBHOOK_SECRET=…
-SSA_ASSISTANT_ENABLED=true
-SSA_ASSISTANT_SERVICE_URL=http://ssa-ai:4700
-```
+### Oracle Cloud Always Free (a $0 host for this stack)
 
-`ssa-notify.env` / `ssa-ai.env`: mirror docs/ssa/ENVIRONMENT.md §3/§4, using
-the service hostnames (`SSA_TEABLE_BASE_URL=http://teable:3000`).
-
-Put TLS in front with Caddy:
-
-```
-workspace.example.com {
-  reverse_proxy 127.0.0.1:3000
-}
-```
-
-Then: `docker compose -f ssa/docker-compose.ssa.yaml up -d --build`.
+Ampere A1 (2 OCPU / 12 GB ARM / 200 GB block storage, always free) runs the whole
+stack comfortably — this repo's app image and the redis/postgres/Caddy images
+build and run natively on arm64. Step-by-step (instance creation, firewall,
+DuckDNS/Caddy or Cloudflare Tunnel, backups, upgrades):
+[`ssa/deploy/README.md`](../../ssa/deploy/README.md).
 
 ## 3. First-boot checklist
 

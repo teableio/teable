@@ -1,0 +1,172 @@
+# SSA Teable — single-tenant Compose deployment
+# (Oracle Cloud Always Free Ampere, any VPS, or a home server).
+#
+#   cd ssa/deploy
+#   cp .env.example .env                  # infrastructure knobs (domain, passwords)
+#   cp teable.env.example teable.env      # app config + secrets
+#   cp ssa-notify.env.example ssa-notify.env
+#   cp ssa-ai.env.example ssa-ai.env
+#   docker compose --profile edge-caddy up -d --build    # or --profile edge-tunnel
+#
+# Full walkthrough (incl. Oracle provisioning): ./README.md
+name: ssa-teable
+
+services:
+  teable:
+    # Built from THIS fork — it contains /api/ssa/*, single-tenant hardening and
+    # the assistant proxy. The upstream ghcr.io/teableio/teable image does not.
+    build:
+      context: ../..
+      dockerfile: dockers/teable/Dockerfile
+    image: ssa/teable:local
+    restart: always
+    env_file: [./teable.env]
+    environment:
+      TZ: ${TIMEZONE:-UTC}
+      # Assembled here so the Redis password lives only in .env.
+      BACKEND_CACHE_REDIS_URI: redis://:${REDIS_PASSWORD}@teable-cache:6379/0
+    # Loopback only — Caddy/cloudflared reach teable:3000 over the compose
+    # network. Handy for local checks: curl http://127.0.0.1:3000/health
+    ports: ['127.0.0.1:3000:3000']
+    volumes:
+      - teable-data:/app/.assets
+    depends_on:
+      teable-cache:
+        condition: service_healthy
+      teable-db:
+        condition: service_healthy
+        required: false # only when the localdb profile is active
+    healthcheck:
+      # /health pings the meta database (Neon included) — a real readiness probe.
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s # first boot runs prisma migrations (Neon cold start)
+
+  teable-cache:
+    image: redis:7.2.4
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - teable-cache-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── SSA companion services ──────────────────────────────────────────────────
+
+  ssa-notify:
+    build:
+      context: ..
+      dockerfile: services/notify/Dockerfile
+    image: ssa/notify:local
+    restart: always
+    env_file: [./ssa-notify.env]
+    environment:
+      TZ: ${TIMEZONE:-UTC}
+    volumes:
+      # notify.rules.json + notify.digest.json (see README "Configure notify")
+      - ./notify:/app/config:ro
+    depends_on:
+      teable:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:4600/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  ssa-ai:
+    build:
+      context: ..
+      dockerfile: services/ai/Dockerfile
+    image: ssa/ai:local
+    restart: always
+    env_file: [./ssa-ai.env]
+    environment:
+      TZ: ${TIMEZONE:-UTC}
+    depends_on:
+      teable:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:4700/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── Edge: pick ONE profile ──────────────────────────────────────────────────
+  # edge-caddy  → domain + automatic HTTPS (Let's Encrypt, DuckDNS DNS-01, …)
+  # edge-tunnel → Cloudflare Tunnel, no inbound ports needed (needs a
+  #               Cloudflare-managed domain + TUNNEL_TOKEN)
+
+  caddy:
+    profiles: [edge-caddy]
+    build:
+      context: ./caddy
+      # Dockerfile.duckdns adds the DuckDNS DNS-01 module (TLS without a domain)
+      dockerfile: ${CADDY_DOCKERFILE:-Dockerfile.plain}
+    image: ssa/caddy:local
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:-}
+    volumes:
+      - ./${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [teable]
+
+  cloudflared:
+    profiles: [edge-tunnel]
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
+    depends_on: [teable]
+
+  # ── Optional local Postgres (skip when using Neon) ──────────────────────────
+  teable-db:
+    profiles: [localdb]
+    image: postgres:15.4
+    restart: always
+    environment:
+      POSTGRES_DB: teable
+      POSTGRES_USER: teable
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      TZ: ${TIMEZONE:-UTC}
+    volumes:
+      - teable-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U teable -d teable']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  teable-data: {}
+  teable-cache-data: {}
+  teable-db-data: {}
+  caddy-data: {}
+  caddy-config: {}

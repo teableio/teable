@@ -1,0 +1,8 @@
+# Caddy — domain with automatic HTTPS (Let's Encrypt HTTP-01).
+# DOMAIN comes from ssa/deploy/.env (e.g. ssa.example.com / yourname.duckdns.org).
+# For a DuckDNS subdomain use Caddyfile.duckdns + Dockerfile.duckdns instead
+# (DNS-01 challenge, no inbound port 80 required).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy teable:3000
+}

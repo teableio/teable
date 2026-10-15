@@ -1,0 +1,3 @@
+# Default Caddy image (automatic HTTPS via HTTP-01).
+# Selected by CADDY_DOCKERFILE=Dockerfile.plain in ssa/deploy/.env.
+FROM caddy:2

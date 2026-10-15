@@ -1,0 +1,8 @@
+# Caddy with the DuckDNS DNS-01 module — free TLS without owning a domain.
+# Selected by CADDY_DOCKERFILE=Dockerfile.duckdns in ssa/deploy/.env
+# (used together with CADDYFILE=Caddyfile.duckdns).
+FROM caddy:2-builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/duckdns
+
+FROM caddy:2
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

@@ -95,3 +95,10 @@ ssa/voice/**/__pycache__/
 ssa/**/notify.rules.json
 ssa/**/notify.digest.json
 .ssa-*.log
+
+# ── SSA deployment bundle (ssa/deploy) ──────────────────────────────────────
+ssa/deploy/.env
+ssa/deploy/*.env
+ssa/deploy/notify/
+ssa/deploy/backups/
+!ssa/deploy/.env.example
