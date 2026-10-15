@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/nestjs';
 import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createMetaRepairer,
@@ -20,6 +19,7 @@ import {
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import * as ErrorReport from '../../utils/error-report';
 
 import { IntegrityV2Service } from './integrity-v2.service';
 
@@ -131,14 +131,14 @@ class FakeTracer implements ITracer {
   }
 }
 
-const sentryScope = {
+const reportScope = {
   setLevel: vi.fn(),
   setTag: vi.fn(),
   setContext: vi.fn(),
 };
 
-vi.mock('@sentry/nestjs', () => ({
-  withScope: (callback: (scope: typeof sentryScope) => void) => callback(sentryScope),
+vi.mock('../../utils/error-report', () => ({
+  withScope: (callback: (scope: typeof reportScope) => void) => callback(reportScope),
   captureException: vi.fn(),
 }));
 
@@ -625,7 +625,7 @@ describe('IntegrityV2Service repair telemetry', () => {
     });
   });
 
-  it('captures result-level repair failures to sentry and trace spans', async () => {
+  it('captures result-level repair failures to the error report and trace spans', async () => {
     const service = new IntegrityV2Service({} as never, {} as never);
     const tracer = new FakeTracer();
     const table = createTable();
@@ -647,10 +647,10 @@ describe('IntegrityV2Service repair telemetry', () => {
     const serialized = await collect(stream);
 
     expect(serialized).toHaveLength(1);
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-    expect(sentryScope.setTag).toHaveBeenCalledWith('feature', schemaIntegrityRepairFeatureTag);
-    expect(sentryScope.setTag).toHaveBeenCalledWith('integrity.failure_kind', 'result_error');
-    expect(sentryScope.setContext).toHaveBeenCalledWith(
+    expect(ErrorReport.captureException).toHaveBeenCalledTimes(1);
+    expect(reportScope.setTag).toHaveBeenCalledWith('feature', schemaIntegrityRepairFeatureTag);
+    expect(reportScope.setTag).toHaveBeenCalledWith('integrity.failure_kind', 'result_error');
+    expect(reportScope.setContext).toHaveBeenCalledWith(
       'schema-integrity-repair',
       expect.objectContaining({
         tableId: 'tblIntegrity000001',
@@ -667,7 +667,7 @@ describe('IntegrityV2Service repair telemetry', () => {
     expect(tracer.spans[0]?.errors).toContain('Schema repair failed');
   });
 
-  it('captures thrown repair stream exceptions to sentry and trace spans', async () => {
+  it('captures thrown repair stream exceptions to the error report and trace spans', async () => {
     const service = new IntegrityV2Service({} as never, {} as never);
     const tracer = new FakeTracer();
     const table = createTable();
@@ -685,8 +685,8 @@ describe('IntegrityV2Service repair telemetry', () => {
 
     await expect(collect(stream)).rejects.toThrow(repairStreamCrashedMessage);
 
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-    expect(sentryScope.setTag).toHaveBeenCalledWith('integrity.failure_kind', 'stream_exception');
+    expect(ErrorReport.captureException).toHaveBeenCalledTimes(1);
+    expect(reportScope.setTag).toHaveBeenCalledWith('integrity.failure_kind', 'stream_exception');
     expect(tracer.spans[0]?.attributes).toMatchObject({
       [integrityFailureKindAttribute]: 'stream_exception',
       [integrityScopeAttribute]: 'base',

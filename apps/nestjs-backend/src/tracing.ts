@@ -22,7 +22,6 @@
  * | OTEL_BSP_PRIORITY_SCHEDULE_DELAY   | Priority-span BSP delay (ms)   | 1000             | 1000         |
  * | OTEL_BSP_EXPORT_TIMEOUT            | Trace BSP export timeout (ms)  | 30000            | 30000        |
  * | OTEL_METRIC_EXPORT_INTERVAL_MS     | Metrics export interval (ms)   | 10000            | 60000        |
- * | BACKEND_SENTRY_DSN                 | Sentry DSN for error tracking  | (disabled)       | (disabled)   |
  * | BUILD_VERSION                      | Build version for resource     | (none)           | (none)       |
  * ─────────────────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -104,8 +103,6 @@ const ENV_DEFAULTS = {
     OTEL_METRIC_EXPORT_INTERVAL_MS: '60000',
   },
 } as const;
-
-const hasSentry = !!process.env.BACKEND_SENTRY_DSN;
 
 type EnvConfigKey = keyof typeof ENV_DEFAULTS.development;
 
@@ -268,9 +265,8 @@ const teableDbSpanAttributeProcessor: SpanProcessor = {
 };
 
 // Span processors - NoopSpanProcessor ensures trace context is always generated
-// even when no exporter is configured (needed for trace ID in logs)
-// Sentry is error-only: no SentrySpanProcessor/SentryPropagator — their
-// per-span bookkeeping is CPU-heavy under load, and SigNoz owns tracing.
+// even when no exporter is configured (needed for trace ID in logs).
+// Error visibility comes from the application logger (see utils/error-report).
 const spanProcessors = [
   ...(traceExporter
     ? [
@@ -348,8 +344,6 @@ const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor({ exporter: logExporter })] : [],
   sampler: new AlwaysOnSampler(),
-  // Sentry 11 keeps its scopes in its own AsyncLocalStorage and no longer wraps the OTEL
-  // context manager; instrument.ts links events to the active span instead.
   contextManager: new AsyncLocalStorageContextManager(),
   textMapPropagator: undefined,
   views: metricViews,
@@ -402,7 +396,7 @@ otelLogger.log(
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +
     `metricsInterval=${metricExportIntervalMs}ms, ` +
-    `sentry=${hasSentry}${hasSentry ? ' (errors only)' : ''}`
+    `enabled=${!!(traceEndpoint || logEndpoint || metricsEndpoint)}`
 );
 
 export default otelSDK;

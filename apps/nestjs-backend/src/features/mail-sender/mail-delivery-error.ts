@@ -2,7 +2,7 @@ import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 
-// Anything outside this set escaping a send is our own bug, and must stay a 500 so it reaches Sentry
+// Anything outside this set escaping a send is our own bug, and must stay a 500 so it is reported
 const SMTP_ERROR_CODES = new Set([
   'EENVELOPE',
   'EMESSAGE',

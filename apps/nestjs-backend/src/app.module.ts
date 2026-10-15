@@ -3,7 +3,6 @@ import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
 import type { ICacheConfig } from './configs/cache.config';
 import { ConfigModule } from './configs/config.module';
@@ -63,7 +62,6 @@ import { WsModule } from './ws/ws.module';
 
 export const appModules = {
   imports: [
-    SentryModule.forRoot(),
     LoggerModule.register(),
     MailSenderOpenApiModule,
     MailSenderMergeModule,

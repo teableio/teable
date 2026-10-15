@@ -15,7 +15,6 @@ import {
   getV2Attribution,
   getV2AttributionSpanAttributes,
   setV2AttributionHeaders,
-  setV2AttributionOnCurrentSentryScopes,
 } from '../v2-attribution';
 export {
   TEABLE_REQUEST_ATTRIBUTION,
@@ -74,7 +73,6 @@ export class V2IndicatorInterceptor implements NestInterceptor {
     const attribution = getV2Attribution(this.cls);
 
     setV2AttributionHeaders(response, attribution);
-    setV2AttributionOnCurrentSentryScopes(attribution);
 
     const span = trace.getActiveSpan();
     if (span) {

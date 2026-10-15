@@ -3,7 +3,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
-import * as Sentry from '@sentry/nestjs';
 import type {
   CreatedByFieldCore,
   FieldCore,
@@ -73,6 +72,7 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
+import * as ErrorReport from '../../utils/error-report';
 import { generateFilterItem } from '../../utils/filter';
 import {
   generateTableThumbnailPath,
@@ -2130,7 +2130,7 @@ export class RecordService {
 
     this.logger.error(logContext, exception.stack);
 
-    Sentry.withScope((scope) => {
+    ErrorReport.withScope((scope) => {
       scope.setLevel('error');
       scope.setTag('feature', 'record-snapshot-presigned-url');
       scope.setTag('field_key_type', fieldKeyType);
@@ -2143,7 +2143,7 @@ export class RecordService {
         scope.setTag('table.id', context.tableId);
       }
       scope.setContext('record_snapshot_presigned_url', logContext);
-      Sentry.captureException(exception, {
+      ErrorReport.captureException(exception, {
         mechanism: { handled: true, type: 'record.snapshot.presigned_url' },
       });
     });

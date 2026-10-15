@@ -1,4 +1,3 @@
-import './instrument';
 import './tracing';
 import type { INestApplication } from '@nestjs/common';
 import { bootstrap } from './bootstrap';

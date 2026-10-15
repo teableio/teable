@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/naming-convention -- OpenTelemetry attribute keys are dot-separated */
 import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MailDeliveryException } from '../features/mail-sender/mail-delivery-error';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
-const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScope } = vi.hoisted(
+const { activeSpan, runtimeErrorCounter, reportScope, captureException, withScope } = vi.hoisted(
   () => {
     const activeSpan = {
       setAttributes: vi.fn(),
@@ -14,7 +15,7 @@ const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScop
     const runtimeErrorCounter = {
       add: vi.fn(),
     };
-    const sentryScope = {
+    const reportScope = {
       setContext: vi.fn(),
       setTag: vi.fn(),
       setUser: vi.fn(),
@@ -22,9 +23,9 @@ const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScop
     return {
       activeSpan,
       runtimeErrorCounter,
-      sentryScope,
+      reportScope,
       captureException: vi.fn(),
-      withScope: vi.fn((callback: (scope: typeof sentryScope) => void) => callback(sentryScope)),
+      withScope: vi.fn((callback: (scope: typeof reportScope) => void) => callback(reportScope)),
     };
   }
 );
@@ -43,7 +44,7 @@ vi.mock('@opentelemetry/api', () => ({
   },
 }));
 
-vi.mock('@sentry/nestjs', () => ({
+vi.mock('../utils/error-report', () => ({
   captureException,
   withScope,
 }));
@@ -107,12 +108,12 @@ describe('GlobalExceptionFilter', () => {
     filter.catch(exception, host as never);
 
     expect(withScope).toHaveBeenCalledTimes(1);
-    expect(sentryScope.setUser).toHaveBeenNthCalledWith(1, null);
-    expect(sentryScope.setUser).toHaveBeenNthCalledWith(2, {
+    expect(reportScope.setUser).toHaveBeenNthCalledWith(1, null);
+    expect(reportScope.setUser).toHaveBeenNthCalledWith(2, {
       id: userId,
       email: userEmail,
     });
-    expect(sentryScope.setTag).toHaveBeenCalledWith('space.id', spaceId);
+    expect(reportScope.setTag).toHaveBeenCalledWith('space.id', spaceId);
     expect(captureException).toHaveBeenCalledWith(exception, {
       mechanism: { handled: false, type: 'auto.function.nestjs.exception_captured' },
     });
@@ -138,11 +139,11 @@ describe('GlobalExceptionFilter', () => {
     expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2', 'true');
     expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2-reason', 'space_feature');
     expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2-feature', 'deleteField');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.version', 'v2');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.enabled', 'true');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.reason', 'space_feature');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.feature', 'deleteField');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.request.attribution', 'v2');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.version', 'v2');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.v2.enabled', 'true');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.v2.reason', 'space_feature');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.v2.feature', 'deleteField');
+    expect(reportScope.setTag).toHaveBeenCalledWith('teable.request.attribution', 'v2');
     expect(activeSpan.setAttributes).toHaveBeenCalledWith(
       expect.objectContaining({
         'teable.request.attribution': 'v2',
@@ -239,7 +240,7 @@ describe('GlobalExceptionFilter', () => {
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
-  it('returns a classified BYODB runtime error and annotates Sentry plus OTel', () => {
+  it('returns a classified BYODB runtime error and annotates the report plus OTel', () => {
     const cls = {
       get: vi.fn((key: string) => {
         const values = new Map<string, unknown>([
@@ -291,9 +292,9 @@ describe('GlobalExceptionFilter', () => {
     expect(JSON.stringify(response.json.mock.calls.at(-1)?.[0])).not.toContain(
       'secret_customer_db'
     );
-    expect(sentryScope.setTag).toHaveBeenCalledWith('data_db.error_code', dataDbErrorCode);
-    expect(sentryScope.setTag).toHaveBeenCalledWith('data_db.connection_id', dataDbConnectionId);
-    expect(sentryScope.setContext).toHaveBeenCalledWith(
+    expect(reportScope.setTag).toHaveBeenCalledWith('data_db.error_code', dataDbErrorCode);
+    expect(reportScope.setTag).toHaveBeenCalledWith('data_db.connection_id', dataDbConnectionId);
+    expect(reportScope.setContext).toHaveBeenCalledWith(
       'data_db',
       expect.objectContaining({
         errorCode: dataDbErrorCode,

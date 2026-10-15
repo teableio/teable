@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention -- OpenTelemetry attribute keys are dot-separated */
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import type * as OTelApi from '@opentelemetry/api';
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -9,13 +11,12 @@ import {
   X_TEABLE_V2_REASON_HEADER,
 } from './v2-indicator.interceptor';
 
-const { getActiveSpan, sentryScope } = vi.hoisted(() => ({
+const { getActiveSpan } = vi.hoisted(() => ({
   getActiveSpan: vi.fn(),
-  sentryScope: { setTag: vi.fn() },
 }));
 
 vi.mock('@opentelemetry/api', async () => {
-  const actual = await vi.importActual<typeof import('@opentelemetry/api')>('@opentelemetry/api');
+  const actual = await vi.importActual<typeof OTelApi>('@opentelemetry/api');
   return {
     ...actual,
     trace: {
@@ -24,12 +25,6 @@ vi.mock('@opentelemetry/api', async () => {
     },
   };
 });
-
-vi.mock('@sentry/nestjs', () => ({
-  getCurrentScope: () => sentryScope,
-  getIsolationScope: () => sentryScope,
-  getCurrentHub: () => ({ getScope: () => sentryScope }),
-}));
 
 describe('V2IndicatorInterceptor', () => {
   beforeEach(() => {
@@ -77,7 +72,6 @@ describe('V2IndicatorInterceptor', () => {
       'teable.v2.reason': 'canary',
       'teable.v2.feature': 'createRecord',
     });
-    expect(sentryScope.setTag).toHaveBeenCalledWith(TEABLE_REQUEST_ATTRIBUTION, 'v2');
   });
 
   it('uses the final cls state after controller fallback', () => {
@@ -153,7 +147,5 @@ describe('V2IndicatorInterceptor', () => {
     expect(response.setHeader).toHaveBeenCalledWith(X_TEABLE_V2_HEADER, 'true');
     expect(response.setHeader).toHaveBeenCalledWith(X_TEABLE_V2_REASON_HEADER, 'space_feature');
     expect(response.setHeader).toHaveBeenCalledWith(X_TEABLE_V2_FEATURE_HEADER, 'deleteField');
-    expect(sentryScope.setTag).toHaveBeenCalledWith(TEABLE_REQUEST_ATTRIBUTION, 'v2');
-    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.feature', 'deleteField');
   });
 });
