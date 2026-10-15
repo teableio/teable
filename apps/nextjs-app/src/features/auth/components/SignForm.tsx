@@ -22,9 +22,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { trackSignUp } from '@/components/google-ads';
 import { useCutDown } from '@/features/app/hooks/useCutDown';
-import { useEnv } from '@/features/app/hooks/useEnv';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { authConfig } from '../../i18n/auth.config';
 import { useCredentialDraftStore } from '../store/useCredentialDraftStore';
@@ -53,7 +51,6 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [signinMode, setSigninMode] = useState<'password' | 'code'>('password');
   const [signinCode, setSigninCode] = useState<string>('');
   const [signinCodeSent, setSigninCodeSent] = useState<boolean>(false);
-  const env = useEnv();
   const emailRef = useRef<HTMLInputElement>(null);
   const {
     email: draftEmail,
@@ -167,23 +164,11 @@ export const SignForm: FC<ISignForm> = (props) => {
     meta: {
       preventGlobalError: true,
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, _variables) => {
       // Reset turnstile token after successful submission
       setTurnstileToken(undefined);
       setTurnstileKey((prev) => prev + 1);
       clearCredentialDraft();
-
-      // Cross-domain GA4 signup event (Google Ads conversions upload server-side)
-      if (variables.type === 'signup' && data.data) {
-        trackSignUp({
-          marketingGaId: env.marketingGaId,
-          userInfo: {
-            id: data.data.id,
-            email: data.data.email,
-            name: data.data.name,
-          },
-        });
-      }
 
       onSuccess?.();
     },

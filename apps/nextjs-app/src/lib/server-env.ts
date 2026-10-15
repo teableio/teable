@@ -8,15 +8,7 @@ export interface IServerEnv {
   brandName?: string;
   brandLogo?: string;
   templateSiteLink?: string;
-  microsoftClarityId?: string;
   umamiWebSiteId?: string;
-  gaId?: string;
-  marketingGaId?: string;
-  posthogKey?: string;
-  posthogHost?: string;
-  posthogWebHost?: string;
-  posthogUiHost?: string;
-  metaPixelId?: string;
   umamiUrl?: string;
   socialAuthProviders?: string[];
   storage?: {

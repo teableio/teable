@@ -10,7 +10,7 @@ interface ITemplateCardProps extends Pick<ITemplateBaseProps, 'onClickTemplateCa
   template: ITemplateVo;
   size: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
-  /** PostHog autocapture marker (autocapture is allowlisted to `[data-attr]` elements). */
+  /** Optional marker attribute for automation/testing hooks. */
   dataAttr?: string;
 }
 
