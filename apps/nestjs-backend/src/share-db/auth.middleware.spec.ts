@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/naming-convention -- HTTP header names are hyphenated */
 import { getCollaboratorsChannel, getUserNotificationChannel } from '@teable/core';
 import ShareDBClass from 'sharedb';
 import type { Connection } from 'sharedb/lib/client';
-import { describe, expect, it } from 'vitest';
-import { authMiddleware } from './auth.middleware';
+import { describe, expect, it, vi } from 'vitest';
+import { authMiddleware, isAllowedWebSocketOrigin } from './auth.middleware';
 
-const createBackend = () => {
+const createBackend = (publicOrigin?: string) => {
   const backend = new ShareDBClass({
     presence: true,
     doNotForwardSendPresenceErrorsToClient: true,
@@ -15,7 +16,7 @@ const createBackend = () => {
       req.headers.cookie?.replace('session=', ''),
     getUserId: async (sessionId: string) => sessionId,
   };
-  authMiddleware(backend, sessions as never);
+  authMiddleware(backend, sessions as never, publicOrigin);
   return backend;
 };
 
@@ -92,5 +93,73 @@ describe('notification presence is private to its user', () => {
     await expect(
       submit(anonymous, getCollaboratorsChannel('tblX'), 'me', { name: 'x' })
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('websocket origin guard', () => {
+  const req = (headers: Record<string, string>) => ({ headers });
+
+  it('allows non-browser clients that send no Origin', () => {
+    expect(isAllowedWebSocketOrigin(req({}), 'https://app.example.com')).toBe(true);
+  });
+
+  it('allows the configured PUBLIC_ORIGIN', () => {
+    expect(
+      isAllowedWebSocketOrigin(
+        req({ origin: 'https://app.example.com', host: 'internal:3000' }),
+        'https://app.example.com'
+      )
+    ).toBe(true);
+  });
+
+  it('allows the origin the request was addressed to (forwarded host + proto)', () => {
+    expect(
+      isAllowedWebSocketOrigin(
+        req({
+          origin: 'https://app.example.com',
+          host: '127.0.0.1:3000',
+          'x-forwarded-host': 'app.example.com',
+          'x-forwarded-proto': 'https, http',
+        }),
+        'http://localhost:3000'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects a foreign origin even though the cookie would authenticate it', () => {
+    expect(
+      isAllowedWebSocketOrigin(
+        req({ origin: 'https://evil.test', host: 'app.example.com', 'x-forwarded-proto': 'https' }),
+        'https://app.example.com'
+      )
+    ).toBe(false);
+  });
+
+  it('connects a matching-origin browser and refuses a foreign origin end to end', async () => {
+    const backend = createBackend('https://app.example.com');
+    const headers = {
+      host: 'app.example.com',
+      'x-forwarded-proto': 'https',
+      cookie: 'session=usrMe',
+    };
+
+    const good = backend.connect(undefined, {
+      headers: { ...headers, origin: 'https://app.example.com' },
+      url: '/socket',
+    }) as Connection;
+    await vi.waitFor(() => expect(good.state).toBe('connected'));
+
+    const bad = backend.connect(undefined, {
+      headers: { ...headers, origin: 'https://evil.test' },
+      url: '/socket',
+    }) as Connection;
+    // The middleware closes the agent before the handshake completes, so the
+    // client can never reach 'connected' and only the allowed agent remains.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(bad.state).not.toBe('connected');
+    expect((backend as unknown as { agentsCount: number }).agentsCount).toBe(1);
+
+    good.close();
+    bad.close();
   });
 });

@@ -38,9 +38,63 @@ export const checkNotificationPresence = (
   }
 };
 
+const firstHeader = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
+
+const normalizedOrigin = (value: string | undefined): string | undefined => {
+  if (!value) {
+    return;
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    return;
+  }
+};
+
+/**
+ * Cross-site WebSocket hijacking guard.
+ *
+ * Browsers attach cookies to WebSocket handshakes, so without this check a
+ * foreign page could open an authenticated ShareDB connection (and SameSite
+ * handling of handshakes varies between browsers and WebViews). A browser
+ * always sends `Origin` on a handshake: accept only PUBLIC_ORIGIN or the
+ * origin the request itself was addressed to (Host + forwarded proto),
+ * mirroring SessionCsrfMiddleware's session-origin check. Requests without an
+ * `Origin` come from non-browser clients and stay allowed.
+ */
+export const isAllowedWebSocketOrigin = (
+  req: { headers?: Record<string, string | string[] | undefined> },
+  publicOrigin?: string
+): boolean => {
+  const origin = normalizedOrigin(firstHeader(req.headers?.origin));
+  if (!origin) {
+    return true;
+  }
+
+  const allowed = new Set<string>();
+  const configured = normalizedOrigin(publicOrigin);
+  if (configured) {
+    allowed.add(configured);
+  }
+
+  const host = firstHeader(req.headers?.['x-forwarded-host']) ?? firstHeader(req.headers?.host);
+  if (host) {
+    const protocol =
+      firstHeader(req.headers?.['x-forwarded-proto'])?.split(',')[0]?.trim() || 'http';
+    const requestOrigin = normalizedOrigin(`${protocol}://${host}`);
+    if (requestOrigin) {
+      allowed.add(requestOrigin);
+    }
+  }
+
+  return allowed.has(origin);
+};
+
 export const authMiddleware = (
   shareDB: ShareDBClass,
-  sessionHandleService?: SessionHandleService
+  sessionHandleService?: SessionHandleService,
+  publicOrigin?: string
 ) => {
   const runWithCls = async (context: ShareDBClass.middleware.QueryContext, callback: any) => {
     const cookie = context.agent.custom.cookie;
@@ -60,6 +114,12 @@ export const authMiddleware = (
       callback();
       return;
     }
+
+    if (!isAllowedWebSocketOrigin(context.req, publicOrigin)) {
+      callback(new Error('Cross-origin websocket connection is not allowed'));
+      return;
+    }
+
     const cookie = context.req.headers.cookie;
     context.agent.custom.cookie = cookie;
 
