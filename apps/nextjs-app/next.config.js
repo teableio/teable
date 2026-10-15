@@ -104,7 +104,9 @@ const secureHeaders = createSecureHeaders({
   },
   ...(NEXT_BUILD_ENV_CSP && isProd
     ? {
-        forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 4, includeSubDomains: true }],
+        // One year: an HSTS pin only protects a user who has not been
+        // downgraded in the meantime, so keep it far longer than a few days.
+        forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 365, includeSubDomains: true }],
       }
     : {}),
   referrerPolicy: 'same-origin',
