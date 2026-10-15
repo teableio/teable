@@ -6,14 +6,24 @@ import { resolveCipherEntries } from './secrets/resolve-cipher-entries';
 import { resolveSecret } from './secrets/resolve-secret';
 import { SECRET_SPECS } from './secrets/secret-specs';
 
-const getCookieSecure = (value: string | undefined) => {
-  if (!value) {
-    return undefined;
+/**
+ * Session-cookie `Secure` policy:
+ * - an explicit BACKEND_SESSION_COOKIE_SECURE (`true` / `false` / `auto`) wins;
+ * - otherwise the flag follows the deployment scheme: an `https` PUBLIC_ORIGIN
+ *   means browsers reach the app over TLS, so a cleartext request (first visit
+ *   before the HSTS pin, a downgrade attempt) must never carry the cookie;
+ * - a plain-http origin (local development) keeps express-session's default,
+ *   because with `secure: true` express-session refuses to set the cookie on
+ *   non-TLS requests and sign-in would silently break.
+ */
+export const getCookieSecure = (value: string | undefined, publicOrigin: string | undefined) => {
+  if (value) {
+    if (value === 'auto') {
+      return 'auto' as const;
+    }
+    return value === 'true';
   }
-  if (value === 'auto') {
-    return 'auto' as const;
-  }
-  return value === 'true';
+  return publicOrigin?.startsWith('https://') ? true : undefined;
 };
 
 /**
@@ -61,7 +71,7 @@ export const authConfig = registerAs('auth', () => ({
     oldSecret: process.env.BACKEND_SESSION_SECRET_OLD,
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
     cookie: {
-      secure: getCookieSecure(process.env.BACKEND_SESSION_COOKIE_SECURE),
+      secure: getCookieSecure(process.env.BACKEND_SESSION_COOKIE_SECURE, process.env.PUBLIC_ORIGIN),
     },
   },
   accessToken: {
