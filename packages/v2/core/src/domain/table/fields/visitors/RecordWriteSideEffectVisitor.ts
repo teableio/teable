@@ -31,7 +31,8 @@ import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 import type { IFieldVisitor } from './IFieldVisitor';
-import { normalizeCellDisplayValue, normalizeCellDisplayValues } from './normalizeCellDisplayValue';
+import { normalizeCellDisplayValue } from './normalizeCellDisplayValue';
+import { splitSelectTypecastValues } from './splitSelectTypecastValues';
 
 export type RecordWriteSideEffect = {
   fieldId: FieldId;
@@ -44,9 +45,7 @@ const normalizeSingleSelectValue = (value: unknown): string | null => {
   return normalizeCellDisplayValue(value);
 };
 
-const normalizeMultiSelectValues = (value: unknown): string[] => {
-  return normalizeCellDisplayValues(value);
-};
+const normalizeMultiSelectValues = (value: unknown): string[] => splitSelectTypecastValues(value);
 
 const randomColors = (exists: string[], num: number): FieldColorValue[] => {
   const allColors = [...fieldColorValues];

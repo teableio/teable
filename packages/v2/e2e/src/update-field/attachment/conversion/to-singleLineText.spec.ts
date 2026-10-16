@@ -64,10 +64,14 @@ describe('update-field: attachment → singleLineText conversion', () => {
     }
   });
 
-  test('should convert attachment JSON to text', async () => {
+  test('should convert attachment JSON to "name (token)" list', async () => {
     const fieldId = await createAttachmentField('Attachment Field');
+    const secondSeed = await seedAttachment(ctx);
     const r1 = await ctx.createRecord(tableId, {
-      [fieldId]: makeAttachmentCell(attachmentSeed, 'a.txt'),
+      [fieldId]: [
+        ...makeAttachmentCell(attachmentSeed, 'a.png'),
+        ...makeAttachmentCell(secondSeed, 'b.pdf'),
+      ],
     });
 
     const updatedTable = await ctx.updateField({
@@ -82,8 +86,26 @@ describe('update-field: attachment → singleLineText conversion', () => {
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
     const value = rec1?.fields[fieldId];
-    expect(value).toEqual(expect.any(String));
-    expect(String(value)).toContain(attachmentSeed.token);
+    // v1 parity: AttachmentFieldCore.cellValue2String → "name (token)" per item, comma joined,
+    // original order preserved.
+    expect(value).toBe(`a.png (${attachmentSeed.token}),b.pdf (${secondSeed.token})`);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [r1.id]);
+  });
+
+  test('should render an empty attachment list as null', async () => {
+    const fieldId = await createAttachmentField('Empty Attachment Field');
+    const r1 = await ctx.createRecord(tableId, { [fieldId]: [] });
+
+    await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { type: 'singleLineText' },
+    });
+
+    const records = await ctx.listRecords(tableId);
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);
@@ -105,7 +127,7 @@ describe('update-field: attachment → singleLineText conversion', () => {
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
     const rec2 = records.find((r) => r.id === r2.id);
-    expect(rec1?.fields[fieldId]).toEqual(expect.any(String));
+    expect(rec1?.fields[fieldId]).toBe(`a.txt (${attachmentSeed.token})`);
     expect(rec2?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });

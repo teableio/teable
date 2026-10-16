@@ -95,8 +95,8 @@ describe('field reference operator helpers', () => {
       hasAnyOf.value,
       hasAllOf.value,
       isExactly.value,
-      hasNoneOf.value,
       isNotExactly.value,
+      hasNoneOf.value,
     ]);
   });
 

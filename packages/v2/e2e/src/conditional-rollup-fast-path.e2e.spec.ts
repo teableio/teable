@@ -479,7 +479,7 @@ describe('[F14][R05] conditional rollup simple-filter fast path (e2e)', () => {
             ...Object.fromEntries(
               sourceFilterFieldIds.map((fieldId, filterIndex) => [
                 fieldId,
-                `choice_${filterIndex}_${combination[filterIndex].toLowerCase()}`,
+                combination[filterIndex],
               ])
             ),
           },
@@ -498,7 +498,7 @@ describe('[F14][R05] conditional rollup simple-filter fast path (e2e)', () => {
 
       ctx.clearLogs();
       await ctx.updateRecord(sourceTable.id, sourceRecords[0]!.id, {
-        [sourceFilterFieldIds[0]!]: 'choice_0_b',
+        [sourceFilterFieldIds[0]!]: 'B',
       });
       await ctx.drainOutbox();
 

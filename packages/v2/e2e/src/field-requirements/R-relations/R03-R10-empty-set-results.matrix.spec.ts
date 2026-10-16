@@ -6,11 +6,10 @@
  * and explicitly warns against applying one uniform empty rule.
  * R03 (实现依据): a lookup's `isUnique` de-duplicates while keeping the type and
  * the first-seen order.
- * R09 (实现依据): boolean rollups add and/or/xor, whose empty-set result is the
- * identity element.
+ * R09 (实现依据): boolean rollups add and/or/xor. N-29: an empty link returns
+ * empty for and, or, and xor rather than the boolean identity.
  *
- * The tables below are the current v2 answers, recorded so the review can
- * confirm or correct each row.
+ * The tables below lock the N-29 empty-link answers.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -64,8 +63,9 @@ describe('R10: empty-link lookup and rollup results', () => {
       expression: 'count({values})',
       expected: 0,
     },
-    // The arithmetic aggregates do not agree with each other: the additive
-    // pair collapses to 0 while the ordering pair stays null.
+    // Counting identities and sum stay 0. Average of no linked numbers is empty,
+    // matching max/min. A non-empty link with only blank numbers still averages
+    // to 0.
     {
       requirement: 'R08',
       label: 'sum of an empty set is 0',
@@ -74,9 +74,9 @@ describe('R10: empty-link lookup and rollup results', () => {
     },
     {
       requirement: 'R08',
-      label: 'average of an empty set is 0',
+      label: 'average of an empty set is null',
       expression: 'average({values})',
-      expected: 0,
+      expected: null,
     },
     {
       requirement: 'R08',
@@ -129,13 +129,11 @@ describe('R10: empty-link lookup and rollup results', () => {
       expression: 'or({values})',
       expected: null,
     },
-    // R09's three logical aggregates disagree: `xor` collapses to the boolean
-    // false while `and`/`or` stay null.
     {
       requirement: 'R09',
-      label: 'xor of an empty set is false',
+      label: 'xor of an empty set is null',
       expression: 'xor({values})',
-      expected: false,
+      expected: null,
     },
   ];
 

@@ -436,6 +436,34 @@ describe('ForeignTableValidation (conditional rollup create-time compatibility T
     return params.host.addField(rollup, { foreignTables: [params.foreign] });
   };
 
+  it('rejects a lookup field that does not belong to the foreign table with a validation error', () => {
+    const baseId = unwrap(BaseId.generate());
+    const foreign = buildForeignTable(baseId);
+    const host = buildHost(baseId);
+    const foreignFieldId = unwrap(FieldId.generate());
+
+    const error = addPendingConditionalRollup({
+      host,
+      foreign: foreign.table,
+      lookupFieldId: foreignFieldId,
+      expression: 'sum({values})',
+    })._unsafeUnwrapErr();
+
+    expect(error.tags).toEqual(['validation']);
+    expect(error.code).toBe('conditional_rollup.lookup_field_foreign_table_mismatch');
+    expect(error.details).toEqual({
+      lookupFieldId: foreignFieldId.toString(),
+      foreignTableId: foreign.table.id().toString(),
+    });
+    expect(error.localization).toEqual({
+      i18nKey: 'httpErrors.field.lookupFieldNotBelongToTable',
+      context: {
+        lookupFieldId: foreignFieldId.toString(),
+        foreignTableId: foreign.table.id().toString(),
+      },
+    });
+  });
+
   it('rejects number source with and({values}) instead of creating hasError', () => {
     const baseId = unwrap(BaseId.generate());
     const foreign = buildForeignTable(baseId);

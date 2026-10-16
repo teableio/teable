@@ -12,6 +12,7 @@ import { FieldName } from '../../domain/table/fields/FieldName';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { isRecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
@@ -30,6 +31,20 @@ const createContext = (): IExecutionContext => {
   return { actorId };
 };
 
+const collectQueryLiterals = (
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+): string[] => {
+  if (!spec) return [];
+  if (spec instanceof OrSpec) {
+    return [...collectQueryLiterals(spec.leftSpec()), ...collectQueryLiterals(spec.rightSpec())];
+  }
+  if ('value' in spec && typeof spec.value === 'function') {
+    const value = spec.value();
+    return isRecordConditionLiteralValue(value) ? [String(value.toValue())] : [];
+  }
+  return [];
+};
+
 const buildTextTable = (baseSeed: string, tableSeed: string) => {
   const baseId = BaseId.create(`bse${baseSeed.repeat(16)}`)._unsafeUnwrap();
   const tableId = TableId.create(`tbl${tableSeed.repeat(16)}`)._unsafeUnwrap();
@@ -38,6 +53,18 @@ const buildTextTable = (baseSeed: string, tableSeed: string) => {
 
   const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
   builder.field().singleLineText().withName(fieldName).primary().done();
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
+const buildLongTextTable = (baseSeed: string, tableSeed: string) => {
+  const baseId = BaseId.create(`bse${baseSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${tableSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create(`Table ${tableSeed}`)._unsafeUnwrap();
+  const fieldName = FieldName.create('Notes')._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder.field().longText().withName(fieldName).primary().done();
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
 };
@@ -117,7 +144,13 @@ class FakeRecordQueryRepository implements ITableRecordQueryRepository {
   ) {
     this.findCalls += 1;
     this.lastSpec = spec;
-    return ok({ records: this.records, total: this.records.length });
+    const literals = new Set(collectQueryLiterals(spec));
+    const records = spec
+      ? this.records.filter((record) =>
+          Object.values(record.fields).some((value) => literals.has(String(value)))
+        )
+      : this.records;
+    return ok({ records, total: records.length });
   }
 
   async findOne() {
@@ -315,5 +348,124 @@ describe('LinkTitleResolverService', () => {
 
     expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([]);
     expect(recordQueryRepository.findCalls).toBe(0);
+  });
+
+  it('matches a stored single-line title when the request still has newlines or tabs', async () => {
+    const table = buildTextTable('a', 'w');
+    const recordId = RecordId.create(`rec${'w'.repeat(16)}`)._unsafeUnwrap();
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        {
+          id: recordId.toString(),
+          fields: { [table.primaryFieldId().toString()]: 'A B' },
+          version: 1,
+        },
+      ])
+    );
+    const fieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['A\nB'] },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: recordId.toString(), title: 'A\nB' },
+    ]);
+  });
+
+  it('still resolves a legacy single-line primary that stores the newline', async () => {
+    const table = buildTextTable('a', 'y');
+    const recordId = RecordId.create(`rec${'y'.repeat(16)}`)._unsafeUnwrap();
+    const recordQueryRepository = new FakeRecordQueryRepository([
+      {
+        id: recordId.toString(),
+        fields: { [table.primaryFieldId().toString()]: 'A\nB' },
+        version: 1,
+      },
+    ]);
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      recordQueryRepository
+    );
+    const fieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['A\nB'] },
+    ]);
+
+    expect(collectQueryLiterals(recordQueryRepository.lastSpec).sort()).toEqual(['A\nB', 'A B']);
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: recordId.toString(), title: 'A\nB' },
+    ]);
+  });
+
+  it('resolves a legacy tab-only single-line primary by exact title', async () => {
+    const table = buildTextTable('a', 't');
+    const recordId = RecordId.create(`rec${'t'.repeat(16)}`)._unsafeUnwrap();
+    const recordQueryRepository = new FakeRecordQueryRepository([
+      {
+        id: recordId.toString(),
+        fields: { [table.primaryFieldId().toString()]: '\t' },
+        version: 1,
+      },
+    ]);
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      recordQueryRepository
+    );
+    const fieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['\t'] },
+    ]);
+
+    expect(collectQueryLiterals(recordQueryRepository.lastSpec)).toEqual(['\t']);
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: recordId.toString(), title: '\t' },
+    ]);
+  });
+
+  it('links each single-line title to its own record when both forms exist', async () => {
+    const table = buildTextTable('a', 'v');
+    const legacyId = RecordId.create(`rec${'v'.repeat(16)}`)._unsafeUnwrap();
+    const normalizedId = RecordId.create(`rec${'u'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = table.primaryFieldId().toString();
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        { id: legacyId.toString(), fields: { [primaryFieldId]: 'A\nB' }, version: 1 },
+        { id: normalizedId.toString(), fields: { [primaryFieldId]: 'A B' }, version: 1 },
+      ])
+    );
+    const fieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['A\nB', 'A B'] },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: legacyId.toString(), title: 'A\nB' },
+      { id: normalizedId.toString(), title: 'A B' },
+    ]);
+  });
+
+  it('does not collapse newlines when the foreign primary is long text', async () => {
+    const table = buildLongTextTable('a', 'x');
+    const recordId = RecordId.create(`rec${'x'.repeat(16)}`)._unsafeUnwrap();
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        {
+          id: recordId.toString(),
+          fields: { [table.primaryFieldId().toString()]: 'A\nB' },
+          version: 1,
+        },
+      ])
+    );
+    const fieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['A\nB', 'A B'] },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: recordId.toString(), title: 'A\nB' },
+    ]);
   });
 });

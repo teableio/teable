@@ -128,7 +128,9 @@ describe('Record Typecast', () => {
         });
       });
       expect(error?.status).toBe(400);
-      expect(error?.message).toContain('User(not-in-table) not found in table');
+      // T6661 dropped the "in table" suffix when structured ids moved to a
+      // platform lookup; assert the stable prefix instead.
+      expect(error?.message).toContain('User(not-in-table) not found');
     });
 
     it('error name and email', async () => {

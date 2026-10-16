@@ -34,6 +34,8 @@ export interface ICacheStore {
   [key: `oauth:device:${string}`]: IOAuthDeviceState;
   [key: `oauth:device-user:${string}`]: string;
   [key: `oauth:device-rate:${string}`]: number;
+  // RFC 7591 dynamic client registration, per IP
+  [key: `oauth:register-rate:${string}`]: number;
   [key: `reward:claim-gate:${string}`]: string;
   // Poll pacing lives in a side key (TTL = the poll interval), NOT on the
   // state: a pending poll that wrote the state back could clobber a

@@ -3236,6 +3236,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const isNumericTarget = valueType.cellValueType.equals(CellValueType.number());
         const isMultipleValue = valueType.isMultipleCellValue.isMultiple();
         const rowPresenceExpr = sql.ref(`${tableAlias}.__id`);
+        const linkedRowCount = filterAgg(sql`COUNT(${rowPresenceExpr})`);
 
         switch (expression) {
           case 'sum({values})': {
@@ -3257,11 +3258,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 const countAgg = sql`COALESCE(${filterAgg(sql`SUM(${countExpr})`)}, 0)`;
                 return ok(
                   this.castAgg(
-                    sql`CASE WHEN ${countAgg} = 0 THEN 0 ELSE ${sumAgg} / ${countAgg} END`
+                    sql`CASE WHEN ${linkedRowCount} = 0 THEN NULL ELSE CASE WHEN ${countAgg} = 0 THEN 0 ELSE ${sumAgg} / ${countAgg} END END`
                   )
                 );
               }
-              return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`AVG(${colRef})`)}, 0)`));
+              return ok(
+                this.castAgg(
+                  sql`CASE WHEN ${linkedRowCount} = 0 THEN NULL ELSE COALESCE(${filterAgg(sql`AVG(${colRef})`)}, 0) END`
+                )
+              );
             }
             return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`AVG(0)`)}, 0)`));
           }
@@ -3317,12 +3322,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                   : sql`BOOL_OR(${colRef}::boolean)`
               )
             );
-          case 'xor({values})':
+          case 'xor({values})': {
+            const trueCount = isMultipleValue
+              ? filterAgg(
+                  sql`COALESCE(SUM(${this.buildJsonBooleanTrueCountExpression(colRef)}), 0)`
+                )
+              : filterAgg(sql`COUNT(CASE WHEN ${colRef}::boolean THEN 1 END)`);
             return ok(
-              isMultipleValue
-                ? sql`(${filterAgg(sql`COALESCE(SUM(${this.buildJsonBooleanTrueCountExpression(colRef)}), 0)`)} % 2 = 1)`
-                : sql`(${filterAgg(sql`COUNT(CASE WHEN ${colRef}::boolean THEN 1 END)`)} % 2 = 1)`
+              sql`CASE WHEN ${linkedRowCount} = 0 THEN NULL::boolean ELSE (${trueCount} % 2 = 1) END`
             );
+          }
           case 'array_join({values})':
           case 'concatenate({values})': {
             if (

@@ -1,14 +1,11 @@
 import {
-  currentYear,
   dateRange,
   daysAgo,
   daysFromNow,
   exactDate,
   exactDateTime,
   exactFormatDate,
-  lastYear,
   nextNumberOfDays,
-  nextYearPeriod,
   oneMonthAgo,
   oneMonthFromNow,
   oneWeekAgo,
@@ -29,9 +26,6 @@ const DATEPICKEROPTIONS: string[] = [exactDate.value, exactDateTime.value, exact
 const DATERANGEOPTIONS: string[] = [dateRange.value];
 
 const HIDDEN_DATE_MODES: string[] = [
-  currentYear.value,
-  lastYear.value,
-  nextYearPeriod.value,
   oneWeekAgo.value,
   oneWeekFromNow.value,
   oneMonthAgo.value,

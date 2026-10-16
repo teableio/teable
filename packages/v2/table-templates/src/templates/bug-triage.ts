@@ -379,8 +379,8 @@ const createBugTriageTemplateSeed = (): TemplateSeed => {
         records.push({
           fields: {
             [titleFieldId]: title,
-            [severityFieldId]: severityOptions[severityIndex]!.id,
-            [statusFieldId]: statusOptions[statusIndex]!.id,
+            [severityFieldId]: severityOptions[severityIndex]!.name,
+            [statusFieldId]: statusOptions[statusIndex]!.name,
             [environmentFieldId]: environments[envIndex]!,
             [stepsFieldId]: stepTemplates[stepsIndex]!,
             [reproducibleFieldId]: reproducible,
@@ -397,8 +397,8 @@ const createBugTriageTemplateSeed = (): TemplateSeed => {
       {
         fields: {
           [titleFieldId]: 'Login fails on retry',
-          [severityFieldId]: severityOptions[2]!.id,
-          [statusFieldId]: statusOptions[0]!.id,
+          [severityFieldId]: severityOptions[2]!.name,
+          [statusFieldId]: statusOptions[0]!.name,
           [environmentFieldId]: 'Production',
           [stepsFieldId]: 'Retry login twice and observe 500.',
           [reproducibleFieldId]: true,
@@ -409,8 +409,8 @@ const createBugTriageTemplateSeed = (): TemplateSeed => {
       {
         fields: {
           [titleFieldId]: 'Tooltip overlaps content',
-          [severityFieldId]: severityOptions[0]!.id,
-          [statusFieldId]: statusOptions[1]!.id,
+          [severityFieldId]: severityOptions[0]!.name,
+          [statusFieldId]: statusOptions[1]!.name,
           [environmentFieldId]: 'Staging',
           [stepsFieldId]: 'Hover table header for 3s.',
           [reproducibleFieldId]: true,
@@ -421,8 +421,8 @@ const createBugTriageTemplateSeed = (): TemplateSeed => {
       {
         fields: {
           [titleFieldId]: 'Export timeout',
-          [severityFieldId]: severityOptions[3]!.id,
-          [statusFieldId]: statusOptions[2]!.id,
+          [severityFieldId]: severityOptions[3]!.name,
+          [statusFieldId]: statusOptions[2]!.name,
           [environmentFieldId]: 'Production',
           [stepsFieldId]: 'Export 50k rows from dashboard.',
           [reproducibleFieldId]: false,

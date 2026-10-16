@@ -263,6 +263,7 @@ export class AggregationOpenApiController {
 
   @Get('/task-status-collection')
   @Permissions('table|read')
+  @UseV2Feature('getTaskStatusCollection')
   async getTaskStatusCollection(
     @Param('tableId') _tableId: string
   ): Promise<ITaskStatusCollectionVo> {

@@ -81,7 +81,7 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -92,16 +92,16 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
@@ -110,21 +110,21 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1002,7 +1002,7 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1013,16 +1013,16 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -1030,20 +1030,20 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1888,16 +1888,16 @@ exports[`array functions > 'ArrayJoin' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) AS elem
     ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
@@ -2607,7 +2607,7 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2618,16 +2618,16 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -2635,20 +2635,20 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
-    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN (NULL::text) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((NULL::text)) = 'jsonb'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) = 'json'::regtype THEN to_jsonb((NULL::text))
+    WHEN pg_typeof((NULL::text)) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
-        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
+        WHEN NULLIF(BTRIM(((NULL::text))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((NULL::text))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((NULL::text))::text, 'jsonb') THEN (((NULL::text))::text)::jsonb
+        ELSE to_jsonb(((NULL::text))::text)
       END
-    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
+    ELSE to_jsonb((NULL::text))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3468,7 +3468,7 @@ exports[`array functions > 'Count' with 'button' 1`] = `
     },
   },
   "result": "0",
-  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NOT NULL THEN 1 ELSE 0 END)",
+  "sql": "(CASE WHEN NULL::text IS NOT NULL THEN 1 ELSE 0 END)",
 }
 `;
 
@@ -3981,7 +3981,7 @@ exports[`array functions > 'CountA' with 'button' 1`] = `
     },
   },
   "result": "0",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END) AS value) SELECT (SELECT value FROM "__formula_0"))",
+  "sql": "(CASE WHEN NULL::text IS NULL OR (NULL::text)::text = '' THEN 0 ELSE 1 END)",
 }
 `;
 
@@ -4502,7 +4502,7 @@ exports[`array functions > 'CountAll' with 'button' 1`] = `
     },
   },
   "result": "0",
-  "sql": "CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN 0 ELSE 1 END",
+  "sql": "CASE WHEN NULL::text IS NULL THEN 0 ELSE 1 END",
 }
 `;
 

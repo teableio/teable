@@ -64,6 +64,24 @@ describe('FieldFormattingSql', () => {
     expect(formatNumberStringSql('value', formatting)).toBe(expected);
   });
 
+  it('T7853 groups currency digits for stored text without changing the default mask', () => {
+    const formatting = NumberFormatting.create({
+      type: NumberFormattingType.Currency,
+      precision: 2,
+      symbol: '$',
+    })._unsafeUnwrap();
+
+    expect(formatNumberStringSql('value', formatting)).toBe(
+      "'$' || trim(to_char((value)::numeric, '999999990D00'))"
+    );
+    expect(
+      formatNumberStringSql('value', formatting, undefined, { groupCurrency: true })
+    ).toContain("trim(BOTH ',' FROM reverse(regexp_replace");
+    expect(
+      formatNumberStringSql('value', formatting, undefined, { groupCurrency: true })
+    ).toContain("'$'");
+  });
+
   it('formats datetime SQL with timezone and mask', () => {
     const formatting = createDateFormatting();
     expect(formatDatetimeStringSql('value', formatting)).toBe(

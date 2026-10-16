@@ -404,7 +404,7 @@ describe('link operation matrix (e2e)', () => {
       });
 
       // Create B linked to both A records
-      await ctx.createRecord(tableB.id, {
+      const recordB = await ctx.createRecord(tableB.id, {
         [bNameFieldId]: 'ItemB',
         [bLinkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
       });
@@ -422,6 +422,21 @@ describe('link operation matrix (e2e)', () => {
       // Verify sum updated: only A2 = 20
       const afterRecords = await ctx.listRecords(tableB.id);
       expect(afterRecords[0].fields[bRollupFieldId]).toBe(20);
+
+      // The surviving link must be rewritten without the deleted target, and
+      // the unrelated symmetric link on A2 must stay intact.
+      expect(afterRecords[0].fields[bLinkFieldId]).toEqual([
+        expect.objectContaining({ id: recordA2.id, title: 'A2' }),
+      ]);
+
+      const tableAAfterDelete = await ctx.getTableById(tableA.id);
+      const symmetricFieldId = tableAAfterDelete.fields.find((field) => field.type === 'link')?.id;
+      expect(symmetricFieldId).toBeDefined();
+      const recordsA = await ctx.listRecords(tableA.id);
+      const recordA2After = recordsA.find((record) => record.id === recordA2.id);
+      expect(recordA2After?.fields[symmetricFieldId!]).toEqual([
+        expect.objectContaining({ id: recordB.id }),
+      ]);
     });
   });
 

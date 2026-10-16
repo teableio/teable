@@ -4,9 +4,22 @@ export type ComputedOutboxWakeupCandidateQueryTarget = {
   storage: 'default' | 'byodb';
   internalSchema?: string;
   baseSpaceMapping?: ReadonlyArray<{ baseId: string; spaceId: string }>;
+  /** Supplied by worker/recovery callers; unscoped admin reads can inspect all lanes. */
+  workerLane?: string;
 };
 
 const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+const buildComputedOutboxLaneFilter = (
+  target: ComputedOutboxWakeupCandidateQueryTarget,
+  alias: string
+): { sql: string; bindings: unknown[] } =>
+  target.workerLane === undefined
+    ? { sql: '', bindings: [] }
+    : {
+        sql: `and ${alias ? `${alias}.` : ''}worker_lane = ?`,
+        bindings: [target.workerLane],
+      };
 
 export const qualifyComputedOutboxTable = (
   target: ComputedOutboxWakeupCandidateQueryTarget,
@@ -147,6 +160,7 @@ export const buildComputedOutboxStaleRecoverySelectQuery = (
   const pauseJoin = buildComputedOutboxPauseSpaceJoin(target);
   const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
   const pauseScopeTable = qualifyComputedOutboxTable(target, 'computed_update_pause_scope');
+  const lane = buildComputedOutboxLaneFilter(target, 'o');
   return {
     sql: `select o.base_id as "baseId"
              from ${outboxTable} as o
@@ -154,6 +168,7 @@ export const buildComputedOutboxStaleRecoverySelectQuery = (
              where o.id = ?
                and o.status = 'processing'
                and (o.locked_at is null or o.locked_at <= now() - (? * interval '1 millisecond'))
+               ${lane.sql}
                and not exists (
                  select 1
                  from ${pauseScopeTable} as cps
@@ -171,7 +186,7 @@ export const buildComputedOutboxStaleRecoverySelectQuery = (
                    )
                )
              limit 1`,
-    bindings: [...pauseJoin.bindings, taskId, processingLeaseMs],
+    bindings: [...pauseJoin.bindings, taskId, processingLeaseMs, ...lane.bindings],
   };
 };
 
@@ -298,14 +313,16 @@ export const buildComputedOutboxOrphanedDeferralRestoreQuery = (
   const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
   const foreignBindingExclusion = buildComputedOutboxForeignBindingExclusion(target);
   const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
+  const lane = buildComputedOutboxLaneFilter(target, 'o');
   return {
     sql: `update ${outboxTable} as o
       set next_run_at = now(), updated_at = now()
       where o.status = 'pending'
         and o.next_run_at > now() + (? * interval '1 millisecond')
         and ${pauseExclusion.sql}
-        ${foreignBindingExclusion}`,
-    bindings: [orphanedDeferralThresholdMs, ...pauseExclusion.bindings],
+        ${foreignBindingExclusion}
+        ${lane.sql}`,
+    bindings: [orphanedDeferralThresholdMs, ...pauseExclusion.bindings, ...lane.bindings],
   };
 };
 
@@ -319,7 +336,8 @@ export const buildComputedOutboxWakeupCandidatesQuery = (
   const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
   const foreignBindingExclusion = buildComputedOutboxForeignBindingExclusion(target);
   const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
-  const bindings: unknown[] = [...pauseExclusion.bindings];
+  const lane = buildComputedOutboxLaneFilter(target, 'o');
+  const bindings: unknown[] = [...pauseExclusion.bindings, ...lane.bindings];
   const actionableClause = options.actionableOnly
     ? `and (
         (o.status = 'pending' and o.next_run_at <= now())
@@ -347,6 +365,7 @@ export const buildComputedOutboxWakeupCandidatesQuery = (
       where o.status in ('pending', 'processing')
         and ${pauseExclusion.sql}
         ${foreignBindingExclusion}
+        ${lane.sql}
         ${actionableClause}
         ${afterClause}
       order by o.id asc
@@ -366,23 +385,26 @@ export { normalizeComputedOutboxErrorSignature };
 export const buildComputedOutboxDeadLetterBatchSelectionQuery = (
   target: ComputedOutboxWakeupCandidateQueryTarget,
   selection: ComputedOutboxDeadLetterBatchSelection
-): { sql: string; bindings: unknown[] } => ({
-  // Lock and order the whole group by ids only. Full payloads (steps/edges JSONB can be
-  // large) are fetched per insert chunk so peak memory is bounded by the chunk size,
-  // not the group size.
-  sql: `select id as "taskId"
-    from ${qualifyComputedOutboxTable(target, 'computed_update_dead_letter')}
-    where base_id = ?
-      and seed_table_id = ?
-      and ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL} = ?
-    order by failed_at asc, id asc
-    for update`,
-  bindings: [
-    selection.baseId,
-    selection.seedTableId,
-    normalizeComputedOutboxErrorSignature(selection.errorSignature),
-  ],
-});
+): { sql: string; bindings: unknown[] } => {
+  const lane = buildComputedOutboxLaneFilter(target, '');
+  return {
+    // Lock ids first; payloads are fetched per bounded insert chunk.
+    sql: `select id as "taskId"
+      from ${qualifyComputedOutboxTable(target, 'computed_update_dead_letter')}
+      where base_id = ?
+        and seed_table_id = ?
+        and ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL} = ?
+        ${lane.sql}
+      order by failed_at asc, id asc
+      for update`,
+    bindings: [
+      selection.baseId,
+      selection.seedTableId,
+      normalizeComputedOutboxErrorSignature(selection.errorSignature),
+      ...lane.bindings,
+    ],
+  };
+};
 
 /**
  * Normalized lineage projection over the three computed-update ledgers (T6908):

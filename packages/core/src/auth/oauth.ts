@@ -113,3 +113,18 @@ export const cliOAuthApp = {
    */
   allowDeviceFlow: true,
 };
+
+// Account-level scopes a self-registered (anonymous) client must never hold:
+// stored third-party credentials and the user's email are not Teable data.
+const NOT_FOR_MCP_ACTIONS: readonly UserAction[] = ['user|integrations', 'user|email_read'];
+
+/**
+ * Scopes an MCP client gets: the first-party CLI's set minus the account-level
+ * ones above. Published as `scopes_supported` in the MCP resource metadata
+ * (clients request exactly this set), the default and the ceiling for
+ * dynamically registered OAuth clients. The token still acts with the user's
+ * own permissions; this only caps what it may ask.
+ */
+export const mcpOAuthScopes = cliOAuthApp.scopes.filter(
+  (action) => !NOT_FOR_MCP_ACTIONS.includes(action as UserAction)
+);

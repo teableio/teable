@@ -95,12 +95,23 @@ export const normalizeFormulaFieldExpression = (
     };
   }
 
-  // For JSON object fields (button, link), extract the display value (title/name)
-  // when directly referenced in a formula. This ensures that {Button} and {LinkField}
-  // return the human-readable title instead of the raw JSON object.
+  // Button cells store click configuration, not a value. A formula may
+  // reference the field, but the reference reads empty even when a count is
+  // stored. Link fields still extract a display title.
   if (expr.storageKind === 'json' && !expr.isArray && expr.field) {
     const fieldType = expr.field.type();
-    if (fieldType.equals(FieldType.button()) || fieldType.equals(FieldType.link())) {
+    if (fieldType.equals(FieldType.button())) {
+      return makeExpr(
+        (budget?.sql ?? sqlText)`NULL::text`,
+        'string',
+        false,
+        expr.errorConditionSql,
+        expr.errorMessageSql,
+        expr.field,
+        'scalar'
+      );
+    }
+    if (fieldType.equals(FieldType.link())) {
       const jsonbValue = (budget?.sql ?? sqlText)`(${expr.valueSql})::jsonb`;
       const valueSql = (budget?.sql ??
         sqlText)`COALESCE(${jsonbValue}->>'title', ${jsonbValue}->>'name', ${jsonbValue} #>> '{}')`;

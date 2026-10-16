@@ -135,6 +135,82 @@ const safeTimestampCastSql = (
   const isValidTimestamp = strategy.isValidForType(textSql, 'timestamptz');
   return `CASE WHEN ${isIsoDate} AND ${isValidTimestamp} THEN (${valueSql})::timestamptz ELSE NULL END`;
 };
+const DATE_ONLY_SQL_REGEX = '^[0-9]{4}-[0-9]{2}-[0-9]{2}$';
+const TIMEZONE_LESS_DATETIME_SQL_REGEX =
+  '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?$';
+
+const FULL_DATE_PARTS: Record<string, { regex: string; year: number; month: number; day: number }> =
+  {
+    'M/D/YYYY': { regex: '^([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})', year: 3, month: 1, day: 2 },
+    'D/M/YYYY': { regex: '^([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})', year: 3, month: 2, day: 1 },
+    'YYYY/MM/DD': { regex: '^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})', year: 1, month: 2, day: 3 },
+    'YYYY-MM-DD': { regex: '^([0-9]{4})-([0-9]{2})-([0-9]{2})', year: 1, month: 2, day: 3 },
+  };
+
+const formattedFieldTimestampSql = (
+  textSql: string,
+  formatting: DateTimeFormatting
+): { matchSql: string; literalSql: string } | undefined => {
+  const parts = FULL_DATE_PARTS[formatting.date()];
+  if (!parts) return undefined;
+
+  const time = formatting.time();
+  let regex = parts.regex;
+  if (time === 'HH:mm') {
+    regex += ' ([0-9]{1,2}):([0-9]{2})';
+  } else if (time === 'hh:mm A') {
+    regex += ' ([0-9]{1,2}):([0-9]{2}) ([AaPp][Mm])';
+  } else if (time !== 'None') {
+    return undefined;
+  }
+  regex += '$';
+
+  const part = (index: number) => `(regexp_match(${textSql}, ${quoteLiteral(regex)}))[${index}]`;
+  const hourPart = time === 'HH:mm' || time === 'hh:mm A' ? part(4) : `'00'`;
+  const minutePart = time === 'HH:mm' || time === 'hh:mm A' ? part(5) : `'00'`;
+  const hourSql =
+    time === 'hh:mm A'
+      ? `lpad((CASE WHEN upper(${part(6)}) = 'PM' AND ${part(4)}::int < 12 THEN ${part(4)}::int + 12 WHEN upper(${part(6)}) = 'AM' AND ${part(4)}::int = 12 THEN 0 ELSE ${part(4)}::int END)::text, 2, '0')`
+      : `lpad(${hourPart}, 2, '0')`;
+  const hourIsValid = time === 'hh:mm A' ? `${part(4)}::int BETWEEN 1 AND 12` : 'TRUE';
+  return {
+    matchSql: `${textSql} ~ ${quoteLiteral(regex)} AND ${hourIsValid}`,
+    literalSql: `format('%s-%s-%s %s:%s:00', ${part(parts.year)}, lpad(${part(parts.month)}, 2, '0'), lpad(${part(parts.day)}, 2, '0'), ${hourSql}, lpad(${minutePart}, 2, '0'))`,
+  };
+};
+
+const textToFieldTimestampSql = (
+  valueSql: string,
+  formatting: DateTimeFormatting,
+  strategy: IPgTypeValidationStrategy = DEFAULT_TYPE_VALIDATION_STRATEGY
+): string => {
+  const textSql = `btrim(${asTextSql(valueSql)})`;
+  const rawTimeZone = formatting.timeZone().toString();
+  const timeZone = rawTimeZone.toLowerCase() === 'utc' ? 'UTC' : rawTimeZone;
+  const zoned = (literalSql: string) =>
+    `${literalSql}::timestamp AT TIME ZONE ${quoteLiteral(timeZone)}`;
+
+  const midnightSql = `(${textSql} || ' 00:00:00')`;
+  const isDateOnly = `${textSql} ~ ${quoteLiteral(DATE_ONLY_SQL_REGEX)}`;
+  const isValidMidnight = strategy.isValidForType(midnightSql, 'timestamp');
+
+  const tzLessLiteral = `(CASE WHEN ${textSql} ~ ':[0-9]{2}:[0-9]{2}' THEN replace(${textSql}, 'T', ' ') ELSE replace(${textSql}, 'T', ' ') || ':00' END)`;
+  const isTzLessDateTime = `${textSql} ~ ${quoteLiteral(TIMEZONE_LESS_DATETIME_SQL_REGEX)}`;
+  const isValidTzLess = strategy.isValidForType(tzLessLiteral, 'timestamp');
+
+  const formatted = formattedFieldTimestampSql(textSql, formatting);
+  const formattedBranch = formatted
+    ? `WHEN ${formatted.matchSql} AND ${strategy.isValidForType(formatted.literalSql, 'timestamp')} THEN ${zoned(formatted.literalSql)} `
+    : '';
+
+  return `CASE WHEN ${isDateOnly} AND ${isValidMidnight} THEN ${zoned(midnightSql)} WHEN ${isTzLessDateTime} AND ${isValidTzLess} THEN ${zoned(tzLessLiteral)} ${formattedBranch}ELSE ${safeTimestampCastSql(valueSql, strategy)} END`;
+};
+
+const dateToFormattedTextSql = (columnSql: string, formatting: DateTimeFormatting): string => {
+  const { pgFormat, timeZone } = buildPgDateTimeFormat(formatting);
+  const tz = timeZone.toLowerCase() === 'utc' ? 'UTC' : timeZone;
+  return `CASE WHEN ${columnSql} IS NOT NULL THEN to_char(${columnSql} AT TIME ZONE ${quoteLiteral(tz)}, ${quoteLiteral(pgFormat)}) ELSE NULL END`;
+};
 
 const SELECT_CHOICE_NAME_MAX_LENGTH =
   DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength;
@@ -2000,8 +2076,8 @@ export class FieldTypeConversionVisitorFactory extends AbstractFieldVisitor<Base
     return ok(new CheckboxFieldConversionVisitor(this.params));
   }
 
-  visitDateField(_field: DateField): Result<BaseFieldConversionVisitor, DomainError> {
-    return ok(new DateFieldConversionVisitor(this.params));
+  visitDateField(field: DateField): Result<BaseFieldConversionVisitor, DomainError> {
+    return ok(new DateFieldConversionVisitor(this.params, field));
   }
 
   visitSingleSelectField(
@@ -2017,11 +2093,11 @@ export class FieldTypeConversionVisitorFactory extends AbstractFieldVisitor<Base
   }
 
   visitAttachmentField(_field: AttachmentField): Result<BaseFieldConversionVisitor, DomainError> {
-    return ok(new JsonFieldConversionVisitor(this.params));
+    return ok(new AttachmentFieldConversionVisitor(this.params));
   }
 
   visitUserField(_field: UserField): Result<BaseFieldConversionVisitor, DomainError> {
-    return ok(new UserFieldConversionVisitor(this.params));
+    return ok(new UserFieldConversionVisitor(this.params, _field.multiplicity().toBoolean()));
   }
 
   visitButtonField(_field: ButtonField): Result<BaseFieldConversionVisitor, DomainError> {
@@ -2104,13 +2180,20 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitNumberField(
     _field: NumberField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Text → Number: parse numeric strings, NULL for invalid
+    // Text → Number: strict numeric strings, plus currency ($1,234),
+    // letters-then-digits (abc12), and a percent suffix (50% → 0.5).
+    // Other non-numeric shapes stay NULL.
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
+    const text = asTextSql(col);
+    const strict = String.raw`${text} ~ '^-?[0-9]+(\.[0-9]+)?$'`;
+    const currency = String.raw`${text} ~ '^\$[0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?$'`;
+    const mixed = String.raw`${text} ~ '^[A-Za-z]+[0-9]+(\.[0-9]+)?$'`;
+    const percent = String.raw`${text} ~ '^[0-9]+(\.[0-9]+)?%$'`;
     return ok([
       this.alterColumnTypeUsing(
         'double precision',
-        String.raw`CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
+        String.raw`CASE WHEN ${strict} THEN ${col}::double precision WHEN ${currency} THEN replace(replace(${text}, '$', ''), ',', '')::double precision WHEN ${mixed} THEN regexp_replace(${text}, '^[A-Za-z]+', '')::double precision WHEN ${percent} THEN regexp_replace(${text}, '%$', '')::double precision / 100 ELSE NULL END`
       ),
     ]);
   }
@@ -2145,15 +2228,14 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
   }
 
   visitDateField(
-    _field: DateField
+    field: DateField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Text → Date: parse ISO date strings
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
     return ok([
       this.alterColumnTypeUsing(
         'timestamptz',
-        safeTimestampCastSql(col, this.params.typeValidationStrategy)
+        textToFieldTimestampSql(col, field.formatting(), this.params.typeValidationStrategy)
       ),
     ]);
   }
@@ -2340,7 +2422,9 @@ class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
     const col = `"${dbFieldName}"`;
     return `CASE WHEN ${col} IS NOT NULL THEN ${formatNumberStringSql(
       col,
-      this.sourceField?.formatting() ?? NumberFormatting.default()
+      this.sourceField?.formatting() ?? NumberFormatting.default(),
+      undefined,
+      { groupCurrency: true }
     )} ELSE NULL END`;
   }
 
@@ -2385,14 +2469,11 @@ class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitCheckboxField(
     _field: CheckboxField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Number → Checkbox: 0 = false, non-zero = true
+    // Number → Checkbox: any non-null number, including 0, is non-empty and becomes true
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
     return ok([
-      this.alterColumnTypeUsing(
-        'boolean',
-        `CASE WHEN ${col} = 0 THEN FALSE WHEN ${col} IS NOT NULL THEN TRUE ELSE NULL END`
-      ),
+      this.alterColumnTypeUsing('boolean', `CASE WHEN ${col} IS NOT NULL THEN TRUE ELSE NULL END`),
     ]);
   }
 
@@ -2529,17 +2610,13 @@ class CheckboxFieldConversionVisitor extends BaseFieldConversionVisitor {
   }
 
   visitRatingField(
-    field: RatingField
+    _field: RatingField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Checkbox → Rating: true = max, false = 0
+    // Checkbox → Rating: checked becomes 1; unchecked stays empty, never 0.
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
-    const max = field.ratingMax().toNumber();
     return ok([
-      this.alterColumnTypeUsing(
-        'double precision',
-        `CASE WHEN ${col} = TRUE THEN ${max} WHEN ${col} = FALSE THEN 0 ELSE NULL END`
-      ),
+      this.alterColumnTypeUsing('double precision', `CASE WHEN ${col} = TRUE THEN 1 ELSE NULL END`),
     ]);
   }
 
@@ -2632,17 +2709,26 @@ class CheckboxFieldConversionVisitor extends BaseFieldConversionVisitor {
  * Source DB type: timestamptz
  */
 class DateFieldConversionVisitor extends BaseFieldConversionVisitor {
+  constructor(
+    params: FieldConversionParams,
+    private readonly sourceField: DateField
+  ) {
+    super(params);
+  }
+
   visitSingleLineTextField(
     _field: SingleLineTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Date → Text: ISO format
-    return ok([this.alterColumnType('text')]);
+    const col = `"${this.params.dbFieldName}"`;
+    return ok([
+      this.alterColumnTypeUsing('text', dateToFormattedTextSql(col, this.sourceField.formatting())),
+    ]);
   }
 
   visitLongTextField(
     _field: LongTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return ok([this.alterColumnType('text')]);
+    return this.visitSingleLineTextField(_field as unknown as SingleLineTextField);
   }
 
   visitNumberField(
@@ -2745,6 +2831,19 @@ class DateFieldConversionVisitor extends BaseFieldConversionVisitor {
  * Source DB type: text
  */
 class SelectFieldConversionVisitor extends TextFieldConversionVisitor {
+  visitNumberField(
+    _field: NumberField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    // Select option names stay on the original strict numeric parse.
+    const { dbFieldName } = this.params;
+    const col = `"${dbFieldName}"`;
+    return ok([
+      this.alterColumnTypeUsing(
+        'double precision',
+        String.raw`CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
+      ),
+    ]);
+  }
   // SingleSelect uses text, so inherit from TextFieldConversionVisitor
 }
 
@@ -2756,16 +2855,31 @@ class MultipleSelectFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitSingleLineTextField(
     _field: SingleLineTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // MultipleSelect → Text: join array elements with comma separator
-    // Cannot use subquery in ALTER COLUMN USING, so use text manipulation:
-    // jsonb::text gives '["Red", "Blue"]', btrim strips [], replace strips quotes
-    const { dbFieldName } = this.params;
+    // MultipleSelect → Text: join choice names with ', '.
+    // PostgreSQL forbids subqueries in ALTER ... USING, so render the joined text into a
+    // {"v": "..."} payload first. Names containing a comma, quote, or newline are wrapped in
+    // English double quotes and embedded quotes are doubled so the join stays unambiguous.
+    const { db, dbFieldName } = this.params;
+    const fullTableName = this.fullTableName;
     const col = `"${dbFieldName}"`;
+    const quotedItem = String.raw`CASE WHEN elem ~ E'["\n\r,]' THEN '"' || replace(elem, '"', '""') || '"' ELSE elem END`;
     return ok([
-      this.alterColumnTypeUsing(
-        'text',
-        `CASE WHEN ${col} IS NOT NULL AND jsonb_array_length(${col}::jsonb) > 0 THEN replace(btrim(${col}::text, '[]'), '"', '') ELSE NULL END`
-      ),
+      {
+        scope: 'data',
+        compile: () =>
+          sql`UPDATE ${sql.raw(fullTableName)}
+              SET ${sql.raw(col)} = CASE
+                WHEN ${sql.raw(col)} IS NULL OR jsonb_typeof(${sql.raw(col)}) <> 'array' THEN NULL
+                ELSE jsonb_build_object(
+                  'v',
+                  (
+                    SELECT string_agg(${sql.raw(quotedItem)}, ', ')
+                    FROM jsonb_array_elements_text(${sql.raw(col)}) AS elem
+                  )
+                )
+              END`.compile(db),
+      },
+      this.alterColumnTypeUsing('text', `CASE WHEN ${col} IS NULL THEN NULL ELSE ${col}->>'v' END`),
     ]);
   }
 
@@ -2864,15 +2978,17 @@ class MultipleSelectFieldConversionVisitor extends BaseFieldConversionVisitor {
 }
 
 /**
- * Conversion visitor for JSONB fields (Attachment, User, Button).
+ * Conversion visitor for JSONB payload fields (Attachment, Button).
  * Source DB type: jsonb
  */
 class JsonFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitSingleLineTextField(
     _field: SingleLineTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // JSONB → Text: stringify (simple cast)
-    return ok([this.alterColumnType('text')]);
+    // Default JSONB → Text: the payload has no textual representation (v1 parity:
+    // `ButtonFieldCore.cellValue2String` always returns ''), so the converted value is empty.
+    // Payload types that do render as text (attachments) override this.
+    return ok([this.alterColumnTypeToNull('text')]);
   }
 
   visitLongTextField(
@@ -2944,6 +3060,49 @@ class JsonFieldConversionVisitor extends BaseFieldConversionVisitor {
 }
 
 /**
+ * Conversion visitor for Attachment fields.
+ * Source DB type: jsonb (array of `{ id, name, token, ... }` items)
+ *
+ * v1 parity (`AttachmentFieldCore.cellValue2String`): every item renders as `name (token)` and
+ * the rendered items are joined with a comma, preserving the stored order.
+ */
+class AttachmentFieldConversionVisitor extends JsonFieldConversionVisitor {
+  visitSingleLineTextField(
+    _field: SingleLineTextField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const { db, dbFieldName } = this.params;
+    const fullTableName = this.fullTableName;
+    const col = `"${dbFieldName}"`;
+    const arrayItemText = `COALESCE(elem->>'name', '') || ' (' || COALESCE(elem->>'token', '') || ')'`;
+    const objectItemText = `COALESCE(${col}->>'name', '') || ' (' || COALESCE(${col}->>'token', '') || ')'`;
+    // PostgreSQL forbids subqueries in ALTER ... USING expressions, so render the joined text
+    // into a {"v": "..."} jsonb payload first and cast that payload in the ALTER statement.
+    const payload = `CASE
+                WHEN ${col} IS NULL THEN NULL
+                WHEN jsonb_typeof(${col}) = 'array' THEN jsonb_build_object(
+                  'v',
+                  (
+                    SELECT string_agg(${arrayItemText}, ',' ORDER BY ordinality)
+                    FROM jsonb_array_elements(${col}) WITH ORDINALITY AS arr(elem, ordinality)
+                  )
+                )
+                WHEN jsonb_typeof(${col}) = 'object' THEN jsonb_build_object('v', ${objectItemText})
+                ELSE NULL
+              END`;
+    return ok([
+      {
+        scope: 'data',
+        compile: () =>
+          sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.raw(col)} = ${sql.raw(payload)}`.compile(
+            db
+          ),
+      },
+      this.alterColumnTypeUsing('text', `CASE WHEN ${col} IS NULL THEN NULL ELSE ${col}->>'v' END`),
+    ]);
+  }
+}
+
+/**
  * Conversion visitor for User fields.
  * Source DB type: jsonb
  *
@@ -2952,6 +3111,14 @@ class JsonFieldConversionVisitor extends BaseFieldConversionVisitor {
  * - Multiple: [{"id": "...", "title": "...", "email": "..."}, ...]
  */
 class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
+  constructor(
+    params: FieldConversionParams,
+    /** Whether the source field stores multiple users. */
+    private readonly sourceIsMultiple: boolean = false
+  ) {
+    super(params);
+  }
+
   visitSingleLineTextField(
     _field: SingleLineTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -2962,6 +3129,17 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
     const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     const col = `"${dbFieldName}"`;
+    // v1 parity (`UserFieldCore.item2String`): a display name containing a comma is wrapped in
+    // double quotes when the source field allows multiple users, so the `, ` join stays
+    // unambiguous.
+    const arrayItem = `COALESCE(elem->>'title', elem->>'email', elem->>'id')`;
+    const objectItem = `COALESCE(${col}->>'title', ${col}->>'email', ${col}->>'id')`;
+    const arrayText = this.sourceIsMultiple
+      ? `CASE WHEN strpos(${arrayItem}, ',') > 0 THEN '"' || ${arrayItem} || '"' ELSE ${arrayItem} END`
+      : arrayItem;
+    const objectText = this.sourceIsMultiple
+      ? `CASE WHEN strpos(${objectItem}, ',') > 0 THEN '"' || ${objectItem} || '"' ELSE ${objectItem} END`
+      : objectItem;
     return ok([
       {
         scope: 'data',
@@ -2972,18 +3150,11 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
                 WHEN jsonb_typeof(${sql.raw(col)}) = 'array' THEN jsonb_build_object(
                   'v',
                   (
-                    SELECT string_agg(COALESCE(elem->>'title', elem->>'email', elem->>'id'), ', ')
+                    SELECT string_agg(${sql.raw(arrayText)}, ', ')
                     FROM jsonb_array_elements(${sql.raw(col)}) AS elem
                   )
                 )
-                ELSE jsonb_build_object(
-                  'v',
-                  COALESCE(
-                    ${sql.raw(col)}->>'title',
-                    ${sql.raw(col)}->>'email',
-                    ${sql.raw(col)}->>'id'
-                  )
-                )
+                ELSE jsonb_build_object('v', ${sql.raw(objectText)})
               END`.compile(db),
       },
       this.alterColumnTypeUsing('text', `CASE WHEN ${col} IS NULL THEN NULL ELSE ${col}->>'v' END`),

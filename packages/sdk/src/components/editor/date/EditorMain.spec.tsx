@@ -81,4 +81,65 @@ describe('DateEditorMain', () => {
     vi.useRealTimers();
     expect(onChange).toHaveBeenCalledWith('2026-09-15T13:30:00.000Z');
   });
+
+  it('shows a time picker on an empty cell when the field displays time T7824', () => {
+    vi.useFakeTimers({ now: new Date('2026-03-15T01:53:20.000Z') });
+    render(
+      <DateEditorMain
+        options={{
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Shanghai',
+          },
+        }}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.getByRole('button', { name: '09:53' })).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('hides the time picker when the field does not display time T7824', () => {
+    vi.useFakeTimers({ now: new Date('2026-03-15T01:53:20.000Z') });
+    render(
+      <DateEditorMain
+        options={{
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        }}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.queryByRole('button', { name: '09:53' })).not.toBeInTheDocument();
+    expect(screen.getByText('editor.date.today')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('stores a calendar pick on an empty hidden-time cell as field-zone midnight T7825', () => {
+    vi.useFakeTimers({ now: new Date('2026-03-15T01:53:20.000Z') });
+    const onChange = vi.fn();
+    render(
+      <DateEditorMain
+        options={{
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        }}
+        onChange={onChange}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.click(dayButton('15'));
+    vi.useRealTimers();
+    expect(onChange).toHaveBeenCalledWith('2026-03-14T16:00:00.000Z');
+  });
 });

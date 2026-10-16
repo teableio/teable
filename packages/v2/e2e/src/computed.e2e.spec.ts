@@ -588,7 +588,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         await ctx.createRecord(table.id, {
           [nameFieldId]: 'Test',
-          [statusFieldId]: optionA.id,
+          [statusFieldId]: optionA.name,
           [assigneeFieldId]: {
             id: ctx.testUser.id,
             title: ctx.testUser.name,
@@ -601,7 +601,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         ctx.testContainer.clearLogs();
         const record = beforeRecords[0];
-        await ctx.updateRecord(table.id, record.id, { [statusFieldId]: optionB.id });
+        await ctx.updateRecord(table.id, record.id, { [statusFieldId]: optionB.name });
         await drainOutbox();
 
         const plans = ctx.testContainer.getComputedPlans();
@@ -11655,7 +11655,7 @@ IF(
       const invoiceRecord = await ctx.createRecord(invoiceTable.id, {
         [invoiceIdFieldId]: 67931160,
         [invoiceNumberFieldId]: 'INV-67931160',
-        [invoiceStatusFieldId]: pendingOption.id,
+        [invoiceStatusFieldId]: pendingOption.name,
         [invoiceCompletedDateFieldId]: '2026-07-05T08:30:00.000Z',
         [invoiceCreatedDateFieldId]: '2026-07-05T07:15:00.000Z',
       });
@@ -11769,7 +11769,7 @@ IF(
 
       ctx.testContainer.clearLogs();
       await ctx.updateRecord(invoiceTable.id, invoiceRecord.id, {
-        [invoiceStatusFieldId]: paidOption.id,
+        [invoiceStatusFieldId]: paidOption.name,
         [invoiceCompletedDateFieldId]: '2026-07-08T08:35:27.000Z',
       });
       await drainOutbox();

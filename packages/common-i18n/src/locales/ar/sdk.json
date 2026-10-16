@@ -209,6 +209,17 @@
       "isAfter": "بعد",
       "isOnOrBefore": "في أو قبل",
       "isOnOrAfter": "في أو بعد",
+      "user": {
+        "is": "يساوي",
+        "isNot": "لا يساوي",
+        "isAnyOf": "أحد",
+        "isNoneOf": "ليس أيًا من",
+        "hasAnyOf": "يتضمن أيًا من",
+        "hasAllOf": "يتضمن كل",
+        "isExactly": "يطابق تمامًا",
+        "isNotExactly": "لا يساوي",
+        "hasNoneOf": "لا يتضمن أيًا من"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -296,6 +307,7 @@
     "previousRecord": "السابق",
     "nextRecord": "التالي",
     "duplicateRecord": "تكرار السجل",
+    "addToChat": "الإضافة إلى المحادثة",
     "copyRecordUrl": "نسخ رابط السجل",
     "deleteRecord": "حذف السجل",
     "addRecordComment": "إضافة تعليق",
@@ -1307,6 +1319,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "‏toRecordIds أو fromRecordIds مطلوب للحقول المحسوبة العادية",
       "recordFieldsRequired": "حقول السجل غير معرَّفة",
       "uniqueUnsupportedType": "الحقل {{name}}[{{fieldId}}] لا يدعم التحقق من تفرد قيمة الحقل",
+      "optionsUnsupportedType": "الحقل {{name}}[{{fieldId}}] لا يدعم تعديل هذه الخيارات: {{options}}",
       "notNullValidationWhenCreateField": "الحقل {{name}}[{{fieldId}}] لا يدعم التحقق من عدم القيمة الفارغة عند إنشاء حقل جديد",
       "dbFieldNameAlreadyExists": "اسم حقل قاعدة البيانات {{dbFieldName}} موجود بالفعل",
       "fieldValidationError": "خطأ في التحقق من الحقل {{name}}[{{fieldId}}]",

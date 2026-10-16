@@ -300,24 +300,23 @@
       },
       "deleteAccount": {
         "title": "Konto löschen",
-        "desc": "Ihr Konto kann nach dem Löschen nicht wiederhergestellt werden. Bitte gehen Sie mit Bedacht vor.",
+        "desc": "Dieser Vorgang ist endgültig. Ihr Konto kann nach dem Löschen nicht wiederhergestellt werden.",
         "spaces": {
-          "title": "Spaces, die nur dir gehören",
-          "body": "Sie wandern zusammen mit deinem Konto in den Papierkorb. Um einen zu behalten, übergib ihn vorher an ein Mitglied.",
-          "loading": "Prüfe, welche Spaces nur dir gehören …",
-          "blockedHint": "Kündige dieses Abonnement oder übergib den Space, um fortzufahren.",
-          "willTrash": "Wird in den Papierkorb verschoben",
+          "title": "Spaces, deren alleiniger Eigentümer Sie sind",
+          "body": "Diese Spaces werden beim Löschen Ihres Kontos in den Papierkorb verschoben. Um einen zu behalten, übertragen Sie ihn vorher an ein anderes Mitglied.",
+          "loading": "Spaces, deren alleiniger Eigentümer Sie sind, werden geprüft …",
+          "blockedHint": "Als „Nicht löschbar“ markierte Spaces haben noch ein aktives Abonnement. Klären Sie diese, bevor Sie Ihr Konto löschen.",
           "willTransfer": "Wird übertragen",
-          "subscribedHint": "Dieser Space hat noch ein aktives Abonnement. Kündigen Sie es und kommen Sie dann zurück, um Ihr Konto zu löschen.",
-          "cancelSubscription": "Abonnement verwalten",
-          "transferTo": "Mitglied zum Übertragen wählen, sonst Papierkorb",
-          "transferToSubscribed": "Oder ein Mitglied zum Übertragen wählen; das Abonnement bleibt beim Space"
+          "notDeletable": "Nicht löschbar",
+          "cancelSubscription": "Abo verwalten",
+          "transferTo": "An Mitglied übertragen (optional)",
+          "transferToSubscribed": "An Mitglied übertragen (inkl. Abo)"
         },
         "confirm": {
-          "title": "Bitte geben Sie <code>DELETE</code> zur Bestätigung ein",
+          "title": "Geben Sie zur Bestätigung <code>DELETE</code> ein",
           "placeholder": "DELETE"
         },
-        "loading": "Lösche..."
+        "loading": "Wird gelöscht …"
       }
     },
     "notify": {

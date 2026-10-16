@@ -68,6 +68,7 @@ import { buildSeedTaskChunk, mergeSeedPayloads } from './ComputedUpdateSeedPaylo
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
+  DEFAULT_COMPUTED_WORKER_LANE,
   isFieldBackfillOutboxItem,
   isSeedOutboxItem,
 } from './IComputedUpdateOutbox';
@@ -293,6 +294,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   // A streamed write keeps its first locked merge target, including a contention
   // bypass row. Only task IDs are retained; spilled record IDs stay in Postgres.
   private readonly seedTasksByTransaction = new WeakMap<object, Map<string, string>>();
+  private readonly lanePlanHashPrefix: string;
 
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
@@ -309,7 +311,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     private readonly activityProjector: IComputedActivityProjector = noopComputedActivityProjector,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: IEventBus | null = null
-  ) {}
+  ) {
+    // Keep the existing unique index / ON CONFLICT contract usable during an additive rollout.
+    this.lanePlanHashPrefix =
+      config.workerLane === DEFAULT_COMPUTED_WORKER_LANE
+        ? ''
+        : `lane:${encodeURIComponent(config.workerLane)}:`;
+  }
+
+  private scopeTaskToLane<T extends { planHash: string }>(task: T): T {
+    if (!this.lanePlanHashPrefix || task.planHash.startsWith(this.lanePlanHashPrefix)) return task;
+    return { ...task, planHash: `${this.lanePlanHashPrefix}${task.planHash}` };
+  }
 
   private resolvePublishContext(context?: IExecutionContext): IExecutionContext {
     if (context?.actorId) return context;
@@ -621,10 +634,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   }
 
   async enqueueOrMerge(
-    task: ComputedUpdateOutboxTaskInput,
+    input: ComputedUpdateOutboxTaskInput,
     context?: IExecutionContext,
     options?: EnqueueOrMergeOptions
   ): Promise<Result<EnqueueOrMergeOutcome, DomainError>> {
+    const task = this.scopeTaskToLane(input);
     const span = context?.tracer?.startSpan('teable.outbox.enqueueOrMerge', {
       'outbox.baseId': task.baseId,
       'outbox.seedTableId': task.seedTableId,
@@ -658,6 +672,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .selectAll()
                 .where('base_id', '=', task.baseId)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', task.seedTableId)
                 .where('plan_hash', '=', task.planHash)
                 .where('change_type', '=', task.changeType)
@@ -937,12 +952,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   }
 
   async enqueueFieldBackfill(
-    task: FieldBackfillOutboxTaskInput,
+    input: FieldBackfillOutboxTaskInput,
     context?: IExecutionContext,
     options?: Pick<EnqueueOrMergeOptions, 'relayClaim'>
   ): Promise<
     Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
   > {
+    const task = this.scopeTaskToLane(input);
     const span = context?.tracer?.startSpan('teable.outbox.enqueueFieldBackfill', {
       'outbox.baseId': task.baseId,
       'outbox.tableId': task.tableId,
@@ -975,6 +991,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .selectAll()
                 .where('base_id', '=', task.baseId)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', task.tableId)
                 .where('plan_hash', '=', task.planHash)
                 .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
@@ -1179,10 +1196,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   }
 
   private async enqueueSeedTaskInternal(
-    task: ComputedUpdateSeedTaskInput,
+    input: ComputedUpdateSeedTaskInput,
     context?: IExecutionContext,
     notify = true
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    const task = this.scopeTaskToLane(input);
     const transaction = notify ? getPostgresTransaction(context) : null;
     const seedKey = JSON.stringify([task.baseId, task.seedTableId, task.planHash, task.changeType]);
     const ownedTaskId = transaction
@@ -1208,6 +1226,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .selectAll()
                 .where('id', '=', ownedTaskId)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('status', '=', DEFAULT_STATUS)
                 .forUpdate()
                 .executeTakeFirst()
@@ -1548,6 +1567,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         .selectFrom(OUTBOX_TABLE)
         .select(['id', 'next_run_at'])
         .where('base_id', '=', baseId)
+        .where('worker_lane', '=', this.config.workerLane)
         .where('seed_table_id', '=', seedTableId)
         .where('status', '=', DEFAULT_STATUS)
         .where(sql<boolean>`starts_with(plan_hash, ${hashPrefix})`);
@@ -1601,6 +1621,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .select(sql<number>`1`.as('one'))
                 .where('status', '=', DEFAULT_STATUS)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('next_run_at', '<=', now)
             )
             .as('pending'),
@@ -1610,6 +1631,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .select(sql<number>`1`.as('one'))
                 .where('status', '=', 'processing')
+                .where('worker_lane', '=', this.config.workerLane)
                 .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
             )
             .as('stale'),
@@ -1644,6 +1666,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectFrom(`${OUTBOX_TABLE} as o`)
                   .selectAll('o')
                   .where('o.status', '=', 'processing')
+                  .where('o.worker_lane', '=', this.config.workerLane)
                   .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
                   .where((eb) => {
                     const notPaused = buildComputedTaskNotPausedCondition(eb, 'o', now, {
@@ -1710,6 +1733,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectFrom(`${OUTBOX_TABLE} as o`)
                   .selectAll('o')
                   .where('o.status', '=', DEFAULT_STATUS)
+                  .where('o.worker_lane', '=', this.config.workerLane)
                   .where('o.next_run_at', '<=', now)
                   .where((eb) => {
                     const notPaused = buildComputedTaskNotPausedCondition(eb, 'o', now, {
@@ -1985,6 +2009,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .selectFrom(`${OUTBOX_TABLE} as o`)
               .selectAll('o')
               .where('o.id', '=', params.taskId)
+              .where('o.worker_lane', '=', this.config.workerLane)
               .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
               .forUpdate()
               .skipLocked()
@@ -1997,6 +2022,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .selectFrom(`${OUTBOX_TABLE} as o`)
               .select('o.base_id')
               .where('o.id', '=', params.taskId)
+              .where('o.worker_lane', '=', this.config.workerLane)
               .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
               .executeTakeFirst();
             if (!locator) return ok(null);
@@ -2013,6 +2039,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .selectFrom(`${OUTBOX_TABLE} as o`)
               .selectAll('o')
               .where('o.id', '=', params.taskId)
+              .where('o.worker_lane', '=', this.config.workerLane)
               .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
               .forUpdate()
               .skipLocked()
@@ -2173,6 +2200,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           'affected_table_ids',
         ])
         .where('id', '=', taskId)
+        .where('worker_lane', '=', this.config.workerLane)
         .executeTakeFirst()) as OutboxRow | undefined;
       if (!row) return ok(null);
 
@@ -2363,6 +2391,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               updated_at: now,
             })
             .where('id', 'in', taskIds)
+            .where('worker_lane', '=', this.config.workerLane)
             .where('status', '=', 'processing')
             .where('locked_by', '=', params.leaseOwner)
             .returning('id')
@@ -2420,11 +2449,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             ? await trx
                 .deleteFrom(OUTBOX_TABLE)
                 .where('id', '=', taskId)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('status', '=', 'processing')
                 .where('locked_by', '=', leaseOwner)
                 .returningAll()
                 .execute()
-            : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returningAll().execute();
+            : await trx
+                .deleteFrom(OUTBOX_TABLE)
+                .where('id', '=', taskId)
+                .where('worker_lane', '=', this.config.workerLane)
+                .returningAll()
+                .execute();
 
           if (deleted.length === 0) {
             if (leaseOwner) {
@@ -2435,6 +2470,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               // Lease lost: do not touch activity here; the new owner owns the task lifecycle.
               return ok({ done: false as const });
             }
+
+            const foreignTask = await trx
+              .selectFrom(OUTBOX_TABLE)
+              .select('id')
+              .where('id', '=', taskId)
+              .executeTakeFirst();
+            if (foreignTask) return ok({ done: false as const });
 
             // Task row already gone (crash/reclaim/manual cleanup). Still drop any leftover
             // activity refs so the UI cannot stay queued forever with no outbox work. The
@@ -3137,6 +3179,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .selectFrom(OUTBOX_TABLE)
               .selectAll()
               .where('id', '=', params.task.id)
+              .where('worker_lane', '=', this.config.workerLane)
               .where('status', '=', 'processing')
               .where('locked_by', '=', leaseOwner)
               .forUpdate()
@@ -3156,6 +3199,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .selectFrom(OUTBOX_TABLE)
                 .selectAll()
                 .where('base_id', '=', params.task.baseId)
+                .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', getOutboxRowSeedTableId(params.task))
                 .where('plan_hash', '=', params.task.planHash)
                 .where('change_type', '=', getOutboxRowChangeType(params.task))
@@ -3229,6 +3273,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               updated_at: now,
             })
             .where('id', '=', params.task.id)
+            .where('worker_lane', '=', this.config.workerLane)
             .execute();
 
           const retryActivity = await this.activityProjector.onTaskFailed(
@@ -3346,6 +3391,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .selectFrom(OUTBOX_TABLE)
               .select(['id'])
               .where('id', '=', task.id)
+              .where('worker_lane', '=', this.config.workerLane)
               .where('status', '=', 'processing')
               .where('locked_by', '=', leaseOwner)
               .forUpdate()
@@ -3404,6 +3450,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               updated_at: now,
             })
             .where('id', '=', task.id)
+            .where('worker_lane', '=', this.config.workerLane)
             .execute();
 
           const retryActivity = await this.activityProjector.onTaskFailed(
@@ -3519,7 +3566,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       diagnostics,
     });
 
-    await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
+    await trx
+      .insertInto(DEAD_LETTER_TABLE)
+      .values({ ...deadLetterValues, worker_lane: this.config.workerLane })
+      .execute();
     if (isComputedReliabilityEnabled(task.baseId)) {
       // The legacy resolver guesses the seed table for affected fields when steps
       // are missing. Durable evidence must only use explicit placements or refs.
@@ -3543,7 +3593,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       });
     }
 
-    await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
+    await trx
+      .deleteFrom(OUTBOX_TABLE)
+      .where('id', '=', task.id)
+      .where('worker_lane', '=', this.config.workerLane)
+      .execute();
     await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
     // A dead-lettered task ends its continuation chain: drop the chain's
     // durable stage-ledger state (scope = chain root task id; a task
@@ -3594,6 +3648,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .values({
         id: createOutboxId(),
         base_id: task.baseId,
+        worker_lane: this.config.workerLane,
         seed_table_id: task.seedTableId,
         seed_record_ids: useSeedTable ? null : toJsonValue(seedGroups),
         change_type: task.changeType,
@@ -3901,6 +3956,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     const query = trx
       .deleteFrom(OUTBOX_TABLE)
       .where('id', '=', taskId)
+      .where('worker_lane', '=', this.config.workerLane)
       .where('status', '=', 'processing');
     const deleted = await (leaseOwner ? query.where('locked_by', '=', leaseOwner) : query)
       .returning('id')
@@ -4016,6 +4072,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .values({
         id: createOutboxId(),
         base_id: task.baseId,
+        worker_lane: this.config.workerLane,
         seed_table_id: task.tableId,
         seed_record_ids: null,
         change_type: FIELD_BACKFILL_CHANGE_TYPE,
@@ -4067,6 +4124,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .selectFrom(OUTBOX_TABLE)
       .selectAll()
       .where('base_id', '=', task.baseId)
+      .where('worker_lane', '=', this.config.workerLane)
       .where('seed_table_id', '=', task.seedTableId)
       .where('plan_hash', '=', task.planHash)
       .where('change_type', '=', SEED_CHANGE_TYPE)
@@ -4166,6 +4224,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     const values = {
       id: createOutboxId(),
       base_id: task.baseId,
+      worker_lane: this.config.workerLane,
       seed_table_id: task.seedTableId,
       seed_record_ids: useSeedTable ? null : toJsonValue(seedGroups),
       change_type: SEED_CHANGE_TYPE,

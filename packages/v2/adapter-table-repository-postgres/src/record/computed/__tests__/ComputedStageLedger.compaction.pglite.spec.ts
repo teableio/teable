@@ -312,6 +312,7 @@ describe('stage ledger compaction wiring (pglite)', () => {
       );
       CREATE TABLE computed_update_outbox (
         id text PRIMARY KEY,
+        worker_lane text NOT NULL DEFAULT 'production',
         base_id text NOT NULL,
         seed_table_id text NOT NULL,
         seed_record_ids jsonb,

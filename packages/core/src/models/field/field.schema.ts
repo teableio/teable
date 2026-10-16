@@ -30,8 +30,12 @@ import {
   unionFieldOptionsRoSchema,
   unionFieldOptionsVoSchema,
 } from './field-unions.schema';
-import type { ILookupOptionsRo } from './lookup-options-base.schema';
-import { lookupOptionsRoSchema, lookupOptionsVoSchema } from './lookup-options-base.schema';
+import {
+  type ILookupOptionsRo,
+  lookupOptionsPatchSchema,
+  lookupOptionsRoSchema,
+  lookupOptionsVoSchema,
+} from './lookup-options-base.schema';
 import { validateFieldOptions } from './zod-error';
 
 // All union schemas and types are now imported from field-unions.schema.ts
@@ -265,6 +269,16 @@ export const getOptionsSchema = (type: FieldType) => {
   }
 };
 
+/**
+ * Option keys a field type can carry. The PATCH endpoint accepts a subset of the
+ * current field's own options, so this is the per-type allowlist that decides whether
+ * a patched option key is supported at all.
+ */
+export const getFieldOptionKeys = (type: FieldType): ReadonlyArray<string> => {
+  const schema = getOptionsSchema(type);
+  return schema instanceof z.ZodObject ? Object.keys(schema.shape) : [];
+};
+
 const refineOptions = (
   data: {
     type: FieldType;
@@ -399,6 +413,35 @@ export const createFieldRoSchema = z.preprocess((input) => {
   return { ...input, options: { ...input.options, expression: 'countall({values})' } };
 }, createFieldRoInputSchema);
 
+/**
+ * Every option key any field type can carry, all optional: a PATCH may send any subset
+ * of the current field's own options. Which subset is valid is decided against the
+ * current field type in the v2 update service, so an option that field cannot carry is
+ * rejected instead of being silently dropped. Unknown keys are rejected here.
+ */
+const buildPatchableFieldOptionsShape = (): Record<string, z.ZodTypeAny> => {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const type of Object.values(FieldType)) {
+    const schema = getOptionsSchema(type);
+    if (!(schema instanceof z.ZodObject)) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(schema.shape as Record<string, z.ZodTypeAny>)) {
+      const existing = shape[key];
+      const next = value.optional();
+      shape[key] = existing ? z.union([existing, next]) : next;
+    }
+  }
+  return shape;
+};
+
+export const updateFieldOptionsRoSchema = z
+  .object({
+    ...buildPatchableFieldOptionsShape(),
+    trackedFieldIds: lastModifiedTimeFieldOptionsRoSchema.shape.trackedFieldIds,
+  })
+  .strict();
+
 export const updateFieldRoSchema = z
   .object({
     name: baseFieldRoSchema.shape.name,
@@ -406,13 +449,8 @@ export const updateFieldRoSchema = z
     dbFieldName: baseFieldRoSchema.shape.dbFieldName,
     unique: baseFieldRoSchema.shape.unique,
     notNull: baseFieldRoSchema.shape.notNull,
-    options: formulaFieldOptionsSchema
-      .partial()
-      .extend({
-        trackedFieldIds: lastModifiedTimeFieldOptionsRoSchema.shape.trackedFieldIds,
-      })
-      .strict()
-      .optional(),
+    lookupOptions: lookupOptionsPatchSchema.optional(),
+    options: updateFieldOptionsRoSchema.optional(),
   })
   .strict();
 

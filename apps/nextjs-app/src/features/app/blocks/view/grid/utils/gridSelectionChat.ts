@@ -20,6 +20,10 @@ interface IGridSelectionCacheData {
   columns?: IGridSelectionCacheColumns;
   timestamp: number;
   addToChat?: boolean;
+  tableId?: string;
+  viewId?: string;
+  /** Displayed record. Index alone is not identity when search or filters differ. */
+  recordId?: string;
 }
 
 function setGridSelectionCache(
@@ -32,7 +36,9 @@ function setGridSelectionCache(
     timestamp: Date.now(),
   });
   if (data.addToChat) {
-    useChatPanelStore.getState().open();
+    const panel = useChatPanelStore.getState();
+    panel.open();
+    panel.requestMobileOpen();
   }
 }
 
@@ -80,6 +86,21 @@ export function cacheSelectionForChat(
   } else if (rows) {
     setGridSelectionCache(queryClient, baseId, { rows, addToChat });
   }
+}
+
+export function cacheRecordIndexForChat(
+  queryClient: QueryClient,
+  baseId: string,
+  recordIndex: number | undefined,
+  resource?: { tableId: string; viewId?: string; recordId?: string }
+) {
+  setGridSelectionCache(queryClient, baseId, {
+    rows: recordIndex == null ? undefined : [[recordIndex, recordIndex]],
+    addToChat: true,
+    tableId: resource?.tableId,
+    viewId: resource?.viewId,
+    recordId: resource?.recordId,
+  });
 }
 
 export function cacheColumnSelectionForChat(

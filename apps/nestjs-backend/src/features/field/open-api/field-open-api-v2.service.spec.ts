@@ -977,6 +977,81 @@ describe('FieldOpenApiV2Service updateField', () => {
       foreignTableId,
     ]);
   });
+
+  it('asserts the foreign table of a patched link field is allowed', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const otherForeignTableId = `tbl${'c'.repeat(16)}`;
+    const fieldId = `fld${'d'.repeat(16)}`;
+    const context: Record<string, unknown> = {};
+    const fieldDto = {
+      id: fieldId,
+      type: 'link',
+      name: 'Linked table',
+      options: {
+        relationship: 'manyMany',
+        foreignTableId,
+        lookupFieldId: `fld${'e'.repeat(16)}`,
+      },
+    };
+    executeUpdateFieldEndpoint.mockResolvedValue({
+      status: 200,
+      body: { ok: true },
+    });
+    const commandBus = {};
+    const domainField = {
+      id: () => ({ toString: () => fieldId }),
+      __testDto: fieldDto,
+    };
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          fields: [domainField],
+          primaryFieldId: undefined,
+          view: undefined,
+        },
+      }),
+    };
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.commandBus) return commandBus;
+        if (token === v2CoreTokens.queryBus) return queryBus;
+        throw new Error(`Unexpected token ${String(token)}`);
+      }),
+    };
+    const fieldSupplementService = createFieldSupplementService();
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainerForTable: vi.fn().mockResolvedValue(container),
+      } as never,
+      {
+        createContext: vi.fn().mockResolvedValue(context),
+      } as never,
+      { field: { invalidateTables: vi.fn() } } as never,
+      { get: vi.fn(() => undefined) } as never,
+      fieldSupplementService as never,
+      {} as never
+    );
+
+    await service.updateField(tableId, fieldId, {
+      options: { foreignTableId: otherForeignTableId },
+    });
+
+    expect(fieldSupplementService.assertNewForeignTableAllowed).toHaveBeenCalledWith(
+      tableId,
+      otherForeignTableId
+    );
+    // An unchanged foreign table stays on the cheaper same-space check.
+    fieldSupplementService.assertNewForeignTableAllowed.mockClear();
+    fieldSupplementService.assertSameSpaceLinkTarget.mockClear();
+    await service.updateField(tableId, fieldId, { options: { foreignTableId } });
+    expect(fieldSupplementService.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
+      tableId,
+      foreignTableId
+    );
+    expect(fieldSupplementService.assertNewForeignTableAllowed).not.toHaveBeenCalled();
+  });
 });
 
 describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
@@ -1640,6 +1715,64 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('routes lookup display options to innerOptions and link config to options', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: {
+          formatting: { type: 'decimal', precision: 3 },
+          showAs: { type: 'bar', color: 'green', showValue: true, maxValue: 100 },
+        },
+        lookupOptions: { lookupFieldId: 'fldLookup0000000000' },
+      },
+      {
+        type: 'number',
+        isLookup: true,
+        options: { formatting: { type: 'decimal', precision: 0 } },
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000000',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { lookupFieldId: 'fldLookup0000000000' },
+      innerOptions: {
+        formatting: { type: 'decimal', precision: 3 },
+        showAs: { type: 'bar', color: 'green', showValue: true, maxValue: 100 },
+      },
+    });
+  });
+
+  it('merges rollup lookupOptions into the v2 link config', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: { expression: 'max({values})' },
+        lookupOptions: { lookupFieldId: 'fldStock00000000000' },
+      },
+      {
+        type: 'rollup',
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000000',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { expression: 'max({values})' },
+      config: {
+        linkFieldId: 'fldLink000000000000',
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+      },
+    });
+  });
+
   it('marks singleLineText showAs for clearing on update mapping', () => {
     const service = createService();
     const mapped = service.mapLegacyUpdateFieldToV2(
@@ -1659,6 +1792,91 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
       type: 'singleLineText',
       options: {
         showAs: null,
+      },
+    });
+  });
+
+  it('routes conditional lookup display options into options.innerOptions', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: { formatting: { type: 'decimal', precision: 3 } },
+      },
+      {
+        type: 'number',
+        isLookup: true,
+        isConditionalLookup: true,
+        options: { formatting: { type: 'decimal', precision: 0 } },
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldPrice00000000000',
+        filter: { conjunction: 'and', filterSet: [] },
+        innerOptions: { formatting: { type: 'decimal', precision: 3 } },
+      },
+    });
+  });
+
+  it('maps conditional rollup flat options onto the v2 config', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: {
+          expression: 'max({values})',
+          lookupFieldId: 'fldStock00000000000',
+        },
+      },
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'sum({values})',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { expression: 'max({values})' },
+      config: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+        condition: { filter: { conjunction: 'and', filterSet: [] } },
+      },
+    });
+  });
+
+  it('merges a conditional rollup lookupOptions patch over the current flat options', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        lookupOptions: { lookupFieldId: 'fldStock00000000000' },
+      },
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'sum({values})',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      config: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+        condition: { filter: { conjunction: 'and', filterSet: [] } },
       },
     });
   });

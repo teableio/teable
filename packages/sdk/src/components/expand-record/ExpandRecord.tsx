@@ -45,6 +45,7 @@ interface IExpandRecordProps {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  onAddToChat?: () => void;
   buttonClickStatusHook?: IButtonClickStatusHook;
   onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }
@@ -69,6 +70,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    onAddToChat,
     buttonClickStatusHook,
     onAttachmentDownload,
   } = props;
@@ -184,6 +186,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             onCommentToggle={onCommentToggle}
             onDuplicate={onDuplicate}
             onDelete={onDelete}
+            onAddToChat={onAddToChat}
             recordId={recordId}
             tableId={tableId}
           />

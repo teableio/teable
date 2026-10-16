@@ -223,6 +223,41 @@ export class PostgresComputedReliabilityStore {
   }
 
   /**
+   * Close a fully scoped issue when every affected field is gone or marked in
+   * error. A later success can never cover those fields, so the issue would
+   * stay open forever. Unknown-scope issues and any issue with a live field stay open.
+   */
+  async closeUncomputableIssues(): Promise<number> {
+    if (!(await this.isReady())) return 0;
+    const field = await sql<{ rel: string | null }>`select to_regclass('field') as rel`.execute(
+      this.db
+    );
+    if (!field.rows[0]?.rel) return 0;
+    const closed = await sql<{ id: string }>`
+      update ${resolveTableSql(this.db, 'computed_reliability_issue')} i
+      set status = 'not_applicable',
+          closed_at = now(),
+          confirmed_by = 'system:uncomputable-field',
+          confirmation_reason = 'Every scoped field is deleted or in error and can no longer be computed'
+      where i.status not in ('resolved', 'not_applicable')
+        and i.scope_complete = true
+        and exists (
+          select 1 from ${resolveTableSql(this.db, 'computed_reliability_scope')} s
+          where s.issue_id = i.id
+        )
+        and not exists (
+          select 1
+          from ${resolveTableSql(this.db, 'computed_reliability_scope')} s
+          join field f on f.id = s.field_id
+          where s.issue_id = i.id
+            and f.deleted_time is null
+            and f.has_error is not true
+        )
+      returning i.id`.execute(this.db);
+    return closed.rows.length;
+  }
+
+  /**
    * Close open, fully-scoped issues whose every (table, field) is in this
    * successful compute. Unknown-scope issues and partial coverage stay open.
    * Dead-letter replay is not this path: it never markDone's.

@@ -7,9 +7,13 @@ export const DECISION_INFO_GET = '/oauth/decision/{transactionId}';
 export const decisionInfoGetVoSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
-  homepage: z.string().url(),
+  homepage: z.string().url().optional(),
   logo: z.string().url().optional(),
   scopes: z.array(z.string()).optional(),
+  // the client registered itself (RFC 7591); there is no developer behind it
+  dynamicRegistration: z.boolean().optional(),
+  // where the authorization code will be sent after approval
+  redirectUri: z.string().optional(),
 });
 
 export type DecisionInfoGetVo = z.infer<typeof decisionInfoGetVoSchema>;

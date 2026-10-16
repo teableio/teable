@@ -27,7 +27,7 @@
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
-    "cli": "NODE_NO_WARNINGS=1 tsx bin/run.ts",
+    "cli": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.run.json bin/run.ts",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-devtools.eslintcache",
     "typecheck": "NODE_NO_WARNINGS=1 tsc --project ./tsconfig.json --noEmit",

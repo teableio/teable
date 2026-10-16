@@ -37,6 +37,8 @@ vi.mock('../../hooks', () => ({
   useTablePermission: () => ({}),
   useCommentPermission: () => ({ commentReadable: false, commentWritable: false }),
   useRecordOperations: () => ({ duplicateRecord: vi.fn() }),
+  useView: () => undefined,
+  useSearch: () => ({ filteringSearchQuery: undefined }),
 }));
 
 vi.mock('../../utils', () => ({
@@ -45,6 +47,7 @@ vi.mock('../../utils', () => ({
 
 vi.mock('./ExpandRecordNavigationContext', () => ({
   useExpandRecordNavigation: () => ({}),
+  useExpandRecordAddToChat: () => ({}),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

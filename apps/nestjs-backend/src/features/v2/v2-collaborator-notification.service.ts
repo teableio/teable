@@ -103,12 +103,14 @@ const changesToNewValues = (
   return result;
 };
 
-// Only "someone actively assigns you right now" notifies: user actions and form
-// submissions. Paths that move existing assignments around (import, table/record
-// duplicate, trash restore, undo/redo replay) stay silent (T6662, T6905).
-// Whitelist so future source variants default to silent.
+// Only "someone actively assigns you right now" notifies: direct user actions,
+// form submissions, and single/batch record duplicate (a copy is an ordinary
+// create and must notify the copied assignee — Q2-15, T7798). Paths that move
+// existing assignments around in bulk (import, table duplicate, trash restore)
+// stay silent (T6662), and undo/redo replay is silenced via the execution
+// context. Whitelist so future source variants default to silent.
 const shouldNotifyOnRecordCreate = (source: RecordCreateSource): boolean =>
-  source.type === 'user' || source.type === 'form';
+  source.type === 'user' || source.type === 'form' || source.type === 'recordDuplicate';
 
 // Undo/redo replays re-apply existing assignments through the regular update
 // handlers (source stays 'user'), so replay-ness is read off the execution

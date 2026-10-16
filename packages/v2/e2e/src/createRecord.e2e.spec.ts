@@ -494,8 +494,8 @@ describe('[D14] v2 http createRecord (e2e)', () => {
   it('stores select option names in database for new records', async () => {
     const record = await createRecord(typecastTableId, {
       [typecastPrimaryFieldId]: 'Stored Select Names',
-      [typecastSingleSelectFieldId]: typecastSingleSelectOpenOptionId,
-      [typecastMultiSelectFieldId]: [typecastMultiSelectTagAId, typecastMultiSelectTagCId],
+      [typecastSingleSelectFieldId]: typecastSingleSelectOpenOptionName,
+      [typecastMultiSelectFieldId]: [typecastMultiSelectTagAName, typecastMultiSelectTagCName],
     });
 
     const result = await sql<{ single_value: string | null; multi_value: unknown }>`
@@ -546,7 +546,7 @@ describe('[D14] v2 http createRecord (e2e)', () => {
 
     const sourceRecord = await createRecord(sourceTable.id, {
       [sourceNameFieldId]: 'Source 1',
-      [sourceStatusFieldId]: sourceStatusId,
+      [sourceStatusFieldId]: sourceStatusName,
     });
 
     const linkFieldId = createFieldId();

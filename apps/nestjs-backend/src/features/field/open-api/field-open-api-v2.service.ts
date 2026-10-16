@@ -11,6 +11,7 @@ import {
   generateFieldId,
   getDefaultFormatting,
   getDbFieldType,
+  getFieldOptionKeys,
   HttpErrorCode,
   type IConvertFieldRo,
   type IFieldRo,
@@ -66,6 +67,7 @@ import {
   type ListFieldsResult,
   ListTableRecordsQuery,
   type ListTableRecordsResult,
+  LOOKUP_DISPLAY_OPTION_KEYS,
   stripLookupFormulaExecutableOptions,
   TableId,
   type Table,
@@ -1325,25 +1327,145 @@ export class FieldOpenApiV2Service {
   ): Record<string, unknown> {
     const rawRo = ro as Record<string, unknown>;
     const mapped = { ...rawRo };
-    const rawOptions = rawRo.options;
-    const inputOptions =
-      rawOptions && typeof rawOptions === 'object' && !Array.isArray(rawOptions)
-        ? (rawOptions as Record<string, unknown>)
-        : undefined;
-    const currentOptions =
-      currentField?.options &&
-      typeof currentField.options === 'object' &&
-      !Array.isArray(currentField.options)
-        ? (currentField.options as Record<string, unknown>)
-        : undefined;
+    const inputOptions = asPlainRecord(rawRo.options);
+    const currentOptions = asPlainRecord(currentField?.options);
+    const currentLookupOptions = asPlainRecord(currentField?.lookupOptions);
     const currentType =
       currentField && typeof currentField.type === 'string' ? currentField.type : undefined;
+    const isLookup = currentField?.isLookup === true || currentField?.isConditionalLookup === true;
+
+    // A lookup only owns its link configuration in v2; formatting/showAs are display
+    // overrides on the inner field. A regular lookup reads them from a top-level
+    // `innerOptions`, while a conditional lookup keeps its inner display overrides inside
+    // `options.innerOptions` — routing a conditional lookup's display patch to the
+    // top-level key would be a silent no-op (T6332).
+    if (isLookup) {
+      delete mapped.options;
+      delete mapped.lookupOptions;
+      const lookupOptionsPatch = asPlainRecord(rawRo.lookupOptions);
+      const displayPatch = extractLookupDisplayOptionsPatch(inputOptions);
+      if (currentField?.isConditionalLookup === true) {
+        // v2 replaces a conditional lookup's configuration wholesale, so a partial link
+        // patch must merge over the current one. normalizeFieldVo flattens the v2 config
+        // into lookupOptions, which is where the current values live.
+        const optionsPatch: Record<string, unknown> = {};
+        for (const key of [
+          'isUnique',
+          'baseId',
+          'foreignTableId',
+          'lookupFieldId',
+          'filter',
+          'sort',
+          'limit',
+        ]) {
+          if (currentLookupOptions?.[key] !== undefined) {
+            optionsPatch[key] = currentLookupOptions[key];
+          }
+        }
+        if (lookupOptionsPatch) {
+          Object.assign(optionsPatch, lookupOptionsPatch);
+        }
+        if (displayPatch && Object.keys(displayPatch).length > 0) {
+          optionsPatch.innerOptions = displayPatch;
+        }
+        if (Object.keys(optionsPatch).length > 0) {
+          mapped.options = optionsPatch;
+        }
+        return mapped;
+      }
+      if (lookupOptionsPatch && Object.keys(lookupOptionsPatch).length > 0) {
+        mapped.options = lookupOptionsPatch;
+      }
+      if (displayPatch && Object.keys(displayPatch).length > 0) {
+        mapped.innerOptions = displayPatch;
+      }
+      return mapped;
+    }
+
+    const rollupLookupOptionsPatch = asPlainRecord(rawRo.lookupOptions);
+
+    // Rollup link configuration is `config` in v2 while legacy callers patch it through
+    // lookupOptions. Merge over the current link config because v2 validates the whole
+    // link/foreign/lookup field triple together.
+    if (currentType === FieldType.Rollup && rollupLookupOptionsPatch) {
+      const linkConfig: Record<string, unknown> = {};
+      for (const key of [
+        'baseId',
+        'linkFieldId',
+        'foreignTableId',
+        'lookupFieldId',
+        'filter',
+        'sort',
+        'limit',
+      ]) {
+        if (currentLookupOptions?.[key] !== undefined) {
+          linkConfig[key] = currentLookupOptions[key];
+        }
+      }
+      mapped.config = { ...linkConfig, ...rollupLookupOptionsPatch };
+      delete mapped.lookupOptions;
+    }
+
+    // A conditional rollup stores the same link configuration in v2 `config`, but the
+    // legacy contract splits it: create-shape callers patch the flat keys
+    // (baseId/foreignTableId/lookupFieldId/filter/sort/limit) on `options`, rollup-shape
+    // callers patch `lookupOptions`. v1 reads the config back flattened into `options`
+    // (normalizeFieldVo), so the merge base is the current field's flat options. Without
+    // this routing the request passes the schema but v2 never receives a config and the
+    // endpoint answers 200 without applying anything.
+    if (currentType === FieldType.ConditionalRollup) {
+      const flatConfigKeys = ['baseId', 'foreignTableId', 'lookupFieldId'] as const;
+      const conditionKeys = ['filter', 'sort', 'limit'] as const;
+      const configPatch: Record<string, unknown> = {};
+      for (const key of [...flatConfigKeys, ...conditionKeys]) {
+        if (inputOptions && Object.hasOwn(inputOptions, key)) {
+          configPatch[key] = inputOptions[key];
+        }
+        if (rollupLookupOptionsPatch && Object.hasOwn(rollupLookupOptionsPatch, key)) {
+          configPatch[key] = rollupLookupOptionsPatch[key];
+        }
+      }
+      if (Object.keys(configPatch).length > 0) {
+        const config: Record<string, unknown> = {};
+        for (const key of [...flatConfigKeys, ...conditionKeys]) {
+          const value = Object.hasOwn(configPatch, key) ? configPatch[key] : currentOptions?.[key];
+          if (value !== undefined) {
+            config[key] = value;
+          }
+        }
+        const condition = {
+          ...(config.filter !== undefined ? { filter: config.filter } : {}),
+          ...(config.sort !== undefined ? { sort: config.sort } : {}),
+          ...(config.limit != null ? { limit: config.limit } : {}),
+        };
+        mapped.config = {
+          ...(config.baseId != null ? { baseId: config.baseId } : {}),
+          foreignTableId: config.foreignTableId,
+          lookupFieldId: config.lookupFieldId,
+          condition,
+        };
+        // Drop the flat config keys from `options`: v2 reads them only from `config`, and
+        // leaving them behind would send the same value in two shapes.
+        const remainingOptions = inputOptions ? { ...inputOptions } : undefined;
+        for (const key of [...flatConfigKeys, ...conditionKeys]) {
+          if (remainingOptions) {
+            delete remainingOptions[key];
+          }
+        }
+        if (remainingOptions && Object.keys(remainingOptions).length > 0) {
+          mapped.options = remainingOptions;
+        } else {
+          delete mapped.options;
+        }
+        delete mapped.lookupOptions;
+      }
+    }
 
     const supportsShowAsClear =
       currentType === FieldType.SingleLineText ||
       currentType === FieldType.Formula ||
       currentType === FieldType.Rollup ||
-      currentType === 'conditionalRollup';
+      currentType === FieldType.ConditionalRollup;
 
     if (
       supportsShowAsClear &&
@@ -1351,13 +1473,82 @@ export class FieldOpenApiV2Service {
       currentOptions?.showAs != null &&
       !Object.hasOwn(inputOptions, 'showAs')
     ) {
+      // Base the clear on the mapped options so a conditional rollup's flat config keys
+      // (already moved onto `config`) are not reintroduced here.
       mapped.options = {
-        ...inputOptions,
+        ...(asPlainRecord(mapped.options) ?? {}),
         showAs: null,
       };
     }
 
     return mapped;
+  }
+
+  /**
+   * Reject patched options the current field type cannot carry, instead of persisting a
+   * no-op update (or letting the schema silently strip them). Field types own the keys of
+   * their own options; a lookup owns only the inner-field display overrides plus its link
+   * configuration.
+   */
+  private assertPatchableFieldOptions(
+    currentField: IFieldVo,
+    updateFieldRo: IUpdateFieldRo,
+    fieldId: string
+  ): void {
+    const name = currentField.name;
+    const isLookup = currentField.isLookup === true || currentField.isConditionalLookup === true;
+    const currentType = Object.values(FieldType).find((type) => type === currentField.type);
+    const unsupported: string[] = [];
+
+    const inputOptions = asPlainRecord(updateFieldRo.options);
+    if (inputOptions) {
+      const allowed: ReadonlyArray<string> = isLookup
+        ? LOOKUP_DISPLAY_OPTION_KEYS
+        : currentType
+          ? getFieldOptionKeys(currentType)
+          : [];
+      for (const key of Object.keys(inputOptions)) {
+        if (!allowed.includes(key)) {
+          unsupported.push(key);
+        }
+      }
+    }
+
+    if (
+      updateFieldRo.lookupOptions != null &&
+      !isLookup &&
+      currentType !== FieldType.Rollup &&
+      currentType !== FieldType.ConditionalRollup
+    ) {
+      unsupported.push('lookupOptions');
+    }
+
+    // A scalar numeric chart (showValue) cannot describe a multiple-value lookup result.
+    // The persistence mapper drops such a chart, so accepting the PATCH would report
+    // success while changing nothing.
+    const patchedShowAs = asPlainRecord(inputOptions?.showAs);
+    if (
+      isLookup &&
+      patchedShowAs &&
+      'showValue' in patchedShowAs &&
+      currentField.cellValueType === CellValueType.Number &&
+      currentField.isMultipleCellValue === true
+    ) {
+      unsupported.push('showAs');
+    }
+
+    if (unsupported.length > 0) {
+      throw new CustomHttpException(
+        `Field ${name}[${fieldId}] does not support patched options: ${unsupported.join(', ')}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.optionsUnsupportedType',
+            context: { name, fieldId, options: unsupported.join(', ') },
+          },
+        }
+      );
+    }
   }
 
   private normalizeLegacyTimeZone(value: unknown): unknown {
@@ -2388,9 +2579,15 @@ export class FieldOpenApiV2Service {
         HttpErrorCode.VALIDATION_ERROR
       );
     }
+    this.assertPatchableFieldOptions(currentField, updateFieldRo, fieldId);
 
     const v2Field = this.mapLegacyUpdateFieldToV2(
       updateFieldRo,
+      currentField as Record<string, unknown>
+    );
+    await this.assertCrossSpaceForV2Field(
+      tableId,
+      v2Field,
       currentField as Record<string, unknown>
     );
     const v2Input = {
@@ -2926,4 +3123,11 @@ function stringifyCrossSpaceCellValue(value: unknown): string | null {
     return title == null ? null : String(title);
   }
   return String(value);
+}
+
+/** Narrow a JSON value to a plain object record, dropping arrays and primitives. */
+function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }

@@ -315,6 +315,7 @@ describeCompaction('ComputedUpdateOutbox stage-ledger compaction (pg integration
     await db.schema
       .createTable('computed_update_outbox')
       .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('worker_lane', 'text', (col) => col.notNull().defaultTo('production'))
       .addColumn('base_id', 'text', (col) => col.notNull())
       .addColumn('seed_table_id', 'text', (col) => col.notNull())
       .addColumn('seed_record_ids', sql`jsonb`)

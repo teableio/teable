@@ -103,6 +103,77 @@ const isValidCalendarComponents = (components: DateComponents): boolean => {
   );
   return isExactUtcDate(probe, components);
 };
+type FieldFormatParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+const matchFieldFormat = (value: string, format: string): Record<string, string> | undefined => {
+  let valueIndex = 0;
+  let formatIndex = 0;
+  const parts: Record<string, string> = {};
+
+  while (formatIndex < format.length) {
+    const token = /^(?:YYYY|MM|DD|HH|hh|mm|A|M|D)/.exec(format.slice(formatIndex))?.[0];
+    if (token) {
+      const rest = value.slice(valueIndex);
+      const matched =
+        token === 'A'
+          ? /^(?:AM|PM)/i.exec(rest)
+          : token === 'YYYY'
+            ? /^(\d{4})/.exec(rest)
+            : token === 'M' || token === 'D'
+              ? /^(\d{1,2})/.exec(rest)
+              : /^(\d{2})/.exec(rest);
+      if (!matched) return undefined;
+      parts[token] = matched[0];
+      valueIndex += matched[0].length;
+      formatIndex += token.length;
+      continue;
+    }
+
+    if (value[valueIndex] !== format[formatIndex]) return undefined;
+    valueIndex += 1;
+    formatIndex += 1;
+  }
+
+  return valueIndex === value.length ? parts : undefined;
+};
+
+const parseFieldFormatting = (
+  value: string,
+  field: DateField
+): FieldFormatParts | null | undefined => {
+  const formatting = field.formatting();
+  const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
+  const timeFormat = hasTime && formatting.time() !== 'None' ? formatting.time() : null;
+  const format = timeFormat ? `${formatting.date()} ${timeFormat}` : formatting.date();
+  const parts = matchFieldFormat(value, format);
+  if (!parts?.YYYY) return undefined;
+
+  let hour = Number(parts.HH ?? parts.hh ?? 0);
+  if (parts.A) {
+    const meridian = parts.A.toUpperCase();
+    if (hour < 1 || hour > 12) return null;
+    if (meridian === 'AM') hour = hour === 12 ? 0 : hour;
+    if (meridian === 'PM') hour = hour === 12 ? 12 : hour + 12;
+  }
+
+  return {
+    year: Number(parts.YYYY),
+    month: Number(parts.MM ?? parts.M ?? 1),
+    day: Number(parts.DD ?? parts.D ?? 1),
+    hour,
+    minute: Number(parts.mm ?? 0),
+    second: 0,
+    millisecond: 0,
+  };
+};
 
 const parseDateStringWithTimeZone = (value: string, timeZone: string): string | undefined => {
   const trimmed = value.trim();
@@ -175,5 +246,24 @@ export const parseDateValue = (field: DateField, value: unknown): string | null 
   }
 
   const timeZone = field.formatting().timeZone().toString();
+  const fieldFormatted = parseFieldFormatting(trimmed, field);
+  if (fieldFormatted === null) return undefined;
+  if (fieldFormatted) {
+    if (!isValidCalendarComponents(fieldFormatted)) return undefined;
+    const canonical = [
+      String(fieldFormatted.year).padStart(4, '0'),
+      '-',
+      String(fieldFormatted.month).padStart(2, '0'),
+      '-',
+      String(fieldFormatted.day).padStart(2, '0'),
+      'T',
+      String(fieldFormatted.hour).padStart(2, '0'),
+      ':',
+      String(fieldFormatted.minute).padStart(2, '0'),
+      ':',
+      String(fieldFormatted.second).padStart(2, '0'),
+    ].join('');
+    return parseDateStringWithTimeZone(canonical, timeZone);
+  }
   return parseDateStringWithTimeZone(trimmed, timeZone);
 };

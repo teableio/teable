@@ -8,6 +8,8 @@ import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { RatingMax } from '../domain/table/fields/types/RatingMax';
+import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
+import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -192,6 +194,43 @@ describe('DryRunFieldConversionHandler', () => {
 
     const result = await dryRun(maxFiveTable, repo, { max: 10 }, { fieldIndex: 1 });
 
+    expect(result.requiresDataRewrite).toBe(false);
+    expect(result.affectedCellCount).toBe(0);
+  });
+
+  it('does not treat revealing a hidden required field as a data rewrite when its default is cleared', async () => {
+    const baseId = BaseId.create(`bse${'c'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Required notes')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Note')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('abc')._unsafeUnwrap())
+      .withNotNull(FieldNotNull.required())
+      .done();
+    builder.view().defaultGrid().done();
+    builder.view().form().defaultName().done();
+    let table = builder.build()._unsafeUnwrap();
+    const note = table.getFields().find((field) => field.name().toString() === 'Note')!;
+    const form = table.views().find((view) => view.type().toString() === 'form')!;
+    table = table
+      .updateViewColumnMeta(form.id(), [{ fieldId: note.id(), columnMeta: { visible: false } }])
+      ._unsafeUnwrap().updateResult!.table;
+
+    const result = await dryRun(
+      table,
+      new MemoryTableRepository(),
+      { options: { defaultValue: null } },
+      { fieldIndex: 1, filledCount: 1000 }
+    );
+
+    expect(result.isNoop).toBe(false);
+    expect(result.isTypeConversion).toBe(false);
     expect(result.requiresDataRewrite).toBe(false);
     expect(result.affectedCellCount).toBe(0);
   });

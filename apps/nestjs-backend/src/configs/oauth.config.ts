@@ -18,6 +18,12 @@ export const oauthConfig = registerAs('oauth', () => ({
   // tokenRateWindow); the other rate limits key on an authenticated client.
   deviceCodeRateLimit: Number(process.env.BACKEND_OAUTH_DEVICE_CODE_RATE_LIMIT || 30),
   authorizedExpireIn: process.env.BACKEND_OAUTH_AUTHORIZED_EXPIRE_IN || '7d',
+  // Dynamic client registration (RFC 7591) is anonymous too: per IP over
+  // tokenRateWindow.
+  registrationRateLimit: Number(process.env.BACKEND_OAUTH_REGISTRATION_RATE_LIMIT || 30),
+  // A dynamically registered client that nobody authorized within this window
+  // is dropped; one that was authorized lives as long as any other app.
+  dynamicClientRetention: process.env.BACKEND_OAUTH_DYNAMIC_CLIENT_RETENTION || '7d',
   tokenRateLimit: Number(process.env.BACKEND_OAUTH_TOKEN_RATE_LIMIT || 30),
   tokenRateWindow: process.env.BACKEND_OAUTH_TOKEN_RATE_WINDOW || '15m',
 }));

@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../../shared/DomainContext';
@@ -16,6 +16,7 @@ import type { SelectOption } from '../../fields/types/SelectOption';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 import type { SelectDefaultValueChange } from './UpdateSingleSelectOptionsSpec';
+import { reconcileSelectDefaultAfterOptionRewrite } from './reconcileSelectDefaultAfterOptionRewrite';
 
 /**
  * Specification for updating a multiple select field's options.
@@ -143,15 +144,22 @@ export class UpdateMultipleSelectOptionsSpec<
       return err(domainError.validation({ message: 'Field is not a multiple select field' }));
     }
 
-    // See UpdateSingleSelectOptionsSpec: a rename+repoint request validates the
-    // new default against the new options, not against the stale pair.
+    // See UpdateSingleSelectOptionsSpec: explicit defaults validate as
+    // supplied; an unchanged default follows renames and drops deleted names.
+    const defaultValueResult = this.defaultValueChangeValue
+      ? ok(this.defaultValueChangeValue.next)
+      : reconcileSelectDefaultAfterOptionRewrite(
+          this.previousOptionsValue,
+          this.nextOptionsValue,
+          field.defaultValue()
+        );
+    if (defaultValueResult.isErr()) return err(defaultValueResult.error);
+
     const updatedFieldResult = MultipleSelectField.create({
       id: field.id(),
       name: field.name(),
       options: this.nextOptionsValue,
-      defaultValue: this.defaultValueChangeValue
-        ? this.defaultValueChangeValue.next
-        : field.defaultValue(),
+      defaultValue: defaultValueResult.value,
       preventAutoNewOptions: field.preventAutoNewOptions(),
       domainContext: this.domainContextValue,
     });

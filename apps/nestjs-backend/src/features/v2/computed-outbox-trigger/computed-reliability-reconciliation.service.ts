@@ -134,6 +134,9 @@ export class ComputedReliabilityReconciliationService
           );
           if (!lock.rows[0]?.acquired) return false;
           await this.cleanup(trx, target, routedAway, deadline);
+          if (Date.now() < deadline) {
+            await this.closeUncomputable(trx, target, deadline);
+          }
           if (isComputedReliabilityReconciliationEnabled() && Date.now() < deadline) {
             await this.reconcileTables(trx, target, routedAway, deadline);
           }
@@ -227,6 +230,42 @@ export class ComputedReliabilityReconciliationService
       count: Number(row?.count ?? 0),
       oldestAt: row?.oldest ? new Date(String(row.oldest)).getTime() : null,
     };
+  }
+  private qualifyReliabilityTable(target: IComputedOutboxMaintenanceTarget, name: string): string {
+    const quote = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
+    return target.internalSchema ? `${quote(target.internalSchema)}.${quote(name)}` : quote(name);
+  }
+  private async closeUncomputable(
+    trx: Knex.Transaction,
+    target: IComputedOutboxMaintenanceTarget,
+    deadline: number
+  ) {
+    const field = await this.query(trx, deadline, () =>
+      trx.raw<{ rows: Array<{ rel: string | null }> }>(`select to_regclass('public.field') as rel`)
+    );
+    if (!field?.rows?.[0]?.rel) return;
+    const issue = this.qualifyReliabilityTable(target, 'computed_reliability_issue');
+    const scope = this.qualifyReliabilityTable(target, 'computed_reliability_scope');
+    await this.query(trx, deadline, () =>
+      trx.raw(
+        `update ${issue} i
+         set status = 'not_applicable',
+             closed_at = now(),
+             confirmed_by = 'system:uncomputable-field',
+             confirmation_reason = 'Every scoped field is deleted or in error and can no longer be computed'
+         where i.status not in ('resolved', 'not_applicable')
+           and i.scope_complete = true
+           and exists (select 1 from ${scope} s where s.issue_id = i.id)
+           and not exists (
+             select 1
+             from ${scope} s
+             join public.field f on f.id = s.field_id
+             where s.issue_id = i.id
+               and f.deleted_time is null
+               and f.has_error is not true
+           )`
+      )
+    );
   }
   private async cleanup(
     trx: Knex.Transaction,

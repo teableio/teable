@@ -56,10 +56,8 @@ import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
-import {
-  normalizeCellDisplayValue,
-  normalizeCellDisplayValues,
-} from '../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { normalizeCellDisplayValue } from '../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { splitSelectTypecastValues } from '../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
@@ -1960,9 +1958,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     const validValues = new Set(
-      selectField
-        .selectOptions()
-        .flatMap((option) => [option.id().toString(), option.name().toString()])
+      selectField.selectOptions().map((option) => option.name().toString())
     );
 
     if (isSingleSelect) {
@@ -1970,7 +1966,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       return candidate != null && !validValues.has(candidate);
     }
 
-    const candidates = normalizeCellDisplayValues(rawValue);
+    const candidates = splitSelectTypecastValues(rawValue);
     return candidates.length > 0 && candidates.some((candidate) => !validValues.has(candidate));
   }
 

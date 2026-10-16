@@ -116,7 +116,12 @@ export const SpaceMemberCombobox = (props: ISpaceMemberComboboxProps) => {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('h-7 min-w-0 justify-between font-normal', className)}
+          // The placeholder wraps rather than truncates: on a phone, and in the longer
+          // languages, its second half (what happens to the subscription) is the half cut off.
+          className={cn(
+            'h-auto min-h-7 min-w-0 justify-between whitespace-normal py-1 font-normal',
+            className
+          )}
         >
           {value ? (
             <span className="flex min-w-0 items-center gap-2">
@@ -125,7 +130,7 @@ export const SpaceMemberCombobox = (props: ISpaceMemberComboboxProps) => {
               <span className="shrink-0 text-xs text-muted-foreground">{roleName(value.role)}</span>
             </span>
           ) : (
-            <span className="truncate text-muted-foreground">{placeholder}</span>
+            <span className="text-start text-muted-foreground">{placeholder}</span>
           )}
           <ChevronsUpDown className="ms-1 size-3 shrink-0 opacity-50" />
         </Button>
@@ -135,7 +140,8 @@ export const SpaceMemberCombobox = (props: ISpaceMemberComboboxProps) => {
           <CommandInput
             value={search}
             onValueChange={setSearch}
-            placeholder={placeholder}
+            // The trigger's placeholder is a sentence that wraps; a one-line input would cut it.
+            placeholder={t('common:actions.search')}
             className="h-8 text-[13px]"
           />
           <CommandList>

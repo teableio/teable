@@ -49,6 +49,7 @@ import {
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   normalizeComputedUpdateOutboxConfig,
+  resolveComputedWorkerLane,
   noopComputedOutboxWakeupPublisher,
   ComputedUpdateWorker,
   UserRenamePropagationService,
@@ -273,6 +274,7 @@ export const registerV2TableRepositoryPostgresAdapter = (
   };
   const outboxConfig: ComputedUpdateOutboxConfig = normalizeComputedUpdateOutboxConfig({
     ...defaultComputedUpdateOutboxConfig,
+    workerLane: resolveComputedWorkerLane(),
     ...config.computedUpdate?.outboxConfig,
   });
   const lockConfig: ComputedUpdateLockConfig = {

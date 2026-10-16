@@ -10,6 +10,8 @@ import { EnsureLogin } from '../auth/decorators/ensure-login.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { OAuthClientGuard } from './guard/oauth2-client.guard';
 import { DeviceAuthorizationError, OAuthDeviceService } from './oauth-device.service';
+import type { IClientRegistrationRequest } from './oauth-registration.service';
+import { ClientRegistrationError, OAuthRegistrationService } from './oauth-registration.service';
 import { OAuthServerService } from './oauth-server.service';
 
 @Controller('/api/oauth')
@@ -17,6 +19,7 @@ export class OAuthServerController {
   constructor(
     private readonly oauthServerService: OAuthServerService,
     private readonly oauthDeviceService: OAuthDeviceService,
+    private readonly oauthRegistrationService: OAuthRegistrationService,
     private readonly cls: ClsService<IClsStore>,
     @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
@@ -58,6 +61,31 @@ export class OAuthServerController {
   @Post('decision')
   async decision(@Res() res: Response, @Req() req: Request) {
     return this.oauthServerService.decision(req, res);
+  }
+
+  /**
+   * Dynamic client registration (RFC 7591) for public clients. MCP clients call
+   * this on first connect; it is advertised as `registration_endpoint` in the
+   * authorization server metadata. Explicit 201 and RFC error objects: this is
+   * the wire format clients parse, not this deployment's exception shape.
+   */
+  @Post('register')
+  @Public()
+  async register(@Req() req: Request, @Res() res: Response) {
+    try {
+      const result = await this.oauthRegistrationService.register(
+        (req.body ?? {}) as IClientRegistrationRequest,
+        req.ip ?? 'unknown'
+      );
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof ClientRegistrationError) {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        res.status(400).json({ error: error.rfcError, error_description: error.message });
+        return;
+      }
+      throw error;
+    }
   }
 
   /** Device grant, step 1: the client asks for a pair of codes (RFC 8628 §3.1). */

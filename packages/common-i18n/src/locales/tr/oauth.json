@@ -56,6 +56,17 @@
     "redirectDescription": "Yetkilendirme şuraya yönlendirecek",
     "authorize": "Yetkilendir"
   },
+  "mcpDecision": {
+    "title": "Teable MCP'yi bağla",
+    "subtitle": "<b>{{name}}</b> uygulamasına Teable erişimi verin",
+    "capabilities": "<b>{{name}}</b>, Teable MCP aracılığıyla şunları yapabilecek:",
+    "ability1": "Her projedeki izinlerinize göre tabloları, alanları, görünümleri, kayıtları, otomasyonları ve uygulamaları görüntüleme ve düzenleme",
+    "ability2": "Sizin adınıza işlem yapma; işlemler bu uygulama adına kaydedilir",
+    "ability3": "Erişebildiğiniz tüm projeleri kullanma",
+    "redirectTitle": "Şuraya yönlendirileceksiniz:",
+    "trustRedirect": "Bu URL'yi tanıyorum ve güveniyorum",
+    "continue": "Devam Et"
+  },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",
     "title": "Daha fazla bilgi"

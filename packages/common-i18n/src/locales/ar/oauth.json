@@ -56,6 +56,17 @@
     "redirectDescription": "سيؤدي التفويض إلى إعادة التوجيه إلى",
     "authorize": "تفويض"
   },
+  "mcpDecision": {
+    "title": "الاتصال بـ Teable MCP",
+    "subtitle": "منح <b>{{name}}</b> حق الوصول إلى Teable",
+    "capabilities": "من خلال Teable MCP، سيتمكن <b>{{name}}</b> من:",
+    "ability1": "عرض الجداول والحقول وطرق العرض والسجلات والأتمتة والتطبيقات وتعديلها وفقًا لصلاحياتك في كل مشروع",
+    "ability2": "التصرف نيابةً عنك، وتُسجَّل الإجراءات باسم هذا التطبيق",
+    "ability3": "استخدام جميع المشاريع التي يمكنك الوصول إليها",
+    "redirectTitle": "ستتم إعادة توجيهك إلى:",
+    "trustRedirect": "أتعرّف على عنوان URL هذا وأثق به",
+    "continue": "متابعة"
+  },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",
     "title": "اعرف المزيد"

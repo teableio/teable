@@ -1,5 +1,3 @@
-import react from '@vitejs/plugin-react-swc';
-import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 
@@ -18,16 +16,9 @@ export default defineConfig({
       externalConditions: ['@teable/source'],
     },
   },
-  plugins: [
-    react({
-      devTarget: 'es2022',
-    }),
-    tsconfigPaths(),
-    svgr({
-      // svgr options: https://react-svgr.com/docs/options/
-      svgrOptions: {},
-    }),
-  ],
+  // tsconfig keeps JSX for Next (`"jsx": "preserve"`), so the tests compile it here
+  esbuild: { jsx: 'automatic' },
+  plugins: [tsconfigPaths()],
   cacheDir: '../../.cache/vitest/nextjs-app',
   test: {
     testTimeout: coverageRun ? 180_000 : 5_000,

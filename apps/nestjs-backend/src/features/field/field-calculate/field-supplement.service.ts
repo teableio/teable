@@ -1496,19 +1496,22 @@ export class FieldSupplementService {
   private prepareSelectOptions(options: ISelectFieldOptionsRo, isMultiple: boolean) {
     const optionsRo = (options ?? SelectFieldCore.defaultOptions()) as ISelectFieldOptionsRo;
     const nameSet = new Set<string>();
+    const normalizedNames = new Set<string>();
     const choices = optionsRo.choices.map((choice) => {
-      if (nameSet.has(choice.name)) {
+      const normalizedName = choice.name.trim();
+      if (normalizedNames.has(normalizedName)) {
         throw new CustomHttpException(
-          `choice name ${choice.name} is already exists`,
+          `choice name ${normalizedName} is already exists`,
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
               i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
-              context: { name: choice.name },
+              context: { name: normalizedName },
             },
           }
         );
       }
+      normalizedNames.add(normalizedName);
       nameSet.add(choice.name);
       return {
         name: choice.name,

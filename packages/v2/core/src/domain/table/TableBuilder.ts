@@ -1563,7 +1563,7 @@ export class UserFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
   private multiplicity: UserMultiplicity = UserMultiplicity.single();
-  private notification: UserNotification = UserNotification.enabled();
+  private notification: UserNotification = UserNotification.disabled();
   private defaultValue: UserDefaultValue | undefined;
   private notNull: FieldNotNull = FieldNotNull.optional();
   private unique: FieldUnique = FieldUnique.disabled();

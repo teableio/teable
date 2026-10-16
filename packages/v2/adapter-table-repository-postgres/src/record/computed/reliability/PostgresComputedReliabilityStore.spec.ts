@@ -203,6 +203,43 @@ describe('durable computed failure evidence', () => {
     expect(await store.listIssues()).toEqual([]);
   });
 
+  it('closes a fully scoped issue once every field is deleted or in error', async () => {
+    await sql`create table field(id text primary key, deleted_time timestamptz, has_error boolean)`.execute(
+      db
+    );
+    await sql`insert into field(id, deleted_time, has_error) values
+      ('link-a', now(), null),
+      ('link-b', now(), null),
+      ('rollup', null, true),
+      ('healthy', null, false)`.execute(db);
+    await store.recordFailure({
+      ...failure(),
+      taskId: 'stuck',
+      targets: [
+        { tableId: 'process', fieldId: 'link-a' },
+        { tableId: 'process', fieldId: 'rollup' },
+        { tableId: 'seeds', fieldId: 'link-b' },
+      ],
+    });
+    await store.recordFailure({
+      ...failure(),
+      taskId: 'live',
+      targets: [{ tableId: 'process', fieldId: 'healthy' }],
+    });
+    await store.recordFailure({ ...failure(), taskId: 'unknown-scope' });
+
+    expect(await store.closeUncomputableIssues()).toBe(1);
+
+    const issues = await store.listIssues();
+    expect(issues.find((issue) => issue.task_id === 'stuck')).toMatchObject({
+      status: 'not_applicable',
+      confirmed_by: 'system:uncomputable-field',
+    });
+    expect(issues.find((issue) => issue.task_id === 'live')?.status).toBe('open');
+    expect(issues.find((issue) => issue.task_id === 'unknown-scope')?.status).toBe('open');
+    expect(await store.closeUncomputableIssues()).toBe(0);
+  });
+
   it('retains unknown scope until explicitly resolved outside task execution', async () => {
     await store.recordFailure({
       ...failure(),

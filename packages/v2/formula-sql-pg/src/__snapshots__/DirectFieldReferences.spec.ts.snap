@@ -58,7 +58,7 @@ exports[`direct field references > direct reference to 'button' field 1`] = `
     },
   },
   "result": null,
-  "sql": "COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')",
+  "sql": "NULL::text",
 }
 `;
 

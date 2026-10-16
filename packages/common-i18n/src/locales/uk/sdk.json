@@ -206,6 +206,17 @@
       "isAfter": "після",
       "isOnOrBefore": "на або до",
       "isOnOrAfter": "на або після",
+      "user": {
+        "is": "є",
+        "isNot": "не є",
+        "isAnyOf": "є будь-яким з",
+        "isNoneOf": "не є жодним з",
+        "hasAnyOf": "має будь-який з",
+        "hasAllOf": "має все з",
+        "isExactly": "точно",
+        "isNotExactly": "не є",
+        "hasNoneOf": "не має жодного з"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -289,6 +300,7 @@
     "previousRecord": "Попередній",
     "nextRecord": "Наступний",
     "duplicateRecord": "Дублювати запис",
+    "addToChat": "Додати до чату",
     "copyRecordUrl": "Копіювати URL записи",
     "deleteRecord": "Видалити запис",
     "addRecordComment": "Додати коментар",
@@ -1296,6 +1308,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds або fromRecordIds потрібен для звичайного обчислюваного поля",
       "recordFieldsRequired": "Поля запису не визначені",
       "uniqueUnsupportedType": "Поле {{name}}[{{fieldId}}] не підтримує перевірку унікальності значення поля",
+      "optionsUnsupportedType": "Поле {{name}}[{{fieldId}}] не підтримує зміну цих параметрів: {{options}}",
       "notNullValidationWhenCreateField": "Поле {{name}}[{{fieldId}}] не підтримує перевірку не null при створенні нового поля",
       "dbFieldNameAlreadyExists": "Ім'я поля бази даних {{dbFieldName}} вже існує",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",

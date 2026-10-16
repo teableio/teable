@@ -574,12 +574,15 @@ describe('DeleteRecordsHandler', () => {
       scope: () => ok({ recordSpec: scopedSpec }),
     };
 
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+
     const handler = createDeleteHandler(
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner([plugin]),
-      new FakeTableRecordRepository(),
+      recordRepository,
       queryRepository,
-      new FakeEventBus()
+      eventBus
     );
 
     const command = DeleteRecordsCommand.create({
@@ -595,5 +598,9 @@ describe('DeleteRecordsHandler', () => {
       tags: ['forbidden'],
     });
     expect(queryRepository.findCalls).toBe(1);
+    // The rejected delete must not reach the repository or publish events.
+    expect(recordRepository.lastSpec).toBeUndefined();
+    expect(recordRepository.deletedRecords).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
   });
 });

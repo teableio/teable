@@ -1,8 +1,8 @@
 import { Command, Options } from '@effect/cli';
 import type { Option } from 'effect';
 import { Effect } from 'effect';
-import { Output } from '../../services/Output';
 import { ComputedTaskInspector } from '../../services/ComputedTaskInspector';
+import { Output } from '../../services/Output';
 import { asCsvTable, writeTableCsv } from '../../utils';
 import {
   baseIdsOption,
@@ -89,6 +89,6 @@ export const computedReplay = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Replay current computed backlog in queue order, optionally scoped to selected projects'
+    'Replay the TEABLE_WORKER_LANE backlog (default: production), optionally scoped to projects'
   )
 );

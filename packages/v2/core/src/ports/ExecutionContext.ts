@@ -57,6 +57,11 @@ export interface IExecutionContext {
     selectFieldOptions?: IDomainContextConfig['selectFieldOptions'];
     /** @deprecated Use `tableLimits.tableSchema.maxFieldsPerTable`. */
     tableFields?: IDomainContextConfig['tableFields'];
+    /**
+     * Host policy for typecast/paste choice creation.
+     * `false` rejects writes that would add a choice. Unset means allowed.
+     */
+    allowSelectOptionAutoCreate?: boolean;
   };
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
 }

@@ -60,6 +60,17 @@
     "redirectDescription": "Authorizing will redirect to",
     "authorize": "Authorize"
   },
+  "mcpDecision": {
+    "title": "Connect Teable MCP",
+    "subtitle": "Grant <b>{{name}}</b> access to Teable",
+    "capabilities": "Through Teable MCP, <b>{{name}}</b> will be able to:",
+    "ability1": "View and edit tables, fields, views, records, automations and apps according to your permissions in each project",
+    "ability2": "Act on your behalf; actions are logged under this application",
+    "ability3": "Use every project you can access",
+    "redirectTitle": "You will be redirected to:",
+    "trustRedirect": "I recognize and trust this URL",
+    "continue": "Continue"
+  },
   "device": {
     "title": "Connect a device",
     "description": "Enter the 8-character code shown in your terminal to sign that device in to your account.",

@@ -33,13 +33,13 @@ import { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSp
 import { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescriptionSpec';
 import { TableUpdateFieldHasErrorSpec } from './TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from './TableUpdateFieldNameSpec';
+import { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 /**
- * Field-update specs that never rewrite existing cell data when applied.
- *
  * These cover pure metadata (name/description/aiConfig/dbFieldName), display
- * concerns (showAs/formatting), default values for future cells, and button or
- * rating presentation. Anything not listed — type conversion, formula/rollup
+ * concerns (showAs/formatting), default values for future cells, form-view
+ * visibility forced by a required field, and button or rating presentation.
+ * Anything not listed — type conversion, formula/rollup
  * expression or timeZone, select choices, link config, constraints, user
  * multiplicity, etc. — may rewrite or invalidate stored cells and is therefore
  * treated as data-affecting. Unknown specs default to data-affecting so new
@@ -77,6 +77,7 @@ const nonDataAffectingSpecClasses = [
   UpdateSingleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateUserNotificationSpec,
+  TableUpdateViewColumnMetaSpec,
 ];
 
 /**

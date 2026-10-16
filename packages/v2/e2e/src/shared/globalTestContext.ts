@@ -23,6 +23,7 @@
  * ```
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
@@ -460,11 +461,30 @@ const initSharedContext = async (
   });
 
   const app = express();
+  const selectOptionAutoCreatePolicy = new AsyncLocalStorage<boolean>();
+  app.use((req, _res, next) => {
+    const header = req.headers['x-teable-allow-select-option-auto-create'];
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (raw === 'false' || raw === 'true') {
+      selectOptionAutoCreatePolicy.run(raw === 'true', () => next());
+      return;
+    }
+    next();
+  });
   await time('register-router', async () => {
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
-        createExecutionContext: () => ({ actorId, windowId: 'e2e-window' }),
+        createExecutionContext: () => {
+          const allowSelectOptionAutoCreate = selectOptionAutoCreatePolicy.getStore();
+          return {
+            actorId,
+            windowId: 'e2e-window',
+            ...(allowSelectOptionAutoCreate === undefined
+              ? {}
+              : { config: { allowSelectOptionAutoCreate } }),
+          };
+        },
       })
     );
   });

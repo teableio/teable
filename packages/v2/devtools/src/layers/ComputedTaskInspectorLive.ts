@@ -1,5 +1,6 @@
 import {
   RunComputedTaskByIdCommand,
+  type ComputedUpdateOutboxConfig,
   type RunComputedTaskByIdResult,
   v2RecordRepositoryPostgresTokens,
 } from '@teable/v2-adapter-table-repository-postgres';
@@ -511,12 +512,14 @@ const fetchTableNames = async (
 
 const nextReplayTaskId = async (
   db: Kysely<V1TeableDatabase>,
+  workerLane: string,
   baseIds?: ReadonlyArray<string>
 ): Promise<string | undefined> => {
   let query = db
     .selectFrom('computed_update_outbox as o')
     .select('o.id as id')
     .where('o.status', 'in', ['pending', 'processing'])
+    .where('o.worker_lane', '=', workerLane)
     .orderBy('o.next_run_at', 'asc')
     .orderBy('o.updated_at', 'asc')
     .orderBy('o.id', 'asc')
@@ -531,6 +534,7 @@ const nextReplayTaskId = async (
 
 const fetchRemainingByBase = async (
   db: Kysely<V1TeableDatabase>,
+  workerLane: string,
   baseIds?: ReadonlyArray<string>
 ) => {
   let query = db
@@ -542,6 +546,7 @@ const fetchRemainingByBase = async (
       sql<number>`count(*)`.as('remaining'),
     ])
     .where('o.status', 'in', ['pending', 'processing'])
+    .where('o.worker_lane', '=', workerLane)
     .groupBy(['o.base_id', 'b.name'])
     .orderBy(sql<number>`count(*)`, 'desc')
     .orderBy('o.base_id', 'asc');
@@ -569,6 +574,9 @@ export const ComputedTaskInspectorLive = Layer.effect(
     const internalCommandBus = container.resolve(
       v2CoreTokens.internalCommandBus
     ) as IInternalCommandBus;
+    const { workerLane } = container.resolve<ComputedUpdateOutboxConfig>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
+    );
 
     return {
       getQueueSummary: (
@@ -810,6 +818,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
                   .selectFrom('computed_update_outbox as o')
                   .select(sql<number>`count(*)`.as('count'))
                   .where('o.status', 'in', ['pending', 'processing'])
+                  .where('o.worker_lane', '=', workerLane)
                   .$if(Boolean(input.baseIds?.length), (qb) =>
                     qb.where('o.base_id', 'in', input.baseIds ?? [])
                   )
@@ -821,10 +830,8 @@ export const ComputedTaskInspectorLive = Layer.effect(
             const start = Date.now();
             const context = createContext();
 
-            while (true) {
-              if (limit !== null && processed >= limit) break;
-
-              const taskId = await nextReplayTaskId(db, input.baseIds);
+            while (limit === null || processed < limit) {
+              const taskId = await nextReplayTaskId(db, workerLane, input.baseIds);
               if (!taskId) break;
 
               const commandResult = RunComputedTaskByIdCommand.create({
@@ -851,7 +858,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
               }
             }
 
-            const remainingRows = await fetchRemainingByBase(db, input.baseIds);
+            const remainingRows = await fetchRemainingByBase(db, workerLane, input.baseIds);
             const finalRemaining = remainingRows.reduce(
               (sum, row) => sum + Number(row.remaining ?? 0),
               0

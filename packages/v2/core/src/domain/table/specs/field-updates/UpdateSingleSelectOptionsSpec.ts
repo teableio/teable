@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../../shared/DomainContext';
@@ -15,6 +15,7 @@ import type { SelectOption } from '../../fields/types/SelectOption';
 import { SingleSelectField } from '../../fields/types/SingleSelectField';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
+import { reconcileSelectDefaultAfterOptionRewrite } from './reconcileSelectDefaultAfterOptionRewrite';
 
 /**
  * A default-value change that travels with the option rewrite.
@@ -156,17 +157,23 @@ export class UpdateSingleSelectOptionsSpec<
       return err(domainError.validation({ message: 'Field is not a single select field' }));
     }
 
-    // Create updated select field with new options. When the request also
-    // changes the default, the new default is what has to validate against the
-    // new option names — carrying the old default across would reject a
-    // rename+repoint that is perfectly coherent as a whole.
+    // An explicit default change validates as supplied. Otherwise N-27 keeps
+    // the current default attached to the same option: a rename follows the
+    // new name, and deleting that option drops it before name validation.
+    const defaultValueResult = this.defaultValueChangeValue
+      ? ok(this.defaultValueChangeValue.next)
+      : reconcileSelectDefaultAfterOptionRewrite(
+          this.previousOptionsValue,
+          this.nextOptionsValue,
+          field.defaultValue()
+        );
+    if (defaultValueResult.isErr()) return err(defaultValueResult.error);
+
     const updatedFieldResult = SingleSelectField.create({
       id: field.id(),
       name: field.name(),
       options: this.nextOptionsValue,
-      defaultValue: this.defaultValueChangeValue
-        ? this.defaultValueChangeValue.next
-        : field.defaultValue(),
+      defaultValue: defaultValueResult.value,
       preventAutoNewOptions: field.preventAutoNewOptions(),
       domainContext: this.domainContextValue,
     });

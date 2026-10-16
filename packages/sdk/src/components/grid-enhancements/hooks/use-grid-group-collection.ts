@@ -4,15 +4,23 @@ import type {
   INumberShowAs,
   ISingleLineTextShowAs,
 } from '@teable/core';
-import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
+import {
+  CellValueType,
+  ColorUtils,
+  FieldType,
+  getTextActionType,
+  validateDateFieldValueLoose,
+} from '@teable/core';
 import { useTheme } from '@teable/ui-lib';
 import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { findUrls } from '../../../utils/find-urls';
 import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
+import { openUrl } from '../../../utils/url';
 import { getFieldIconString, getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
@@ -96,9 +104,10 @@ const useGenerateGroupCellFn = () => {
             };
           }
           case FieldType.SingleLineText: {
-            const { showAs } = field.options;
+            const { showAs } = field.options ?? {};
+            const actionType = getTextActionType(showAs);
 
-            if (showAs != null) {
+            if (actionType) {
               return {
                 type: CellType.Link,
                 data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
@@ -106,10 +115,13 @@ const useGenerateGroupCellFn = () => {
               };
             }
 
+            const displayData = field.cellValue2String(cellValue);
             return {
               type: CellType.Text,
               data: (cellValue as string) || emptyStr,
-              displayData: field.cellValue2String(cellValue),
+              displayData,
+              links: findUrls(displayData),
+              onLinkClick: openUrl,
             };
           }
           case FieldType.LongText: {
@@ -172,9 +184,11 @@ const useGenerateGroupCellFn = () => {
             }
 
             if (cellValueType === CellValueType.String) {
-              const showAs = field.options.showAs as ISingleLineTextShowAs;
+              const actionType = getTextActionType(
+                field.options.showAs as ISingleLineTextShowAs | undefined
+              );
 
-              if (showAs != null) {
+              if (actionType) {
                 return {
                   type: CellType.Link,
                   data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
@@ -182,10 +196,13 @@ const useGenerateGroupCellFn = () => {
                 };
               }
 
+              const displayData = field.cellValue2String(cellValue);
               return {
                 type: CellType.Text,
                 data: (cellValue as string) || emptyStr,
-                displayData: field.cellValue2String(cellValue),
+                displayData,
+                links: findUrls(displayData),
+                onLinkClick: openUrl,
               };
             }
 

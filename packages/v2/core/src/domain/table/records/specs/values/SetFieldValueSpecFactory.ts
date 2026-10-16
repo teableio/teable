@@ -82,7 +82,11 @@ export class SetFieldValueSpecFactory {
       }
 
       // Step 3: Create the SetValueSpec with the validated value
-      const factoryVisitor = new SetFieldValueSpecFactoryVisitor(parseResult.data);
+      const factoryVisitor = new SetFieldValueSpecFactoryVisitor(parseResult.data, {
+        // Strict (non-typecast) writes are API input, so bare `{ id }` user
+        // references must resolve within the table's collaborators (v1 scope).
+        requireUserCollaborator: true,
+      });
       return field.accept(factoryVisitor);
     });
   }

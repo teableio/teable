@@ -232,6 +232,35 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
+class RecordingRollbackUnitOfWork implements IUnitOfWork {
+  transactions: IExecutionContext[] = [];
+  rollbacks: IExecutionContext[] = [];
+
+  constructor(private readonly recordRepository: FakeTableRecordRepository) {}
+
+  async withTransaction<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, DomainError>> {
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
+    const transactionContext = { ...context, transaction };
+    const snapshot = [...this.recordRepository.records];
+    this.transactions.push(transactionContext);
+    try {
+      const result = await work(transactionContext);
+      if (result.isErr()) {
+        this.recordRepository.records = snapshot;
+        this.rollbacks.push(transactionContext);
+      }
+      return result;
+    } catch (error) {
+      this.recordRepository.records = snapshot;
+      this.rollbacks.push(transactionContext);
+      return err(domainError.fromUnknown(error));
+    }
+  }
+}
+
 describe('CreateRecordsStreamHandler', () => {
   it('creates records in batches', async () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
@@ -376,19 +405,55 @@ describe('CreateRecordsStreamHandler', () => {
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.createStream);
   });
 
-  it('returns error when validation fails in a batch', async () => {
+  it('rolls back the stream transaction when a batch contains a valid, invalid and valid row', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
+    const unitOfWork = new RecordingRollbackUnitOfWork(recordRepository);
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner(),
       recordRepository,
-      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+    );
+
+    const commandResult = CreateRecordsStreamCommand.create({
+      tableId: tableId.toString(),
+      batchSize: 3,
+      records: [
+        { fields: { [numberFieldId.toString()]: 1 } },
+        { fields: { [numberFieldId.toString()]: 'bad' } },
+        { fields: { [numberFieldId.toString()]: 3 } },
+      ],
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+
+    expect(result._unsafeUnwrapErr().message).toContain('Invalid value');
+    expect(unitOfWork.transactions).toHaveLength(1);
+    expect(unitOfWork.rollbacks).toHaveLength(1);
+    expect(recordRepository.records).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
+  });
+
+  it('rolls back earlier batches already written when a later batch fails validation', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new RecordingRollbackUnitOfWork(recordRepository);
+
+    const handler = new CreateRecordsStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      recordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = CreateRecordsStreamCommand.create({
@@ -396,12 +461,19 @@ describe('CreateRecordsStreamHandler', () => {
       batchSize: 2,
       records: [
         { fields: { [numberFieldId.toString()]: 1 } },
+        { fields: { [numberFieldId.toString()]: 2 } },
         { fields: { [numberFieldId.toString()]: 'bad' } },
+        { fields: { [numberFieldId.toString()]: 4 } },
       ],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+
     expect(result._unsafeUnwrapErr().message).toContain('Invalid value');
-    expect(eventBus.published.length).toBe(0);
+    // The first batch was consumed before the failure, so an empty repository
+    // proves the transaction restored it instead of leaking partial progress.
+    expect(unitOfWork.rollbacks).toHaveLength(1);
+    expect(recordRepository.records).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
   });
 });

@@ -137,6 +137,24 @@ describe('[F11] v2 link fields to the same foreign table (e2e)', () => {
     const stored = records.find((r) => r.id === hostRecord.id);
     expect(stored?.fields[linkA.id]).toEqual([{ id: target.id, title: 'table2_1' }]);
     expect(stored?.fields[linkB.id]).toEqual([{ id: target.id, title: 'table2_1' }]);
+
+    // Removing one field's link must leave the sibling field and the foreign
+    // side untouched.
+    await ctx.updateRecord(host.id, hostRecord.id, { [linkA.id]: [] });
+    await ctx.testContainer.processOutbox();
+
+    const afterUnlink = (await ctx.listRecords(host.id)).find((r) => r.id === hostRecord.id);
+    expect(afterUnlink?.fields[linkA.id] ?? []).toEqual([]);
+    expect(afterUnlink?.fields[linkB.id]).toEqual([{ id: target.id, title: 'table2_1' }]);
+
+    const foreignAfter = (await ctx.listRecords(foreign.id)).find((r) => r.id === target.id);
+    const foreignFields = foreignAfter?.fields ?? {};
+    const hostReferences = Object.keys(foreignFields).filter(
+      (fieldKey) =>
+        fieldKey !== foreignPrimaryFieldId &&
+        JSON.stringify(foreignFields[fieldKey] ?? null).includes(hostRecord.id)
+    );
+    expect(hostReferences).toHaveLength(1);
   });
 
   it('refreshes manyOne link title when foreign primary changes with sibling oneMany link present', async () => {

@@ -150,21 +150,6 @@ const getFieldIdByName = (fields: ReadonlyArray<{ name: string }>, name: string)
   return id;
 };
 
-const getSelectChoiceIdByName = (
-  fields: ReadonlyArray<{ name: string }>,
-  name: string,
-  index = 0
-): string => {
-  const field = fields.find((f) => f.name === name);
-  const choices = (field as { options?: { choices?: Array<{ id: string }> } } | undefined)?.options
-    ?.choices;
-  const choiceId = choices?.[index]?.id;
-  if (!choiceId) {
-    throw new Error(`Missing select choice id for: ${name}`);
-  }
-  return choiceId;
-};
-
 const seedAllFieldTypesTable = async (target: IBenchTarget): Promise<SeededTable> => {
   if (!baseId) throw new Error('BaseId is missing');
 
@@ -193,11 +178,8 @@ const seedAllFieldTypesTable = async (target: IBenchTarget): Promise<SeededTable
     [getFieldIdByName(allTypesFields, 'Priority')]: 3,
     [getFieldIdByName(allTypesFields, 'Done')]: true,
     [getFieldIdByName(allTypesFields, 'Due Date')]: '2025-02-20T00:00:00.000Z',
-    [getFieldIdByName(allTypesFields, 'Status')]: getSelectChoiceIdByName(allTypesFields, 'Status'),
-    [getFieldIdByName(allTypesFields, 'Tags')]: [
-      getSelectChoiceIdByName(allTypesFields, 'Tags', 0),
-      getSelectChoiceIdByName(allTypesFields, 'Tags', 2),
-    ],
+    [getFieldIdByName(allTypesFields, 'Status')]: 'Todo',
+    [getFieldIdByName(allTypesFields, 'Tags')]: ['Frontend', 'Bug'],
   };
 
   if (companyRecordId) {

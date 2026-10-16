@@ -5,6 +5,7 @@ import { AccessTokenModule } from '../access-token/access-token.module';
 import { UserModule } from '../user/user.module';
 import { OAuthAppInitService } from './oauth-app-init.service';
 import { OAuthDeviceService } from './oauth-device.service';
+import { OAuthRegistrationService } from './oauth-registration.service';
 import { OAuthServerController } from './oauth-server.controller';
 import { OAuthServerService } from './oauth-server.service';
 import { OAuthTxStore } from './oauth-tx-store';
@@ -24,6 +25,7 @@ import { OAuthPkceClientStrategy } from './strategies/oauth2-pkce-client.strateg
   controllers: [OAuthController, OAuthServerController],
   providers: [
     OAuthDeviceService,
+    OAuthRegistrationService,
     OAuthServerService,
     OAuthService,
     OAuthAppInitService,

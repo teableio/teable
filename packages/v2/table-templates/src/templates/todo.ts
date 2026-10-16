@@ -63,9 +63,9 @@ const createTodoSeed = (): SingleTableSeed => {
       {
         fields: {
           [taskFieldId]: 'Design kickoff',
-          [statusFieldId]: statusOptions[0]!.id,
+          [statusFieldId]: statusOptions[0]!.name,
           [priorityFieldId]: 4,
-          [tagsFieldId]: [tagOptions[0]!.id],
+          [tagsFieldId]: [tagOptions[0]!.name],
           [doneFieldId]: false,
           [dueDateFieldId]: '2025-02-03T00:00:00.000Z',
         },
@@ -73,9 +73,9 @@ const createTodoSeed = (): SingleTableSeed => {
       {
         fields: {
           [taskFieldId]: 'Implement auth',
-          [statusFieldId]: statusOptions[1]!.id,
+          [statusFieldId]: statusOptions[1]!.name,
           [priorityFieldId]: 5,
-          [tagsFieldId]: [tagOptions[0]!.id],
+          [tagsFieldId]: [tagOptions[0]!.name],
           [doneFieldId]: false,
           [dueDateFieldId]: '2025-02-06T00:00:00.000Z',
         },
@@ -83,9 +83,9 @@ const createTodoSeed = (): SingleTableSeed => {
       {
         fields: {
           [taskFieldId]: 'Fix regression',
-          [statusFieldId]: statusOptions[2]!.id,
+          [statusFieldId]: statusOptions[2]!.name,
           [priorityFieldId]: 3,
-          [tagsFieldId]: [tagOptions[2]!.id],
+          [tagsFieldId]: [tagOptions[2]!.name],
           [doneFieldId]: false,
           [dueDateFieldId]: '2025-02-04T00:00:00.000Z',
         },
@@ -93,9 +93,9 @@ const createTodoSeed = (): SingleTableSeed => {
       {
         fields: {
           [taskFieldId]: 'Ship release',
-          [statusFieldId]: statusOptions[3]!.id,
+          [statusFieldId]: statusOptions[3]!.name,
           [priorityFieldId]: 5,
-          [tagsFieldId]: [tagOptions[0]!.id, tagOptions[1]!.id],
+          [tagsFieldId]: [tagOptions[0]!.name, tagOptions[1]!.name],
           [doneFieldId]: true,
           [dueDateFieldId]: '2025-02-08T00:00:00.000Z',
         },

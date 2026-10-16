@@ -1,4 +1,5 @@
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
+import { ViewType } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
 import { useContext, useEffect, useMemo, useState, type FC, type PropsWithChildren } from 'react';
@@ -11,13 +12,19 @@ import {
   useBaseId,
   useCommentPermission,
   useRecordOperations,
+  useSearch,
   useTableId,
   useTablePermission,
   useTables,
+  useView,
 } from '../../hooks';
 import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
-import { useExpandRecordNavigation } from './ExpandRecordNavigationContext';
+import {
+  useExpandRecordAddToChat,
+  useExpandRecordNavigation,
+  type IExpandRecordAddToChatArgs,
+} from './ExpandRecordNavigationContext';
 import type { ExpandRecordModel } from './type';
 
 const { toast } = sonner;
@@ -58,6 +65,35 @@ interface IExpandRecorderProps {
   onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }
 
+const openRecordAddToChat = ({
+  addToChat,
+  tableId,
+  recordId,
+  viewId,
+  isForeignTable,
+  search,
+  preferLoadedIndex,
+}: {
+  addToChat?: (args: IExpandRecordAddToChatArgs) => void;
+  tableId: string;
+  recordId?: string;
+  viewId?: string;
+  isForeignTable: boolean;
+  search?: IExpandRecordAddToChatArgs['search'];
+  preferLoadedIndex: boolean;
+}) => {
+  if (!addToChat || !recordId) return undefined;
+  return () => {
+    addToChat({
+      tableId,
+      recordId,
+      viewId: isForeignTable ? undefined : viewId,
+      search: isForeignTable ? undefined : search,
+      preferLoadedIndex,
+    });
+  };
+};
+
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const {
     model,
@@ -80,6 +116,9 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const baseId = useBaseId();
   const currentTableId = useTableId();
   const { onHighlightTable, navigateToTable } = useExpandRecordNavigation();
+  const { addToChat } = useExpandRecordAddToChat();
+  const view = useView();
+  const { filteringSearchQuery } = useSearch();
   const permission = useTablePermission();
   const { duplicateRecord } = useRecordOperations();
   // Record history is intentionally hidden inside a share view: it would leak
@@ -233,6 +272,15 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           // record — hide the copy button rather than copy a wrong link
           onCopyUrl={isForeignTable && !baseId ? undefined : onCopyUrl}
           onDuplicate={viewId ? onDuplicate : undefined}
+          onAddToChat={openRecordAddToChat({
+            addToChat,
+            tableId,
+            recordId,
+            viewId,
+            isForeignTable,
+            search: filteringSearchQuery,
+            preferLoadedIndex: !isForeignTable && view?.type === ViewType.Grid,
+          })}
           onRecordHistoryToggle={isShareContext ? undefined : onRecordHistoryToggle}
           onCommentToggle={onCommentToggle}
           onDelete={async () => {

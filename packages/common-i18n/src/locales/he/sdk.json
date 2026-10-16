@@ -205,6 +205,17 @@
       "isAfter": "אחרי",
       "isOnOrBefore": "בתאריך או לפניו",
       "isOnOrAfter": "בתאריך או אחריו",
+      "user": {
+        "is": "הוא",
+        "isNot": "אינו",
+        "isAnyOf": "הוא אחד מ",
+        "isNoneOf": "אינו אף אחד מ",
+        "hasAnyOf": "מכיל אחד מ",
+        "hasAllOf": "מכיל את כל",
+        "isExactly": "זהה בדיוק ל",
+        "isNotExactly": "אינו",
+        "hasNoneOf": "אינו מכיל אף אחד מ"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -287,6 +298,7 @@
     "previousRecord": "הקודם",
     "nextRecord": "הבא",
     "duplicateRecord": "שכפול רשומה",
+    "addToChat": "הוספה לצ'אט",
     "copyRecordUrl": "העתקת ה-URL של הרשומה",
     "deleteRecord": "מחיקת רשומה",
     "addRecordComment": "הוספת תגובה",
@@ -1292,6 +1304,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "עבור שדה מחושב רגיל נדרש toRecordIds או fromRecordIds",
       "recordFieldsRequired": "שדות הרשומה אינם מוגדרים",
       "uniqueUnsupportedType": "השדה {{name}}[{{fieldId}}] אינו תומך באימות ייחודיות של ערכים",
+      "optionsUnsupportedType": "השדה {{name}}[{{fieldId}}] אינו תומך בשינוי אפשרויות אלו: {{options}}",
       "notNullValidationWhenCreateField": "השדה {{name}}[{{fieldId}}] אינו תומך באימות \"לא ריק\" בעת יצירת שדה חדש",
       "dbFieldNameAlreadyExists": "שם השדה במסד הנתונים {{dbFieldName}} כבר קיים",
       "fieldValidationError": "שגיאת אימות בשדה {{name}}[{{fieldId}}]",

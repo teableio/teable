@@ -197,4 +197,96 @@ describe('UserValueResolverService', () => {
     expect(error.code).toBe('validation.field.user_not_found');
     expect(error.localization).toEqual({ i18nKey: 'httpErrors.user.notFound' });
   });
+
+  it('rejects a collaborator-scoped structured user id that is not a collaborator', async () => {
+    const fieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
+    const spec = new SetUserValueSpec(
+      fieldId,
+      CellValue.fromValidated<UserItem[]>([{ id: 'usr-outsider' } as UserItem]),
+      true
+    );
+
+    const outsider = { id: 'usr-outsider', name: 'Outsider', email: 'outsider@example.com' };
+    const service = new UserValueResolverService(
+      // The outsider exists on the platform but is not a base/space collaborator.
+      new FakeUserLookupService([], [outsider])
+    );
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('validation.field.user_not_found');
+    expect(error.localization).toEqual({ i18nKey: 'httpErrors.user.notFound' });
+  });
+
+  it('resolves a collaborator-scoped structured user id for a table collaborator', async () => {
+    const fieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+    const spec = new SetUserValueSpec(
+      fieldId,
+      CellValue.fromValidated<UserItem[]>([{ id: 'usr-1' } as UserItem]),
+      true
+    );
+
+    const collaborator = { id: 'usr-1', name: 'Alice', email: 'alice@example.com' };
+    const service = new UserValueResolverService(new FakeUserLookupService([collaborator]));
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
+    const resolvedSpec = result._unsafeUnwrap()[0];
+
+    expect((resolvedSpec as SetUserValueSpec).value.toValue()).toEqual([
+      {
+        id: 'usr-1',
+        title: 'Alice',
+        email: 'alice@example.com',
+        avatarUrl: '/api/attachments/read/public/avatar/usr-1',
+      },
+    ]);
+  });
+
+  it('considers only the first identifier for a single user field', async () => {
+    const fieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+    const spec = SetUserValueByIdentifierSpec.create(fieldId, ['不存在的人', '李四'], false);
+
+    const service = new UserValueResolverService(
+      new FakeUserLookupService([{ id: 'usr-2', name: '李四', email: 'lisi@example.com' }])
+    );
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
+    const resolvedSpec = result._unsafeUnwrap()[0];
+
+    expect(resolvedSpec).toBeInstanceOf(SetUserValueSpec);
+    // v1 parity: the unmatched first token clears the cell instead of falling
+    // back to the later identifier.
+    expect((resolvedSpec as SetUserValueSpec).value.toValue()).toBeNull();
+  });
+
+  it('resolves the first identifier for a single user field when it matches', async () => {
+    const fieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const spec = SetUserValueByIdentifierSpec.create(fieldId, ['李四', '不存在的人'], false);
+
+    const service = new UserValueResolverService(
+      new FakeUserLookupService([{ id: 'usr-2', name: '李四', email: 'lisi@example.com' }])
+    );
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
+    const resolvedSpec = result._unsafeUnwrap()[0];
+
+    expect((resolvedSpec as SetUserValueSpec).value.toValue()).toEqual({
+      id: 'usr-2',
+      title: '李四',
+      email: 'lisi@example.com',
+      avatarUrl: '/api/attachments/read/public/avatar/usr-2',
+    });
+  });
+
+  it('clears a single user field when the first identifier is empty', async () => {
+    const fieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+    const spec = SetUserValueByIdentifierSpec.create(fieldId, ['', '李四'], false);
+
+    const service = new UserValueResolverService(
+      new FakeUserLookupService([{ id: 'usr-2', name: '李四', email: 'lisi@example.com' }])
+    );
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
+    const resolvedSpec = result._unsafeUnwrap()[0];
+
+    // v1 parity: `matchUser('')` finds nobody, so the cell clears.
+    expect((resolvedSpec as SetUserValueSpec).value.toValue()).toBeNull();
+  });
 });

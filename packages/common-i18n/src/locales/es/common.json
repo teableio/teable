@@ -300,24 +300,23 @@
       },
       "deleteAccount": {
         "title": "Eliminar cuenta",
-        "desc": "Una vez eliminada, tu cuenta no se podrá restaurar. Procede con precaución.",
+        "desc": "Esta acción es permanente. Tu cuenta no se podrá recuperar una vez eliminada.",
         "spaces": {
-          "title": "Espacios que solo tú posees",
-          "body": "Irán a la papelera junto con tu cuenta. Para conservar alguno, cédeselo antes a un miembro.",
-          "loading": "Comprobando qué espacios son solo tuyos…",
-          "blockedHint": "Cancela esa suscripción o cede el espacio para continuar.",
-          "willTrash": "Se moverá a la papelera",
+          "title": "Espacios de los que eres el único propietario",
+          "body": "Estos espacios se moverán a la papelera cuando se elimine tu cuenta. Para conservar alguno, transfiérelo antes a otro miembro.",
+          "loading": "Buscando espacios de los que eres el único propietario…",
+          "blockedHint": "Los espacios marcados como «No eliminable» aún tienen una suscripción activa. Resuélvelos antes de eliminar tu cuenta.",
           "willTransfer": "Se transferirá",
-          "subscribedHint": "Este espacio todavía tiene una suscripción activa. Cancélala y luego vuelve para eliminar tu cuenta.",
-          "cancelSubscription": "Gestionar suscripción",
-          "transferTo": "Elige un miembro para transferir, o irá a la papelera",
-          "transferToSubscribed": "O elige un miembro para transferir; la suscripción se queda con el espacio"
+          "notDeletable": "No eliminable",
+          "cancelSubscription": "Gestionar plan",
+          "transferTo": "Transferir a un miembro (opcional)",
+          "transferToSubscribed": "Transferir a un miembro (con suscripción)"
         },
         "confirm": {
-          "title": "Por favor escriba <code>DELETE</code> para confirmar",
+          "title": "Escribe <code>DELETE</code> para confirmar",
           "placeholder": "DELETE"
         },
-        "loading": "Eliminando..."
+        "loading": "Eliminando…"
       }
     },
     "notify": {

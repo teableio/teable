@@ -2,8 +2,8 @@
  * E2E tests for converting Checkbox field to Rating.
  *
  * Conversion behavior:
- * - true becomes max rating (5)
- * - null remains null (checkbox stores null, not false)
+ * - true becomes 1
+ * - false and null stay empty
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -45,8 +45,7 @@ describe('update-field: checkbox → rating conversion', () => {
     }
   });
 
-  test('should convert true to max rating', async () => {
-    // Setup: Create checkbox field with value: true
+  test('should convert checked to 1 and leave unchecked empty', async () => {
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -54,26 +53,23 @@ describe('update-field: checkbox → rating conversion', () => {
       field: { type: 'checkbox', id: fieldId, name: 'Checked Field' },
     });
     const r1 = await ctx.createRecord(tableId, { [fieldId]: true });
+    const r2 = await ctx.createRecord(tableId, { [fieldId]: false });
 
-    // Action: Convert to rating with max: 5
     const updatedTable = await ctx.updateField({
       tableId,
       fieldId,
       field: { type: 'rating', max: 5 },
     });
 
-    // Assert: Field type changed
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('rating');
 
-    // Assert: true becomes 5 (max rating)
     const records = await ctx.listRecords(tableId);
-    const rec1 = records.find((r) => r.id === r1.id);
-    expect(rec1?.fields[fieldId]).toBe(5);
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(1);
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId] ?? null).toBeNull();
 
-    // Cleanup
     await ctx.deleteField({ tableId, fieldId });
-    await ctx.deleteRecords(tableId, [r1.id]);
+    await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
   test('should handle null values', async () => {
@@ -98,11 +94,11 @@ describe('update-field: checkbox → rating conversion', () => {
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('rating');
 
-    // Assert: true becomes 5, null remains null
+    // Assert: true becomes 1, null remains null
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
     const rec2 = records.find((r) => r.id === r2.id);
-    expect(rec1?.fields[fieldId]).toBe(5);
+    expect(rec1?.fields[fieldId]).toBe(1);
     expect(rec2?.fields[fieldId]).toBeNull();
 
     // Cleanup

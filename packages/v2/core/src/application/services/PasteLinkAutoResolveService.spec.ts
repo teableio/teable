@@ -5,11 +5,15 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { FieldNotNull } from '../../domain/table/fields/types/FieldNotNull';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { isRecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -30,6 +34,23 @@ import { TableQueryService } from './TableQueryService';
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
 });
+
+const collectPasteQueryLiterals = (
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+): string[] => {
+  if (!spec) return [];
+  if (spec instanceof OrSpec) {
+    return [
+      ...collectPasteQueryLiterals(spec.leftSpec()),
+      ...collectPasteQueryLiterals(spec.rightSpec()),
+    ];
+  }
+  if ('value' in spec && typeof spec.value === 'function') {
+    const value = spec.value();
+    return isRecordConditionLiteralValue(value) ? [String(value.toValue())] : [];
+  }
+  return [];
+};
 
 const buildTextTable = (baseSeed: string, name: string) => {
   const baseId = BaseId.create(`bse${baseSeed.repeat(16)}`)._unsafeUnwrap();
@@ -155,8 +176,18 @@ class FakeTableRepository implements ITableRepository {
 class FakeRecordQueryRepository implements ITableRecordQueryRepository {
   constructor(private readonly records: ReadonlyArray<TableRecordReadModel>) {}
 
-  async find() {
-    return ok({ records: this.records, total: this.records.length });
+  async find(
+    _context: IExecutionContext,
+    _table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ) {
+    const literals = new Set(collectPasteQueryLiterals(spec));
+    const records = spec
+      ? this.records.filter((record) =>
+          Object.values(record.fields).some((value) => literals.has(String(value)))
+        )
+      : this.records;
+    return ok({ records, total: records.length });
   }
 
   async findOne() {
@@ -564,5 +595,118 @@ describe('PasteLinkAutoResolveService', () => {
     });
 
     expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_missing_required_fields');
+  });
+
+  it('reuses the single-line record on a second paste of the same multiline title', async () => {
+    const foreignTable = buildTextTable('s', 'Foreign');
+    const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
+    const stored: TableRecordReadModel[] = [];
+    const creationCalls: Array<ReadonlyArray<string>> = [];
+    const fakeBatchCreateService = {
+      create: async (
+        _context: IExecutionContext,
+        input: Parameters<RecordBatchCreationService['create']>[1]
+      ) => {
+        creationCalls.push(
+          input.recordsFieldValues.map((fields) =>
+            String(fields.get(input.table.primaryFieldId().toString()))
+          )
+        );
+        const createResult = input.table.createRecords(input.recordsFieldValues, {
+          typecast: input.typecast,
+        });
+        if (createResult.isErr()) return createResult;
+        for (const record of createResult.value.records) {
+          const fields: Record<string, unknown> = {};
+          for (const entry of record.fields().entries()) {
+            fields[entry.fieldId.toString()] = entry.value.toValue();
+          }
+          stored.push({ id: record.id().toString(), fields, version: 1 });
+        }
+        return ok({
+          records: createResult.value.records,
+          events: [],
+          fieldKeyMapping: createResult.value.fieldKeyMapping,
+          undoCommands: [],
+          redoCommands: [],
+          afterCommit: async () => undefined,
+        });
+      },
+    } as unknown as RecordBatchCreationService;
+    const service = new PasteLinkAutoResolveService(
+      new TableQueryService(new FakeTableRepository([foreignTable, hostTable])),
+      new LinkTitleResolverService(
+        new FakeTableRepository([foreignTable, hostTable]),
+        new FakeRecordQueryRepository(stored)
+      ),
+      fakeBatchCreateService
+    );
+    const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link');
+    expect(linkField).toBeDefined();
+    if (!linkField) return;
+
+    const paste = {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['A\nB'], ['A B']],
+    };
+    const first = await service.resolve(createContext(), paste);
+    const firstResolved = first._unsafeUnwrap();
+    const firstId = firstResolved.resolvedValues.get(linkField.id().toString())?.get('A\nB')?.id;
+
+    const second = await service.resolve(createContext(), paste);
+    const secondResolved = second._unsafeUnwrap();
+
+    expect(creationCalls).toEqual([['A B']]);
+    expect(stored[0]?.fields[foreignTable.primaryFieldId().toString()]).toBe('A B');
+    expect(firstId).toMatch(/^rec/);
+    expect(secondResolved.resolvedValues.get(linkField.id().toString())?.get('A\nB')?.id).toBe(
+      firstId
+    );
+    expect(secondResolved.resolvedValues.get(linkField.id().toString())?.get('A B')?.id).toBe(
+      firstId
+    );
+  });
+
+  it('reuses a legacy single-line primary that still stores the newline', async () => {
+    const foreignTable = buildTextTable('t', 'Foreign');
+    const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
+    const existingRecordId = `rec${'t'.repeat(16)}`;
+    const primaryFieldId = foreignTable.primaryFieldId().toString();
+    const creationCalls: Array<ReadonlyArray<string>> = [];
+    const recordQueryRepository = new FakeRecordQueryRepository([
+      {
+        id: existingRecordId,
+        fields: { [primaryFieldId]: 'A\nB' },
+        version: 1,
+      },
+    ]);
+    const service = new PasteLinkAutoResolveService(
+      new TableQueryService(new FakeTableRepository([foreignTable, hostTable])),
+      new LinkTitleResolverService(
+        new FakeTableRepository([foreignTable, hostTable]),
+        recordQueryRepository
+      ),
+      {
+        create: async () => {
+          creationCalls.push(['created']);
+          return err(domainError.unexpected({ message: 'should reuse the legacy record' }));
+        },
+      } as unknown as RecordBatchCreationService
+    );
+    const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link');
+    expect(linkField).toBeDefined();
+    if (!linkField) return;
+
+    const result = await service.resolve(createContext(), {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['A\nB']],
+    });
+
+    expect(creationCalls).toEqual([]);
+    expect(
+      result._unsafeUnwrap().resolvedValues.get(linkField.id().toString())?.get('A\nB')
+    ).toEqual({ id: existingRecordId, title: 'A\nB' });
   });
 });

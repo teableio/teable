@@ -58,7 +58,7 @@ import {
 } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager, CombinedSelection } from './managers';
 import type { IBaseCellRenderer, ICell } from './renderers';
-import { CellRegionType, getCellRenderer } from './renderers';
+import { CellRegionType, CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
@@ -286,9 +286,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const isInteracting = isSelecting || isDragging || isResizing || isFreezing;
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
 
-  const getPosition = () => {
-    const x = mousePosition.elX;
-    const y = mousePosition.elY;
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const getPosition = (point?: { x: number; y: number }) => {
+    const x = point?.x ?? mousePosition.elX;
+    const y = point?.y ?? mousePosition.elY;
     const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, columnCount } =
       coordInstance;
     const rowIndex =
@@ -345,8 +346,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     };
   }, [_activeCellBound, cellScrollTop]);
 
-  const getMouseState = () => {
-    const position = getPosition();
+  const getMouseState = (point?: { x: number; y: number }) => {
+    const position = getPosition(point);
     const { x, y } = position;
     const { totalHeight, totalWidth } = coordInstance;
     const isOutOfBounds =
@@ -439,10 +440,19 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const mouseState = getMouseState({
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    });
     onSelectionClick(event, mouseState);
     const { type, rowIndex: hoverRowIndex, columnIndex } = mouseState;
-    if (regionType !== type) return;
+    const isCellRegion = type === RegionType.Cell || type === RegionType.ActiveCell;
+    const wasCellRegion = regionType === RegionType.Cell || regionType === RegionType.ActiveCell;
+    // A held click selects the cell before mouseup, so the click sees ActiveCell while the
+    // last committed mouse region is still Cell. Rating and checkbox icons must apply anyway.
+    const selectionCaughtUp = isCellRegion && wasCellRegion && regionType !== type;
+    if (regionType !== type && !selectionCaughtUp) return;
 
     const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
 
@@ -494,14 +504,30 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           isEqual(prevActiveCellRef.current, activeCell) &&
           isEqual(activeCell, [columnIndex, rowIndex]);
 
-        if (onCellClick && hoverCellPosition) {
+        // A held press selects the cell before this click sees the committed region.
+        // Rating, checkbox, and detected text URLs still have to apply on that press.
+        const textHasLink =
+          cell.type === CellType.Text && 'links' in cell && Boolean(cell.links?.length);
+        if (
+          selectionCaughtUp &&
+          cell.type !== CellType.Boolean &&
+          cell.type !== CellType.Rating &&
+          !textHasLink
+        ) {
+          return;
+        }
+
+        // The move that precedes a click may not have flushed hoverCellPosition yet.
+        // Rating and checkbox icons still have to hit-test this click's coordinates.
+        const clickCellPosition = getHoverCellPosition(mouseState) ?? hoverCellPosition;
+        if (onCellClick && clickCellPosition) {
           onCellClick(
             cell as never,
             {
               width: coordInstance.getColumnWidth(columnIndex),
               height: coordInstance.getRowHeight(hoverRowIndex),
               theme,
-              hoverCellPosition,
+              hoverCellPosition: clickCellPosition,
               activeCellBound,
               isActive,
             },

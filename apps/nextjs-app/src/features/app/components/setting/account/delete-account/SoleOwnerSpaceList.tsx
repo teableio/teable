@@ -1,6 +1,6 @@
 import type { IDeleteUserBlockingSpace } from '@teable/openapi';
 import { useSession } from '@teable/sdk';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
@@ -29,19 +29,19 @@ const SoleOwnerSpaceItem = ({
   const { user } = useSession();
   const needsCancel = space.subscribed && !transferTo;
 
+  // Going to trash is what the list says of every space above it, so a row only speaks up
+  // when it is the exception: handed over, or held by its subscription.
   const outcome = needsCancel ? (
     <Button variant="outline" size="xs" asChild>
       <Link href={`/space/${space.id}`} target="_blank">
         {t('settings.account.deleteAccount.spaces.cancelSubscription')}
       </Link>
     </Button>
-  ) : (
-    <span className="break-all text-end text-muted-foreground">
-      {transferTo
-        ? t('settings.account.deleteAccount.spaces.willTransfer')
-        : t('settings.account.deleteAccount.spaces.willTrash')}
+  ) : transferTo ? (
+    <span className="break-words text-end text-muted-foreground">
+      {t('settings.account.deleteAccount.spaces.willTransfer')}
     </span>
-  );
+  ) : null;
 
   return (
     <li
@@ -50,21 +50,29 @@ const SoleOwnerSpaceItem = ({
         needsCancel && 'border-destructive/40'
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href={`/space/${space.id}`}
-          target="_blank"
-          className="min-w-0 truncate font-medium underline"
-        >
-          {space.name}
-        </Link>
+      {/* Wraps when the name and the button don't both fit, so the button moves under the
+          name instead of squeezing it down to an ellipsis. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Link
+            href={`/space/${space.id}`}
+            target="_blank"
+            className="min-w-0 truncate font-medium underline"
+          >
+            {space.name}
+          </Link>
+          {/* What to do about it is said once, under the list; here only which one it is. */}
+          {needsCancel && (
+            <Badge
+              variant="outline"
+              className="shrink-0 border-transparent bg-red-50 px-1.5 py-0 font-normal text-red-600 dark:bg-red-500/10 dark:text-red-400"
+            >
+              {t('settings.account.deleteAccount.spaces.notDeletable')}
+            </Badge>
+          )}
+        </div>
         {outcome}
       </div>
-      {needsCancel && (
-        <p className="text-muted-foreground">
-          {t('settings.account.deleteAccount.spaces.subscribedHint')}
-        </p>
-      )}
       {space.hasOtherMembers && (
         <div className="flex items-center gap-2">
           <SpaceMemberCombobox

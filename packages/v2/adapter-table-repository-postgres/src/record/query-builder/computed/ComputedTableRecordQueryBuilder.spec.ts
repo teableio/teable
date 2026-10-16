@@ -1116,6 +1116,148 @@ describe('ComputedTableRecordQueryBuilder', () => {
         await db.destroy();
       }
     });
+
+    test('countall rollup survives duplicate junction rows for one linked record', async () => {
+      // Same 21000 failure as link ordering, reached through a many-many rollup:
+      // the rollup ORDER BY used to be a bare scalar subquery over the junction.
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .number()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+      const linkMeta = LinkFieldMeta.create({ hasOrderColumn: true })._unsafeUnwrap()!;
+      const rollupConfig = RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .withMeta(linkMeta)
+        .done();
+      mainBuilder
+        .field()
+        .rollup()
+        .withName(FieldName.create('Orders')._unsafeUnwrap())
+        .withConfig(rollupConfig)
+        .withExpression(RollupExpression.create('countall({values})')._unsafeUnwrap())
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_single_line_text')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkField = mainTable.getFields()[1] as LinkField;
+      const junctionTable = linkField.fkHostTableNameString()._unsafeUnwrap();
+      const selfKey = linkField.selfKeyNameString()._unsafeUnwrap();
+      const foreignKey = linkField.foreignKeyNameString()._unsafeUnwrap();
+      const [junctionSchema, junctionName] = junctionTable.split('.');
+
+      const { pglite, db } = await createPGliteDb();
+      try {
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null default 1,
+            "col_single_line_text" text,
+            "col_link" jsonb,
+            "col_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null default 1,
+            "col_number" double precision
+          )
+        `);
+        await pglite.query(`
+          create table "${junctionSchema}"."${junctionName}" (
+            "__id" serial primary key,
+            "${selfKey}" text,
+            "${foreignKey}" text,
+            "__order" double precision
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}" ("__id") values ('recMain1')
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}" ("__id", "col_number")
+          values ('recForeign1', 1), ('recForeign2', 2)
+        `);
+        await pglite.query(`
+          insert into "${junctionSchema}"."${junctionName}" ("${selfKey}", "${foreignKey}", "__order")
+          values ('recMain1', 'recForeign1', 1), ('recMain1', 'recForeign2', 2), ('recMain1', 'recForeign1', 3)
+        `);
+
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .build()
+          ._unsafeUnwrap();
+
+        const rows = await query.execute();
+        expect(rows).toHaveLength(1);
+        expect(Number(rows[0]?.col_rollup)).toBeGreaterThan(0);
+      } finally {
+        await db.destroy();
+      }
+    });
   });
 
   describe('lookup field', () => {

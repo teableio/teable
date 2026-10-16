@@ -2,7 +2,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import crypto from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { cliOAuthApp, HttpError } from '@teable/core';
+import { cliOAuthApp, HttpError, mcpOAuthScopes } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   CREATE_BASE,
   CREATE_SPACE,
@@ -238,7 +239,10 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const res = await axios.get(`/oauth/decision/${transactionID}`);
     expect(res.status).toBe(200);
-    expect(res.data).toEqual(omit(oauthData, 'redirectUris'));
+    expect(res.data).toEqual({
+      ...omit(oauthData, 'redirectUris'),
+      redirectUri: oauthData.redirectUris[0],
+    });
   });
 
   it('/api/oauth/decision/:transactionId (GET) - transaction_id invalid', async () => {
@@ -1489,6 +1493,206 @@ describe('OpenAPI OAuthController (e2e)', () => {
     it('refuses the approval page for a code nobody issued', async () => {
       const error = await getError(() => axios.get(`/oauth/device/ZZZZ-ZZZZ`));
       expect(error?.status).toBe(404);
+    });
+  });
+
+  describe('dynamic client registration (RFC 7591)', () => {
+    const clientName = `dcr-${Date.now()}`;
+    const register = (body: Record<string, unknown>) =>
+      anonymousAxios.post('/oauth/register', body, { validateStatus: () => true });
+
+    afterAll(async () => {
+      await app.get(PrismaService).oAuthApp.deleteMany({
+        where: { dynamicRegistration: true, name: clientName },
+      });
+    });
+
+    it('registers a public client and answers with RFC 7591 metadata', async () => {
+      const res = await register({
+        client_name: clientName,
+        redirect_uris: ['http://localhost:51234/callback', 'cursor://anysphere.cursor/oauth'],
+        token_endpoint_auth_method: 'none',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.client_id).toMatch(/^cl/);
+      expect(res.data.client_secret).toBeUndefined();
+      expect(res.data.token_endpoint_auth_method).toBe('none');
+      expect(res.data.redirect_uris).toEqual([
+        'http://localhost:51234/callback',
+        'cursor://anysphere.cursor/oauth',
+      ]);
+      expect(res.data.scope).toBe(mcpOAuthScopes.join(' '));
+      expect(typeof res.data.client_id_issued_at).toBe('number');
+    });
+
+    it('rejects metadata it cannot honor with RFC error objects', async () => {
+      const cases: [Record<string, unknown>, string][] = [
+        [{ client_name: clientName }, 'invalid_redirect_uri'],
+        [{ client_name: clientName, redirect_uris: [] }, 'invalid_redirect_uri'],
+        [{ client_name: clientName, redirect_uris: ['not a url'] }, 'invalid_redirect_uri'],
+        [
+          { client_name: clientName, redirect_uris: ['http://evil.example/callback'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['https://app.example/cb#frag'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            token_endpoint_auth_method: 'client_secret_post',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            scope: 'base|read nope|read',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            scope: 'user|integrations',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['https://app.teable.ai@evil.example/cb'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['mailto:x@evil.example'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            grant_types: ['client_credentials'],
+          },
+          'invalid_client_metadata',
+        ],
+      ];
+      for (const [body, error] of cases) {
+        const res = await register(body);
+        expect(res.status).toBe(400);
+        expect(res.data.error).toBe(error);
+        expect(typeof res.data.error_description).toBe('string');
+      }
+    });
+
+    it('lets a self-registered client ask for any supported scope, not just its registered default', async () => {
+      const redirectUri = 'http://127.0.0.1:52001/callback';
+      const registered = await register({
+        client_name: clientName,
+        redirect_uris: [redirectUri],
+        scope: 'base|read',
+      });
+      const clientId = registered.data.client_id as string;
+      const codeChallenge = crypto
+        .createHash('sha256')
+        .update(crypto.randomBytes(32).toString('base64url'))
+        .digest('base64url');
+      const authorize = (scope: string) =>
+        axios.get(
+          `/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+            redirectUri
+          )}&scope=${encodeURIComponent(scope)}&code_challenge=${codeChallenge}&code_challenge_method=S256`,
+          { maxRedirects: 0, validateStatus: () => true }
+        );
+
+      // Outside the registered default but inside the MCP set: fine.
+      expect((await authorize('base|read automation|read')).status).toBe(302);
+      // Not a scope this server knows at all: still rejected.
+      expect((await authorize('base|read nope|read')).status).toBe(400);
+      // User-level scopes (stored integration credentials, notifications) are
+      // never available to a self-registered client, whatever it asks for.
+      expect((await authorize('base|read user|integrations')).status).toBe(400);
+      expect((await authorize('user|notifications_send')).status).toBe(400);
+    });
+
+    it('runs the whole PKCE flow for a self-registered client, and the user sees it as such', async () => {
+      const redirectUri = 'http://127.0.0.1:52000/callback';
+      const registered = await register({ client_name: clientName, redirect_uris: [redirectUri] });
+      expect(registered.status).toBe(201);
+      const clientId = registered.data.client_id as string;
+
+      const codeVerifier = crypto.randomBytes(32).toString('base64url');
+      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+      const authorizeRes = await axios.get(
+        `/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&scope=${encodeURIComponent('base|read')}&code_challenge=${codeChallenge}&code_challenge_method=S256&resource=${encodeURIComponent(
+          'https://example.test/api/mcp'
+        )}`,
+        { maxRedirects: 0 }
+      );
+      const transactionId = new URL(authorizeRes.headers.location, redirectUri).searchParams.get(
+        'transaction_id'
+      );
+      expect(transactionId).toBeTruthy();
+
+      // The consent page has a name but no homepage to point at.
+      const info = await axios.get(`/oauth/decision/${transactionId}`);
+      expect(info.data.name).toBe(clientName);
+      expect(info.data.homepage).toBeUndefined();
+      expect(info.data.dynamicRegistration).toBe(true);
+      expect(info.data.redirectUri).toBe(redirectUri);
+      expect(info.data.scopes).toEqual(['base|read']);
+
+      const decisionRes = await decision(axios, transactionId!);
+      const code = new URL(decisionRes.headers.location).searchParams.get('code');
+      expect(code).toBeTruthy();
+
+      const tokenRes = await anonymousAxios.post(
+        '/oauth/access_token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code!,
+          client_id: clientId,
+          code_verifier: codeVerifier,
+          redirect_uri: redirectUri,
+          resource: 'https://example.test/api/mcp',
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data.access_token).toBeTruthy();
+      expect(tokenRes.data.refresh_token).toBeTruthy();
+
+      const baseRes = await anonymousAxios.get(`/base/${baseId}`, {
+        headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+      });
+      expect(baseRes.data.id).toBe(baseId);
+
+      const authorizedList = await axios.get('/oauth/client/authorized/list');
+      const entry = authorizedList.data.find((a: { clientId: string }) => a.clientId === clientId);
+      expect(entry).toBeTruthy();
+      expect(entry.dynamicRegistration).toBe(true);
+      // Settings → MCP shows when the client was first connected and last used;
+      // the call above with the access token counts as a use.
+      expect(typeof entry.authorizedTime).toBe('string');
+      expect(typeof entry.lastUsedTime).toBe('string');
+
+      // It is nobody's app to manage from the developer side.
+      const developerList = await axios.get('/oauth/client');
+      expect(developerList.data.some((a: { clientId: string }) => a.clientId === clientId)).toBe(
+        false
+      );
     });
   });
 });

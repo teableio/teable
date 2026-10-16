@@ -108,9 +108,16 @@ describe('RecordMutationSpecBuilder', () => {
 
     it('should add a valid select value', () => {
       const builder = RecordMutationSpecBuilder.create();
-      builder.set(selectField, optionResult.id().toString());
+      builder.set(selectField, optionResult.name().toString());
       expect(builder.hasSpecs()).toBe(true);
       expect(builder.hasErrors()).toBe(false);
+    });
+
+    it('rejects an option id that is not the choice name', () => {
+      const builder = RecordMutationSpecBuilder.create();
+      builder.set(selectField, optionResult.id().toString());
+      expect(builder.hasSpecs()).toBe(false);
+      expect(builder.hasErrors()).toBe(true);
     });
   });
 

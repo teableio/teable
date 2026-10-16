@@ -324,11 +324,8 @@ describe('v2 http createTable (e2e)', () => {
       Description: 'Created with all field types',
       Amount: 10,
       Priority: 4,
-      Status: statusChoices.find((choice) => choice.name === 'Todo')?.id,
-      Tags: tagChoices
-        .filter((choice) => choice.name === 'Frontend' || choice.name === 'Bug')
-        .map((choice) => choice.id)
-        .filter((id): id is string => Boolean(id)),
+      Status: 'Todo',
+      Tags: ['Frontend', 'Bug'],
       Done: true,
       Files: makeAttachmentCell(seededAttachment, 'all-field-types.txt'),
       'Due Date': '2025-02-10T00:00:00.000Z',

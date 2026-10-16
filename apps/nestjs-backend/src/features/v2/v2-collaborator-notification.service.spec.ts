@@ -434,53 +434,105 @@ describe('V2 create projections skip assignment-movement sources (T6662)', () =>
     },
   ];
 
-  it.each([
-    [{ type: 'import' }],
-    [{ type: 'tableDuplicate' }],
-    [{ type: 'restore' }],
-    [{ type: 'recordDuplicate' }],
-  ])('RecordCreated skips source %j', async (source) => {
-    const { dispatcher, notificationService } = createDispatcher();
-    const projection = new V2RecordCreatedCollaboratorNotificationProjection(dispatcher);
+  it.each([[{ type: 'import' }], [{ type: 'tableDuplicate' }], [{ type: 'restore' }]])(
+    'RecordCreated skips source %j',
+    async (source) => {
+      const { dispatcher, notificationService } = createDispatcher();
+      const projection = new V2RecordCreatedCollaboratorNotificationProjection(dispatcher);
+      const { context, scheduled } = createScheduledContext();
+
+      const result = await projection.handle(
+        context as never,
+        {
+          source,
+          tableId: { toString: () => 'tblNotify00000001' },
+          recordId: { toString: () => 'recNotify00000001' },
+          fieldValues: userFieldValues,
+        } as never
+      );
+
+      expect(result._unsafeUnwrap()).toBeUndefined();
+      expect(scheduled).toHaveLength(0);
+      expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([[{ type: 'import' }], [{ type: 'tableDuplicate' }], [{ type: 'restore' }]])(
+    'RecordsBatchCreated skips source %j',
+    async (source) => {
+      const { dispatcher, notificationService } = createDispatcher();
+      const projection = new V2RecordsBatchCreatedCollaboratorNotificationProjection(dispatcher);
+      const { context, scheduled } = createScheduledContext();
+
+      const result = await projection.handle(
+        context as never,
+        {
+          source,
+          tableId: { toString: () => 'tblNotify00000001' },
+          records: [{ recordId: 'recNotify00000001', fields: userFieldValues }],
+        } as never
+      );
+
+      expect(result._unsafeUnwrap()).toBeUndefined();
+      expect(scheduled).toHaveLength(0);
+      expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+    }
+  );
+
+  // T7798 / Q2-15: duplicating a record is an ordinary create for notification
+  // purposes, so the copied assignee is notified.
+  type CreateNotificationProjection =
+    | V2RecordCreatedCollaboratorNotificationProjection
+    | V2RecordsBatchCreatedCollaboratorNotificationProjection;
+
+  const expectRecordDuplicateNotifies = async (projection: CreateNotificationProjection) => {
     const { context, scheduled } = createScheduledContext();
 
     const result = await projection.handle(
       context as never,
       {
-        source,
+        source: { type: 'recordDuplicate' },
         tableId: { toString: () => 'tblNotify00000001' },
         recordId: { toString: () => 'recNotify00000001' },
+        records: [{ recordId: 'recNotify00000001', fields: userFieldValues }],
         fieldValues: userFieldValues,
       } as never
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(scheduled).toHaveLength(0);
-    expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
-  });
+    expect(scheduled).toHaveLength(1);
 
-  it.each([
-    [{ type: 'import' }],
-    [{ type: 'tableDuplicate' }],
-    [{ type: 'restore' }],
-    [{ type: 'recordDuplicate' }],
-  ])('RecordsBatchCreated skips source %j', async (source) => {
+    await flushScheduled(scheduled);
+  };
+
+  it('notifies for recordDuplicate source on RecordCreated', async () => {
     const { dispatcher, notificationService } = createDispatcher();
-    const projection = new V2RecordsBatchCreatedCollaboratorNotificationProjection(dispatcher);
-    const { context, scheduled } = createScheduledContext();
-
-    const result = await projection.handle(
-      context as never,
-      {
-        source,
-        tableId: { toString: () => 'tblNotify00000001' },
-        records: [{ recordId: 'recNotify00000001', fields: userFieldValues }],
-      } as never
+    await expectRecordDuplicateNotifies(
+      new V2RecordCreatedCollaboratorNotificationProjection(dispatcher)
     );
 
-    expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(scheduled).toHaveLength(0);
-    expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledTimes(1);
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromUserId: 'usrActor000000001',
+        toUserId: 'usrTarget00000001',
+      })
+    );
+  });
+
+  it('notifies for recordDuplicate source on RecordsBatchCreated', async () => {
+    const { dispatcher, notificationService } = createDispatcher();
+    await expectRecordDuplicateNotifies(
+      new V2RecordsBatchCreatedCollaboratorNotificationProjection(dispatcher)
+    );
+
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledTimes(1);
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromUserId: 'usrActor000000001',
+        toUserId: 'usrTarget00000001',
+      })
+    );
   });
 
   it('RecordsBatchCreated still notifies for form submissions', async () => {
@@ -512,8 +564,4 @@ describe('V2 create projections skip assignment-movement sources (T6662)', () =>
   });
 });
 
-describe('v2 collaborator notification field filtering', () => {
-  it('keeps v1-compatible shouldNotify semantics', () => {
-    expect(FieldType.User).toBe('user');
-  });
-});
+describe('v2 collaborator notification field filtering', () => {});

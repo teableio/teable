@@ -27,6 +27,7 @@ import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 import { AbstractFieldVisitor } from './AbstractFieldVisitor';
 import { parseDateValue } from './dateValueParser';
+import { normalizeSingleLineTextCellValue } from './normalizeSingleLineTextCellValue';
 
 // Zod schema types
 export type FieldCellValueSchema = z.ZodTypeAny;
@@ -57,9 +58,12 @@ const linkItemSchema = z
   .transform(({ id, title }) => (title == null ? { id } : { id, title }));
 
 // User item schema
+// `title` is optional: a bare `{ id }` reference is accepted and resolved at
+// write time. Strict writes keep it inside the table's collaborator scope,
+// while typecast/paste snapshots may reference any platform member.
 const userItemSchema = z.object({
   id: z.string(),
-  title: z.string(),
+  title: z.string().nullish(),
   email: z.string().optional(),
   avatarUrl: z.string().optional(),
 });
@@ -89,13 +93,16 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
 
   visitSingleLineTextField(field: SingleLineTextField): Result<ZodSchema, DomainError> {
     // Align with v1: empty string is stored as null.
-    const baseSchema = z.string().transform((val) => (val === '' ? null : val));
+    const baseSchema = z.string().transform((val) => normalizeSingleLineTextCellValue(val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
   visitLongTextField(field: LongTextField): Result<ZodSchema, DomainError> {
-    // Align with v1: empty string is stored as null.
-    const baseSchema = z.string().transform((val) => (val === '' ? null : val));
+    // Align with v1: trim ends only, keep internal newlines/tabs, store "" as null.
+    const baseSchema = z.string().transform((val) => {
+      const trimmed = val.trim();
+      return trimmed === '' ? null : trimmed;
+    });
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
@@ -135,9 +142,8 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       return ok(z.union([z.null(), FieldCellValueSchemaVisitor.clearedCell()]));
     }
 
-    // Accept both option IDs and names to align with v1 behavior.
-    const optionValues = options.flatMap((opt) => [opt.id().toString(), opt.name().toString()]);
-    // Deduplicate in case ID and name are the same
+    // Choice ids are not cell values (Q2-6). Strict writes accept names only.
+    const optionValues = options.map((opt) => opt.name().toString());
     const uniqueValues = [...new Set(optionValues)];
     // T6520: a cleared "" is stored as NULL. The value is not a legal option,
     // so without this arm the clear would be rejected instead of applied, which
@@ -164,9 +170,8 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       );
     }
 
-    // Accept both option IDs and names to align with v1 behavior.
-    const optionValues = options.flatMap((opt) => [opt.id().toString(), opt.name().toString()]);
-    // Deduplicate in case ID and name are the same
+    // Choice ids are not cell values (Q2-6). Strict writes accept names only.
+    const optionValues = options.map((opt) => opt.name().toString());
     const uniqueValues = [...new Set(optionValues)];
     // Align with v1: empty arrays are stored as null, not [] — and so is a
     // cleared "" (T6520).

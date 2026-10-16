@@ -3,7 +3,9 @@
  *
  * D08 (实现依据): text defaults are trimmed at configuration time; the
  * requirement document asks whether CJK, symbols, internal spaces and
- * newlines survive. They do — only the surrounding whitespace is dropped.
+ * newlines survive. Long text keeps them — only the surrounding whitespace is
+ * dropped. Single-line text additionally normalises internal newlines and tabs
+ * to spaces on write (T7855), since a single-line value cannot hold line breaks.
  * D09 (实现依据): the numeric default is a plain number, so 0, negatives and
  * decimals are all legal.
  * D13 (待定口径): the requirement document asks how a `false` checkbox default
@@ -61,23 +63,40 @@ describe('D08/D09/D13: persisted default fidelity', () => {
     return readValue(ctx, tableId, record.id, ids[fieldName]);
   };
 
-  // D08 — only the surrounding whitespace is trimmed; the payload inside the
-  // string is stored byte for byte.
-  const textFidelityCases = [
+  // D08 — the surrounding whitespace is always trimmed; the payload inside the
+  // string is stored byte for byte. For single-line text, internal newlines and
+  // tabs are also normalised to spaces on write (T7855), so those cases carry a
+  // `singleLineExpected` that overrides the long-text `expected`.
+  const textFidelityCases: {
+    label: string;
+    value: string;
+    expected: string | null;
+    singleLineExpected?: string | null;
+  }[] = [
     { label: 'Chinese text', value: '  中文字段默认值  ', expected: '中文字段默认值' },
     { label: 'emoji', value: '  🚀 teable  ', expected: '🚀 teable' },
     { label: 'internal runs of spaces', value: '  a   b  ', expected: 'a   b' },
-    { label: 'internal newlines', value: '  line1\nline2  ', expected: 'line1\nline2' },
+    {
+      label: 'internal newlines',
+      value: '  line1\nline2  ',
+      expected: 'line1\nline2',
+      singleLineExpected: 'line1 line2',
+    },
     { label: 'internal tabs', value: '\tindented\t', expected: 'indented' },
     { label: 'symbols', value: '  <a&b>"c`d"  ', expected: '<a&b>"c`d"' },
     { label: 'surrounding whitespace only', value: '     ', expected: null },
-  ] as const;
+  ];
 
   describe('D08 text defaults', () => {
-    it.each(textFidelityCases)('keeps $label verbatim', async ({ value, expected }) => {
-      await setDefault('Text', value);
-      await expect(createAndRead('Text')).resolves.toBe(expected);
-    });
+    it.each(textFidelityCases)(
+      'keeps $label verbatim',
+      async ({ value, expected, singleLineExpected }) => {
+        await setDefault('Text', value);
+        await expect(createAndRead('Text')).resolves.toBe(
+          singleLineExpected === undefined ? expected : singleLineExpected
+        );
+      }
+    );
   });
 
   describe('D08 long text defaults', () => {

@@ -45,6 +45,8 @@ import type { UserField } from '../types/UserField';
 import { AbstractFieldVisitor } from './AbstractFieldVisitor';
 import { parseDateValue } from './dateValueParser';
 import { normalizeCellDisplayValue, normalizeCellDisplayValues } from './normalizeCellDisplayValue';
+import { normalizeSingleLineTextCellValue } from './normalizeSingleLineTextCellValue';
+import { splitSelectTypecastValues } from './splitSelectTypecastValues';
 
 /**
  * Visitor that converts raw input values to CellValueSpec instances.
@@ -90,13 +92,13 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   // ============ Text Fields ============
 
   visitSingleLineTextField(field: SingleLineTextField): Result<ICellValueSpec, DomainError> {
-    // Text fields always accept any value converted to string
-    const finalValue = this.repairToString(this.value);
+    const repaired = this.repairToString(this.value);
+    const finalValue = repaired == null ? null : normalizeSingleLineTextCellValue(repaired);
     return ok(new SetSingleLineTextValueSpec(field.id(), CellValue.fromValidated(finalValue)));
   }
 
   visitLongTextField(field: LongTextField): Result<ICellValueSpec, DomainError> {
-    const finalValue = this.repairToString(this.value);
+    const finalValue = this.repairLongText(this.value);
     return ok(new SetLongTextValueSpec(field.id(), CellValue.fromValidated(finalValue)));
   }
 
@@ -240,13 +242,16 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (this.typecast) {
-      // String "true"/"false" conversion; falsy inputs clear the cell (v1 repair semantics)
+      // v1 repair: only the strings "true"/"false" are special. Other non-empty
+      // strings, including "0" and "no", are truthy and check the box. Numeric 0
+      // and "" stay empty via the falsy fallback below. Do not treat "0" like
+      // field-type conversion, which maps the string "0" to false.
       if (typeof this.value === 'string') {
         const lower = this.value.toLowerCase();
         if (lower === 'true' || lower === '1') {
           return ok(new SetCheckboxValueSpec(field.id(), CellValue.fromValidated(true)));
         }
-        if (lower === 'false' || lower === '0' || lower === '') {
+        if (lower === 'false' || lower === '') {
           return ok(new SetCheckboxValueSpec(field.id(), CellValue.null()));
         }
       }
@@ -314,16 +319,9 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     const options = field.selectOptions();
 
-    // 1. Check if it's already an option ID
-    const byId = options.find((opt) => opt.id().toString() === strValue);
-    if (byId) {
-      return ok(new SetSingleSelectValueSpec(field.id(), CellValue.fromValidated(strValue)));
-    }
-
-    // 2. Find by name (v1 accepts both ID and name in non-typecast mode)
+    // Cell values are choice names. A string equal to a choice id is not that choice.
     const byName = options.find((opt) => opt.name().toString() === strValue);
     if (byName) {
-      // Store by name to align with v1 behavior
       return ok(new SetSingleSelectValueSpec(field.id(), CellValue.fromValidated(strValue)));
     }
 
@@ -356,7 +354,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       return ok(new SetMultipleSelectValueSpec(field.id(), CellValue.null()));
     }
 
-    const values = this.valueToStringArray(this.value);
+    const values = splitSelectTypecastValues(this.value);
     if (!values || values.length === 0) {
       return ok(new SetMultipleSelectValueSpec(field.id(), CellValue.null()));
     }
@@ -366,17 +364,8 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     const invalidOptions: string[] = [];
 
     for (const val of values) {
-      // Find by ID
-      const byId = options.find((opt) => opt.id().toString() === val);
-      if (byId) {
-        result.push(val);
-        continue;
-      }
-
-      // Find by name (v1 accepts both ID and name in non-typecast mode)
       const byName = options.find((opt) => opt.name().toString() === val);
       if (byName) {
-        // Store by name to align with v1 behavior
         result.push(val);
         continue;
       }
@@ -498,13 +487,12 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     if (this.typecast) {
       const identifiers = this.parseUserIdentifiers(this.value);
       if (identifiers.valid) {
-        return ok(
-          SetUserValueByIdentifierSpec.create(
-            field.id(),
-            identifiers.value,
-            field.multiplicity().toBoolean()
-          )
-        );
+        const isMultiple = field.multiplicity().toBoolean();
+        // v1 parity (UserFieldCore.convertStringToCellValue -> matchUser(cellValue[0])):
+        // a single-user field considers only the first token, so `"不存在的人, 李四"`
+        // clears the cell instead of resolving to a later identifier.
+        const tokens = isMultiple ? identifiers.value : identifiers.value.slice(0, 1);
+        return ok(SetUserValueByIdentifierSpec.create(field.id(), tokens, isMultiple));
       }
       return ok(new SetUserValueSpec(field.id(), CellValue.null()));
     }
@@ -654,6 +642,17 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     return str === '' ? null : str;
   }
 
+  /**
+   * v1 LongTextFieldCore.convertStringToCellValue trims only the ends.
+   * Internal newlines and tabs stay. Empty and whitespace-only input is null.
+   */
+  private repairLongText(value: unknown): string | null {
+    const repaired = this.repairToString(value);
+    if (repaired == null) return null;
+    const trimmed = repaired.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
   private valueToStringArray(value: unknown): string[] | null {
     if (value == null) return null;
     const normalized = normalizeCellDisplayValues(value);
@@ -714,25 +713,30 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   }
 
   private parseUserIdentifiers(value: unknown): { valid: boolean; value: string[] } {
+    // v1 parity (UserFieldCore.convertStringToCellValue): free-form text is a
+    // comma-separated list of identifiers (id / name / email). Tokens are kept
+    // verbatim — including empty ones — so a single-user field can mirror v1's
+    // `matchUser(cellValue[0])` (a leading empty token clears the cell); tokens
+    // that match nobody are dropped during resolution.
     if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        // Empty string should be treated as no user, not as an identifier
+      const identifiers = value.split(',').map((entry) => entry.trim());
+      if (identifiers.every((entry) => !entry)) {
+        // Empty / whitespace-only input clears the cell instead of resolving
         return { valid: false, value: [] };
       }
-      return { valid: true, value: [trimmed] };
+      return { valid: true, value: identifiers };
     }
     if (Array.isArray(value)) {
       const valid = value.every((v) => typeof v === 'string');
       if (!valid) {
         return { valid: false, value: [] };
       }
-      // Filter out empty strings
-      const filtered = (value as string[]).map((v) => v.trim()).filter(Boolean);
-      if (filtered.length === 0) {
+      // v1 joins an array input then splits it, so each entry may hold a list.
+      const identifiers = value.flatMap((entry) => entry.split(',')).map((entry) => entry.trim());
+      if (identifiers.every((entry) => !entry)) {
         return { valid: false, value: [] };
       }
-      return { valid: true, value: filtered };
+      return { valid: true, value: identifiers };
     }
     return { valid: false, value: [] };
   }

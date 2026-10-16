@@ -4,3 +4,22 @@ packages:
   - 'packages/v2/*'
   - 'plugins'
   - '!apps/electron'
+
+engineStrict: true
+strictPeerDependencies: false
+autoInstallPeers: true
+lockfile: true
+savePrefix: ''
+
+# pnpm 10-12 changed these defaults; pinned to what pnpm 9 did so the upgrade changes nothing else.
+dangerouslyAllowAllBuilds: true
+minimumReleaseAge: 0
+blockExoticSubdeps: false
+optimisticRepeatInstall: false
+verifyDepsBeforeRun: false
+trustLockfile: true
+ignoreWorkspaceCycles: true
+publicHoistPattern:
+  - '*eslint*'
+  - '*prettier*'
+pmOnFail: ignore

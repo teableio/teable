@@ -614,7 +614,7 @@ describe('[D01][F05][S01] update-field: singleSelect property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
-  test('should reject deleting option used as defaultValue', async () => {
+  test('should clear defaultValue when its option is deleted', async () => {
     // Setup: Create singleSelect with options: ["A", "B"], defaultValue: "B"
     const fieldId = createFieldId();
     const optionA = { id: 'choA', name: 'A', color: 'blueBright' };
@@ -631,14 +631,15 @@ describe('[D01][F05][S01] update-field: singleSelect property updates', () => {
     });
 
     // Action: Update options to ["A"]
-    await expect(
-      ctx.updateField({
-        baseId: ctx.baseId,
-        tableId,
-        fieldId,
-        field: { options: { choices: [optionA] } },
-      })
-    ).rejects.toThrow();
+    await ctx.updateField({
+      baseId: ctx.baseId,
+      tableId,
+      fieldId,
+      field: { options: { choices: [optionA] } },
+    });
+    const table = await ctx.getTableById(tableId);
+    const field = table.fields.find((item) => item.id === fieldId);
+    expect((field?.options as { defaultValue?: string } | undefined)?.defaultValue).toBeUndefined();
 
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });

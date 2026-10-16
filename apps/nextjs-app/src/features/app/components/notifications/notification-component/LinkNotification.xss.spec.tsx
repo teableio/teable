@@ -1,5 +1,11 @@
+/**
+ * @vitest-environment jsdom
+ */
 /* eslint-disable @typescript-eslint/naming-convention */
 /**
+ * Runs on jsdom: DOMPurify does not support happy-dom, whose Node.prototype
+ * nodeName getter returns '' and makes every element look unknown.
+ *
  * Regression guard for GHSA-3rmq-5wwc-x8w2:
  * Stored XSS in notifications via an unsanitized display name.
  *

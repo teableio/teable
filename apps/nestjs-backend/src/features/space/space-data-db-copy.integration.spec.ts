@@ -233,6 +233,7 @@ const createSharedTables = async (client: Client, schema: string) => {
     CREATE TABLE "${schema}"."computed_update_outbox" (
       "id" text PRIMARY KEY,
       "base_id" text,
+      "worker_lane" text NOT NULL DEFAULT 'production',
       "seed_table_id" text,
       "seed_record_ids" text,
       "change_type" text,
@@ -266,6 +267,7 @@ const createSharedTables = async (client: Client, schema: string) => {
     CREATE TABLE "${schema}"."computed_update_dead_letter" (
       "id" text PRIMARY KEY,
       "base_id" text,
+      "worker_lane" text NOT NULL DEFAULT 'production',
       "seed_table_id" text,
       "seed_record_ids" text,
       "change_type" text,
@@ -551,18 +553,18 @@ const seedSourceData = async (client: Client) => {
   );
   await client.query(
     `INSERT INTO "public"."computed_update_outbox"
-      ("id", "base_id", "status", "created_at", "updated_at")
+      ("id", "base_id", "worker_lane", "status", "created_at", "updated_at")
      VALUES
-      ('cuo1', $1, 'pending', now(), now()),
-      ('cuo2', $2, 'pending', now(), now())`,
+      ('cuo1', $1, 'staging', 'pending', now(), now()),
+      ('cuo2', $2, 'production', 'pending', now(), now())`,
     [baseId, otherBaseId]
   );
   await client.query(
     `INSERT INTO "public"."computed_update_dead_letter"
-      ("id", "base_id", "status", "created_at", "updated_at", "trace_data", "failed_at")
+      ("id", "base_id", "worker_lane", "status", "created_at", "updated_at", "trace_data", "failed_at")
      VALUES
-      ('cudl1', $1, 'failed', now(), now(), '{}'::jsonb, now()),
-      ('cudl2', $2, 'failed', now(), now(), '{}'::jsonb, now())`,
+      ('cudl1', $1, 'staging', 'failed', now(), now(), '{}'::jsonb, now()),
+      ('cudl2', $2, 'production', 'failed', now(), now(), '{}'::jsonb, now())`,
     [baseId, otherBaseId]
   );
   await client.query(
@@ -1297,7 +1299,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         await expect(
           queryCount(
             target,
-            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_outbox" WHERE "base_id" = $1`,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_outbox" WHERE "base_id" = $1 AND "worker_lane" = 'staging'`,
             [baseId]
           )
         ).resolves.toBe(1);
@@ -1311,7 +1313,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         await expect(
           queryCount(
             target,
-            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_dead_letter" WHERE "base_id" = $1`,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_dead_letter" WHERE "base_id" = $1 AND "worker_lane" = 'staging'`,
             [baseId]
           )
         ).resolves.toBe(1);

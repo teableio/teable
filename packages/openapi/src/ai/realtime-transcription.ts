@@ -1,6 +1,6 @@
 import { z } from '../zod';
 
-export const DEFAULT_REALTIME_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
+export const DEFAULT_REALTIME_TRANSCRIPTION_MODEL = 'gpt-transcribe';
 export const DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC = 120;
 export const DEFAULT_REALTIME_TRANSCRIPTION_SESSION_CREATE_LIMIT_PER_MINUTE = 6;
 export const DEFAULT_OPENAI_TRANSCRIPTION_API_BASE_URL = 'https://api.openai.com/v1';
@@ -8,10 +8,27 @@ export const DEFAULT_OPENAI_REALTIME_API_BASE_URL = DEFAULT_OPENAI_TRANSCRIPTION
 
 export const realtimeTranscriptionModelSchema = z.enum([
   DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+  'gpt-4o-mini-transcribe',
   'gpt-4o-transcribe',
   'whisper-1',
   'gpt-realtime-whisper',
 ]);
+
+// Saved configs keep whatever default the admin card wrote at the time. OpenAI shuts the
+// gpt-4o/whisper file models down on 2027-02-26, and gpt-realtime-whisper is streaming-only.
+const LEGACY_REALTIME_TRANSCRIPTION_MODELS = new Set<string>([
+  'gpt-4o-mini-transcribe',
+  'gpt-4o-transcribe',
+  'whisper-1',
+  'gpt-realtime-whisper',
+]);
+
+export const resolveRealtimeTranscriptionModel = (
+  model?: z.infer<typeof realtimeTranscriptionModelSchema> | null
+): z.infer<typeof realtimeTranscriptionModelSchema> =>
+  model && !LEGACY_REALTIME_TRANSCRIPTION_MODELS.has(model)
+    ? model
+    : DEFAULT_REALTIME_TRANSCRIPTION_MODEL;
 
 export const resolveOpenAIRealtimeEndpoints = (endpoint?: string | null) => {
   const value = (endpoint || DEFAULT_OPENAI_REALTIME_API_BASE_URL)

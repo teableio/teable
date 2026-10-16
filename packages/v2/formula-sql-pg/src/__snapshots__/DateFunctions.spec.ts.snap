@@ -10072,8 +10072,8 @@ exports[`date functions batch 3 > 'IsAfter' with 'button' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN TRUE THEN NULL ELSE (CASE
-      WHEN ((SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (NULL::timestamptz)::text AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (SELECT value FROM "__formula_0") AS val) AS v)) THEN ((SELECT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN TRUE THEN NULL ELSE (CASE
+      WHEN ((SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (NULL::timestamptz)::text AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT NULL::text AS val) AS v)) THEN ((SELECT (CASE
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL
@@ -10081,9 +10081,9 @@ exports[`date functions batch 3 > 'IsAfter' with 'button' 1`] = `
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL
-      END) FROM (SELECT (SELECT value FROM "__formula_0") AS val) AS v))
-      ELSE (COALESCE((NULL::timestamptz)::text, '') > COALESCE((SELECT value FROM "__formula_0"), ''))
-    END) END) AS value) SELECT CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((SELECT value FROM "__formula_1"))::text END)",
+      END) FROM (SELECT NULL::text AS val) AS v))
+      ELSE (COALESCE((NULL::timestamptz)::text, '') > COALESCE(NULL::text, ''))
+    END) END) AS value) SELECT CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((SELECT value FROM "__formula_0"))::text END)",
 }
 `;
 
@@ -10849,18 +10849,18 @@ exports[`date functions batch 3 > 'IsBefore' with 'button' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN TRUE THEN NULL ELSE (CASE
-      WHEN ((SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (SELECT value FROM "__formula_0") AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (NULL::timestamptz)::text AS val) AS v)) THEN ((SELECT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN TRUE THEN NULL ELSE (CASE
+      WHEN ((SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT NULL::text AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (NULL::timestamptz)::text AS val) AS v)) THEN ((SELECT (CASE
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL
-      END) FROM (SELECT (SELECT value FROM "__formula_0") AS val) AS v) < (SELECT (CASE
+      END) FROM (SELECT NULL::text AS val) AS v) < (SELECT (CASE
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL
       END) FROM (SELECT (NULL::timestamptz)::text AS val) AS v))
-      ELSE (COALESCE((SELECT value FROM "__formula_0"), '') < COALESCE((NULL::timestamptz)::text, ''))
-    END) END) AS value) SELECT CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((SELECT value FROM "__formula_1"))::text END)",
+      ELSE (COALESCE(NULL::text, '') < COALESCE((NULL::timestamptz)::text, ''))
+    END) END) AS value) SELECT CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((SELECT value FROM "__formula_0"))::text END)",
 }
 `;
 
@@ -13179,50 +13179,6 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'user' 1`] = `
   "sql": "CASE WHEN TRUE THEN '#ERROR:ARG:invalid_is_same_unit' ELSE (NULL::boolean)::text END",
 }
 `;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 exports[`date functions batch 4 > 'DateAddCountField' with 'attachment' 1`] = `
 {

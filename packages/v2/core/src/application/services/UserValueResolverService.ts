@@ -72,6 +72,9 @@ export class UserValueResolverService
       };
 
       const strictIds = new Set<string>();
+      // Bare `{ id }` references from strict (non-typecast) writes must resolve
+      // inside the table's collaborator scope, matching v1.
+      const collaboratorScopedIds = new Set<string>();
       const identifiers = new Set<string>();
 
       for (const spec of specs) {
@@ -102,20 +105,25 @@ export class UserValueResolverService
           if (idResult.isErr()) {
             return err(idResult.error);
           }
-          strictIds.add(idResult.value);
+          if (spec.requireCollaborator) {
+            collaboratorScopedIds.add(idResult.value);
+          } else {
+            strictIds.add(idResult.value);
+          }
         }
       }
 
-      // Structured user objects carry a platform user id, so resolve them by
-      // primary key without collaborator scoping: a copied cell must paste the
-      // same member even when that member is not a collaborator of this table.
-      // Free-form text input stays scoped to the table's collaborators.
+      // Typecast/paste structured snapshots carry a platform user id, so resolve
+      // them by primary key without collaborator scoping: a copied cell must
+      // paste the same member even when that member is not a collaborator of
+      // this table. Strict structured input and free-form text stay scoped to
+      // the table's collaborators.
       const strictUsersResult = yield* await service.userLookupService.listUsersByIds([
         ...strictIds,
       ]);
       const scopedUsersResult = yield* await service.userLookupService.listTableUsersByIdentifiers(
         tableId.toString(),
-        [...identifiers]
+        [...collaboratorScopedIds, ...identifiers]
       );
 
       const usersById = new Map<string, UserLookupRecord>();
@@ -149,7 +157,15 @@ export class UserValueResolverService
           }
 
           const resolvedItems: UserItem[] = [];
-          for (const identifier of spec.identifiers) {
+          // v1 parity (UserFieldCore.convertStringToCellValue -> matchUser(cellValue[0])):
+          // a single-user field only considers the first identifier, so
+          // `"unknown, Lee"` clears the cell instead of falling back to a later
+          // match. FieldToSpecVisitor already trims free-form input, but the spec
+          // type is public and can be built directly, so enforce the rule here.
+          const identifiersToResolve = spec.isMultiple
+            ? spec.identifiers
+            : spec.identifiers.slice(0, 1);
+          for (const identifier of identifiersToResolve) {
             const keyResult = resolveIdentifier(String(identifier));
             if (keyResult.isErr()) {
               return err(keyResult.error);
@@ -190,7 +206,7 @@ export class UserValueResolverService
             return err(idResult.error);
           }
           const id = idResult.value;
-          const user = usersById.get(id);
+          const user = spec.requireCollaborator ? scopedUsersById.get(id) : usersById.get(id);
           if (!user) {
             return err(
               domainError.validation({

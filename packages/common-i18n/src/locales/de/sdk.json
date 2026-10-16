@@ -204,6 +204,17 @@
       "isAfter": "ist nach",
       "isOnOrBefore": "ist am oder vor",
       "isOnOrAfter": "ist am oder nach",
+      "user": {
+        "is": "ist",
+        "isNot": "ist nicht",
+        "isAnyOf": "ist eine von",
+        "isNoneOf": "ist nicht eine von",
+        "hasAnyOf": "hat eine von",
+        "hasAllOf": "hat all von",
+        "isExactly": "ist genau",
+        "isNotExactly": "ist nicht",
+        "hasNoneOf": "hat keine von"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -285,6 +296,7 @@
     "previousRecord": "Zurück",
     "nextRecord": "Weiter",
     "duplicateRecord": "Datensatz duplizieren",
+    "addToChat": "Zum Chat hinzufügen",
     "copyRecordUrl": "Datensatz URL kopieren",
     "deleteRecord": "Datensatz löschen",
     "addRecordComment": "Kommentar hinzufügen",
@@ -1288,6 +1300,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds oder fromRecordIds ist für normales berechnetes Feld erforderlich",
       "recordFieldsRequired": "Datensatzfelder sind undefiniert",
       "uniqueUnsupportedType": "Feld {{name}}[{{fieldId}}] unterstützt keine eindeutige Feldwertvalidierung",
+      "optionsUnsupportedType": "Feld {{name}}[{{fieldId}}] unterstützt diese geänderten Optionen nicht: {{options}}",
       "notNullValidationWhenCreateField": "Feld {{name}}[{{fieldId}}] unterstützt keine Nicht-Null-Validierung beim Erstellen eines neuen Feldes",
       "dbFieldNameAlreadyExists": "Datenbankfeldname {{dbFieldName}} existiert bereits",
       "fieldValidationError": "Feld {{name}}[{{fieldId}}] Feldvalidierungsfehler",

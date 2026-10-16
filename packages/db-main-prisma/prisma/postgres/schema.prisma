@@ -860,6 +860,10 @@ model OAuthApp {
   // Opt-in for the RFC 8628 device grant: any client_id can be phished onto
   // the device approval page, so an app must accept that exposure explicitly.
   allowDeviceFlow  Boolean   @default(false) @map("allow_device_flow")
+  // Registered by the client itself through RFC 7591 dynamic registration (MCP
+  // clients do this on first connect). Such rows have no owning developer and
+  // are pruned when they never complete an authorization.
+  dynamicRegistration Boolean @default(false) @map("dynamic_registration")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String    @map("created_by")

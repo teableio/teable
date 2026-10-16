@@ -303,24 +303,23 @@
       },
       "deleteAccount": {
         "title": "删除账户",
-        "desc": "账户删除后无法恢复，请谨慎操作。",
+        "desc": "此操作不可撤销，账户删除后将无法恢复。",
         "spaces": {
-          "title": "只有你拥有的空间",
-          "body": "删除账户时，这些空间会随账户一起移入回收站。想保留某个空间，请先把它移交给一位成员。",
-          "loading": "正在检查哪些空间只有你一位所有者…",
-          "blockedHint": "请先取消该订阅，或把空间移交给他人，然后继续。",
-          "willTrash": "将移入回收站",
+          "title": "你是唯一所有者的空间",
+          "body": "删除账户后，以下空间将移入回收站。如需保留，请先将其移交给其他成员。",
+          "loading": "正在检查你作为唯一所有者的空间…",
+          "blockedHint": "标记为「不可删除」的空间仍有生效中的订阅，处理后才能删除账户。",
           "willTransfer": "将移交",
-          "subscribedHint": "该空间仍有生效的订阅，请先取消订阅，再回来删除账户。",
+          "notDeletable": "不可删除",
           "cancelSubscription": "管理订阅",
-          "transferTo": "选择接收人，不选则移入回收站",
-          "transferToSubscribed": "或选择接收人移交，订阅随空间保留"
+          "transferTo": "移交给成员（可选）",
+          "transferToSubscribed": "移交给成员（订阅随空间保留）"
         },
         "confirm": {
-          "title": "请输入 <code>DELETE</code> 来确认",
+          "title": "输入 <code>DELETE</code> 以确认删除",
           "placeholder": "DELETE"
         },
-        "loading": "删除中..."
+        "loading": "正在删除…"
       }
     },
     "notify": {

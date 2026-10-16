@@ -6,6 +6,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
+import { UserField } from '../domain/table/fields/types/UserField';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
@@ -300,6 +301,47 @@ describe('TableFieldSpecs', () => {
       spec.applyTo(builder);
       expect(builder.build().isOk()).toBe(true);
     }
+  });
+
+  it('defaults an omitted user shouldNotify to false and keeps an explicit true T7864', () => {
+    const omittedResult = parseSpec({ type: 'user', name: '负责人' });
+    if (omittedResult.isErr()) throw new Error(JSON.stringify(omittedResult.error));
+    const omitted = omittedResult.value;
+    const omittedFieldResult = omitted.createField();
+    if (omittedFieldResult.isErr()) throw new Error(JSON.stringify(omittedFieldResult.error));
+    const omittedField = omittedFieldResult.value;
+    expect(omittedField).toBeInstanceOf(UserField);
+    expect((omittedField as UserField).notification().toBoolean()).toBe(false);
+
+    const builder = Table.builder()
+      .withBaseId(BaseId.create(`bse${'c'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Notify')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    omitted.applyTo(builder);
+    const builtResult = builder.build();
+    if (builtResult.isErr()) throw new Error(`build ${JSON.stringify(builtResult.error)}`);
+    const built = builtResult.value
+      .getFields()
+      .find((field) => field.name().toString() === '负责人');
+    expect(built).toBeInstanceOf(UserField);
+    expect((built as UserField).notification().toBoolean()).toBe(false);
+
+    const explicitResult = parseSpec({
+      type: 'user',
+      name: '负责人',
+      options: { shouldNotify: true },
+    });
+    if (explicitResult.isErr()) throw new Error(`explicit ${JSON.stringify(explicitResult.error)}`);
+    const explicitFieldResult = explicitResult.value.createField();
+    if (explicitFieldResult.isErr())
+      throw new Error(`explicit field ${JSON.stringify(explicitFieldResult.error)}`);
+    expect((explicitFieldResult.value as UserField).notification().toBoolean()).toBe(true);
   });
 
   it('preserves conditional lookup inner options patch in create spec', () => {

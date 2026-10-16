@@ -53,10 +53,19 @@ const mapTimeFormatMask = (format: TimeFormatting): string => {
   }
 };
 
+export type FormatNumberStringSqlOptions = {
+  /**
+   * When true, currency text uses v1 `cellValue2String` grouping (`$1,234.00`).
+   * Formula and display SQL leave this off so existing masks stay stable.
+   */
+  groupCurrency?: boolean;
+};
+
 export const formatNumberStringSql = (
   valueSql: string,
   formatting: NumberFormatting,
-  budget?: FormulaCompileBudget
+  budget?: FormulaCompileBudget,
+  options?: FormatNumberStringSqlOptions
 ): string => {
   const precision = formatting.precision().toNumber();
   const decimalPart = precision > 0 ? (budget?.sql ?? sqlText)`D${'0'.repeat(precision)}` : '';
@@ -64,7 +73,7 @@ export const formatNumberStringSql = (
   const maskSql = sqlStringLiteral(mask, budget);
   const baseValue = (budget?.sql ?? sqlText)`(${valueSql})::numeric`;
 
-  return formatNumberStringSqlWithBaseValue(baseValue, formatting, maskSql, budget);
+  return formatNumberStringSqlWithBaseValue(baseValue, formatting, maskSql, budget, options);
 };
 
 const buildJsonScalarNumericSql = (valueSql: string, budget?: FormulaCompileBudget): string => {
@@ -77,11 +86,28 @@ const buildJsonScalarNumericSql = (valueSql: string, budget?: FormulaCompileBudg
   END)`;
 };
 
-const formatNumberStringSqlWithBaseValue = (
+const formatGroupedCurrencySql = (
   baseValue: string,
   formatting: NumberFormatting,
   maskSql: string,
   budget?: FormulaCompileBudget
+): string => {
+  const symbol = sqlStringLiteral(formatting.symbol() ?? '', budget);
+  const text = budget?.sql ?? sqlText;
+  // ALTER COLUMN ... USING cannot contain a subquery, so to_char is repeated.
+  // Commas are inserted in SQL rather than via `G`, which follows lc_numeric.
+  const body = text`trim(to_char(abs(${baseValue}), ${maskSql}))`;
+  const groupedInteger = text`trim(BOTH ',' FROM reverse(regexp_replace(reverse(regexp_replace(${body}, '[^0-9].*$', '')), '([0-9]{3})', '\\1,', 'g')))`;
+  const fraction = text`(CASE WHEN ${body} ~ '[^0-9]' THEN regexp_replace(${body}, '^[0-9]*', '') ELSE '' END)`;
+  return text`(CASE WHEN ${baseValue} < 0 THEN '-' ELSE '' END) || ${symbol} || ${groupedInteger} || ${fraction}`;
+};
+
+const formatNumberStringSqlWithBaseValue = (
+  baseValue: string,
+  formatting: NumberFormatting,
+  maskSql: string,
+  budget?: FormulaCompileBudget,
+  options?: FormatNumberStringSqlOptions
 ): string => {
   switch (formatting.type()) {
     case NumberFormattingType.Percent: {
@@ -90,6 +116,9 @@ const formatNumberStringSqlWithBaseValue = (
       return (budget?.sql ?? sqlText)`${formatted} || ${sqlStringLiteral('%', budget)}`;
     }
     case NumberFormattingType.Currency: {
+      if (options?.groupCurrency) {
+        return formatGroupedCurrencySql(baseValue, formatting, maskSql, budget);
+      }
       const formatted = (budget?.sql ?? sqlText)`trim(to_char(${baseValue}, ${maskSql}))`;
       return (budget?.sql ??
         sqlText)`${sqlStringLiteral(formatting.symbol() ?? '', budget)} || ${formatted}`;

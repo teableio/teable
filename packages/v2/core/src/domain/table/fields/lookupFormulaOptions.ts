@@ -13,7 +13,7 @@ export const LOOKUP_FORMULA_PLACEHOLDER_EXPRESSION = '""';
 const LOOKUP_FORMULA_EXECUTABLE_OPTION_KEYS = ['expression', 'timeZone'] as const;
 
 /** Display-only keys that may override the looked-up source field. */
-const LOOKUP_DISPLAY_OPTION_KEYS = ['formatting', 'showAs'] as const;
+export const LOOKUP_DISPLAY_OPTION_KEYS = ['formatting', 'showAs'] as const;
 
 export type RegularLookupFormulaOptions = {
   expression: typeof LOOKUP_FORMULA_PLACEHOLDER_EXPRESSION;

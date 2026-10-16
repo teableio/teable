@@ -9,6 +9,7 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { LinkField } from '../../domain/table/fields/types/LinkField';
+import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
@@ -138,7 +139,27 @@ export class PasteLinkAutoResolveService {
           foreignTableCache,
           firstEntry.linkField.foreignTableId()
         );
-        const createdTitles = [...group.missingTitles];
+        const primaryFieldResult = foreignTable.getField((field) =>
+          field.id().equals(foreignTable.primaryFieldId())
+        );
+        if (primaryFieldResult.isErr()) {
+          return err(primaryFieldResult.error);
+        }
+        const originalsByKey = new Map<string, string[]>();
+        for (const title of group.missingTitles) {
+          const key = titleKeyForPrimaryField(primaryFieldResult.value, title);
+          if (!key) continue;
+          const originals = originalsByKey.get(key);
+          if (originals) {
+            if (!originals.includes(title)) originals.push(title);
+          } else {
+            originalsByKey.set(key, [title]);
+          }
+        }
+        const createdTitles = [...originalsByKey.keys()];
+        if (createdTitles.length === 0) {
+          continue;
+        }
         yield* service.validateAutoCreateEligibility(
           input.table,
           firstEntry.linkField,
@@ -165,15 +186,18 @@ export class PasteLinkAutoResolveService {
 
         const createdMap: ResolvedLinkValueMap = new Map();
         for (let index = 0; index < creationResult.records.length; index++) {
-          const title = createdTitles[index];
+          const key = createdTitles[index];
           const record = creationResult.records[index];
-          if (!title || !record) {
+          if (!key || !record) {
             continue;
           }
-          createdMap.set(title, {
-            id: record.id().toString(),
-            title,
-          });
+          for (const title of originalsByKey.get(key) ?? []) {
+            if (createdMap.has(title)) continue;
+            createdMap.set(title, {
+              id: record.id().toString(),
+              title,
+            });
+          }
         }
 
         for (const entryIndex of group.entryIndexes) {

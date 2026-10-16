@@ -303,24 +303,23 @@
       },
       "deleteAccount": {
         "title": "Delete account",
-        "desc": "Your account cannot be restored after deletion. Please proceed with caution.",
+        "desc": "This action is permanent. Your account can't be recovered once deleted.",
         "spaces": {
-          "title": "Spaces only you own",
-          "body": "These go to trash together with your account. To keep one, hand it to a member first.",
-          "loading": "Checking which spaces are yours alone…",
-          "blockedHint": "Cancel that subscription, or hand the space over, to continue.",
-          "willTrash": "Moves to trash",
-          "willTransfer": "Will be handed over",
-          "subscribedHint": "This space still has an active subscription. Cancel it, then come back to delete your account.",
-          "cancelSubscription": "Manage subscription",
-          "transferTo": "Pick a member to hand over to, or it goes to trash",
-          "transferToSubscribed": "Or pick a member to hand over to; the subscription stays with the space"
+          "title": "Spaces you solely own",
+          "body": "These spaces will be moved to trash when your account is deleted. To keep one, transfer it to another member first.",
+          "loading": "Checking for spaces you solely own…",
+          "blockedHint": "Spaces marked “Can't be deleted” still have an active subscription and must be resolved before you can delete your account.",
+          "willTransfer": "Will be transferred",
+          "notDeletable": "Can't be deleted",
+          "cancelSubscription": "Manage plan",
+          "transferTo": "Transfer to a member (optional)",
+          "transferToSubscribed": "Transfer to a member (subscription included)"
         },
         "confirm": {
-          "title": "Please enter <code>DELETE</code> to confirm",
+          "title": "Type <code>DELETE</code> to confirm",
           "placeholder": "DELETE"
         },
-        "loading": "Deleting..."
+        "loading": "Deleting…"
       }
     },
     "notify": {
