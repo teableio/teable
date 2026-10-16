@@ -164,7 +164,7 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'table|read': true,
     'table|delete': false,
     'table|update': false,
-    'table|import': false,
+    'table|import': true,
     'table|export': true,
     'table|trash_read': true,
     'table|trash_update': true,

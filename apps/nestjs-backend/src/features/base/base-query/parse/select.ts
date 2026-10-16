@@ -45,13 +45,21 @@ export class QuerySelect {
     }
 
     const aggregationColumn = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
+    // Snapshot each column's validated dbFieldName before the loop below rewrites
+    // dbFieldName to the (user-controlled) alias for nested-query reference. A column
+    // can be selected more than once; without this snapshot the second pass would read
+    // the first pass's alias and interpolate it raw — an SQL injection (T7688). The
+    // dbFieldName is an already-quoted / qualified identifier, so it stays raw here (a
+    // `??` bind would double-quote it); only the alias is bound via `??`.
+    const originalDbFieldName = Object.fromEntries(
+      Object.entries(currentFieldMap).map(([key, value]) => [key, value.dbFieldName])
+    );
     if (select) {
       select.forEach((cur) => {
         const field = currentFieldMap[cur.column];
         if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
           const alias = (cur.alias ? cur.alias : field.id).replaceAll('?', '_');
-          // Use raw to avoid knex double-quoting an already quoted identifier
-          queryBuilder.select(knex.raw(`${field.dbFieldName} as ??`, [alias]));
+          queryBuilder.select(knex.raw(`${originalDbFieldName[cur.column]} as ??`, [alias]));
           currentFieldMap[cur.column].name = alias;
           currentFieldMap[cur.column].dbFieldName = alias;
         } else if (field && !aggregationColumn.includes(cur.column)) {

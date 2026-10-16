@@ -34,12 +34,12 @@ exports[`error handling > 'AndTypeError': 'And with non-convertible type' 1`] = 
     },
   },
   "result": "false",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "((CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) AND COALESCE(TRUE, FALSE))",
 }
 `;
 
@@ -134,7 +134,7 @@ exports[`error handling > 'FindTypeError': 'Find with non-convertible type' 1`] 
     },
   },
   "result": null,
-  "sql": "POSITION((('x')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text))",
+  "sql": "POSITION((('x')::text) IN ((NULL::text)::text))",
 }
 `;
 
@@ -153,12 +153,12 @@ exports[`error handling > 'IfTypeError': 'If with non-convertible type' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "(CASE WHEN (CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) THEN 'yes' ELSE 'no' END)",
 }
 `;
 
@@ -177,7 +177,7 @@ exports[`error handling > 'LeftTypeError': 'Left with non-convertible type' 1`] 
     },
   },
   "result": null,
-  "sql": "LEFT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+  "sql": "LEFT(NULL::text, (1)::double precision::integer)",
 }
 `;
 
@@ -196,7 +196,7 @@ exports[`error handling > 'LenTypeError': 'Len with non-convertible type' 1`] = 
     },
   },
   "result": null,
-  "sql": "LENGTH(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "LENGTH(NULL::text)",
 }
 `;
 
@@ -253,7 +253,7 @@ exports[`error handling > 'MidTypeError': 'Mid with non-convertible type' 1`] = 
     },
   },
   "result": null,
-  "sql": "SUBSTRING(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+  "sql": "SUBSTRING(NULL::text FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
 
@@ -340,12 +340,12 @@ exports[`error handling > 'NotTypeError': 'Not with non-convertible type' 1`] = 
     },
   },
   "result": "true",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "(NOT (CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END))",
 }
 `;
 
@@ -364,12 +364,12 @@ exports[`error handling > 'OrTypeError': 'Or with non-convertible type' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "((CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) OR COALESCE(FALSE, FALSE))",
 }
 `;
 
@@ -407,7 +407,7 @@ exports[`error handling > 'ReplaceTypeError': 'Replace with non-convertible type
     },
   },
   "result": null,
-  "sql": "OVERLAY(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+  "sql": "OVERLAY(NULL::text PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
 
@@ -426,7 +426,7 @@ exports[`error handling > 'RightTypeError': 'Right with non-convertible type' 1`
     },
   },
   "result": null,
-  "sql": "RIGHT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+  "sql": "RIGHT(NULL::text, (1)::double precision::integer)",
 }
 `;
 
@@ -464,7 +464,7 @@ exports[`error handling > 'SearchTypeError': 'Search with non-convertible type' 
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER((('x')::text)) IN UPPER(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)))",
+  "sql": "POSITION(UPPER((('x')::text)) IN UPPER(((NULL::text)::text)))",
 }
 `;
 

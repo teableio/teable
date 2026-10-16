@@ -49,8 +49,11 @@ import {
 /**
  * T6662: user-field collaborator notifications must only fire when
  * someone actively assigns a user right now. Paths that move existing
- * assignments around — CSV import into an existing table, table duplicate,
- * record duplicate, trash restore, undo/redo replay — stay silent.
+ * assignments around in bulk — CSV import into an existing table, table
+ * duplicate, trash restore, undo/redo replay — stay silent.
+ *
+ * T7798 / Q2-15: single/batch record duplicate is an ordinary create, so the
+ * copied assignee IS notified; only the bulk-movement paths above stay silent.
  *
  * All requests run with FORCE_V2_ALL=true so they route through the v2
  * command handlers that publish record events with sources
@@ -68,6 +71,7 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
   let prisma: PrismaService;
   let assignee: IUserMeVo;
   let previousForceV2All: string | undefined;
+  let previousNotifyBatchWindowMs: string | undefined;
 
   const baseId = globalThis.testConfig.baseId;
   const actorId = globalThis.testConfig.userId;
@@ -80,6 +84,12 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
 
     previousForceV2All = process.env.FORCE_V2_ALL;
     process.env.FORCE_V2_ALL = 'true';
+
+    // Disable the 10s collaborator-notify coalescing window so both the
+    // positive and the negative assertions below observe the notify (or its
+    // absence) immediately instead of racing the window flush.
+    previousNotifyBatchWindowMs = process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
+    process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS = '0';
 
     // Undo/redo entries are only captured for requests carrying a window id.
     ensureUndoRedoWindowIdHeader('win' + getRandomString(8));
@@ -105,6 +115,11 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
       delete process.env.FORCE_V2_ALL;
     } else {
       process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+    if (previousNotifyBatchWindowMs === undefined) {
+      delete process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
+    } else {
+      process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS = previousNotifyBatchWindowMs;
     }
     await app.close();
   });
@@ -543,40 +558,61 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
     }
   );
 
-  it(
-    'does not send collaborator notification on record duplicate',
-    { timeout: 60000 },
-    async () => {
-      const { table, titleFieldId, assigneeFieldId } = await createUserFieldTable(
-        'v2 bulk notify record duplicate'
+  it('sends collaborator notification on record duplicate', { timeout: 60000 }, async () => {
+    const { table, titleFieldId, assigneeFieldId } = await createUserFieldTable(
+      'v2 bulk notify record duplicate'
+    );
+
+    try {
+      const record = await createAssignedRecord(
+        table.id,
+        titleFieldId,
+        assigneeFieldId,
+        'duplicated source row'
       );
 
-      try {
-        const record = await createAssignedRecord(
-          table.id,
-          titleFieldId,
-          assigneeFieldId,
-          'duplicated source row'
-        );
+      // The negative cases above want the immediate path (window 0). This
+      // positive case instead runs with a small non-zero window so the
+      // duplicate notify goes through the pending buffer and its flush, i.e.
+      // the coalescing path a real deployment uses.
+      process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS = '200';
 
-        const duplicated = await duplicateRecord(table.id, record.id, {
-          viewId: table.views[0].id,
-          anchorId: record.id,
-          position: 'after',
-        });
-        expect(duplicated.id).toBeTruthy();
+      const duplicated = await duplicateRecord(table.id, record.id, {
+        viewId: table.views[0].id,
+        anchorId: record.id,
+        position: 'after',
+      });
+      expect(duplicated.id).toBeTruthy();
 
-        const duplicatedAssignee = duplicated.fields[assigneeFieldId] as
-          | { id?: string }
-          | undefined;
-        expect(duplicatedAssignee?.id).toBe(assignee.id);
+      const duplicatedAssignee = duplicated.fields[assigneeFieldId] as { id?: string } | undefined;
+      expect(duplicatedAssignee?.id).toBe(assignee.id);
 
-        const notification = await waitForCollaboratorNotification({ tableId: table.id });
-        expect(notification).toBeNull();
-      } finally {
-        await clearNotifications(table.id);
-        await permanentDeleteTable(baseId, table.id);
-      }
+      // Q2-15 / T7798: a duplicate is an ordinary create, so the copied
+      // assignee must be notified even though this is an existing assignment.
+      const notification = await waitForCollaboratorNotification({ tableId: table.id });
+      expect(notification).toMatchObject({
+        fromUserId: actorId,
+        toUserId: assignee.id,
+        type: NotificationTypeEnum.CollaboratorCellTag,
+      });
+      // The copy is a single notification point: the assignee field notifies
+      // once and no other field/value of the duplicated record adds a row.
+      // The count deliberately ignores `type` so a stray duplicate of another
+      // notification type cannot pass the "exactly once" assertion.
+      expect(notification?.urlPath).toContain(duplicated.id);
+
+      const notificationCount = await prisma.notification.count({
+        where: {
+          fromUserId: actorId,
+          toUserId: assignee.id,
+          urlPath: { contains: table.id },
+        },
+      });
+      expect(notificationCount).toBe(1);
+    } finally {
+      process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS = '0';
+      await clearNotifications(table.id);
+      await permanentDeleteTable(baseId, table.id);
     }
-  );
+  });
 });

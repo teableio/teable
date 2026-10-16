@@ -204,6 +204,7 @@ export interface V1SchemaOperationTable {
 export interface V1ComputedUpdateOutboxTable {
   id: string;
   base_id: string;
+  worker_lane: ColumnType<string, string | undefined, string | undefined>;
   seed_table_id: string;
   seed_record_ids: unknown;
   change_type: string;
@@ -268,6 +269,7 @@ export interface V1ComputedUpdateStageLedgerTable {
 export interface V1ComputedUpdateDeadLetterTable {
   id: string;
   base_id: string;
+  worker_lane: ColumnType<string, string | undefined, string | undefined>;
   seed_table_id: string;
   seed_record_ids: unknown;
   change_type: string;

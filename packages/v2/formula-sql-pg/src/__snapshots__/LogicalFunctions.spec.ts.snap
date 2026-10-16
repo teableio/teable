@@ -57,12 +57,12 @@ exports[`logical functions > 'And' with 'button' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "((CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) AND COALESCE(TRUE, FALSE))",
 }
 `;
 
@@ -779,12 +779,12 @@ exports[`logical functions > 'If' with 'button' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "(CASE WHEN (CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) THEN 'yes' ELSE 'no' END)",
 }
 `;
 
@@ -1441,7 +1441,7 @@ exports[`logical functions > 'IsError' with 'button' 1`] = `
     },
   },
   "result": "false",
-  "sql": "COALESCE((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') LIKE '#ERROR:%'), FALSE)",
+  "sql": "COALESCE((NULL::text LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1954,12 +1954,12 @@ exports[`logical functions > 'Not' with 'button' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "(NOT (CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END))",
 }
 `;
 
@@ -2617,12 +2617,12 @@ exports[`logical functions > 'Or' with 'button' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+  "sql": "((CASE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
+    END) OR COALESCE(FALSE, FALSE))",
 }
 `;
 
@@ -3279,7 +3279,7 @@ exports[`logical functions > 'Switch' with 'button' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') = (10)::text THEN 'ten' ELSE 'other' END)",
+  "sql": "(CASE WHEN NULL::text = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
 
@@ -3793,9 +3793,9 @@ exports[`logical functions > 'Xor' with 'button' 1`] = `
   },
   "result": "true",
   "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
-      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
+      WHEN NULL::text IS NULL THEN FALSE
+      WHEN BTRIM((NULL::text)::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((NULL::text)::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }

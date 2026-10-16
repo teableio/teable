@@ -324,6 +324,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
     .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('worker_lane', 'text', (col) => col.notNull().defaultTo('production'))
     .addColumn('seed_table_id', 'text', (col) => col.notNull())
     .addColumn('seed_record_ids', 'jsonb')
     .addColumn('change_type', 'text', (col) => col.notNull())
@@ -358,6 +359,12 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
+
+  // Persisted PGlite databases bootstrap here without running Prisma migrations.
+  await sql`
+    ALTER TABLE computed_update_outbox
+    ADD COLUMN IF NOT EXISTS worker_lane text NOT NULL DEFAULT 'production'
+  `.execute(db);
 
   await db.schema
     .createTable('computed_update_outbox_seed')
@@ -428,6 +435,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
     .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('worker_lane', 'text', (col) => col.notNull().defaultTo('production'))
     .addColumn('seed_table_id', 'text', (col) => col.notNull())
     .addColumn('seed_record_ids', 'jsonb')
     .addColumn('change_type', 'text', (col) => col.notNull())
@@ -464,6 +472,11 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('created_at', 'timestamptz', (col) => col.notNull())
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull())
     .execute();
+
+  await sql`
+    ALTER TABLE computed_update_dead_letter
+    ADD COLUMN IF NOT EXISTS worker_lane text NOT NULL DEFAULT 'production'
+  `.execute(db);
 
   await db.schema
     .createTable('computed_update_run_history')
@@ -532,6 +545,19 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('computed_update_outbox')
     .columns(['status', 'next_run_at'])
     .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_worker_lane_status_next_run_at_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .columns(['worker_lane', 'status', 'next_run_at'])
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS computed_update_outbox_pending_unique_idx
+    ON computed_update_outbox (base_id, seed_table_id, plan_hash, change_type)
+    WHERE status = 'pending'
+  `.execute(db);
 
   await db.schema
     .createIndex('computed_update_outbox_base_id_seed_table_id_idx')

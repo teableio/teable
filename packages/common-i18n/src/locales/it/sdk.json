@@ -205,6 +205,17 @@
       "isAfter": "è dopo",
       "isOnOrBefore": "è il o prima di",
       "isOnOrAfter": "è il o dopo",
+      "user": {
+        "is": "è",
+        "isNot": "non è",
+        "isAnyOf": "è uno di",
+        "isNoneOf": "non è nessuno di",
+        "hasAnyOf": "ha uno di",
+        "hasAllOf": "ha tutti di",
+        "isExactly": "è esattamente",
+        "isNotExactly": "non è",
+        "hasNoneOf": "non ha nessuno di"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -287,6 +298,7 @@
     "previousRecord": "Precedente",
     "nextRecord": "Successivo",
     "duplicateRecord": "Duplica record",
+    "addToChat": "Aggiungi alla chat",
     "copyRecordUrl": "Copia URL del record",
     "deleteRecord": "Elimina record",
     "addRecordComment": "Aggiungi commento",
@@ -1292,6 +1304,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds o fromRecordIds è richiesto per il campo calcolato normale",
       "recordFieldsRequired": "I campi del record non sono definiti",
       "uniqueUnsupportedType": "Il campo {{name}}[{{fieldId}}] non supporta la validazione del valore del campo unico",
+      "optionsUnsupportedType": "Il campo {{name}}[{{fieldId}}] non supporta queste opzioni modificate: {{options}}",
       "notNullValidationWhenCreateField": "Il campo {{name}}[{{fieldId}}] non supporta la validazione non nulla durante la creazione di un nuovo campo",
       "dbFieldNameAlreadyExists": "Il nome del campo del database {{dbFieldName}} esiste già",
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] errore di validazione del campo",

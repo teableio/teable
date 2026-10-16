@@ -60,6 +60,17 @@
     "redirectDescription": "授权将重定向到",
     "authorize": "授权"
   },
+  "mcpDecision": {
+    "title": "连接 Teable MCP",
+    "subtitle": "授予 <b>{{name}}</b> 访问 Teable 的权限",
+    "capabilities": "通过 Teable MCP，<b>{{name}}</b> 将能够：",
+    "ability1": "按你在各项目中的权限查看和修改表格、字段、视图、记录、自动化与应用",
+    "ability2": "以你的身份执行操作，操作记录归到该应用名下",
+    "ability3": "使用你能访问的所有项目",
+    "redirectTitle": "你将被重定向到以下位置：",
+    "trustRedirect": "我认可并信任此 URL",
+    "continue": "继续"
+  },
   "device": {
     "title": "连接设备",
     "description": "输入终端上显示的 8 位代码，把该设备登录到你的账号。",

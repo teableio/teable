@@ -7,9 +7,9 @@
  * `SelectField defaultValue must match an option name`. Option ids are not
  * accepted as defaults.
  *
- * D12 (待定口径): renaming or deleting an option must leave the default either
- * valid or explicitly invalid, never silently wrong. Because D11 validates at
- * configuration time, a rename that leaves the default dangling is refused.
+ * D12 / N-27: an unchanged default follows a renamed option and is cleared
+ * when that option is deleted, so the saved default never names a missing
+ * option. An explicit re-point in the same payload is kept as supplied.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -139,7 +139,12 @@ describe('D11/D12: select default validity', () => {
     });
 
     it('rejects a field whose options carry duplicate names', async () => {
-      await expectSelectRejected('singleSelect', ['Alpha', 'Alpha'], undefined, /must be unique/i);
+      await expectSelectRejected(
+        'singleSelect',
+        ['Alpha', 'Alpha'],
+        undefined,
+        /Choice name Alpha already exists/
+      );
     });
   });
 
@@ -223,7 +228,7 @@ describe('D11/D12: select default validity', () => {
       expect(findRow(rows, record.id)?.fields[field.id]).toBe('Alpha renamed');
     });
 
-    it('refuses a rename that would leave the default dangling', async () => {
+    it('follows a rename when the default is left unchanged', async () => {
       seq += 1;
       const name = `Sel-dangling-${seq}`;
       const created = await ctx.createField({
@@ -238,26 +243,28 @@ describe('D11/D12: select default validity', () => {
       const field = fieldByName(created, name);
       const [alpha, beta] = choicesOf(field);
 
-      // Renaming without re-pointing the default must not be committed
-      // silently: the configuration would be permanently unreachable.
-      await expect(
-        ctx.updateField({
-          tableId,
-          fieldId: field.id,
-          field: {
-            options: { choices: [{ id: alpha.id, name: 'Alpha renamed' }, beta] },
-          },
-        })
-      ).rejects.toThrow(/must match an option name/i);
+      await ctx.updateField({
+        tableId,
+        fieldId: field.id,
+        field: {
+          options: { choices: [{ id: alpha.id, name: 'Alpha renamed' }, beta] },
+        },
+      });
 
-      // The field keeps the original, still-valid configuration.
       const reloaded = await ctx.getTableById(tableId);
       const reloadedField = reloaded.fields.find((item) => item.id === field.id);
-      expect(fieldOptions(reloadedField).defaultValue).toBe('Alpha');
-      expect(choicesOf(reloadedField).map((choice) => choice.name)).toEqual(['Alpha', 'Beta']);
+      expect(fieldOptions(reloadedField).defaultValue).toBe('Alpha renamed');
+      expect(choicesOf(reloadedField).map((choice) => choice.name)).toEqual([
+        'Alpha renamed',
+        'Beta',
+      ]);
+
+      const record = await ctx.createRecord(tableId, {});
+      const rows = await ctx.listRecords(tableId, { limit: 1000 });
+      expect(findRow(rows, record.id)?.fields[field.id]).toBe('Alpha renamed');
     });
 
-    it('refuses deleting the option a default points at', async () => {
+    it('clears the default when its option is deleted', async () => {
       seq += 1;
       const name = `Sel-delete-${seq}`;
       const created = await ctx.createField({
@@ -272,13 +279,20 @@ describe('D11/D12: select default validity', () => {
       const field = fieldByName(created, name);
       const [, beta] = choicesOf(field);
 
-      await expect(
-        ctx.updateField({
-          tableId,
-          fieldId: field.id,
-          field: { options: { choices: [beta] } },
-        })
-      ).rejects.toThrow(/must match an option name/i);
+      await ctx.updateField({
+        tableId,
+        fieldId: field.id,
+        field: { options: { choices: [beta] } },
+      });
+
+      const reloaded = await ctx.getTableById(tableId);
+      const reloadedField = reloaded.fields.find((item) => item.id === field.id);
+      expect(fieldOptions(reloadedField).defaultValue).toBeUndefined();
+      expect(choicesOf(reloadedField).map((choice) => choice.name)).toEqual(['Beta']);
+
+      const record = await ctx.createRecord(tableId, {});
+      const rows = await ctx.listRecords(tableId, { limit: 1000 });
+      expect(findRow(rows, record.id)?.fields[field.id]).toBeNull();
     });
 
     it('accepts deleting an option when the default moves in the same payload', async () => {

@@ -35,7 +35,7 @@ export class UserField extends Field {
         params.id,
         params.name,
         params.isMultiple ?? UserMultiplicity.single(),
-        params.shouldNotify ?? UserNotification.enabled(),
+        params.shouldNotify ?? UserNotification.disabled(),
         params.defaultValue
       )
     );

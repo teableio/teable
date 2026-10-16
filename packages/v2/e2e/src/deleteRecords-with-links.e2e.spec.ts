@@ -1307,6 +1307,16 @@ describe('[R11] v2 http deleteRecords with links (e2e)', () => {
       });
       expect(rejected.status).toBeGreaterThanOrEqual(400);
 
+      // The rejected delete must leave the target row and the required link intact.
+      const ownersAfterRejection = await ctx.listRecords(ownerTable.id);
+      expect(ownersAfterRejection.map((record) => record.id)).toContain(ownerOne.id);
+      const hostAfterRejection = (await ctx.listRecords(hostTable.id)).find(
+        (record) => record.id === hostRecord.id
+      );
+      expect(hostAfterRejection?.fields[hostLinkFieldId]).toEqual([
+        expect.objectContaining({ id: ownerOne.id }),
+      ]);
+
       // With a second link the host keeps one owner, so the delete goes through
       await ctx.updateRecord(hostTable.id, hostRecord.id, {
         [hostLinkFieldId]: [{ id: ownerOne.id }, { id: ownerTwo.id }],

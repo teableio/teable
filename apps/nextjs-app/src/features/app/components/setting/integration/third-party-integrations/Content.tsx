@@ -14,6 +14,8 @@ export const ThirdPartyIntegrationsContent = () => {
   const { data: authorizedList, isLoading } = useQuery({
     queryKey: ['integration'],
     queryFn: () => getAuthorizedList().then((res) => res.data),
+    // Self-registered clients (MCP clients) are managed on Settings → MCP.
+    select: (list) => list.filter((app) => !app.dynamicRegistration),
   });
   const [detail, setDetail] = useState<AuthorizedVo>();
 

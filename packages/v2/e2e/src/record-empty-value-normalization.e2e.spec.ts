@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { updateRecordOkResponseSchema } from '@teable/v2-contract-http';
+import {
+  createRecordOkResponseSchema,
+  updateRecordOkResponseSchema,
+} from '@teable/v2-contract-http';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -205,5 +208,48 @@ describe('v2 record empty value normalization (e2e)', () => {
     const updated = await readRecord(record.id);
     expectEmpty(updated.fields[checkboxFieldId]);
     expectEmpty(updated.fields[longTextFieldId]);
+  });
+
+  it('typecasts checkbox string "0" to checked and keeps numeric 0 empty (T7843)', async () => {
+    const cases: Array<{ input: unknown; checked: boolean }> = [
+      { input: 'true', checked: true },
+      { input: 'TRUE', checked: true },
+      { input: 'false', checked: false },
+      { input: '0', checked: true },
+      { input: 'no', checked: true },
+      { input: 0, checked: false },
+      { input: '', checked: false },
+    ];
+
+    for (const testCase of cases) {
+      const response = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          typecast: true,
+          fields: {
+            [primaryFieldId]: `checkbox ${String(testCase.input)}`,
+            [checkboxFieldId]: testCase.input,
+          },
+        }),
+      });
+      expect(response.status).toBe(201);
+      const parsed = createRecordOkResponseSchema.safeParse(await response.json());
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+      const value = parsed.data.data.record.fields[checkboxFieldId];
+      if (testCase.checked) {
+        expect(value).toBe(true);
+      } else {
+        expectEmpty(value);
+      }
+    }
+
+    const record = await ctx.createRecord(tableId, {
+      [primaryFieldId]: 'checkbox update 0',
+    });
+    await updateWithTypecast(record.id, { [checkboxFieldId]: '0' });
+    expect((await readRecord(record.id)).fields[checkboxFieldId]).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   X,
   MessageSquare,
+  MessageSquareDot,
 } from '@teable/icons';
 import {
   Button,
@@ -41,6 +42,7 @@ interface IExpandRecordHeader {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  onAddToChat?: () => void;
   onForeignTableClick?: () => void;
 }
 
@@ -48,6 +50,92 @@ interface IExpandRecordHeader {
 const MIN_TITLE_WIDTH = 300;
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_OPERATOR_WIDTH = 200;
+
+const ExpandRecordMoreMenu = ({
+  isMobile,
+  editable,
+  canDelete,
+  canDuplicate,
+  recordHistoryVisible,
+  onRecordHistoryToggle,
+  onDuplicate,
+  onAddToChat,
+  onDelete,
+  onClose,
+}: {
+  isMobile: boolean;
+  editable: boolean;
+  canDelete: boolean;
+  canDuplicate: boolean;
+  recordHistoryVisible?: boolean;
+  onRecordHistoryToggle?: () => void;
+  onDuplicate?: () => Promise<void>;
+  onAddToChat?: () => void;
+  onDelete?: () => Promise<void>;
+  onClose?: () => void;
+}) => {
+  const { t } = useTranslation();
+  const showMenu =
+    (isMobile && editable && !!onRecordHistoryToggle) ||
+    canDelete ||
+    (canDuplicate && !!onDuplicate) ||
+    !!onAddToChat;
+  if (!showMenu) return null;
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
+        <MoreHorizontal className="size-4 shrink-0" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent collisionPadding={isMobile ? 16 : undefined}>
+        {isMobile && editable && onRecordHistoryToggle && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2 text-sm outline-none"
+            onClick={onRecordHistoryToggle}
+          >
+            <History className="size-4 shrink-0" />
+            {recordHistoryVisible
+              ? t('expandRecord.recordHistory.hiddenRecordHistory')
+              : t('expandRecord.recordHistory.showRecordHistory')}
+          </DropdownMenuItem>
+        )}
+        {canDuplicate && !!onDuplicate && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2 text-sm outline-none"
+            onClick={async () => {
+              await onDuplicate();
+              setTimeout(() => onClose?.(), 100);
+            }}
+          >
+            <CopyPlus className="size-4 shrink-0" /> {t('expandRecord.duplicateRecord')}
+          </DropdownMenuItem>
+        )}
+        {onAddToChat && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2 text-sm outline-none"
+            onClick={() => {
+              onAddToChat();
+              setTimeout(() => onClose?.(), 100);
+            }}
+          >
+            <MessageSquareDot className="size-4 shrink-0" /> {t('expandRecord.addToChat')}
+          </DropdownMenuItem>
+        )}
+        {canDelete && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+            onClick={async () => {
+              await onDelete?.();
+              setTimeout(() => onClose?.(), 100);
+            }}
+          >
+            <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const {
@@ -67,6 +155,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    onAddToChat,
     onForeignTableClick,
   } = props;
 
@@ -197,50 +286,18 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {((isMobile && editable && !!onRecordHistoryToggle) ||
-            canDelete ||
-            (canDuplicate && !!onDuplicate)) && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
-                <MoreHorizontal className="size-4 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent collisionPadding={isMobile ? 16 : undefined}>
-                {isMobile && editable && onRecordHistoryToggle && (
-                  <DropdownMenuItem
-                    className="flex cursor-pointer items-center gap-2 text-sm outline-none"
-                    onClick={onRecordHistoryToggle}
-                  >
-                    <History className="size-4 shrink-0" />
-                    {recordHistoryVisible
-                      ? t('expandRecord.recordHistory.hiddenRecordHistory')
-                      : t('expandRecord.recordHistory.showRecordHistory')}
-                  </DropdownMenuItem>
-                )}
-                {canDuplicate && !!onDuplicate && (
-                  <DropdownMenuItem
-                    className="flex cursor-pointer items-center gap-2 text-sm outline-none"
-                    onClick={async () => {
-                      await onDuplicate();
-                      setTimeout(() => onClose?.(), 100);
-                    }}
-                  >
-                    <CopyPlus className="size-4 shrink-0" /> {t('expandRecord.duplicateRecord')}
-                  </DropdownMenuItem>
-                )}
-                {canDelete && (
-                  <DropdownMenuItem
-                    className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
-                    onClick={async () => {
-                      await onDelete?.();
-                      setTimeout(() => onClose?.(), 100);
-                    }}
-                  >
-                    <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <ExpandRecordMoreMenu
+            isMobile={isMobile}
+            editable={editable}
+            canDelete={canDelete}
+            canDuplicate={canDuplicate}
+            recordHistoryVisible={recordHistoryVisible}
+            onRecordHistoryToggle={onRecordHistoryToggle}
+            onDuplicate={onDuplicate}
+            onAddToChat={onAddToChat}
+            onDelete={onDelete}
+            onClose={onClose}
+          />
         </div>
       )}
       {!isMobile && <Separator className="h-6" orientation="vertical" />}

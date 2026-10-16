@@ -39,6 +39,7 @@ import {
   UploadType,
   LLMProviderType,
   resolveOpenAITranscriptionEndpoint,
+  resolveRealtimeTranscriptionModel,
   SettingKey,
 } from '@teable/openapi';
 import { APICallError, RetryError, createGateway, generateText, tool, generateImage } from 'ai';
@@ -354,10 +355,7 @@ export class SettingOpenApiService {
                 process.env.OPENAI_TRANSCRIPTION_API_KEY ||
                 process.env.OPENAI_REALTIME_API_KEY)
           ),
-          model:
-            aiConfig?.realtimeTranscription?.model === 'gpt-realtime-whisper'
-              ? DEFAULT_REALTIME_TRANSCRIPTION_MODEL
-              : aiConfig?.realtimeTranscription?.model ?? DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+          model: resolveRealtimeTranscriptionModel(aiConfig?.realtimeTranscription?.model),
           maxSessionDurationSec:
             aiConfig?.realtimeTranscription?.maxSessionDurationSec ??
             DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,

@@ -204,6 +204,17 @@
       "isAfter": "is after",
       "isOnOrBefore": "is on or before",
       "isOnOrAfter": "is on or after",
+      "user": {
+        "is": "is",
+        "isNot": "is not",
+        "isAnyOf": "is any of",
+        "isNoneOf": "is not any of",
+        "hasAnyOf": "has any of",
+        "hasAllOf": "has all of",
+        "isExactly": "is exactly",
+        "isNotExactly": "is not",
+        "hasNoneOf": "has none of"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -286,6 +297,7 @@
     "previousRecord": "Previous",
     "nextRecord": "Next",
     "duplicateRecord": "Duplicate record",
+    "addToChat": "Add to Chat",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
     "addRecordComment": "Add comment",
@@ -1293,6 +1305,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds or fromRecordIds is required for normal computed field",
       "recordFieldsRequired": "Record fields is undefined",
       "uniqueUnsupportedType": "Field {{name}}[{{fieldId}}] does not support field value unique validation",
+      "optionsUnsupportedType": "Field {{name}}[{{fieldId}}] does not support these patched options: {{options}}",
       "notNullValidationWhenCreateField": "Field {{name}}[{{fieldId}}] does not support not null validation when creating a new field",
       "dbFieldNameAlreadyExists": "Database field name {{dbFieldName}} already exists",
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",

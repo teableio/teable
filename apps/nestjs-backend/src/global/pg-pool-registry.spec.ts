@@ -1,4 +1,10 @@
-import { PgPoolRegistry } from '@teable/db-main-prisma';
+import { Logger } from '@nestjs/common';
+import type { PgPoolObserver } from '@teable/db-main-prisma';
+import {
+  installPgPoolObserver,
+  PgPoolRegistry,
+  pgPoolObserverFacade,
+} from '@teable/db-main-prisma';
 import type { Pool, PoolConfig } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,8 +24,48 @@ const createPoolFactory = () => {
   return { factory, pools };
 };
 
+/** A pool that behaves like pg's: event listeners plus an acquirable client. */
+const createObservedPoolFactory = () => {
+  const listeners = new Map<string, (...args: unknown[]) => void>();
+  const connect = vi.fn();
+  // The registry only touches the counters, the listeners and the wrapped `connect`, so a
+  // stand-in object is enough; a real `pg.Pool` would try to dial the database.
+  const pool = {
+    idleCount: 1,
+    options: {} as PoolConfig,
+    totalCount: 1,
+    waitingCount: 0,
+    connect,
+    end: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
+      listeners.set(event, listener);
+    }),
+  } as unknown as Pool & { connect: typeof connect };
+  const factory = vi.fn((config: PoolConfig) => {
+    Object.assign(pool, { options: config });
+    return pool;
+  });
+  return {
+    connect,
+    pool,
+    factory,
+    emit: (event: string, payload?: unknown) => listeners.get(event)?.(payload),
+  };
+};
+
+const createObserver = () => ({
+  onPoolCreated: vi.fn(),
+  onConnectEstablished: vi.fn(),
+  onPoolError: vi.fn(),
+  onAcquireFailure: vi.fn(),
+  onAcquireSettled: vi.fn(),
+});
+
 describe('PgPoolRegistry', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    installPgPoolObserver(undefined);
+  });
 
   it('shares unnamed callers for the same physical database until the final lease is released', async () => {
     const { factory, pools } = createPoolFactory();
@@ -194,5 +240,152 @@ describe('PgPoolRegistry', () => {
     await registry.onApplicationShutdown();
     expect(pools[0]!.end).toHaveBeenCalledOnce();
     expect(pools[1]!.end).toHaveBeenCalledOnce();
+  });
+
+  it('reports pool creation, physical connects and idle client failures to the observer', async () => {
+    const observer = createObserver();
+    const { factory, emit } = createObservedPoolFactory();
+    const logSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const registry = new PgPoolRegistry(factory, observer);
+
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    expect(observer.onPoolCreated).toHaveBeenCalledOnce();
+    expect(observer.onPoolCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ database: 'teable', host: 'db.example.com', port: 5432 })
+    );
+
+    emit('connect');
+    expect(observer.onConnectEstablished).toHaveBeenCalledWith(
+      expect.objectContaining({ database: 'teable', host: 'db.example.com', port: 5432 })
+    );
+
+    const idleError = new Error('terminating connection due to administrator command');
+    emit('error', idleError);
+    expect(observer.onPoolError).toHaveBeenCalledWith(expect.any(Object), idleError);
+    expect(logSpy).toHaveBeenCalledOnce();
+
+    await lease.release();
+  });
+
+  it('measures callback-style acquisitions without changing the callback contract', async () => {
+    const observer = createObserver();
+    const { factory, connect } = createObservedPoolFactory();
+    const registry = new PgPoolRegistry(factory, observer);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    const client = { id: 'client-1' };
+    const done = () => undefined;
+    connect.mockImplementation((callback: (...args: unknown[]) => void) => {
+      callback(undefined, client, done);
+      return undefined;
+    });
+    const callback = vi.fn();
+
+    (lease.pool.connect as unknown as (callback: unknown) => void)(callback);
+
+    expect(callback).toHaveBeenCalledWith(undefined, client, done);
+    expect(observer.onAcquireSettled).toHaveBeenCalledWith(
+      expect.objectContaining({ host: 'db.example.com' }),
+      'acquire',
+      expect.any(Number),
+      false
+    );
+    expect(observer.onAcquireFailure).not.toHaveBeenCalled();
+
+    await lease.release();
+  });
+
+  it('measures promise-style acquisitions and keeps a retry as its own attempt', async () => {
+    const observer = createObserver();
+    const { factory, connect } = createObservedPoolFactory();
+    const registry = new PgPoolRegistry(factory, observer);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    const connectTimeout = Object.assign(new Error('timeout exceeded when trying to connect'), {
+      code: 'ETIMEDOUT',
+    });
+    const client = { id: 'client-1' };
+    // Prisma's pg adapter retries a connection timeout once, with a fresh `pool.connect()`:
+    // each attempt is its own observation.
+    connect.mockRejectedValueOnce(connectTimeout).mockResolvedValueOnce(client);
+
+    await expect(lease.pool.connect()).rejects.toBe(connectTimeout);
+    await expect(lease.pool.connect()).resolves.toBe(client);
+
+    expect(observer.onAcquireSettled).toHaveBeenCalledTimes(2);
+    expect(observer.onAcquireSettled).toHaveBeenLastCalledWith(
+      expect.any(Object),
+      'acquire',
+      expect.any(Number),
+      false
+    );
+    expect(observer.onAcquireFailure).toHaveBeenCalledOnce();
+    expect(observer.onAcquireFailure).toHaveBeenCalledWith(
+      expect.any(Object),
+      connectTimeout,
+      'connect',
+      expect.any(Number)
+    );
+
+    await lease.release();
+  });
+
+  it('never lets a throwing observer change the pool result or break the pool', async () => {
+    const boom = new Error('observer is broken');
+    const observer: PgPoolObserver = {
+      onPoolCreated: () => {
+        throw boom;
+      },
+      onConnectEstablished: () => {
+        throw boom;
+      },
+      onPoolError: () => {
+        throw boom;
+      },
+      onAcquireFailure: () => {
+        throw boom;
+      },
+      onAcquireSettled: () => {
+        throw boom;
+      },
+    };
+    const { factory, connect, emit } = createObservedPoolFactory();
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const registry = new PgPoolRegistry(factory, observer);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    const failure = Object.assign(new Error('pool is closed'), { code: '57P01' });
+    connect.mockRejectedValue(failure);
+
+    await expect(lease.pool.connect()).rejects.toBe(failure);
+    expect(() => emit('connect')).not.toThrow();
+    expect(() => emit('error', new Error('idle failure'))).not.toThrow();
+
+    await lease.release();
+  });
+
+  it('reaches the observer installed after bootstrap through the DI facade', async () => {
+    const installed = createObserver();
+    const { factory, emit } = createObservedPoolFactory();
+    installPgPoolObserver(installed);
+    const registry = new PgPoolRegistry(factory, pgPoolObserverFacade);
+
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    emit('connect');
+
+    expect(installed.onPoolCreated).toHaveBeenCalledOnce();
+    expect(installed.onConnectEstablished).toHaveBeenCalledOnce();
+
+    await lease.release();
+  });
+
+  it('is a no-op without an observer, and without one installed in the facade', async () => {
+    const { factory, connect, emit } = createObservedPoolFactory();
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const registry = new PgPoolRegistry(factory, pgPoolObserverFacade);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable');
+    connect.mockResolvedValue({ id: 'client-1' });
+
+    await expect(lease.pool.connect()).resolves.toEqual({ id: 'client-1' });
+    expect(() => emit('error', new Error('idle failure'))).not.toThrow();
+
+    await lease.release();
   });
 });

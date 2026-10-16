@@ -4,7 +4,13 @@ import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { getDatabaseUrl } from './database-url';
-import { defaultPgPoolFactory, PG_POOL_FACTORY, PgPoolRegistry } from './pg-pool-registry';
+import {
+  defaultPgPoolFactory,
+  PG_POOL_FACTORY,
+  PG_POOL_OBSERVER,
+  pgPoolObserverFacade,
+  PgPoolRegistry,
+} from './pg-pool-registry';
 import { DataPrismaService, MetaPrismaService, PrismaService } from './prisma.service';
 
 const getSchema = (databaseUrl: string): string | undefined =>
@@ -25,6 +31,13 @@ export const MetaPrismaProvider: Provider = {
     {
       provide: PG_POOL_FACTORY,
       useValue: defaultPgPoolFactory,
+    },
+    // Default no-op observer. The application installs its real observer through
+    // `installPgPoolObserver` (see pg-pool-registry.ts): this module owns
+    // `PgPoolRegistry`, so re-providing the token from the app would not reach it.
+    {
+      provide: PG_POOL_OBSERVER,
+      useValue: pgPoolObserverFacade,
     },
     PgPoolRegistry,
     MetaPrismaProvider,

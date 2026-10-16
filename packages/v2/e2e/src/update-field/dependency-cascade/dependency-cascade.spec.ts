@@ -411,6 +411,63 @@ describe('update-field: computed dependency cascades', () => {
     }
   });
 
+  test('[V1 PARITY] clears formula hasError and recomputes values when an incompatible conversion is reverted', async () => {
+    let tableId: string | undefined;
+    try {
+      const dateFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('dep-cascade-conversion-recovery'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'date', id: dateFieldId, name: 'When' },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Fmt',
+            options: { expression: `DATETIME_FORMAT({${dateFieldId}}, "YYYY-MM-DD")` },
+          },
+        ],
+        records: [{ fields: { Name: 'r1', [dateFieldId]: '2024-01-15T00:00:00.000Z' } }],
+      });
+      tableId = table.id;
+      await ctx.drainOutbox();
+
+      const readValues = async () => {
+        const records = await ctx.listRecords(tableId!);
+        const tableState = await ctx.getTableById(tableId!);
+        const sourceField = tableState.fields.find((field) => field.id === dateFieldId);
+        return {
+          formula: records[0]?.fields[formulaFieldId],
+          sourceValue: records[0]?.fields[dateFieldId],
+          sourceType: sourceField?.type,
+        };
+      };
+
+      const initial = await readValues();
+      expect(initial.sourceType).toBe('date');
+      expect(initial.formula).toBe('2024-01-15');
+
+      // Converting the dependency to an incompatible type must recompute the
+      // dependent value instead of freezing the previous result.
+      await ctx.updateField({ tableId, fieldId: dateFieldId, field: { type: 'number' } });
+      await ctx.drainOutbox();
+      const converted = await readValues();
+      expect(converted.sourceType).toBe('number');
+      expect(converted.formula).not.toBe('2024-01-15');
+
+      // Reverting the conversion must restore the correct dependent value.
+      await ctx.updateField({ tableId, fieldId: dateFieldId, field: { type: 'date' } });
+      await ctx.drainOutbox();
+      const recovered = await readValues();
+      expect(recovered.sourceType).toBe('date');
+      expect(recovered.formula).toBe('2024-01-15');
+    } finally {
+      await cleanupTable(tableId);
+    }
+  });
+
   // ============ Lookup dependencies ============
 
   test('[V1 PARITY] should update lookup metadata and values when target field converts number → text', async () => {
@@ -556,15 +613,37 @@ describe('update-field: computed dependency cascades', () => {
       });
       await ctx.drainOutbox();
 
+      const foreignAfterCreate = await ctx.getTableById(foreign.id);
+      const statusField = foreignAfterCreate.fields.find((field) => field.id === sourceFieldId) as
+        | { options?: { choices?: Array<{ id?: string; name: string }> } }
+        | undefined;
+      const [openChoice, doneChoice] = statusField?.options?.choices ?? [];
+      if (!openChoice || !doneChoice) throw new Error('Missing select choices');
+
+      // Rename while keeping the original choice id, which is what makes this a
+      // rename instead of a delete + create.
       await ctx.updateField({
         tableId: foreign.id,
         fieldId: sourceFieldId,
         field: {
           type: 'singleSelect',
-          options: { choices: [{ name: 'Opened' }, { name: 'Done' }] },
+          options: { choices: [{ ...openChoice, name: 'Opened' }, doneChoice] },
         },
       });
       await ctx.drainOutbox();
+
+      const foreignRecordsAfter = await ctx.listRecords(foreign.id);
+      const recordA = foreignRecordsAfter.find(
+        (record) => record.fields[foreignPrimary.id] === 'A'
+      );
+      const recordB = foreignRecordsAfter.find(
+        (record) => record.fields[foreignPrimary.id] === 'B'
+      );
+      expect(recordA?.fields[sourceFieldId]).toBe('Opened');
+      expect(recordB?.fields[sourceFieldId]).toBe('Done');
+
+      const hostRecordsAfter = await ctx.listRecords(host.id);
+      expect(hostRecordsAfter[0]?.fields[lookupFieldId]).toEqual(['Opened', 'Done']);
 
       const table = await ctx.getTableById(host.id);
       const lookupField = table.fields.find((field) => field.id === lookupFieldId);
@@ -859,10 +938,6 @@ describe('update-field: computed dependency cascades', () => {
     }
   });
 
-  test('[V1 PARITY] should set rollup hasError when target field conversion makes aggregation invalid', async () => {
-    expect(true).toBe(true);
-  });
-
   // ============ Link conversion effects ============
 
   test('[NOT IMPLEMENTED] should mark lookup/rollup hasError when link field converted to non-link type', async () => {
@@ -887,38 +962,6 @@ describe('update-field: computed dependency cascades', () => {
 
   // ============ A. Targeted seeding for property changes (no type conversion) ============
 
-  test('[NOT IMPLEMENTED] should seed ONLY affected records when select option is deleted (records with deleted value → null)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed ONLY affected records when select option is renamed (records with old name → new name)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed ONLY affected records when multiple select option is deleted (filter from arrays)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed ONLY affected records when rating max is reduced (records > new max → clamped)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should NOT seed when rating max is increased (no record values change)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should NOT seed when rating icon/color changes (cosmetic only)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should NOT seed when select option color changes (cosmetic only)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed ONLY affected records when user field isMultiple changes (single↔array)', async () => {
-    expect(true).toBe(true);
-  });
-
   // ============ B. Type conversion computed seeds (all records) ============
 
   test("[NOT IMPLEMENTED] should seed all records' dependents when text → number conversion changes values", async () => {
@@ -931,38 +974,6 @@ describe('update-field: computed dependency cascades', () => {
     } finally {
       await cleanupTable(tableId);
     }
-  });
-
-  test("[NOT IMPLEMENTED] should seed all records' dependents when text → select (even though DB value unchanged, cellValueType changes)", async () => {
-    expect(true).toBe(true);
-  });
-
-  test("[NOT IMPLEMENTED] should seed all records' dependents when number → text conversion", async () => {
-    expect(true).toBe(true);
-  });
-
-  test("[NOT IMPLEMENTED] should seed all records' dependents when text → checkbox conversion", async () => {
-    expect(true).toBe(true);
-  });
-
-  test("[NOT IMPLEMENTED] should seed all records' dependents when text → date conversion", async () => {
-    expect(true).toBe(true);
-  });
-
-  test("[NOT IMPLEMENTED] should seed all records' dependents when date → number conversion", async () => {
-    expect(true).toBe(true);
-  });
-
-  test('should NOT seed dependents when only field name changes (no value/type change)', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('should NOT seed dependents when only field description changes', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('should NOT seed dependents when only formatting/showAs changes', async () => {
-    expect(true).toBe(true);
   });
 
   // ============ C. Cross-table dependency seeds via link ============
@@ -986,39 +997,6 @@ describe('update-field: computed dependency cascades', () => {
       await cleanupTable(hostTableId);
       await cleanupTable(foreignTableId);
     }
-  });
-
-  test('[NOT IMPLEMENTED] should seed rollup values in Table A when Table B source field type converts', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed formula→lookup chain when lookup source field converts', async () => {
-    let hostTableId: string | undefined;
-    let foreignTableId: string | undefined;
-    try {
-      const setup = await createLinkLookupTable();
-      hostTableId = setup.hostTableId;
-      foreignTableId = setup.foreignTableId;
-      await ctx.updateField({
-        tableId: setup.foreignTableId,
-        fieldId: setup.foreignSourceFieldId,
-        field: { type: 'number' },
-      });
-      await ctx.drainOutbox();
-      const records = await ctx.listRecordsWithoutDrain(setup.hostTableId);
-      expect(records[0]?.fields[setup.formulaFieldId]).toEqual([100]);
-    } finally {
-      await cleanupTable(hostTableId);
-      await cleanupTable(foreignTableId);
-    }
-  });
-
-  test('[NOT IMPLEMENTED] should seed lookup in Table A when Table B select option renamed/deleted', async () => {
-    expect(true).toBe(true);
-  });
-
-  test('[NOT IMPLEMENTED] should seed conditional lookup when foreign field converts', async () => {
-    expect(true).toBe(true);
   });
 
   test('[V1 PARITY] should keep downstream formula backfill safe when conditional lookup becomes errored after host field conversion', async () => {
@@ -1110,10 +1088,6 @@ describe('update-field: computed dependency cascades', () => {
 
   // ============ D. Formula compatibility after dependency field type change ============
 
-  test('[NOT IMPLEMENTED] should set formula hasError and clear values when referenced field converts to unsupported type', async () => {
-    expect(true).toBe(true);
-  });
-
   test('[NOT IMPLEMENTED] should keep formula working when referenced field converts to compatible type (text→number for numeric formula)', async () => {
     const { tableId, sourceFieldId, f1Id } = await createFormulaTable();
     try {
@@ -1138,10 +1112,6 @@ describe('update-field: computed dependency cascades', () => {
     } finally {
       await cleanupTable(tableId);
     }
-  });
-
-  test('[NOT IMPLEMENTED] should handle formula referencing field that converts from date to text (date functions break)', async () => {
-    expect(true).toBe(true);
   });
 
   test('[NOT IMPLEMENTED] should handle formula with VALUE() when referenced field converts from text to number (VALUE becomes identity)', async () => {

@@ -24,11 +24,7 @@ export const convertZonedInputToUtc = (inputValue: string, formatting: IDatetime
   if (!isValid) return null;
 
   if (isTimeNone) {
-    const now = fromZonedTime(new Date(), timeZone);
-    curDate = curDate
-      .set('hour', now.getHours())
-      .set('minute', now.getMinutes())
-      .set('second', now.getSeconds());
+    curDate = curDate.set('hour', 0).set('minute', 0).set('second', 0).set('millisecond', 0);
   }
 
   const zonedDate = curDate.toDate();

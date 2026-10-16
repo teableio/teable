@@ -10,7 +10,7 @@ FROM node:${NODE_VERSION}-bookworm AS deps
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
 RUN corepack enable \
- && corepack prepare pnpm@9.13.0 --activate \
+ && corepack prepare pnpm@12.11.2 --activate \
  && pnpm add npm-run-all2 zx -g
 
 # Disabling some well-known postinstall scripts
@@ -106,7 +106,7 @@ ENV TZ=UTC \
 RUN set -ex; \
         npm install zx -g; \
         corepack enable; \
-        corepack prepare pnpm@9.13.0 --activate; \
+        corepack prepare pnpm@12.11.2 --activate; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
                 curl \

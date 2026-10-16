@@ -17,7 +17,12 @@ export const List = (props: {
     <div className="flex-1 overflow-auto">
       {list?.map((authorized) => (
         <div key={authorized.clientId} className="flex items-center gap-4 border-t py-4">
-          <OAuthLogo logo={authorized.logo} name={authorized.name} className="size-14" />
+          <OAuthLogo
+            logo={authorized.logo}
+            name={authorized.name}
+            dynamicRegistration={authorized.dynamicRegistration}
+            className="size-14"
+          />
           <div className="flex-1">
             <Button
               className="h-5 p-0 text-sm"
@@ -32,11 +37,14 @@ export const List = (props: {
                   date: dayjs(authorized.lastUsedTime).fromNow(),
                 })}
               </p>
-              <p>
-                {t('settings.integration.thirdPartyIntegrations.owner', {
-                  user: authorized.createdUser.name,
-                })}
-              </p>
+              {/* A self-registered client (RFC 7591) has no developer behind it. */}
+              {!authorized.dynamicRegistration && (
+                <p>
+                  {t('settings.integration.thirdPartyIntegrations.owner', {
+                    user: authorized.createdUser.name,
+                  })}
+                </p>
+              )}
             </div>
           </div>
           <RevokeButton clientId={authorized.clientId} name={authorized.name} />

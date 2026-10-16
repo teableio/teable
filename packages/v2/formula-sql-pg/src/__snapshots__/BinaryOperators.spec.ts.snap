@@ -178,7 +178,7 @@ exports[`binary comparison operators > 'Eq' 'button' '=' 'button' 1`] = `
   "operator": "=",
   "result": "true",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') = COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') = COALESCE(NULL::text, ''))",
 }
 `;
 
@@ -2607,7 +2607,7 @@ exports[`binary comparison operators > 'Gt' 'button' '>' 'button' 1`] = `
   "operator": ">",
   "result": "false",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') > COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') > COALESCE(NULL::text, ''))",
 }
 `;
 
@@ -5036,7 +5036,7 @@ exports[`binary comparison operators > 'Gte' 'button' '>=' 'button' 1`] = `
   "operator": ">=",
   "result": "true",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') >= COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') >= COALESCE(NULL::text, ''))",
 }
 `;
 
@@ -7465,7 +7465,7 @@ exports[`binary comparison operators > 'Lt' 'button' '<' 'button' 1`] = `
   "operator": "<",
   "result": "false",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') < COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') < COALESCE(NULL::text, ''))",
 }
 `;
 
@@ -9894,7 +9894,7 @@ exports[`binary comparison operators > 'Lte' 'button' '<=' 'button' 1`] = `
   "operator": "<=",
   "result": "true",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') <= COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') <= COALESCE(NULL::text, ''))",
 }
 `;
 
@@ -12323,7 +12323,7 @@ exports[`binary comparison operators > 'Neq' 'button' '!=' 'button' 1`] = `
   "operator": "!=",
   "result": "false",
   "rightType": "button",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value) SELECT (COALESCE((SELECT value FROM "__formula_0"), '') <> COALESCE((SELECT value FROM "__formula_0"), '')))",
+  "sql": "(COALESCE(NULL::text, '') <> COALESCE(NULL::text, ''))",
 }
 `;
 

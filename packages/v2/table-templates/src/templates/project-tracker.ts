@@ -63,7 +63,7 @@ const createProjectTrackerSeed = (): SingleTableSeed => {
       {
         fields: {
           [itemFieldId]: 'Discovery',
-          [statusFieldId]: statusOptions[0]!.id,
+          [statusFieldId]: statusOptions[0]!.name,
           [startDateFieldId]: '2025-02-01T00:00:00.000Z',
           [endDateFieldId]: '2025-02-05T00:00:00.000Z',
           [progressFieldId]: 10,
@@ -74,7 +74,7 @@ const createProjectTrackerSeed = (): SingleTableSeed => {
       {
         fields: {
           [itemFieldId]: 'Implementation',
-          [statusFieldId]: statusOptions[1]!.id,
+          [statusFieldId]: statusOptions[1]!.name,
           [startDateFieldId]: '2025-02-06T00:00:00.000Z',
           [endDateFieldId]: '2025-02-20T00:00:00.000Z',
           [progressFieldId]: 45,
@@ -85,7 +85,7 @@ const createProjectTrackerSeed = (): SingleTableSeed => {
       {
         fields: {
           [itemFieldId]: 'QA & Launch',
-          [statusFieldId]: statusOptions[2]!.id,
+          [statusFieldId]: statusOptions[2]!.name,
           [startDateFieldId]: '2025-02-21T00:00:00.000Z',
           [endDateFieldId]: '2025-03-01T00:00:00.000Z',
           [progressFieldId]: 0,

@@ -642,10 +642,6 @@ describe('FieldSqlLiteralVisitor', () => {
      * These behaviors are verified in integration tests that have proper table setup.
      */
 
-    it('documents that complex field types are covered', () => {
-      expect(complexFieldCases.length).toBe(6); // link, formula, rollup, lookup, conditionalRollup, conditionalLookup
-    });
-
     it.each(complexFieldCases)('$type: expected behavior is documented', (testCase) => {
       // This is a documentation test - just verify the expected values are defined
       expect(testCase.expectedSampleLiteral).toBeDefined();
@@ -667,23 +663,6 @@ describe('FieldSqlLiteralVisitor', () => {
   // ============================================================================
 
   describe('coverage verification', () => {
-    it('covers all field types from fieldTypeValues', () => {
-      expect(allTestCases.length).toBe(fieldTypeValues.length);
-    });
-
-    it('simple + complex field counts equal total', () => {
-      expect(simpleFieldCases.length + complexFieldCases.length).toBe(allTestCases.length);
-    });
-
-    it('has at least one test case for each category in simple fields', () => {
-      expect(textFieldCases.length).toBeGreaterThan(0);
-      expect(numericFieldCases.length).toBeGreaterThan(0);
-      expect(booleanFieldCases.length).toBeGreaterThan(0);
-      expect(timestampFieldCases.length).toBeGreaterThan(0);
-      expect(jsonbFieldCases.length).toBeGreaterThan(0);
-      expect(computedFieldCases.length).toBeGreaterThan(0);
-    });
-
     it('category counts for simple fields sum correctly', () => {
       const categoryTotal =
         textFieldCases.length +

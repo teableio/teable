@@ -203,6 +203,17 @@
       "isAfter": "より後",
       "isOnOrBefore": "以前",
       "isOnOrAfter": "以後",
+      "user": {
+        "is": "等しい",
+        "isNot": "等しくない",
+        "isAnyOf": "いずれか",
+        "isNoneOf": "いずれでもない",
+        "hasAnyOf": "いずれも含む",
+        "hasAllOf": "すべて含む",
+        "isExactly": "正確に",
+        "isNotExactly": "等しくない",
+        "hasNoneOf": "含まない"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -283,6 +294,7 @@
     "previousRecord": "前のレコード",
     "nextRecord": "次のレコード",
     "duplicateRecord": "Duplicate record",
+    "addToChat": "チャットに追加",
     "copyRecordUrl": "レコードのURLをコピー",
     "deleteRecord": "レコードを削除",
     "addRecordComment": "コメントを追加",
@@ -1284,6 +1296,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "通常の計算フィールドには toRecordIds または fromRecordIds が必要です",
       "recordFieldsRequired": "レコードフィールドが未定義です",
       "uniqueUnsupportedType": "フィールド {{name}}[{{fieldId}}] はフィールド値の一意性検証をサポートしていません",
+      "optionsUnsupportedType": "フィールド {{name}}[{{fieldId}}] はこれらのオプションの変更をサポートしていません: {{options}}",
       "notNullValidationWhenCreateField": "フィールド {{name}}[{{fieldId}}] は新しいフィールドの作成時に非NULL検証をサポートしていません",
       "dbFieldNameAlreadyExists": "データベースフィールド名 {{dbFieldName}} は既に存在します",
       "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",

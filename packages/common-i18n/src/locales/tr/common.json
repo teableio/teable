@@ -300,24 +300,23 @@
       },
       "deleteAccount": {
         "title": "Hesabı Sil",
-        "desc": "Hesabınız silindikten sonra geri yüklenemez. Lütfen dikkatli olun.",
+        "desc": "Bu işlem geri alınamaz. Hesabınız silindikten sonra kurtarılamaz.",
         "spaces": {
-          "title": "Yalnızca size ait alanlar",
-          "body": "Hesabınızla birlikte çöp kutusuna taşınır. Birini korumak için önce bir üyeye devredin.",
-          "loading": "Yalnızca size ait olan alanlar kontrol ediliyor…",
-          "blockedHint": "Devam etmek için bu aboneliği iptal edin ya da alanı devredin.",
-          "willTrash": "Çöp kutusuna taşınacak",
+          "title": "Tek sahibi olduğunuz alanlar",
+          "body": "Hesabınız silindiğinde bu alanlar çöp kutusuna taşınır. Birini korumak için önce başka bir üyeye devredin.",
+          "loading": "Tek sahibi olduğunuz alanlar kontrol ediliyor…",
+          "blockedHint": "“Silinemez” olarak işaretlenen alanların hâlâ etkin bir aboneliği var. Hesabınızı silmeden önce bunları çözün.",
           "willTransfer": "Devredilecek",
-          "subscribedHint": "Bu alanın hâlâ etkin bir aboneliği var. Aboneliği iptal edin, ardından hesabınızı silmek için geri dönün.",
-          "cancelSubscription": "Aboneliği yönet",
-          "transferTo": "Devretmek için üye seçin, yoksa çöp kutusuna gider",
-          "transferToSubscribed": "Ya da devretmek için üye seçin; abonelik alanda kalır"
+          "notDeletable": "Silinemez",
+          "cancelSubscription": "Planı yönet",
+          "transferTo": "Bir üyeye devret (isteğe bağlı)",
+          "transferToSubscribed": "Bir üyeye devret (abonelikle birlikte)"
         },
         "confirm": {
           "title": "Onaylamak için <code>DELETE</code> yazın",
           "placeholder": "DELETE"
         },
-        "loading": "Siliniyor..."
+        "loading": "Siliniyor…"
       }
     },
     "notify": {

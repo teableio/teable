@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -446,7 +447,25 @@ export class ConditionalRollupField
     const lookupField = ForeignTable.from(foreignTable)
       .fieldById(this.lookupFieldId())
       .mapErr(() =>
-        domainError.notFound({ message: 'ConditionalRollupField lookup field not found' })
+        // The configured source field is user-supplied input, so a field that
+        // lives in another table (or does not exist) is a request-validation
+        // error, not a missing resource.
+        domainError.validation({
+          message:
+            'ConditionalRollupField lookup field does not belong to the configured foreign table',
+          code: 'conditional_rollup.lookup_field_foreign_table_mismatch',
+          details: {
+            lookupFieldId: this.lookupFieldId().toString(),
+            foreignTableId: this.foreignTableId().toString(),
+          },
+          localization: {
+            i18nKey: sdkErrorI18nKeys.field.lookupFieldNotBelongToTable,
+            context: {
+              lookupFieldId: this.lookupFieldId().toString(),
+              foreignTableId: this.foreignTableId().toString(),
+            },
+          },
+        })
       );
     if (lookupField.isErr()) return err(lookupField.error);
 

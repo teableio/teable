@@ -18,6 +18,13 @@ import type {
 import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 
+export const DEFAULT_COMPUTED_WORKER_LANE = 'production';
+
+/** Queue ownership is explicit; changing telemetry labels must not reassign durable work. */
+export const resolveComputedWorkerLane = (
+  env: Readonly<Record<string, string | undefined>> = process.env
+): string => env.TEABLE_WORKER_LANE?.trim() || DEFAULT_COMPUTED_WORKER_LANE;
+
 /**
  * ROLLOUT NOTE: the stage-budget dimensions are ON by default (no runtime
  * toggle — a deliberate product decision to keep the fix active everywhere).
@@ -30,6 +37,8 @@ import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload'
  * between stage-aware versions have no such window.
  */
 export type ComputedUpdateOutboxConfig = {
+  /** Persisted task ownership. Locks and per-table concurrency remain shared across lanes. */
+  workerLane: string;
   /** Inline seed storage limit before spilling to computed_update_outbox_seed. */
   seedInlineLimit: number;
   /** Maximum retry attempts before moving to dead letter. */
@@ -186,6 +195,7 @@ export type ComputedUpdateOutboxConfig = {
 };
 
 export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
+  workerLane: DEFAULT_COMPUTED_WORKER_LANE,
   seedInlineLimit: 5000,
   maxAttempts: 8,
   baseBackoffMs: 5000,

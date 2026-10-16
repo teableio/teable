@@ -441,7 +441,7 @@ describe('FieldOptionsDtoVisitor', () => {
     });
     expect(visit(minimalUserField)).toEqual({
       isMultiple: false,
-      shouldNotify: true,
+      shouldNotify: false,
     });
     expect(visit(lastModifiedByField)).toEqual({
       trackedFieldIds: [trackedFieldId.toString()],

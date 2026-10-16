@@ -63,8 +63,8 @@ const createContentCalendarSeed = (): SingleTableSeed => {
       {
         fields: {
           [titleFieldId]: 'Quarterly roadmap post',
-          [channelFieldId]: channelOptions[0]!.id,
-          [statusFieldId]: statusOptions[1]!.id,
+          [channelFieldId]: channelOptions[0]!.name,
+          [statusFieldId]: statusOptions[1]!.name,
           [publishDateFieldId]: '2025-02-12T00:00:00.000Z',
           [assetUrlFieldId]: 'https://example.com/roadmap',
           [summaryFieldId]: 'Outline key milestones for Q2.',
@@ -73,8 +73,8 @@ const createContentCalendarSeed = (): SingleTableSeed => {
       {
         fields: {
           [titleFieldId]: 'Customer story',
-          [channelFieldId]: channelOptions[1]!.id,
-          [statusFieldId]: statusOptions[2]!.id,
+          [channelFieldId]: channelOptions[1]!.name,
+          [statusFieldId]: statusOptions[2]!.name,
           [publishDateFieldId]: '2025-02-15T00:00:00.000Z',
           [assetUrlFieldId]: 'https://example.com/case-study',
           [summaryFieldId]: 'Highlight measurable impact.',
@@ -83,8 +83,8 @@ const createContentCalendarSeed = (): SingleTableSeed => {
       {
         fields: {
           [titleFieldId]: 'Feature teaser',
-          [channelFieldId]: channelOptions[2]!.id,
-          [statusFieldId]: statusOptions[0]!.id,
+          [channelFieldId]: channelOptions[2]!.name,
+          [statusFieldId]: statusOptions[0]!.name,
           [publishDateFieldId]: '2025-02-08T00:00:00.000Z',
           [assetUrlFieldId]: 'https://example.com/teaser',
           [summaryFieldId]: 'Short video for social.',

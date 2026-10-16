@@ -1036,7 +1036,7 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         body: JSON.stringify({
           tableId: table.id,
           fields: {
-            [selectFieldId]: optionB.id,
+            [selectFieldId]: optionB.name,
           },
         }),
       });
@@ -1124,7 +1124,7 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         body: JSON.stringify({
           tableId: table.id,
           fields: {
-            [multiSelectFieldId]: [tagA.id, tagC.id],
+            [multiSelectFieldId]: [tagA.name, tagC.name],
           },
         }),
       });
@@ -6152,7 +6152,7 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           tableId: table.id,
-          fields: { [primaryFieldId]: 'A', [selectFieldId]: optionA.id },
+          fields: { [primaryFieldId]: 'A', [selectFieldId]: optionA.name },
         }),
       });
       expect(aRecord.status).toBe(201);
@@ -6167,7 +6167,7 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           tableId: table.id,
-          fields: { [primaryFieldId]: 'B', [selectFieldId]: optionB.id },
+          fields: { [primaryFieldId]: 'B', [selectFieldId]: optionB.name },
         }),
       });
       expect(bRecord.status).toBe(201);
@@ -9789,7 +9789,7 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         body: JSON.stringify({
           tableId: table.id,
           fields: {
-            [multiSelectFieldId]: [tagA.id, tagC.id],
+            [multiSelectFieldId]: [tagA.name, tagC.name],
           },
         }),
       });
@@ -9882,8 +9882,8 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         body: JSON.stringify({
           tableId: table.id,
           fields: {
-            [tags1FieldId]: [tagA1.id, tagB1.id],
-            [tags2FieldId]: [tagB2.id, tagC2.id],
+            [tags1FieldId]: [tagA1.name, tagB1.name],
+            [tags2FieldId]: [tagB2.name, tagC2.name],
           },
         }),
       });
@@ -9976,8 +9976,8 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         body: JSON.stringify({
           tableId: table.id,
           fields: {
-            [tags1FieldId]: [tagA1.id, tagB1.id],
-            [tags2FieldId]: [tagB2.id, tagC2.id],
+            [tags1FieldId]: [tagA1.name, tagB1.name],
+            [tags2FieldId]: [tagB2.name, tagC2.name],
           },
         }),
       });
@@ -11888,8 +11888,8 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         return parsed.data.data.record.id;
       };
 
-      const paidContactId = await createContact('Alice', statusPaid.id);
-      const pendingContactId = await createContact('Bob', statusPending.id);
+      const paidContactId = await createContact('Alice', statusPaid.name);
+      const pendingContactId = await createContact('Bob', statusPending.name);
       if (!paidContactId || !pendingContactId) {
         throw new Error('Failed to create contacts');
       }
@@ -17842,12 +17842,12 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
 
         const record = await ctx.createRecord(table.id, {
           [txtId]: 'Alpha',
-          [tagsId]: [alphaId],
+          [tagsId]: ['Alpha'],
         });
         await ctx.drainOutbox();
         expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
 
-        await ctx.updateRecord(table.id, record.id, { [tagsId]: [betaId] });
+        await ctx.updateRecord(table.id, record.id, { [tagsId]: ['Beta'] });
         await ctx.drainOutbox();
         expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
       });
@@ -18230,11 +18230,11 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
           `IF({${tagsId}} = "Alpha", 1, 2)`
         );
 
-        const record = await ctx.createRecord(table.id, { [tagsId]: [alphaId] });
+        const record = await ctx.createRecord(table.id, { [tagsId]: ['Alpha'] });
         await ctx.drainOutbox();
         expect((await parityFields(table.id, record.id))[formulaId]).toBe(1);
 
-        await ctx.updateRecord(table.id, record.id, { [tagsId]: [betaId] });
+        await ctx.updateRecord(table.id, record.id, { [tagsId]: ['Beta'] });
         await ctx.drainOutbox();
         expect((await parityFields(table.id, record.id))[formulaId]).toBe(2);
       });
@@ -18261,17 +18261,17 @@ describe('[C01][C04][C08][F12] v2 http formula (e2e)', () => {
         );
 
         const record = await ctx.createRecord(table.id, {
-          [statusId]: mediumId,
+          [statusId]: 'medium',
           [amountId]: 42,
         });
         await ctx.drainOutbox();
         expect(Number((await parityFields(table.id, record.id))[formulaId])).toBe(42);
 
-        await ctx.updateRecord(table.id, record.id, { [statusId]: heavyId });
+        await ctx.updateRecord(table.id, record.id, { [statusId]: 'heavy' });
         await ctx.drainOutbox();
         expect((await parityFields(table.id, record.id))[formulaId] ?? null).toBeNull();
 
-        await ctx.updateRecord(table.id, record.id, { [statusId]: lightId });
+        await ctx.updateRecord(table.id, record.id, { [statusId]: 'light' });
         await ctx.drainOutbox();
         expect(Number((await parityFields(table.id, record.id))[formulaId])).toBe(123);
       });

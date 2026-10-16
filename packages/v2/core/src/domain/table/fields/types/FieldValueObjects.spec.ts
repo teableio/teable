@@ -188,6 +188,24 @@ describe('SelectOptions', () => {
       duplicate._unsafeUnwrap(),
     ]);
     expect(duplicateResult.isErr()).toBe(true);
+    expect(duplicateResult._unsafeUnwrapErr().localization).toEqual({
+      i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
+      context: { name: 'Todo' },
+    });
+
+    const spaced = SelectOption.create({ name: ' Todo ', color: 'blue' });
+    const spacedDuplicate = validateSelectOptions([
+      optionOne._unsafeUnwrap(),
+      spaced._unsafeUnwrap(),
+    ]);
+    expect(spacedDuplicate.isErr()).toBe(true);
+    if (spacedDuplicate.isErr()) {
+      expect(spacedDuplicate.error.localization).toEqual({
+        i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
+        context: { name: 'Todo' },
+      });
+      expect(spacedDuplicate.error.message).toBe('Choice name Todo already exists');
+    }
 
     const invalidDefault = SelectDefaultValue.create('Missing');
     expect(invalidDefault.isOk()).toBe(true);

@@ -69,7 +69,8 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     saveValue,
   }));
 
-  // The calendar hands over a day on the clock of timeZone; it keeps the time the value shows there.
+  // A hidden time is field-zone midnight. A shown time keeps the value's clock, or the current clock when the cell is empty.
+  const timeHidden = time === TimeFormatting.None;
   const onSelect = (value?: Date) => {
     if (!value) return onChange?.(null);
 
@@ -78,9 +79,9 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
       value.getFullYear(),
       value.getMonth(),
       value.getDate(),
-      clock.getHours(),
-      clock.getMinutes(),
-      clock.getSeconds()
+      timeHidden ? 0 : clock.getHours(),
+      timeHidden ? 0 : clock.getMinutes(),
+      timeHidden ? 0 : clock.getSeconds()
     );
 
     const dateStr = fromZonedTime(datetime, timeZone).toISOString();
@@ -153,11 +154,11 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
           <div
             className={cn(
               'flex items-center mt-1.5',
-              notHaveTimePicker || !date ? 'justify-center' : 'justify-between',
+              notHaveTimePicker ? 'justify-center' : 'justify-between',
               navView === NavView.Year && 'hidden'
             )}
           >
-            {!notHaveTimePicker && date ? (
+            {!notHaveTimePicker ? (
               <TimePicker
                 value={timeValue}
                 defaultValue={defaultTimeValue}
@@ -172,8 +173,9 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
               size="sm"
               onClick={() => {
                 const todayZoned = toZonedTime(new Date(), timeZone);
-                if (date) {
-                  // Preserve existing time, only change the date part
+                if (time === TimeFormatting.None) {
+                  todayZoned.setHours(0, 0, 0, 0);
+                } else if (date) {
                   const existingZoned = toZonedTime(date, timeZone);
                   todayZoned.setHours(existingZoned.getHours());
                   todayZoned.setMinutes(existingZoned.getMinutes());

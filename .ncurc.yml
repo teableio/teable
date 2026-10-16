@@ -4,8 +4,6 @@
 
 # Add here exclusions on packages if any
 reject: [
-    'vite-plugin-svgr',
-
     # Too early cause in esm
     'is-port-reachable',
     'nanoid',

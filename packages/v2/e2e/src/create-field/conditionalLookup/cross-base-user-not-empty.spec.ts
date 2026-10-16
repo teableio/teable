@@ -109,8 +109,25 @@ describe('create-field: conditionalLookup user isNotEmpty residual', () => {
     baseId: string,
     orderNoFieldId: string,
     reviewersFieldId: string
-  ) =>
-    ctx.createTable({
+  ) => {
+    // Strict (non-typecast) user writes resolve inside the table's collaborator
+    // scope (v1 parity), so the raw-seeded fixture users must be collaborators
+    // of the base that receives them.
+    for (const reviewer of [reviewerA, reviewerB]) {
+      await sql`
+        insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+        values (
+          ${`col${reviewer.id}${baseId}`},
+          'base',
+          ${baseId},
+          ${reviewer.id},
+          'user'
+        )
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+    }
+
+    return ctx.createTable({
       baseId,
       name: nextName('v2-cl-not-empty-orders'),
       fields: [
@@ -131,6 +148,7 @@ describe('create-field: conditionalLookup user isNotEmpty residual', () => {
         { fields: { [orderNoFieldId]: 'ORD-003', [reviewersFieldId]: [reviewerA, reviewerB] } },
       ],
     });
+  };
 
   const createImportsTable = async (orderRefFieldId: string) =>
     ctx.createTable({

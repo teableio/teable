@@ -12,6 +12,7 @@ datasource db {
 model ComputedUpdateOutbox {
   id                      String                     @id @default(cuid())
   baseId                  String                     @map("base_id")
+  workerLane              String                     @default("production") @map("worker_lane")
   seedTableId             String                     @map("seed_table_id")
   seedRecordIds           Json?                      @map("seed_record_ids")
   changeType              String                     @map("change_type")
@@ -43,6 +44,7 @@ model ComputedUpdateOutbox {
   seeds ComputedUpdateOutboxSeed[]
 
   @@index([status, nextRunAt])
+  @@index([workerLane, status, nextRunAt])
   @@index([baseId, seedTableId])
   @@index([planHash])
   @@index([runId])
@@ -97,6 +99,7 @@ model ComputedUpdateStageLedger {
 model ComputedUpdateDeadLetter {
   id                      String   @id
   baseId                  String   @map("base_id")
+  workerLane              String   @default("production") @map("worker_lane")
   seedTableId             String   @map("seed_table_id")
   seedRecordIds           Json?    @map("seed_record_ids")
   changeType              String   @map("change_type")

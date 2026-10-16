@@ -15,7 +15,8 @@ const tag = process.argv[3] || 'beta';
 
 const buildCommand = `pnpm -r -F ${packages.join(' -F ')} build`;
 const publishCommand = `echo "//registry.npmjs.org/:_authToken=${npmToken}" > ~/.npmrc && pnpm -r -F ${packages.join(' -F ')} publish --tag ${tag} --no-git-checks`;
-const versionCommand = `pnpm version ${versionType} --preid=${tag} -ws --include-workspace-root --no-git-tag-version --json --no-workspaces-update`;
+// npm's version command (pnpm 11+ no longer forwards `version` to npm, and these are npm flags)
+const versionCommand = `npm version ${versionType} --preid=${tag} -ws --include-workspace-root --no-git-tag-version --json --no-workspaces-update`;
 
 // run version update
 execSync(versionCommand, { stdio: 'inherit' });
@@ -25,7 +26,7 @@ execSync(buildCommand, { stdio: 'inherit' });
 execSync(publishCommand, { stdio: 'inherit' });
 
 // commit version update
-const result = execSync('pnpm version --json', { encoding: 'utf-8' }); // NOSONAR typescript:S4036 -- developer/CLI script on a trusted machine; the executable is resolved through PATH by design
+const result = execSync('npm version --json', { encoding: 'utf-8' }); // NOSONAR typescript:S4036 -- developer/CLI script on a trusted machine; the executable is resolved through PATH by design
 
 execSync('git add .', { stdio: 'inherit' }); // NOSONAR typescript:S4036 -- developer/CLI script on a trusted machine; the executable is resolved through PATH by design
 

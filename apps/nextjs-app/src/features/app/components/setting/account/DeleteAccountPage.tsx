@@ -17,6 +17,10 @@ import { useDeleteAccount } from './delete-account/useDeleteAccount';
  *
  * The two actions sit in the shell's footer, which keeps them in reach above the home
  * indicator while the spaces above scroll.
+ *
+ * The layout around it is a flex row, so the shell is told to fill it and allowed to be
+ * narrower than its content: otherwise a long unwrapped line (a German placeholder, say)
+ * sets the width, and the page runs off a phone's right edge where nothing can scroll to it.
  */
 export const DeleteAccountPage = () => {
   const { t } = useTranslation(['common']);
@@ -31,9 +35,12 @@ export const DeleteAccountPage = () => {
       description={t('settings.account.deleteAccount.desc')}
       leading={<AlertTriangle className="size-5 shrink-0 text-destructive" />}
       mobileNavigation={false}
+      className="min-w-0 flex-1"
       footer={<DeleteAccountActions flow={flow} onCancel={() => router.back()} surface="page" />}
     >
-      <div className="mx-auto w-full max-w-lg">
+      {/* The bottom padding is ours: the shell's own is lost once the list overflows, which
+          leaves the confirmation flush against the footer. */}
+      <div className="mx-auto w-full max-w-lg pb-4">
         <DeleteAccountFields flow={flow} />
       </div>
     </SettingTabShell>

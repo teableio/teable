@@ -70,6 +70,7 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserField } from '../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
+import { FieldDefaultValueVisitor } from '../domain/table/fields/visitors/FieldDefaultValueVisitor';
 import { FieldOptionsDtoVisitor } from '../domain/table/fields/visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
 import {
@@ -117,6 +118,7 @@ import {
   UpdateUserMultiplicitySpec,
   UpdateUserNotificationSpec,
 } from '../domain/table/specs/field-updates';
+import { adoptPreviousSelectOptionIds } from '../domain/table/specs/field-updates/reconcileSelectDefaultAfterOptionRewrite';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldConstraintsSpec } from '../domain/table/specs/TableUpdateFieldConstraintsSpec';
@@ -125,10 +127,18 @@ import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpda
 import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
+import {
+  TableUpdateViewColumnMetaSpec,
+  type TableViewColumnMetaUpdate,
+} from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
-import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getFormulaSourceBudget, getDomainContext } from '../ports/ExecutionContext';
+import {
+  getFormulaSourceBudget,
+  getDomainContext,
+  type IExecutionContext,
+} from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { validateFieldAiConfig } from '../schemas/field';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
@@ -228,6 +238,14 @@ const fieldIdArrayEquals = (a: ReadonlyArray<FieldId>, b: ReadonlyArray<FieldId>
 
 type FieldUpdateMode = 'partial' | 'full';
 
+const selectChoiceOmitsId = (choice: unknown): boolean => {
+  if (typeof choice === 'string') return true;
+  if (!choice || typeof choice !== 'object' || Array.isArray(choice)) return false;
+  if (!('id' in choice)) return true;
+  const id = choice.id;
+  return id == null || id === '';
+};
+
 const parseSelectOptionWithFallback = (
   choice: unknown,
   index: number
@@ -250,6 +268,134 @@ const parseSelectOptionWithFallback = (
   }
 
   return SelectOption.create(choice);
+};
+
+const defaultTableMapper = new DefaultTableMapper();
+
+const hasMeaningfulDefaultValue = (value: unknown): boolean =>
+  value !== undefined &&
+  value !== null &&
+  value !== '' &&
+  (!Array.isArray(value) || value.length > 0);
+
+const fieldRequiresFormInput = (field: Field): Result<boolean, DomainError> => {
+  if (!field.notNull().toBoolean()) return ok(false);
+  const defaultValue = field.accept(FieldDefaultValueVisitor.create());
+  if (defaultValue.isErr()) return err(defaultValue.error);
+  return ok(!hasMeaningfulDefaultValue(defaultValue.value));
+};
+
+const revealHiddenFormFieldSpec = (
+  table: Table,
+  fieldId: FieldId
+): Result<TableUpdateViewColumnMetaSpec | undefined, DomainError> => {
+  const updates: TableViewColumnMetaUpdate[] = [];
+  for (const view of table.views()) {
+    if (view.type().toString() !== 'form') continue;
+    const columnMeta = view.columnMeta();
+    if (columnMeta.isErr()) return err(columnMeta.error);
+    const patched = columnMeta.value.applyPatches([{ fieldId, columnMeta: { visible: true } }]);
+    if (patched.isErr()) return err(patched.error);
+    if (patched.value.changes.length === 0) continue;
+    updates.push({
+      viewId: view.id(),
+      fieldId,
+      columnMeta: patched.value.columnMeta,
+      changes: patched.value.changes,
+    });
+  }
+  if (updates.length === 0) return ok(undefined);
+  return ok(TableUpdateViewColumnMetaSpec.create(updates));
+};
+
+const detachReplacementField = (field: Field, table: Table): Result<Field, DomainError> => {
+  const copied = field.withName({
+    newId: field.id(),
+    newName: field.name(),
+    baseId: table.baseId(),
+    tableId: table.id(),
+  });
+  if (copied.isErr()) return err(copied.error);
+  const copy = copied.value;
+  const notNull = copy.setNotNull(field.notNull());
+  if (notNull.isErr()) return err(notNull.error);
+  const unique = copy.setUnique(field.unique());
+  if (unique.isErr()) return err(unique.error);
+  const dbFieldName = field.dbFieldName();
+  if (dbFieldName.isOk()) {
+    const setDbFieldName = copy.setDbFieldName(dbFieldName.value);
+    if (setDbFieldName.isErr()) return err(setDbFieldName.error);
+  }
+  return ok(copy);
+};
+
+const previewSpecs = (
+  specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+  table: Table
+): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> => {
+  const detached: ISpecification<Table, ITableSpecVisitor>[] = [];
+  for (const spec of specs) {
+    if (!(spec instanceof TableUpdateFieldTypeSpec)) {
+      detached.push(spec);
+      continue;
+    }
+    const replacement = detachReplacementField(spec.newField(), table);
+    if (replacement.isErr()) return err(replacement.error);
+    detached.push(TableUpdateFieldTypeSpec.create(spec.oldField(), replacement.value));
+  }
+  return ok(detached);
+};
+
+const formRequiredVisibilitySpec = (
+  currentField: Field,
+  specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+  hostTable: Table | undefined,
+  foreignTables: ReadonlyArray<Table> | undefined
+): Result<TableUpdateViewColumnMetaSpec | undefined, DomainError> => {
+  if (!hostTable || specs.length === 0) return ok(undefined);
+
+  const currentProtected = fieldRequiresFormInput(currentField);
+  if (currentProtected.isErr()) return err(currentProtected.error);
+  if (currentProtected.value) return ok(undefined);
+
+  const conversion = specs.find(
+    (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+  );
+  const constraints = specs.find(
+    (spec): spec is TableUpdateFieldConstraintsSpec =>
+      spec instanceof TableUpdateFieldConstraintsSpec
+  );
+  // A lookup retarget cannot be applied until its link matches the new foreign
+  // table. Only fields that will be persisted as required need that preview.
+  const persistedNotNull = constraints
+    ? constraints.nextNotNull().toBoolean()
+    : conversion
+      ? conversion.newField().notNull().toBoolean()
+      : currentField.notNull().toBoolean();
+  if (!persistedNotNull) return ok(undefined);
+
+  // Specs mutate the table they are applied to. Preview them on a clone so the
+  // visibility decision sees constraints and defaults after every spec, including
+  // a notNull change that follows a link retarget or a select default cleared by
+  // option deletion.
+  // Apply a detached copy of any type-conversion field. The real spec keeps that
+  // instance for persistence, and a later constraints spec would otherwise call
+  // setNotNull on it during this preview.
+  const specsForPreview = previewSpecs(specs, hostTable);
+  if (specsForPreview.isErr()) return err(specsForPreview.error);
+  const preview = hostTable.clone(defaultTableMapper).andThen((cloned) =>
+    cloned.updateFieldWithSpecs(currentField.id(), specsForPreview.value, {
+      ...(foreignTables?.length ? { foreignTables } : {}),
+    })
+  );
+  if (preview.isErr()) return err(preview.error);
+
+  const previewField = preview.value.updatedField;
+  const nextDefault = previewField.accept(FieldDefaultValueVisitor.create());
+  if (nextDefault.isErr()) return err(nextDefault.error);
+  if (hasMeaningfulDefaultValue(nextDefault.value)) return ok(undefined);
+
+  return revealHiddenFormFieldSpec(hostTable, currentField.id());
 };
 
 // Helper to build constraints spec
@@ -1977,7 +2123,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly omittedChoiceIdIndexes: ReadonlySet<number>
   ) {}
 
   static create(
@@ -1998,12 +2145,14 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) => {
+      const omittedChoiceIdIndexes = new Set<number>();
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
         return sequence(
-          (input.options.choices as unknown[]).map((choice, index) =>
-            parseSelectOptionWithFallback(choice, index)
-          )
+          (input.options.choices as unknown[]).map((choice, index) => {
+            if (selectChoiceOmitsId(choice)) omittedChoiceIdIndexes.add(index);
+            return parseSelectOptionWithFallback(choice, index);
+          })
         );
       };
 
@@ -2023,7 +2172,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
                         preventAutoNewOptions,
                         notNull,
                         unique,
-                        getDomainContext(options?.executionContext)
+                        getDomainContext(options?.executionContext),
+                        omittedChoiceIdIndexes
                       )
                   )
                 )
@@ -2074,7 +2224,11 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue,
+          adoptPreviousSelectOptionIds(
+            currentOptions,
+            this.optionsValue,
+            this.omittedChoiceIdIndexes
+          ),
           this.domainContextValue,
           defaultValueChange
         )
@@ -2134,7 +2288,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly omittedChoiceIdIndexes: ReadonlySet<number>
   ) {}
 
   static create(
@@ -2155,12 +2310,14 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) => {
+      const omittedChoiceIdIndexes = new Set<number>();
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
         return sequence(
-          (input.options.choices as unknown[]).map((choice, index) =>
-            parseSelectOptionWithFallback(choice, index)
-          )
+          (input.options.choices as unknown[]).map((choice, index) => {
+            if (selectChoiceOmitsId(choice)) omittedChoiceIdIndexes.add(index);
+            return parseSelectOptionWithFallback(choice, index);
+          })
         );
       };
 
@@ -2180,7 +2337,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
                         preventAutoNewOptions,
                         notNull,
                         unique,
-                        getDomainContext(options?.executionContext)
+                        getDomainContext(options?.executionContext),
+                        omittedChoiceIdIndexes
                       )
                   )
                 )
@@ -2228,7 +2386,11 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue,
+          adoptPreviousSelectOptionIds(
+            currentOptions,
+            this.optionsValue,
+            this.omittedChoiceIdIndexes
+          ),
           this.domainContextValue,
           defaultValueChange
         )
@@ -3754,6 +3916,15 @@ export const buildUpdateFieldSpecs = (
       );
     }
   }
+
+  const formVisibility = formRequiredVisibilitySpec(
+    currentField,
+    specs,
+    options?.hostTable,
+    options?.foreignTables
+  );
+  if (formVisibility.isErr()) return err(formVisibility.error);
+  if (formVisibility.value) specs.push(formVisibility.value);
 
   return ok(specs);
 };

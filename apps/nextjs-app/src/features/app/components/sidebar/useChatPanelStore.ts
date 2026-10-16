@@ -23,9 +23,12 @@ import { persist } from 'zustand/middleware';
 interface IChatPanelState {
   status: 'open' | 'close' | 'expanded';
   panelType: 'general' | 'app-builder';
+  /** Advances when add-to-chat must open the mobile sheet, not only the desktop panel. */
+  mobileOpenSignal: number;
   setPanelType: (type: 'general' | 'app-builder') => void;
   close: () => void;
   open: () => void;
+  requestMobileOpen: () => void;
   expand: () => void;
   toggleVisible: () => void;
   toggleExpanded: () => void;
@@ -48,12 +51,14 @@ export const useChatPanelStore = create<IChatPanelState>()(
     (set) => ({
       status: 'open',
       panelType: 'app-builder',
+      mobileOpenSignal: 0,
       setPanelType: (type: 'general' | 'app-builder') => set({ panelType: type }),
       close: () =>
         set(() => ({
           status: 'close',
         })),
       open: () => set({ status: 'open' }),
+      requestMobileOpen: () => set((state) => ({ mobileOpenSignal: state.mobileOpenSignal + 1 })),
       expand: () => set({ status: 'expanded' }),
       toggleVisible: () =>
         set((state) => ({

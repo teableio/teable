@@ -1663,6 +1663,22 @@ describe('Table.createRecord', () => {
     expect(fields.get(checkboxFieldIdObj)?.toValue()).toBe(true);
   });
 
+  it('stores trimmed single-line text with newlines and tabs replaced by spaces', () => {
+    const { table, textFieldId } = buildSimpleTable();
+    const textField = FieldId.create(textFieldId)._unsafeUnwrap();
+    const raw = '  第一行\n第二行\t第三列  ';
+
+    for (const typecast of [false, true]) {
+      const record = table
+        .createRecord(new Map([[textFieldId, raw]]), { typecast })
+        ._unsafeUnwrap().record;
+      expect(record.fields().get(textField)?.toValue()).toBe('第一行 第二行 第三列');
+    }
+
+    const blank = table.createRecord(new Map([[textFieldId, ' \n\t ']]))._unsafeUnwrap().record;
+    expect(blank.fields().get(textField)?.toValue()).toBeNull();
+  });
+
   it('creates an empty record without field values', () => {
     const { table } = buildSimpleTable();
 

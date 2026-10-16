@@ -10,6 +10,7 @@ export enum PersonalSettingTab {
   EnvVariable = 'env-variable',
   License = 'license',
   TeableSkill = 'teable-skill',
+  Mcp = 'mcp',
   ArchivedChats = 'archived-chats',
   DeviceSessions = 'device-sessions',
 }

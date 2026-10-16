@@ -150,10 +150,6 @@ describe('SelectionController', () => {
     );
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
-
   it('streams the legacy synchronous delete result when useV2 is false', async () => {
     cls.get.mockImplementation((key) => (key === 'useV2' ? false : undefined));
     selectionService.delete.mockResolvedValue({

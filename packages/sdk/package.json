@@ -165,7 +165,6 @@
     "@types/sharedb": "5.1.0",
     "@types/sockjs-client": "1.5.4",
     "@types/turndown": "5.0.6",
-    "@vitejs/plugin-react-swc": "3.6.0",
     "@vitest/coverage-v8": "4.0.17",
     "cross-env": "7.0.3",
     "eslint": "8.57.0",
@@ -179,7 +178,6 @@
     "rimraf": "5.0.5",
     "tailwindcss": "3.4.1",
     "typescript": "5.4.3",
-    "vite-plugin-svgr": "4.2.0",
     "vitest": "4.0.17"
   }
 }

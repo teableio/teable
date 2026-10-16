@@ -56,6 +56,17 @@
     "redirectDescription": "L'autorisation redirigera vers",
     "authorize": "Autoriser"
   },
+  "mcpDecision": {
+    "title": "Connecter Teable MCP",
+    "subtitle": "Accorder à <b>{{name}}</b> l'accès à Teable",
+    "capabilities": "Grâce à Teable MCP, <b>{{name}}</b> pourra :",
+    "ability1": "Consulter et modifier les tables, champs, vues, enregistrements, automatisations et applications selon vos autorisations dans chaque projet",
+    "ability2": "Agir en votre nom ; les actions sont enregistrées sous cette application",
+    "ability3": "Utiliser tous les projets auxquels vous avez accès",
+    "redirectTitle": "Vous serez redirigé vers :",
+    "trustRedirect": "Je reconnais cette URL et je lui fais confiance",
+    "continue": "Continuer"
+  },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",
     "title": "En savoir plus"

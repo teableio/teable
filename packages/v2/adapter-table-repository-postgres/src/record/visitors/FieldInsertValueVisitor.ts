@@ -118,14 +118,13 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
     }
 
     const options = field.selectOptions();
-    const byId = options.find((opt) => opt.id().toString() === rawValue);
-    if (byId) {
-      return byId.name().toString();
-    }
-
     const byName = options.find((opt) => opt.name().toString() === rawValue);
     if (byName) {
       return byName.name().toString();
+    }
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
     }
 
     return rawValue;
@@ -147,14 +146,10 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
       if (typeof item !== 'string') {
         return item;
       }
-      const name = nameById.get(item);
-      if (name) {
-        return name;
-      }
       if (validNames.has(item)) {
         return item;
       }
-      return item;
+      return nameById.get(item) ?? item;
     });
   }
 

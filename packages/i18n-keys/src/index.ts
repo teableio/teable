@@ -21,6 +21,8 @@ export const sdkErrorI18nKeys = {
   },
   field: {
     cycleDetectedCreateFieldGeneric: 'httpErrors.field.cycleDetectedCreateFieldGeneric',
+    lookupFieldNotBelongToTable: 'httpErrors.field.lookupFieldNotBelongToTable',
+    choiceNameAlreadyExists: 'httpErrors.field.choiceNameAlreadyExists',
   },
   user: {
     notFound: 'httpErrors.user.notFound',
@@ -72,6 +74,8 @@ export type SdkErrorI18nKey =
   | 'httpErrors.custom.fieldRequiredExistingValues'
   | 'httpErrors.custom.fieldUniqueExistingValues'
   | 'httpErrors.field.cycleDetectedCreateFieldGeneric'
+  | 'httpErrors.field.lookupFieldNotBelongToTable'
+  | 'httpErrors.field.choiceNameAlreadyExists'
   | 'httpErrors.limit.fieldOptionsMaxBytes'
   | 'httpErrors.limit.selectChoicesMax'
   | 'httpErrors.limit.selectChoiceNameMaxLength'

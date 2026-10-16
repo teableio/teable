@@ -385,6 +385,7 @@ export const v2FeatureSchema = z.enum([
   'convertField',
   'getAggregation',
   'getRowCount',
+  'getTaskStatusCollection',
   'getGroupPoints',
   'getSearchCount',
   'getSearchIndex',
@@ -397,6 +398,7 @@ export const v2FeatureSchema = z.enum([
   'getCalendarDailyCollection',
   'getRecordStatus',
   'getRecordHistory',
+  'undoRedo',
 ]);
 
 export type V2Feature = z.infer<typeof v2FeatureSchema>;

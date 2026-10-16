@@ -522,9 +522,8 @@ export type I18nTranslations = {
                         "body": string;
                         "loading": string;
                         "blockedHint": string;
-                        "willTrash": string;
                         "willTransfer": string;
-                        "subscribedHint": string;
+                        "notDeletable": string;
                         "cancelSubscription": string;
                         "transferTo": string;
                         "transferToSubscribed": string;
@@ -2196,6 +2195,17 @@ export type I18nTranslations = {
             "redirectDescription": string;
             "authorize": string;
         };
+        "mcpDecision": {
+            "title": string;
+            "subtitle": string;
+            "capabilities": string;
+            "ability1": string;
+            "ability2": string;
+            "ability3": string;
+            "redirectTitle": string;
+            "trustRedirect": string;
+            "continue": string;
+        };
         "help": {
             "link": string;
             "title": string;
@@ -2505,6 +2515,17 @@ export type I18nTranslations = {
                 "isAfter": string;
                 "isOnOrBefore": string;
                 "isOnOrAfter": string;
+                "user": {
+                    "is": string;
+                    "isNot": string;
+                    "isAnyOf": string;
+                    "isNoneOf": string;
+                    "hasAnyOf": string;
+                    "hasAllOf": string;
+                    "isExactly": string;
+                    "isNotExactly": string;
+                    "hasNoneOf": string;
+                };
                 "number": {
                     "is": string;
                     "isNot": string;
@@ -2592,6 +2613,7 @@ export type I18nTranslations = {
             "previousRecord": string;
             "nextRecord": string;
             "duplicateRecord": string;
+            "addToChat": string;
             "copyRecordUrl": string;
             "deleteRecord": string;
             "addRecordComment": string;
@@ -3603,6 +3625,7 @@ export type I18nTranslations = {
                 "toRecordIdsOrFromRecordIdsRequired": string;
                 "recordFieldsRequired": string;
                 "uniqueUnsupportedType": string;
+                "optionsUnsupportedType": string;
                 "notNullValidationWhenCreateField": string;
                 "dbFieldNameAlreadyExists": string;
                 "fieldValidationError": string;

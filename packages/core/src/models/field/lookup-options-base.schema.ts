@@ -222,6 +222,26 @@ export const lookupOptionsRoSchema = z.preprocess(
   })
 );
 
+/**
+ * Partial lookup/link configuration accepted by the field PATCH endpoint. Every key is
+ * optional so a caller can re-point a lookup or rollup without resending the whole
+ * configuration; `null` clears an optional condition field.
+ */
+export const lookupOptionsPatchSchema = z
+  .object({
+    isUnique: z.boolean().optional(),
+    baseId: z.string().optional(),
+    linkFieldId: z.string().optional(),
+    foreignTableId: z.string().optional(),
+    lookupFieldId: z.string().optional(),
+    filter: filterSchema.nullable().optional(),
+    sort: lookupConditionalOptionsVoSchema.shape.sort.nullable().optional(),
+    limit: lookupConditionalOptionsVoSchema.shape.limit.nullable().optional(),
+  })
+  .strict();
+
+export type ILookupOptionsPatch = z.infer<typeof lookupOptionsPatchSchema>;
+
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
 export type ILookupLinkOptions = z.infer<typeof lookupLinkOptionsRoSchema>;

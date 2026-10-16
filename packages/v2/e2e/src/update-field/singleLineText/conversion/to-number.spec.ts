@@ -94,7 +94,7 @@ describe('update-field: singleLineText → number conversion', () => {
       field: { type: 'singleLineText', id: fieldId, name: 'Invalid Field' },
     });
     const r1 = await ctx.createRecord(tableId, { [fieldId]: 'abc' });
-    const r2 = await ctx.createRecord(tableId, { [fieldId]: 'hello123' });
+    const r2 = await ctx.createRecord(tableId, { [fieldId]: '12abc' });
 
     // Action: Convert to number
     const updatedTable = await ctx.updateField({
@@ -223,6 +223,37 @@ describe('update-field: singleLineText → number conversion', () => {
     expect(rec3?.fields[fieldId]).toBeCloseTo(-99.99, 2);
 
     // Cleanup
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [r1.id, r2.id, r3.id]);
+  });
+
+  test('should leniently convert currency, trailing digits, and percent text', async () => {
+    const fieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'singleLineText', id: fieldId, name: 'Lenient Field' },
+    });
+    const r1 = await ctx.createRecord(tableId, { [fieldId]: '$1,234' });
+    const r2 = await ctx.createRecord(tableId, { [fieldId]: 'abc12' });
+    const r3 = await ctx.createRecord(tableId, { [fieldId]: '50%' });
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: {
+        type: 'number',
+        options: { formatting: { type: 'decimal', precision: 2 } },
+      },
+    });
+
+    expect(updatedTable.fields.find((f) => f.id === fieldId)?.type).toBe('number');
+
+    const records = await ctx.listRecords(tableId);
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(1234);
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe(12);
+    expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBe(0.5);
+
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id, r3.id]);
   });

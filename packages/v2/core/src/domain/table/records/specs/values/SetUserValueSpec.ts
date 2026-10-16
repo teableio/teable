@@ -24,7 +24,13 @@ export interface UserItem {
 export class SetUserValueSpec extends MutateOnlySpec<TableRecord, ICellValueSpecVisitor> {
   constructor(
     readonly fieldId: FieldId,
-    readonly value: CellValue<UserItem[]>
+    readonly value: CellValue<UserItem[]>,
+    /**
+     * Strict (non-typecast) writes resolve bare `{ id }` references against the
+     * table's collaborators only, matching v1. Typecast/paste snapshots stay
+     * platform-scoped so a copied cell keeps its original member.
+     */
+    readonly requireCollaborator = false
   ) {
     super();
   }

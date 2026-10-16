@@ -47,6 +47,7 @@ const createComputedRecoveryDb = async () => {
   const db = newDb().adapters.createKnex();
   await db.schema.createTable('computed_update_outbox', (table: Knex.TableBuilder) => {
     table.text('id').primary();
+    table.text('worker_lane').notNullable().defaultTo('production');
     table.text('base_id');
     table.text('seed_table_id');
     table.jsonb('seed_record_ids');
@@ -86,6 +87,7 @@ const createComputedRecoveryDb = async () => {
 
 const createDeadLetterRow = (taskId: string): IComputedOutboxDeadLetterRow => ({
   taskId,
+  workerLane: 'production',
   baseId: 'bse1',
   seedTableId: 'tbl1',
   seedRecordIds: [`rec-${taskId}`],

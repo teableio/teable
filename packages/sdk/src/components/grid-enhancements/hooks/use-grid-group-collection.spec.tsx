@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
 import { ButtonField } from '../../../model/field/button.field';
+import { CellType } from '../../grid/renderers';
 import { useGridGroupCollection } from './use-grid-group-collection';
 
 vi.mock('../../../hooks', () => ({
@@ -90,6 +91,33 @@ describe('useGridGroupCollection getGroupCell', () => {
     const cell = getGroupCell('2026-05-07T03:47:00.000Z', 0) as { displayData: string };
 
     expect(cell.displayData).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  });
+
+  it('does not render a plain showAs url group value as a link (T7834)', () => {
+    const field = {
+      id: 'fldShowAsUrl',
+      name: 'Website',
+      type: FieldType.SingleLineText,
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+      options: { showAs: { type: 'url' } },
+      validateCellValue: (value: unknown) => ({ success: true, data: value }),
+      cellValue2String: (value: unknown) => (value == null ? '' : String(value)),
+    } as unknown as IFieldInstance;
+    const getGroupCell = setup(field);
+
+    const plain = getGroupCell('hello', 0) as {
+      type: string;
+      links?: { url: string }[];
+    };
+    const url = getGroupCell('https://teable.io', 0) as {
+      type: string;
+      links?: { url: string }[];
+    };
+
+    expect(plain.type).toBe(CellType.Text);
+    expect(plain.links ?? []).toEqual([]);
+    expect(url.links?.map(({ url }) => url)).toEqual(['https://teable.io']);
   });
 
   it('renders (Empty) for null group value', () => {

@@ -477,6 +477,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
     }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
+    }
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
@@ -504,6 +507,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
+    }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
@@ -533,6 +539,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
     }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
+    }
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
@@ -561,6 +570,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
     }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
+    }
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
@@ -588,6 +600,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
+    }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
@@ -700,6 +715,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
+    }
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {

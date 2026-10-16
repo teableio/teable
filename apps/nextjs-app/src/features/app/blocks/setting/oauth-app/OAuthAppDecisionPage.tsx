@@ -15,6 +15,7 @@ import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { isSafeWebUrl } from '@/features/app/utils/is-safe-web-url';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 import { BrandFooter } from '../../view/form/components/BrandFooter';
+import { McpDecisionCard } from './McpDecisionCard';
 
 export const OAuthAppDecisionPage = () => {
   const router = useRouter();
@@ -68,6 +69,17 @@ export const OAuthAppDecisionPage = () => {
     return <Spin />;
   }
 
+  // A client that registered itself (an MCP client) gets the plain-words card:
+  // no developer, homepage or scope matrix to show, and a redirect to confirm.
+  if (decisionInfo.dynamicRegistration) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 overflow-auto px-4 py-10">
+        <McpDecisionCard transactionId={transactionId} decisionInfo={decisionInfo} />
+        <BrandFooter />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn('h-screen w-full overflow-auto px-4', {
@@ -118,9 +130,9 @@ export const OAuthAppDecisionPage = () => {
             <p className="text-sm">{t('oauth:decision.redirectDescription')}</p>
             {/* Only http(s) gets to be a link; a javascript:/data: homepage
                 renders as inert text. */}
-            {isSafeWebUrl(decisionInfo.homepage) ? (
+            {isSafeWebUrl(decisionInfo.homepage ?? '') ? (
               <Button variant={'link'}>
-                <Link target="_blank" href={decisionInfo.homepage}>
+                <Link target="_blank" href={decisionInfo.homepage ?? ''}>
                   {decisionInfo.homepage}
                 </Link>
               </Button>

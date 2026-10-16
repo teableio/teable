@@ -187,7 +187,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   // share-view id lives only in ShareViewContext (empty outside a share view).
   const { shareId: shareViewId } = useContext(ShareViewContext);
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
-  const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields } =
+  const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields, setMountedGrid } =
     useGridSearchStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns(
     undefined,
@@ -286,6 +286,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (!baseId || !activeViewId) return;
     const queryKey = ReactQueryKeys.activeViewContext(baseId);
 
+    setMountedGrid({ tableId, viewId: activeViewId });
     queryClient.setQueryData(queryKey, {
       tableId,
       viewId: activeViewId,
@@ -297,8 +298,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (current?.viewId === activeViewId) {
         queryClient.removeQueries({ queryKey, exact: true });
       }
+      if (useGridSearchStore.getState().mountedGrid?.viewId === activeViewId) {
+        setMountedGrid(null);
+      }
     };
-  }, [queryClient, baseId, tableId, activeViewId, viewQuery, filteringSearchQuery]);
+  }, [queryClient, baseId, tableId, activeViewId, viewQuery, filteringSearchQuery, setMountedGrid]);
 
   const {
     onVisibleRegionChanged,

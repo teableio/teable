@@ -64,6 +64,51 @@ const getChangedFieldIdsFromDomainEvent = (event: unknown): string[] => {
   return [];
 };
 
+const getRecordVersionTransitions = (
+  event: unknown
+): Array<{ recordId: string; oldVersion: number; newVersion: number; fieldIds: string[] }> => {
+  const eventName = getDomainEventName(event);
+  if (eventName === 'RecordUpdated') {
+    if (!isObjectRecord(event)) return [];
+    const recordId = event['recordId'];
+    const id =
+      isObjectRecord(recordId) && typeof recordId.toString === 'function'
+        ? recordId.toString()
+        : recordId;
+    if (typeof id !== 'string') return [];
+    return [
+      {
+        recordId: id,
+        oldVersion: Number(event['oldVersion']),
+        newVersion: Number(event['newVersion']),
+        fieldIds: getChangedFieldIdsFromDomainEvent(event),
+      },
+    ];
+  }
+
+  if (eventName === 'RecordsBatchUpdated') {
+    if (!isObjectRecord(event)) return [];
+    const updates = event['updates'];
+    if (!Array.isArray(updates)) return [];
+    return updates.flatMap((update) => {
+      if (!isObjectRecord(update) || typeof update['recordId'] !== 'string') return [];
+      return [
+        {
+          recordId: update['recordId'],
+          oldVersion: Number(update['oldVersion']),
+          newVersion: Number(update['newVersion']),
+          fieldIds: getChangedFieldIdsFromDomainEvent({
+            name: { toString: () => 'RecordsBatchUpdated' },
+            updates: [update],
+          }),
+        },
+      ];
+    });
+  }
+
+  return [];
+};
+
 describe('update-field: record value seeding after property changes', () => {
   let ctx: SharedTestContext;
 
@@ -746,11 +791,14 @@ describe('update-field: seeding optimization - only affected records', () => {
       const ry = await ctx.createRecord(tableId, { [selectFieldId]: 'Y' });
       const rz = await ctx.createRecord(tableId, { [selectFieldId]: 'Z' });
 
+      const beforeEventCount = ctx.testContainer.eventBus.events().length;
+
       await ctx.updateField({
         tableId,
         fieldId: selectFieldId,
         field: { options: { choices: [optionX, optionZ] } },
       });
+      await ctx.drainOutbox();
 
       const records = await ctx.listRecords(tableId);
       const recX = records.find((record) => record.id === rx.id);
@@ -763,6 +811,21 @@ describe('update-field: seeding optimization - only affected records', () => {
       expect(recY?.fields[formulaFieldId]).toBeNull();
       expect(recZ?.fields[selectFieldId]).toBe('Z');
       expect(recZ?.fields[formulaFieldId]).toBe('Z');
+
+      // Seeding must touch only the record that lost its option value: rows X
+      // and Z must emit no version transition at all.
+      const newEvents = ctx.testContainer.eventBus.events().slice(beforeEventCount);
+      const transitions = newEvents.flatMap((event) => getRecordVersionTransitions(event));
+      const transitionsForX = transitions.filter((transition) => transition.recordId === rx.id);
+      const transitionsForY = transitions.filter((transition) => transition.recordId === ry.id);
+      const transitionsForZ = transitions.filter((transition) => transition.recordId === rz.id);
+
+      expect(transitionsForX).toHaveLength(0);
+      expect(transitionsForZ).toHaveLength(0);
+      expect(transitionsForY.length).toBeGreaterThan(0);
+      for (const transition of transitionsForY) {
+        expect(transition.newVersion).toBeGreaterThan(transition.oldVersion);
+      }
     } finally {
       await deleteTableSafe(ctx, tableId);
     }

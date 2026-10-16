@@ -322,7 +322,7 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
         await ctx.drainOutbox();
 
         // First parent links the child
-        await ctx.createRecord(mainTableId, {
+        const firstParent = await ctx.createRecord(mainTableId, {
           [mainTitleFieldId]: 'Parent 1',
           [linkFieldId]: [{ id: child.id }],
         });
@@ -335,6 +335,17 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
         });
 
         assertClientError(response, rawBody);
+
+        // The rejected request must not create the second parent or move the
+        // existing ownership away from the first parent.
+        const parentsAfter = await ctx.listRecords(mainTableId);
+        expect(parentsAfter.map((record) => record.fields[mainTitleFieldId])).not.toContain(
+          'Parent 2'
+        );
+        const firstParentAfter = parentsAfter.find((record) => record.id === firstParent.id);
+        expect(firstParentAfter?.fields[linkFieldId]).toEqual([
+          expect.objectContaining({ id: child.id }),
+        ]);
       });
 
       it('should return 4xx when same child appears twice in one link cell', async () => {
@@ -350,6 +361,12 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
         });
 
         assertClientError(response, rawBody);
+
+        // A rejected cell must not leave a partially linked parent behind.
+        const parentsAfter = await ctx.listRecords(mainTableId);
+        expect(parentsAfter.map((record) => record.fields[mainTitleFieldId])).not.toContain(
+          'Bad Parent'
+        );
       });
     });
 

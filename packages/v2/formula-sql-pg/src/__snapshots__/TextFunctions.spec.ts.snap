@@ -56,7 +56,7 @@ exports[`text functions > 'Concatenate' with 'button' 1`] = `
     },
   },
   "result": "-x",
-  "sql": "CONCAT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), '-x')",
+  "sql": "CONCAT(NULL::text, '-x')",
 }
 `;
 
@@ -603,7 +603,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN NULL ELSE COALESCE((SELECT string_agg(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN NULL::text IS NULL THEN NULL ELSE COALESCE((SELECT string_agg(
       CASE
         WHEN byte_val BETWEEN 48 AND 57
           OR byte_val BETWEEN 65 AND 90
@@ -617,7 +617,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'button' 1`] = `
     )
     FROM (
       SELECT ord, get_byte(src.bytes, ord) AS byte_val
-      FROM (SELECT convert_to((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text, 'UTF8') AS bytes) AS src
+      FROM (SELECT convert_to((NULL::text)::text, 'UTF8') AS bytes) AS src
       CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
     ) AS utf8_bytes), '') END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
@@ -1479,7 +1479,7 @@ exports[`text functions > 'Find' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION((('1')::text) IN SUBSTRING(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((NULL::text)::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -2009,7 +2009,7 @@ exports[`text functions > 'Left' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "LEFT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+  "sql": "LEFT(NULL::text, (1)::double precision::integer)",
 }
 `;
 
@@ -2521,7 +2521,7 @@ exports[`text functions > 'Len' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "LENGTH(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "LENGTH(NULL::text)",
 }
 `;
 
@@ -3033,7 +3033,7 @@ exports[`text functions > 'Lower' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "LOWER(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "LOWER(NULL::text)",
 }
 `;
 
@@ -3545,7 +3545,7 @@ exports[`text functions > 'Mid' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "SUBSTRING(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+  "sql": "SUBSTRING(NULL::text FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
 
@@ -4057,7 +4057,7 @@ exports[`text functions > 'RegExpReplace' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "REGEXP_REPLACE(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), '1', 'x', 'g')",
+  "sql": "REGEXP_REPLACE(NULL::text, '1', 'x', 'g')",
 }
 `;
 
@@ -4569,7 +4569,7 @@ exports[`text functions > 'Replace' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "OVERLAY(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+  "sql": "OVERLAY(NULL::text PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
 
@@ -5081,7 +5081,7 @@ exports[`text functions > 'Rept' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "REPEAT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (2)::double precision::integer)",
+  "sql": "REPEAT(NULL::text, (2)::double precision::integer)",
 }
 `;
 
@@ -5593,7 +5593,7 @@ exports[`text functions > 'Right' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "RIGHT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+  "sql": "RIGHT(NULL::text, (1)::double precision::integer)",
 }
 `;
 
@@ -6105,7 +6105,7 @@ exports[`text functions > 'Search' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((NULL::text)::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6635,7 +6635,7 @@ exports[`text functions > 'Substitute' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "REPLACE(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), '1', 'x')",
+  "sql": "REPLACE(NULL::text, '1', 'x')",
 }
 `;
 
@@ -7147,7 +7147,7 @@ exports[`text functions > 'T' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')",
+  "sql": "NULL::text",
 }
 `;
 
@@ -7665,7 +7665,7 @@ exports[`text functions > 'TextBefore' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN POSITION((('1')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) = 0 THEN NULL ELSE LEFT(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text), POSITION((('1')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) - 1) END) AS value) SELECT (SELECT value FROM "__formula_0"))",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((NULL::text)::text)) = 0 THEN NULL ELSE LEFT(((NULL::text)::text), POSITION((('1')::text) IN ((NULL::text)::text)) - 1) END)",
 }
 `;
 
@@ -8265,7 +8265,7 @@ exports[`text functions > 'TextSplit' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "to_jsonb(string_to_array(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), '1'))",
+  "sql": "to_jsonb(string_to_array(NULL::text, '1'))",
 }
 `;
 
@@ -8777,7 +8777,7 @@ exports[`text functions > 'Trim' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)",
+  "sql": "TRIM((NULL::text)::text)",
 }
 `;
 
@@ -9289,7 +9289,7 @@ exports[`text functions > 'Upper' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "UPPER(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "UPPER(NULL::text)",
 }
 `;
 

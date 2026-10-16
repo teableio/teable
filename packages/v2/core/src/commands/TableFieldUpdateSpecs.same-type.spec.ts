@@ -675,6 +675,48 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     assertSpecs?.(specsResult.value);
   });
 
+  it('adopts a previous select id only when the payload omits it', () => {
+    const alpha = SelectOption.create({
+      id: 'choOldAlpha',
+      name: 'Alpha',
+      color: 'blue',
+    })._unsafeUnwrap();
+    const { currentField } = buildHarness('v', 'v', (builder, fieldId) => {
+      builder
+        .field()
+        .singleSelect()
+        .withId(fieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .withOptions([alpha])
+        .done();
+    });
+    setStableDbFieldName(currentField, 'stable_select_id_column');
+
+    const nextChoice = (input: Record<string, unknown>) => {
+      const specs = buildUpdateFieldSpecs(currentField, input)._unsafeUnwrap();
+      const spec = specs.find((item) => item instanceof UpdateSingleSelectOptionsSpec);
+      if (!(spec instanceof UpdateSingleSelectOptionsSpec)) {
+        throw new Error('missing options spec');
+      }
+      return spec.nextOptions()[0]?.toDto();
+    };
+
+    expect(nextChoice({ options: { choices: [{ name: 'Alpha', color: 'red' }] } })).toEqual({
+      id: 'choOldAlpha',
+      name: 'Alpha',
+      color: 'red',
+    });
+    expect(
+      nextChoice({
+        options: { choices: [{ id: 'choNewAlpha', name: 'Alpha', color: 'green' }] },
+      })
+    ).toEqual({
+      id: 'choNewAlpha',
+      name: 'Alpha',
+      color: 'green',
+    });
+  });
+
   it('adds dbFieldName, description, and aiConfig specs when field metadata changes', () => {
     const { currentField } = buildHarness('r', 'r', (builder, fieldId) => {
       builder

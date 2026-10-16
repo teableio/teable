@@ -84,8 +84,8 @@ export class FieldMockValueVisitor extends AbstractFieldVisitor<MockValueGenerat
     if (options.length === 0) {
       return ok(() => null);
     }
-    const optionIds = options.map((opt) => opt.id().toString());
-    return ok((faker: Faker) => faker.helpers.arrayElement(optionIds));
+    const optionNames = options.map((opt) => opt.name().toString());
+    return ok((faker: Faker) => faker.helpers.arrayElement(optionNames));
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<MockValueGenerator, DomainError> {
@@ -93,9 +93,9 @@ export class FieldMockValueVisitor extends AbstractFieldVisitor<MockValueGenerat
     if (options.length === 0) {
       return ok(() => null);
     }
-    const optionIds = options.map((opt) => opt.id().toString());
+    const optionNames = options.map((opt) => opt.name().toString());
     return ok((faker: Faker) =>
-      faker.helpers.arrayElements(optionIds, { min: 1, max: Math.min(3, optionIds.length) })
+      faker.helpers.arrayElements(optionNames, { min: 1, max: Math.min(3, optionNames.length) })
     );
   }
 

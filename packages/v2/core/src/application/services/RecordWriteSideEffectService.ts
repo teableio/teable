@@ -2,7 +2,7 @@ import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { type DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
 import type { SelectOption } from '../../domain/table/fields/types/SelectOption';
@@ -17,10 +17,8 @@ import {
   type RecordWriteSideEffect,
   type RecordWriteSideEffects,
 } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import {
-  normalizeCellDisplayValue,
-  normalizeCellDisplayValues,
-} from '../../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { normalizeCellDisplayValue } from '../../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { splitSelectTypecastValues } from '../../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -80,14 +78,14 @@ const stripRejectedSelectValues = (
 
       if (!fieldType.equals(FieldType.multipleSelect())) continue;
 
-      const names = normalizeCellDisplayValues(value);
+      const names = splitSelectTypecastValues(value);
       const kept = names.filter((name) => !rejectedNames.has(name));
       if (kept.length === names.length) continue;
       if (kept.length === 0) {
         mutable.delete(fieldId);
         continue;
       }
-      mutable.set(fieldId, Array.isArray(value) ? kept : kept.join(', '));
+      mutable.set(fieldId, kept);
     }
   }
 };
@@ -106,6 +104,14 @@ export class RecordWriteSideEffectService {
     if (effectsResult.isErr()) return err(effectsResult.error);
     const effects = effectsResult.value;
     if (effects.length === 0) return ok({ table, effects });
+    if (context.config?.allowSelectOptionAutoCreate === false) {
+      return err(
+        domainError.forbidden({
+          code: 'permission.field.update_required_for_select_options',
+          message: 'Creating select options requires field update permission',
+        })
+      );
+    }
 
     const domainContext = getDomainContext(context);
     const accepted: RecordWriteSideEffect[] = [];

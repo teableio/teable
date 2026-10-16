@@ -182,4 +182,97 @@ describe('update-field: user → user conversion (isMultiple toggle)', () => {
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);
   });
+
+  test('should propagate multiplicity toggles into a dependent lookup', async () => {
+    const userFieldId = await createUserField('Multiplicity Consumer User', true);
+    const sourceRecord = await ctx.createRecord(tableId, {
+      [primaryFieldId]: 'Consumer Source',
+      [userFieldId]: [
+        { id: 'system', title: 'System' },
+        { id: 'usrTestUserId', title: 'Test User' },
+      ],
+    });
+
+    const linkFieldId = createFieldId();
+    const lookupFieldId = createFieldId();
+    const consumerTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'User Multiplicity Consumer',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Source Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableId,
+            lookupFieldId: primaryFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: lookupFieldId,
+          name: 'Source Users',
+          options: {
+            linkFieldId,
+            foreignTableId: tableId,
+            lookupFieldId: userFieldId,
+          },
+        },
+      ],
+    });
+    const consumerRecord = await ctx.createRecord(consumerTable.id, {
+      Name: 'Consumer',
+      [linkFieldId]: { id: sourceRecord.id },
+    });
+    await ctx.drainOutbox();
+
+    const readLookup = async () => {
+      const records = await ctx.listRecords(consumerTable.id);
+      const record = records.find((item) => item.id === consumerRecord.id);
+      return JSON.stringify(record?.fields[lookupFieldId] ?? null).toLowerCase();
+    };
+
+    const before = await readLookup();
+    expect(before).toContain('system');
+    expect(before).toContain('usrtestuserid');
+
+    // Disabling multiplicity collapses the source cell to its first user, so the
+    // dependent lookup must drop the second user instead of keeping a stale value.
+    await ctx.updateField({
+      tableId,
+      fieldId: userFieldId,
+      field: { type: 'user', options: { isMultiple: false, shouldNotify: false } },
+    });
+    await ctx.drainOutbox();
+
+    const sourceAfterDisable = (await ctx.listRecords(tableId)).find(
+      (record) => record.id === sourceRecord.id
+    );
+    expect(Array.isArray(sourceAfterDisable?.fields[userFieldId])).toBe(false);
+    expect(sourceAfterDisable?.fields[userFieldId]).toMatchObject({ id: 'system' });
+
+    const afterDisable = await readLookup();
+    expect(afterDisable).toContain('system');
+    expect(afterDisable).not.toContain('usrtestuserid');
+
+    // Re-enabling wraps the single user back into an array and the lookup follows.
+    await ctx.updateField({
+      tableId,
+      fieldId: userFieldId,
+      field: { type: 'user', options: { isMultiple: true, shouldNotify: false } },
+    });
+    await ctx.drainOutbox();
+
+    const sourceAfterEnable = (await ctx.listRecords(tableId)).find(
+      (record) => record.id === sourceRecord.id
+    );
+    expect(Array.isArray(sourceAfterEnable?.fields[userFieldId])).toBe(true);
+    expect(await readLookup()).toContain('system');
+
+    await ctx.deleteTable(consumerTable.id);
+    await ctx.deleteField({ tableId, fieldId: userFieldId });
+    await ctx.deleteRecords(tableId, [sourceRecord.id]);
+  });
 });

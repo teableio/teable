@@ -77,14 +77,21 @@
     "openapi-typescript": "6.7.5",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "shell-quote": "1.8.1",
+    "shell-quote": "1.12.0",
     "typescript": "5.4.3",
     "zx": "8.8.5"
   },
   "engines": {
     "node": ">=22.0.0",
-    "pnpm": ">=9.13.0",
+    "pnpm": ">=12",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@9.13.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.19.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

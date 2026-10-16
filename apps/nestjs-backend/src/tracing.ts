@@ -54,6 +54,7 @@ import { NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
+import { databaseHealthSpanProcessor } from './observability/database-health/database-health.metrics';
 import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
 import { createSmartSpanProcessor } from './tracing-span-export';
 
@@ -250,11 +251,21 @@ const httpClientActiveRequestsProcessor: SpanProcessor = {
 
 const teableDbSpanAttributeProcessor: SpanProcessor = {
   onStart(span): void {
-    const attributes = (span as unknown as { attributes?: Record<string, unknown> }).attributes;
+    const observed = span as unknown as { attributes?: Record<string, unknown>; name?: string };
+    const attributes = observed.attributes;
     // instrumentation-pg >=0.73 emits stable semconv (db.system.name); older
     // pods in a rolling deploy still emit db.system, so accept both.
     const dbSystem = attributes?.['db.system.name'] ?? attributes?.['db.system'];
-    if (dbSystem !== 'postgresql' && dbSystem !== 'postgres') {
+    // `pg-pool.connect` spans are built from the pool options, so they carry only
+    // server.address: with no database name there is nothing to resolve a meta/data role
+    // against, and a guessed role on a per-instance series is worse than an unknown one —
+    // they are left without `teable.db.role` on purpose. When a pool does expose a database
+    // name, the same resolution as for query spans applies.
+    const hasDatabaseName =
+      typeof attributes?.['db.namespace'] === 'string' ||
+      typeof attributes?.['db.name'] === 'string';
+    const isPostgres = dbSystem === 'postgresql' || dbSystem === 'postgres';
+    if (!isPostgres && !(observed.name === 'pg-pool.connect' && hasDatabaseName)) {
       return;
     }
 
@@ -290,6 +301,9 @@ const spanProcessors = [
     : [new NoopSpanProcessor()]),
   httpClientActiveRequestsProcessor,
   teableDbSpanAttributeProcessor,
+  // Unsampled per-instance database health: reads ended spans only, never creates or
+  // mutates them, and never throws into the SDK.
+  databaseHealthSpanProcessor,
 ];
 
 const ignorePaths = [

@@ -7,6 +7,7 @@ import { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { MultipleSelectField } from '../types/MultipleSelectField';
 import { SelectOption } from '../types/SelectOption';
+import { SingleLineTextField } from '../types/SingleLineTextField';
 import { SingleSelectField } from '../types/SingleSelectField';
 import { DateField } from '../types/DateField';
 import { LinkField } from '../types/LinkField';
@@ -20,6 +21,26 @@ const createFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap()
 describe('FieldCellValueSchemaVisitor', () => {
   const visitor = FieldCellValueSchemaVisitor.create();
 
+  describe('visitSingleLineTextField', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('s'),
+      name: createFieldName('Text'),
+    })._unsafeUnwrap();
+
+    it('trims ends and replaces newlines and tabs with spaces', () => {
+      const schema = field.accept(visitor)._unsafeUnwrap();
+      const parsed = schema.safeParse('  第一行\n第二行\t第三列  ');
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data).toBe('第一行 第二行 第三列');
+      }
+      const blank = schema.safeParse(' \n\t ');
+      expect(blank.success).toBe(true);
+      if (blank.success) {
+        expect(blank.data).toBeNull();
+      }
+    });
+  });
   describe('visitSingleSelectField', () => {
     const options = [
       SelectOption.create({ id: 'opt1', name: 'Option One', color: 'red' })._unsafeUnwrap(),
@@ -32,13 +53,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('generates schema that accepts option IDs', () => {
+    it('generates schema that rejects option ids', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse('opt1');
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that accepts option names (v1 compatibility)', () => {
@@ -82,13 +103,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('generates schema that accepts array of option IDs', () => {
+    it('generates schema that rejects an array of option ids', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse(['opt1', 'opt2']);
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that accepts array of option names (v1 compatibility)', () => {
@@ -100,13 +121,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       expect(parseResult.success).toBe(true);
     });
 
-    it('generates schema that accepts mixed IDs and names', () => {
+    it('generates schema that rejects mixed ids and names', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse(['opt1', 'Option Two']);
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that rejects array with invalid options', () => {

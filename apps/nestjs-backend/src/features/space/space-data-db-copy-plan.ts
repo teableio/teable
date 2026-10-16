@@ -505,6 +505,7 @@ export const buildSharedTablePostgresFdwCopyPlan = (input: {
 const computedOutboxColumns = [
   'id',
   'base_id',
+  'worker_lane',
   'seed_table_id',
   'seed_record_ids',
   'change_type',

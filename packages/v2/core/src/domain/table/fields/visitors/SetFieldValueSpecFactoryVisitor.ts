@@ -60,10 +60,12 @@ import { parseDateValue } from './dateValueParser';
  */
 export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   private readonly value: unknown;
+  private readonly options: { requireUserCollaborator?: boolean };
 
-  constructor(value: unknown) {
+  constructor(value: unknown, options: { requireUserCollaborator?: boolean } = {}) {
     super();
     this.value = value;
+    this.options = options;
   }
 
   /**
@@ -71,7 +73,7 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
    * Useful for fluent API patterns.
    */
   withValue(value: unknown): SetFieldValueSpecFactoryVisitor {
-    return new SetFieldValueSpecFactoryVisitor(value);
+    return new SetFieldValueSpecFactoryVisitor(value, this.options);
   }
 
   /**
@@ -175,7 +177,9 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
       ? this.emptyArrayToNull<UserItem>()
       : (this.value as UserItem[] | null);
     const cellValue = CellValue.fromValidated<UserItem[]>(normalized);
-    return ok(new SetUserValueSpec(field.id(), cellValue));
+    return ok(
+      new SetUserValueSpec(field.id(), cellValue, this.options.requireUserCollaborator ?? false)
+    );
   }
 
   visitCreatedByField(_field: CreatedByField): Result<ICellValueSpec, DomainError> {

@@ -2,6 +2,7 @@
 import type { DomainError, Field } from '@teable/v2-core';
 import {
   DbFieldName,
+  DateTimeFormatting,
   FieldId,
   FieldName,
   FieldNotNull,
@@ -170,7 +171,8 @@ export const createCheckField = (
 export const createDtField = (
   id: string,
   name: string,
-  dbFieldName: string
+  dbFieldName: string,
+  formatting?: DateTimeFormatting
 ): Result<Field, DomainError> => {
   const fieldIdResult = FieldId.create(createValidFieldId(id));
   if (fieldIdResult.isErr()) return err(fieldIdResult.error);
@@ -181,6 +183,7 @@ export const createDtField = (
   const fieldResult = createDateField({
     id: fieldIdResult.value,
     name: fieldNameResult.value,
+    formatting,
   });
 
   return setDbFieldName(fieldResult, dbFieldName);

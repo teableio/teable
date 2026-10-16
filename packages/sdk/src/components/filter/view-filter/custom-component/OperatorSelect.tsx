@@ -35,7 +35,7 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
   const { onChange } = useCrud();
   const fields = useFields();
   const field = fields.find((f) => f.id === fieldId);
-  const labelMapping = useOperatorI18nMap(field?.cellValueType);
+  const labelMapping = useOperatorI18nMap(field?.cellValueType, field?.type);
   const operators = useOperators(field);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     return operators

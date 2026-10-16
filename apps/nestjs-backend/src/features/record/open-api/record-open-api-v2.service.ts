@@ -158,6 +158,7 @@ import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory
 import { throwV2Error } from '../../v2/v2-http-error';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
+import { selectPasteCellValue } from '../select-paste-cell-value';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -3547,6 +3548,16 @@ export class RecordOpenApiV2Service {
         return sourceField.type === FieldType.Date
           ? this.getFirstCopiedDateValue(sourceField, cellValue)
           : sourceField.cellValue2String(cellValue);
+      case FieldType.SingleSelect:
+      case FieldType.MultipleSelect: {
+        if (
+          sourceField.type === FieldType.SingleSelect ||
+          sourceField.type === FieldType.MultipleSelect
+        ) {
+          return selectPasteCellValue(cellValue, targetField.isMultipleCellValue === true);
+        }
+        return sourceField.cellValue2String(cellValue) ?? null;
+      }
       case FieldType.Link:
         return convertLinkPasteCellValue(targetField, sourceField, cellValue);
       default:

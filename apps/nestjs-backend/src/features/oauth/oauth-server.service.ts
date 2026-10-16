@@ -6,7 +6,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { getRandomString, HttpErrorCode, nullsToUndefined } from '@teable/core';
+import { getRandomString, HttpErrorCode, mcpOAuthScopes, nullsToUndefined } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { DecisionInfoGetVo, IUserMeVo } from '@teable/openapi';
 import type { Response, Request } from 'express';
@@ -167,9 +167,21 @@ export class OAuthServerService {
       codeChallengeMethod,
     } = areq as IAuthorizeRequest;
     try {
-      const { redirectUris, scopes } = await this.getOAuthApp(clientId);
-      // validate scopes if get scopes from user
-      const invalidScopes = difference(queryScopes, scopes);
+      const { redirectUris, scopes, dynamicRegistration } = await this.getOAuthApp(clientId);
+      // A developer-registered app may only ask for the scopes it declared. A
+      // self-registered client (RFC 7591) declared nothing a person vetted, so
+      // its stored scopes are just the default for a request without `scope`;
+      // what it asks for is capped by the MCP scope set (never the user-level
+      // scopes such as stored integration credentials) and by what the user
+      // approves on the consent page. Capping at the set rather than at the
+      // registration keeps clients registered before a widening usable.
+      const allowedScopes = dynamicRegistration ? mcpOAuthScopes : scopes;
+      const invalidScopes = difference(queryScopes, allowedScopes);
+      // Self-registered clients have no secret: without PKCE the code could
+      // never be exchanged, so refuse before putting the person through consent.
+      if (dynamicRegistration && !codeChallenge) {
+        return done(new BadRequestException('code_challenge is required'));
+      }
       if (invalidScopes.length > 0) {
         return done(new BadRequestException('Invalid scopes: ' + invalidScopes.join(',')));
       }
@@ -758,9 +770,13 @@ export class OAuthServerService {
           resolve({
             name: oauthApp.name,
             description: oauthApp.description ?? undefined,
-            homepage: oauthApp.homepage,
+            // Dynamically registered clients may not declare a client_uri.
+            homepage: oauthApp.homepage || undefined,
             logo: oauthApp.logo ?? undefined,
             scopes: txn!.req.scope,
+            dynamicRegistration: oauthApp.dynamicRegistration || undefined,
+            // Shown on the consent page so the person can check where the code goes.
+            redirectUri: txn!.redirectURI,
           });
         }
       });

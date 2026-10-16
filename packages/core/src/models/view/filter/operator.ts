@@ -450,7 +450,17 @@ export function getValidFilterOperators(field: {
       ];
       break;
     }
-    case FieldType.User:
+    case FieldType.User: {
+      // The user field reads as membership ("是任一" / "包含任一"), so its
+      // multiple-value menu keeps the exact/not-exact pair together, in the
+      // same order as the other multiple-value field types.
+      operationSet = isMultipleCellValue
+        ? [hasAnyOf.value, hasAllOf.value, isExactly.value, isNotExactly.value, hasNoneOf.value]
+        : [is.value, isNot.value, isAnyOf.value, isNoneOf.value];
+
+      operationSet = [...operationSet, isEmpty.value, isNotEmpty.value];
+      break;
+    }
     case FieldType.CreatedBy:
     case FieldType.LastModifiedBy:
     case FieldType.Link: {

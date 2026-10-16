@@ -204,6 +204,17 @@
       "isAfter": "şundan sonradır",
       "isOnOrBefore": "şu tarihte veya öncesindedir",
       "isOnOrAfter": "şu tarihte veya sonrasındadır",
+      "user": {
+        "is": "şudur",
+        "isNot": "şu değildir",
+        "isAnyOf": "şunlardan biridir",
+        "isNoneOf": "şunlardan hiçbiri değildir",
+        "hasAnyOf": "şunlardan herhangi birine sahiptir",
+        "hasAllOf": "şunların tümüne sahiptir",
+        "isExactly": "tam olarak şudur",
+        "isNotExactly": "şu değildir",
+        "hasNoneOf": "şunların hiçbirine sahip değildir"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -285,6 +296,7 @@
     "previousRecord": "Önceki",
     "nextRecord": "Sonraki",
     "duplicateRecord": "Kaydı çoğalt",
+    "addToChat": "Sohbete ekle",
     "copyRecordUrl": "Kayıt URL'sini kopyala",
     "deleteRecord": "Kaydı sil",
     "addRecordComment": "Yorum ekle",
@@ -1288,6 +1300,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "Normal hesaplanan alan için toRecordIds veya fromRecordIds gereklidir",
       "recordFieldsRequired": "Kayıt alanları tanımsız",
       "uniqueUnsupportedType": "Alan {{name}}[{{fieldId}}] alan değeri benzersizlik doğrulamasını desteklemiyor",
+      "optionsUnsupportedType": "Alan {{name}}[{{fieldId}}] bu değiştirilen seçenekleri desteklemiyor: {{options}}",
       "notNullValidationWhenCreateField": "Alan {{name}}[{{fieldId}}] yeni bir alan oluştururken null olmayan doğrulamayı desteklemiyor",
       "dbFieldNameAlreadyExists": "Veritabanı alan adı {{dbFieldName}} zaten mevcut",
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",

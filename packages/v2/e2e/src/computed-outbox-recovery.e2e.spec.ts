@@ -3,6 +3,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
   computedUpdateLockKeyForRecord,
+  defaultComputedUpdateOutboxConfig,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
   type ComputedUpdateOutboxTaskInput,
@@ -10,6 +11,7 @@ import {
 } from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
+  createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
@@ -355,7 +357,389 @@ const prepareLockContentionScenario = async (harness: TestHarness) => {
   };
 };
 
+const createLanePair = async (mode: 'hybrid' | 'async' = 'hybrid') => {
+  const commonConfig = {
+    mode,
+    hybridConfig: { dispatchMode: 'external' as const, syncPolicy: 'none' as const },
+    fieldBackfillConfig: { mode: 'async' as const },
+  };
+  const outboxConfig = {
+    ...defaultComputedUpdateOutboxConfig,
+    stageMaxSteps: 1,
+    stageMaxDirtyRecords: 2,
+    stageSmallRunComplexityThreshold: 0,
+    fieldBackfillBatchSize: 1,
+    continuationRelayClaimEnabled: false,
+  };
+  const productionConfig = { ...outboxConfig, workerLane: 'production' };
+  const stagingConfig = { ...outboxConfig, workerLane: 'staging' };
+  const production = await createHarness({
+    computedUpdate: { ...commonConfig, outboxConfig: productionConfig },
+  });
+  const staging = await createHarness({
+    connectionString: production.testContainer.connectionString,
+    seedBase: false,
+    ensureSchema: false,
+    computedUpdate: { ...commonConfig, outboxConfig: stagingConfig },
+  });
+  return { production, staging };
+};
+
+const resolveOutbox = (harness: TestHarness) =>
+  harness.testContainer.container.resolve<IComputedUpdateOutbox>(
+    v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+  );
+
+const runOneStageBatch = async (harness: TestHarness) => {
+  const worker = harness.testContainer.container.resolve<ComputedUpdateWorker>(
+    v2RecordRepositoryPostgresTokens.computedUpdateWorker
+  );
+  const result = await worker.runOnce({ workerId: 'lane-stage-worker', limit: 1 });
+  expect(result._unsafeUnwrap()).toBeGreaterThan(0);
+};
+
 describe('[C14][S19] computed outbox recovery (e2e)', () => {
+  it('worker lane prevents a staging worker from claiming a production API write', async () => {
+    const production = await createHarness({
+      computedUpdate: {
+        mode: 'async',
+        outboxConfig: { ...defaultComputedUpdateOutboxConfig, workerLane: 'production' },
+      },
+    });
+    const valueFieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+    const table = await createTable(production, {
+      baseId: production.baseId,
+      name: 'Lane ownership',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', id: valueFieldId, name: 'Value' },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Double',
+          options: { expression: `{${valueFieldId}} * 2` },
+        },
+      ],
+    });
+    const staging = await createHarness({
+      connectionString: production.testContainer.connectionString,
+      seedBase: false,
+      ensureSchema: false,
+      computedUpdate: {
+        mode: 'async',
+        outboxConfig: { ...defaultComputedUpdateOutboxConfig, workerLane: 'staging' },
+      },
+    });
+    const record = await createRecord(production, table.id, { [valueFieldId]: 7 });
+    const task = await production.testContainer.db
+      .selectFrom('computed_update_outbox')
+      .select('id')
+      .where('seed_table_id', '=', table.id)
+      .where('change_type', '=', 'seed')
+      .executeTakeFirstOrThrow();
+    const stolen = await resolveOutbox(staging).claimById({
+      taskId: task.id,
+      workerId: 'staging-worker',
+    });
+    expect(stolen._unsafeUnwrap()).toBeNull();
+    expect(await staging.testContainer.processOutboxOnce()).toBe(0);
+    await production.testContainer.processOutbox();
+    const records = await listRecordsWithoutDrain(production, table.id);
+    expect(records.find((row) => row.id === record.id)?.fields[formulaFieldId]).toBe(14);
+    expect(await pendingOutboxStatuses(production)).toEqual([]);
+  }, 120_000);
+
+  it.each(['hybrid', 'async'] as const)(
+    'worker lane merges %s API writes only within their originating environment',
+    async (mode) => {
+      const { production, staging } = await createLanePair(mode);
+      const scenario = await prepareLockContentionScenario(production);
+      await createRecord(production, scenario.targetTableId, {
+        [scenario.targetNameFieldId]: 'Shared target',
+        [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+      });
+      await production.testContainer.processOutbox();
+
+      for (const value of [200, 201]) {
+        await updateRecord(production, scenario.sourceTableId, scenario.sourceRecordId, {
+          [scenario.sourceValueFieldId]: value,
+        });
+      }
+      const productionTasks = await pendingOutboxStatuses(production);
+      expect(productionTasks).toHaveLength(1);
+      for (const value of [300, 301]) {
+        await updateRecord(staging, scenario.sourceTableId, scenario.sourceRecordId, {
+          [scenario.sourceValueFieldId]: value,
+        });
+      }
+      const tasks = await production.testContainer.db
+        .selectFrom('computed_update_outbox')
+        .select(['id', 'base_id', 'seed_table_id'])
+        .execute();
+      // Identical physical base/table and logical plan, but independent owners.
+      // Without lane-aware merge this is one row, even if claim filtering is fixed.
+      expect(tasks).toHaveLength(2);
+      expect(new Set(tasks.map((task) => task.base_id)).size).toBe(1);
+      expect(new Set(tasks.map((task) => task.seed_table_id)).size).toBe(1);
+      const stagingTask = tasks.find((task) => task.id !== productionTasks[0].id);
+      if (!stagingTask) throw new Error('Staging write merged into production task');
+      const productionOutbox = resolveOutbox(production);
+      const stagingOutbox = resolveOutbox(staging);
+      expect(
+        (
+          await productionOutbox.claimById({
+            taskId: stagingTask.id,
+            workerId: 'production-worker',
+            allowProcessingTakeover: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      expect(
+        (
+          await stagingOutbox.claimById({
+            taskId: productionTasks[0].id,
+            workerId: 'staging-worker',
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+
+      // Each batch picker must leave the other lane pending in the same table.
+      for (const [outbox, ownTaskId] of [
+        [productionOutbox, productionTasks[0].id],
+        [stagingOutbox, stagingTask.id],
+      ] as const) {
+        const claimed = (
+          await outbox.claimBatch({ workerId: 'lane-batch-worker', limit: 10 })
+        )._unsafeUnwrap();
+        expect(claimed.map((task) => task.id)).toEqual([ownTaskId]);
+        if (outbox === productionOutbox) {
+          // Lane isolation must not split the shared per-table concurrency cap.
+          const blocked = await stagingOutbox.claimById({
+            taskId: stagingTask.id,
+            workerId: 'staging-concurrent-worker',
+          });
+          expect(blocked._unsafeUnwrap()).toBeNull();
+        }
+        for (const task of claimed) {
+          if (mode === 'async') expect(task).toMatchObject({ taskType: 'seed' });
+          else expect(task).toHaveProperty('steps');
+          (
+            await outbox.releaseForRetry({ task, reason: 'lane test handoff', retryDelayMs: 0 })
+          )._unsafeUnwrap();
+        }
+      }
+      // Drain this lane across bounded worker rounds, leaving production work untouched.
+      expect(await staging.testContainer.processOutbox()).toBeGreaterThan(0);
+      expect((await pendingOutboxStatuses(production)).map((task) => task.id)).toEqual([
+        productionTasks[0].id,
+      ]);
+      expect(await production.testContainer.processOutbox()).toBeGreaterThan(0);
+      const records = await listRecordsWithoutDrain(production, scenario.targetTableId);
+      expect(getLookupValues(records, scenario.lookupFieldId)).toEqual([301]);
+      expect(records[0].fields[scenario.finalFormulaFieldId]).toBe(305);
+      expect(await pendingOutboxStatuses(production)).toEqual([]);
+    },
+    120_000
+  );
+
+  it('worker lane keeps expired staging leases and staged continuations away from production', async () => {
+    const { production, staging } = await createLanePair();
+    const scenario = await prepareLockContentionScenario(production);
+    await createRecord(production, scenario.targetTableId, {
+      [scenario.targetNameFieldId]: 'Shared target',
+      [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+    });
+    await production.testContainer.processOutbox();
+    await updateRecord(staging, scenario.sourceTableId, scenario.sourceRecordId, {
+      [scenario.sourceValueFieldId]: 200,
+    });
+    const tasks = await pendingOutboxStatuses(staging);
+    expect(tasks).toHaveLength(1);
+    const productionOutbox = resolveOutbox(production);
+    const stagingOutbox = resolveOutbox(staging);
+    const owned = (
+      await stagingOutbox.claimById({
+        taskId: tasks[0].id,
+        workerId: 'staging-owner',
+      })
+    )._unsafeUnwrap();
+    if (!owned) throw new Error('Staging could not claim its own API write');
+    const expiredAt = new Date(
+      Date.now() + defaultComputedUpdateOutboxConfig.processingLeaseMs + 1000
+    );
+    for (const now of [new Date(), expiredAt]) {
+      expect(
+        (
+          await productionOutbox.claimById({
+            taskId: owned.id,
+            workerId: 'production-takeover',
+            allowProcessingTakeover: true,
+            now,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      expect(
+        (
+          await productionOutbox.claimBatch({
+            workerId: 'production-poller',
+            limit: 10,
+            now,
+          })
+        )._unsafeUnwrap()
+      ).toEqual([]);
+    }
+    const reclaimed = (
+      await stagingOutbox.claimById({
+        taskId: owned.id,
+        workerId: 'staging-restarted',
+        now: expiredAt,
+      })
+    )._unsafeUnwrap();
+    if (!reclaimed) throw new Error('Staging could not reclaim its expired lease');
+    (
+      await stagingOutbox.releaseForRetry({
+        task: reclaimed,
+        reason: 'lane test restart',
+        retryDelayMs: 0,
+      })
+    )._unsafeUnwrap();
+
+    await runOneStageBatch(staging);
+    const continuations = await pendingOutboxStatuses(staging);
+    expect(continuations.length).toBeGreaterThan(0);
+    expect(continuations.every((task) => task.id !== owned.id)).toBe(true);
+    for (const task of continuations) {
+      expect(
+        (
+          await productionOutbox.claimById({
+            taskId: task.id,
+            workerId: 'production-continuation-worker',
+            allowProcessingTakeover: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+    }
+    expect(
+      (
+        await productionOutbox.claimBatch({
+          workerId: 'production-continuation-poller',
+          limit: 10,
+        })
+      )._unsafeUnwrap()
+    ).toEqual([]);
+    expect(await staging.testContainer.processOutbox()).toBeGreaterThan(0);
+    const records = await listRecordsWithoutDrain(staging, scenario.targetTableId);
+    expect(getLookupValues(records, scenario.lookupFieldId)).toEqual([200]);
+    expect(records[0].fields[scenario.finalFormulaFieldId]).toBe(204);
+    expect(await pendingOutboxStatuses(staging)).toEqual([]);
+  }, 120_000);
+
+  it('worker lane executes each environment field backfill and retains its cursor continuation', async () => {
+    const { production, staging } = await createLanePair();
+    const nameFieldId = createFieldId();
+    const valueFieldId = createFieldId();
+    const table = await createTable(production, {
+      baseId: production.baseId,
+      name: 'Shared backfill table',
+      fields: [
+        { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+        { type: 'number', id: valueFieldId, name: 'Value' },
+      ],
+    });
+    const recordIds: string[] = [];
+    for (const value of [10, 20, 30]) {
+      const record = await createRecord(production, table.id, {
+        [nameFieldId]: `Row ${value}`,
+        [valueFieldId]: value,
+      });
+      recordIds.push(record.id);
+    }
+    await production.testContainer.processOutbox();
+
+    for (const [owner, other, multiplier] of [
+      [production, staging, 2],
+      [staging, production, 3],
+    ] as const) {
+      const formulaFieldId = createFieldId();
+      const response = await fetch(`${owner.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: production.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            id: formulaFieldId,
+            name: `Value times ${multiplier}`,
+            options: { expression: `{${valueFieldId}} * ${multiplier}` },
+          },
+        }),
+      });
+      const body = await response.json();
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      const parsed = createFieldOkResponseSchema.safeParse(body);
+      expect(parsed.success && parsed.data.ok).toBe(true);
+      const tasks = await pendingOutboxStatuses(owner);
+      expect(tasks).toHaveLength(1);
+      const foreignOutbox = resolveOutbox(other);
+      expect(
+        (
+          await foreignOutbox.claimById({
+            taskId: tasks[0].id,
+            workerId: 'foreign-backfill-worker',
+            allowProcessingTakeover: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      expect(
+        (
+          await foreignOutbox.claimBatch({
+            workerId: 'foreign-backfill-poller',
+            limit: 10,
+          })
+        )._unsafeUnwrap()
+      ).toEqual([]);
+      const ownerOutbox = resolveOutbox(owner);
+      const backfill = (
+        await ownerOutbox.claimById({
+          taskId: tasks[0].id,
+          workerId: 'owner-backfill-worker',
+        })
+      )._unsafeUnwrap();
+      if (!backfill) throw new Error('Environment could not claim its own field backfill');
+      expect(backfill).toMatchObject({ taskType: 'field-backfill' });
+      (
+        await ownerOutbox.releaseForRetry({
+          task: backfill,
+          reason: 'lane test backfill handoff',
+          retryDelayMs: 0,
+        })
+      )._unsafeUnwrap();
+
+      await runOneStageBatch(owner);
+      const continuations = await pendingOutboxStatuses(owner);
+      expect(continuations).toHaveLength(1);
+      expect(continuations[0].id).not.toBe(tasks[0].id);
+      expect(
+        (
+          await foreignOutbox.claimById({
+            taskId: continuations[0].id,
+            workerId: 'foreign-backfill-continuation',
+            allowProcessingTakeover: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      expect(await other.testContainer.processOutboxOnce()).toBe(0);
+      expect(await owner.testContainer.processOutbox()).toBeGreaterThan(0);
+      const rows = await listRecordsWithoutDrain(owner, table.id);
+      expect(
+        recordIds.map((id) => rows.find((row) => row.id === id)?.fields[formulaFieldId])
+      ).toEqual([10 * multiplier, 20 * multiplier, 30 * multiplier]);
+      expect(await pendingOutboxStatuses(owner)).toEqual([]);
+    }
+  }, 120_000);
+
   it.each(['before commit', 'after commit'] as const)(
     'recovers exact staged values after failure %s and duplicate continuation delivery',
     async (failureBoundary) => {
@@ -685,6 +1069,9 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
 
     const records = await listRecordsWithoutDrain(reader, targetTableId);
     expect(getLookupValues(records, lookupFieldId)).toEqual([100]);
+
+    // This fixture deliberately leaves a healthy lease; retire it before a shared-DB next case.
+    (await resolveOutbox(writer).markDone(rows[0].id))._unsafeUnwrap();
   });
 
   it('reclaims stale processing rows after a restart in external mode', async () => {

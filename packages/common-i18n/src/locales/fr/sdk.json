@@ -205,6 +205,17 @@
       "isAfter": "est après",
       "isOnOrBefore": "est le ou avant",
       "isOnOrAfter": "est le ou après",
+      "user": {
+        "is": "est",
+        "isNot": "n'est pas",
+        "isAnyOf": "est l'un des",
+        "isNoneOf": "n'est aucun des",
+        "hasAnyOf": "a l'un des",
+        "hasAllOf": "a tous les",
+        "isExactly": "est exactement",
+        "isNotExactly": "n'est pas",
+        "hasNoneOf": "n'a aucun des"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -287,6 +298,7 @@
     "previousRecord": "Précédent",
     "nextRecord": "Suivant",
     "duplicateRecord": "Duplicate record",
+    "addToChat": "Ajouter au chat",
     "copyRecordUrl": "Copier l'URL de l'enregistrement",
     "deleteRecord": "Supprimer l'enregistrement",
     "addRecordComment": "Ajouter un commentaire",
@@ -1292,6 +1304,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds ou fromRecordIds est requis pour le champ calculé normal",
       "recordFieldsRequired": "Les champs d'enregistrement ne sont pas définis",
       "uniqueUnsupportedType": "Le champ {{name}}[{{fieldId}}] ne prend pas en charge la validation de valeur de champ unique",
+      "optionsUnsupportedType": "Le champ {{name}}[{{fieldId}}] ne prend pas en charge ces options modifiées : {{options}}",
       "notNullValidationWhenCreateField": "Le champ {{name}}[{{fieldId}}] ne prend pas en charge la validation non nulle lors de la création d'un nouveau champ",
       "dbFieldNameAlreadyExists": "Le nom du champ de base de données {{dbFieldName}} existe déjà",
       "fieldValidationError": "Champ {{name}}[{{fieldId}}] erreur de validation de champ",

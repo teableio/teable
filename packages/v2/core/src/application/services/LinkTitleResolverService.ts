@@ -11,6 +11,7 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../domain/table/fields/types/CellValueType';
 import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
+import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import type { ClearFieldValueSpec } from '../../domain/table/records/specs/values/ClearFieldValueSpec';
@@ -294,7 +295,22 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         );
       }
 
-      const querySpec = yield* service.buildTitleQuerySpec(primaryField, titles);
+      const queryTitles = new Set<string>();
+      const requestedTitles: string[] = [];
+      for (const title of titles) {
+        if (!title) continue;
+        requestedTitles.push(title);
+        // A nonempty original title stays eligible for an exact match, even when
+        // normalization yields nothing (for example a tab-only primary).
+        queryTitles.add(title);
+        const key = titleKeyForPrimaryField(primaryField, title);
+        if (key) queryTitles.add(key);
+      }
+      if (queryTitles.size === 0) {
+        return ok(new Map());
+      }
+
+      const querySpec = yield* service.buildTitleQuerySpec(primaryField, [...queryTitles]);
       const queryResult = yield* await service.recordQueryRepository.find(
         context,
         table,
@@ -302,16 +318,27 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         { mode: 'stored' }
       );
 
-      const titlesSet = new Set(titles);
-      const titleToId = new Map<string, string>();
+      const exactRecordId = new Map<string, string>();
+      const normalizedRecordId = new Map<string, string>();
       for (const record of queryResult.records) {
         const primaryValue = record.fields[primaryFieldId.toString()];
-        if (primaryValue !== null && primaryValue !== undefined) {
-          const titleStr = String(primaryValue);
-          if (titlesSet.has(titleStr) && !titleToId.has(titleStr)) {
-            titleToId.set(titleStr, record.id);
-          }
+        if (primaryValue === null || primaryValue === undefined) continue;
+        const stored = String(primaryValue);
+        if (!exactRecordId.has(stored)) exactRecordId.set(stored, record.id);
+        const key = titleKeyForPrimaryField(primaryField, stored);
+        if (key && !normalizedRecordId.has(key)) normalizedRecordId.set(key, record.id);
+      }
+
+      const titleToId = new Map<string, string>();
+      for (const title of requestedTitles) {
+        const exact = exactRecordId.get(title);
+        if (exact) {
+          titleToId.set(title, exact);
+          continue;
         }
+        const key = titleKeyForPrimaryField(primaryField, title);
+        const normalized = key ? normalizedRecordId.get(key) : undefined;
+        if (normalized) titleToId.set(title, normalized);
       }
 
       return ok(titleToId);

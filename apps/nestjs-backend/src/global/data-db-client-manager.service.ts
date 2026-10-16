@@ -6,6 +6,7 @@ import {
   getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
 import { PgPoolRegistry, PrismaService } from '@teable/db-main-prisma';
+import { resolveComputedWorkerLane } from '@teable/v2-adapter-table-repository-postgres';
 import createKnex, { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -231,6 +232,7 @@ export type IComputedOutboxLineageLookup = {
 
 export type IComputedOutboxDeadLetterRow = {
   taskId: string;
+  workerLane: string;
   baseId: string;
   seedTableId: string;
   seedRecordIds: unknown;
@@ -253,6 +255,7 @@ export type IComputedOutboxDeadLetterRow = {
 
 const COMPUTED_OUTBOX_DEAD_LETTER_COLUMNS = {
   taskId: 'id',
+  workerLane: 'worker_lane',
   baseId: 'base_id',
   seedTableId: 'seed_table_id',
   seedRecordIds: 'seed_record_ids',
@@ -279,6 +282,7 @@ const toRecoveredComputedOutboxRow = (
   now: Date
 ) => ({
   id: dead.taskId,
+  worker_lane: dead.workerLane,
   base_id: dead.baseId,
   seed_table_id: dead.seedTableId,
   seed_record_ids: dead.seedRecordIds == null ? null : JSON.stringify(dead.seedRecordIds),
@@ -670,7 +674,7 @@ export class DataDbClientManager {
     const client = createComputedOutboxMaintenanceKnex(target);
     try {
       const restoreQuery = buildComputedOutboxOrphanedDeferralRestoreQuery(
-        target,
+        { ...target, workerLane: resolveComputedWorkerLane() },
         orphanedDeferralThresholdMs
       );
       const result = await client
@@ -695,7 +699,7 @@ export class DataDbClientManager {
     try {
       while (true) {
         const candidateQuery = buildComputedOutboxWakeupCandidatesQuery(
-          target,
+          { ...target, workerLane: resolveComputedWorkerLane() },
           processingLeaseMs,
           normalizedBatchSize,
           afterId,
@@ -1138,7 +1142,7 @@ export class DataDbClientManager {
     try {
       if (kind === 'stale') {
         const query = buildComputedOutboxStaleRecoverySelectQuery(
-          target,
+          { ...target, workerLane: resolveComputedWorkerLane() },
           taskId,
           processingLeaseMs
         );
@@ -1153,6 +1157,7 @@ export class DataDbClientManager {
         const dead = (await computedOutboxKnexTable(trx, target, 'computed_update_dead_letter')
           .select(COMPUTED_OUTBOX_DEAD_LETTER_COLUMNS)
           .where({ id: taskId })
+          .where('worker_lane', resolveComputedWorkerLane())
           .forUpdate()
           .first()) as IComputedOutboxDeadLetterRow | undefined;
         if (!dead) return { status: 'not_found' } as const;
@@ -1175,7 +1180,10 @@ export class DataDbClientManager {
     selection: ComputedOutboxDeadLetterBatchSelection
   ): Promise<IComputedOutboxMaintenanceDeadLetterBatchRecovery> {
     const client = createComputedOutboxMaintenanceKnex(target);
-    const query = buildComputedOutboxDeadLetterBatchSelectionQuery(target, selection);
+    const query = buildComputedOutboxDeadLetterBatchSelectionQuery(
+      { ...target, workerLane: resolveComputedWorkerLane() },
+      selection
+    );
 
     try {
       return await client.transaction(async (trx) => {

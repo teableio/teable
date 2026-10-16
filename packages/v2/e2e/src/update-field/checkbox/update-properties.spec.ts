@@ -378,12 +378,12 @@ describe('update-field: checkbox conversions', () => {
       },
     });
 
-    // Assert: Checked becomes max while unchecked and empty remain null.
+    // Assert: checked becomes 1; unchecked and empty stay empty, never 0.
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('rating');
 
     const records = await ctx.listRecords(tableId);
-    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(5);
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(1);
     // v1 contract: false input was stored as null, so it converts to an empty cell
     expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();

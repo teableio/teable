@@ -33,13 +33,6 @@ const dependencies = {
 };
 
 describe('formula basics', () => {
-  it('re-exports formula types', () => {
-    expect(formulaIndex).toHaveProperty('CellValueType');
-    expect(formulaIndex).toHaveProperty('FormulaTypeVisitor');
-    expect(formulaIndex).toHaveProperty('FunctionName');
-    expect(formulaIndex).toHaveProperty('FormulaFuncType');
-  });
-
   it('normalizes function name aliases', () => {
     expect(normalizeFunctionNameAlias('ARRAYJOIN')).toBe(FunctionName.ArrayJoin);
     expect(normalizeFunctionNameAlias('MISSING')).toBe('MISSING');

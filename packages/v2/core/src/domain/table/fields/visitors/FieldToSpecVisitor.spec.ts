@@ -7,11 +7,13 @@ import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValu
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
+import { SetLongTextValueSpec } from '../../records/specs/values/SetLongTextValueSpec';
 import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
 import type { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpec';
 import { SetMultipleSelectValueSpec } from '../../records/specs/values/SetMultipleSelectValueSpec';
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
+import { SetUserValueByIdentifierSpec } from '../../records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../records/specs/values/SetUserValueSpec';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -55,10 +57,10 @@ describe('FieldToSpecVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('accepts option ID in non-typecast mode', () => {
+    it('rejects an option id that is not the choice name', () => {
       const visitor = FieldToSpecVisitor.create('opt1', false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts option name in non-typecast mode (v1 compatibility)', () => {
@@ -151,10 +153,10 @@ describe('FieldToSpecVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('accepts option IDs in non-typecast mode', () => {
+    it('rejects option ids that are not choice names', () => {
       const visitor = FieldToSpecVisitor.create(['opt1', 'opt2'], false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts option names in non-typecast mode (v1 compatibility)', () => {
@@ -163,10 +165,10 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
     });
 
-    it('accepts mixed IDs and names in non-typecast mode', () => {
+    it('rejects a mix of an option id and a choice name', () => {
       const visitor = FieldToSpecVisitor.create(['opt1', 'Option Two'], false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('rejects array with invalid option in non-typecast mode', () => {
@@ -272,6 +274,35 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeInstanceOf(SetUserValueSpec);
     });
+
+    it('splits comma-separated typecast identifiers for multiple user fields', () => {
+      const visitor = FieldToSpecVisitor.create('found@example.com, missing@example.com', true);
+      const spec = multipleField.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual([
+        'found@example.com',
+        'missing@example.com',
+      ]);
+    });
+
+    it('keeps only the first identifier for single user fields', () => {
+      const visitor = FieldToSpecVisitor.create('不存在的人, 李四', true);
+      const spec = field.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      // v1 parity: a single-user field only considers the first token, so
+      // resolving `不存在的人` (no collaborator match) clears the cell instead of
+      // falling back to 李四.
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual(['不存在的人']);
+    });
+
+    it('keeps a leading empty token for single user fields', () => {
+      const visitor = FieldToSpecVisitor.create(', 李四', true);
+      const spec = field.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      // v1 parity: `cellValue[0]` is '' here, so the cell clears instead of
+      // resolving 李四 from the second token.
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual(['']);
+    });
   });
 
   describe('visitButtonField', () => {
@@ -353,6 +384,38 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create(null, false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
+    });
+
+    it('trims only the ends of long text and keeps the internal newline', () => {
+      const visitor = FieldToSpecVisitor.create('  第一行\n第二行  ', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBe(
+        '第一行\n第二行'
+      );
+    });
+
+    it('keeps internal newlines and tabs while trimming the ends', () => {
+      const visitor = FieldToSpecVisitor.create('\t第一行\n\n第二行\t', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBe(
+        '第一行\n\n第二行'
+      );
+    });
+
+    it('stores an empty long text string as null', () => {
+      const visitor = FieldToSpecVisitor.create('', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBeNull();
+    });
+
+    it('stores whitespace-only long text as null', () => {
+      const visitor = FieldToSpecVisitor.create('  \n\t  ', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBeNull();
     });
   });
 
@@ -809,6 +872,34 @@ describe('FieldToSpecVisitor', () => {
         .accept(FieldToSpecVisitor.create('false', true))
         ._unsafeUnwrap() as SetCheckboxValueSpec;
       expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('checks string "0" and keeps numeric 0 and empty string empty (T7843)', () => {
+      const field = CheckboxField.create({
+        id: createFieldId('h'),
+        name: createFieldName('Done'),
+      })._unsafeUnwrap();
+      const checked = (value: unknown) => {
+        const spec = field
+          .accept(FieldToSpecVisitor.create(value, true))
+          ._unsafeUnwrap() as SetCheckboxValueSpec;
+        expect(spec.value.isNull()).toBe(false);
+        expect(spec.value.toValue()).toBe(true);
+      };
+      const empty = (value: unknown) => {
+        const spec = field
+          .accept(FieldToSpecVisitor.create(value, true))
+          ._unsafeUnwrap() as SetCheckboxValueSpec;
+        expect(spec.value.isNull()).toBe(true);
+      };
+
+      checked('true');
+      checked('TRUE');
+      empty('false');
+      checked('0');
+      checked('no');
+      empty(0);
+      empty('');
     });
 
     it('normalizes "" to null for singleLineText in typecast mode', () => {

@@ -285,12 +285,15 @@ export class OAuthService {
   async getOAuthList(): Promise<OAuthGetListVo> {
     const userId = this.cls.get('user.id');
     const isAdmin = this.cls.get('user.isAdmin');
+    // Dynamically registered clients have no developer to manage them here.
     const where: Prisma.OAuthAppWhereInput = isAdmin
       ? {
           OR: [{ createdBy: userId }, { createdBy: SYSTEM_USER_ID }],
+          dynamicRegistration: false,
         }
       : {
           createdBy: userId,
+          dynamicRegistration: false,
         };
     const res = await this.prismaService.oAuthApp.findMany({
       where,
@@ -433,12 +436,16 @@ export class OAuthService {
       },
       select: {
         clientId: true,
+        authorizedTime: true,
       },
     });
     if (authorized.length === 0) {
       return [];
     }
     const clientIds = authorized.map((a) => a.clientId);
+    const authorizedTimeMap = Object.fromEntries(
+      authorized.map((a) => [a.clientId, a.authorizedTime.toISOString()])
+    );
     const mutedClientIds = new Set((await this.userService.getNotifyMeta(userId)).mutedApps);
     const client = await this.prismaService.oAuthApp.findMany({
       where: {
@@ -497,6 +504,24 @@ export class OAuthService {
       },
       {} as Record<string, { clientId: string; lastUsedTime: string }>
     );
+    // The secret's last use only moves when a confidential client exchanges
+    // its secret; a public client (an MCP client) never does. The user's own
+    // access tokens record every call, so take the later of the two.
+    const tokenUsage = await this.prismaService.accessToken.groupBy({
+      by: ['clientId'],
+      where: { userId, clientId: { in: clientIds } },
+      _max: { lastUsedTime: true, createdTime: true },
+    });
+    const lastUsedByUser = (clientId: string): string | undefined => {
+      const usage = tokenUsage.find((u) => u.clientId === clientId);
+      const candidates = [
+        lastUsedTimeMap[clientId]?.lastUsedTime,
+        usage?._max.lastUsedTime ?? usage?._max.createdTime,
+      ]
+        .filter((d): d is string | Date => Boolean(d))
+        .map((d) => new Date(d).getTime());
+      return candidates.length ? new Date(Math.max(...candidates)).toISOString() : undefined;
+    };
 
     return client.map((c) =>
       this.convertToVo({
@@ -507,7 +532,9 @@ export class OAuthService {
         homepage: c.homepage,
         scopes: c.scopes,
         notificationsMuted: mutedClientIds.has(c.clientId),
-        lastUsedTime: lastUsedTimeMap[c.clientId]?.lastUsedTime,
+        dynamicRegistration: c.dynamicRegistration || undefined,
+        lastUsedTime: lastUsedByUser(c.clientId),
+        authorizedTime: authorizedTimeMap[c.clientId],
         createdUser:
           userMap[c.createdBy] ??
           (c.createdBy === 'system'

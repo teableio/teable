@@ -24,6 +24,7 @@ import {
   type IV2TableRepositoryPostgresConfig,
   FormulaSourceBudgetCommandBusMiddleware,
   type ComputedUpdateWorker,
+  type ComputedUpdateOutboxConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
@@ -577,6 +578,9 @@ export const createV2NodeTestContainer = async (
   const worker = c.resolve<ComputedUpdateWorker>(
     v2RecordRepositoryPostgresTokens.computedUpdateWorker
   );
+  const { workerLane } = c.resolve<ComputedUpdateOutboxConfig>(
+    v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
+  );
   const processOutboxOnce = async (): Promise<number> => {
     const result = await worker.runOnce({ workerId: 'test-worker', limit: 100 });
     if (result.isErr()) {
@@ -591,6 +595,7 @@ export const createV2NodeTestContainer = async (
       const rows = await dataDb
         .selectFrom('computed_update_outbox')
         .select(['run_id as runId', 'status'])
+        .where('worker_lane', '=', workerLane)
         .where((eb) =>
           eb.or([
             eb('status', '=', 'processing'),

@@ -1110,9 +1110,6 @@ describe('v2 http createRecords (e2e)', () => {
     let dateFieldId: string;
     let singleSelectFieldId: string;
     let multiSelectFieldId: string;
-    // Store choice IDs for select fields
-    let singleSelectChoices: Array<{ id: string; name: string }>;
-    let multiSelectChoices: Array<{ id: string; name: string }>;
 
     beforeAll(async () => {
       const table = await createTable({
@@ -1141,32 +1138,12 @@ describe('v2 http createRecords (e2e)', () => {
       numberFieldId = table.fields.find((f) => f.name === 'Number')?.id ?? '';
       checkboxFieldId = table.fields.find((f) => f.name === 'Checkbox')?.id ?? '';
       dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
-
-      const singleSelectField = table.fields.find((f) => f.name === 'SingleSelect');
-      singleSelectFieldId = singleSelectField?.id ?? '';
-      singleSelectChoices =
-        (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })
-          ?.choices ?? [];
-
-      const multiSelectField = table.fields.find((f) => f.name === 'MultiSelect');
-      multiSelectFieldId = multiSelectField?.id ?? '';
-      multiSelectChoices =
-        (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
-        [];
+      singleSelectFieldId = table.fields.find((f) => f.name === 'SingleSelect')?.id ?? '';
+      multiSelectFieldId = table.fields.find((f) => f.name === 'MultiSelect')?.id ?? '';
     });
 
     it('creates records with all field types', async () => {
       const now = new Date().toISOString();
-
-      // Get choice IDs by name
-      const optionA = singleSelectChoices.find((c) => c.name === 'Option A');
-      const optionB = singleSelectChoices.find((c) => c.name === 'Option B');
-      const optionAId = optionA?.id ?? '';
-      const optionBId = optionB?.id ?? '';
-      const optionAName = optionA?.name ?? '';
-      const tag1Id = multiSelectChoices.find((c) => c.name === 'Tag 1')?.id ?? '';
-      const tag2Id = multiSelectChoices.find((c) => c.name === 'Tag 2')?.id ?? '';
-      const tag3Id = multiSelectChoices.find((c) => c.name === 'Tag 3')?.id ?? '';
 
       const records = await createRecords(tableId, [
         {
@@ -1175,8 +1152,8 @@ describe('v2 http createRecords (e2e)', () => {
             [numberFieldId]: 100,
             [checkboxFieldId]: true,
             [dateFieldId]: now,
-            [singleSelectFieldId]: optionAId,
-            [multiSelectFieldId]: [tag1Id, tag2Id],
+            [singleSelectFieldId]: 'Option A',
+            [multiSelectFieldId]: ['Tag 1', 'Tag 2'],
           },
         },
         {
@@ -1185,8 +1162,8 @@ describe('v2 http createRecords (e2e)', () => {
             [numberFieldId]: 200,
             [checkboxFieldId]: false,
             [dateFieldId]: now,
-            [singleSelectFieldId]: optionBId,
-            [multiSelectFieldId]: [tag2Id, tag3Id],
+            [singleSelectFieldId]: 'Option B',
+            [multiSelectFieldId]: ['Tag 2', 'Tag 3'],
           },
         },
       ]);
@@ -1203,7 +1180,7 @@ describe('v2 http createRecords (e2e)', () => {
       expect(record1).toBeDefined();
       expect(record1?.fields[numberFieldId]).toBe(100);
       expect(record1?.fields[checkboxFieldId]).toBe(true);
-      expect(record1?.fields[singleSelectFieldId]).toBe(optionAName);
+      expect(record1?.fields[singleSelectFieldId]).toBe('Option A');
     });
   });
 

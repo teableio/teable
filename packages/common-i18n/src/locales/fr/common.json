@@ -300,24 +300,23 @@
       },
       "deleteAccount": {
         "title": "Supprimer le compte",
-        "desc": "Une fois supprimé, votre compte ne pourra pas être restauré. Veuillez procéder avec prudence.",
+        "desc": "Cette action est définitive. Votre compte ne pourra pas être récupéré une fois supprimé.",
         "spaces": {
-          "title": "Espaces dont vous êtes le seul propriétaire",
-          "body": "Ils iront à la corbeille avec votre compte. Pour en conserver un, transférez-le d'abord à un membre.",
-          "loading": "Vérification des espaces dont vous êtes le seul propriétaire…",
-          "blockedHint": "Annulez cet abonnement, ou transférez l'espace, pour continuer.",
-          "willTrash": "Sera placé dans la corbeille",
+          "title": "Espaces dont vous êtes l'unique propriétaire",
+          "body": "Ces espaces seront placés dans la corbeille lors de la suppression de votre compte. Pour en conserver un, transférez-le d'abord à un autre membre.",
+          "loading": "Recherche des espaces dont vous êtes l'unique propriétaire…",
+          "blockedHint": "Les espaces marqués « Non supprimable » ont encore un abonnement actif. Réglez-les avant de supprimer votre compte.",
           "willTransfer": "Sera transféré",
-          "subscribedHint": "Cet espace a encore un abonnement actif. Annulez-le, puis revenez supprimer votre compte.",
-          "cancelSubscription": "Gérer l'abonnement",
-          "transferTo": "Choisir un membre à qui transférer, sinon corbeille",
-          "transferToSubscribed": "Ou choisir un membre à qui transférer ; l'abonnement reste avec l'espace"
+          "notDeletable": "Non supprimable",
+          "cancelSubscription": "Gérer le forfait",
+          "transferTo": "Transférer à un membre (facultatif)",
+          "transferToSubscribed": "Transférer à un membre (abonnement inclus)"
         },
         "confirm": {
-          "title": "Veuillez taper <code>DELETE</code> pour confirmer",
+          "title": "Saisissez <code>DELETE</code> pour confirmer",
           "placeholder": "DELETE"
         },
-        "loading": "Suppression en cours..."
+        "loading": "Suppression…"
       }
     },
     "notify": {

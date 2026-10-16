@@ -157,7 +157,7 @@ describe('[R04] conditional field matrix (e2e)', () => {
         // Create foreign records
         const record1Data: Record<string, unknown> = {
           [fNameFieldId]: 'Item1',
-          [fStatusFieldId]: 'active',
+          [fStatusFieldId]: 'Active',
         };
         if (initial !== null) {
           record1Data[fValueFieldId] = initial;
@@ -166,7 +166,7 @@ describe('[R04] conditional field matrix (e2e)', () => {
 
         const record2Data: Record<string, unknown> = {
           [fNameFieldId]: 'Item2',
-          [fStatusFieldId]: 'inactive',
+          [fStatusFieldId]: 'Inactive',
           [fValueFieldId]: 100, // This one doesn't match status filter
         };
         await ctx.createRecord(foreignTable.id, record2Data);
@@ -301,17 +301,17 @@ describe('[R04] conditional field matrix (e2e)', () => {
       const activeRecord = await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Active1',
         [fValueFieldId]: 10,
-        [fStatusFieldId]: 'active',
+        [fStatusFieldId]: 'Active',
       });
       await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Active2',
         [fValueFieldId]: 20,
-        [fStatusFieldId]: 'active',
+        [fStatusFieldId]: 'Active',
       });
       await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Inactive1',
         [fValueFieldId]: 100,
-        [fStatusFieldId]: 'inactive',
+        [fStatusFieldId]: 'Inactive',
       });
 
       // Create host table

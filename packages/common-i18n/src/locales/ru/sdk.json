@@ -206,6 +206,17 @@
       "isAfter": "после",
       "isOnOrBefore": "на или до",
       "isOnOrAfter": "на или после",
+      "user": {
+        "is": "является",
+        "isNot": "не является",
+        "isAnyOf": "является любым из",
+        "isNoneOf": "не является ни одним из",
+        "hasAnyOf": "имеет любой из",
+        "hasAllOf": "имеет все из",
+        "isExactly": "точно",
+        "isNotExactly": "не является",
+        "hasNoneOf": "не имеет ни одного из"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -289,6 +300,7 @@
     "previousRecord": "Предыдущая",
     "nextRecord": "Следующая",
     "duplicateRecord": "Duplicate record",
+    "addToChat": "Добавить в чат",
     "copyRecordUrl": "Копировать URL записи",
     "deleteRecord": "Удалить запись",
     "addRecordComment": "Добавить комментарий",
@@ -1296,6 +1308,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds или fromRecordIds требуется для обычного вычисляемого поля",
       "recordFieldsRequired": "Поля записи не определены",
       "uniqueUnsupportedType": "Поле {{name}}[{{fieldId}}] не поддерживает проверку уникальности значения поля",
+      "optionsUnsupportedType": "Поле {{name}}[{{fieldId}}] не поддерживает изменение этих параметров: {{options}}",
       "notNullValidationWhenCreateField": "Поле {{name}}[{{fieldId}}] не поддерживает проверку не null при создании нового поля",
       "dbFieldNameAlreadyExists": "Имя поля базы данных {{dbFieldName}} уже существует",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] ошибка проверки поля",

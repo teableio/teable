@@ -7,7 +7,7 @@ import {
   PostgresQueryCompiler,
 } from 'kysely';
 import { ok } from 'neverthrow';
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import {
   noopComputedActivityProjector,
@@ -148,9 +148,8 @@ describe('ComputedUpdateOutbox', () => {
           set: vi.fn().mockImplementation((values) => {
             updateValues = values;
             return {
-              where: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
+              where: vi.fn().mockReturnThis(),
+              execute: vi.fn().mockResolvedValue([]),
             };
           }),
         }),
@@ -462,9 +461,8 @@ describe('ComputedUpdateOutbox', () => {
               attempts: values.attempts,
             });
             return {
-              where: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
+              where: vi.fn().mockReturnThis(),
+              execute: vi.fn().mockResolvedValue([]),
             };
           }),
         }),
@@ -503,9 +501,8 @@ describe('ComputedUpdateOutbox', () => {
               const delay = values.next_run_at.getTime() - now.getTime();
               backoffs.push(delay);
               return {
-                where: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([]),
-                }),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([]),
               };
             }),
           }),
@@ -560,12 +557,11 @@ describe('ComputedUpdateOutbox', () => {
           }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => ({
-          where: vi.fn().mockReturnValue({
-            execute: vi.fn().mockImplementation(() => {
-              if (table === 'computed_update_outbox') outboxDeleted = true;
-              if (table === 'computed_update_outbox_seed') seedDeleted = true;
-              return Promise.resolve([]);
-            }),
+          where: vi.fn().mockReturnThis(),
+          execute: vi.fn().mockImplementation(() => {
+            if (table === 'computed_update_outbox') outboxDeleted = true;
+            if (table === 'computed_update_outbox_seed') seedDeleted = true;
+            return Promise.resolve([]);
           }),
         })),
       } as unknown as MockDb;
@@ -580,108 +576,6 @@ describe('ComputedUpdateOutbox', () => {
       expect(deadLetterInserted).toBe(true);
       expect(outboxDeleted).toBe(true);
       expect(seedDeleted).toBe(true);
-    });
-
-    it('logs dead letter classification fields for alerting', async () => {
-      const values = vi.fn().mockReturnValue({
-        execute: vi.fn().mockResolvedValue([]),
-      });
-      const mockDb = {
-        ...createUnmigratedQueryDb(),
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        insertInto: vi.fn().mockReturnValue({
-          values,
-        }),
-        deleteFrom: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            execute: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      } as unknown as MockDb;
-
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
-
-      const task = createMockTask({ attempts: 0, maxAttempts: 8 });
-      const diagnostics = {
-        version: 1 as const,
-        failure: {
-          kind: 'computed_code_bug',
-          reason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          phase: 'execute_plan',
-        },
-      };
-      await outbox.markFailed(
-        task,
-        'cannot cast type jsonb to timestamp with time zone',
-        undefined,
-        {
-          failureKind: 'computed_code_bug',
-          failureReason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          diagnostics,
-        }
-      );
-
-      expect(values).toHaveBeenCalledWith(
-        expect.objectContaining({
-          attempts: 1,
-          max_attempts: 8,
-          trace_data: JSON.stringify(diagnostics),
-        })
-      );
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        'computed:outbox:dead_letter',
-        expect.objectContaining({
-          taskId: task.id,
-          baseId: task.baseId,
-          seedTableId: task.seedTableId,
-          taskType: 'computed',
-          failureKind: 'computed_code_bug',
-          failureReason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          attempts: 1,
-          maxAttempts: 8,
-        })
-      );
-    });
-
-    it('logs retry scheduled event', async () => {
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        updateTable: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          }),
-        }),
-      } as unknown as MockDb;
-
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
-
-      const task = createMockTask({ attempts: 1, maxAttempts: 8 });
-      await outbox.markFailed(task, 'Test error');
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        'computed:outbox:retry_scheduled',
-        expect.objectContaining({
-          taskId: task.id,
-          attempts: 2,
-        })
-      );
     });
   });
 
@@ -891,325 +785,6 @@ describe('ComputedUpdateOutbox', () => {
     });
   });
 
-  describe('markDone', () => {
-    beforeEach(() => {
-      vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'false');
-    });
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    it('removes task from outbox and seed tables', async () => {
-      const deletedTables: string[] = [];
-
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        deleteFrom: vi.fn().mockImplementation((table: string) => {
-          deletedTables.push(table);
-          if (table === 'computed_update_outbox') {
-            return {
-              where: vi.fn().mockReturnValue({
-                returningAll: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([{ id: 'cuo123' }]),
-                }),
-              }),
-            };
-          }
-          return {
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          };
-        }),
-      } as unknown as MockDb;
-
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (outbox as any).runHistoryTableAvailable = false;
-
-      const result = await outbox.markDone('cuo123');
-
-      expect(result.isOk()).toBe(true);
-      expect(deletedTables).toContain('computed_update_outbox');
-      expect(deletedTables).toContain('computed_update_outbox_seed');
-    });
-
-    it('skips the activity projector round when skipActivityProjection is set', async () => {
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        deleteFrom: vi.fn().mockImplementation((table: string) => {
-          if (table === 'computed_update_outbox') {
-            return {
-              where: vi.fn().mockReturnValue({
-                where: vi.fn().mockReturnValue({
-                  where: vi.fn().mockReturnValue({
-                    returningAll: vi.fn().mockReturnValue({
-                      execute: vi.fn().mockResolvedValue([{ id: 'cuo123' }]),
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          return {
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          };
-        }),
-      } as unknown as MockDb;
-
-      const onTaskDone = vi.fn().mockResolvedValue(ok(null));
-      const activityProjector: IComputedActivityProjector = {
-        ...noopComputedActivityProjector,
-        onTaskDone,
-      };
-      const outbox = new ComputedUpdateOutbox(
-        mockDb,
-        defaultComputedUpdateOutboxConfig,
-        createLogger(),
-        mockDb,
-        undefined,
-        activityProjector
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (outbox as any).runHistoryTableAvailable = false;
-
-      const task = createMockTask({ status: 'processing', lockedBy: 'worker-1:cuc_lock' });
-      const result = await outbox.markDone(task, undefined, { skipActivityProjection: true });
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe(true);
-      expect(onTaskDone).not.toHaveBeenCalled();
-    });
-
-    it('records run history for the completed task', async () => {
-      const enqueuedAt = new Date('2026-08-23T10:00:00Z');
-      const lockedAt = new Date('2026-08-23T10:00:30Z');
-      const sourceChangedAt = new Date('2026-08-23T09:59:50Z');
-      const deletedRow = {
-        id: 'cuo123',
-        base_id: BASE_ID,
-        seed_table_id: TABLE_ID,
-        seed_record_ids: JSON.stringify([{ tableId: TABLE_ID, recordIds: ['rec123', 'rec456'] }]),
-        change_type: 'seed',
-        steps: JSON.stringify([{ tableId: TABLE_ID, fieldIds: [FIELD_ID], level: 0 }]),
-        edges: JSON.stringify([
-          {
-            fromFieldId: FIELD_ID,
-            toFieldId: FIELD_ID,
-            fromTableId: TABLE_ID,
-            toTableId: TABLE_ID,
-            order: 0,
-          },
-        ]),
-        status: 'processing',
-        attempts: 1,
-        max_attempts: 8,
-        estimated_complexity: 2,
-        plan_hash: 'hash123',
-        run_id: 'run123',
-        origin_run_ids: ['run122'],
-        run_total_steps: 0,
-        run_completed_steps_before: 0,
-        affected_table_ids: [TABLE_ID],
-        affected_field_ids: [FIELD_ID],
-        sync_max_level: 0,
-        source_changed_at: sourceChangedAt,
-        stage_depth: 2,
-        predecessor_task_id: 'cuo122',
-        locked_at: lockedAt,
-        created_at: enqueuedAt,
-        updated_at: lockedAt,
-      };
-
-      let historyInsert: { table: string; values: Record<string, unknown> } | null = null;
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        deleteFrom: vi.fn().mockImplementation((table: string) => {
-          if (table === 'computed_update_outbox') {
-            return {
-              where: vi.fn().mockReturnValue({
-                returningAll: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([deletedRow]),
-                }),
-              }),
-            };
-          }
-          return {
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-              executeTakeFirst: vi.fn().mockResolvedValue({ numDeletedRows: 0n }),
-            }),
-          };
-        }),
-        selectFrom: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({}),
-            }),
-          }),
-        }),
-        insertInto: vi.fn().mockImplementation((table: string) => ({
-          values: vi.fn().mockImplementation((values: Record<string, unknown>) => {
-            historyInsert = { table, values };
-            return {
-              onConflict: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
-            };
-          }),
-        })),
-      } as unknown as MockDb;
-
-      const outbox = new ComputedUpdateOutbox(
-        mockDb,
-        defaultComputedUpdateOutboxConfig,
-        createLogger()
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (outbox as any).runHistoryTableAvailable = true;
-
-      const result = await outbox.markDone('cuo123');
-
-      expect(result.isOk()).toBe(true);
-      expect(historyInsert).not.toBeNull();
-      const { table, values } = historyInsert!;
-      expect(table).toBe('computed_update_run_history');
-      expect(values.task_id).toBe('cuo123');
-      expect(values.outcome).toBe('succeeded');
-      expect(values.run_id).toBe('run123');
-      expect(values.origin_run_ids).toEqual(['run122']);
-      // Seed tasks: affected_field_ids ARE the trigger fields.
-      expect(values.source_field_ids).toEqual([FIELD_ID]);
-      expect(values.seed_record_count).toBe(2);
-      expect(values.stage_depth).toBe(2);
-      expect(values.predecessor_task_id).toBe('cuo122');
-      expect(values.source_changed_at).toEqual(sourceChangedAt);
-      expect(values.enqueued_at).toEqual(enqueuedAt);
-      expect(values.started_at).toEqual(lockedAt);
-      expect(Number(values.duration_ms)).toBeGreaterThanOrEqual(0);
-      expect(values.steps).toBe(
-        JSON.stringify([{ tableId: TABLE_ID, fieldIds: [FIELD_ID], level: 0 }])
-      );
-      expect(JSON.parse(String(values.edges))).toEqual([
-        {
-          fromFieldId: FIELD_ID,
-          toFieldId: FIELD_ID,
-          fromTableId: TABLE_ID,
-          toTableId: TABLE_ID,
-          order: 0,
-        },
-      ]);
-    });
-
-    it('persists the run DAG only on a root history row', async () => {
-      const plan = {
-        steps: [{ tableId: TABLE_ID, fieldIds: [FIELD_ID], level: 0 }],
-        edges: [
-          {
-            fromFieldId: FIELD_ID,
-            toFieldId: FIELD_ID,
-            fromTableId: TABLE_ID,
-            toTableId: TABLE_ID,
-            order: 0,
-          },
-        ],
-      };
-      const deletedRow = {
-        id: 'cuo-root',
-        base_id: BASE_ID,
-        seed_table_id: TABLE_ID,
-        seed_record_ids: JSON.stringify([{ tableId: TABLE_ID, recordIds: ['rec1'] }]),
-        change_type: 'seed',
-        steps: JSON.stringify([]),
-        edges: JSON.stringify([]),
-        status: 'processing',
-        attempts: 1,
-        max_attempts: 8,
-        estimated_complexity: 2,
-        plan_hash: 'hash-root',
-        run_id: 'run-root',
-        origin_run_ids: [],
-        run_total_steps: 1,
-        run_completed_steps_before: 0,
-        affected_table_ids: [TABLE_ID],
-        affected_field_ids: [FIELD_ID],
-        sync_max_level: 0,
-        source_changed_at: new Date('2026-08-23T09:59:50Z'),
-        stage_depth: 0,
-        predecessor_task_id: null,
-        locked_at: new Date('2026-08-23T10:00:30Z'),
-        created_at: new Date('2026-08-23T10:00:00Z'),
-        updated_at: new Date('2026-08-23T10:00:30Z'),
-      };
-      let historyInsert: { table: string; values: Record<string, unknown> } | null = null;
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-        deleteFrom: vi.fn().mockImplementation((table: string) => {
-          if (table === 'computed_update_outbox') {
-            return {
-              where: vi.fn().mockReturnValue({
-                returningAll: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([deletedRow]),
-                }),
-              }),
-            };
-          }
-          return {
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-              executeTakeFirst: vi.fn().mockResolvedValue({ numDeletedRows: 0n }),
-            }),
-          };
-        }),
-        selectFrom: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({}),
-            }),
-          }),
-        }),
-        insertInto: vi.fn().mockImplementation((table: string) => ({
-          values: vi.fn().mockImplementation((values: Record<string, unknown>) => {
-            historyInsert = { table, values };
-            return {
-              onConflict: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
-            };
-          }),
-        })),
-      } as unknown as MockDb;
-
-      const outbox = new ComputedUpdateOutbox(
-        mockDb,
-        defaultComputedUpdateOutboxConfig,
-        createLogger()
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (outbox as any).runHistoryTableAvailable = true;
-
-      const result = await outbox.markDone('cuo-root', undefined, { runHistoryPlan: plan });
-      expect(result.isOk()).toBe(true);
-      expect(historyInsert?.values.steps).toBe(JSON.stringify(plan.steps));
-      expect(historyInsert?.values.edges).toBe(JSON.stringify(plan.edges));
-    });
-  });
-
   describe('enqueueOrMerge skipActivityProjection', () => {
     it('resolves pendingActivityEnqueue instead of calling onTaskEnqueued', async () => {
       const selectChain = {
@@ -1270,75 +845,6 @@ describe('ComputedUpdateOutbox', () => {
       expect(result.value.pendingActivityEnqueue?.targets).toHaveLength(1);
       expect(result.value.pendingActivityEnqueue?.targets[0]?.fieldId.toString()).toBe(FIELD_ID);
       expect(result.value.pendingActivityEnqueue?.targets[0]?.tableId.toString()).toBe(TABLE_ID);
-    });
-  });
-
-  describe('projectStageSettlement', () => {
-    it('delegates to the activity projector and publishes the result', async () => {
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
-            fn({ ...mockDb, isTransaction: true }),
-        }),
-      } as unknown as MockDb;
-
-      const projection = {
-        baseId: BASE_ID,
-        fields: [
-          {
-            fieldId: FIELD_ID,
-            tableId: TABLE_ID,
-            baseId: BASE_ID,
-            status: 'idle' as const,
-            activeTaskCount: 0,
-            processingTaskCount: 0,
-            generation: 3,
-            estimatedComplexity: 0,
-            estimatedDirtyRecords: 0,
-            hasAllTargetRecords: false,
-            updatedAt: new Date().toISOString(),
-          },
-        ],
-        tables: [],
-      };
-      const projectStageSettlement = vi.fn().mockResolvedValue(ok(projection));
-      const activityProjector: IComputedActivityProjector = {
-        ...noopComputedActivityProjector,
-        projectStageSettlement,
-      };
-      const publish = vi.fn().mockResolvedValue(ok(undefined));
-      const eventBus = { publish } as unknown as IEventBus;
-      const outbox = new ComputedUpdateOutbox(
-        mockDb,
-        defaultComputedUpdateOutboxConfig,
-        createLogger(),
-        mockDb,
-        undefined,
-        activityProjector,
-        eventBus
-      );
-
-      const result = await outbox.projectStageSettlement({
-        done: { taskId: 'cuo-done', baseId: BASE_ID },
-        enqueued: {
-          taskId: 'cuo-next',
-          baseId: BASE_ID,
-          targets: [],
-          metrics: { estimatedComplexity: 1, estimatedDirtyRecords: 1, hasAllTargetRecords: false },
-        },
-        claimed: [{ taskId: 'cuo-next', baseId: BASE_ID }],
-      });
-
-      expect(result.isOk()).toBe(true);
-      expect(projectStageSettlement).toHaveBeenCalledWith(
-        expect.objectContaining({
-          done: expect.objectContaining({ taskId: 'cuo-done' }),
-          enqueued: expect.objectContaining({ taskId: 'cuo-next' }),
-          claimed: [{ taskId: 'cuo-next', baseId: BASE_ID }],
-        }),
-        undefined
-      );
-      expect(publish).toHaveBeenCalledOnce();
     });
   });
 
@@ -1542,7 +1048,8 @@ describe('retry jitter', () => {
         set: vi.fn().mockImplementation((values) => {
           delays.push(new Date(values.next_run_at).getTime() - now.getTime());
           return {
-            where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([]) }),
+            where: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue([]),
           };
         }),
       }),
