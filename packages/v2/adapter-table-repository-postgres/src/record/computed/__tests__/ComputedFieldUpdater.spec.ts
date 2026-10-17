@@ -223,9 +223,11 @@ const createFilteringTableRepository = (tables: ReadonlyArray<Table>): ITableRep
 });
 
 // Catalog probes are incidental; snapshots cover dirty propagation and computed writes.
+// Matched on the probe's CTE name, not on the catalog it reads, so swapping the catalog
+// source (`information_schema.columns` -> `pg_catalog`) does not re-pin every snapshot.
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
   queries
-    .filter((query) => !query.sql.includes('information_schema.columns'))
+    .filter((query) => !query.sql.includes('required_columns'))
     .map((query) => ({ sql: query.sql, parameters: query.parameters }));
 
 // Fixed IDs for stable snapshots

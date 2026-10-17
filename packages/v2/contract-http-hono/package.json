@@ -35,7 +35,7 @@
     "@teable/v2-contract-http-implementation": "workspace:*",
     "@teable/v2-contract-http-openapi": "workspace:*",
     "@teable/v2-core": "workspace:*",
-    "hono": "4.11.1"
+    "hono": "4.13.13"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

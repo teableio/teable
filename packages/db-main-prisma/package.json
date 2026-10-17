@@ -59,7 +59,7 @@
     "@prisma/adapter-pg": "6.2.1",
     "@prisma/client": "6.2.1",
     "prisma": "6.2.1",
-    "nanoid": "3.3.18",
+    "nanoid": "6.0.2",
     "pg": "8.11.5"
   },
   "devDependencies": {
@@ -68,7 +68,7 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
-    "@types/bcrypt": "5.0.2",
+    "@types/bcrypt": "6.0.0",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
@@ -80,10 +80,10 @@
     "picocolors": "1.0.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "tsx": "4.7.1",
+    "tsx": "4.23.15",
     "rxjs": "7.8.1",
     "typescript": "5.4.3",
-    "bcrypt": "5.1.1"
+    "bcrypt": "6.0.0"
   },
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"

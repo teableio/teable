@@ -18,20 +18,17 @@ import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../utils/meta-ancestry-cache';
 import {
-  buildComputedOutboxActivePauseExclusion,
   buildComputedOutboxAnomalyListQuery,
   buildComputedOutboxDeadLetterBatchSelectionQuery,
   buildComputedOutboxLineageRunChainQuery,
   buildComputedOutboxLineageTaskLookupQuery,
+  buildComputedOutboxMaintenanceSnapshotQuery,
   buildComputedOutboxRecoveryPlanHash,
   buildComputedOutboxOrphanedDeferralRestoreQuery,
-  buildComputedOutboxRoutedFilter,
   buildComputedOutboxRunHistoryExistsQuery,
   buildComputedOutboxStaleRecoverySelectQuery,
   buildComputedOutboxTaskStatesQuery,
   buildComputedOutboxWakeupCandidatesQuery,
-  COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL,
-  qualifyComputedOutboxTable,
   type ComputedOutboxDeadLetterBatchSelection,
   type ComputedOutboxWakeupCandidateQueryOptions,
   type ComputedOutboxWakeupCandidateQueryTarget,
@@ -799,97 +796,12 @@ export class DataDbClientManager {
     processingLeaseMs: number
   ): Promise<IComputedOutboxMaintenanceSnapshot> {
     const client = createComputedOutboxMaintenanceKnex(target);
-    const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
-    // Anomaly counts (dead / stale) must match the anomaly list, which hides
-    // entries whose base no longer routes here (BYODB migration, deleted base).
-    // anomalyGroups uses the same (base, seed table, error signature) key as the list.
-    const routedFilter = buildComputedOutboxRoutedFilter(target);
-    const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
-    const deadLetterTable = qualifyComputedOutboxTable(target, 'computed_update_dead_letter');
-    const pauseScopeTable = qualifyComputedOutboxTable(target, 'computed_update_pause_scope');
+    const query = buildComputedOutboxMaintenanceSnapshotQuery(target, processingLeaseMs);
     try {
       const result = await client
         .raw<{
           rows: Array<Record<string, string | number | null>>;
-        }>(
-          `with ${routedFilter.cte},
-          outbox_state as (
-            select o.*,
-              ${pauseExclusion.sql} as actionable,
-              (${routedFilter.condition('o.base_id')}) as routed
-            from ${outboxTable} as o
-          )
-        select
-          count(*) filter (
-            where status = 'pending' and next_run_at <= now() and actionable
-          ) as due_pending,
-          count(*) filter (
-            where status = 'pending' and next_run_at > now() and actionable
-          ) as scheduled_pending,
-          count(*) filter (where status = 'pending' and not actionable) as paused_pending,
-          count(*) filter (
-            where status = 'processing'
-              and locked_at is not null
-              and locked_at > now() - (? * interval '1 millisecond')
-          ) as active_processing,
-          count(*) filter (
-            where status = 'processing'
-              and actionable
-              and routed
-              and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
-          ) as stale_processing,
-          coalesce(
-            extract(epoch from (now() - min(next_run_at) filter (
-              where status = 'pending' and next_run_at <= now() and actionable
-            ))) * 1000,
-            0
-          ) as oldest_due_age_ms,
-          coalesce(
-            extract(epoch from (now() - min(created_at) filter (
-              where status = 'pending' and not actionable
-            ))) * 1000,
-            0
-          ) as oldest_paused_age_ms,
-          (
-            select count(*)
-            from ${pauseScopeTable}
-            where resume_at is null or resume_at > now()
-          ) as active_pause_scope_count,
-          (
-            select count(*)
-            from ${deadLetterTable}
-            where ${routedFilter.condition('base_id')}
-          ) as dead,
-          (
-            select count(*)
-            from (
-              select 1
-              from ${deadLetterTable}
-              where ${routedFilter.condition('base_id')}
-              group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
-            ) dead_groups
-          ) as dead_groups,
-          (
-            select count(*)
-            from (
-              select 1
-              from outbox_state
-              where status = 'processing'
-                and actionable
-                and routed
-                and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
-              group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
-            ) stale_groups
-          ) as stale_groups
-        from outbox_state`,
-          [
-            ...routedFilter.bindings,
-            ...pauseExclusion.bindings,
-            processingLeaseMs,
-            processingLeaseMs,
-            processingLeaseMs,
-          ]
-        )
+        }>(query.sql, query.bindings)
         .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
       const row = result.rows[0] ?? {};
       return {

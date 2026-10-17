@@ -31,7 +31,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@hono/node-server": "1.13.5",
+    "@hono/node-server": "1.19.17",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-adapter-db-postgres-postgresjs": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
@@ -43,9 +43,9 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-table-templates": "workspace:*",
-    "express": "4.21.1",
-    "fastify": "4.29.1",
-    "hono": "4.11.1"
+    "express": "4.22.3",
+    "fastify": "5.12.7",
+    "hono": "4.13.13"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

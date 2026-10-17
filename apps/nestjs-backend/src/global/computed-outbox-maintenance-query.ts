@@ -326,6 +326,110 @@ export const buildComputedOutboxOrphanedDeferralRestoreQuery = (
   };
 };
 
+/**
+ * One maintenance target's ledger snapshot for the admin page and the health
+ * probe. Every claimable or blocking count is restricted to rows whose base
+ * still routes to this storage (`routed`): a leftover row for a base that moved
+ * to another data database can never be claimed or republished here
+ * (see buildComputedOutboxForeignBindingExclusion), so counting it as due pins
+ * `oldest_due_age` indefinitely and keeps `overdue_pending` firing with nothing
+ * to drain. Dead and stale already report the routed population only; the
+ * actionable counts must match them instead of reporting work this target
+ * cannot do.
+ */
+export const buildComputedOutboxMaintenanceSnapshotQuery = (
+  target: ComputedOutboxWakeupCandidateQueryTarget,
+  processingLeaseMs: number
+): { sql: string; bindings: unknown[] } => {
+  const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
+  const routedFilter = buildComputedOutboxRoutedFilter(target);
+  const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
+  const deadLetterTable = qualifyComputedOutboxTable(target, 'computed_update_dead_letter');
+  const pauseScopeTable = qualifyComputedOutboxTable(target, 'computed_update_pause_scope');
+  return {
+    sql: `with ${routedFilter.cte},
+        outbox_state as (
+          select o.*,
+            ${pauseExclusion.sql} as actionable,
+            (${routedFilter.condition('o.base_id')}) as routed
+          from ${outboxTable} as o
+        )
+      select
+        count(*) filter (
+          where status = 'pending' and next_run_at <= now() and actionable and routed
+        ) as due_pending,
+        count(*) filter (
+          where status = 'pending' and next_run_at > now() and actionable and routed
+        ) as scheduled_pending,
+        count(*) filter (
+          where status = 'pending' and not actionable and routed
+        ) as paused_pending,
+        count(*) filter (
+          where status = 'processing'
+            and locked_at is not null
+            and locked_at > now() - (? * interval '1 millisecond')
+            and routed
+        ) as active_processing,
+        count(*) filter (
+          where status = 'processing'
+            and actionable
+            and routed
+            and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
+        ) as stale_processing,
+        coalesce(
+          extract(epoch from (now() - min(next_run_at) filter (
+            where status = 'pending' and next_run_at <= now() and actionable and routed
+          ))) * 1000,
+          0
+        ) as oldest_due_age_ms,
+        coalesce(
+          extract(epoch from (now() - min(created_at) filter (
+            where status = 'pending' and not actionable and routed
+          ))) * 1000,
+          0
+        ) as oldest_paused_age_ms,
+        (
+          select count(*)
+          from ${pauseScopeTable}
+          where resume_at is null or resume_at > now()
+        ) as active_pause_scope_count,
+        (
+          select count(*)
+          from ${deadLetterTable}
+          where ${routedFilter.condition('base_id')}
+        ) as dead,
+        (
+          select count(*)
+          from (
+            select 1
+            from ${deadLetterTable}
+            where ${routedFilter.condition('base_id')}
+            group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
+          ) dead_groups
+        ) as dead_groups,
+        (
+          select count(*)
+          from (
+            select 1
+            from outbox_state
+            where status = 'processing'
+              and actionable
+              and routed
+              and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
+            group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
+          ) stale_groups
+        ) as stale_groups
+      from outbox_state`,
+    bindings: [
+      ...routedFilter.bindings,
+      ...pauseExclusion.bindings,
+      processingLeaseMs,
+      processingLeaseMs,
+      processingLeaseMs,
+    ],
+  };
+};
+
 export const buildComputedOutboxWakeupCandidatesQuery = (
   target: ComputedOutboxWakeupCandidateQueryTarget,
   processingLeaseMs: number,

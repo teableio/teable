@@ -31,9 +31,9 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/client": "1.13.0",
-    "@orpc/contract": "1.13.0",
-    "@orpc/openapi-client": "1.13.0",
+    "@orpc/client": "1.15.7",
+    "@orpc/contract": "1.15.7",
+    "@orpc/openapi-client": "1.15.7",
     "@teable/v2-contract-http": "workspace:*"
   },
   "devDependencies": {

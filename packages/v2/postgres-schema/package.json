@@ -30,7 +30,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "kysely": "0.28.9"
+    "kysely": "0.28.17"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

@@ -3892,9 +3892,25 @@ export const buildUpdateFieldSpecs = (
     }
   }
 
-  if (Object.hasOwn(input, 'aiConfig')) {
+  const aiConfigFieldType = input.type ?? currentField.type().toString();
+
+  // A derived lookup (`lookup`, `conditionalLookup`) exposes the referenced field's aiConfig:
+  // the field DTO mapper merges the inner field's config onto it, so a GET -> PATCH round-trip
+  // (rename, or retargeting the lookup target) sends that aiConfig straight back. It is not this
+  // field's own config — the mapper re-derives it from the lookup target on every persist — so
+  // validating it against the v2-only type name rejected the whole update with
+  // "Field type <type> does not support aiConfig" and storing it would be overwritten on the next
+  // persist anyway. Accept and ignore it for those types (T7916); converting a lookup away to a
+  // regular type still validates and stores an aiConfig against the converted type, and an
+  // explicit null stays a clear request (it is not a derived echo).
+  const aiConfigIsDerivedFromLookupTarget =
+    aiConfigFieldType === 'lookup' || aiConfigFieldType === 'conditionalLookup';
+
+  if (
+    Object.hasOwn(input, 'aiConfig') &&
+    (!aiConfigIsDerivedFromLookupTarget || input.aiConfig == null)
+  ) {
     // v1 parity (T6520): aiConfig must match the (possibly converted) field type.
-    const aiConfigFieldType = input.type ?? currentField.type().toString();
     const aiConfigValidation = validateFieldAiConfig(aiConfigFieldType, input.aiConfig);
     if (!aiConfigValidation.valid) {
       return err(domainError.validation({ message: aiConfigValidation.message }));

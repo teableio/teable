@@ -46,7 +46,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/server": "1.13.0",
+    "@orpc/server": "1.15.7",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",

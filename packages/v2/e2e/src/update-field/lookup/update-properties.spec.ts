@@ -1099,6 +1099,303 @@ describe('[D01][S01] update-field: lookup property updates', () => {
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
     await ctx.deleteField({ tableId: foreignTableId, fieldId: foreignLongTextField.id });
   });
+
+  // Regression (T7916): a lookup exposes the referenced field's aiConfig as a derived
+  // echo, so a read-modify-write round-trip (rename, or retargeting lookupFieldId) sends
+  // that aiConfig straight back. The update must not validate it against the v2 type name
+  // 'lookup' and reject the whole save with "Field type lookup does not support aiConfig".
+  test('[V1 PARITY] renames a lookup over an AI field when the payload echoes the derived aiConfig', async () => {
+    const aiTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'T7916 AI Lookup Target',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Input' },
+      ],
+    });
+    const aiPrimary = aiTable.fields.find((f) => f.isPrimary);
+    const inputField = aiTable.fields.find((f) => f.name === 'Input');
+    if (!aiPrimary || !inputField) throw new Error('AI target table fields not found');
+
+    const withAiField = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: aiTable.id,
+      field: {
+        type: 'longText',
+        name: 'AI Summary',
+        aiConfig: {
+          type: 'summary',
+          modelKey: 'openai@gpt-4o@gpt',
+          sourceFieldId: inputField.id,
+          isAutoFill: false,
+          attachPrompt: 'Summarize the input in one sentence.',
+        },
+      },
+    });
+    const aiField = withAiField.fields.find((f) => f.name === 'AI Summary');
+    if (!aiField) throw new Error('AI field not found');
+    expect(aiField.aiConfig).toBeDefined();
+
+    const sourceWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'link',
+        name: 'T7916 AI Link',
+        options: {
+          foreignTableId: aiTable.id,
+          relationship: 'manyMany',
+          lookupFieldId: aiPrimary.id,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = sourceWithLink.fields.find((f) => f.name === 'T7916 AI Link');
+    if (!linkField) throw new Error('Link field not found');
+
+    const sourceWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'lookup',
+        name: 'T7916 AI Lookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId: aiTable.id,
+          lookupFieldId: aiField.id,
+        },
+      },
+    });
+    const lookupField = sourceWithLookup.fields.find((f) => f.name === 'T7916 AI Lookup');
+    if (!lookupField) throw new Error('Lookup field not found');
+    // Premise: the lookup DTO carries the referenced AI field's config.
+    expect(lookupField.aiConfig).toEqual(aiField.aiConfig);
+
+    // Action: rename only, echoing the derived aiConfig exactly as a GET -> PATCH does.
+    const updated = await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        name: 'T7916 AI Lookup renamed',
+        aiConfig: lookupField.aiConfig,
+      },
+    });
+
+    const renamed = updated.fields.find((f) => f.id === lookupField.id);
+    expect(renamed?.name).toBe('T7916 AI Lookup renamed');
+    expect(renamed?.isLookup).toBe(true);
+    expect(renamed?.lookupOptions).toMatchObject({
+      linkFieldId: linkField.id,
+      foreignTableId: aiTable.id,
+      lookupFieldId: aiField.id,
+    });
+
+    // An explicit null is not a derived echo, so it must still clear the sidecar column
+    // instead of being swallowed with the echo.
+    await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: { aiConfig: null },
+    });
+    const cleared = await sql<{ ai_config: string | null }>`
+      SELECT "ai_config" FROM "field" WHERE "id" = ${lookupField.id}
+    `.execute(ctx.testContainer.db);
+    expect(cleared.rows[0]?.ai_config).toBeNull();
+
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
+    await ctx.deleteTable(aiTable.id);
+  });
+
+  // Second branch of T7916: retargeting the lookup to another AI field while the payload
+  // still carries the previous target's derived aiConfig. The retarget must save and stay
+  // visible on a fresh server read.
+  test('[V1 PARITY] retargets a lookup to another AI field while echoing the previous derived aiConfig', async () => {
+    const aiTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'T7916 AI Retarget Target',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Input' },
+      ],
+    });
+    const aiPrimary = aiTable.fields.find((f) => f.isPrimary);
+    const inputField = aiTable.fields.find((f) => f.name === 'Input');
+    if (!aiPrimary || !inputField) throw new Error('AI target table fields not found');
+
+    const createAiField = async (name: string, attachPrompt: string) => {
+      const table = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: aiTable.id,
+        field: {
+          type: 'longText',
+          name,
+          aiConfig: {
+            type: 'summary',
+            modelKey: 'openai@gpt-4o@gpt',
+            sourceFieldId: inputField.id,
+            isAutoFill: false,
+            attachPrompt,
+          },
+        },
+      });
+      const field = table.fields.find((f) => f.name === name);
+      if (!field) throw new Error(`${name} not found`);
+      return field;
+    };
+    const aiFieldA = await createAiField('AI Summary A', 'Summarize A.');
+    const aiFieldB = await createAiField('AI Summary B', 'Summarize B.');
+
+    const sourceWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'link',
+        name: 'T7916 AI Retarget Link',
+        options: {
+          foreignTableId: aiTable.id,
+          relationship: 'manyMany',
+          lookupFieldId: aiPrimary.id,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = sourceWithLink.fields.find((f) => f.name === 'T7916 AI Retarget Link');
+    if (!linkField) throw new Error('Link field not found');
+
+    const sourceWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'lookup',
+        name: 'T7916 AI Retarget Lookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId: aiTable.id,
+          lookupFieldId: aiFieldA.id,
+        },
+      },
+    });
+    const lookupField = sourceWithLookup.fields.find((f) => f.name === 'T7916 AI Retarget Lookup');
+    if (!lookupField) throw new Error('Lookup field not found');
+    expect(lookupField.aiConfig).toEqual(aiFieldA.aiConfig);
+
+    const updated = await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        options: { lookupFieldId: aiFieldB.id },
+        aiConfig: lookupField.aiConfig,
+      },
+    });
+
+    const retargeted = updated.fields.find((f) => f.id === lookupField.id);
+    expect(retargeted?.lookupOptions?.lookupFieldId).toBe(aiFieldB.id);
+
+    // The retarget must be visible on a fresh server read, not only in the update response.
+    const freshRead = await ctx.getTableById(sourceTableId);
+    const fresh = freshRead.fields.find((f) => f.id === lookupField.id);
+    expect(fresh?.lookupOptions?.lookupFieldId).toBe(aiFieldB.id);
+
+    // Known limitation (pre-existing, tracked separately from T7916): a lookup keeps its own
+    // stored `ai_config` copy and a retarget does not refresh it — buildFieldStorageMetadataUpdate
+    // writes type/options/lookup_options but not ai_config — so the field DTO still exposes the
+    // previous target's aiConfig after the target moved. The enterprise AI auto-fill pipeline reads
+    // that column directly (v2-auto-fill.service.ts, v2-task.service.ts), so refreshing or dropping
+    // the copy belongs to its own change; pinning the current behavior here makes such a change
+    // update this assertion deliberately.
+    expect(fresh?.aiConfig).toEqual(aiFieldA.aiConfig);
+
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
+    await ctx.deleteTable(aiTable.id);
+  });
+
+  // Same defect class on the sibling derived type: a conditional lookup over an AI field
+  // also exposes the referenced field's aiConfig, so its rename round-trip hit
+  // "Field type conditionalLookup does not support aiConfig" instead of saving.
+  test('[V1 PARITY] renames a conditional lookup over an AI field when the payload echoes the derived aiConfig', async () => {
+    const aiTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'T7916 AI Conditional Target',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Input' },
+      ],
+    });
+    const aiPrimary = aiTable.fields.find((f) => f.isPrimary);
+    const inputField = aiTable.fields.find((f) => f.name === 'Input');
+    if (!aiPrimary || !inputField) throw new Error('AI target table fields not found');
+
+    const withAiField = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: aiTable.id,
+      field: {
+        type: 'longText',
+        name: 'AI Summary',
+        aiConfig: {
+          type: 'summary',
+          modelKey: 'openai@gpt-4o@gpt',
+          sourceFieldId: inputField.id,
+          isAutoFill: false,
+          attachPrompt: 'Summarize the input in one sentence.',
+        },
+      },
+    });
+    const aiField = withAiField.fields.find((f) => f.name === 'AI Summary');
+    if (!aiField) throw new Error('AI field not found');
+
+    const sourceWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'conditionalLookup',
+        name: 'T7916 AI Conditional Lookup',
+        options: {
+          foreignTableId: aiTable.id,
+          lookupFieldId: aiField.id,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: aiPrimary.id, operator: 'isNotEmpty' }],
+            },
+          },
+        },
+      },
+    });
+    const lookupField = sourceWithLookup.fields.find(
+      (f) => f.name === 'T7916 AI Conditional Lookup'
+    );
+    if (!lookupField) throw new Error('Conditional lookup field not found');
+    expect(lookupField.aiConfig).toEqual(aiField.aiConfig);
+
+    const updated = await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        name: 'T7916 AI Conditional Lookup renamed',
+        aiConfig: lookupField.aiConfig,
+      },
+    });
+
+    const renamed = updated.fields.find((f) => f.id === lookupField.id);
+    expect(renamed?.name).toBe('T7916 AI Conditional Lookup renamed');
+    expect(renamed?.isLookup).toBe(true);
+
+    // The clear branch must cover the conditional type as well, not only `lookup`.
+    await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: { aiConfig: null },
+    });
+    const cleared = await sql<{ ai_config: string | null }>`
+      SELECT "ai_config" FROM "field" WHERE "id" = ${lookupField.id}
+    `.execute(ctx.testContainer.db);
+    expect(cleared.rows[0]?.ai_config).toBeNull();
+
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
+    await ctx.deleteTable(aiTable.id);
+  });
 });
 
 describe('update-field: lookup conversions', () => {

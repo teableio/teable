@@ -32,7 +32,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/contract": "1.13.0",
+    "@orpc/contract": "1.15.7",
     "@teable/v2-core": "workspace:*",
     "neverthrow": "8.2.0",
     "zod": "4.1.8"

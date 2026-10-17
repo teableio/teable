@@ -34,7 +34,7 @@
   "dependencies": {
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "nanoid": "5.0.7",
+    "nanoid": "6.0.2",
     "neverthrow": "8.2.0",
     "zod": "4.1.8"
   },

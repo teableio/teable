@@ -10,6 +10,8 @@ import { InternalCommand } from './InternalCommand';
 const propagateUserRenameInputSchema = z.object({
   userId: z.string(),
   name: z.string().trim().min(1, 'User name is required'),
+  // See UserRenamePropagationInput.sharedDataPlane.
+  sharedDataPlane: z.boolean().optional(),
 });
 
 export type IPropagateUserRenameCommandInput = z.input<typeof propagateUserRenameInputSchema>;
@@ -17,7 +19,8 @@ export type IPropagateUserRenameCommandInput = z.input<typeof propagateUserRenam
 export class PropagateUserRenameCommand extends InternalCommand {
   private constructor(
     readonly userId: UserId,
-    readonly name: string
+    readonly name: string,
+    readonly sharedDataPlane: boolean | undefined
   ) {
     super();
   }
@@ -34,7 +37,8 @@ export class PropagateUserRenameCommand extends InternalCommand {
     }
 
     return UserId.create(parsed.data.userId).map(
-      (userId) => new PropagateUserRenameCommand(userId, parsed.data.name)
+      (userId) =>
+        new PropagateUserRenameCommand(userId, parsed.data.name, parsed.data.sharedDataPlane)
     );
   }
 }
