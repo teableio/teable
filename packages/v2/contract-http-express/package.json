@@ -41,7 +41,7 @@
     "@teable/v2-contract-http-implementation": "workspace:*",
     "@teable/v2-contract-http-openapi": "workspace:*",
     "@teable/v2-core": "workspace:*",
-    "express": "4.21.1"
+    "express": "4.22.3"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

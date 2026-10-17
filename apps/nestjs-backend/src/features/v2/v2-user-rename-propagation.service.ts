@@ -40,6 +40,9 @@ export class V2UserRenamePropagationService {
     const commandResult = PropagateUserRenameCommand.create({
       userId: input.userId,
       name: input.name,
+      // The shared container's data plane is the meta database; externally bound bases only
+      // have a stale pre-switch copy there, so their snapshots must not be patched.
+      sharedDataPlane: true,
     });
     if (commandResult.isErr()) {
       this.logger.error(commandResult.error.message);

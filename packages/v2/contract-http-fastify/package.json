@@ -35,7 +35,7 @@
     "@teable/v2-contract-http-implementation": "workspace:*",
     "@teable/v2-contract-http-openapi": "workspace:*",
     "@teable/v2-core": "workspace:*",
-    "fastify": "4.29.1"
+    "fastify": "5.12.7"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

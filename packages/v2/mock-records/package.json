@@ -40,14 +40,14 @@
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
-    "@toon-format/toon": "2.1.0",
+    "@toon-format/toon": "2.3.1",
     "@types/node": "24.13.2",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
-    "tsx": "4.19.4",
+    "tsx": "4.23.15",
     "typescript": "5.4.3",
-    "vitest": "2.0.5"
+    "vitest": "4.0.17"
   }
 }

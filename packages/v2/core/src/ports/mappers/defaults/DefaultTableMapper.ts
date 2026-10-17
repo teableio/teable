@@ -153,6 +153,22 @@ const optional = <T>(
   return parser(raw).map((value) => value);
 };
 
+/**
+ * Display-only options must never fail a table read. A stored `showAs` that no
+ * longer matches the field's type — left behind by a field type conversion, an
+ * import, or a hand-edited row — is dropped so the field still maps and renders
+ * as plain text/number. Mirrors the write-side tolerance in
+ * field-supplement.service.ts ("if source showAs is invalid, we should ignore it").
+ */
+const optionalShowAs = <T>(
+  raw: unknown,
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | undefined, DomainError> => {
+  if (raw == null) return ok(undefined);
+  const parsed = parser(raw);
+  return parsed.isOk() ? ok(parsed.value) : ok(undefined);
+};
+
 const lookupOptionsToRollupConfig = (lookupOptions: ILookupOptionsDTO): IRollupFieldConfigDTO => ({
   linkFieldId: lookupOptions.linkFieldId,
   foreignTableId: lookupOptions.foreignTableId,
@@ -198,6 +214,7 @@ const parseFormulaFormatting = (
   );
 };
 
+// Invalid formula showAs is dropped rather than failing the read — see optionalShowAs.
 const parseFormulaShowAs = (
   raw: unknown
 ): Result<NumberShowAs | SingleLineTextShowAs | undefined, DomainError> => {
@@ -206,7 +223,7 @@ const parseFormulaShowAs = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err(domainError.validation({ message: 'Invalid FormulaShowAs' }));
+  return ok(undefined);
 };
 
 const parseFormulaResultType = (
@@ -1214,7 +1231,7 @@ export class DefaultTableMapper implements ITableMapper {
           return match(dto)
             .with({ type: 'singleLineText' }, (dto) => {
               const options = dto.options ?? {};
-              return optional(options.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+              return optionalShowAs(options.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
                 optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
                   SingleLineTextField.create({ id, name, showAs, defaultValue })
                 )
@@ -1222,7 +1239,7 @@ export class DefaultTableMapper implements ITableMapper {
             })
             .with({ type: 'longText' }, (dto) => {
               const options = dto.options ?? {};
-              return optional(options.showAs, LongTextShowAs.create).andThen((showAs) =>
+              return optionalShowAs(options.showAs, LongTextShowAs.create).andThen((showAs) =>
                 optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
                   LongTextField.create({ id, name, showAs, defaultValue })
                 )
@@ -1231,7 +1248,7 @@ export class DefaultTableMapper implements ITableMapper {
             .with({ type: 'number' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.formatting, NumberFormatting.create).andThen((formatting) =>
-                optional(options.showAs, NumberShowAs.create).andThen((showAs) =>
+                optionalShowAs(options.showAs, NumberShowAs.create).andThen((showAs) =>
                   optional(options.defaultValue, NumberDefaultValue.create).andThen(
                     (defaultValue) =>
                       NumberField.create({ id, name, formatting, showAs, defaultValue })

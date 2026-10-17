@@ -5,7 +5,6 @@ import { ConfigurableModuleBuilder, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
-import { createTransport } from 'nodemailer';
 import type { IMailConfig } from '../../configs/mail.config';
 import { SettingOpenApiModule } from '../setting/open-api/setting-open-api.module';
 import { buildEmailFrom, helpers } from './mail-helpers';
@@ -18,28 +17,9 @@ export interface MailSenderModuleOptions {
 export const { ConfigurableModuleClass: MailSenderModuleClass, OPTIONS_TYPE } =
   new ConfigurableModuleBuilder<MailSenderModuleOptions>().build();
 
-/**
- * Create a no-op transport for when mail is not configured.
- * This transport logs emails instead of sending them and has a proper verify() method
- * that returns a Promise (required by @nestjs-modules/mailer).
- */
+/** Transport for when mail is not configured: jsonTransport never opens a network connection. */
 function createNoOpTransport() {
-  // Sonar S5332: jsonTransport never opens a network connection
-  const transport = /* NOSONAR typescript:S5332 */ createTransport({
-    jsonTransport: true,
-  });
-
-  // Override verify to return a Promise (the original returns false for jsonTransport)
-  // This is needed because @nestjs-modules/mailer calls verify().then() without checking
-  const originalVerify = transport.verify.bind(transport);
-  transport.verify = function (callback?: (err: Error | null, success: boolean) => void) {
-    if (callback) {
-      return originalVerify(callback);
-    }
-    return Promise.resolve(true);
-  } as typeof transport.verify;
-
-  return transport;
+  return { jsonTransport: true } as const;
 }
 
 @Module({})

@@ -5,6 +5,7 @@ import {
   buildComputedOutboxDeadLetterBatchSelectionQuery,
   buildComputedOutboxLineageRunChainQuery,
   buildComputedOutboxLineageTaskLookupQuery,
+  buildComputedOutboxMaintenanceSnapshotQuery,
   buildComputedOutboxOrphanedDeferralRestoreQuery,
   buildComputedOutboxRecoveryPlanHash,
   buildComputedOutboxRoutedFilter,
@@ -43,6 +44,44 @@ describe('buildComputedOutboxOrphanedDeferralRestoreQuery', () => {
     expect(query.sql).toContain('"teable_internal"."computed_update_outbox"');
     expect(query.bindings[0]).toBe(600_000);
     expect(String(query.bindings[1])).toContain('bse-1');
+  });
+});
+
+describe('buildComputedOutboxMaintenanceSnapshotQuery', () => {
+  it('restricts every actionable count and age to rows still routed to this storage', () => {
+    const query = buildComputedOutboxMaintenanceSnapshotQuery({ storage: 'default' }, 300_000);
+
+    // A base that moved to another data database leaves its old ledger row on the
+    // meta storage; claim and redrive both fence it out there, so the snapshot must
+    // not report it as due and must not age oldest_due_age on it forever.
+    expect(query.sql.match(/and actionable and routed/g)).toHaveLength(3);
+    expect(query.sql.match(/not actionable and routed/g)).toHaveLength(2);
+    expect(query.sql).toMatch(/and routed\s+\) as active_processing/);
+    expect(query.sql).toContain('from space_data_db_binding as sdb');
+    expect(query.sql).toContain(`sdb.mode = 'byodb'`);
+    expect(query.bindings).toEqual([300_000, 300_000, 300_000]);
+  });
+
+  it('routes BYODB targets through the supplied base mapping', () => {
+    const query = buildComputedOutboxMaintenanceSnapshotQuery(
+      {
+        storage: 'byodb',
+        internalSchema: 'teable_data',
+        baseSpaceMapping: [{ baseId: 'bse_a', spaceId: 'spc_a' }],
+      },
+      300_000
+    );
+
+    expect(query.sql).toContain('routable as (');
+    expect(query.sql).not.toContain('space_data_db_binding');
+    expect(query.sql).toContain('from "teable_data"."computed_update_outbox" as o');
+    expect(query.bindings).toEqual([
+      '[{"base_id":"bse_a","space_id":"spc_a"}]',
+      '[{"base_id":"bse_a","space_id":"spc_a"}]',
+      300_000,
+      300_000,
+      300_000,
+    ]);
   });
 });
 

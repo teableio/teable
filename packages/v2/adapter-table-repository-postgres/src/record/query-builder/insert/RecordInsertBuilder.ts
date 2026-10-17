@@ -1,6 +1,21 @@
 /* eslint-disable @typescript-eslint/no-this-alias */
-import type { Table, DomainError, LinkField, FieldId, TableId, RecordId } from '@teable/v2-core';
-import { err, FieldType, ok, RecordId as RecordIdVO } from '@teable/v2-core';
+import type {
+  Table,
+  DomainError,
+  LastModifiedTimeField,
+  LinkField,
+  FieldId,
+  TableId,
+  RecordId,
+} from '@teable/v2-core';
+import {
+  err,
+  FieldType,
+  isEmptyCellValue,
+  ok,
+  RecordId as RecordIdVO,
+  resolveTrackedFieldIds,
+} from '@teable/v2-core';
 import type { Kysely, CompiledQuery } from 'kysely';
 import { sql } from 'kysely';
 
@@ -190,6 +205,14 @@ interface IInsertFieldPlanEntry {
   readonly isComputed: boolean;
   readonly isCreatedTime: boolean;
   readonly isLastModifiedTime: boolean;
+  /**
+   * Tracked entries the create payload can carry a value for. An empty list is
+   * not track-all on its own: a list whose entries are all computed columns is
+   * empty here as well — see `tracksNonPayloadField`.
+   */
+  readonly trackedPayloadFieldIdStrs: ReadonlyArray<string>;
+  /** Whether a tracked entry is a computed column, which the payload never fills. */
+  readonly tracksNonPayloadField: boolean;
   readonly isCreatedBy: boolean;
   readonly isLastModifiedBy: boolean;
   readonly isJsonField: boolean;
@@ -217,6 +240,33 @@ export class RecordInsertBuilder {
     }
     const plan = safeTry<ReadonlyArray<IInsertFieldPlanEntry>, DomainError>(function* () {
       const entries: IInsertFieldPlanEntry[] = [];
+      const trackedFieldIdsByFieldId = new Map<
+        string,
+        {
+          readonly payloadFieldIdStrs: ReadonlyArray<string>;
+          readonly tracksNonPayloadField: boolean;
+        }
+      >();
+      for (const field of table.getFields((candidate): candidate is LastModifiedTimeField =>
+        candidate.type().equals(FieldType.lastModifiedTime())
+      )) {
+        const payloadFieldIdStrs: string[] = [];
+        let tracksNonPayloadField = false;
+        for (const trackedFieldId of resolveTrackedFieldIds(table, field)) {
+          const trackedField = table.getField((candidate) => candidate.id().equals(trackedFieldId));
+          // resolveTrackedFieldIds only returns ids that resolve on the table.
+          if (trackedField.isOk() && !trackedField.value.computed().toBoolean()) {
+            payloadFieldIdStrs.push(trackedFieldId.toString());
+          } else {
+            tracksNonPayloadField = true;
+          }
+        }
+        trackedFieldIdsByFieldId.set(field.id().toString(), {
+          payloadFieldIdStrs,
+          tracksNonPayloadField,
+        });
+      }
+
       for (const field of table.getFields()) {
         const isCreatedTime = field.type().equals(FieldType.createdTime());
         const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
@@ -258,6 +308,7 @@ export class RecordInsertBuilder {
           }
         }
 
+        const trackedFieldEntry = trackedFieldIdsByFieldId.get(field.id().toString());
         entries.push({
           field,
           fieldIdStr: field.id().toString(),
@@ -265,6 +316,8 @@ export class RecordInsertBuilder {
           isComputed,
           isCreatedTime,
           isLastModifiedTime,
+          trackedPayloadFieldIdStrs: trackedFieldEntry?.payloadFieldIdStrs ?? [],
+          tracksNonPayloadField: trackedFieldEntry?.tracksNonPayloadField ?? false,
           isCreatedBy,
           isLastModifiedBy,
           isJsonField,
@@ -348,11 +401,32 @@ export class RecordInsertBuilder {
             continue;
           }
 
-          const fallbackValue = entry.isCreatedTime
-            ? createdTime
-            : entry.isLastModifiedTime
-              ? lastModifiedTime
-              : null;
+          let fallbackValue: unknown = null;
+          if (entry.isCreatedTime) {
+            fallbackValue = createdTime;
+          } else if (entry.isLastModifiedTime) {
+            // A restricted tracking list records a change of its own fields, and a
+            // creation that leaves every one of them empty recorded no change:
+            // stamping the creation time there makes "never filled" and "filled,
+            // then cleared" indistinguishable to every reader (T7808). An empty or
+            // unresolvable list is track-all and still initializes.
+            //
+            // A tracking list that names a computed column cannot be judged from
+            // the payload: system columns are assigned by this INSERT, and a
+            // formula/rollup/lookup is evaluated after it. Those configurations
+            // keep the creation stamp they have always had, rather than a stamp
+            // that no later write can fill; only a payload-only list is narrowed
+            // here.
+            const tracksEveryField =
+              entry.trackedPayloadFieldIdStrs.length === 0 && !entry.tracksNonPayloadField;
+            const trackedFieldFilled = entry.trackedPayloadFieldIdStrs.some(
+              (trackedFieldId) => !isEmptyCellValue(fieldValues.get(trackedFieldId))
+            );
+            fallbackValue =
+              tracksEveryField || entry.tracksNonPayloadField || trackedFieldFilled
+                ? lastModifiedTime
+                : null;
+          }
           const resolvedValue = rawValue ?? fallbackValue;
           values[dbFieldName] =
             entry.isJsonField && resolvedValue !== null && resolvedValue !== undefined
