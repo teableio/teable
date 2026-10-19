@@ -933,7 +933,8 @@
       "editLink": "Редактировать ссылку",
       "linkText": "Текст ссылки",
       "enterUrl": "Введите URL"
-    }
+    },
+    "tooManyImages": "За один раз можно добавить не более {{count}} изображений"
   },
   "memberSelector": {
     "title": "Select Members",

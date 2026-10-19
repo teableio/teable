@@ -20,6 +20,8 @@ import type {
   ITableDeleteReferencesVo,
   ITableFullVo,
   ITableListVo,
+  ITableSearchIndexPolicyRo,
+  ITableSearchIndexPolicyVo,
   ITableSearchVectorStatusVo,
   ITableVo,
 } from '@teable/openapi';
@@ -38,6 +40,7 @@ import {
   updateOrderRoSchema,
   IToggleIndexRo,
   toggleIndexRoSchema,
+  tableSearchIndexPolicyRoSchema,
   TableIndex,
   duplicateTableRoSchema,
   IDuplicateTableRo,
@@ -307,6 +310,24 @@ export class TableController {
     @Body(new ZodValidationPipe(toggleIndexRoSchema)) searchIndexRo: IToggleIndexRo
   ) {
     return this.tableIndexService.toggleIndex(tableId, searchIndexRo);
+  }
+
+  @Get(':tableId/index/policy')
+  @Permissions('table|read')
+  async getSearchIndexPolicy(
+    @Param('tableId') tableId: string
+  ): Promise<ITableSearchIndexPolicyVo> {
+    return this.tableIndexService.getSearchIndexPolicy(tableId);
+  }
+
+  @Put(':tableId/index/policy')
+  @Permissions('table|update')
+  async updateSearchIndexPolicy(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(tableSearchIndexPolicyRoSchema))
+    policy: ITableSearchIndexPolicyRo
+  ): Promise<ITableSearchIndexPolicyVo> {
+    return this.tableIndexService.updateSearchIndexPolicy(tableId, policy);
   }
 
   @Get(':tableId/activated-index')

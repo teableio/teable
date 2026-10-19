@@ -182,4 +182,25 @@ describe('normalizeLegacyRecordFilterForV2', () => {
       value: { mode: 'dateRange' },
     });
   });
+
+  it('maps empty-string date comparisons to empty checks instead of timestamp literals', () => {
+    const result = normalizeLegacyRecordFilterForV2(
+      {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: dateFieldId, operator: 'isNot', value: '' },
+          { fieldId: dateFieldId, operator: 'is', value: '' },
+        ],
+      },
+      fields
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      conjunction: 'and',
+      items: [
+        { fieldId: dateFieldId, operator: 'isNotEmpty', value: null },
+        { fieldId: dateFieldId, operator: 'isEmpty', value: null },
+      ],
+    });
+  });
 });

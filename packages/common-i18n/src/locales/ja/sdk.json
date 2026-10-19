@@ -921,7 +921,8 @@
       "editLink": "リンクを編集",
       "linkText": "リンクテキスト",
       "enterUrl": "URLを入力"
-    }
+    },
+    "tooManyImages": "一度に追加できる画像は {{count}} 枚までです"
   },
   "memberSelector": {
     "title": "Select Members",

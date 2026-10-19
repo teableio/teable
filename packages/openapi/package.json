@@ -51,10 +51,10 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
     "rimraf": "5.0.5",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

@@ -1421,6 +1421,10 @@
             "title": "你的数据导出已就绪",
             "message": "{{name}} 你好，<br><br>你在删除 Teable 账号前要求保留一份数据副本，现在已经打包好了。<br><br>下方链接 {{expiresInDays}} 天内有效。"
           },
+          "accountExported": {
+            "title": "你的数据导出已就绪",
+            "message": "{{name}} 你好，<br><br>你申请的 Teable 数据副本已经打包好了。<br><br>下方链接 {{expiresInDays}} 天内有效。"
+          },
           "deactivated": {
             "title": "你的账号已被停用",
             "message": "{{name}} 你好，<br><br>你的 Teable 账号因违反<a href=\"https://teable.cn/terms-of-service-cn\" style=\"color:inherit;text-decoration:underline\">用户协议</a>已被停用。<br>我们把你拥有的空间的数据打包好了，供你留存一份。<br><br>下方链接 {{expiresInDays}} 天内有效。<br>如果你认为这是误判，请联系管理员。"
@@ -1842,6 +1846,24 @@
     "accept": "全部接受",
     "reject": "全部拒绝",
     "policy": "Cookie 政策",
-    "settings": "Cookie 设置"
+    "settings": "Cookie 设置",
+    "customize": "自定义",
+    "customBody": "选择 Teable 可以使用哪些 Cookie。你可以随时在「Cookie 设置」中修改。",
+    "save": "保存选择",
+    "alwaysOn": "始终开启",
+    "categories": {
+      "necessary": {
+        "title": "严格必要",
+        "description": "保障服务安全，支持登录、会话、语言设置，记住你的 Cookie 选择，以及兑现推荐优惠。"
+      },
+      "analytics": {
+        "title": "分析",
+        "description": "帮助我们了解产品的使用情况，从而改进你的体验。"
+      },
+      "marketing": {
+        "title": "营销",
+        "description": "帮助我们衡量广告和推广的效果。"
+      }
+    }
   }
 }

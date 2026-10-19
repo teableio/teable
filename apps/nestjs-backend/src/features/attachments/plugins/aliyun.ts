@@ -7,7 +7,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
-import { S3Storage } from './s3';
+import { S3Storage, s3ChecksumConfig } from './s3';
 import type { IRespHeaders } from './types';
 
 @Injectable()
@@ -25,6 +25,7 @@ export class AliyunStorage extends S3Storage implements StorageAdapter {
         })
       : undefined;
     this.aliyunClient = new S3Client({
+      ...s3ChecksumConfig,
       region,
       endpoint,
       forcePathStyle,

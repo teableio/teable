@@ -23,6 +23,13 @@
       "module": "./dist/handlers/index.js",
       "require": "./dist/handlers/index.cjs"
     },
+    "./data-query": {
+      "@teable/source": "./src/handlers/dataQuery/executeDataQuery.ts",
+      "types": "./src/handlers/dataQuery/executeDataQuery.ts",
+      "import": "./dist/handlers/dataQuery/executeDataQuery.js",
+      "module": "./dist/handlers/dataQuery/executeDataQuery.js",
+      "require": "./dist/handlers/dataQuery/executeDataQuery.cjs"
+    },
     "./table-query-ops": {
       "@teable/source": "./src/tableQueryOpsRouter.ts",
       "types": "./src/tableQueryOpsRouter.ts",
@@ -46,23 +53,24 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/server": "1.13.0",
+    "@orpc/server": "1.15.7",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-contract-http": "workspace:*",
+    "@teable/v2-data-query": "workspace:*",
     "@teable/v2-table-query-ops": "workspace:*"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.13.2",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

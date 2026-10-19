@@ -31,6 +31,7 @@ import {
   FieldId,
   FieldType,
   ok,
+  resolveTrackedFieldIds,
   SetAttachmentValueSpec,
   SetLinkValueSpec as SetLinkValueSpecClass,
 } from '@teable/v2-core';
@@ -160,7 +161,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       );
 
       for (const field of lastModifiedTimeFields) {
-        const trackedFieldIds = yield* visitor.resolveTrackedFieldIds(field);
+        const trackedFieldIds = resolveTrackedFieldIds(visitor.table, field);
         const shouldUpdate =
           trackedFieldIds.length === 0 ||
           trackedFieldIds.some((tracked) =>
@@ -193,7 +194,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       );
 
       for (const field of lastModifiedByFields) {
-        const trackedFieldIds = yield* visitor.resolveTrackedFieldIds(field);
+        const trackedFieldIds = resolveTrackedFieldIds(visitor.table, field);
         const shouldUpdate =
           trackedFieldIds.length === 0 ||
           trackedFieldIds.some((tracked) =>
@@ -304,26 +305,6 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     }
 
     return isPersistedAsGeneratedColumn(field);
-  }
-
-  private resolveTrackedFieldIds(
-    field: LastModifiedByField | LastModifiedTimeField
-  ): Result<ReadonlyArray<FieldId>, DomainError> {
-    const trackedFieldIds = field.trackedFieldIds();
-    if (trackedFieldIds.length === 0) {
-      return ok([]);
-    }
-
-    const validTracked = trackedFieldIds.filter((tracked) => {
-      const result = this.table.getField((candidate) => candidate.id().equals(tracked));
-      return result.isOk();
-    });
-
-    if (validTracked.length === 0) {
-      return ok([]);
-    }
-
-    return ok(validTracked);
   }
 
   private buildLastModifiedByValue(): string {

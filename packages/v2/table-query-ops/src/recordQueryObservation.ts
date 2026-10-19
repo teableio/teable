@@ -1,4 +1,9 @@
 import {
+  AndSpec,
+  NotSpec,
+  OrSpec,
+  RecordValueConditionSpec,
+  isRecordConditionFieldReferenceValue,
   v2CoreTokens,
   type DomainError,
   type IExecutionContext,
@@ -28,9 +33,11 @@ import {
   type TableQueryExecutionShape,
   type TableQueryKind,
   type TableQueryOrderFieldShape,
+  type TableQueryShapeInput,
   type TableQuerySqlDiagnostic,
 } from './domain';
 import type { TableQueryObservationPublisher } from './ports';
+import { toOperatorFamily } from './queryConfigShape';
 import {
   attachTableQuerySqlDiagnosticsCollector,
   defaultTableQuerySqlDiagnosticsConfig,
@@ -276,6 +283,55 @@ export const decorateV2TableRecordQueryRepositoryWithTableOps = (
   );
 };
 
+type ObservationWhereShape = NonNullable<TableQueryShapeInput['whereShape']>;
+
+const describeConditionSpec = (
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+): ObservationWhereShape | undefined => {
+  if (!spec) return undefined;
+  const fields: ObservationWhereShape['fields'][number][] = [];
+  let conditionCount = 0;
+  let andDepth = 0;
+  let orDepth = 0;
+
+  const walk = (
+    node: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    ands: number,
+    ors: number
+  ) => {
+    if (node instanceof NotSpec) {
+      walk(node.innerSpec(), ands, ors);
+      return;
+    }
+    if (node instanceof AndSpec) {
+      andDepth = Math.max(andDepth, ands + 1);
+      walk(node.leftSpec(), ands + 1, ors);
+      walk(node.rightSpec(), ands + 1, ors);
+      return;
+    }
+    if (node instanceof OrSpec) {
+      orDepth = Math.max(orDepth, ors + 1);
+      walk(node.leftSpec(), ands, ors + 1);
+      walk(node.rightSpec(), ands, ors + 1);
+      return;
+    }
+    if (node instanceof RecordValueConditionSpec) {
+      conditionCount += 1;
+      fields.push({
+        fieldId: node.field().id().toString(),
+        fieldType: node.field().type().toString(),
+        operatorFamily: toOperatorFamily(
+          node.operator(),
+          isRecordConditionFieldReferenceValue(node.value())
+        ),
+      });
+    }
+  };
+
+  walk(spec, 0, 0);
+  return { conditionCount, andDepth, orDepth, fields };
+};
+
 const buildRecordQueryShape = (
   table: Table,
   spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
@@ -313,14 +369,7 @@ const buildRecordQueryShape = (
 
   return TableQueryShape.create({
     queryKind,
-    whereShape: spec
-      ? {
-          conditionCount: 1,
-          andDepth: 1,
-          orDepth: 0,
-          fields: [],
-        }
-      : undefined,
+    whereShape: describeConditionSpec(spec),
     searchShape: search
       ? {
           fieldCount: searchFieldCount ?? table.getFields().length,

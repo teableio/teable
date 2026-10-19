@@ -211,15 +211,18 @@ export class UserService {
     refMeta: Prisma.UserCreateInput['refMeta']
   ): Prisma.UserCreateInput['refMeta'] {
     const via = this.cls.get('affiliateVia');
-    // Banner ad_storage choice + signup IP: both feed the analytics event so
-    // ad-platform forwarding can be scoped by consent and by (PostHog-derived)
-    // geo — neither is readable at event time, hence the refMeta snapshot.
+    // Banner ad consent + signup IP/country: they feed the analytics event and
+    // the backend's own ad conversion uploads, so ad-platform forwarding can be
+    // scoped by consent and geo (adUserDataConsent) — none is readable at
+    // event time, hence the refMeta snapshot.
     const adConsent = this.cls.get('marketingAdConsent');
+    const country = this.cls.get('requestCountry');
     const origin = this.cls.get('origin');
     const attribution = {
       ...(via ? { via } : {}),
       ...this.cls.get('signupAttribution'),
       ...(adConsent ? { adConsent } : {}),
+      ...(country ? { country } : {}),
       ...(origin?.ip ? { ip: origin.ip } : {}),
       // UA of the signup request — forwarded to ad platforms as a match key.
       ...(origin?.userAgent ? { ua: origin.userAgent.slice(0, 500) } : {}),

@@ -32,7 +32,7 @@
   "dependencies": {
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "kysely": "0.28.9",
+    "kysely": "0.28.17",
     "neverthrow": "8.2.0",
     "zod": "4.1.8"
   },

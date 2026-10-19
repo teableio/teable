@@ -14,6 +14,7 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { AccountDataExport } from '@overridable/AccountDataExport';
 import { AddPassword } from './account/AddPassword';
 import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
@@ -150,6 +151,7 @@ export const Account: React.FC = () => {
               )}
             </div>
           </div>
+          <AccountDataExport />
         </div>
         <div>
           <DeleteAccountDialog />

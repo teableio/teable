@@ -32,21 +32,23 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/contract": "1.13.0",
+    "@orpc/contract": "1.15.7",
     "@teable/v2-core": "workspace:*",
+    "@teable/v2-data-query": "workspace:*",
     "neverthrow": "8.2.0",
+    "openapi-types": "12.1.3",
     "zod": "4.1.8"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "24.13.2",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

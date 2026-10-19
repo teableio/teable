@@ -29,14 +29,19 @@ describe('BaseNodeService', () => {
     }>;
   };
 
+  let module: TestingModule;
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, BaseNodeModule],
     }).compile();
 
     service = module.get<BaseNodeService>(BaseNodeService);
     knex = module.get<Knex>('CUSTOM_KNEX');
   });
+
+  // GlobalModule opens Redis-backed queues; close them before the file is torn down.
+  afterEach(() => module.close());
 
   it('should be defined', () => {
     expect(service).toBeDefined();

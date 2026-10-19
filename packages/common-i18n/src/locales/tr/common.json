@@ -1447,6 +1447,10 @@
             "title": "Veri dışa aktarımınız hazır",
             "message": "Merhaba {{name}},<br><br>Teable hesabınızı silmeden önce verilerinizin bir kopyasını istediniz. Kopya hazır.<br><br>Aşağıdaki bağlantı {{expiresInDays}} gün boyunca geçerlidir."
           },
+          "accountExported": {
+            "title": "Veri dışa aktarımınız hazır",
+            "message": "Merhaba {{name}},<br><br>Teable verilerinizin bir kopyasını istediniz. Kopya hazır.<br><br>Aşağıdaki bağlantı {{expiresInDays}} gün boyunca geçerlidir."
+          },
           "deactivated": {
             "title": "Hesabınız devre dışı bırakıldı",
             "message": "Merhaba {{name}},<br><br>Teable hesabınız <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Hizmet Şartlarımızı</a> ihlal ettiği için devre dışı bırakıldı.<br>Bir kopyasını saklayabilmeniz için sahibi olduğunuz alanlardaki verileri paketledik.<br><br>Aşağıdaki bağlantı {{expiresInDays}} gün boyunca geçerlidir.<br>Bunun bir hata olduğunu düşünüyorsanız yöneticinizle iletişime geçin."
@@ -1842,6 +1846,24 @@
     "accept": "Tümünü kabul et",
     "reject": "Tümünü reddet",
     "policy": "Çerez Politikası",
-    "settings": "Çerez ayarları"
+    "settings": "Çerez ayarları",
+    "customize": "Özelleştir",
+    "customBody": "Teable'ın hangi çerezleri kullanabileceğini seçin. Seçiminizi istediğiniz zaman Çerez ayarlarından değiştirebilirsiniz.",
+    "save": "Seçimleri kaydet",
+    "alwaysOn": "Her zaman açık",
+    "categories": {
+      "necessary": {
+        "title": "Kesinlikle gerekli",
+        "description": "Hizmetin güvenliğini sağlar; oturum açma, oturumlar, dil tercihi, çerez seçiminizin hatırlanması ve davet tekliflerinin uygulanması için kullanılır."
+      },
+      "analytics": {
+        "title": "Analiz",
+        "description": "Deneyiminizi iyileştirebilmemiz için ürünün nasıl kullanıldığını anlamamıza yardımcı olur."
+      },
+      "marketing": {
+        "title": "Pazarlama",
+        "description": "Reklamlarımızın ve tanıtımlarımızın ne kadar etkili olduğunu ölçmemize yardımcı olur."
+      }
+    }
   }
 }

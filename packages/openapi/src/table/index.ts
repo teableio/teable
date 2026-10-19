@@ -14,6 +14,7 @@ export * from './toggle-table-index';
 export * from './get-activated-index';
 export * from './get-search-vector-status';
 export * from './get-abnormal-index';
+export * from './search-index-policy';
 export * from './repair-table-index';
 export * from './duplicate';
 export * from './duplicate-check';

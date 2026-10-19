@@ -41,13 +41,13 @@
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.13.2",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
-    "kysely": "0.28.9",
+    "kysely": "0.28.17",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

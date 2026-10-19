@@ -1,8 +1,8 @@
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import { parser } from 'stream-json';
-import Assembler from 'stream-json/Assembler';
-import { ignore } from 'stream-json/filters/Ignore';
+import { parserStream } from 'stream-json';
+import { Assembler } from 'stream-json/assembler.js';
+import { ignore } from 'stream-json/filters/ignore.js';
 
 /**
  * Reads Airtable view configuration (filters/sorts/groups/kanban stacking) that
@@ -332,7 +332,7 @@ export class AirtableShareClient {
     stream: Readable,
     ignoreBranches: RegExp
   ): Promise<Record<string, unknown>> {
-    const tokens = stream.pipe(parser()).pipe(ignore({ filter: ignoreBranches }));
+    const tokens = stream.pipe(parserStream()).pipe(ignore.asStream({ filter: ignoreBranches }));
     const assembler = Assembler.connectTo(tokens);
     await finished(tokens);
     return (assembler.current ?? {}) as Record<string, unknown>;

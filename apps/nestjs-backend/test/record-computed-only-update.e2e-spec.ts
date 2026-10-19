@@ -85,4 +85,28 @@ describeV2('Computed-only record updates (v2 e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     }
   });
+
+  it('returns 400 instead of 500 when a PATCH has no updatable fields', async () => {
+    const table = await createTable(baseId, {
+      name: 'Empty update',
+      fields: [{ name: 'Text', type: FieldType.SingleLineText }],
+      records: [{ fields: { Text: 'initial' } }],
+    });
+
+    try {
+      const recordId = table.records[0].id;
+
+      await expect(
+        updateRecord(table.id, recordId, {
+          record: { fields: {} },
+        })
+      ).rejects.toMatchObject({ status: 400, code: 'validation_error' });
+
+      const after = await getRecord(table.id, recordId);
+      expect(after.status).toBe(200);
+      expect(after.data.fields).toMatchObject({ Text: 'initial' });
+    } finally {
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
 });

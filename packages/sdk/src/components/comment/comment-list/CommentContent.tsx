@@ -1,7 +1,13 @@
 import { CommentNodeType } from '@teable/openapi';
 import type { ICommentContent } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
-import { MentionUser, BlockImageElement, InlineLinkElement, BlockParagraphElement } from './node';
+import {
+  MentionUser,
+  BlockImageElement,
+  InlineLinkElement,
+  BlockParagraphElement,
+  mentionChipClassName,
+} from './node';
 
 interface ICommentContentProps {
   content: ICommentContent;
@@ -15,7 +21,7 @@ export const CommentContent = (props: ICommentContentProps) => {
       return <BlockImageElement key={index} path={item.path} url={item.url} width={item.width} />;
     } else {
       return (
-        <BlockParagraphElement key={index} className="my-0.5">
+        <BlockParagraphElement key={index} className="my-0.5 leading-6">
           {item.children.map((node, index) => {
             switch (node.type) {
               case CommentNodeType.Text: {
@@ -28,7 +34,7 @@ export const CommentContent = (props: ICommentContentProps) => {
                     key={node.value}
                     name={node.name}
                     avatar={node.avatar}
-                    className="mx-0.5 cursor-pointer rounded-md bg-secondary px-1 focus:ring-2"
+                    className={cn(mentionChipClassName, 'cursor-pointer')}
                   />
                 );
               }

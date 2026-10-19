@@ -925,7 +925,8 @@
       "editLink": "Link bearbeiten",
       "linkText": "Link Text",
       "enterUrl": "URL eingeben"
-    }
+    },
+    "tooManyImages": "Du kannst höchstens {{count}} Bilder auf einmal hinzufügen"
   },
   "memberSelector": {
     "title": "Mitglieder auswählen",

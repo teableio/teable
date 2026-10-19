@@ -1,13 +1,12 @@
 import type { IRecord, ISearchHitIndex } from '@teable/core';
 import { computeSearchHitIndex } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
-import { debounce, isEqual, keyBy } from 'lodash';
+import { debounce, isEqual } from 'lodash';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useFields, usePersonalView, useSearch, useTableId, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
-import type { IFieldInstance, Record as IRecordInstance } from '../../../model';
-import { createRecordInstance, recordInstanceFieldMap } from '../../../model';
+import type { Record as IRecordInstance } from '../../../model';
 import { applyCollapsedGroupChange, collectGroupRowCounts } from '../../../utils/collapsed-group';
 import type { ILoadedRecordFields } from '../../../utils/column-projection';
 import {
@@ -22,98 +21,14 @@ import {
   INITIAL_LOAD_PAGE_SIZE,
   LOAD_PAGE_SIZE,
 } from '../../../utils/record-window';
-import {
-  MAX_POINTS_PER_ENTRY,
-  MAX_SNAPSHOT_BYTES,
-  MAX_SNAPSHOT_ROWS,
-  useGridViewCacheStore,
-} from '../store/useGridViewCacheStore';
+import { MAX_POINTS_PER_ENTRY, useGridViewCacheStore } from '../store/useGridViewCacheStore';
 import { generateLocalId } from '../utils';
 
 export { INITIAL_LOAD_PAGE_SIZE, LOAD_PAGE_SIZE };
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
-// keep snapshots pure data: pick the IRecord shape off the instance and deep
-// clone it, so the cache never retains instances, docs or live doc.data.
-// permissions/undeletable must ride along: without them a seeded record
-// would render as unrestricted until the live subscription takes over
-const RECORD_SNAPSHOT_KEYS = [
-  'id',
-  'name',
-  'fields',
-  'autoNumber',
-  'createdTime',
-  'lastModifiedTime',
-  'createdBy',
-  'lastModifiedBy',
-  'permissions',
-  'undeletable',
-] as const;
-
-const toPlainRecord = (
-  instance: IRecordInstance,
-  fieldIds?: readonly string[]
-): { record: IRecord; size: number } => {
-  const raw = instance as unknown as Record<string, unknown>;
-  const picked: Record<string, unknown> = {};
-  for (const key of RECORD_SNAPSHOT_KEYS) {
-    if (raw[key] !== undefined) {
-      picked[key] = raw[key];
-    }
-  }
-  if (fieldIds && picked.fields && typeof picked.fields === 'object') {
-    const source = picked.fields as Record<string, unknown>;
-    const slim: Record<string, unknown> = {};
-    for (const fieldId of fieldIds) {
-      if (source[fieldId] !== undefined) {
-        slim[fieldId] = source[fieldId];
-      }
-    }
-    picked.fields = slim;
-  }
-  const json = JSON.stringify(picked);
-  return { record: JSON.parse(json) as IRecord, size: json.length };
-};
-
-// contiguous first-screen rows only — the snapshot exists to stabilize the
-// first frame after a switch back, which always starts at the top. Bounded by
-// row count AND serialized size: long-text/attachment heavy rows must not
-// turn the session cache into a memory sink
-const collectFirstScreenRows = (map: IRecordIndexMap, fieldIds?: readonly string[]): IRecord[] => {
-  const rows: IRecord[] = [];
-  let budget = MAX_SNAPSHOT_BYTES;
-  for (let i = 0; i < MAX_SNAPSHOT_ROWS; i++) {
-    const instance = map[i];
-    if (!instance) break;
-    const { record, size } = toPlainRecord(instance, fieldIds);
-    budget -= size;
-    // a partial snapshot is fine — fewer seeded rows, same stability
-    if (budget < 0) break;
-    rows.push(record);
-  }
-  return rows;
-};
-
-const buildSeededRecordMap = (
-  snapshot: IRecord[] | undefined,
-  fields: IFieldInstance[],
-  tableId?: string
-): IRecordIndexMap | undefined => {
-  if (!snapshot?.length) return undefined;
-  const fieldMap = keyBy(fields, 'id');
-  return snapshot.reduce((acc, data, i) => {
-    // doc-less instance, same machinery as SSR seeds: renders immediately and
-    // resolves cell edits over REST until the live subscription takes over
-    const instance = createRecordInstance(data);
-    instance.tableId = tableId as string;
-    recordInstanceFieldMap(instance, fieldMap);
-    acc[i] = instance;
-    return acc;
-  }, {} as IRecordIndexMap);
-};
-
 type IRes = {
-  allGroupHeaderRefs: IGroupHeaderRef[];
+  allGroupHeaderRefs: IGroupHeaderRef[] | null;
   groupPoints: IGroupPointsVo | null;
   searchHitIndex?: ISearchHitIndex;
   recordMap: IRecordIndexMap;
@@ -149,6 +64,12 @@ export const useGridAsyncRecords = (
   const fields = useFields();
   const { records, extra, fillProjectedRecordFields, subscribeProjection, queryScopeKey } =
     useRecords(recordsQuery, initRecords, { sparseColumnFill: true });
+  // ShareDB query extra: the group structure and header refs of the current
+  // result page. The records hook treats it as opaque; this is its shape.
+  const extraData = extra as
+    | { groupPoints?: IGroupPointsVo | null; allGroupHeaderRefs?: IGroupHeaderRef[] }
+    | null
+    | undefined;
   // a personal view queries a different result set than its shared twin, so
   // it gets its own group-points cache slot
   const groupPointsCacheKey = `${generateLocalId(tableId, view?.id)}${isPersonalView ? '-personal' : ''}`;
@@ -157,22 +78,11 @@ export const useGridAsyncRecords = (
   // grid, so they must neither read nor write the per-view cache
   const cacheEnabled = initQuery == null;
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() => {
-    if (records.length) {
-      return records.reduce((acc, record, i) => {
-        acc[i] = record;
-        return acc;
-      }, {} as IRecordIndexMap);
-    }
-    // remounts (e.g. switching back to this table) seed from the session
-    // snapshot so the first frame shows the view's last known rows
-    if (!cacheEnabled) return {};
-    return (
-      buildSeededRecordMap(
-        useGridViewCacheStore.getState().cacheMap[groupPointsCacheKey]?.rows,
-        fields,
-        tableId
-      ) ?? {}
-    );
+    if (!records.length) return {};
+    return records.reduce((acc, record, i) => {
+      acc[i] = record;
+      return acc;
+    }, {} as IRecordIndexMap);
   });
 
   const searchHitIndex = useMemo<ISearchHitIndex | undefined>(
@@ -181,25 +91,14 @@ export const useGridAsyncRecords = (
   );
 
   const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
-    () =>
-      (extra == null
-        ? initGroupPoints
-        : (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints) ??
-      // remounts (e.g. a table switch back) seed from the session cache so the
-      // group structure is present on the first frame
-      (cacheEnabled
-        ? useGridViewCacheStore.getState().cacheMap[groupPointsCacheKey]?.groupPoints
-        : undefined) ??
-      null
+    () => (extra == null ? initGroupPoints : extraData?.groupPoints) ?? null
   );
 
-  const extraRef = useRef(extra);
-  extraRef.current = extra;
-
-  // remember the latest group structure per view: it seeds the first frame
-  // when the user switches back, instead of a flat list that reflows once the
-  // subscription delivers. Group header refs ride along so collapse/expand
-  // actions on cached headers keep working before the subscription is ready
+  // remember each expanded group's visible row count; a group keeps its last
+  // known value while collapsed, so expanding it later can restore its row
+  // block in place instead of dropping everything behind it. Row data and
+  // group structure are never retained: a cached first frame is by definition
+  // a previous result set.
   const prevGroupPointsCacheKeyRef = useRef(groupPointsCacheKey);
   useEffect(() => {
     const keyChanged = prevGroupPointsCacheKeyRef.current !== groupPointsCacheKey;
@@ -209,24 +108,14 @@ export const useGridAsyncRecords = (
     // previous view's structure — writing it here would poison the new
     // view's slot, so skip until state and key agree again
     if (keyChanged) return;
-    if (view?.id && groupPoints != null) {
-      const cache = useGridViewCacheStore.getState();
-      cache.setGroupPoints(
-        groupPointsCacheKey,
-        groupPoints,
-        (extraRef.current as { allGroupHeaderRefs?: IGroupHeaderRef[] } | undefined)
-          ?.allGroupHeaderRefs
-      );
-      // remember each expanded group's visible row count; a group keeps its
-      // last known value while collapsed, so expanding it later can restore
-      // its row block in place instead of dropping everything behind it.
-      // Same size discipline as the structure facet: past the cap the walk
-      // and the retained map are all cost and no seed value
-      if (groupPoints.length <= MAX_POINTS_PER_ENTRY) {
-        cache.mergeGroupRowCounts(groupPointsCacheKey, collectGroupRowCounts(groupPoints));
-      }
+    const cache = useGridViewCacheStore.getState();
+    if (groupPoints?.length && groupPoints.length <= MAX_POINTS_PER_ENTRY) {
+      cache.mergeGroupRowCounts(groupPointsCacheKey, collectGroupRowCounts(groupPoints));
+    } else if (groupPoints != null) {
+      // empty or unbounded structure: no placeable layout to remember
+      cache.clearGroupRowCounts(groupPointsCacheKey);
     }
-  }, [groupPoints, groupPointsCacheKey, view?.id, cacheEnabled]);
+  }, [groupPoints, groupPointsCacheKey, cacheEnabled]);
   const recordsScopeKey = useMemo(
     () =>
       JSON.stringify({
@@ -288,25 +177,17 @@ export const useGridAsyncRecords = (
   loadedRecordMapRef.current = loadedRecordMap;
   const groupPointsRef = useRef(groupPoints);
   groupPointsRef.current = groupPoints;
-  const fieldsRef = useRef(fields);
-  fieldsRef.current = fields;
-  const cacheKeyRef = useRef(groupPointsCacheKey);
-  cacheKeyRef.current = groupPointsCacheKey;
-  const tableIdRef = useRef(tableId);
-  tableIdRef.current = tableId;
 
-  // true while the view has received at least one delivery for the current
-  // scope: distinguishes "empty because not loaded yet" (keep the previous
-  // snapshot) from "settled empty" (the previous snapshot is obsolete)
-  const settledRef = useRef(false);
   // true between a scope switch and its first fresh delivery: that delivery
-  // must REPLACE the seeded map instead of merging into it, or a shorter live
-  // result would leave the stale snapshot tail on screen indefinitely
+  // must REPLACE the placeholder map instead of merging into it, or a shorter
+  // live result would leave the stale tail on screen indefinitely
   // starts true: mount is equivalent to a scope switch — the first delivery
-  // is authoritative and must replace any mount-time seed
+  // is authoritative
   const pendingFreshRef = useRef(true);
-  const cacheEnabledRef = useRef(cacheEnabled);
-  cacheEnabledRef.current = cacheEnabled;
+  // true once the live subscription delivered the current scope. Until then
+  // the bootstrap seed (rows + group structure) is the authority; after it,
+  // late seed props must not override the server-pushed structure.
+  const liveDeliveryRef = useRef(false);
 
   const subscribeProjectionRef = useRef(subscribeProjection);
   subscribeProjectionRef.current = subscribeProjection;
@@ -315,23 +196,6 @@ export const useGridAsyncRecords = (
   >(() => new Map());
   const loadedFieldsByRecordIdRef = useRef(loadedFieldsByRecordId);
   loadedFieldsByRecordIdRef.current = loadedFieldsByRecordId;
-
-  const snapshotRows = useCallback((key: string) => {
-    if (!cacheEnabledRef.current) return;
-    const rows = collectFirstScreenRows(loadedRecordMapRef.current, subscribeProjectionRef.current);
-    if (rows.length) {
-      useGridViewCacheStore.getState().setRows(key, rows);
-    } else if (settledRef.current) {
-      // the view settled with no records: evict the obsolete snapshot
-      useGridViewCacheStore.getState().setRows(key, []);
-    }
-  }, []);
-
-  // snapshot the view's first-screen rows when the grid unmounts (table
-  // switch / route change), so returning to it can seed the first frame
-  useEffect(() => {
-    return () => snapshotRows(cacheKeyRef.current);
-  }, [snapshotRows]);
 
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
@@ -342,7 +206,7 @@ export const useGridAsyncRecords = (
       pendingFreshRef.current = false;
     }
     if (extra != null) {
-      settledRef.current = true;
+      liveDeliveryRef.current = true;
     }
     setLoadedRecordMap((preLoadedRecords) => {
       const cacheLen = take * 2;
@@ -379,14 +243,13 @@ export const useGridAsyncRecords = (
     });
 
     if (extra != null) {
-      const freshGroupPoints =
-        (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null;
+      const freshGroupPoints = extraData?.groupPoints ?? null;
       // deliveries re-send a structurally identical list on every page (and
       // after an exact local collapse patch): keep the previous reference so
       // the grid does not rebuild its O(total rows) linear layout for nothing
       setGroupPoints((prev) => (isEqual(prev, freshGroupPoints) ? prev : freshGroupPoints));
     }
-  }, [records, extra]);
+  }, [records, extra, extraData]);
 
   // layout effect to keep its declaration-order contract with the scope
   // effect below (merge first, wipe/seed second) now that both must flush
@@ -394,9 +257,9 @@ export const useGridAsyncRecords = (
   useLayoutEffect(() => onForceUpdate(), [onForceUpdate]);
 
   const previousScopeCacheKeyRef = useRef(groupPointsCacheKey);
-  // layout effect on purpose: it must run BEFORE the browser paints the
+  // layout effect on purpose: the wipe must run BEFORE the browser paints the
   // post-switch frame, otherwise one frame of "new view's columns × previous
-  // view's rows" flashes on screen before the snapshot seed lands
+  // view's rows" flashes on screen
   useLayoutEffect(() => {
     const recordsScopeChanged = previousRecordsScopeKeyRef.current !== recordsScopeKey;
     const viewQueryScopeChanged = previousViewQueryScopeKeyRef.current !== viewQueryScopeKey;
@@ -415,19 +278,13 @@ export const useGridAsyncRecords = (
     previousRecordsSubscriptionKeyRef.current = recordsSubscriptionKey;
 
     const keySwitched = cacheEnabled && cacheKeyChanged;
-
-    // leaving a view: snapshot its first-screen rows (plain data) so a later
-    // switch back can render the last known state on the first frame
-    if (keySwitched) {
-      snapshotRows(previousCacheKey);
-    }
-
-    const seedTargetViewState = () => {
-      const entry = useGridViewCacheStore.getState().cacheMap[groupPointsCacheKey];
-      setLoadedRecordMap(
-        buildSeededRecordMap(entry?.rows, fieldsRef.current, tableIdRef.current) ?? {}
-      );
-      setGroupPoints(entry?.groupPoints ?? null);
+    const resetToBootstrapState = (useSeedStructure: boolean) => {
+      // never paint the previous result set under the target view: the fresh
+      // seed (rows + structure) or the live subscription owns the first frame.
+      // A same-view scope change has no seed for the new result set, so its
+      // structure must drop to the loading placeholder as well.
+      setLoadedRecordMap({});
+      setGroupPoints(useSeedStructure ? initGroupPoints ?? null : null);
     };
 
     // row counts collected under the previous result set must not place rows
@@ -458,24 +315,24 @@ export const useGridAsyncRecords = (
     };
 
     // a scope change re-creates the subscription, which always delivers a fresh
-    // ready event. On a view switch, seed the target view's last known rows and
-    // group structure (session cache) — the fresh data overwrites them on ready;
-    // a same-view scope change (e.g. editing the group config) has no valid
-    // last-known state, so it drops to the loading placeholders. The wipe is
-    // only safe when the subscription really re-created: enabling the personal
-    // view re-shapes the query props while the live query is reused (it inlines
-    // the same conditions), so no ready event is coming and dropping the rows
-    // would leave placeholders that never resolve — the personal cache slot is
-    // empty — until a remount (T7486). An unchanged subscription falls through
-    // to the in-place paths below, which keep the rows on screen.
+    // ready event. A view switch has no valid first-frame data until the
+    // target view's seed or subscription arrives — seeding the previous
+    // view's rows or a session snapshot would present another result set
+    // under the target view's configuration, which is exactly the stale-row
+    // bug this path must prevent. The wipe is only safe when the subscription
+    // really re-created: enabling the personal view re-shapes the query props
+    // while the live query is reused (it inlines the same conditions), so no
+    // ready event is coming and dropping the rows would leave placeholders
+    // that never resolve — the personal cache slot is empty — until a remount
+    // (T7486). An unchanged subscription falls through to the in-place paths
+    // below, which keep the rows on screen.
     if (recordsScopeChanged && subscriptionChanged) {
-      settledRef.current = false;
       pendingFreshRef.current = true;
-      if (keySwitched) {
-        seedTargetViewState();
-      } else {
-        setLoadedRecordMap({});
-        setGroupPoints(null);
+      liveDeliveryRef.current = false;
+      // a view switch may already hold the target view's seed structure; a
+      // same-view scope change must not reuse the seed of the old result set
+      resetToBootstrapState(keySwitched || !cacheEnabled);
+      if (!keySwitched) {
         clearCachedGroupRowCounts();
       }
       setVisiblePages(defaultVisiblePages);
@@ -490,7 +347,6 @@ export const useGridAsyncRecords = (
     // scroll position and the other groups on screen. The first fresh
     // delivery then replaces everything (pendingFresh) with server truth
     if (collapsedGroupIdsChanged && !cacheKeyChanged) {
-      settledRef.current = false;
       pendingFreshRef.current = true;
       patchCollapsedGroupState();
       return;
@@ -500,25 +356,20 @@ export const useGridAsyncRecords = (
 
     // a view switch can land here too (same records scope, new viewId): the
     // rows on screen belong to the previous view, and its order/filter may
-    // differ — never keep another view's data; seed the target view's snapshot
-    // or fall back to loading placeholders
+    // differ — never keep another view's data; fall back to placeholders and
+    // let the target view's seed or subscription fill the first frame
     if (cacheKeyChanged) {
-      settledRef.current = false;
       pendingFreshRef.current = true;
-      if (keySwitched) {
-        seedTargetViewState();
-      } else {
-        setLoadedRecordMap({});
-        setGroupPoints(null);
-      }
+      liveDeliveryRef.current = false;
+      resetToBootstrapState(true);
       return;
     }
 
     if (searchChanged) {
       // Hide-not-match search redefines the row set. Keeping the previous
       // first page makes unmatched default rows look like search hits (T7058).
-      settledRef.current = false;
       pendingFreshRef.current = true;
+      liveDeliveryRef.current = false;
       setLoadedRecordMap({});
       setGroupPoints(null);
       clearCachedGroupRowCounts();
@@ -549,9 +400,20 @@ export const useGridAsyncRecords = (
     extra,
     groupPointsCacheKey,
     cacheEnabled,
-    snapshotRows,
+    initGroupPoints,
     hideNotMatchSearchKey,
   ]);
+
+  // A bootstrap seed is one snapshot: its rows and its group structure must
+  // change together. The rows arrive through `records`, but the structure only
+  // through `initGroupPoints` — without this, a seed that lands after the
+  // switch would place its rows without the groups they belong to. Once the
+  // live subscription delivers, extra owns the structure and this stops
+  // applying.
+  useLayoutEffect(() => {
+    if (!cacheEnabled || initGroupPoints === undefined || liveDeliveryRef.current) return;
+    setGroupPoints((prev) => (isEqual(prev, initGroupPoints) ? prev : initGroupPoints));
+  }, [initGroupPoints, cacheEnabled, groupPointsCacheKey]);
 
   useEffect(() => {
     const { y, height } = visiblePages;
@@ -685,33 +547,16 @@ export const useGridAsyncRecords = (
   const snapshotFieldIds = useMemo(() => new Set(subscribeProjection ?? []), [subscribeProjection]);
 
   const onReset = useCallback(() => {
-    // callers reset on table switches, AFTER the scope effect above has
-    // already seeded the target view — resetting to the same seed (instead of
-    // a blind {}) keeps the snapshot optimization alive on those paths
-    const seeded = cacheEnabledRef.current
-      ? buildSeededRecordMap(
-          useGridViewCacheStore.getState().cacheMap[cacheKeyRef.current]?.rows,
-          fieldsRef.current,
-          tableIdRef.current
-        )
-      : undefined;
-    setLoadedRecordMap(seeded ?? {});
+    // callers reset on table switches; the target table's seed or subscription
+    // owns the next frame, so never restore a previous table's snapshot
+    setLoadedRecordMap({});
     setVisiblePages(defaultVisiblePages);
     setViewportReady(false);
   }, []);
 
-  // reactive read so cached refs keep group collapse/expand menus functional
-  // while cached headers are shown ahead of the live subscription
-  const cachedGroupHeaderRefs = useGridViewCacheStore((state) =>
-    cacheEnabled ? state.cacheMap[groupPointsCacheKey]?.groupHeaderRefs : undefined
-  );
-
   return {
     groupPoints,
-    allGroupHeaderRefs:
-      (extra as { allGroupHeaderRefs: IGroupHeaderRef[] })?.allGroupHeaderRefs ??
-      cachedGroupHeaderRefs ??
-      null,
+    allGroupHeaderRefs: extraData?.allGroupHeaderRefs ?? null,
     recordMap: loadedRecordMap,
     loadedFieldsByRecordId,
     snapshotFieldIds,

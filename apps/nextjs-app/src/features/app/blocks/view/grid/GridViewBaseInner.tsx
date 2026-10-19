@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, stopFillField, autoFillCell } from '@teable/openapi';
+import { createRecords, stopFillField, autoFillCell, GroupPointType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -85,6 +85,7 @@ import {
   useButtonClickStatus,
   useSearch,
   useTableListener,
+  useTables,
 } from '@teable/sdk/hooks';
 import {
   finalizePendingUploadAfterCreate,
@@ -138,7 +139,7 @@ import {
 import { downgradeCrossBaseHeaders, isCrossBaseField } from './utils/crossBaseLink';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 import {
-  cacheColumnSelectionForChat,
+  cancelGridSelectionCapture,
   cacheSelectionForChat,
   isSingleCellSelection,
 } from './utils/gridSelectionChat';
@@ -167,6 +168,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
+  const tableName =
+    useTables().find((table) => table.id === tableId)?.name ??
+    (baseId
+      ? queryClient.getQueryData<{ name?: string }>(ReactQueryKeys.tableInfo(baseId, tableId))?.name
+      : undefined);
   const activeViewId = useViewId();
   const { user } = useSession();
   const view = useView(activeViewId) as GridView | undefined;
@@ -329,6 +335,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
   const {
+    resolveSelectionForChat,
     copy,
     paste,
     clear,
@@ -378,6 +385,44 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
   });
+
+  // Context menus can stay open across grid updates; resolve against action-time data.
+  const context = { baseId, groupPoints, recordMap, resolveSelectionForChat, rowCount, tableName };
+  const chatCaptureContext = useRef(context);
+  chatCaptureContext.current = context;
+
+  const captureSelectionForChat = useCallback(
+    (selection: CombinedSelection, addToChat: boolean) => {
+      const { baseId, groupPoints, recordMap, resolveSelectionForChat, rowCount, tableName } =
+        chatCaptureContext.current;
+      if (!baseId) return;
+      const visibleRecordCount = groupPoints?.length
+        ? groupPoints.reduce(
+            (count, point) => count + (point.type === GroupPointType.Row ? point.count : 0),
+            0
+          )
+        : rowCount;
+      const reportCaptureError = (error: unknown) => {
+        // Capturing a chat reference must never prevent the ordinary clipboard copy.
+        if (addToChat) toast.error(error instanceof Error ? error.message : String(error));
+      };
+      try {
+        const captured = resolveSelectionForChat(
+          selection,
+          recordMap,
+          visibleRecordCount,
+          tableName
+        );
+        const pending = cacheSelectionForChat(queryClient, baseId, captured, addToChat);
+        if (pending) void pending.catch(reportCaptureError);
+      } catch (error) {
+        cancelGridSelectionCapture(queryClient, baseId);
+        queryClient.removeQueries({ queryKey: ReactQueryKeys.gridSelection(baseId), exact: true });
+        reportCaptureError(error);
+      }
+    },
+    [queryClient]
+  );
 
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
@@ -693,9 +738,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const isMultipleSelected =
         (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
-      const addToChat = baseId
-        ? () => cacheSelectionForChat(queryClient, baseId, selection, true)
-        : undefined;
+      const addToChat = baseId ? () => captureSelectionForChat(selection, true) : undefined;
 
       if (isMultipleSelected || isMultiCellSelection) {
         openRecordMenu({
@@ -796,16 +839,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onSelectionClear,
         onAutoFill,
-        addToChat: () => {
-          if (!baseId || !selectFields.length) return;
-          cacheColumnSelectionForChat(
-            queryClient,
-            baseId,
-            Math.min(start, end),
-            Math.max(start, end),
-            selectColumns.map((column) => column.name)
-          );
-        },
+        addToChat: () => captureSelectionForChat(selection, true),
       });
     }
   };
@@ -832,16 +866,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         freezeColumnIndex: colIndex,
         maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onAutoFill,
-        addToChat: () => {
-          if (!baseId) return;
-          cacheColumnSelectionForChat(queryClient, baseId, colIndex, colIndex, [
-            columns[colIndex].name,
-          ]);
-        },
+        addToChat: () =>
+          captureSelectionForChat(
+            new CombinedSelection(SelectionRegionType.Columns, [[colIndex, colIndex]]),
+            true
+          ),
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [columns, fields, fieldAIEnable, openHeaderMenu, baseId, queryClient]
+    [columns, fields, fieldAIEnable, openHeaderMenu, captureSelectionForChat]
   );
 
   const onColumnHeaderDblClick = useCallback(
@@ -1100,8 +1133,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return;
     }
 
-    if (baseId && !isSingleCellSelection(selection)) {
-      cacheSelectionForChat(queryClient, baseId, selection, false);
+    if (baseId) {
+      if (isSingleCellSelection(selection)) {
+        cancelGridSelectionCapture(queryClient, baseId);
+        queryClient.removeQueries({ queryKey: ReactQueryKeys.gridSelection(baseId), exact: true });
+      } else {
+        captureSelectionForChat(selection, false);
+      }
     }
 
     if (

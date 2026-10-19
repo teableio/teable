@@ -2,10 +2,13 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { TableIndex } from '@teable/openapi';
+import type { Prisma } from '@teable/db-main-prisma';
+import { TableIndex, tableSearchIndexPolicyVoSchema } from '@teable/openapi';
 import type {
   IGetAbnormalVo,
   ITableIndexType,
+  ITableSearchIndexPolicyRo,
+  ITableSearchIndexPolicyVo,
   ITableSearchVectorStatusVo,
   IToggleIndexRo,
 } from '@teable/openapi';
@@ -24,6 +27,17 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
+
+export const selectSearchIndexFields = <T extends { id: string }>(
+  fields: T[],
+  policy: ITableSearchIndexPolicyVo
+): T[] => {
+  if (policy.searchScope === 'all_fields') {
+    return fields;
+  }
+  const selected = new Set(policy.fields);
+  return fields.filter((field) => selected.has(field.id));
+};
 
 @Injectable()
 export class TableIndexService {
@@ -98,7 +112,7 @@ export class TableIndexService {
     const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, 'getRecords');
     return decision.useV2;
   }
-  async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
+  private async getSearchIndexCandidateFields(tableId: string): Promise<IFieldInstance[]> {
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {
         tableId,
@@ -112,6 +126,85 @@ export class TableIndexService {
         ...field,
         isStructuredCellValue: field.isStructuredCellValue,
       })) as IFieldInstance[];
+  }
+
+  async getSearchIndexPolicy(tableId: string): Promise<ITableSearchIndexPolicyVo> {
+    const table = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { searchIndexPolicy: true },
+    });
+    const parsed = tableSearchIndexPolicyVoSchema.safeParse(table.searchIndexPolicy);
+    if (parsed.success) {
+      return parsed.data;
+    }
+    if (table.searchIndexPolicy !== null) {
+      this.logger.warn(`Invalid search index policy for table ${tableId}`);
+    }
+    return { version: 1, searchScope: 'all_fields', fields: [] };
+  }
+
+  async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
+    const [fields, policy] = await Promise.all([
+      this.getSearchIndexCandidateFields(tableId),
+      this.getSearchIndexPolicy(tableId),
+    ]);
+    return selectSearchIndexFields(fields, policy);
+  }
+
+  async updateSearchIndexPolicy(
+    tableId: string,
+    policy: ITableSearchIndexPolicyRo
+  ): Promise<ITableSearchIndexPolicyVo> {
+    if (new Set(policy.fields).size !== policy.fields.length) {
+      throw new CustomHttpException(
+        'Duplicate fields in search index policy',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+
+    const [tableRaw, candidates] = await Promise.all([
+      this.prismaService.tableMeta.findFirstOrThrow({
+        where: { id: tableId, deletedTime: null },
+        select: { dbTableName: true },
+      }),
+      this.getSearchIndexCandidateFields(tableId),
+    ]);
+
+    if (policy.searchScope === 'selected_fields') {
+      const eligibleIds = new Set(
+        candidates
+          .filter(
+            (field) =>
+              this.dbProvider.searchIndex().createSingleIndexSql(tableRaw.dbTableName, field) !==
+              null
+          )
+          .map((field) => field.id)
+      );
+      const ineligible = policy.fields.filter((fieldId) => !eligibleIds.has(fieldId));
+      if (ineligible.length > 0) {
+        throw new CustomHttpException(
+          `Fields are not eligible for the search index: ${ineligible.join(', ')}`,
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+    }
+
+    const stored: ITableSearchIndexPolicyVo = {
+      version: 1,
+      searchScope: policy.searchScope,
+      fields: policy.searchScope === 'selected_fields' ? policy.fields : [],
+    };
+
+    await this.prismaService.tableMeta.update({
+      where: { id: tableId },
+      data: { searchIndexPolicy: stored as Prisma.InputJsonValue },
+    });
+
+    if ((await this.getActivatedTableIndexes(tableId)).includes(TableIndex.search)) {
+      await this.repairIndex(tableId, TableIndex.search);
+    }
+
+    return stored;
   }
 
   async getActivatedTableIndexes(
@@ -260,8 +353,16 @@ export class TableIndexService {
     }
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
-      select: { dbTableName: true },
+      select: { dbTableName: true, searchIndexPolicy: true },
     });
+    const policy = tableSearchIndexPolicyVoSchema.safeParse(tableRaw.searchIndexPolicy);
+    if (
+      policy.success &&
+      policy.data.searchScope === 'selected_fields' &&
+      !policy.data.fields.includes(fieldInstance.id)
+    ) {
+      return;
+    }
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId, TableIndex.search, routingOptions);
     const sql = this.dbProvider.searchIndex().createSingleIndexSql(dbTableName, fieldInstance);

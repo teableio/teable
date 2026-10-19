@@ -12,6 +12,9 @@ export default defineConfig({
       externalConditions: ['@teable/source'],
     },
   },
+  // oxc emits decorator metadata from tsconfig, which reads type-only names such as
+  // core.IExecutionContext at runtime; the @teable/v2-core mocks here do not define them.
+  oxc: { decorator: { legacy: true, emitDecoratorMetadata: false } },
   cacheDir: '../../../.cache/vitest/v2-adapter-repository-postgres',
   test: {
     globals: true,

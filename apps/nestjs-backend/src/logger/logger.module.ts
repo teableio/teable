@@ -7,6 +7,7 @@ import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { X_REQUEST_ID } from '../const';
 import type { IClsStore } from '../types/cls';
+import { LOG_REDACT_PATHS, REDACTED, redactQuery, redactUrl } from './redact';
 
 @Module({})
 export class LoggerModule {
@@ -29,6 +30,10 @@ export class LoggerModule {
                 const client = req.headers?.['x-teable-client'];
                 delete req.headers;
                 if (typeof client === 'string' && client) req.client = client;
+                // OAuth codes, magic-link tokens, signed-URL signatures, ... travel
+                // in the query string; keep them out of access logs.
+                if (typeof req.url === 'string') req.url = redactUrl(req.url);
+                if (req.query) req.query = redactQuery(req.query);
                 return req;
               },
               res(res) {
@@ -38,6 +43,7 @@ export class LoggerModule {
             },
             name: 'teable',
             level: level,
+            redact: { paths: LOG_REDACT_PATHS, censor: REDACTED },
             // Disable automatic HTTP request logging in CI and tests
             autoLogging: shouldAutoLog
               ? {

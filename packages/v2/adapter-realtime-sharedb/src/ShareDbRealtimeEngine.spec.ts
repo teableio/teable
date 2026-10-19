@@ -249,6 +249,18 @@ const waitNothingPending = <T>(doc: Doc<T>): Promise<void> =>
     doc.whenNothingPending(() => resolve());
   });
 
+// A remote op bumps doc.version before 'op batch' fires.
+const waitVersion = <T>(doc: Doc<T>, version: number): Promise<void> =>
+  new Promise((resolve) => {
+    const check = () => {
+      if ((doc.version ?? 0) < version) return;
+      doc.removeListener('op batch', check);
+      resolve();
+    };
+    doc.on('op batch', check);
+    check();
+  });
+
 const waitNextRemoteOp = <T>(doc: Doc<T>, timeoutMs = 5000): Promise<unknown> =>
   new Promise((resolve, reject) => {
     let settled = false;
@@ -418,12 +430,14 @@ describe('ShareDbRealtimeEngine', () => {
 
     try {
       await Promise.all([clientA.ready, clientB.ready]);
+      const merged = (clientA.doc.version ?? 0) + 2;
 
       const opA = [{ p: ['title', 0], si: 'A' }];
       const opB = [{ p: ['title', 2], si: 'B' }];
 
       await Promise.all([submitOp(clientA.doc, opA), submitOp(clientB.doc, opB)]);
-      await Promise.all([waitNothingPending(clientA.doc), waitNothingPending(clientB.doc)]);
+      // An ack only covers a client's own op; wait until each has applied the other's too.
+      await Promise.all([waitVersion(clientA.doc, merged), waitVersion(clientB.doc, merged)]);
 
       expect(clientA.doc.data?.title).toBe('AHiB');
       expect(clientB.doc.data?.title).toBe('AHiB');

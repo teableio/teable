@@ -71,7 +71,18 @@ describe('Notification presence over a browser connection (e2e)', () => {
   });
 
   afterAll(async () => {
-    sockets.forEach((ws) => ws.close());
+    // Upgraded sockets are not tracked by the HTTP server, so app.close() does not wait for them:
+    // finish the closes first, or the server logs them after the test environment is torn down.
+    await Promise.all(
+      sockets.map(
+        (ws) =>
+          new Promise<void>((resolve) => {
+            if (ws.readyState === WebSocket.CLOSED) return resolve();
+            ws.once('close', () => resolve());
+            ws.close();
+          })
+      )
+    );
     await app.close();
   });
 

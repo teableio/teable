@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import Joi from 'joi';
 
+import { resolveBoolean } from '../features/v2/v2-config-parsers';
 import { DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY } from './computed-outbox-trigger.config';
 
 /** `envName` becomes required once `SOCIAL_AUTH_PROVIDERS` lists `provider`. */
@@ -89,6 +90,29 @@ export const envValidationSchema = Joi.object({
     .pattern(/^(redis:\/\/|rediss:\/\/)/)
     .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')
     .required(),
+
+  V2_DATA_QUERY_ENABLED: Joi.alternatives()
+    .try(
+      Joi.boolean(),
+      Joi.string()
+        .trim()
+        .lowercase()
+        .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+        .custom((value) => resolveBoolean(value))
+    )
+    .default(false),
+
+  // Runtime availability for already-adopted Apps when authoring/adoption is disabled.
+  V2_DATA_QUERY_EXECUTE_ENABLED: Joi.alternatives()
+    .try(
+      Joi.boolean(),
+      Joi.string()
+        .trim()
+        .lowercase()
+        .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+        .custom((value) => resolveBoolean(value))
+    )
+    .default(false),
 
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),

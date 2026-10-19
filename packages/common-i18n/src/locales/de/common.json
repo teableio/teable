@@ -1447,6 +1447,10 @@
             "title": "Ihr Datenexport ist bereit",
             "message": "Hallo {{name}},<br><br>Sie haben vor dem Löschen Ihres Teable-Kontos eine Kopie Ihrer Daten angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
           },
+          "accountExported": {
+            "title": "Ihr Datenexport ist bereit",
+            "message": "Hallo {{name}},<br><br>Sie haben eine Kopie Ihrer Teable-Daten angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
+          },
           "deactivated": {
             "title": "Ihr Konto wurde deaktiviert",
             "message": "Hallo {{name}},<br><br>Ihr Teable-Konto wurde deaktiviert, da es gegen unsere <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Nutzungsbedingungen</a> verstoßen hat.<br>Wir haben die Daten aus den Spaces, die Ihnen gehörten, verpackt, damit Sie eine Kopie behalten können.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig.<br>Wenn Sie glauben, dass es sich um einen Fehler handelt, wenden Sie sich an Ihren Administrator."
@@ -1842,6 +1846,24 @@
     "accept": "Alle akzeptieren",
     "reject": "Alle ablehnen",
     "policy": "Cookie-Richtlinie",
-    "settings": "Cookie-Einstellungen"
+    "settings": "Cookie-Einstellungen",
+    "customize": "Anpassen",
+    "customBody": "Wählen Sie, welche Cookies Teable verwenden darf. Sie können Ihre Auswahl jederzeit in den Cookie-Einstellungen ändern.",
+    "save": "Auswahl speichern",
+    "alwaysOn": "Immer aktiv",
+    "categories": {
+      "necessary": {
+        "title": "Unbedingt erforderlich",
+        "description": "Sorgen für einen sicheren Betrieb und ermöglichen Anmeldung, Sitzungen, Spracheinstellung, das Speichern Ihrer Cookie-Auswahl sowie das Einlösen von Empfehlungsangeboten."
+      },
+      "analytics": {
+        "title": "Analyse",
+        "description": "Helfen uns zu verstehen, wie das Produkt genutzt wird, damit wir Ihr Erlebnis verbessern können."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Helfen uns zu messen, wie gut unsere Werbung und Aktionen funktionieren."
+      }
+    }
   }
 }

@@ -49,7 +49,7 @@ async function generateFieldData(params: {
     switch (cur.type as FieldType) {
       case FieldType.SingleLineText:
       case FieldType.LongText: {
-        fieldData = faker.internet.userName();
+        fieldData = faker.internet.username();
         break;
       }
       case FieldType.Number: {

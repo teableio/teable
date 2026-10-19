@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -88,6 +89,70 @@ describe('GlobalExceptionFilter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  });
+
+  it.each([
+    '/api/v2/queries/execute',
+    '/API/V2/QUERIES/EXECUTE/',
+    '/api/v2/queries/validate',
+    '/API/V2/QUERIES/VALIDATE/',
+  ])('sanitizes pre-controller JSON parsing errors on the enabled query route: %s', (path) => {
+    const sentinel = 'T7737_MALFORMED_JSON_UNIT_6bd402';
+    const exception = new BadRequestException(`Unexpected token in ${sentinel}`);
+    const filter = new GlobalExceptionFilter({
+      ...configService,
+      get: () => '1',
+    } as never);
+    const queryHost = {
+      switchToHttp: () => ({
+        getRequest: () => ({ method: 'POST', path, url: path }),
+        getResponse: () => response,
+      }),
+    };
+
+    filter.catch(exception, queryHost as never);
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith({
+      ok: false,
+      error: {
+        code: 'data_query.invalid_request',
+        message: 'Invalid data query request',
+        tags: ['validation'],
+      },
+    });
+    expect(activeSpan.recordException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Invalid data query request' })
+    );
+    expect(activeSpan.recordException).not.toHaveBeenCalledWith(exception);
+    expect(activeSpan.setStatus).not.toHaveBeenCalled();
+    expect(captureException).not.toHaveBeenCalled();
+    expect(Logger.prototype.error).not.toHaveBeenCalled();
+    expect(JSON.stringify(response.json.mock.calls)).not.toContain(sentinel);
+  });
+
+  it.each([
+    { flag: 'false', method: 'POST', path: '/api/v2/queries/execute' },
+    { flag: '1', method: 'POST', path: '/api/legacy' },
+    { flag: '1', method: 'GET', path: '/api/v2/queries/execute' },
+    { flag: '1', method: 'POST', path: '/api/v2/queries/execute/other' },
+  ])('preserves non-query parser error handling: %j', ({ flag, method, path }) => {
+    const exception = new BadRequestException('Legacy parser error');
+    const filter = new GlobalExceptionFilter({
+      ...configService,
+      get: () => flag,
+    } as never);
+    filter.catch(exception, {
+      switchToHttp: () => ({
+        getRequest: () => ({ method, path, url: path }),
+        getResponse: () => response,
+      }),
+    } as never);
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Legacy parser error', status: 400 })
+    );
+    expect(activeSpan.recordException).toHaveBeenCalledWith(exception);
   });
 
   it('captures unexpected exceptions with CLS user and space context', () => {

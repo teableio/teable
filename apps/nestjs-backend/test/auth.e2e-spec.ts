@@ -832,6 +832,17 @@ describe('Auth Controller (e2e)', () => {
       principalType: PrincipalType.User,
       role: Role.Owner,
     });
+    // what identifies the person beyond email and name: a phone and the signup
+    // attribution snapshot (IP, user agent, utm)
+    await prismaService.user.update({
+      where: { id: testData.userId },
+      data: {
+        phone: `+1555${Date.now()}`,
+        refMeta: JSON.stringify({
+          attribution: { ip: '203.0.113.7', ua: 'test-agent', params: { utm_source: 'ads' } },
+        }),
+      },
+    });
     const res = await userAxios.delete(DELETE_USER, {
       params: { confirm: 'DELETE', spaceIds: [soloSpace.data.id] },
     });
@@ -966,6 +977,12 @@ describe('Auth Controller (e2e)', () => {
         },
       },
     });
-    expect(userRes).toBeDefined();
+    expect(userRes).toMatchObject({
+      phone: null,
+      password: null,
+      salt: null,
+      refMeta: null,
+    });
+    expect(userRes?.email).not.toBe('delete-user@test-delete-user.com');
   });
 });

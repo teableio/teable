@@ -1,4 +1,3 @@
-import type { IQueryBaseRo } from '@teable/openapi';
 import { createContext, useContext } from 'react';
 
 interface IExpandRecordNavigationContext {
@@ -14,8 +13,6 @@ export interface IExpandRecordAddToChatArgs {
   tableId: string;
   recordId: string;
   viewId?: string;
-  search?: IQueryBaseRo['search'];
-  preferLoadedIndex?: boolean;
 }
 
 interface IExpandRecordAddToChatContext {

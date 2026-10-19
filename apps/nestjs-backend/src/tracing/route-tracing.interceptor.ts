@@ -7,6 +7,7 @@ import { ClsService } from 'nestjs-cls';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { IClsStore } from '../types/cls';
+import { APP_RUNTIME_REVISION_HEADER, appRuntimeRevisionAttributes } from './app-runtime-revision';
 import { applyTraceResponseHeaders } from './trace-response-headers';
 import { USER_CONTEXT_SERVICE, IUserContextService } from './user-context.interface';
 
@@ -63,6 +64,12 @@ export class RouteTracingInterceptor implements NestInterceptor {
         'teable.client': origin?.client || '',
         'teable.app.id': appId || '',
       });
+      if (appId) {
+        const revision = appRuntimeRevisionAttributes(
+          request.headers?.[APP_RUNTIME_REVISION_HEADER]
+        );
+        if (revision) span.setAttributes(revision);
+      }
 
       const spanName = `${httpMethod} ${route}`;
       span.updateName(spanName);

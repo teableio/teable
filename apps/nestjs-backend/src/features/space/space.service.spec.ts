@@ -7,14 +7,18 @@ import { SpaceService } from './space.service';
 
 describe('SpaceService', () => {
   let service: SpaceService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, SpaceModule],
     }).compile();
 
     service = module.get<SpaceService>(SpaceService);
   });
+
+  // GlobalModule opens Redis-backed queues; close them before the file is torn down.
+  afterEach(() => module.close());
 
   it('should be defined', () => {
     expect(service).toBeDefined();

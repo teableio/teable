@@ -3890,6 +3890,13 @@ const loadMissingStorageColumnKeys = async (
     for (const column of unchecked.values()) {
       requested.push(sql`(${column.schema}, ${column.tableName}, ${column.columnName})`);
     }
+    // Read the catalog directly instead of `information_schema.columns`. This runs once per
+    // computed level plus once per propagation round, so its cost lands on every computed
+    // update: on the perf lab's fanout cases the view form measured 1.9-2.4 ms per call
+    // (28 ms per 8-level round), while the same triples through `pg_catalog` measure a few
+    // hundredths. The view also filters by privilege — a column this role cannot see would
+    // read as vanished and be skipped — where the check that matters here is physical
+    // existence, which is what `pg_attribute` answers.
     const result = await sql<QualifiedColumn>`
       WITH required_columns(schema_name, table_name, column_name) AS (
         VALUES ${sql.join(requested)}
@@ -3898,10 +3905,15 @@ const loadMissingStorageColumnKeys = async (
         required.table_name AS "tableName", required.column_name AS "columnName"
       FROM required_columns AS required
       WHERE NOT EXISTS (
-        SELECT 1 FROM information_schema.columns AS c
-        WHERE c.table_schema = required.schema_name
-          AND c.table_name = required.table_name
-          AND c.column_name = required.column_name
+        SELECT 1
+        FROM pg_catalog.pg_attribute AS a
+        INNER JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+        INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE n.nspname = required.schema_name
+          AND c.relname = required.table_name
+          AND a.attname = required.column_name
+          AND a.attnum > 0
+          AND NOT a.attisdropped
       )
     `.execute(db);
     for (const key of unchecked.keys()) columnExists.set(key, true);

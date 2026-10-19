@@ -177,6 +177,16 @@ describe('UserService', () => {
     });
   });
 
+  it('snapshots the ad consent and country behind the ad conversion consent signal', () => {
+    const svc = createAttributionService({ marketingAdConsent: 'denied', requestCountry: 'DE' });
+
+    const refMeta = svc.applySignupAttribution(undefined);
+
+    expect(JSON.parse(refMeta as string)).toEqual({
+      attribution: { adConsent: 'denied', country: 'DE' },
+    });
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });

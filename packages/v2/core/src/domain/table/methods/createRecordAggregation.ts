@@ -3,6 +3,8 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import type { Field } from '../fields/Field';
+import { ConditionalLookupField } from '../fields/types/ConditionalLookupField';
+import { LookupField } from '../fields/types/LookupField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
 import {
   TableRecordAggregation,
@@ -32,11 +34,23 @@ const commonFunctions: ReadonlyArray<TableRecordAggregationFunction> = [
   'percentUnique',
 ];
 
-const validFunctionsForField = (
+/**
+ * A lookup surfaces its inner field's type to users (field DTO, grid statistic list),
+ * so aggregation validity must use that same type instead of the wrapper type.
+ */
+const resolveEffectiveField = (field: Field): Field => {
+  if (field instanceof LookupField || field instanceof ConditionalLookupField) {
+    const inner = field.innerField();
+    return inner.isOk() ? resolveEffectiveField(inner.value) : field;
+  }
+  return field;
+};
+
+export const getValidRecordAggregationFunctions = (
   field: Field
 ): Result<ReadonlySet<TableRecordAggregationFunction>, DomainError> => {
   return safeTry(function* () {
-    const fieldType = field.type().toString();
+    const fieldType = resolveEffectiveField(field).type().toString();
     // Keep aggregation validity tied to the Field child rather than HTTP DTO metadata.
     const valueType = yield* field.accept(new FieldValueTypeVisitor());
     const isMultiple = valueType.isMultipleCellValue.toBoolean();
@@ -151,7 +165,7 @@ export function createRecordAggregation(
           );
         }
         const statisticFunc = input.statisticFunc as TableRecordAggregationFunction;
-        const validFunctions = yield* validFunctionsForField(field);
+        const validFunctions = yield* getValidRecordAggregationFunctions(field);
         if (!validFunctions.has(statisticFunc)) {
           return err(
             domainError.validation({

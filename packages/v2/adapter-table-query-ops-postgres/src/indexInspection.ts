@@ -221,7 +221,7 @@ const addExpectedIndexCandidate = (
   });
 };
 
-const collectBtreeAccessPathFields = (
+export const collectBtreeAccessPathFields = (
   snapshot: ReturnType<TableQueryShape['snapshot']>,
   resolveField: FieldResolver
 ) => {
@@ -269,24 +269,43 @@ const collectBtreeAccessPathFields = (
         })
       )
       .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName)) ?? [];
-  const orderFields =
-    snapshot.orderShape?.fields
-      .filter((field) => (field.fieldId || field.systemColumn) && field.source !== 'tieBreaker')
-      .map((field) =>
-        field.fieldId
-          ? resolveField(field.fieldId, {
+  const orderShapeFields = snapshot.orderShape?.fields ?? [];
+  const explicitOrderFields = orderShapeFields
+    .filter((field) => (field.fieldId || field.systemColumn) && field.source !== 'tieBreaker')
+    .map((field) =>
+      field.fieldId
+        ? resolveField(field.fieldId, {
+            direction: field.direction,
+            role: field.source === 'group' ? 'group' : 'sort',
+          })
+        : field.systemColumn
+          ? {
+              fieldDbName: field.systemColumn,
               direction: field.direction,
               role: field.source === 'group' ? 'group' : 'sort',
-            })
-          : field.systemColumn
-            ? {
-                fieldDbName: field.systemColumn,
-                direction: field.direction,
-                role: field.source === 'group' ? 'group' : 'sort',
-              }
-            : undefined
-      )
-      .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName)) ?? [];
+            }
+          : undefined
+    )
+    .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName));
+  // Filtered list pages are ordered by the shape's tie-breakers (view row
+  // order, then __auto_number). Equality predicates plus that order is what
+  // lets one composite btree return the page without scanning, so keep them
+  // for list-shaped queries instead of dropping every tie-breaker.
+  const includeTieBreakers =
+    equalityFilterFields.length > 0 &&
+    (snapshot.queryKind === 'filter' ||
+      snapshot.queryKind === 'recordList' ||
+      snapshot.queryKind === 'sort');
+  const tieBreakerOrderFields = includeTieBreakers
+    ? orderShapeFields
+        .filter((field) => field.source === 'tieBreaker' && field.systemColumn)
+        .map((field) => ({
+          fieldDbName: field.systemColumn!,
+          direction: field.direction,
+          role: 'sort' as const,
+        }))
+    : [];
+  const orderFields = [...explicitOrderFields, ...tieBreakerOrderFields];
   return {
     btreeFilterFields,
     equalityFilterFields,

@@ -141,7 +141,7 @@ export class InvitationService {
     const droppedEmails = lowercasedEmails.filter((email) => !invitationEmails.includes(email));
     if (droppedEmails.length) {
       this.logger.log(
-        `[banned-domain] dropped invitees=${droppedEmails.join(',')} inviter=${user.email} resource=${resourceType}:${resourceId}`
+        `[banned-domain] dropped invitees=${droppedEmails.join(',')} inviter=${user.email} inviterId=${user.id} resource=${resourceType}:${resourceId}`
       );
     }
     // A banned-domain inviter keeps a working UI, but none of their invitation
@@ -151,7 +151,7 @@ export class InvitationService {
       (await this.riskControlService.isEmailDenied('invitation', user.email));
     if (skipSendMail) {
       this.logger.log(
-        `[banned-domain] shadow-banned inviter=${user.email} emails=${invitationEmails.join(',')} resource=${resourceType}:${resourceId}`
+        `[banned-domain] shadow-banned inviter=${user.email} inviterId=${user.id} emails=${invitationEmails.join(',')} resource=${resourceType}:${resourceId}`
       );
     }
     const sendUsers = await this.prismaService.user.findMany({

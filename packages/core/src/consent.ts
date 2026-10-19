@@ -55,6 +55,51 @@ const OPT_IN_CONSENT_COUNTRIES = new Set([
 export const consentRegionForCountry = (country: string | null | undefined): ConsentRegion =>
   !country || OPT_IN_CONSENT_COUNTRIES.has(country.trim().toUpperCase()) ? 'eea' : 'row';
 
+/**
+ * ISO country code from a geo header (Cloudflare `cf-ipcountry`), or
+ * undefined when the origin is unknown — including Cloudflare's `XX`
+ * (unknown) and `T1` (Tor) placeholders.
+ */
+export const normalizeCountryCode = (country: string | null | undefined): string | undefined => {
+  const code = country?.trim().toUpperCase();
+  return code && /^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'T1' ? code : undefined;
+};
+
+/** What a server-side ad conversion's consent signal is derived from. */
+export interface IAdConversionConsent {
+  /** Banner ad consent (`MarketingAdConsent`); any other value = no choice. */
+  consent?: string | null;
+  /** Visitor's country (cf-ipcountry) as of the consent snapshot. */
+  country?: string | null;
+}
+
+/** Google's consent signal values (Google Ads API / GA4 Measurement Protocol). */
+export type AdUserDataConsent = 'GRANTED' | 'DENIED';
+
+/**
+ * The one rule for the consent signal the backend attaches to conversions it
+ * sends straight to Google (Google Ads, GA4 Measurement Protocol). DENIED on
+ * an explicit denial, or with no choice recorded for a visitor in the opt-in
+ * region as the banner decides it (EEA/UK/CH, or no country at all). GRANTED
+ * otherwise, including Cloudflare's XX/T1 placeholders, which the banner also
+ * treats as outside the opt-in region. The conversion is sent either way;
+ * DENIED only strips user identifiers.
+ */
+export const adUserDataConsent = ({
+  consent,
+  country,
+}: IAdConversionConsent): AdUserDataConsent => {
+  if (consent === 'granted') {
+    return 'GRANTED';
+  }
+  if (consent === 'denied') {
+    return 'DENIED';
+  }
+  // Same region rule as the banner (consentRegionForCountry): no country at all counts as
+  // opt-in, so a visitor who was shown the banner and never answered is not reported as GRANTED.
+  return consentRegionForCountry(country) === 'eea' ? 'DENIED' : 'GRANTED';
+};
+
 export type ConsentStatus = 'granted' | 'denied';
 
 // Keys are Google Consent Mode's category names, shared with the marketing
@@ -72,7 +117,10 @@ export interface IMarketingConsent {
 export const MARKETING_CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 /** Recorded with every consent event so a choice can be tied to the text shown. */
-export const CONSENT_BANNER_VERSION = '2026-10';
+export const CONSENT_BANNER_VERSION = '2026-10b';
+
+/** How a choice was made, recorded alongside it. */
+export type ConsentMethod = 'accept_all' | 'reject_all' | 'custom';
 
 export const allConsent = (status: ConsentStatus): IMarketingConsent => ({
   analytics_storage: status,
@@ -80,6 +128,26 @@ export const allConsent = (status: ConsentStatus): IMarketingConsent => ({
   ad_user_data: status,
   ad_personalization: status,
 });
+
+/**
+ * Builds a choice from the banner's per-category switches. Marketing covers
+ * all three ad signals: they are only ever granted or denied together.
+ */
+export const consentForCategories = ({
+  analytics,
+  marketing,
+}: {
+  analytics: boolean;
+  marketing: boolean;
+}): IMarketingConsent => {
+  const status = (granted: boolean): ConsentStatus => (granted ? 'granted' : 'denied');
+  return {
+    analytics_storage: status(analytics),
+    ad_storage: status(marketing),
+    ad_user_data: status(marketing),
+    ad_personalization: status(marketing),
+  };
+};
 
 const isStatus = (value: unknown): value is ConsentStatus =>
   value === 'granted' || value === 'denied';

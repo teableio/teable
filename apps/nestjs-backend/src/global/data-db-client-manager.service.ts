@@ -18,20 +18,17 @@ import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../utils/meta-ancestry-cache';
 import {
-  buildComputedOutboxActivePauseExclusion,
   buildComputedOutboxAnomalyListQuery,
   buildComputedOutboxDeadLetterBatchSelectionQuery,
   buildComputedOutboxLineageRunChainQuery,
   buildComputedOutboxLineageTaskLookupQuery,
+  buildComputedOutboxMaintenanceSnapshotQuery,
   buildComputedOutboxRecoveryPlanHash,
   buildComputedOutboxOrphanedDeferralRestoreQuery,
-  buildComputedOutboxRoutedFilter,
   buildComputedOutboxRunHistoryExistsQuery,
   buildComputedOutboxStaleRecoverySelectQuery,
   buildComputedOutboxTaskStatesQuery,
   buildComputedOutboxWakeupCandidatesQuery,
-  COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL,
-  qualifyComputedOutboxTable,
   type ComputedOutboxDeadLetterBatchSelection,
   type ComputedOutboxWakeupCandidateQueryOptions,
   type ComputedOutboxWakeupCandidateQueryTarget,
@@ -125,6 +122,26 @@ export interface IDataDbPreviewBinding {
   urlFingerprint?: string | null;
   displayHost?: string | null;
   displayDatabase?: string | null;
+}
+
+/** Minimal server-loaded routing projection. Never accept this from a client request. */
+export interface IDataDbRoutingBinding {
+  readonly mode: string;
+  readonly state: string;
+  readonly dataDbConnection: {
+    readonly id: string;
+    readonly status: string;
+    readonly encryptedUrl: string;
+    readonly internalSchema: string;
+    readonly urlFingerprint: string | null;
+    readonly displayHost: string | null;
+    readonly displayDatabase: string | null;
+  } | null;
+}
+
+export interface IDataDbRoutingSnapshot {
+  readonly spaceId: string;
+  readonly binding: IDataDbRoutingBinding | null;
 }
 
 export interface IDataDbRoutingOptions {
@@ -477,12 +494,25 @@ export class DataDbClientManager {
     );
   }
 
+  /** Resolve a fresh, trusted metadata projection without rereading or using an older route cache. */
+  async getDataDatabaseFromRoutingSnapshot(
+    snapshot: IDataDbRoutingSnapshot
+  ): Promise<IResolvedDataDatabase> {
+    const resolved: IResolvedSpaceDataDbRoute = isBoundToDataDb(snapshot.binding)
+      ? await this.resolveBoundSpaceDataDb(snapshot.spaceId, snapshot.binding)
+      : { isMetaFallback: true };
+    return this.toResolvedDataDatabase(resolved);
+  }
+
   private async getDataDatabaseForSpaceUncached(
     spaceId: string,
     options?: IDataDbRoutingOptions
   ): Promise<IResolvedDataDatabase> {
     const resolved = await this.resolveSpaceDataDb(spaceId, options);
+    return this.toResolvedDataDatabase(resolved);
+  }
 
+  private toResolvedDataDatabase(resolved: IResolvedSpaceDataDbRoute): IResolvedDataDatabase {
     if (resolved.isMetaFallback) {
       return {
         cacheKey: 'meta-fallback',
@@ -799,97 +829,12 @@ export class DataDbClientManager {
     processingLeaseMs: number
   ): Promise<IComputedOutboxMaintenanceSnapshot> {
     const client = createComputedOutboxMaintenanceKnex(target);
-    const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
-    // Anomaly counts (dead / stale) must match the anomaly list, which hides
-    // entries whose base no longer routes here (BYODB migration, deleted base).
-    // anomalyGroups uses the same (base, seed table, error signature) key as the list.
-    const routedFilter = buildComputedOutboxRoutedFilter(target);
-    const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
-    const deadLetterTable = qualifyComputedOutboxTable(target, 'computed_update_dead_letter');
-    const pauseScopeTable = qualifyComputedOutboxTable(target, 'computed_update_pause_scope');
+    const query = buildComputedOutboxMaintenanceSnapshotQuery(target, processingLeaseMs);
     try {
       const result = await client
         .raw<{
           rows: Array<Record<string, string | number | null>>;
-        }>(
-          `with ${routedFilter.cte},
-          outbox_state as (
-            select o.*,
-              ${pauseExclusion.sql} as actionable,
-              (${routedFilter.condition('o.base_id')}) as routed
-            from ${outboxTable} as o
-          )
-        select
-          count(*) filter (
-            where status = 'pending' and next_run_at <= now() and actionable
-          ) as due_pending,
-          count(*) filter (
-            where status = 'pending' and next_run_at > now() and actionable
-          ) as scheduled_pending,
-          count(*) filter (where status = 'pending' and not actionable) as paused_pending,
-          count(*) filter (
-            where status = 'processing'
-              and locked_at is not null
-              and locked_at > now() - (? * interval '1 millisecond')
-          ) as active_processing,
-          count(*) filter (
-            where status = 'processing'
-              and actionable
-              and routed
-              and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
-          ) as stale_processing,
-          coalesce(
-            extract(epoch from (now() - min(next_run_at) filter (
-              where status = 'pending' and next_run_at <= now() and actionable
-            ))) * 1000,
-            0
-          ) as oldest_due_age_ms,
-          coalesce(
-            extract(epoch from (now() - min(created_at) filter (
-              where status = 'pending' and not actionable
-            ))) * 1000,
-            0
-          ) as oldest_paused_age_ms,
-          (
-            select count(*)
-            from ${pauseScopeTable}
-            where resume_at is null or resume_at > now()
-          ) as active_pause_scope_count,
-          (
-            select count(*)
-            from ${deadLetterTable}
-            where ${routedFilter.condition('base_id')}
-          ) as dead,
-          (
-            select count(*)
-            from (
-              select 1
-              from ${deadLetterTable}
-              where ${routedFilter.condition('base_id')}
-              group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
-            ) dead_groups
-          ) as dead_groups,
-          (
-            select count(*)
-            from (
-              select 1
-              from outbox_state
-              where status = 'processing'
-                and actionable
-                and routed
-                and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
-              group by base_id, seed_table_id, ${COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL}
-            ) stale_groups
-          ) as stale_groups
-        from outbox_state`,
-          [
-            ...routedFilter.bindings,
-            ...pauseExclusion.bindings,
-            processingLeaseMs,
-            processingLeaseMs,
-            processingLeaseMs,
-          ]
-        )
+        }>(query.sql, query.bindings)
         .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
       const row = result.rows[0] ?? {};
       return {
@@ -1404,7 +1349,13 @@ export class DataDbClientManager {
       }
       return { isMetaFallback: true };
     }
+    return this.resolveBoundSpaceDataDb(spaceId, binding);
+  }
 
+  private async resolveBoundSpaceDataDb(
+    spaceId: string,
+    binding: IDataDbRoutingBinding
+  ): Promise<IResolvedSpaceDataDbRoute> {
     const connection = binding.dataDbConnection;
     if (!connection) {
       throw new Error(`Data database connection for space ${spaceId} was not found`);

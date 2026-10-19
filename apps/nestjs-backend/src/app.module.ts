@@ -53,6 +53,7 @@ import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
 import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
 import { DomainEventWakeupConsumerModule } from './features/v2/domain-event-outbox-trigger/domain-event-wakeup-consumer.module';
+import { V2DataQueryModule } from './features/v2/v2-data-query.module';
 import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -114,6 +115,7 @@ export const appModules = {
     ObservabilityModule,
     BuiltinAssetsInitModule,
     V2Module,
+    V2DataQueryModule.register(),
     ComputedOutboxWakeupConsumerModule.register(),
     DomainEventWakeupConsumerModule,
   ],

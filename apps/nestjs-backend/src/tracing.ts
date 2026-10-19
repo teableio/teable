@@ -55,7 +55,11 @@ import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 import { databaseHealthSpanProcessor } from './observability/database-health/database-health.metrics';
-import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
+import {
+  redactTeablePgQuerySpan,
+  setTeableDbSpanAttributes,
+  setTeableDbSpanAttributesFromSpan,
+} from './tracing-db-context';
 import { createSmartSpanProcessor } from './tracing-span-export';
 
 // Use webpack's special require that bypasses bundling, falling back to standard require
@@ -394,6 +398,7 @@ const otelSDK = new opentelemetry.NodeSDK({
       requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
       requestHook: (span, queryInfo) => {
         setTeableDbSpanAttributes(span, queryInfo.connection);
+        redactTeablePgQuerySpan(span);
       },
     }),
     new PinoInstrumentation(),

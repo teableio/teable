@@ -929,7 +929,8 @@
       "editLink": "Modifier le lien",
       "linkText": "Texte du lien",
       "enterUrl": "Entrez l'URL"
-    }
+    },
+    "tooManyImages": "Vous pouvez ajouter jusqu'à {{count}} images à la fois"
   },
   "memberSelector": {
     "title": "Select Members",

@@ -52,7 +52,7 @@ export const buildStoredFieldValueExpression = (
   }
 
   return ok({
-    expression: sql.ref(`${tableAlias}.${column}`),
+    expression: sql.id(tableAlias, column),
     usesErrorFallback: false,
   });
 };

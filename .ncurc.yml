@@ -5,7 +5,5 @@
 # Add here exclusions on packages if any
 reject: [
     # Too early cause in esm
-    'is-port-reachable',
-    'nanoid',
     'node-fetch',
   ]

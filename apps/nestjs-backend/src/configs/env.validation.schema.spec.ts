@@ -8,6 +8,66 @@ describe('envValidationSchema', () => {
     ...overrides,
   });
 
+  it.each<[string | undefined, boolean]>([
+    [undefined, false],
+    ['false', false],
+    ['true', true],
+    ['1', true],
+    ['0', false],
+    ['yes', true],
+    ['no', false],
+    ['on', true],
+    ['off', false],
+    [' TRUE ', true],
+    [' OFF ', false],
+  ])('requires explicit data-query opt-in: %s', (flag, enabled) => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_ENABLED: flag,
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_DATA_QUERY_ENABLED).toBe(enabled);
+  });
+
+  it('rejects invalid data-query opt-in values', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_ENABLED: 'enabled',
+      })
+    );
+    expect(error).toBeDefined();
+  });
+
+  it.each<[string | undefined, boolean]>([
+    [undefined, false],
+    ['true', true],
+    ['1', true],
+    ['off', false],
+    [' ON ', true],
+  ])('parses the data-query runtime flag: %s', (flag, enabled) => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_EXECUTE_ENABLED: flag,
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_DATA_QUERY_EXECUTE_ENABLED).toBe(enabled);
+  });
+
+  it('rejects invalid data-query runtime values', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_EXECUTE_ENABLED: 'enabled',
+      })
+    );
+    expect(error).toBeDefined();
+  });
+
   it('defaults computed concurrency to two before config factories read validated env', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({

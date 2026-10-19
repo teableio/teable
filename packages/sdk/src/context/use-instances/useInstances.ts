@@ -16,6 +16,15 @@ import { OpListenersManager } from './opListener';
 import type { IInstanceAction, IInstanceState } from './reducer';
 import { instanceReducer } from './reducer';
 
+// Live-sync logs carry record values and query filters. Keep them out of the
+// browser console, which session replay captures, unless `localStorage.debug` is set.
+const isDebug = () => typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('debug'));
+const debugLog = (...args: unknown[]) => {
+  if (isDebug()) {
+    console.log(...args);
+  }
+};
+
 export interface IUseInstancesProps<T, R> {
   collection: string;
   initData?: T[];
@@ -628,12 +637,13 @@ export function useInstances<T, R extends { id: string }>({
   ]);
 
   const handleReady = useCallback((query: Query<T>) => {
-    console.log(
+    debugLog(
       `${query.collection}:ready:`,
       query.query,
-      localStorage.getItem('debug') && query.results.map((doc) => doc.data)
+      // Mapping every record on each ready is not free: only when debugging.
+      isDebug() ? query.results?.map((doc) => doc.data) : undefined
     );
-    console.log('extra ready ->', query.extra);
+    debugLog('extra ready ->', query.extra);
     if (!query.results) {
       return;
     }
@@ -641,14 +651,14 @@ export function useInstances<T, R extends { id: string }>({
     dispatch({ type: 'ready', results: query.results, extra: query.extra });
     query.results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
-        console.log(`${query.collection} on op:`, op, doc);
+        debugLog(`${query.collection} on op:`, op, doc);
         dispatch({ type: 'update', doc });
       });
     });
   }, []);
 
   const handleInsert = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(
+    debugLog(
       `${docs[0]?.collection}:insert:`,
       docs.map((doc) => doc.id),
       index
@@ -657,14 +667,14 @@ export function useInstances<T, R extends { id: string }>({
 
     docs.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
-        console.log(`${docs[0]?.collection} on op:`, op);
+        debugLog(`${docs[0]?.collection} on op:`, op);
         dispatch({ type: 'update', doc });
       });
     });
   }, []);
 
   const handleRemove = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(
+    debugLog(
       `${docs[0]?.collection}:remove:`,
       docs.map((doc) => doc.id),
       index
@@ -676,7 +686,7 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleMove = useCallback((docs: Doc<T>[], from: number, to: number) => {
-    console.log(
+    debugLog(
       `${docs[0]?.collection}:move:`,
       docs.map((doc) => doc.id),
       from,
@@ -686,12 +696,12 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleExtra = useCallback((extra: unknown) => {
-    console.log('extra', extra);
+    debugLog('extra', extra);
     dispatch({ type: 'extra', extra });
   }, []);
 
   const handleChanged = useCallback((query: Query<T>, docs: Doc<T>[]) => {
-    console.log(
+    debugLog(
       `${docs[0]?.collection}:changed:`,
       docs.map((doc) => doc.id)
     );
@@ -700,7 +710,7 @@ export function useInstances<T, R extends { id: string }>({
     dispatch({ type: 'ready', results, extra: query.extra });
     results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
-        console.log(`${query.collection} on op:`, op, doc);
+        debugLog(`${query.collection} on op:`, op, doc);
         dispatch({ type: 'update', doc });
       });
     });

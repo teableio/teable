@@ -127,6 +127,21 @@ describe('BaseSqlQuery e2e', () => {
       ]);
     });
 
+    it('rejects an aggregation over a field that no longer exists', async () => {
+      await expect(
+        baseQuery(baseId, {
+          from: table.id,
+          aggregation: [
+            {
+              column: 'fldMissingForAggregation',
+              type: BaseQueryColumnType.Field,
+              statisticFunc: StatisticsFunc.Count,
+            },
+          ],
+        })
+      ).rejects.toMatchObject({ status: 404, message: 'Field fldMissingForAggregation not found' });
+    });
+
     it('filter', async () => {
       const res = await baseQuery(baseId, {
         from: table.id,

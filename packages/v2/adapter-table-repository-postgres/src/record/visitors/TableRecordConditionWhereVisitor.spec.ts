@@ -401,6 +401,29 @@ const createScalarSingleSelectLookupField = () => {
   return lookupField;
 };
 
+const createScalarNumericLookupField = (dbFieldType?: 'REAL' | 'JSON') => {
+  const { scoreField } = createTestTable();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: `fld${'k'.repeat(16)}`,
+    lookupFieldId: scoreField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Product')._unsafeUnwrap(),
+    innerField: scoreField,
+    lookupOptions,
+    isMultipleCellValue: false,
+  })._unsafeUnwrap();
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_product')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  if (dbFieldType) {
+    lookupField.setDbFieldType(DbFieldType.rehydrate(dbFieldType)._unsafeUnwrap())._unsafeUnwrap();
+  }
+  return lookupField;
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -514,6 +537,81 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       expect(sql).toMatchInlineSnapshot(`""t"."col_status" in ($1, $2)"`);
       expect(parameters).toEqual(['Open', 'Active']);
+    });
+  });
+
+  // ---- scalar-stored lookup comparisons ----
+
+  describe('scalar-stored lookup comparisons', () => {
+    test('canonical numeric lookup is compares the bare column', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create('42')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toBe('"t"."col_lookup_product" = $1');
+      expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([42]);
+    });
+
+    test('canonical numeric lookup isNot compares the bare column', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'isNot', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toBe('"t"."col_lookup_product" is distinct from $1');
+      expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([42]);
+    });
+
+    test('non-canonical numeric spelling keeps the legacy text comparison', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create('042')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('JSON-stored lookup keeps array membership', () => {
+      const lookupField = createScalarNumericLookupField('JSON');
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('lookup without persisted storage metadata keeps array membership', () => {
+      const lookupField = createScalarNumericLookupField();
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('multiple lookup is still compared through its jsonb array', () => {
+      const { lookupField } = createLookupLinkTitleReferenceFields();
+      const value = RecordConditionLiteralValue.create('alpha')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_path_query_array');
+      expect(sql).not.toContain('"t"."col_lookup_tags" = $1');
     });
   });
 

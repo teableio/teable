@@ -9,9 +9,6 @@ import { MultipleSelectField } from '../types/MultipleSelectField';
 import { SelectOption } from '../types/SelectOption';
 import { SingleLineTextField } from '../types/SingleLineTextField';
 import { SingleSelectField } from '../types/SingleSelectField';
-import { DateField } from '../types/DateField';
-import { LinkField } from '../types/LinkField';
-import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { FieldCellValueSchemaVisitor } from './FieldCellValueSchemaVisitor';
 
 const createFieldId = (seed: string) =>

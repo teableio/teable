@@ -929,7 +929,8 @@
       "editLink": "Edit Link",
       "linkText": "Link Text",
       "enterUrl": "Enter URL"
-    }
+    },
+    "tooManyImages": "Puoi aggiungere fino a {{count}} immagini alla volta"
   },
   "memberSelector": {
     "title": "Select Members",

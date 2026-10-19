@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { createHash } from 'crypto';
 import { Readable } from 'stream';
+import { DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
 import { vi } from 'vitest';
 import StorageAdapter from './adapter';
 import { AliyunStorage } from './aliyun';
@@ -236,6 +239,79 @@ describe('AliyunStorage forcePathStyle', () => {
     expect(parsed.host).toBe('teable.example.com');
     expect(parsed.pathname).toBe('/oss/private-bucket/table/attachment/preview');
     expect(parsed.searchParams.get('X-Amz-Signature')).toBeTruthy();
+  });
+});
+
+describe('S3 request checksums', () => {
+  // Stops each request once headers are final, so they can be inspected without a server.
+  const captureRequests = (client: S3Client) => {
+    const requests: { command: string; headers: Record<string, string>; body: unknown }[] = [];
+    client.middlewareStack.add(
+      (_next, context) => async (args: any) => {
+        requests.push({
+          command: context.commandName as string,
+          headers: { ...args.request.headers },
+          body: args.request.body,
+        });
+        throw new Error('request captured');
+      },
+      { step: 'finalizeRequest', priority: 'low', name: 'captureRequest' }
+    );
+    return requests;
+  };
+  const checksumHeaders = (headers: Record<string, string>) =>
+    Object.keys(headers).filter((h) => /^x-amz-(?:sdk-)?checksum-|^x-amz-trailer$/i.test(h));
+  const checksumParams = (url: string) =>
+    [...new URL(url).searchParams.keys()].filter((k) => /checksum/i.test(k));
+
+  it('signs upload and preview urls without checksum parameters', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const { url } = await storage.presigned('private-bucket', 'table/attachment', {
+      contentType: 'text/plain',
+      contentLength: 10,
+    });
+    const aliyun = new AliyunStorage(mockS3Config(false));
+
+    expect(checksumParams(url)).toEqual([]);
+    expect(checksumParams(await storage.getPreviewUrl('private-bucket', 'table/a', 60))).toEqual(
+      []
+    );
+    expect(checksumParams(await aliyun.getPreviewUrl('private-bucket', 'table/a', 60))).toEqual([]);
+  });
+
+  it('uploads without checksum headers', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const requests = captureRequests((storage as any).s3ClientPrivateNetwork);
+
+    await expect(
+      storage.uploadFile('private-bucket', 'table/a', Readable.from([Buffer.from('hello')]))
+    ).rejects.toThrow('request captured');
+
+    expect(requests.map((r) => r.command)).toEqual(['PutObjectCommand']);
+    expect(checksumHeaders(requests[0].headers)).toEqual([]);
+  });
+
+  it('sends Content-MD5 instead of a CRC32 checksum on DeleteObjects', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const client: S3Client = (storage as any).s3ClientPrivateNetwork;
+    const requests = captureRequests(client);
+
+    await expect(
+      client.send(
+        new DeleteObjectsCommand({
+          Bucket: 'private-bucket',
+          Delete: { Objects: [{ Key: 'table/a' }] },
+        })
+      )
+    ).rejects.toThrow('request captured');
+
+    const [{ headers, body }] = requests;
+    expect(checksumHeaders(headers)).toEqual([]);
+    expect(headers['Content-MD5']).toBe(
+      createHash('md5')
+        .update(body as string)
+        .digest('base64')
+    );
   });
 });
 

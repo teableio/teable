@@ -8,7 +8,6 @@ export interface IServerEnv {
   brandName?: string;
   brandLogo?: string;
   templateSiteLink?: string;
-  microsoftClarityId?: string;
   umamiWebSiteId?: string;
   gaId?: string;
   marketingGaId?: string;

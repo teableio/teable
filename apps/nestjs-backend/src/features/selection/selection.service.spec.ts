@@ -53,9 +53,10 @@ describe('selectionService', () => {
   let fieldSupplementService: FieldSupplementService;
   let clsService: ClsService<IClsStore>;
   let aggregationService: IAggregationService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, SelectionModule],
     })
       .overrideProvider(PrismaService)
@@ -76,6 +77,9 @@ describe('selectionService', () => {
     ) as unknown as DeepMockProxy<PrismaService>;
     mockReset(prismaService);
   });
+
+  // GlobalModule opens Redis-backed queues; close them before the file is torn down.
+  afterEach(() => module.close());
 
   const tableId = 'table1';
   const viewId = 'view1';

@@ -7,6 +7,7 @@ import type {
   RecordFilterNode,
 } from '../../../queries/RecordFilterDto';
 import { type DomainError } from '../../shared/DomainError';
+import { resolveEffectiveField } from '../fields/effectiveField';
 import { DateTimeFormatting } from '../fields/types/DateTimeFormatting';
 import { FormulaField } from '../fields/types/FormulaField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
@@ -89,7 +90,8 @@ export function createCollapsedGroupExclusionFilter(
             (candidate) => candidate.id().toString() === group.fieldId
           );
           const valueType = yield* field.accept(new FieldValueTypeVisitor());
-          const fieldType = field.type().toString();
+          const effectiveField = resolveEffectiveField(field);
+          const fieldType = effectiveField.type().toString();
           let value = path[depth];
           let operator: RecordFilterCondition['operator'] = 'isNot';
 
@@ -108,8 +110,11 @@ export function createCollapsedGroupExclusionFilter(
             typeof value.count === 'number'
           ) {
             value = value.count;
-          } else if (field instanceof FormulaField && !valueType.isMultipleCellValue.isMultiple()) {
-            const formatting = field.formatting();
+          } else if (
+            effectiveField instanceof FormulaField &&
+            !valueType.isMultipleCellValue.isMultiple()
+          ) {
+            const formatting = effectiveField.formatting();
             if (formatting instanceof DateTimeFormatting) {
               // Formula date group keys identify display buckets, not exact timestamps.
               value = {

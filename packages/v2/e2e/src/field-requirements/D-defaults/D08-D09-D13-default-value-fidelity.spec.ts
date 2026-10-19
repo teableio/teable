@@ -100,7 +100,11 @@ describe('D08/D09/D13: persisted default fidelity', () => {
   });
 
   describe('D08 long text defaults', () => {
-    it.each(textFidelityCases)('keeps $label verbatim', async ({ value, expected }) => {
+    it.each([
+      ...textFidelityCases,
+      { label: 'internal newlines', value: '  line1\nline2  ', expected: 'line1\nline2' },
+      { label: 'internal tabs', value: '  left\tright  ', expected: 'left\tright' },
+    ])('preserves $label after trimming', async ({ value, expected }) => {
       await setDefault('LongText', value);
       await expect(createAndRead('LongText')).resolves.toBe(expected);
     });

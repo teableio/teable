@@ -10,6 +10,8 @@ import {
 import {
   AnchorContext,
   FieldProvider,
+  generateLocalId,
+  useGridCollapsedGroupStore,
   useUndoRedo,
   ViewProvider,
   PersonalViewProxy,
@@ -36,6 +38,12 @@ import { useBaseResource } from '../../hooks/useBaseResource';
 import { useBrand } from '../../hooks/useBrand';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
+import {
+  captureAnchorCollapseState,
+  createSsrAnchorState,
+  updateSsrAnchorState,
+} from './hooks/ssr-anchor';
+import type { ISeedCollapseState } from './hooks/ssr-anchor';
 import { useTableErrorHandler, useStaleTableRecovery } from './hooks/use-table-error-handler';
 import { useTableSeed } from './hooks/use-table-seed';
 import { StaleViewRecovery, useViewErrorHandler } from './hooks/use-view-error-handler';
@@ -86,16 +94,29 @@ export const Table: React.FC<ITableProps> = ({
   // SSR props describe exactly the (table, view) that getServerSideProps
   // rendered; navigation is shallow-routed, so once the user goes anywhere
   // else — another table or even another view of the same table — the
-  // page-load-era snapshot is no longer trustworthy. From then on the
-  // bounded seed query takes over as the bootstrap source.
-  const initialAnchorRef = useRef({ tableId, viewId });
-  const ssrDataFresh =
-    initialAnchorRef.current.tableId === tableId && initialAnchorRef.current.viewId === viewId;
+  // page-load-era snapshot is no longer trustworthy, and returning to the
+  // original anchor must not resurrect it. From then on the bounded seed
+  // query takes over as the bootstrap source.
+  const ssrAnchorRef = useRef(createSsrAnchorState(tableId, viewId));
+  ssrAnchorRef.current = updateSsrAnchorState(ssrAnchorRef.current, tableId, viewId);
+  const ssrDataFresh = ssrAnchorRef.current.fresh;
 
+  const collapsedGroupIds = useGridCollapsedGroupStore(
+    (state) => state.collapsedGroupMap[generateLocalId(tableId, viewId)]
+  );
+  // the seed describes the layout at navigation time; later collapse toggles
+  // are patched locally and must not re-run the bootstrap query
+  const seedCollapseRef = useRef<ISeedCollapseState>({ anchor: '' });
+  seedCollapseRef.current = captureAnchorCollapseState(
+    seedCollapseRef.current,
+    generateLocalId(tableId, viewId),
+    collapsedGroupIds
+  );
   const { data: tableSeed } = useTableSeed(
     tableId,
     viewId,
-    Boolean(tableId && viewId) && !ssrDataFresh && !isReadOnlyPreview
+    Boolean(tableId && viewId) && !ssrDataFresh && !isReadOnlyPreview,
+    seedCollapseRef.current.ids
   );
 
   const isPersonalViewActive = usePersonalViewStore((state) =>
