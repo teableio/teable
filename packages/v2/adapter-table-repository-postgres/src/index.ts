@@ -18,6 +18,7 @@ export { PostgresTableRecordRepository, PostgresTableRecordQueryRepository } fro
 export * from './record/computed';
 export * from './record/query-builder';
 export * from './record/visitors';
+export { PostgresDataQueryExecutor } from './record/data-query/PostgresDataQueryExecutor';
 
 // DI exports (main API)
 export * from './di';

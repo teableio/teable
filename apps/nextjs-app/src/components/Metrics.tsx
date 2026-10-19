@@ -82,7 +82,7 @@ const isPosthogSdkLoaded = (posthog?: IPostHog): boolean =>
 // 'anonymous' (case-insensitive, matching PostHog's reserved distinct_id
 // semantics) are excluded.
 //
-// Shared by EVERY analytics tool in this file (Clarity, Umami, GA, PostHog):
+// Shared by EVERY analytics tool in this file (Umami, GA, PostHog):
 // signed-out visitors on ensureLogin pages (/auth/login, /auth/signup via
 // re-export, /invite, ...) get pageProps.user set to the backend's
 // ANONYMOUS_USER, which carries a non-empty name ('Anonymous') and email
@@ -123,8 +123,6 @@ declare global {
     gtag?: (command: string, targetId: string | Date, config?: Record<string, unknown>) => void;
     dataLayer?: unknown[];
     posthog?: IPostHog;
-    /** Clarity queue/API — defined synchronously by the init snippet. */
-    clarity?: (command: string, ...args: string[]) => void;
     fbq?: (...args: unknown[]) => void;
     /**
      * Hook invoked by the posthog init snippet's `loaded` callback with the
@@ -137,62 +135,6 @@ declare global {
     __teablePosthogCookieless?: boolean;
   }
 }
-
-export const MicrosoftClarity = ({
-  clarityId,
-  user,
-}: {
-  clarityId?: string;
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-  };
-}) => {
-  const userId = user?.id;
-  const { analyticsGranted } = useMarketingConsent();
-  const [isClarityReady, setIsClarityReady] = useState(false);
-
-  // Identify from an effect, not a one-shot inline script: login goes through
-  // a client-side router.push, which keeps this component mounted and would
-  // never re-run a script tag — the session would stay unidentified until a
-  // full page load. The effect re-runs whenever the user id changes (initial
-  // load, login, account switch alike). Clarity has no reset API, so
-  // anonymous/invalid users simply skip identification and stay on Clarity's
-  // own per-device session id.
-  useEffect(() => {
-    if (!isClarityReady || !isIdentifiableUserId(userId)) {
-      return;
-    }
-    // User id only: the email never leaves for a third party.
-    window.clarity?.('identify', userId);
-  }, [isClarityReady, userId]);
-
-  // Session recording is non-essential: it loads only with analytics consent
-  // (granted by default outside the opt-in regions).
-  if (!clarityId || !analyticsGranted) {
-    return null;
-  }
-
-  return (
-    <Script
-      id="microsoft-clarity-init"
-      strategy="afterInteractive"
-      // The snippet defines the window.clarity queue synchronously, so the
-      // identify effect can call it as soon as onReady fires.
-      onReady={() => setIsClarityReady(true)}
-      dangerouslySetInnerHTML={{
-        __html: `
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "${clarityId}");
-        `,
-      }}
-    />
-  );
-};
 
 export const Umami = ({
   umamiWebSiteId,
@@ -561,6 +503,20 @@ export const PostHog = ({
             // we don't act on them yet — growth events are the priority for quota.
             capture_performance: { web_vitals: false },
             autocapture: { css_selector_allowlist: ['[data-attr]'] },
+            // Code-level privacy backstop for session replay. These mirror the
+            // PostHog project's "Privacy and masking" settings; init options
+            // take precedence over the remote ones, so a project-settings
+            // change can never start recording text, inputs or media.
+            session_recording: {
+              maskAllInputs: true,
+              maskTextSelector: '*',
+              blockSelector: 'img, video',
+            },
+            // Console output can carry tokens, emails or record data. An
+            // explicit false wins over the remote "capture console logs"
+            // toggle (undefined would fall back to it).
+            enable_recording_console_log: false,
+            logs: { captureConsoleLogs: false },
             person_profiles: 'identified_only',
             persistence: 'localStorage+cookie',
             // Runs synchronously BEFORE posthog schedules the initial $pageview
@@ -590,6 +546,7 @@ export const PostHog = ({
           // PostHog project's replay settings, which link recording to the
           // 'new-user-session-replay' feature flag (signup_at within last 7 days).
           // Anonymous visitors never match the flag, so nothing records for them.
+          // Masking, by contrast, is pinned above in session_recording.
         `,
       }}
     />

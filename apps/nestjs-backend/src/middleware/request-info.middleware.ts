@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   AFFILIATE_COOKIE_NAME,
   AFFILIATE_VIA_MAX_LENGTH,
+  normalizeCountryCode,
   parseMarketingAdConsent,
   parseSignupAttributionCookies,
 } from '@teable/core';
@@ -32,6 +33,12 @@ const maxOriginPathLength = 512;
 
 const requestPath = (req: Request): string =>
   (req.originalUrl ?? req.url ?? '').split('?')[0].slice(0, maxOriginPathLength);
+
+// Visitor country from the CDN geo header; undefined when unknown.
+const requestCountry = (req: Request): string | undefined => {
+  const header = req.headers['cf-ipcountry'];
+  return normalizeCountryCode(Array.isArray(header) ? header[0] : header);
+};
 
 const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
   task
@@ -191,11 +198,14 @@ export class RequestInfoMiddleware implements NestMiddleware {
       this.cls.set('signupAttribution', signupAttribution);
     }
 
-    // Banner ad_storage choice (parent-domain cookie) — see IClsStore.marketingAdConsent.
+    // Banner ad consent (parent-domain cookie) — see IClsStore.marketingAdConsent.
     const marketingAdConsent = parseMarketingAdConsent(cookies);
     if (marketingAdConsent) {
       this.cls.set('marketingAdConsent', marketingAdConsent);
     }
+
+    // CDN geo country — see IClsStore.requestCountry.
+    this.cls.set('requestCountry', requestCountry(req));
 
     // Canary header for canary release override
     const canaryHeader = req.headers[X_CANARY_HEADER];

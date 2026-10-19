@@ -16,6 +16,7 @@ import {
   type IDataPrismaQueryExecutor,
 } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex';
+import { withPgParameterRedaction } from '../../tracing-db-context';
 import { TableQueryObservationRuntimeService } from '../v2/table-query-observation-runtime.service';
 import { resolveBoolean } from '../v2/v2-config-parsers';
 import { buildMissingColumnHint } from './column-case-folding';
@@ -335,32 +336,40 @@ export class BaseSqlExecutorService {
     return fieldsByTable;
   }
 
+  async validateQuerySql(baseId: string, sql: string): Promise<void> {
+    await this.safeCheckSql(baseId, sql);
+  }
+
   async executeQuerySql<T = unknown>(
     baseId: string,
     sql: string,
     opts?: {
       projectionTableDbNames?: string[];
       projectionTableIds?: string[];
+      parameters?: ReadonlyArray<unknown>;
+      redactErrors?: boolean;
     }
   ) {
-    const checked = await this.safeCheckSql(baseId, sql, opts);
-    const startedAt = Date.now();
+    let checked: SqlObservationCheck | undefined;
+    let startedAt = Date.now();
     let sqlTimedOut = false;
     try {
+      checked = await this.safeCheckSql(baseId, sql, opts);
+      startedAt = Date.now();
       const shouldSetLocalRole = await this.roleCheckAndCreate(baseId);
-      const result = await this.databaseRouter.dataPrismaTransactionForBase(
-        baseId,
-        async (prisma) => {
+      const result = await withPgParameterRedaction(() =>
+        this.databaseRouter.dataPrismaTransactionForBase(baseId, async (prisma) => {
           try {
             await this.setLocalStatementTimeout(prisma);
             await this.setTransactionReadOnly(prisma);
             if (shouldSetLocalRole) {
               await this.setLocalRole(prisma, baseId);
             }
-            return await prisma.$queryRawUnsafe<T>(sql);
+            return await prisma.$queryRawUnsafe<T>(sql, ...(opts?.parameters ?? []));
           } catch (error: unknown) {
             sqlTimedOut = isSqlTimeout(error);
-            const message = this.buildQueryFailureMessage(error, checked.parsed);
+            if (opts?.redactErrors) throw error;
+            const message = this.buildQueryFailureMessage(error, checked!.parsed);
             throw new CustomHttpException(
               `execute query sql failed: ${message}`,
               HttpErrorCode.VALIDATION_ERROR,
@@ -372,12 +381,27 @@ export class BaseSqlExecutorService {
               }
             );
           }
-        }
+        })
       );
       this.publishSqlObservation(checked, Date.now() - startedAt, result);
       return result;
     } catch (error: unknown) {
-      this.publishSqlObservation(checked, Date.now() - startedAt, undefined, error, sqlTimedOut);
+      if (checked) {
+        this.publishSqlObservation(checked, Date.now() - startedAt, undefined, error, sqlTimedOut);
+      }
+      if (opts?.redactErrors) {
+        const message = 'PostgreSQL query failed';
+        throw new CustomHttpException(
+          `execute query sql failed: ${message}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseSqlExecutor.executeQuerySqlFailed',
+              context: { message },
+            },
+          }
+        );
+      }
       throw error;
     }
   }

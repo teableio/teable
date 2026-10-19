@@ -124,7 +124,7 @@ describe('useGridAsyncRecords', () => {
     });
   });
 
-  it('seeds cached group points when switching back to a previously visited view', async () => {
+  it('does not seed a previous visit group structure on a switch back', async () => {
     let currentView = { id: 'viwA', filter: null };
     let records = [createRecord('recA')];
     let extra: { groupPoints: IGroupPointsVo } | undefined = {
@@ -132,7 +132,7 @@ describe('useGridAsyncRecords', () => {
     };
     // subscription identity follows the view, so every switch re-creates it
     let scopeKey = 'scope-A';
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
+    mockedUseView.mockImplementation(() => currentView as never);
     mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra, scopeKey));
 
     const queryA = {
@@ -146,10 +146,8 @@ describe('useGridAsyncRecords', () => {
       ({ outerQuery }) => useGridAsyncRecords(undefined, undefined, outerQuery),
       { initialProps: { outerQuery: queryA } }
     );
-    // view A settled: group points cached for viwA
     expect(result.current.groupPoints).toEqual([{ id: 'grpA' }]);
 
-    // switch to a never-visited view B: no cache, structure unknown
     currentView = { id: 'viwB', filter: null };
     records = [];
     extra = undefined;
@@ -157,27 +155,28 @@ describe('useGridAsyncRecords', () => {
     rerender({ outerQuery: queryB });
     await waitFor(() => expect(result.current.groupPoints).toBeNull());
 
-    // switch back to view A before the subscription delivers: the first
-    // frame already carries A's cached group structure
+    // switching back must not resurrect A's last known structure: until the
+    // seed or the subscription delivers, the layout stays a placeholder
     currentView = { id: 'viwA', filter: null };
     scopeKey = 'scope-A';
     rerender({ outerQuery: queryA });
-    await waitFor(() => expect(result.current.groupPoints).toEqual([{ id: 'grpA' }]));
+    await waitFor(() => expect(result.current.groupPoints).toBeNull());
+
+    extra = { groupPoints: [{ id: 'grpLive' }] as IGroupPointsVo };
+    rerender({ outerQuery: queryA });
+    await waitFor(() => expect(result.current.groupPoints).toEqual([{ id: 'grpLive' }]));
   });
 
-  it('swaps to the target view cached group points on a view-query-only switch', async () => {
+  it('does not paint a cached structure on a view-query-only switch', async () => {
     let currentView = { id: 'viwA', filter: null };
     const records = [createRecord('recA')];
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
+    mockedUseView.mockImplementation(() => currentView as never);
     mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records));
 
     // both views group by the same field → identical outer query
     const sharedQuery = {
       groupBy: [{ fieldId: 'fldShared', order: SortFunc.Asc }],
     } as Pick<IGetRecordsRo, 'groupBy'>;
-    useGridViewCacheStore
-      .getState()
-      .setGroupPoints('tblTest-viwB', [{ id: 'grpB' }] as IGroupPointsVo);
 
     const { result, rerender } = renderHook(() =>
       useGridAsyncRecords(undefined, undefined, sharedQuery)
@@ -186,10 +185,54 @@ describe('useGridAsyncRecords', () => {
     currentView = { id: 'viwB', filter: null };
     rerender();
 
-    await waitFor(() => expect(result.current.groupPoints).toEqual([{ id: 'grpB' }]));
+    await waitFor(() => expect(result.current.groupPoints).toBeNull());
+    // the previous view's rows must not survive under the new view either
+    expect(result.current.recordMap).toEqual({});
   });
 
-  it('never retains another view rows on a same-scope view switch without a snapshot', async () => {
+  it('adopts the bootstrap group points together with the seeded rows', async () => {
+    let currentView = { id: 'viwA', filter: null };
+    let records = [createRecord('recA')];
+    let extra: unknown = { groupPoints: [{ id: 'grpA' }] as IGroupPointsVo };
+    mockedUseView.mockImplementation(() => currentView as never);
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra));
+
+    // both views group by the same field → identical record scope
+    const sharedQuery = {
+      groupBy: [{ fieldId: 'fldShared', order: SortFunc.Asc }],
+    } as Pick<IGetRecordsRo, 'groupBy'>;
+
+    const { result, rerender } = renderHook(
+      ({ initGroupPoints }: { initGroupPoints?: IGroupPointsVo }) =>
+        useGridAsyncRecords(undefined, undefined, sharedQuery, initGroupPoints),
+      { initialProps: { initGroupPoints: undefined as IGroupPointsVo | undefined } }
+    );
+
+    // switch: nothing is known about the target view's layout yet
+    currentView = { id: 'viwB', filter: null };
+    extra = undefined;
+    rerender({ initGroupPoints: undefined });
+    await waitFor(() => expect(result.current.groupPoints).toBeNull());
+    expect(result.current.recordMap).toEqual({});
+
+    // the seed lands: its rows and its structure belong to the same snapshot
+    // and must be adopted together
+    const seedGroupPoints = [
+      { type: 'group', id: 'grpAlpha', depth: 0, value: 'Alpha', isCollapsed: false },
+      { type: 'row', count: 2 },
+    ] as unknown as IGroupPointsVo;
+    records = [createRecord('recSeed1'), createRecord('recSeed2')];
+    rerender({ initGroupPoints: seedGroupPoints });
+
+    await waitFor(() => {
+      expect(Object.keys(result.current.recordMap)).toEqual(['0', '1']);
+      expect(result.current.recordMap[0]?.id).toBe('recSeed1');
+      expect(result.current.recordMap[1]?.id).toBe('recSeed2');
+      expect(result.current.groupPoints).toEqual(seedGroupPoints);
+    });
+  });
+
+  it('never retains another view rows on a same-scope view switch without a seed', async () => {
     let currentView = { id: 'viwA', filter: null };
     let records = [createRecord('recA')];
     mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
@@ -209,120 +252,7 @@ describe('useGridAsyncRecords', () => {
     });
   });
 
-  it('seeds the target view row snapshot when switching back', async () => {
-    let currentView = { id: 'viwA', filter: null };
-    let records = [createRecord('recA')];
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records));
-
-    const { result, rerender } = renderHook(() => useGridAsyncRecords());
-    expect(result.current.recordMap[0]?.id).toBe('recA');
-
-    // leave view A: its first-screen rows are snapshotted as plain data
-    currentView = { id: 'viwB', filter: null };
-    records = [];
-    rerender();
-    await waitFor(() => {
-      const snapshot = useGridViewCacheStore.getState().cacheMap['tblTest-viwA']?.rows;
-      expect(snapshot?.[0]?.id).toBe('recA');
-      // pure data red line: no instance internals may leak into the store
-      expect(Object.keys(snapshot?.[0] ?? {})).not.toContain('doc');
-      expect(Object.keys(snapshot?.[0] ?? {})).not.toContain('fieldMap');
-    });
-
-    // view B delivers its own rows
-    records = [createRecord('recB')];
-    rerender();
-    await waitFor(() => expect(result.current.recordMap[0]?.id).toBe('recB'));
-
-    // switch back to view A before its subscription delivers: the first
-    // frame already carries A's last known rows
-    currentView = { id: 'viwA', filter: null };
-    records = [];
-    rerender();
-    await waitFor(() => {
-      expect(result.current.recordMap[0]?.id).toBe('recA');
-    });
-  });
-
-  it('replaces the seeded snapshot entirely on the first fresh delivery (no stale tail)', async () => {
-    let currentView = { id: 'viwA', filter: null };
-    let records = [createRecord('recA1'), createRecord('recA2')];
-    let extra: unknown = { groupPoints: null };
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra));
-
-    const { result, rerender } = renderHook(() => useGridAsyncRecords());
-    expect(result.current.recordMap[1]?.id).toBe('recA2');
-
-    // leave and come back: two rows seeded from the snapshot
-    currentView = { id: 'viwB', filter: null };
-    records = [];
-    extra = undefined;
-    rerender();
-    currentView = { id: 'viwA', filter: null };
-    rerender();
-    await waitFor(() => expect(result.current.recordMap[1]?.id).toBe('recA2'));
-
-    // the live result shrank to one row while the user was away: the fresh
-    // delivery must drop the seeded tail instead of retaining it
-    records = [createRecord('recA1')];
-    extra = { groupPoints: null };
-    rerender();
-    await waitFor(() => {
-      expect(result.current.recordMap[0]?.id).toBe('recA1');
-      expect(result.current.recordMap[1]).toBeUndefined();
-    });
-  });
-
-  it('preserves record permissions in the snapshot', async () => {
-    let currentView = { id: 'viwA', filter: null };
-    let records = [
-      {
-        id: 'recSecured',
-        fields: {},
-        permissions: { read: { fldX: true }, update: { fldX: false } },
-        undeletable: true,
-      } as unknown as IRecord,
-    ];
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records));
-
-    const { rerender } = renderHook(() => useGridAsyncRecords());
-
-    currentView = { id: 'viwB', filter: null };
-    records = [];
-    rerender();
-
-    await waitFor(() => {
-      const snapshot = useGridViewCacheStore.getState().cacheMap['tblTest-viwA']?.rows;
-      expect(snapshot?.[0]?.permissions).toEqual({ read: { fldX: true }, update: { fldX: false } });
-      expect(snapshot?.[0]?.undeletable).toBe(true);
-    });
-  });
-
-  it('evicts an obsolete snapshot when the view settles empty', async () => {
-    // a previous visit cached one row
-    useGridViewCacheStore.getState().setRows('tblTest-viwA', [createRecord('recStale')]);
-
-    let currentView = { id: 'viwA', filter: null };
-    const records: IRecord[] = [];
-    // the subscription settles: zero records is the authoritative result
-    const extra = { groupPoints: null };
-    mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra));
-
-    const { rerender } = renderHook(() => useGridAsyncRecords());
-
-    currentView = { id: 'viwB', filter: null };
-    rerender();
-
-    await waitFor(() => {
-      expect(useGridViewCacheStore.getState().cacheMap['tblTest-viwA']?.rows).toBeUndefined();
-    });
-  });
-
-  it('does not touch the per-view cache when the hook runs with its own initQuery', async () => {
+  it('does not touch the per-view row-count cache when the hook runs with its own initQuery', async () => {
     let currentView = { id: 'viwA', filter: null };
     let records = [createRecord('recEmbedded')];
     mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
@@ -342,20 +272,16 @@ describe('useGridAsyncRecords', () => {
     });
   });
 
-  it('clears a stale cached group structure when the fresh one is empty or oversized', () => {
+  it('remembers and clears group row counts', () => {
     const store = useGridViewCacheStore.getState();
-    store.setGroupPoints('keyA', [{ id: 'grpOld' }] as IGroupPointsVo);
-    expect(useGridViewCacheStore.getState().cacheMap.keyA?.groupPoints).toBeDefined();
+    store.mergeGroupRowCounts('keyA', { grpA: 2 });
 
-    // grew past the cacheable limit: the old structure must go too
-    const oversized = Array.from({ length: 5001 }, (_, i) => ({ id: `grp${i}` }));
-    useGridViewCacheStore.getState().setGroupPoints('keyA', oversized as IGroupPointsVo);
+    expect(useGridViewCacheStore.getState().cacheMap.keyA?.groupRowCounts).toEqual({ grpA: 2 });
+
+    // a same-view result-set change must drop counts collected under the
+    // previous layout
+    store.clearGroupRowCounts('keyA');
     expect(useGridViewCacheStore.getState().cacheMap.keyA).toBeUndefined();
-
-    // empty structure (view ungrouped) clears instead of occupying a slot
-    useGridViewCacheStore.getState().setGroupPoints('keyB', [{ id: 'grpB' }] as IGroupPointsVo);
-    useGridViewCacheStore.getState().setGroupPoints('keyB', [] as unknown as IGroupPointsVo);
-    expect(useGridViewCacheStore.getState().cacheMap.keyB).toBeUndefined();
   });
 
   it('drops retained records but keeps the current page when the view filter changes', async () => {

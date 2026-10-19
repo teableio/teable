@@ -925,7 +925,8 @@
       "editLink": "Bağlantıyı Düzenle",
       "linkText": "Bağlantı Metni",
       "enterUrl": "URL Girin"
-    }
+    },
+    "tooManyImages": "Tek seferde en fazla {{count}} görsel ekleyebilirsiniz"
   },
   "memberSelector": {
     "title": "Select Members",

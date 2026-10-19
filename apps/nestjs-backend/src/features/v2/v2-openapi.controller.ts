@@ -6,6 +6,7 @@ import { generateV2OpenApiDocument } from '@teable/v2-contract-http-openapi';
 import { Request, Response } from 'express';
 import type { IBaseConfig } from '../../configs/base.config';
 import { Public } from '../auth/decorators/public.decorator';
+import { resolveBoolean } from './v2-config-parsers';
 
 const V2_BASE_PATH = 'api/v2';
 const OPENAPI_SPEC_PATH = `/${V2_BASE_PATH}/openapi.json`;
@@ -70,6 +71,9 @@ export class V2OpenApiController {
     const serverBaseUrl = serverUrl ? `${serverUrl.replace(/\/$/, '')}/${V2_BASE_PATH}` : undefined;
 
     return generateV2OpenApiDocument({
+      includeDataQuery:
+        resolveBoolean(this.configService.get('V2_DATA_QUERY_ENABLED'), false) ||
+        resolveBoolean(this.configService.get('V2_DATA_QUERY_EXECUTE_ENABLED'), false),
       servers: serverBaseUrl ? [{ url: serverBaseUrl }] : undefined,
     });
   }

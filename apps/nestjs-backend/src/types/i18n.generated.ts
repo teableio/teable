@@ -1679,6 +1679,10 @@ export type I18nTranslations = {
                             "title": string;
                             "message": string;
                         };
+                        "accountExported": {
+                            "title": string;
+                            "message": string;
+                        };
                         "deactivated": {
                             "title": string;
                             "message": string;
@@ -3251,6 +3255,7 @@ export type I18nTranslations = {
                 "linkText": string;
                 "enterUrl": string;
             };
+            "tooManyImages": string;
         };
         "memberSelector": {
             "title": string;
@@ -6062,6 +6067,24 @@ export type I18nTranslations = {
                 "selectionColumn": string;
                 "selectionColumns": string;
                 "selectionColumnsNamed": string;
+                "selectionUnnamed": string;
+                "selectionRecords": string;
+                "selectionCellCount": string;
+                "selectionRecordType": string;
+                "selectionCellType": string;
+                "selectionDimensions": string;
+                "selectionUnavailable": string;
+                "selectionLegacyUnavailable": string;
+                "selectionSourceUnknown": string;
+                "selectionPreview": string;
+                "selectionSource": string;
+                "selectionSelectedFields": string;
+                "selectionIdentificationOnly": string;
+                "selectionEmpty": string;
+                "selectionOpenRecord": string;
+                "selectionPrevious": string;
+                "selectionNext": string;
+                "selectionPage": string;
             };
             "mention": {
                 "tables": string;

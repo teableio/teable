@@ -944,7 +944,8 @@
       "editLink": "تعديل الرابط",
       "linkText": "نص الرابط",
       "enterUrl": "أدخل الرابط"
-    }
+    },
+    "tooManyImages": "يمكنك إضافة {{count}} صور كحد أقصى في المرة الواحدة"
   },
   "memberSelector": {
     "title": "اختر الأعضاء",

@@ -1423,6 +1423,10 @@
             "title": "Your data export is ready",
             "message": "Hi {{name}},<br><br>You asked for a copy of your data before deleting your Teable account. It is ready.<br><br>The link below works for {{expiresInDays}} days."
           },
+          "accountExported": {
+            "title": "Your data export is ready",
+            "message": "Hi {{name}},<br><br>You asked for a copy of your Teable data. It is ready.<br><br>The link below works for {{expiresInDays}} days."
+          },
           "deactivated": {
             "title": "Your account has been deactivated",
             "message": "Hi {{name}},<br><br>Your Teable account has been deactivated because it violated our <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Terms of Service</a>.<br>We packed the data from the spaces you owned so you can keep a copy.<br><br>The link below works for {{expiresInDays}} days.<br>If you think this was a mistake, contact your administrator."
@@ -1845,6 +1849,24 @@
     "accept": "Accept all",
     "reject": "Reject all",
     "policy": "Cookie Policy",
-    "settings": "Cookie settings"
+    "settings": "Cookie settings",
+    "customize": "Customize",
+    "customBody": "Choose which cookies Teable may use. You can change your choice at any time in Cookie settings.",
+    "save": "Save choices",
+    "alwaysOn": "Always on",
+    "categories": {
+      "necessary": {
+        "title": "Strictly necessary",
+        "description": "Keep the service secure and support sign-in, sessions, language, remembering your consent choice and honouring referral offers."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Help us understand how the product is used so we can improve your experience."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Help us measure how well our ads and promotions work."
+      }
+    }
   }
 }

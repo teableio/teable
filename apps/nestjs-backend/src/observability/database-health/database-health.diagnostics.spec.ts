@@ -55,7 +55,7 @@ const fakeCls = (store: Record<string, unknown>): ClsService<IClsStore> =>
   }) as unknown as ClsService<IClsStore>;
 
 /**
- * Golden vectors from docs/database-instance-evidence-contract.md §5. The collector
+ * Golden vectors from docs/operations/database-instance-evidence-contract.md §5. The collector
  * normalizes `status_message` with the same rules, so these pairs are the byte-compatibility
  * contract between the two layers: any drift here breaks fingerprint joins.
  */

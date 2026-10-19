@@ -921,7 +921,8 @@
       "editLink": "编辑",
       "linkText": "链接标题",
       "enterUrl": "输入链接"
-    }
+    },
+    "tooManyImages": "一次最多添加 {{count}} 张图片"
   },
   "memberSelector": {
     "title": "选择成员",

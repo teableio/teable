@@ -159,6 +159,7 @@ import { throwV2Error } from '../../v2/v2-http-error';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 import { selectPasteCellValue } from '../select-paste-cell-value';
+import { normalizeEmptyDateComparison } from './record-filter-v2.mapper';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -2634,7 +2635,7 @@ export class RecordOpenApiV2Service {
 
       return result.body.data.record;
     }
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    throw new CustomHttpException('No fields to update', HttpErrorCode.VALIDATION_ERROR);
   }
 
   async buttonClick(
@@ -4459,6 +4460,11 @@ export class RecordOpenApiV2Service {
           // V1 drops incomplete non-checkbox filters such as `field is <empty input>`.
           return null;
         }
+      }
+
+      const emptyDateComparison = normalizeEmptyDateComparison(fieldMeta, operator, value);
+      if (emptyDateComparison) {
+        return { fieldId: node.fieldId, ...emptyDateComparison };
       }
 
       if (

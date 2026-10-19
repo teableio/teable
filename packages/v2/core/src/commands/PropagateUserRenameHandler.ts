@@ -25,6 +25,7 @@ export class PropagateUserRenameHandler
     return this.userRenamePropagationService.propagateUserRename(context, {
       userId: command.userId,
       name: command.name,
+      sharedDataPlane: command.sharedDataPlane,
     });
   }
 }

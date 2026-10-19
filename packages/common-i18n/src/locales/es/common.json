@@ -1449,6 +1449,10 @@
             "title": "Tu exportación de datos está lista",
             "message": "Hola, {{name}}:<br><br>Pediste una copia de tus datos antes de eliminar tu cuenta de Teable. Ya está lista.<br><br>El siguiente enlace es válido durante {{expiresInDays}} días."
           },
+          "accountExported": {
+            "title": "Tu exportación de datos está lista",
+            "message": "Hola, {{name}}:<br><br>Pediste una copia de tus datos de Teable. Ya está lista.<br><br>El siguiente enlace es válido durante {{expiresInDays}} días."
+          },
           "deactivated": {
             "title": "Se ha desactivado tu cuenta",
             "message": "Hola, {{name}}:<br><br>Tu cuenta de Teable se ha desactivado porque infringía nuestros <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Términos de servicio</a>.<br>Empaquetamos los datos de los espacios de los que eras propietario para que puedas conservar una copia.<br><br>El siguiente enlace es válido durante {{expiresInDays}} días.<br>Si crees que se trata de un error, ponte en contacto con tu administrador."
@@ -1845,6 +1849,24 @@
     "accept": "Aceptar todo",
     "reject": "Rechazar todo",
     "policy": "Política de cookies",
-    "settings": "Configuración de cookies"
+    "settings": "Configuración de cookies",
+    "customize": "Personalizar",
+    "customBody": "Elige qué cookies puede usar Teable. Puedes cambiar tu elección en cualquier momento desde la configuración de cookies.",
+    "save": "Guardar selección",
+    "alwaysOn": "Siempre activas",
+    "categories": {
+      "necessary": {
+        "title": "Estrictamente necesarias",
+        "description": "Mantienen el servicio seguro y permiten el inicio de sesión, las sesiones, el idioma, recordar tu elección de cookies y aplicar las ofertas de referidos."
+      },
+      "analytics": {
+        "title": "Analíticas",
+        "description": "Nos ayudan a entender cómo se usa el producto para mejorar tu experiencia."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Nos ayudan a medir la eficacia de nuestros anuncios y promociones."
+      }
+    }
   }
 }

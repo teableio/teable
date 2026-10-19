@@ -25,6 +25,10 @@
       "@teable/formula": ["../../formula/src"],
       "@teable/i18n-keys": ["../../i18n-keys/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],
+      "@teable/v2-contract-http-implementation/data-query": [
+        "../contract-http-implementation/src/handlers/dataQuery/executeDataQuery.ts"
+      ],
+      "@teable/v2-data-query": ["../data-query/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"]
     },
@@ -37,6 +41,7 @@
     "./coverage",
     "../core/src/**/*.spec.ts",
     "../contract-http/src/**/*.spec.ts",
+    "../data-query/src/**/*.spec.ts",
     "../../core/src/**/*.spec.ts",
     "../../formula/src/**/*.spec.ts"
   ],
@@ -45,6 +50,8 @@
     "../contract-http/src",
     "../core/src",
     "../di/src",
+    "../data-query/src",
+    "../contract-http-implementation/src/handlers/dataQuery/executeDataQuery.ts",
     "../../core/src",
     "../../formula/src",
     "../../i18n-keys/src"

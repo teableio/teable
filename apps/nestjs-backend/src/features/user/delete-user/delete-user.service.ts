@@ -15,6 +15,8 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { CollaboratorDeleteEvent, Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -23,6 +25,8 @@ import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 export interface IDeletedUserSummary {
   /** Spaces the user alone owned, moved to trash with the account. */
   trashedSpaceIds: string[];
+  /** Spaces that lost the user's membership, held directly or through one of their bases. */
+  leftSpaceIds: string[];
 }
 
 @Injectable()
@@ -31,7 +35,8 @@ export class DeleteUserService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   private async updateUserAvatarToDeleted(userId: string) {
@@ -76,6 +81,13 @@ export class DeleteUserService {
       data: {
         email: `deleted-${getRandomString(10)}@teable.ai`,
         name: 'Deleted User',
+        // The row stays for the ids that reference it; nothing that identifies
+        // the person does. refMeta carries the signup IP, user agent and
+        // attribution (utm, click ids, referrer, affiliate).
+        phone: null,
+        password: null,
+        salt: null,
+        refMeta: null,
         permanentDeletedTime: new Date().toISOString(),
         deletedTime: new Date().toISOString(),
       },
@@ -173,11 +185,48 @@ export class DeleteUserService {
     });
 
     // clear collaborator
+    const leftSpaceIds = await this.listCollaboratedSpaceIds(userId);
     await this.prismaService.txClient().collaborator.deleteMany({
       where: {
         principalId: userId,
       },
     });
+    return leftSpaceIds;
+  }
+
+  private async listCollaboratedSpaceIds(userId: string): Promise<string[]> {
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: { principalId: userId },
+      select: { resourceId: true, resourceType: true },
+    });
+    const spaceIds = new Set<string>();
+    const baseIds: string[] = [];
+    for (const { resourceId, resourceType } of collaborators) {
+      if (resourceType === CollaboratorType.Base) {
+        baseIds.push(resourceId);
+      } else {
+        spaceIds.add(resourceId);
+      }
+    }
+    if (baseIds.length) {
+      const bases = await this.prismaService.txClient().base.findMany({
+        where: { id: { in: baseIds } },
+        select: { spaceId: true },
+      });
+      bases.forEach((base) => spaceIds.add(base.spaceId));
+    }
+    return [...spaceIds];
+  }
+
+  // The rows above bypass the collaborator service, so its listeners (seat counts, billing
+  // status) are told here — by whoever owns the outermost transaction, once it is through.
+  emitCollaboratorDeleted(spaceIds: string[]) {
+    for (const spaceId of spaceIds) {
+      this.eventEmitterService.emitAsync(
+        Events.COLLABORATOR_DELETE,
+        new CollaboratorDeleteEvent(spaceId)
+      );
+    }
   }
 
   /**
@@ -314,14 +363,16 @@ export class DeleteUserService {
   ): Promise<IDeletedUserSummary> {
     return await this.prismaService.$tx(async () => {
       const trashedSpaceIds = await this.settleOwnedSpaces(userId, acknowledgedSpaceIds);
-      await this.clearUserData(userId);
+      const leftSpaceIds = await this.clearUserData(userId);
       await this.permanentlyDeleteUser(userId);
-      return { trashedSpaceIds };
+      return { trashedSpaceIds, leftSpaceIds };
     });
   }
 
   async deleteUser(acknowledgedSpaceIds: string[] = []): Promise<IDeletedUserSummary> {
     const userId = this.cls.get('user.id');
-    return await this.deleteUserById(userId, acknowledgedSpaceIds);
+    const summary = await this.deleteUserById(userId, acknowledgedSpaceIds);
+    this.emitCollaboratorDeleted(summary.leftSpaceIds);
+    return summary;
   }
 }

@@ -36,6 +36,9 @@
       "@overridable/useSpaceDeleteCopy": [
         "./features/app/blocks/trash/space-delete-copy/useSpaceDeleteCopy"
       ],
+      "@overridable/AccountDataExport": [
+        "./features/app/components/setting/account/data-export/AccountDataExport"
+      ],
       "@teable/common-i18n": ["../../../packages/common-i18n/src/index"],
       "@teable/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
       "@teable/ui-lib/*": ["../../../packages/ui-lib/src/*"],

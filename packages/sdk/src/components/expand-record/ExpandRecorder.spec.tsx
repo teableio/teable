@@ -37,8 +37,6 @@ vi.mock('../../hooks', () => ({
   useTablePermission: () => ({}),
   useCommentPermission: () => ({ commentReadable: false, commentWritable: false }),
   useRecordOperations: () => ({ duplicateRecord: vi.fn() }),
-  useView: () => undefined,
-  useSearch: () => ({ filteringSearchQuery: undefined }),
 }));
 
 vi.mock('../../utils', () => ({

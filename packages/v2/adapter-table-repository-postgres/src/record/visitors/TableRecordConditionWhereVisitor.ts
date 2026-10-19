@@ -4,7 +4,7 @@ import type { IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import dayjs, { type Dayjs, type ManipulateType } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import { sql } from 'kysely';
+import { sql, type RawBuilder } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
@@ -18,9 +18,16 @@ type ListOperatorKind = 'any' | 'none' | 'all' | 'exact' | 'notExact';
 
 type ComparisonOperator = '>' | '>=' | '<' | '<=';
 
-export type RecordConditionWhere = ReturnType<typeof sql>;
+export type RecordConditionWhere = RawBuilder<unknown>;
 
-type PrimitiveOperand = { kind: 'literal'; value: Primitive } | { kind: 'field'; column: string };
+type ResolvedConditionColumn = {
+  readonly name: string;
+  readonly reference: RecordConditionWhere;
+};
+
+type PrimitiveOperand =
+  | { kind: 'literal'; value: Primitive }
+  | { kind: 'field'; column: string; reference: RecordConditionWhere };
 
 const jsonSpecResult = core.Field.specs().isJson().build();
 
@@ -66,8 +73,31 @@ const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
 const fieldHasLinkDisplayValue = (field: core.Field): boolean =>
   fieldIsLink(resolveEffectiveLookupField(field));
 
+/**
+ * A lookup persisted in a numeric column holds one value per row. Comparing the
+ * bare column keeps equality sargable, so a (lookup, row-order) btree can answer
+ * filtered pagination without scanning the table.
+ */
+const isScalarNumericLookup = (field: core.Field): boolean => {
+  if (!fieldIsLookup(field) && !fieldIsConditionalLookup(field)) return false;
+  const dbFieldType = field.dbFieldType().andThen((type) => type.value());
+  if (dbFieldType.isErr()) return false;
+  const type = dbFieldType.value.trim().toUpperCase();
+  return type === 'REAL' || type === 'INTEGER';
+};
+
+/**
+ * Only canonical numeric spellings switch to a bare comparison. Values such as
+ * "042" or "1e3" keep the legacy text comparison so results do not change.
+ */
+const toCanonicalNumericLiteral = (value: Primitive): number | undefined => {
+  const numeric = coerceNumericLiteral(value);
+  if (numeric.isErr()) return undefined;
+  return String(numeric.value) === String(value).trim() ? numeric.value : undefined;
+};
+
+// Lookup filters retain array semantics even when persisted as a scalar.
 const isArrayLikeOutputField = (field: core.Field, isMultiple: boolean): boolean => {
-  // Query model currently forces lookup/conditionalLookup output to arrays for v1 parity.
   return isMultiple || fieldIsLookup(field) || fieldIsConditionalLookup(field);
 };
 
@@ -334,12 +364,17 @@ export class DateUtil {
   }
 }
 
-const resolveColumn = (field: core.Field, tableAlias?: string): Result<string, DomainError> => {
-  return safeTry<string, DomainError>(function* () {
+const resolveColumn = (
+  field: core.Field,
+  tableAlias?: string
+): Result<ResolvedConditionColumn, DomainError> => {
+  return safeTry<ResolvedConditionColumn, DomainError>(function* () {
     const dbFieldName = yield* field.dbFieldName();
     const column = yield* dbFieldName.value();
-    // If tableAlias is provided, return prefixed column name for use in subqueries
-    return ok(tableAlias ? `${tableAlias}.${column}` : column);
+    return ok({
+      name: tableAlias ? `${tableAlias}.${column}` : column,
+      reference: tableAlias ? sql.id(tableAlias, column) : sql.id(column),
+    });
   }).mapErr((error) =>
     core.domainError.invariant({
       message: `Missing db field name for field ${field.id().toString()}: ${error.message}`,
@@ -362,7 +397,7 @@ const resolvePrimitiveOperand = (
       // Field references use hostTableAlias if provided (for conditional lookup cross-table comparisons)
       const alias = hostTableAlias ?? tableAlias;
       const column = yield* resolveColumn(value.field(), alias);
-      return ok({ kind: 'field', column });
+      return ok({ kind: 'field', column: column.name, reference: column.reference });
     });
   }
   return err(core.domainError.unexpected({ message: 'Record condition requires primitive value' }));
@@ -809,7 +844,7 @@ const buildIsEmptyCondition = (
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     const column = yield* resolveColumn(field, tableAlias);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultiple = valueType.isMultipleCellValue.isMultiple();
 
     if (isMultiple) {
@@ -835,7 +870,7 @@ const buildIsNotEmptyCondition = (
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     const column = yield* resolveColumn(field, tableAlias);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultiple = valueType.isMultipleCellValue.isMultiple();
 
     if (isMultiple) {
@@ -867,7 +902,7 @@ const buildIsCondition = (
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultipleRaw = yield* fieldIsMultiple(field);
     const isMultiple = isArrayLikeOutputField(field, isMultipleRaw);
     const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
@@ -890,7 +925,7 @@ const buildIsCondition = (
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
-      const rightColumnRef = sql.ref(operand.column);
+      const rightColumnRef = operand.reference;
       const referenceRoute = yield* classifyFieldReferenceComparison(
         field,
         referenceField,
@@ -988,6 +1023,10 @@ const buildIsCondition = (
       const valuesText = sql`ARRAY[${rightLiteral}]::text[]`;
       return ok(sql`jsonb_exists_any(${ids}, ${valuesText})`);
     }
+    if (isScalarNumericLookup(field)) {
+      const numeric = toCanonicalNumericLiteral(literalOperand.value);
+      if (numeric !== undefined) return ok(sql`${columnRef} = ${numeric}`);
+    }
 
     if (fieldIsJson(field) || isMultiple) {
       if (isMultiple) {
@@ -1031,7 +1070,7 @@ const buildIsNotCondition = (
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultipleRaw = yield* fieldIsMultiple(field);
     const isMultiple = isArrayLikeOutputField(field, isMultipleRaw);
     const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
@@ -1059,7 +1098,7 @@ const buildIsNotCondition = (
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
-      const rightColumnRef = sql.ref(operand.column);
+      const rightColumnRef = operand.reference;
       const referenceRoute = yield* classifyFieldReferenceComparison(
         field,
         referenceField,
@@ -1150,6 +1189,12 @@ const buildIsNotCondition = (
       const valuesText = sql`ARRAY[${rightLiteral}]::text[]`;
       return ok(sql`NOT jsonb_exists_any(${ids}, ${valuesText})`);
     }
+    if (isScalarNumericLookup(field)) {
+      const numeric = toCanonicalNumericLiteral(literalOperand.value);
+      if (numeric !== undefined) {
+        return ok(sql`${columnRef} is distinct from ${numeric}`);
+      }
+    }
 
     if (fieldIsJson(field) || isMultiple) {
       if (isMultiple) {
@@ -1200,7 +1245,7 @@ const buildContainsCondition = (
         core.domainError.unexpected({ message: 'Record condition requires string value' })
       );
     }
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
 
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     if (fieldIsJson(field) || isMultiple) {
@@ -1225,7 +1270,7 @@ const buildContainsCondition = (
 
     const pattern =
       operand.kind === 'field'
-        ? sql`'%' || ${sql.ref(operand.column)} || '%'`
+        ? sql`'%' || ${operand.reference} || '%'`
         : `%${escapeLikeWildcards(String(operand.value))}%`;
     // Use COALESCE for negative match to align with v1:
     // v1 uses `COALESCE(col, '') NOT LIKE ...` so NULL rows pass the "does not contain" check.
@@ -1268,11 +1313,11 @@ const buildNumericComparisonCondition = (
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     const right =
       operand.kind === 'field'
-        ? buildNumericOperand(sql.ref(operand.column))
+        ? buildNumericOperand(operand.reference)
         : sql`${yield* coerceNumericLiteral(operand.value)}`;
     if (isMultiple || fieldIsJson(field)) {
       const normalizedArray = normalizeToJsonArray(columnRef);
@@ -1318,12 +1363,12 @@ const buildDateComparisonCondition = (
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
 
     if (core.isRecordConditionFieldReferenceValue(value)) {
       const rightColumn = yield* resolveColumn(value.field(), hostTableAlias ?? tableAlias);
-      const right = sql.ref(rightColumn);
+      const right = rightColumn.reference;
       const referenceField = value.field();
       const compareAsDateOnly =
         shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
@@ -1426,7 +1471,7 @@ const buildIsWithinCondition = (
     if (dateValue.mode() === 'dateRange' && Date.parse(range.start) > Date.parse(range.end)) {
       return ok(sql`true`);
     }
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     if (isMultiple || fieldIsJson(field)) {
       const normalizedArray = normalizeToJsonArray(columnRef);
@@ -1455,12 +1500,12 @@ const buildListCondition = (
     const column = yield* resolveColumn(field, tableAlias);
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
-    const columnRef = sql.ref(column);
+    const columnRef = column.reference;
 
     if (core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
       const referenceColumn = yield* resolveColumn(referenceField, hostTableAlias ?? tableAlias);
-      const referenceColumnRef = sql.ref(referenceColumn);
+      const referenceColumnRef = referenceColumn.reference;
       const referenceIsMultiple = isArrayLikeOutputField(
         referenceField,
         yield* fieldIsMultiple(referenceField)
@@ -1468,17 +1513,15 @@ const buildListCondition = (
       const referenceIsUserLike =
         fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
 
-      const selfArray =
-        isUserOrLinkLike || referenceIsUserLike
-          ? buildUserLinkIdArray(columnRef, isMultiple)
-          : sql`jsonb_path_query_array(
+      const selfArray = isUserOrLinkLike
+        ? buildUserLinkIdArray(columnRef, isMultiple)
+        : sql`jsonb_path_query_array(
               ${isMultiple ? normalizeToJsonArray(columnRef) : sql`COALESCE(to_jsonb(${columnRef}), 'null'::jsonb)`},
               ${sql.raw(isMultiple ? "'$[*]'" : "'$'")}
             )`;
-      const referenceArray =
-        isUserOrLinkLike || referenceIsUserLike
-          ? buildUserLinkIdArray(referenceColumnRef, referenceIsMultiple)
-          : sql`jsonb_path_query_array(
+      const referenceArray = referenceIsUserLike
+        ? buildUserLinkIdArray(referenceColumnRef, referenceIsMultiple)
+        : sql`jsonb_path_query_array(
               ${referenceIsMultiple ? normalizeToJsonArray(referenceColumnRef) : sql`COALESCE(to_jsonb(${referenceColumnRef}), 'null'::jsonb)`},
               ${sql.raw(referenceIsMultiple ? "'$[*]'" : "'$'")}
             )`;
@@ -1890,7 +1933,7 @@ export class TableRecordConditionWhereVisitor
       return this.addConditionResult(
         safeTry<RecordConditionWhere, DomainError>(function* () {
           const column = yield* resolveColumn(spec.field(), alias);
-          const columnRef = sql.ref(column);
+          const columnRef = column.reference;
           const isArrayLike = isArrayLikeOutputField(
             spec.field(),
             yield* fieldIsMultiple(spec.field())

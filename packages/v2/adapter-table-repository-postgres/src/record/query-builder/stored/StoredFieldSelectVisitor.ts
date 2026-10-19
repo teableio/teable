@@ -41,7 +41,7 @@ export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder
     return field
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value())
-      .map((colName) => sql`${sql.ref(`${this.tableAlias}.${colName}`)}`.as(colName));
+      .map((colName) => sql`${sql.id(this.tableAlias, colName)}`.as(colName));
   }
 
   private selectComputedColumn(

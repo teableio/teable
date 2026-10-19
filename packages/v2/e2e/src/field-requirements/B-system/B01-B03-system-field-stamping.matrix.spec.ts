@@ -24,6 +24,7 @@ import express from 'express';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, test, vi } from 'vitest';
 import {
+  asInstant,
   fieldByName,
   fieldOptions,
   findRow,
@@ -206,6 +207,112 @@ describe('B01/B02/B03: system field stamping and tracking', () => {
   });
 
   /**
+   * B02 — creation time versus tracked modification time.
+   *
+   * A tracked stamp records that one of the tracked fields changed. A record
+   * created without any value in those fields has recorded no such change, so
+   * the stamp stays empty; initializing it to the creation time makes "never
+   * filled" indistinguishable from "filled and then cleared" for every reader
+   * of the column (T7808).
+   */
+  test.each(['single', 'batch'] as const)(
+    'B02 a creation with every tracked field empty leaves the tracked stamp empty (%s)',
+    async (mode) => {
+      const created =
+        mode === 'single'
+          ? [(await ctx.createRecord(tableId, { [ids.Title]: 'no tracked value' })).id]
+          : (
+              await ctx.createRecords(tableId, [{ fields: { [ids.Title]: 'no tracked value' } }])
+            ).map((record) => record.id);
+      expect(created).toHaveLength(1);
+
+      for (const recordId of created) {
+        const row = await readRow(recordId);
+        expect(row.fields[ids.ModifiedTimeTracked] ?? null).toBeNull();
+        // The track-all stamp still initializes at creation, so the empty
+        // tracked stamp is a tracking decision, not a missing system value.
+        expect(asInstant(row.fields[ids.ModifiedTimeAll])).toBeGreaterThan(0);
+      }
+    }
+  );
+
+  test('B02 a creation that sets a tracked field stamps the tracked time', async () => {
+    const record = await ctx.createRecord(tableId, {
+      [ids.Title]: 'with tracked value',
+      [ids.Tracked]: 'a',
+    });
+    const row = await readRow(record.id);
+
+    expect(row.fields[ids.ModifiedTimeTracked]).toBe(row.fields[ids.CreatedTime]);
+  });
+
+  test('B02 any one filled entry of the tracking list is enough to stamp the creation time', async () => {
+    const created = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'lastModifiedTime',
+        name: 'ModifiedTimeEither',
+        options: { trackedFieldIds: [ids.Tracked, ids.Untracked] },
+      },
+    });
+    const fieldId = fieldByName(created, 'ModifiedTimeEither').id;
+
+    // The value sits in the second entry of the list, so "at least one entry"
+    // and "every entry" give different answers here.
+    const filled = await ctx.createRecord(tableId, {
+      [ids.Title]: 'second entry filled',
+      [ids.Untracked]: 'x',
+    });
+    const filledRow = await readRow(filled.id);
+    expect(filledRow.fields[fieldId]).toBe(filledRow.fields[ids.CreatedTime]);
+
+    const empty = await ctx.createRecord(tableId, { [ids.Title]: 'no entry filled' });
+    expect((await readRow(empty.id)).fields[fieldId] ?? null).toBeNull();
+
+    await ctx.deleteField({ tableId, fieldId });
+  });
+
+  test('B02 a tracking list naming a system field keeps the creation stamp', async () => {
+    const created = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'lastModifiedTime',
+        name: 'ModifiedTimeCreatedAt',
+        options: { trackedFieldIds: [ids.CreatedTime] },
+      },
+    });
+    const fieldId = fieldByName(created, 'ModifiedTimeCreatedAt').id;
+
+    const record = await ctx.createRecord(tableId, { [ids.Title]: 'system field tracked' });
+    const row = await readRow(record.id);
+    // The payload can never fill a creation-time column, so its tracking list
+    // cannot be judged from the payload: the stamp stays as it always was.
+    expect(row.fields[fieldId]).toBe(row.fields[ids.CreatedTime]);
+
+    await ctx.deleteField({ tableId, fieldId });
+  });
+
+  test('B02 an empty tracked stamp survives untracked edits and starts at the first tracked edit', async () => {
+    const record = await ctx.createRecord(tableId, { [ids.Title]: 'filled later' });
+    const created = await readRow(record.id);
+    expect(created.fields[ids.ModifiedTimeTracked] ?? null).toBeNull();
+
+    await settle();
+    await ctx.updateRecord(tableId, record.id, { [ids.Untracked]: 'untracked edit' });
+    const untrackedEdit = await readRow(record.id);
+    expect(untrackedEdit.fields[ids.ModifiedTimeTracked] ?? null).toBeNull();
+
+    await settle();
+    await ctx.updateRecord(tableId, record.id, { [ids.Tracked]: 'first value' });
+    const trackedEdit = await readRow(record.id);
+    expect(asInstant(trackedEdit.fields[ids.ModifiedTimeTracked])).toBeGreaterThan(
+      asInstant(created.fields[ids.CreatedTime])
+    );
+  });
+
+  /**
    * B02 — tracked fields only advance the stamp for the configured list.
    *
    * An empty list means "track all"; restricted tracking needs a stored column.
@@ -325,8 +432,9 @@ describe('B01/B02/B03: system field stamping and tracking', () => {
         const fields = await ctx.getTableById(source.id);
         const timeId = fieldByName(fields, 'lastModifiedTime').id;
         const byId = fieldByName(fields, 'lastModifiedBy').id;
-        // Leave the tracked cell empty: restoring it must not accidentally
-        // re-stamp audit fields and hide a destructive storage conversion.
+        // Leave the tracked cell empty: the storage conversions below must have
+        // no tracked change to react to, so a re-stamped audit field is a
+        // visible defect rather than a legitimate edit.
         const record = await ctx.createRecord(source.id, { [titleId]: 'created' });
         const original = (await ctx.listRecords(source.id))[0];
         const target = await ctx.createTable({
@@ -426,12 +534,16 @@ describe('B01/B02/B03: system field stamping and tracking', () => {
           afterSecondUndo.fields[timeId],
         ]);
         await executeRedo(ctx, source.id);
+        const beforeTrackAllEdit = (await ctx.listRecords(source.id))[0];
+        // The record was created with its tracked cell empty, so the stamp is
+        // empty until the widened list stamps the next edit.
+        expect(beforeTrackAllEdit.fields[timeId] ?? null).toBeNull();
+        const editFloor = Date.now();
         await settle();
         await updateAsOtherActor(source.id, record.id, { [titleId]: 'track-all resumes' });
         const afterEdit = (await ctx.listRecords(source.id))[0];
-        expect(Date.parse(afterEdit.fields[timeId] as string)).toBeGreaterThan(
-          Date.parse(original.fields[timeId] as string)
-        );
+        // The edit's own instant, not a resurrected creation time.
+        expect(asInstant(afterEdit.fields[timeId])).toBeGreaterThanOrEqual(editFloor);
         expect([await readValue(ctx, target.id, targetRecord.id, lookupId)].flat()).toEqual([
           afterEdit.fields[timeId],
         ]);

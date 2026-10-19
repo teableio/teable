@@ -44,7 +44,6 @@ export default function withEnv<P extends { [key: string]: any }>(
         previewTag: process.env.PREVIEW_TAG,
         driver,
         templateSiteLink: process.env.TEMPLATE_SITE_LINK,
-        microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
         umamiUrl: process.env.UMAMI_URL,
         umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
         gaId: process.env.GA_ID,

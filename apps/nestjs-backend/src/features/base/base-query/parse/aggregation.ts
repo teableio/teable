@@ -1,5 +1,7 @@
+import { HttpErrorCode } from '@teable/core';
 import { BaseQueryColumnType, type IQueryAggregation } from '@teable/openapi';
 import type { Knex } from 'knex';
+import { CustomHttpException } from '../../../../custom.exception';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
 import { createBaseQueryFieldInstance } from './utils';
@@ -24,12 +26,20 @@ export class QueryAggregation {
     const notFieldMap: Record<string, IFieldInstance> = {};
 
     aggregation.forEach((item) => {
+      const field = fieldMap[item.column];
+      if (!field) {
+        throw new CustomHttpException(`Field ${item.column} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
+      }
       notFieldMap[`${item.column}_${item.statisticFunc}`] = createBaseQueryFieldInstance(
         BaseQueryColumnType.Aggregation,
         {
           id: `${item.column}_${item.statisticFunc}`,
-          name: `${fieldMap[item.column].name}.${item.statisticFunc}`,
-          dbFieldName: fieldMap[item.column].dbFieldName,
+          name: `${field.name}.${item.statisticFunc}`,
+          dbFieldName: field.dbFieldName,
         }
       );
     });

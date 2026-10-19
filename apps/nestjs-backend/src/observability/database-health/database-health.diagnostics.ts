@@ -101,7 +101,7 @@ export interface IDatabaseHealthDiagnosticsPort {
  * PostgreSQL error templates whose quoted token is always a schema identifier — a table,
  * column, constraint, role or database name from the server's own message text, never a
  * user value. `X` is bounded to PostgreSQL's 63-byte identifier limit.
- * Source of truth: docs/database-instance-evidence-contract.md §5 step 1.
+ * Source of truth: docs/operations/database-instance-evidence-contract.md §5 step 1.
  */
 const IDENTIFIER_TEMPLATES: readonly RegExp[] = [
   /column\s+"[^"]{1,63}"(?:\s+of\s+relation\s+"[^"]{1,63}")?\s+does\s+not\s+exist/gi,
@@ -143,7 +143,7 @@ const maskTemplateIdentifiers = (message: string, literals: string[]): string =>
 
 /**
  * Turns a raw database error message into a bounded, value-free summary, anchored on
- * PostgreSQL's own error templates (docs/database-instance-evidence-contract.md §5):
+ * PostgreSQL's own error templates (docs/operations/database-instance-evidence-contract.md §5):
  *
  * 1. quoted identifiers inside a PG template stay verbatim — the server only puts schema
  *    names there, and they are what makes two occurrences of the same failure comparable;

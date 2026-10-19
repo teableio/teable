@@ -1,9 +1,13 @@
 import {
+  AndSpec,
   BaseId,
   DbFieldName,
   FieldId,
   FieldName,
+  LongTextConditionSpec,
+  RecordConditionLiteralValue,
   RecordSearch,
+  SingleLineTextConditionSpec,
   Table,
   TableId,
   TableName,
@@ -83,6 +87,47 @@ describe('ObservedTableRecordQueryRepository', () => {
       searchScope: 'selected_fields',
       languageConfig: 'simple',
       coveredFieldIds: [titleId.toString(), notesId.toString()].sort(),
+    });
+  });
+
+  it('records filter field ids and operator families in the where shape', async () => {
+    const { table, titleId, notesId } = makeTable();
+    const observations: TableQueryObservationWindow[] = [];
+    const inner = {
+      find: vi.fn().mockResolvedValue(ok({ records: [], total: 0, offset: 0, limit: 100 })),
+    };
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    };
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
+    const spec = new AndSpec(
+      SingleLineTextConditionSpec.create(
+        table.getFields()[0]!,
+        'is',
+        RecordConditionLiteralValue.create('open')._unsafeUnwrap()
+      ),
+      LongTextConditionSpec.create(
+        table.getFields()[1]!,
+        'contains',
+        RecordConditionLiteralValue.create('urgent')._unsafeUnwrap()
+      )
+    );
+
+    await repository.find({} as never, table, spec as never, {} as never);
+
+    expect(observations[0]?.shape().snapshot()).toMatchObject({
+      queryKind: 'filter',
+      whereShape: {
+        conditionCount: 2,
+        andDepth: 1,
+        orDepth: 0,
+        fields: [
+          { fieldId: titleId.toString(), operatorFamily: 'equality' },
+          { fieldId: notesId.toString(), operatorFamily: 'text_contains' },
+        ],
+      },
     });
   });
 

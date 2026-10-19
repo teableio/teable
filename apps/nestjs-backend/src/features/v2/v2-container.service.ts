@@ -45,7 +45,10 @@ import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
-import type { IComputedOutboxMaintenanceTarget } from '../../global/data-db-client-manager.service';
+import type {
+  IComputedOutboxMaintenanceTarget,
+  IDataDbRoutingSnapshot,
+} from '../../global/data-db-client-manager.service';
 import {
   DataDbRuntimeCacheService,
   V2_CONTAINER_CACHE_NAMESPACE,
@@ -201,6 +204,17 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForSpace(spaceId);
     return await this.getContainerForDataDb(
+      dataDb.cacheKey,
+      dataDb.connectionUrl ?? dataDb.url,
+      dataDb.internalSchema
+    );
+  }
+
+  async getContainerForRoutingSnapshot(
+    snapshot: IDataDbRoutingSnapshot
+  ): Promise<DependencyContainer> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseFromRoutingSnapshot(snapshot);
+    return this.getContainerForDataDb(
       dataDb.cacheKey,
       dataDb.connectionUrl ?? dataDb.url,
       dataDb.internalSchema

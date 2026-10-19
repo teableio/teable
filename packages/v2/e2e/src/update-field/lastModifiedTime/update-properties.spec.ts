@@ -118,14 +118,18 @@ describe('[D01][S01] F16: lastModifiedTime property updates', () => {
 
     const record = await ctx.createRecord(tableId, {});
     const withTracking = await readValue(ctx, tableId, record.id, fieldId);
+    // Created with its only tracked field empty: the restricted list has no
+    // change to record, so the widening test starts from an empty stamp.
+    expect(withTracking ?? null).toBeNull();
 
     await ctx.updateField({ tableId, fieldId, field: { options: { trackedFieldIds: [] } } });
     await new Promise((resolve) => setTimeout(resolve, 20));
+    const editFloor = Date.now();
     await ctx.updateRecord(tableId, record.id, { [trackedId]: 'moved' });
 
-    expect(
-      Date.parse((await readValue(ctx, tableId, record.id, fieldId)) as string)
-    ).toBeGreaterThan(Date.parse(withTracking as string));
+    const widened = await readValue(ctx, tableId, record.id, fieldId);
+    // The edit's own instant, not a creation time carried over from before.
+    expect(Date.parse(widened as string)).toBeGreaterThanOrEqual(editFloor);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [record.id]);

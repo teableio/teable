@@ -99,6 +99,7 @@ import {
   textPasteHandlerWithData,
 } from '../utils/copyAndPaste';
 import { getSyncCopyData } from '../utils/getSyncCopyData';
+import { resolveGridSelectionForChat } from '../utils/gridSelectionChat';
 import { buildSelectionViewQuery, getSelectionGroupBy } from '../utils/selectionViewQuery';
 import { useSyncSelectionStore } from './useSelectionStore';
 
@@ -749,6 +750,40 @@ export const useSelectionOperation = (props?: {
       rowCount,
       tableId,
     ]
+  );
+
+  const resolveSelectionForChat = useCallback(
+    (
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      visibleRowCount: number | null | undefined = rowCount,
+      tableName?: string
+    ) => {
+      if (!tableId) throw new Error('Selection contains no records');
+      return resolveGridSelectionForChat(selection, {
+        tableId,
+        viewId,
+        tableName,
+        rowCount: visibleRowCount,
+        fields,
+        recordMap,
+        // Mutation requests may use all/exclusion shortcuts. A reference must materialize
+        // every selected ID, including columns, under the same view/search/group query.
+        loadRecordIds: async (rowRanges) =>
+          (
+            await buildSelectionRecordIds(
+              selection,
+              selection.ranges,
+              {},
+              {
+                rowRanges,
+                allowQueryScope: false,
+              }
+            )
+          ).recordIds ?? [],
+      });
+    },
+    [buildSelectionRecordIds, fields, rowCount, tableId, viewId]
   );
 
   const buildSelectionIdRequest = useCallback(
@@ -1792,6 +1827,7 @@ export const useSelectionOperation = (props?: {
   );
 
   return {
+    resolveSelectionForChat,
     copy: doCopy,
     paste: doPaste,
     clear: doClear,

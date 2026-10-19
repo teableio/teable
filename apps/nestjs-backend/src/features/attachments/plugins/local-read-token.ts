@@ -77,7 +77,7 @@ export class LocalReadTokenCodec {
     const iv = buf.subarray(0, IV_BYTES);
     const tag = buf.subarray(IV_BYTES, IV_BYTES + TAG_BYTES);
     const enc = buf.subarray(IV_BYTES + TAG_BYTES);
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: TAG_BYTES });
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
   }

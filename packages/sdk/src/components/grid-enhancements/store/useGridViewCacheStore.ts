@@ -1,47 +1,27 @@
-import type { IRecord } from '@teable/core';
-import type { IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
 import { create } from 'zustand';
 import type { IGroupRowCountMap } from '../../../utils/collapsed-group';
 
 const MAX_CACHE_ENTRIES = 10;
-export const MAX_SNAPSHOT_ROWS = 100;
-// long-text / attachment heavy rows can dwarf the row-count cap, so the
-// collector also enforces a byte budget per snapshot (see the hook)
-export const MAX_SNAPSHOT_BYTES = 512 * 1024;
-// grouping by a high-cardinality field can produce one point per record;
-// caching such a structure buys little (the flat->grouped reflow it prevents
-// is proportionally tiny) and costs the most memory, so treat it as uncacheable
+// grouping by a high-cardinality field can produce one point per record; a
+// count map that size buys nothing for the in-place expand patch and costs the
+// most memory, so treat such a structure as uncacheable
 export const MAX_POINTS_PER_ENTRY = 5000;
 
 interface IGridViewCacheEntry {
-  groupPoints?: IGroupPointsVo;
-  groupHeaderRefs?: IGroupHeaderRef[];
-  rows?: IRecord[];
   groupRowCounts?: IGroupRowCountMap;
 }
 
 interface IGridViewCacheState {
-  // localId(tableId-viewId[-personal]) -> the view's last known first-screen
-  // state, seeding the first frame when the user switches back. One entry per
-  // view so group structure and rows are cached and evicted ATOMICALLY — a
-  // "rows without group structure" half-state would reintroduce the
-  // flat-then-grouped reflow this cache exists to prevent.
+  // localId(tableId-viewId[-personal]) -> the row count of each expanded group
+  // at the last live delivery. A group keeps its last known count while
+  // collapsed, so expanding it can restore its row block in place instead of
+  // dropping everything behind it.
   //
-  // Session memory only, PLAIN DATA only (rows are deep-cloned IRecord JSON):
-  // instances hold ShareDB doc references and subscriptions, which would pin
-  // whole object graphs in memory.
+  // This is layout bookkeeping only. Row data and group structure are never
+  // seeded from it: a cached first frame is by definition a previous result
+  // set, and presenting it under the current view's configuration is the
+  // stale-row bug this store must not reintroduce.
   cacheMap: Record<string, IGridViewCacheEntry>;
-  // empty or oversized groupPoints CLEAR the facet instead of being stored:
-  // a stale structure would otherwise reseed an obsolete layout on every
-  // revisit, which is worse than falling back to plain placeholders
-  setGroupPoints: (
-    key: string,
-    groupPoints: IGroupPointsVo,
-    groupHeaderRefs?: IGroupHeaderRef[]
-  ) => void;
-  // empty rows CLEAR the facet: the caller only passes [] when the view has
-  // settled empty, meaning the previous snapshot is known to be obsolete
-  setRows: (key: string, rows: IRecord[]) => void;
   // fresh counts MERGE over the previous map: currently collapsed groups are
   // absent from fresh group points and keep their last known value — the
   // value the expand patch needs to restore the group's row block in place
@@ -89,28 +69,6 @@ const dropFacets = (
 
 export const useGridViewCacheStore = create<IGridViewCacheState>()((set) => ({
   cacheMap: {},
-  setGroupPoints: (key, groupPoints, groupHeaderRefs) =>
-    set((state) => {
-      if (!groupPoints?.length || groupPoints.length > MAX_POINTS_PER_ENTRY) {
-        const next = dropFacets(state.cacheMap, key, ['groupPoints', 'groupHeaderRefs']);
-        return next ? { cacheMap: next } : state;
-      }
-      return {
-        cacheMap: upsert(state.cacheMap, key, {
-          groupPoints,
-          // keep previously cached refs when the caller has none at hand
-          ...(groupHeaderRefs ? { groupHeaderRefs } : {}),
-        }),
-      };
-    }),
-  setRows: (key, rows) =>
-    set((state) => {
-      if (!rows.length) {
-        const next = dropFacets(state.cacheMap, key, ['rows']);
-        return next ? { cacheMap: next } : state;
-      }
-      return { cacheMap: upsert(state.cacheMap, key, { rows: rows.slice(0, MAX_SNAPSHOT_ROWS) }) };
-    }),
   mergeGroupRowCounts: (key, counts) =>
     set((state) => {
       if (!Object.keys(counts).length) return state;

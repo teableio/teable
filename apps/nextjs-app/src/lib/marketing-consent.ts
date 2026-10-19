@@ -1,4 +1,4 @@
-import type { ConsentRegion, IMarketingConsent } from '@teable/core';
+import type { ConsentMethod, ConsentRegion, IMarketingConsent } from '@teable/core';
 import {
   CONSENT_BANNER_VERSION,
   CONSENT_REGION_COOKIE_NAME,
@@ -22,7 +22,7 @@ export interface IConsentSnapshot {
   adsGranted: boolean;
   /** Opt-in region with no recorded choice: the banner must be shown. */
   needsChoice: boolean;
-  /** "Cookie settings" was opened explicitly. */
+  /** "Cookie settings" was opened explicitly: the banner opens on its per-category panel. */
   settingsOpen: boolean;
 }
 
@@ -100,11 +100,13 @@ const clearStorage = (patterns: RegExp[]) => {
   const domains = ['', hostname, `.${hostname}`];
   const parent = parentCookieDomain().match(/^domain=(.+);$/)?.[1];
   if (parent) domains.push(parent);
+  // Expire with a past date rather than max-age=0: every browser honours it, and
+  // test DOMs (happy-dom) keep max-age=0 cookies.
   for (const item of document.cookie.split('; ')) {
     const name = item.split('=')[0];
     if (!name || !matches(name)) continue;
     for (const domain of domains) {
-      document.cookie = `${name}=;${domain ? `domain=${domain};` : ''}path=/;max-age=0`;
+      document.cookie = `${name}=;${domain ? `domain=${domain};` : ''}path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT`;
     }
   }
   for (const key of Object.keys(window.localStorage)) {
@@ -119,10 +121,10 @@ export const openCookieSettings = () => {
 
 /**
  * Persists a choice, notifies the trackers, and records it as a PostHog
- * event (proof of consent). The event is sent for rejections too — PostHog
- * then runs cookieless, so no identifier is stored.
+ * event (proof of consent), along with how it was made. The event is sent for
+ * rejections too — PostHog then runs cookieless, so no identifier is stored.
  */
-export const saveConsent = (consent: IMarketingConsent) => {
+export const saveConsent = (consent: IMarketingConsent, method: ConsentMethod) => {
   const secure = window.location.protocol === 'https:' ? 'Secure;' : '';
   document.cookie =
     `${MARKETING_CONSENT_COOKIE_NAME}=${encodeURIComponent(JSON.stringify(consent))};` +
@@ -140,6 +142,7 @@ export const saveConsent = (consent: IMarketingConsent) => {
     ...consent,
     consent_region: snapshot.region,
     banner_version: CONSENT_BANNER_VERSION,
+    consent_method: method,
     source: 'app',
   });
 };

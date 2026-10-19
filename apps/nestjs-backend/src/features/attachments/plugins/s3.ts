@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 import https from 'node:https';
 import { join, resolve } from 'node:path';
@@ -36,6 +37,33 @@ import type {
   IListObjectsOptions,
   IListObjectsResult,
 } from './types';
+
+// The SDK adds CRC checksums to requests and presigned URLs by default (since 3.729), which many
+// S3-compatible services reject, so only send a checksum where the operation requires one.
+export const s3ChecksumConfig = {
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+} as const;
+
+// DeleteObjects always requires a checksum: the SDK now sends CRC32, while S3-compatible services
+// (e.g. OSS) still expect the Content-MD5 the SDK used to send. This follows AWS's MD5 fallback
+// guide, but is placed by step: its addRelativeTo(flexibleChecksumsMiddleware) makes every command
+// without that middleware (HeadObject, ListObjectsV2, ...) throw on a shared client.
+const sendContentMd5ForDeleteObjects = (client: S3Client) => {
+  client.middlewareStack.add(
+    (next, context) => async (args) => {
+      const request = args.request as { headers: Record<string, string>; body?: unknown };
+      if (context.commandName === 'DeleteObjectsCommand' && typeof request.body === 'string') {
+        for (const header of Object.keys(request.headers)) {
+          if (/^x-amz-(?:sdk-)?checksum-/i.test(header)) delete request.headers[header];
+        }
+        request.headers['Content-MD5'] = createHash('md5').update(request.body).digest('base64');
+      }
+      return next(args);
+    },
+    { step: 'build', priority: 'low', name: 'deleteObjectsContentMd5' }
+  );
+};
 
 @Injectable()
 export class S3Storage implements StorageAdapter {
@@ -76,6 +104,7 @@ export class S3Storage implements StorageAdapter {
         })
       : undefined;
     this.s3Client = new S3Client({
+      ...s3ChecksumConfig,
       region,
       endpoint,
       forcePathStyle,
@@ -96,6 +125,7 @@ export class S3Storage implements StorageAdapter {
     this.s3ClientPrivateNetwork =
       internalEndpoint || internalPathStyle !== forcePathStyle
         ? new S3Client({
+            ...s3ChecksumConfig,
             region,
             endpoint: internalEndpoint ?? endpoint,
             forcePathStyle: internalPathStyle,
@@ -106,10 +136,12 @@ export class S3Storage implements StorageAdapter {
             },
           })
         : this.s3Client;
+    sendContentMd5ForDeleteObjects(this.s3ClientPrivateNetwork);
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
 
     this.s3ClientPreSigner = this.config.privateBucketEndpoint
       ? new S3Client({
+          ...s3ChecksumConfig,
           region,
           endpoint,
           bucketEndpoint: true,

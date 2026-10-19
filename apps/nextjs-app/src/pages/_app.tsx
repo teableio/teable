@@ -11,7 +11,7 @@ import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { Guide } from '@/components/Guide';
-import { GoogleAnalytics, MetaPixel, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
+import { GoogleAnalytics, MetaPixel, PostHog, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
 import { useMobileServiceWorker } from '@/features/app/hooks/useMobileServiceWorker';
@@ -79,10 +79,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <CookieConsentBanner
-          enabled={Boolean(env.posthogKey || env.microsoftClarityId || env.gaId || env.metaPixelId)}
-        />
-        <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
+        <CookieConsentBanner enabled={Boolean(env.posthogKey || env.gaId || env.metaPixelId)} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <GoogleAnalytics gaId={env.gaId} user={user} />
         <PostHog

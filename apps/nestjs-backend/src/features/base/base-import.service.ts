@@ -66,8 +66,8 @@ import * as csvParser from 'csv-parser';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
-import streamJson from 'stream-json';
-import streamValues from 'stream-json/streamers/StreamValues';
+import { parserStream } from 'stream-json';
+import { streamValues } from 'stream-json/streamers/stream-values.js';
 import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -2252,8 +2252,8 @@ export class BaseImportService {
           return;
         }
 
-        const parser = streamJson.parser();
-        const pipeline = entry.pipe(parser).pipe(streamValues.streamValues());
+        const parser = parserStream();
+        const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
 
         pipeline
           .on('data', (data: { key: number; value: IBaseJson }) => {
@@ -2287,8 +2287,8 @@ export class BaseImportService {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         if (filePath === 'structure.json') {
-          const parser = streamJson.parser();
-          const pipeline = entry.pipe(parser).pipe(streamValues.streamValues());
+          const parser = parserStream();
+          const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
 
           let structureObject: IBaseJson | null = null;
           pipeline

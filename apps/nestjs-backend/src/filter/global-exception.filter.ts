@@ -26,6 +26,8 @@ import {
   setV2AttributionOnSentryScope,
 } from '../features/canary/v2-attribution';
 import { ColdStorageUnavailableError } from '../features/cold-archive/cold-errors';
+import { resolveBoolean } from '../features/v2/v2-config-parsers';
+import { dataQueryErrorResponse, dataQueryHostError } from '../features/v2/v2-data-query-http';
 import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
 import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
@@ -63,6 +65,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // Express parsing runs before controller filters. Nest wraps its SyntaxError in a
+    // BadRequestException whose message can contain request data: never observe that error.
+    if (
+      exception instanceof BadRequestException &&
+      request.method === 'POST' &&
+      /^\/api\/v2\/queries\/(?:execute|validate)\/?$/i.test(request.path) &&
+      (resolveBoolean(this.configService.get('V2_DATA_QUERY_ENABLED'), false) ||
+        resolveBoolean(this.configService.get('V2_DATA_QUERY_EXECUTE_ENABLED'), false))
+    ) {
+      const safeException = new BadRequestException('Invalid data query request');
+      this.annotateActiveSpan(safeException);
+      if (response.headersSent) return;
+      const result = dataQueryErrorResponse(dataQueryHostError(safeException));
+      return response.status(result.status).json(result.body);
+    }
     const dataDbContext = this.getDataDbContext();
     const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
 

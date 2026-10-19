@@ -302,6 +302,26 @@ const extractTimeZone = (options: unknown): string => {
 const isDateFilterField = (fieldMeta: IRecordFilterFieldMeta): boolean =>
   dateFilterFieldTypes.has(fieldMeta.type) || fieldMeta.cellValueType === CellValueType.DateTime;
 
+const emptyStringDateOperator: Readonly<Record<string, RecordFilterOperator>> = {
+  is: 'isEmpty',
+  isNot: 'isNotEmpty',
+};
+
+/**
+ * A date cell cannot hold the empty string, so `{date} = ""` / `{date} != ""`
+ * means "is empty" / "is not empty". Forwarding the literal would compare a
+ * timestamptz column against "" and fail with PostgreSQL 22007.
+ */
+export const normalizeEmptyDateComparison = (
+  fieldMeta: IRecordFilterFieldMeta | undefined,
+  operator: RecordFilterOperator,
+  value: RecordFilterValue
+): { operator: RecordFilterOperator; value: null } | undefined => {
+  if (!fieldMeta || !isDateFilterField(fieldMeta) || value !== '') return undefined;
+  const emptyOperator = emptyStringDateOperator[operator];
+  return emptyOperator ? { operator: emptyOperator, value: null } : undefined;
+};
+
 const normalizeLegacyDateComparisonValue = (
   fieldMeta: IRecordFilterFieldMeta | undefined,
   operator: RecordFilterOperator,
@@ -344,6 +364,11 @@ const normalizeMappedNode = (
   const operator = node.operator as RecordFilterOperator;
   const fieldMeta = fieldMetaById.get(node.fieldId);
   let value = node.value as RecordFilterValue;
+
+  const emptyDateComparison = normalizeEmptyDateComparison(fieldMeta, operator, value);
+  if (emptyDateComparison) {
+    return { fieldId: node.fieldId, ...emptyDateComparison };
+  }
 
   if (operatorsExpectingNull.has(operator)) {
     return value === null ? { ...node, value: null } : null;

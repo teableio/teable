@@ -69,7 +69,10 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
-  tableSeed: (tableId: string, viewId: string) => ['table-seed', tableId, viewId] as const,
+  // the seed's group structure and row set depend on the local collapse
+  // state, so that state is part of the identity
+  tableSeed: (tableId: string, viewId: string, collapsedGroupIds?: readonly string[]) =>
+    ['table-seed', tableId, viewId, collapsedGroupIds ?? null] as const,
 
   recordCommentCount: (tableId: string, recordId: string) =>
     ['record-comment-count', tableId, recordId] as const,

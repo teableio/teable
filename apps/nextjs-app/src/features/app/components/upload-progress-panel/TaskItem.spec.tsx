@@ -38,6 +38,12 @@ describe('TaskItem thumbnail', () => {
     URL.revokeObjectURL = vi.fn();
   });
 
+  // happy-dom reports an <img> it never loads as complete; a browser reports it pending.
+  beforeEach(() => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
   it('keeps the file icon when the browser cannot render the completed image', () => {
     renderTask(makeTask('photo.heic', 'image/heic', { attachmentItem: attachmentItem() }));
     // The icon is the default; the <img> stays hidden until it has loaded.

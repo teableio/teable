@@ -1449,6 +1449,10 @@
             "title": "Votre export de données est prêt",
             "message": "Bonjour {{name}},<br><br>Vous avez demandé une copie de vos données avant de supprimer votre compte Teable. Elle est prête.<br><br>Le lien ci-dessous est valable {{expiresInDays}} jours."
           },
+          "accountExported": {
+            "title": "Votre export de données est prêt",
+            "message": "Bonjour {{name}},<br><br>Vous avez demandé une copie de vos données Teable. Elle est prête.<br><br>Le lien ci-dessous est valable {{expiresInDays}} jours."
+          },
           "deactivated": {
             "title": "Votre compte a été désactivé",
             "message": "Bonjour {{name}},<br><br>Votre compte Teable a été désactivé car il enfreignait nos <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Conditions d'utilisation</a>.<br>Nous avons regroupé les données des espaces dont vous étiez propriétaire afin que vous puissiez en conserver une copie.<br><br>Le lien ci-dessous est valable {{expiresInDays}} jours.<br>Si vous pensez qu'il s'agit d'une erreur, contactez votre administrateur."
@@ -1845,6 +1849,24 @@
     "accept": "Tout accepter",
     "reject": "Tout refuser",
     "policy": "Politique relative aux cookies",
-    "settings": "Paramètres des cookies"
+    "settings": "Paramètres des cookies",
+    "customize": "Personnaliser",
+    "customBody": "Choisissez les cookies que Teable peut utiliser. Vous pouvez modifier votre choix à tout moment dans les paramètres des cookies.",
+    "save": "Enregistrer mes choix",
+    "alwaysOn": "Toujours actifs",
+    "categories": {
+      "necessary": {
+        "title": "Strictement nécessaires",
+        "description": "Assurent la sécurité du service et permettent la connexion, les sessions, le choix de la langue, la mémorisation de votre choix de cookies et l'application des offres de parrainage."
+      },
+      "analytics": {
+        "title": "Mesure d'audience",
+        "description": "Nous aident à comprendre comment le produit est utilisé afin d'améliorer votre expérience."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Nous aident à mesurer l'efficacité de nos publicités et de nos promotions."
+      }
+    }
   }
 }

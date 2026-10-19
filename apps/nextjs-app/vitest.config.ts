@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   // tsconfig keeps JSX for Next (`"jsx": "preserve"`), so the tests compile it here
-  esbuild: { jsx: 'automatic' },
+  oxc: { jsx: { runtime: 'automatic' } },
   plugins: [tsconfigPaths()],
   cacheDir: '../../.cache/vitest/nextjs-app',
   test: {

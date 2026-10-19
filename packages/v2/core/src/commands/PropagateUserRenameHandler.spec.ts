@@ -44,6 +44,27 @@ describe('PropagateUserRenameHandler', () => {
     expect(payload.userId.toString()).toBe(`usr${'b'.repeat(17)}`);
   });
 
+  it('forwards the shared data plane scope to the port', async () => {
+    const propagateUserRename = vi.fn().mockResolvedValue(ok(undefined));
+    const handler = new PropagateUserRenameHandler({
+      propagateUserRename,
+    } as unknown as IUserRenamePropagationService);
+    const context = createContext();
+    const command = PropagateUserRenameCommand.create({
+      userId: `usr${'d'.repeat(17)}`,
+      name: 'Renamed User',
+      sharedDataPlane: true,
+    })._unsafeUnwrap();
+
+    await handler.handle(context, command);
+
+    const [, payload] = propagateUserRename.mock.calls[0] as [
+      IExecutionContext,
+      UserRenamePropagationInput,
+    ];
+    expect(payload.sharedDataPlane).toBe(true);
+  });
+
   it('returns the port error unchanged', async () => {
     const renameError: DomainError = domainError.unexpected({
       message: 'rename failed',

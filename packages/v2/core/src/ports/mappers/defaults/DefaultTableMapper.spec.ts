@@ -1633,7 +1633,7 @@ describe('DefaultTableMapper', () => {
     expect(result._unsafeUnwrapErr().message).toContain('Invalid FormulaFormatting');
   });
 
-  it('returns validation error for invalid formula showAs in persistence dto', () => {
+  it('drops an invalid formula showAs instead of failing the whole read', () => {
     const table = buildFormulaTable();
     const mapper = new DefaultTableMapper();
     const dto = mapper.toDTO(table)._unsafeUnwrap();
@@ -1653,8 +1653,76 @@ describe('DefaultTableMapper', () => {
       ),
     });
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Invalid FormulaShowAs');
+    expect(result.isOk()).toBe(true);
+    const formula = result
+      ._unsafeUnwrap()
+      .getFields()
+      .find((field) => field.id().toString() === `fld${'f'.repeat(16)}`);
+    expect(formula).toBeInstanceOf(FormulaField);
+    expect((formula as FormulaField).showAs()).toBeUndefined();
+  });
+
+  // Regression: base bsevORYr71FArRaHqQa kept a number showAs on a field converted
+  // to singleLineText ("الأقسام"), which made every read of the base return 500.
+  it('keeps a singleLineText field readable when its stored showAs belongs to a number field', () => {
+    const mapper = new DefaultTableMapper();
+    const fieldId = `fld${'m'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      id: `tbl${'m'.repeat(16)}`,
+      baseId: `bse${'m'.repeat(16)}`,
+      name: 'Categories',
+      primaryFieldId: fieldId,
+      fields: [
+        {
+          id: fieldId,
+          name: 'Categories',
+          type: 'singleLineText',
+          options: {
+            formatting: { type: 'decimal', precision: 1 },
+            showAs: { type: 'ring', color: 'tealBright', showValue: true, maxValue: 100 },
+          },
+        },
+      ],
+      views: [],
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const field = result
+      ._unsafeUnwrap()
+      .getFields()
+      .find((candidate) => candidate.id().toString() === fieldId);
+    expect(field).toBeInstanceOf(SingleLineTextField);
+    expect((field as SingleLineTextField).showAs()).toBeUndefined();
+  });
+
+  it('keeps a number field readable when its stored showAs belongs to a text field', () => {
+    const mapper = new DefaultTableMapper();
+    const fieldId = `fld${'n'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      id: `tbl${'n'.repeat(16)}`,
+      baseId: `bse${'n'.repeat(16)}`,
+      name: 'Amounts',
+      primaryFieldId: fieldId,
+      fields: [
+        {
+          id: fieldId,
+          name: 'Amount',
+          type: 'number',
+          options: { showAs: { type: 'email' } },
+        },
+      ],
+      views: [],
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const field = result
+      ._unsafeUnwrap()
+      .getFields()
+      .find((candidate) => candidate.id().toString() === fieldId);
+    expect(field).toBeInstanceOf(NumberField);
+    expect((field as NumberField).showAs()).toBeUndefined();
   });
 
   it('returns validation error for invalid trackedFieldIds on generated fields', () => {

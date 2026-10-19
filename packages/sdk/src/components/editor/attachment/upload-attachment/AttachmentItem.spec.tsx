@@ -2,7 +2,7 @@ import type { IAttachmentItem } from '@teable/core';
 import { FilePreviewProvider } from '@teable/ui-lib';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { noop } from 'lodash';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppContext } from '../../../../context/__tests__/createAppContext';
 import AttachmentItem from './AttachmentItem';
 
@@ -55,6 +55,12 @@ describe('AttachmentItem preview', () => {
     } as never;
     Element.prototype.scrollTo ??= () => {};
   });
+
+  // happy-dom reports an <img> it never loads as complete; a browser reports it pending.
+  beforeEach(() => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+  });
+  afterEach(() => vi.restoreAllMocks());
 
   it('deletes from the preview and keeps the preview on the next file', () => {
     const onDelete = vi.fn();

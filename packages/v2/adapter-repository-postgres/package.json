@@ -37,7 +37,7 @@
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "dayjs": "1.11.10",
-    "kysely": "0.28.9",
+    "kysely": "0.28.17",
     "neverthrow": "8.2.0",
     "transliteration": "2.3.5",
     "ts-pattern": "5.8.0",
@@ -49,13 +49,13 @@
     "@testcontainers/postgresql": "11.10.0",
     "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
     "pg": "8.11.5",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

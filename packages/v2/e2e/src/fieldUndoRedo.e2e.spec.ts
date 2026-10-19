@@ -6,7 +6,6 @@ import {
   DuplicateFieldCommand,
   FieldId,
   type DuplicateFieldResult,
-  FieldId,
   type ICommandBus,
   RedoCommand,
   UndoCommand,

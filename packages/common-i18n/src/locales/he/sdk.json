@@ -929,7 +929,8 @@
       "editLink": "עריכת קישור",
       "linkText": "טקסט הקישור",
       "enterUrl": "הזנת כתובת URL"
-    }
+    },
+    "tooManyImages": "אפשר להוסיף עד {{count}} תמונות בכל פעם"
   },
   "memberSelector": {
     "title": "בחירת חברים",

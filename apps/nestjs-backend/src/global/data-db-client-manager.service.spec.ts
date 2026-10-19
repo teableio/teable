@@ -11,6 +11,7 @@ import {
   restoreComputedOutboxDeadLetterRows,
   type IComputedOutboxDeadLetterRow,
 } from './data-db-client-manager.service';
+import type { IDataDbRoutingBinding } from './data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from './data-db-runtime-cache.service';
 
 const withTxClient = <T extends object>(txClient: T) => ({
@@ -354,6 +355,136 @@ describe('DataDbClientManager', () => {
     expect(prismaService.tableMeta.findUnique).toHaveBeenCalledTimes(1);
     expect(prismaService.base.findUnique).toHaveBeenCalledTimes(1);
     expect(prismaService.spaceDataDbBinding.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses a fresh routing snapshot instead of a cached default route', async () => {
+    const store = new Map<string, unknown>();
+    const cls = {
+      isActive: () => true,
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => {
+        store.set(key, value);
+      },
+    };
+    const binding: IDataDbRoutingBinding = {
+      mode: 'byodb',
+      state: 'ready',
+      dataDbConnection: {
+        id: connectionId,
+        status: 'ready',
+        internalSchema,
+        displayHost,
+        displayDatabase,
+        urlFingerprint,
+        encryptedUrl: encryptDataDbUrl(dataUrl),
+      },
+    };
+    const readBinding = vi.fn().mockResolvedValue(null);
+    const manager = createManager(
+      withTxClient({ spaceDataDbBinding: { findUnique: readBinding } }) as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      undefined,
+      cls as never
+    );
+    expect((await manager.getDataDatabaseForSpace('spcxxx')).isMetaFallback).toBe(true);
+    const resolved = await manager.getDataDatabaseFromRoutingSnapshot({
+      spaceId: 'spcxxx',
+      binding,
+    });
+    expect(resolved).toMatchObject({
+      isMetaFallback: false,
+      connectionId,
+      connectionUrl: dataUrl,
+      internalSchema,
+    });
+    expect(store.get('dataDb')).toMatchObject({ mode: 'byodb', spaceId: 'spcxxx', connectionId });
+    await expect(
+      manager.getDataDatabaseFromRoutingSnapshot({
+        spaceId: 'spcxxx',
+        binding: { ...binding, state: 'initializing' },
+      })
+    ).rejects.toBeInstanceOf(DataDbBindingNotReadyError);
+    expect(readBinding).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts missing/default snapshots but never falls back for an invalid bound route', async () => {
+    const manager = createManager(
+      {} as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+    for (const binding of [
+      null,
+      { mode: 'default', state: 'initializing', dataDbConnection: null },
+    ]) {
+      expect(
+        (await manager.getDataDatabaseFromRoutingSnapshot({ spaceId: 'spcxxx', binding }))
+          .isMetaFallback
+      ).toBe(true);
+    }
+    await expect(
+      manager.getDataDatabaseFromRoutingSnapshot({
+        spaceId: 'spcxxx',
+        binding: { mode: 'byodb', state: 'ready', dataDbConnection: null },
+      })
+    ).rejects.toThrow('was not found');
+    await expect(
+      manager.getDataDatabaseFromRoutingSnapshot({
+        spaceId: 'spcxxx',
+        binding: {
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'disabled',
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+            internalSchema,
+            urlFingerprint,
+            displayHost,
+            displayDatabase,
+          },
+        },
+      })
+    ).rejects.toBeInstanceOf(DataDbBindingNotReadyError);
+  });
+
+  it('keeps migration failures fatal for prefetched BYODB routes', async () => {
+    const migration = {
+      ensureConnectionMigrated: vi.fn().mockRejectedValue(new Error('migration unavailable')),
+    };
+    const manager = createManager(
+      {} as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      migration as never
+    );
+    const snapshot = {
+      spaceId: 'spcxxx',
+      binding: {
+        mode: 'byodb',
+        state: 'migrating',
+        dataDbConnection: {
+          id: connectionId,
+          status: 'migrating',
+          encryptedUrl: encryptDataDbUrl(dataUrl),
+          internalSchema,
+          urlFingerprint,
+          displayHost,
+          displayDatabase,
+        },
+      },
+    };
+    await expect(manager.getDataDatabaseFromRoutingSnapshot(snapshot)).rejects.toThrow(
+      'migration unavailable'
+    );
+    migration.ensureConnectionMigrated.mockResolvedValueOnce(undefined);
+    expect((await manager.getDataDatabaseFromRoutingSnapshot(snapshot)).connectionUrl).toBe(
+      dataUrl
+    );
   });
 
   it('resolves BYODB connection details from a ready space binding', async () => {

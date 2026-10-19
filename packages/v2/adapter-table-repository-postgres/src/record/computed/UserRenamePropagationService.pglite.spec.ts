@@ -72,6 +72,14 @@ describe('UserRenamePropagationService BYODB split database behavior', () => {
       .addColumn('db_field_name', 'varchar')
       .addColumn('deleted_time', 'timestamp')
       .execute();
+    await meta.db.schema
+      .createTable('space_data_db_binding')
+      .addColumn('id', 'varchar', (col) => col.primaryKey())
+      .addColumn('space_id', 'varchar')
+      .addColumn('data_db_connection_id', 'varchar')
+      .addColumn('mode', 'varchar')
+      .addColumn('state', 'varchar')
+      .execute();
   });
 
   afterAll(async () => {
@@ -177,5 +185,108 @@ describe('UserRenamePropagationService BYODB split database behavior', () => {
     expect(refreshInput.changes[0].fieldIds.map((fieldId) => fieldId.toString())).toEqual(
       expect.arrayContaining([FIELD_ID, CREATED_BY_FIELD_ID])
     );
+  });
+
+  it('skips externally bound bases only when the command runs on the shared data plane', async () => {
+    const actorId = ActorId.create('usrActor000000001')._unsafeUnwrap();
+    const userId = UserId.create('usrBound000000001')._unsafeUnwrap();
+    const baseId = `bse${'e'.repeat(16)}`;
+    const tableId = `tbl${'f'.repeat(16)}`;
+    const fieldId = `fld${'g'.repeat(16)}`;
+    const spaceId = `spc${'t'.repeat(16)}`;
+    const dataTableName = `${baseId}.${tableId}`;
+
+    await data.db.schema.createSchema(baseId).execute();
+    await data.db.schema
+      .createTable(dataTableName)
+      .addColumn('__id', 'varchar', (col) => col.primaryKey())
+      .addColumn('created_by_col', 'jsonb')
+      .execute();
+
+    await meta.db.insertInto('space').values({ id: spaceId }).execute();
+    await meta.db.insertInto('base').values({ id: baseId, space_id: spaceId }).execute();
+    await meta.db
+      .insertInto('space_data_db_binding')
+      .values({
+        id: `sdb${'b'.repeat(16)}`,
+        space_id: spaceId,
+        data_db_connection_id: null,
+        mode: 'byodb',
+        state: 'ready',
+      })
+      .execute();
+    await meta.db
+      .insertInto('collaborator')
+      .values({
+        principal_type: 'user',
+        principal_id: userId.toString(),
+        resource_id: baseId,
+      })
+      .execute();
+    await meta.db
+      .insertInto('table_meta')
+      .values({ id: tableId, base_id: baseId, db_table_name: dataTableName })
+      .execute();
+    await meta.db
+      .insertInto('field')
+      .values({
+        id: fieldId,
+        table_id: tableId,
+        type: 'createdBy',
+        db_field_name: 'created_by_col',
+        is_multiple_cell_value: false,
+      })
+      .execute();
+    await data.db
+      .insertInto(dataTableName)
+      .values({
+        __id: 'rec_bound_rename',
+        created_by_col: sql`jsonb_build_object('id', ${userId.toString()}::text, 'title', 'Old Name')`,
+      })
+      .execute();
+
+    const readTitle = async () =>
+      (
+        await data.db
+          .selectFrom(dataTableName)
+          .select(sql<string>`created_by_col->>'title'`.as('title'))
+          .executeTakeFirstOrThrow()
+      ).title;
+
+    const refreshService = {
+      refreshAfterExternalValueChanges: vi
+        .fn()
+        .mockResolvedValue({ isErr: () => false, isOk: () => true }),
+    };
+    const logger = createLogger();
+    const service = new UserRenamePropagationService(
+      data.db,
+      logger as never,
+      refreshService as never,
+      meta.db
+    );
+
+    const sharedPlaneResult = await service.propagateUserRename(
+      { actorId },
+      { userId, name: 'Shared Plane Name', sharedDataPlane: true }
+    );
+
+    expect(sharedPlaneResult.isOk()).toBe(true);
+    expect(await readTitle()).toBe('Old Name');
+    expect(refreshService.refreshAfterExternalValueChanges).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith('user-rename: skipped externally bound user fields', {
+      userId: userId.toString(),
+      fieldCount: 1,
+    });
+
+    // Without the scope the caller claims a plane that owns the base, so the same
+    // base is patched — the skip is keyed to the shared-plane flag, not to the binding.
+    const ownedPlaneResult = await service.propagateUserRename(
+      { actorId },
+      { userId, name: 'Owned Plane Name' }
+    );
+
+    expect(ownedPlaneResult.isOk()).toBe(true);
+    expect(await readTitle()).toBe('Owned Plane Name');
   });
 });

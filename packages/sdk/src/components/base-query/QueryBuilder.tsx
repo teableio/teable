@@ -233,7 +233,6 @@ const QueryBuilderContainer = forwardRef<
   };
 
   const onQueryChange = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
-    console.log(depth, 'onQueryChange', key, value);
     collectContext(key, value);
     if (!query) {
       key === 'from' &&
@@ -260,7 +259,6 @@ const QueryBuilderContainer = forwardRef<
   }, [childContext, joinContext]);
 
   const onFromChange = async (type: string, tableId?: string) => {
-    console.log(depth, 'onFromChange', type, tableId);
     if (type === 'query') {
       onQueryChange('from', '');
       setFromType('query');

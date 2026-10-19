@@ -9,6 +9,13 @@ interface IMentionUserProps {
   avatar?: string;
 }
 
+/**
+ * Chip look shared by the editor and the comment list. 20px tall so it fits a 24px
+ * line with room between rows; aligned on the name's baseline so it sits level with
+ * the surrounding text.
+ */
+export const mentionChipClassName = 'mx-0.5 h-5 rounded-md bg-secondary px-1 py-0 align-baseline';
+
 export const MentionUser = (props: IMentionUserProps) => {
   const { className, name = '', avatar } = props;
 

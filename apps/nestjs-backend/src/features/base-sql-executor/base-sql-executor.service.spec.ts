@@ -1,6 +1,12 @@
 import type { ConfigService } from '@nestjs/config';
+import type { Span } from '@opentelemetry/api';
+import { context } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import knex from 'knex';
 import { describe, expect, it, vi } from 'vitest';
+import { mockDeep } from 'vitest-mock-extended';
+import { CustomHttpException } from '../../custom.exception';
+import { redactTeablePgQuerySpan } from '../../tracing-db-context';
 import { BaseSqlExecutorService } from './base-sql-executor.service';
 
 const baseId = 'bsexxx';
@@ -104,6 +110,92 @@ const readStatementTimeout = (calls: unknown[][]) => {
 };
 
 describe('BaseSqlExecutorService', () => {
+  it.each(['validation', 'role', 'transaction', 'execution'] as const)(
+    'redacts generated-query SQL and parameter secrets from %s failures',
+    async (stage) => {
+      const literal = 'private-sql-literal';
+      const parameter = 'private-bound-value';
+      const query = `SELECT * FROM "bsexxx"."tblOrders" WHERE "status" = '${literal}' AND "name" = $1`;
+      const failure = new Error(`Failed query: ${query}; parameters: ${parameter}`);
+      const prismaService = createPrismaService();
+      const transactionPrisma = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $queryRawUnsafe: vi.fn().mockRejectedValue(failure),
+      };
+      const databaseRouter = {
+        getDataDatabaseForBase: vi.fn().mockResolvedValue({ isMetaFallback: false }),
+        dataPrismaTransactionForBase: vi.fn(
+          async (_baseId: string, fn: (prisma: never) => unknown) => fn(transactionPrisma as never)
+        ),
+      };
+      if (stage === 'validation') prismaService.tableMeta.findMany.mockRejectedValue(failure);
+      if (stage === 'role') databaseRouter.getDataDatabaseForBase.mockRejectedValue(failure);
+      if (stage === 'transaction')
+        databaseRouter.dataPrismaTransactionForBase.mockRejectedValue(failure);
+      const service = createService({ prismaService, databaseRouter });
+
+      const error = await service
+        .executeQuerySql(baseId, query, { parameters: [parameter], redactErrors: true })
+        .catch((error: unknown) => error);
+
+      expect(error).toBeInstanceOf(CustomHttpException);
+      if (!(error instanceof CustomHttpException)) throw error;
+      expect(error.getStatus()).toBe(400);
+      const response = JSON.stringify({
+        message: error.message,
+        response: error.getResponse(),
+        data: error.data,
+      });
+      expect(response).toContain('PostgreSQL query failed');
+      expect(response).not.toContain(query);
+      expect(response).not.toContain(literal);
+      expect(response).not.toContain(parameter);
+    }
+  );
+
+  it('executes original bindings while redacting their values from PG spans', async () => {
+    context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+    try {
+      const parameter = 'private-bound-value';
+      const attributes: Record<string, string> = {};
+      const span = mockDeep<Span>();
+      span.setAttribute.mockImplementation((key, value) => {
+        attributes[key] = String(value);
+        return span;
+      });
+      const transactionPrisma = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $queryRawUnsafe: vi.fn(async (_query: string, ...bindings: unknown[]) => {
+          await Promise.resolve();
+          attributes['db.postgresql.values'] = JSON.stringify(bindings);
+          redactTeablePgQuerySpan(span);
+          return [{ name: 'matched' }];
+        }),
+      };
+      const databaseRouter = {
+        getDataDatabaseForBase: vi.fn().mockResolvedValue({ isMetaFallback: false }),
+        dataPrismaTransactionForBase: vi.fn(
+          async (_baseId: string, fn: (prisma: never) => unknown) => fn(transactionPrisma as never)
+        ),
+      };
+      const service = createService({ prismaService: createPrismaService(), databaseRouter });
+      const query = 'SELECT * FROM "bsexxx"."tblOrders" WHERE "name" = $1';
+
+      await expect(
+        service.executeQuerySql(baseId, query, { parameters: [parameter] })
+      ).resolves.toEqual([{ name: 'matched' }]);
+
+      expect(transactionPrisma.$queryRawUnsafe).toHaveBeenCalledWith(query, parameter);
+      expect(attributes['db.postgresql.values']).toBe('[REDACTED]');
+      expect(JSON.stringify(attributes)).not.toContain(parameter);
+      const unrelatedSpan = mockDeep<Span>();
+      redactTeablePgQuerySpan(unrelatedSpan);
+      expect(unrelatedSpan.setAttribute).not.toHaveBeenCalled();
+    } finally {
+      context.disable();
+    }
+  });
+
   it('executes BYODB sql-query without creating or setting a read-only role', async () => {
     const prismaService = createPrismaService();
     const transactionPrisma = {

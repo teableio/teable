@@ -74,10 +74,14 @@ export interface IClsStore extends ClsStore {
   // once, at account creation (user.service withAttribution → refMeta).
   // Contract: @teable/core attribution.ts.
   signupAttribution?: ISignupAttribution;
-  // Banner ad_storage choice (teable_consent parent-domain cookie), parsed by
-  // RequestInfoMiddleware; consumed at account creation to scope what may be
-  // forwarded to ad platforms for EEA users. undefined = no banner choice.
+  // Banner ad consent (ad_user_data, teable_consent parent-domain cookie),
+  // parsed by RequestInfoMiddleware; snapshotted at account creation and at
+  // checkout to scope what may be forwarded to ad platforms for EEA users
+  // (adUserDataConsent). undefined = no banner choice.
   marketingAdConsent?: MarketingAdConsent;
+  // Visitor's country from the CDN geo header (cf-ipcountry), parsed by
+  // RequestInfoMiddleware; snapshotted next to marketingAdConsent. undefined = unknown.
+  requestCountry?: string;
   // OAuth login destination from the verified oauth state — the only
   // signup-time invite signal on OAuth paths (OauthStoreService.verify).
   oauthRedirectUri?: string;

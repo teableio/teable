@@ -166,7 +166,10 @@ export class SsrApi {
       });
 
     const [fields, views, table, recordsResult] = await Promise.all([
-      this.getFields(tableId, { viewId }),
+      // the field providers need every field: a view-scoped list drops the
+      // view's hidden fields, so the first frame would miscount hidden columns
+      // and lose hidden-field dependencies until the field subscription lands
+      this.getFields(tableId),
       viewsPromise,
       this.axios
         .get<ITableVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {

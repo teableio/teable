@@ -12,6 +12,8 @@
  * survives both, server-side.
  */
 
+import { parseMarketingConsent } from './consent';
+
 export const SIGNUP_ATTRIBUTION_COOKIE_NAME = 'teable_attribution';
 
 /** 90 days — matches the client-side marketing-attribution localStorage TTL. */
@@ -184,29 +186,19 @@ export const MARKETING_CONSENT_COOKIE_NAME = 'teable_consent';
 export type MarketingAdConsent = 'granted' | 'denied';
 
 /**
- * `ad_storage` choice from the banner cookie; `undefined` = no banner choice
- * recorded (direct-to-app visitor). Defensive by contract — malformed cookies
- * yield `undefined`, never a throw (this runs in request middleware).
+ * Banner consent to send user data to ad platforms; `undefined` = no banner
+ * choice recorded (direct-to-app visitor). `ad_user_data` is the category for
+ * exactly that, so it decides; payloads without it (older writers) fall back
+ * to `ad_storage`, and a denial of either is a denial. Defensive by contract —
+ * malformed cookies yield `undefined`, never a throw (this runs in request
+ * middleware).
  */
 export const parseMarketingAdConsent = (
   cookies: Partial<Record<string, string>>
 ): MarketingAdConsent | undefined => {
-  const raw = cookies[MARKETING_CONSENT_COOKIE_NAME];
-  if (!raw) {
-    return undefined;
+  const consent = parseMarketingConsent(cookies[MARKETING_CONSENT_COOKIE_NAME]);
+  if (consent?.ad_user_data === 'denied' || consent?.ad_storage === 'denied') {
+    return 'denied';
   }
-  let parsed: Record<string, unknown> | null = null;
-  // cookie.parse already percent-decodes once; decode again only as fallback
-  // for double-encoded writers.
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    try {
-      parsed = JSON.parse(decodeURIComponent(raw));
-    } catch {
-      return undefined;
-    }
-  }
-  const value = parsed?.ad_storage;
-  return value === 'granted' || value === 'denied' ? value : undefined;
+  return (consent?.ad_user_data ?? consent?.ad_storage) === 'granted' ? 'granted' : undefined;
 };

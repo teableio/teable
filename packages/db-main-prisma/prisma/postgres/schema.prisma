@@ -248,6 +248,7 @@ model TableMeta {
   dbTableName       String              @map("db_table_name")
   dbViewName        String?             @map("db_view_name")
   searchIndex       Json?               @map("search_index") @db.JsonB
+  searchIndexPolicy Json?               @map("search_index_policy") @db.JsonB
   provisionState    ProvisionState      @default(ready) @map("provision_state")
   version           Int
   order             Float

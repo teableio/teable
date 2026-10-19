@@ -1445,6 +1445,10 @@
             "title": "データのエクスポートの準備ができました",
             "message": "{{name}} 様<br><br>Teable アカウントの削除前にご依頼いただいたデータのコピーの準備ができました。<br><br>以下のリンクの有効期限は {{expiresInDays}} 日間です。"
           },
+          "accountExported": {
+            "title": "データのエクスポートの準備ができました",
+            "message": "{{name}} 様<br><br>ご依頼いただいた Teable データのコピーの準備ができました。<br><br>以下のリンクの有効期限は {{expiresInDays}} 日間です。"
+          },
           "deactivated": {
             "title": "アカウントが無効化されました",
             "message": "{{name}} 様<br><br>お客様の Teable アカウントは<a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">利用規約</a>に違反したため、無効化されました。<br>コピーを保管できるよう、お客様が所有していたスペースのデータをまとめました。<br><br>以下のリンクの有効期限は {{expiresInDays}} 日間です。<br>誤りだと思われる場合は、管理者にお問い合わせください。"
@@ -1839,6 +1843,24 @@
     "accept": "すべて許可",
     "reject": "すべて拒否",
     "policy": "Cookie ポリシー",
-    "settings": "Cookie 設定"
+    "settings": "Cookie 設定",
+    "customize": "カスタマイズ",
+    "customBody": "Teable が使用できる Cookie を選択してください。選択内容は「Cookie 設定」からいつでも変更できます。",
+    "save": "選択を保存",
+    "alwaysOn": "常に有効",
+    "categories": {
+      "necessary": {
+        "title": "必須",
+        "description": "サービスの安全性を保ち、ログイン、セッション、言語設定、Cookie の選択内容の保存、紹介特典の適用に使用します。"
+      },
+      "analytics": {
+        "title": "分析",
+        "description": "製品の利用状況を把握し、体験の向上に役立てます。"
+      },
+      "marketing": {
+        "title": "マーケティング",
+        "description": "広告やプロモーションの効果測定に役立てます。"
+      }
+    }
   }
 }

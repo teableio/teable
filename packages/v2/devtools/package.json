@@ -34,9 +34,9 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@effect/cli": "0.54.4",
-    "@effect/platform": "0.75.4",
-    "@effect/platform-node": "0.71.0",
+    "@effect/cli": "0.77.2",
+    "@effect/platform": "0.97.2",
+    "@effect/platform-node": "0.108.3",
     "@teable/v2-adapter-csv-parser-papaparse": "workspace:*",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-adapter-db-postgres-pglite": "workspace:*",
@@ -54,9 +54,9 @@
     "@teable/v2-mock-records": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "@teable/v2-table-query-ops": "workspace:*",
-    "@toon-format/toon": "2.1.0",
-    "effect": "3.12.12",
-    "kysely": "0.28.9",
+    "@toon-format/toon": "2.3.1",
+    "effect": "3.22.3",
+    "kysely": "0.28.17",
     "neverthrow": "8.2.0",
     "unzipper": "0.12.3"
   },
@@ -65,13 +65,13 @@
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.13.2",
     "@types/unzipper": "0.10.11",
-    "@vitest/coverage-v8": "4.0.17",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
-    "tsx": "4.19.4",
+    "tsx": "4.23.15",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

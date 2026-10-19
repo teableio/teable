@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../base/BaseId';
 import { FieldId } from '../fields/FieldId';
 import { FieldName } from '../fields/FieldName';
+import { AttachmentField } from '../fields/types/AttachmentField';
+import { ConditionalLookupOptions } from '../fields/types/ConditionalLookupOptions';
+import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../fields/types/LinkRelationship';
+import { LookupField } from '../fields/types/LookupField';
+import { LookupOptions } from '../fields/types/LookupOptions';
 import { Table } from '../Table';
 import { TableId } from '../TableId';
 import { TableName } from '../TableName';
@@ -50,6 +56,101 @@ const createTable = () => {
     numberId,
     checkboxId,
     attachmentId,
+  };
+};
+
+const createLookupTable = () => {
+  const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const primaryId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+  const attachmentId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+  const linkId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+  const lookupId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+  const nestedLookupId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+  const conditionalLookupId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+  const builder = Table.builder()
+    .withBaseId(BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap())
+    .withId(TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap())
+    .withName(TableName.create('Lookup Aggregation')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withId(primaryId)
+    .withName(FieldName.create('Name')._unsafeUnwrap())
+    .primary()
+    .done();
+  const attachment = AttachmentField.create({
+    id: attachmentId,
+    name: FieldName.create('Files')._unsafeUnwrap(),
+  })._unsafeUnwrap();
+  builder
+    .field()
+    .link()
+    .withId(linkId)
+    .withName(FieldName.create('Link')._unsafeUnwrap())
+    .withConfig(
+      LinkFieldConfig.create({
+        relationship: LinkRelationship.manyMany().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: attachmentId.toString(),
+      })._unsafeUnwrap()
+    )
+    .done();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: linkId.toString(),
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: attachmentId.toString(),
+  })._unsafeUnwrap();
+  const lookup = LookupField.create({
+    id: lookupId,
+    name: FieldName.create('Files lookup')._unsafeUnwrap(),
+    innerField: attachment,
+    lookupOptions,
+  })._unsafeUnwrap();
+  builder
+    .field()
+    .lookup()
+    .withId(lookupId)
+    .withName(FieldName.create('Files lookup')._unsafeUnwrap())
+    .withInnerField(attachment)
+    .withLookupOptions(lookupOptions)
+    .withIsMultipleCellValue(true)
+    .done();
+  builder
+    .field()
+    .lookup()
+    .withId(nestedLookupId)
+    .withName(FieldName.create('Files nested lookup')._unsafeUnwrap())
+    .withInnerField(lookup)
+    .withLookupOptions(lookupOptions)
+    .withIsMultipleCellValue(true)
+    .done();
+  builder
+    .field()
+    .conditionalLookup()
+    .withId(conditionalLookupId)
+    .withName(FieldName.create('Files conditional lookup')._unsafeUnwrap())
+    .withInnerField(attachment)
+    .withConditionalLookupOptions(
+      ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: attachmentId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: primaryId.toString(), operator: 'is', value: 'x' }],
+          },
+        },
+      })._unsafeUnwrap()
+    )
+    .done();
+  builder.view().defaultGrid().done();
+  const table = builder.build()._unsafeUnwrap();
+  return {
+    table,
+    viewId: table.defaultView()._unsafeUnwrap().id().toString(),
+    lookupId,
+    nestedLookupId,
+    conditionalLookupId,
   };
 };
 
@@ -199,5 +300,28 @@ describe('Table.createRecordAggregation', () => {
       { fieldId: numberId.toString(), fieldType: 'number', order: 'asc' },
       { fieldId: checkboxId.toString(), fieldType: 'checkbox', order: 'desc' },
     ]);
+  });
+
+  it('applies the inner attachment statistics to a lookup', () => {
+    const { table, viewId, lookupId, nestedLookupId, conditionalLookupId } = createLookupTable();
+
+    for (const fieldId of [lookupId, nestedLookupId, conditionalLookupId]) {
+      expect(
+        table
+          .createRecordAggregation({
+            viewId,
+            fields: [{ fieldId: fieldId.toString(), statisticFunc: 'totalAttachmentSize' }],
+          })
+          .isOk()
+      ).toBe(true);
+      expect(
+        table
+          .createRecordAggregation({
+            viewId,
+            fields: [{ fieldId: fieldId.toString(), statisticFunc: 'unique' }],
+          })
+          ._unsafeUnwrapErr()
+      ).toMatchObject({ code: 'record_aggregation.function_not_supported' });
+    }
   });
 });
