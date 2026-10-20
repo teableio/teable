@@ -15,6 +15,13 @@
       "import": "./dist/index.js",
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./dataQueryExplain": {
+      "@teable/source": "./src/dataQueryExplain.ts",
+      "types": "./src/dataQueryExplain.ts",
+      "import": "./dist/index.js",
+      "module": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "files": [

@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AI_CONFIG_CIPHER_PREFIX,
   AiConfigValueCodec,
-  collectAiConfigSecrets,
   decryptAiConfigSecrets,
   encryptAiConfigSecrets,
-  isEncryptedAiConfigValue,
   mapAiConfigSecrets,
 } from './ai-config-encryption';
+import { isEncryptedSecretValue, SECRET_CIPHER_PREFIX } from './secret-value-codec';
 
 const codec = new AiConfigValueCodec({ BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'unit-test-root' });
 
@@ -16,7 +14,7 @@ describe('AiConfigValueCodec', () => {
     const first = codec.encryptValue('sk-live-123');
     const second = codec.encryptValue('sk-live-123');
 
-    expect(first.startsWith(AI_CONFIG_CIPHER_PREFIX)).toBe(true);
+    expect(first.startsWith(SECRET_CIPHER_PREFIX)).toBe(true);
     expect(first).not.toBe(second);
     expect(codec.decryptValueStrict(first)).toBe('sk-live-123');
     expect(codec.decryptValueStrict(second)).toBe('sk-live-123');
@@ -118,18 +116,6 @@ describe('mapAiConfigSecrets', () => {
       )
     ).toEqual({ llmProviders: ['weird', null], realtimeTranscription: 7 });
   });
-
-  it('collects every secret value for convergence checks', () => {
-    expect(collectAiConfigSecrets(fullConfig).sort()).toEqual([
-      'ck',
-      'gw',
-      'gw1',
-      'gw2',
-      'k1',
-      'pem',
-      'rt',
-    ]);
-  });
 });
 
 describe('encrypt/decryptAiConfigSecrets (process.env funnels)', () => {
@@ -137,14 +123,14 @@ describe('encrypt/decryptAiConfigSecrets (process.env funnels)', () => {
     const stored = encryptAiConfigSecrets({
       llmProviders: [{ type: 'openai', name: 'p1', apiKey: 'sk-plain' }],
     });
-    expect(isEncryptedAiConfigValue(stored.llmProviders[0].apiKey)).toBe(true);
+    expect(isEncryptedSecretValue(stored.llmProviders[0].apiKey)).toBe(true);
 
     const restored = decryptAiConfigSecrets(stored);
     expect(restored.llmProviders[0].apiKey).toBe('sk-plain');
   });
 
   it('returns an unopenable ciphertext verbatim instead of failing the read', () => {
-    const broken = `${AI_CONFIG_CIPHER_PREFIX}${Buffer.from('garbage-bytes-here-123456').toString('base64')}`;
+    const broken = `${SECRET_CIPHER_PREFIX}${Buffer.from('garbage-bytes-here-123456').toString('base64')}`;
     const restored = decryptAiConfigSecrets({ aiGatewayApiKey: broken });
     expect(restored.aiGatewayApiKey).toBe(broken);
   });

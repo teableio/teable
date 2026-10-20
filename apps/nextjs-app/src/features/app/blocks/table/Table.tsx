@@ -50,9 +50,10 @@ import { StaleViewRecovery, useViewErrorHandler } from './hooks/use-view-error-h
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
-  fieldServerData: IFieldVo[];
-  viewServerData: IViewVo[];
-  recordsServerData: { records: IRecord[] };
+  /** The page's SSR data. Absent for a table rendered off its route (the chat page's Output pane): the seed query bootstraps it from the start. */
+  fieldServerData?: IFieldVo[];
+  viewServerData?: IViewVo[];
+  recordsServerData?: { records: IRecord[] };
   recordServerData?: IRecord;
   groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | null };
 }
@@ -99,7 +100,7 @@ export const Table: React.FC<ITableProps> = ({
   // query takes over as the bootstrap source.
   const ssrAnchorRef = useRef(createSsrAnchorState(tableId, viewId));
   ssrAnchorRef.current = updateSsrAnchorState(ssrAnchorRef.current, tableId, viewId);
-  const ssrDataFresh = ssrAnchorRef.current.fresh;
+  const ssrDataFresh = fieldServerData !== undefined && ssrAnchorRef.current.fresh;
 
   const collapsedGroupIds = useGridCollapsedGroupStore(
     (state) => state.collapsedGroupMap[generateLocalId(tableId, viewId)]

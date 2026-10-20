@@ -1213,6 +1213,42 @@ describe('record-removal cold storage', () => {
       ]);
     });
 
+    it('compactTable expires old deleted/ months and never touches archived/', async () => {
+      vi.stubEnv('BACKEND_RECORD_REMOVAL_COLD_RETENTION_DAYS', '1095');
+      try {
+        const tableId = 'tblExpire';
+        const oldDeleted = await seedParts(
+          storage,
+          tableId,
+          'deleted',
+          { yyyymm: '202001', kind: 'month' },
+          [makeRow({ id: 'rmsOld', recordId: 'recOld', removedTime: '2020-01-10T01:00:00.000Z' })]
+        );
+        await seedParts(storage, tableId, 'archived', { yyyymm: '202001', kind: 'month' }, [
+          makeRow({ id: 'rmsArc', recordId: 'recArc', removedTime: '2020-01-10T01:00:00.000Z' }),
+        ]);
+        await storage.writeStats(tableId, 'deleted', {
+          version: 1,
+          tableId,
+          reason: 'deleted',
+          parts: Object.fromEntries(oldDeleted.map((entry) => [entry.key, entry])),
+        });
+        const compactor = new RecordRemovalCompactorService(
+          storage,
+          { dataPrismaForTable: async () => new FakeTombstoneDb().client } as never,
+          new RecordRemovalTombstoneService()
+        );
+        await compactor.compactTable(tableId);
+
+        const byReason = await storage.listTableParts(tableId);
+        expect([...byReason.get('deleted')!.keys()]).toEqual([]);
+        expect([...byReason.get('archived')!.keys()]).toEqual(['202001']);
+        expect((await storage.readStats(tableId, 'deleted'))?.parts).toEqual({});
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
     it('compaction physically drops tombstoned rows and leaves the tombstones in place', async () => {
       const tombstoneDb = new FakeTombstoneDb();
       const compactor = new RecordRemovalCompactorService(

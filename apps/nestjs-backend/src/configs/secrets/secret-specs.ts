@@ -49,6 +49,12 @@ export interface ISecretSpec {
   requiredWhen?: (env: Record<string, string | undefined>) => boolean;
 }
 
+/** For specs whose only consumer is an EE / cloud feature: do not nag community boots. */
+const isEeOrCloudEdition = (env: Record<string, string | undefined>) => {
+  const edition = env.NEXT_BUILD_ENV_EDITION?.toUpperCase();
+  return edition === 'EE' || edition === 'CLOUD';
+};
+
 export const SECRET_SPECS = {
   secretKey: {
     envKey: 'SECRET_KEY',
@@ -56,7 +62,7 @@ export const SECRET_SPECS = {
     // to their legacy literals, not to SECRET_KEY derivations (see
     // resolve-secret.ts) — so describe only what actually reads it.
     usedFor:
-      'JWT/session fallback, BYODB URL key derivation, EE env-variable encryption, AI-config key encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback',
+      'JWT/session fallback, BYODB URL key derivation, EE env-variable encryption, AI-config key encryption, third-party credential encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback',
     // 'defaultSecretKey' was only ever the dev fallback for EE env-variable
     // encryption; deployments that relied on it must pin it to keep decrypting.
     legacyDefault: 'defaultSecretKey',
@@ -83,11 +89,7 @@ export const SECRET_SPECS = {
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor: 'encrypting EE app env variables (HKDF root)',
     legacyDefault: 'defaultSecretKey',
-    // The consumer is an EE-only feature — do not nag community boots.
-    requiredWhen: (env) => {
-      const edition = env.NEXT_BUILD_ENV_EDITION?.toUpperCase();
-      return edition === 'EE' || edition === 'CLOUD';
-    },
+    requiredWhen: isEeOrCloudEdition,
   },
   // Same resolution shape as envVariableSecret (dedicated var → SECRET_KEY →
   // the public dev default); a distinct HKDF info string keeps its key
@@ -98,6 +100,17 @@ export const SECRET_SPECS = {
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor: 'encrypting AI provider API keys stored in instance/space AI config (HKDF root)',
     legacyDefault: 'defaultSecretKey',
+  },
+  // Same resolution shape as aiConfigEncryptionSecret; the HKDF info string
+  // (teable:third-party-credential) keeps it apart from the AI-config key when
+  // both fall back to SECRET_KEY.
+  thirdPartyCredentialEncryptionSecret: {
+    envKey: 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
+    fallbackEnvKeys: ['SECRET_KEY'],
+    usedFor:
+      'encrypting third-party credentials stored for customers: OAuth tokens, IM bot credentials, SSO client secrets, SMTP passwords, app-builder secrets, automation webhook / mail secrets (HKDF root)',
+    legacyDefault: 'defaultSecretKey',
+    requiredWhen: isEeOrCloudEdition,
   },
   mailEncryptionKey: {
     envKey: 'BACKEND_MAIL_ENCRYPTION_KEY',

@@ -26,6 +26,7 @@ import {
   mapQueryFilter,
   queryError,
   representativeParameterValue,
+  resolveDataQueryFilter,
 } from './DataQueryDefinition';
 import type {
   DataQueryAggregate,
@@ -193,6 +194,13 @@ const queryFieldUsages = (
   }
   snapshot.sort?.forEach((sort) => {
     if ('fieldId' in sort) add(sort.fieldId, 'sort');
+    // Every allow-listed target must exist and be readable, even when the runtime
+    // parameter selects only one of them: the choice is not a permission boundary.
+    if ('field' in sort) {
+      for (const target of sort.allowed) {
+        if ('fieldId' in target) add(target.fieldId, 'sort');
+      }
+    }
   });
   if (snapshot.filter) {
     collectFilterUsages(
@@ -210,18 +218,21 @@ const validateDefinitionFilters = (
   table: ITableReadModel
 ): Result<void, DomainError> => {
   if (!snapshot.filter) return ok(undefined);
-  const representative = mapQueryFilter(snapshot.filter, (reference) =>
-    representativeParameterValue(snapshot.parameters![reference.name])
-  );
-  const defaults = mapQueryFilter(snapshot.filter, (reference) => {
-    const parameter = snapshot.parameters![reference.name];
-    return Object.hasOwn(parameter, 'default')
-      ? parameter.default!
-      : representativeParameterValue(parameter);
+  const parameters = snapshot.parameters ?? {};
+  const representative = new Map<string, RecordFilterValue>();
+  const defaults = new Map<string, RecordFilterValue>();
+  for (const [name, parameter] of Object.entries(parameters)) {
+    const sample = representativeParameterValue(parameter);
+    representative.set(name, sample);
+    defaults.set(name, Object.hasOwn(parameter, 'default') ? parameter.default! : sample);
+  }
+  return safeTry(function* () {
+    const representativeFilter = yield* resolveDataQueryFilter(snapshot.filter, representative);
+    const defaultFilter = yield* resolveDataQueryFilter(snapshot.filter, defaults);
+    yield* validateDataQueryFilter(table, representativeFilter);
+    yield* validateDataQueryFilter(table, defaultFilter);
+    return ok(undefined);
   });
-  return validateDataQueryFilter(table, representative).andThen(() =>
-    validateDataQueryFilter(table, defaults)
-  );
 };
 
 const aggregateOutput = (
@@ -363,6 +374,22 @@ export class DataQueryBinding {
         fields.set(id, field);
         descriptions.set(id, dependency);
         dependencies.push(dependency);
+      }
+      if (snapshot.kind === 'records') {
+        for (const projection of snapshot.select) {
+          if (
+            'fieldId' in projection &&
+            projection.arrayDistinct === true &&
+            descriptions.get(projection.fieldId)?.isMultipleCellValue !== true
+          ) {
+            return err(
+              queryError(
+                'array_distinct_incompatible',
+                'Array-distinct projection requires a multiple-value field'
+              )
+            );
+          }
+        }
       }
       const outputs = yield* describeOutputs(snapshot, fields, descriptions);
       return ok(new DataQueryBinding(definition, dependencies, outputs));

@@ -21,9 +21,13 @@ import type { ISettingVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import type { IClsStore } from '../../types/cls';
-import { decryptAiConfigSecrets, encryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { parseSettingContent, SettingModel } from '../model/setting';
+import {
+  decryptSettingSecrets,
+  encryptSettingSecrets,
+  SECRET_BEARING_SETTINGS,
+} from './setting-secrets';
 
 @Injectable()
 export class SettingService {
@@ -70,11 +74,10 @@ export class SettingService {
 
     // Secrets are stored (and cached in the Redis setting blob) encrypted;
     // decrypting after the cache keeps only ciphertext in Redis.
-    if (res[SettingKey.AI_CONFIG]) {
-      res[SettingKey.AI_CONFIG] = decryptAiConfigSecrets(
-        res[SettingKey.AI_CONFIG],
-        'setting.aiConfig'
-      );
+    for (const name of SECRET_BEARING_SETTINGS) {
+      if (res[name]) {
+        res[name] = decryptSettingSecrets(name, res[name]);
+      }
     }
 
     // spaceIds are stripped from the Redis setting blob; hydrate only when canary is requested.
@@ -124,7 +127,7 @@ export class SettingService {
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
     const userId = this.cls.get('user.id');
     const updates = Object.entries(updateSettingRo).map(([name, value]) => {
-      const stored = name === SettingKey.AI_CONFIG ? encryptAiConfigSecrets(value) : value;
+      const stored = encryptSettingSecrets(name, value);
       const content = JSON.stringify(stored ?? null);
       return {
         where: { name },
@@ -143,11 +146,7 @@ export class SettingService {
 
     const res: Record<string, unknown> = {};
     for (const setting of results) {
-      const parsed = parseSettingContent(setting.content);
-      res[setting.name] =
-        setting.name === SettingKey.AI_CONFIG
-          ? decryptAiConfigSecrets(parsed, 'setting.aiConfig')
-          : parsed;
+      res[setting.name] = decryptSettingSecrets(setting.name, parseSettingContent(setting.content));
     }
 
     return res as ISettingVo;

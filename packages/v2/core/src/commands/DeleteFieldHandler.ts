@@ -37,6 +37,10 @@ import { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
 import type { IFieldDeleteSnapshotSinkCompletion } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import {
@@ -90,11 +94,33 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
     @inject(v2CoreTokens.fieldDeleteSnapshotSink)
-    private readonly fieldDeleteSnapshotSink: IFieldDeleteSnapshotSink
+    private readonly fieldDeleteSnapshotSink: IFieldDeleteSnapshotSink,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: DeleteFieldCommand
+  ): Promise<Result<DeleteFieldResult, DomainError>> {
+    const leaseResult = await this.tableSchemaCoordination.acquire(
+      context,
+      [command.tableId.toString()],
+      'exclusive'
+    );
+    if (leaseResult.isErr()) {
+      return err(leaseResult.error);
+    }
+    const lease = leaseResult.value;
+    try {
+      return await this.execute(context, command);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  private async execute(
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteFieldCommand
   ): Promise<Result<DeleteFieldResult, DomainError>> {

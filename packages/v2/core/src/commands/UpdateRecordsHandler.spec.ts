@@ -38,8 +38,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -56,6 +56,11 @@ import type {
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+  type TableSchemaCoordinationMode,
+} from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -213,10 +218,13 @@ class FakeTableRepository implements ITableRepository {
     return ok({ rowCount: 0, recordIds: [] });
   }
 
+  findOneCalls = 0;
+
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
+    this.findOneCalls += 1;
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
     if (!match) return err(domainError.notFound({ message: 'Table not found' }));
     return ok(match);
@@ -537,6 +545,29 @@ class FakeUndoRedoService {
     return ok(undefined);
   }
 }
+class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
+  readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
+    [];
+  releaseCount = 0;
+
+  constructor(private readonly failure?: DomainError) {}
+
+  async acquire(
+    _context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: TableSchemaCoordinationMode
+  ) {
+    this.calls.push({ tableIds, mode });
+    if (this.failure) {
+      return err(this.failure);
+    }
+    return ok(
+      createTableSchemaCoordinationLease(mode, tableIds, async () => {
+        this.releaseCount += 1;
+      })
+    );
+  }
+}
 
 const createHandler = (
   tableRepository: FakeTableRepository,
@@ -550,6 +581,7 @@ const createHandler = (
     plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
     recordMutationSpecResolver?: FakeRecordMutationSpecResolverService;
     recordChangedValueDecoratorService?: IRecordChangedValueDecoratorService;
+    tableSchemaCoordination?: ITableSchemaCoordination;
   }
 ) => {
   const orderCalculator = options?.orderCalculator ?? new FakeRecordOrderCalculator();
@@ -570,7 +602,11 @@ const createHandler = (
     new NoopLogger()
   );
 
-  return new UpdateRecordsHandler(new TableQueryService(tableRepository), recordBulkUpdateService);
+  return new UpdateRecordsHandler(
+    new TableQueryService(tableRepository),
+    recordBulkUpdateService,
+    options?.tableSchemaCoordination
+  );
 };
 
 describe('UpdateRecordsHandler', () => {
@@ -1607,5 +1643,140 @@ describe('UpdateRecordsHandler', () => {
     expect(tableRepository.updated).toHaveLength(0);
     expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
     expect(undoRedoService.entries).toHaveLength(0);
+  });
+});
+
+describe('UpdateRecordsHandler schema coordination', () => {
+  const recordId = `rec${'q'.repeat(16)}`;
+
+  const setup = (coordination: ITableSchemaCoordination, options: { omitTable?: boolean } = {}) => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    if (!options.omitTable) {
+      tableRepository.tables.push(table);
+    }
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateManyResult = {
+      totalUpdated: 1,
+      updatedRecordIds: [RecordId.create(recordId)._unsafeUnwrap()],
+      updatedRecords: [
+        {
+          recordId: RecordId.create(recordId)._unsafeUnwrap(),
+          oldVersion: 1,
+          newVersion: 2,
+          oldFieldValues: { [numberFieldId.toString()]: 1 },
+        },
+      ],
+    };
+
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      new FakeUndoRedoService(),
+      { tableSchemaCoordination: coordination }
+    );
+
+    return { table, tableId, textFieldId, numberFieldId, tableRepository, handler };
+  };
+
+  const createCommand = (input: Record<string, unknown>) =>
+    UpdateRecordsCommand.create(input)._unsafeUnwrap();
+
+  const selectorInput = (tableId: TableId, fields: Record<string, unknown>) => ({
+    tableId: tableId.toString(),
+    fields,
+    filter: { fieldId: `fld${'t'.repeat(16)}`, operator: 'is', value: 'task' },
+  });
+
+  it('holds a shared lease for an ordinary bulk update', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, numberFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(selectorInput(tableId, { [numberFieldId.toString()]: 99 }))
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('holds an exclusive lease for typecast bulk updates', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [textFieldId.toString()]: 'Renamed' }),
+        typecast: true,
+      })
+    );
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('does not coordinate ordered bulk updates because row-order CIC cannot run inside the lease', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { table, tableId, numberFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        tableId: tableId.toString(),
+        records: [
+          {
+            id: recordId,
+            fields: { [numberFieldId.toString()]: 99 },
+          },
+        ],
+        order: {
+          viewId: table.views()[0]!.id().toString(),
+          anchorId: recordId,
+          position: 'after',
+        },
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([]);
+    expect(coordination.releaseCount).toBe(0);
+  });
+
+  it('returns the coordination failure before reading table metadata', async () => {
+    const coordination = new RecordingTableSchemaCoordination(
+      domainError.infrastructure({
+        code: 'schema_coordination.acquire_failed',
+        message: 'Failed to acquire table schema coordination locks',
+      })
+    );
+    const { tableId, numberFieldId, tableRepository, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(selectorInput(tableId, { [numberFieldId.toString()]: 99 }))
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('schema_coordination.acquire_failed');
+    expect(tableRepository.findOneCalls).toBe(0);
+    expect(coordination.releaseCount).toBe(0);
+  });
+
+  it('releases the lease when the bulk update fails', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, numberFieldId, handler } = setup(coordination, { omitTable: true });
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(selectorInput(tableId, { [numberFieldId.toString()]: 99 }))
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(coordination.releaseCount).toBe(1);
   });
 });

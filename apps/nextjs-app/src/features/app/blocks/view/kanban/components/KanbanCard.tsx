@@ -2,7 +2,15 @@
 import type { DraggableProvided } from '@hello-pangea/dnd';
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
-import { ArrowDown, ArrowUp, History, Link, Maximize2, MessageSquare } from '@teable/icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  History,
+  Link,
+  Maximize2,
+  MessageSquare,
+  MessageSquareDot,
+} from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -21,6 +29,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CardCarousel } from '../../gallery/components';
+import { useAddToChat } from '../../hooks/useAddToChat';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
@@ -51,6 +60,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     setExpandRecordId,
   } = useKanban() as Required<IKanbanContext>;
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
+  const { chatEnabled, addToChat } = useAddToChat();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
     permission;
@@ -210,6 +220,12 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             <MessageSquare className="size-4" />
             {/* read-only collaborators open the thread, they just can't add to it */}
             {cardCommentCreatable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title')}
+          </ContextMenuItem>
+        )}
+        {chatEnabled && (
+          <ContextMenuItem onClick={() => addToChat(card.id)}>
+            <MessageSquareDot className="size-4" />
+            {t('table:menu.addToChat')}
           </ContextMenuItem>
         )}
         {cardDeletable && !card.undeletable && (

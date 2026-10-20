@@ -225,6 +225,15 @@ export class FieldSupplementService {
     await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
   }
 
+  /**
+   * Reading a foreign table's records through a host field (e.g. a link field's
+   * filter-link options) is, across bases, not covered by the caller's role on
+   * the host base; require read access to the foreign table, as a write would.
+   */
+  async assertForeignTableReadable(tableId: string, foreignTableId: string): Promise<void> {
+    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
+  }
+
   private getForeignKeyFieldName(fieldId: string | undefined) {
     if (!fieldId) {
       return `__fk_rad${getRandomString(16)}`;

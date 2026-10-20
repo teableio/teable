@@ -19,6 +19,7 @@ export * from './record/computed';
 export * from './record/query-builder';
 export * from './record/visitors';
 export { PostgresDataQueryExecutor } from './record/data-query/PostgresDataQueryExecutor';
+export { PostgresDataQueryExplainer } from './record/data-query/PostgresDataQueryExplainer';
 
 // DI exports (main API)
 export * from './di';

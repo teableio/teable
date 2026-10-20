@@ -7,6 +7,11 @@ import {
   type ValidateDataQueryResponseDto,
 } from '@teable/v2-contract-http';
 import {
+  DATA_QUERY_EXPLAIN_PATH,
+  explainDataQueryResponseDtoSchema,
+  type ExplainDataQueryResponseDto,
+} from '@teable/v2-contract-http/dataQueryExplain';
+import {
   executeDataQueryRequestSchema,
   validateDataQueryRequestSchema,
   type ExecuteDataQueryRequest,
@@ -18,9 +23,13 @@ import type { IV2HttpClientOptions } from './index';
 export type DataQueryHttpClient = {
   execute(request: ExecuteDataQueryRequest): Promise<ExecuteDataQueryResponseDto>;
   validate(request: ValidateDataQueryRequest): Promise<ValidateDataQueryResponseDto>;
+  explain(request: ExecuteDataQueryRequest): Promise<ExplainDataQueryResponseDto>;
 };
 
-type QueryResponse = ExecuteDataQueryResponseDto | ValidateDataQueryResponseDto;
+type QueryResponse =
+  | ExecuteDataQueryResponseDto
+  | ValidateDataQueryResponseDto
+  | ExplainDataQueryResponseDto;
 
 /** Opt-in fetch transport; baseUrl is the v2 API root, never the operation URL. */
 export const createDataQueryHttpClient = (options: IV2HttpClientOptions): DataQueryHttpClient => {
@@ -94,6 +103,13 @@ export const createDataQueryHttpClient = (options: IV2HttpClientOptions): DataQu
         request,
         validateDataQueryRequestSchema,
         validateDataQueryResponseDtoSchema
+      ),
+    explain: (request) =>
+      post(
+        DATA_QUERY_EXPLAIN_PATH,
+        request,
+        executeDataQueryRequestSchema,
+        explainDataQueryResponseDtoSchema
       ),
   };
 };

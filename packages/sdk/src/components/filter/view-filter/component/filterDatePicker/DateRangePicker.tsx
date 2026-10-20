@@ -249,7 +249,7 @@ const YearMonthPicker = memo(function YearMonthPicker({
               key={virtualRow.key}
               className={cn(
                 'absolute start-0 top-0 flex w-full items-center px-1',
-                showSeparator && 'border-t border-dashed border-border/50'
+                showSeparator && 'border-t border-dashed border-border'
               )}
               style={{
                 height: `${virtualRow.size}px`,

@@ -2057,6 +2057,9 @@ export class FieldOpenApiService {
         return [];
       }
 
+      // The route only checks the host table; reading a cross-base foreign table
+      // needs read access there too.
+      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
@@ -2067,6 +2070,7 @@ export class FieldOpenApiService {
         return [];
       }
 
+      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 

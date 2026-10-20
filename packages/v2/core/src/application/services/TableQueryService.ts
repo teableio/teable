@@ -9,6 +9,7 @@ import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
+import { withoutTransaction } from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
@@ -82,6 +83,54 @@ export class TableQueryService {
     tableId: TableId
   ): Promise<Result<Table, DomainError>> {
     return this.getByIdWithState(context, tableId, 'active');
+  }
+
+  /** Diagnose only failed record operations, after their transaction has rolled back. */
+  async resolveRecordSchemaError(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    error: DomainError
+  ): Promise<DomainError> {
+    const column = error.details?.column;
+    if (error.details?.pgCode !== '42703' || typeof column !== 'string') return error;
+
+    const physicalName = table.dbTableName().andThen((name) => name.value());
+    if (physicalName.isErr()) return error;
+    const [schema, relation] = physicalName.value.split('.');
+    if (error.details?.table && error.details.table !== (relation ?? schema)) return error;
+    if (error.details?.schema && error.details.schema !== (relation ? schema : 'public')) {
+      return error;
+    }
+
+    const previousField = table.getFields().find((field) => {
+      const name = field.dbFieldName().andThen((value) => value.value());
+      return name.isOk() && name.value === column;
+    });
+    if (!previousField) return error;
+
+    // Include pending fields: a provisioning transition is not evidence of deletion.
+    const fresh = await this.tableRepository.findOne(
+      withoutTransaction(context),
+      TableByIdSpec.create(table.id()),
+      { state: 'activeWithPending' }
+    );
+    if (fresh.isErr() || !fresh.value) return error;
+    const currentField = fresh.value
+      .getFields()
+      .find((field) => field.id().equals(previousField.id()));
+    if (currentField) {
+      const currentName = currentField.dbFieldName().andThen((name) => name.value());
+      if (currentName.isErr() || currentName.value === column) return error;
+    }
+
+    return domainError.conflict({
+      code: 'record.schema_changed',
+      message: 'The table schema changed while updating the record. Refresh and retry.',
+      details: {
+        tableId: table.id().toString(),
+        fieldId: previousField.id().toString(),
+      },
+    });
   }
 
   /**

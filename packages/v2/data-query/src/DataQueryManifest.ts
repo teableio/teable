@@ -238,6 +238,12 @@ const validateManifestResult = (
   query: DataQueryManifestQuery,
   context: z.RefinementCtx
 ) => {
+  if (query.result === 'one' && query.definition?.page?.includeTotal === true)
+    addManifestIssue(
+      context,
+      ['queries', queryId, 'result'],
+      'One-result queries cannot request page.includeTotal'
+    );
   if (
     query.result === 'one' &&
     query.definition &&
@@ -250,6 +256,33 @@ const validateManifestResult = (
     );
 };
 
+const validateFallbackSemantics = (
+  queryId: string,
+  query: DataQueryManifestQuery,
+  context: z.RefinementCtx
+) => {
+  const definition = query.definition;
+  if (!query.fallback || !definition) return;
+  const hasOptionalFilter = (node: NonNullable<typeof definition.filter>): boolean => {
+    if ('items' in node) return node.items.some(hasOptionalFilter);
+    if ('not' in node) return hasOptionalFilter(node.not);
+    return node.optional === true;
+  };
+  const unsupported =
+    definition.page?.includeTotal === true ||
+    (definition.filter !== undefined && hasOptionalFilter(definition.filter)) ||
+    definition.sort?.some((sort) => 'field' in sort || 'alias' in sort) ||
+    (definition.kind === 'records' &&
+      definition.select.some((projection) => 'fieldId' in projection && projection.arrayDistinct));
+  if (unsupported) {
+    addManifestIssue(
+      context,
+      ['queries', queryId, 'fallback'],
+      'SQL fallback cannot preserve optional filters, parameterized/alias sorting, totals or array-distinct projection'
+    );
+  }
+};
+
 const validateManifestQuery = (
   queryId: string,
   query: DataQueryManifestQuery,
@@ -260,6 +293,7 @@ const validateManifestQuery = (
   validateManifestFallback(queryId, query, context);
   validateManifestFallbackOutputs(queryId, query, context);
   validateManifestResult(queryId, query, context);
+  validateFallbackSemantics(queryId, query, context);
 };
 
 export const dataQueryManifestSchema = z

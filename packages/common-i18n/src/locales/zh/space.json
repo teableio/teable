@@ -95,6 +95,9 @@
     "description": "所有邀请我加入的项目",
     "empty": "暂无分享给我的项目"
   },
+  "quickSearch": {
+    "placeholder": "搜索项目或资源"
+  },
   "aiSetting": {
     "title": "AI 配置",
     "description": "管理空间 AI 配置",

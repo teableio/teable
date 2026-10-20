@@ -1,18 +1,16 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Star } from '@teable/icons';
 import type { PinType } from '@teable/openapi';
-import { addPin, deletePin } from '@teable/openapi';
-import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   Tooltip,
   TooltipContent,
+  TooltipPortal,
   TooltipProvider,
   TooltipTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { usePinMap } from '../usePinMap';
+import { usePinActions } from '../usePinActions';
 
 interface IStarButtonProps {
   id: string;
@@ -22,25 +20,9 @@ interface IStarButtonProps {
 
 export const StarButton = (props: IStarButtonProps) => {
   const { className, id, type } = props;
-  const queryClient = useQueryClient();
-  const pinMap = usePinMap();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
-  const isPin = pinMap?.[id];
-
-  const { mutate: addPinMutation, isPending: addPinLoading } = useMutation({
-    mutationFn: addPin,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
-    },
-  });
-
-  const { mutate: deletePinMutation, isPending: deletePinLoading } = useMutation({
-    mutationFn: deletePin,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
-    },
-  });
+  const { isPinned, togglePin } = usePinActions();
+  const isPin = isPinned(id);
 
   return (
     <TooltipProvider>
@@ -49,8 +31,7 @@ export const StarButton = (props: IStarButtonProps) => {
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
-            if (addPinLoading || deletePinLoading) return;
-            isPin ? deletePinMutation({ id, type }) : addPinMutation({ id, type });
+            togglePin(id, type);
           }}
         >
           <Star
@@ -64,9 +45,12 @@ export const StarButton = (props: IStarButtonProps) => {
             )}
           />
         </TooltipTrigger>
-        <TooltipContent>
-          <p>{isPin ? t('space:pin.remove') : t('space:pin.add')}</p>
-        </TooltipContent>
+        {/* Portalled: a sidebar or scroll area around the button would clip it. */}
+        <TooltipPortal>
+          <TooltipContent>
+            <p>{isPin ? t('space:pin.remove') : t('space:pin.add')}</p>
+          </TooltipContent>
+        </TooltipPortal>
       </Tooltip>
     </TooltipProvider>
   );

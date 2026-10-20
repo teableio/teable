@@ -814,6 +814,7 @@ model Notification {
   createdBy            String   @map("created_by")
 
   @@index([toUserId, isRead, createdTime])
+  @@index([createdTime])
   @@map("notification")
 }
 

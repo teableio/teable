@@ -95,6 +95,9 @@
     "description": "参加を招待されたすべてのプロジェクト",
     "empty": "共有プロジェクトはまだありません"
   },
+  "quickSearch": {
+    "placeholder": "プロジェクトやリソースを検索"
+  },
   "aiSetting": {
     "title": "AI設定",
     "description": "スペースのAI設定を管理します",

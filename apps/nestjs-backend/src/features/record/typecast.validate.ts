@@ -327,6 +327,13 @@ export class TypeCastAndValidate {
    * Try to find the rows with matching titles from the link table and write them to the cell.
    */
   private async castToLink(cellValues: unknown[]): Promise<unknown[]> {
+    // Resolving or writing a link cell reads the foreign table (its primary
+    // field, and the symmetric cell it writes back); for a cross-base link that
+    // read is not covered by the caller's role on the host base. Require it on
+    // every link write, not only the typecast title-lookup branch below — a
+    // structured id write (`typecast=false`) reaches the foreign table just the
+    // same.
+    await this.assertForeignTableReadable();
     const linkRecordMap = this.typecast ? await this.getLinkTableRecordMap(cellValues) : {};
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       return this.castToLinkOne(cellValue, linkRecordMap);
@@ -519,7 +526,7 @@ export class TypeCastAndValidate {
       return {};
     }
 
-    await this.assertForeignTableReadable();
+    // The foreign-table read check now runs unconditionally in castToLink.
 
     // id[]
     if (typeof titles[0] === 'string' && titles[0].startsWith('rec')) {

@@ -37,12 +37,17 @@ import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { toTableRecord } from './shared/toTableRecord';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
+
 const buildScopedUpdateForbiddenError = (tableId: string) =>
   domainError.forbidden({
     code: 'record_write_plugin.scope_forbidden',
@@ -148,11 +153,40 @@ export class UpdateRecordHandler
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: UpdateRecordCommand
+  ): Promise<Result<UpdateRecordResult, DomainError>> {
+    // Row-order preparation performs CREATE INDEX CONCURRENTLY, which waits for
+    // any open snapshot. Holding a coordination transaction across it self-locks.
+    if (command.order != null) {
+      return this.execute(context, command);
+    }
+
+    const mode = command.typecast === true ? 'exclusive' : 'shared';
+    const leaseResult = await this.tableSchemaCoordination.acquire(
+      context,
+      [command.tableId.toString()],
+      mode
+    );
+    if (leaseResult.isErr()) {
+      return err(leaseResult.error);
+    }
+    const lease = leaseResult.value;
+    try {
+      return await this.execute(context, command);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  private async execute(
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateRecordCommand
   ): Promise<Result<UpdateRecordResult, DomainError>> {
@@ -185,12 +219,22 @@ export class UpdateRecordHandler
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
       // Query the current record after plugin guard passes to capture old values and row order.
-      const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
+      const currentRecordResult = await handler.tableRecordQueryRepository.findOne(
         context,
         table,
         command.recordId,
         { mode: 'stored', includeOrders: true }
       );
+      if (currentRecordResult.isErr()) {
+        return err(
+          await handler.tableQueryService.resolveRecordSchemaError(
+            context,
+            table,
+            currentRecordResult.error
+          )
+        );
+      }
+      const currentRecord = currentRecordResult.value;
       const currentRecordEntity = yield* toTableRecord(table, currentRecord);
       if (pluginRecordSpec) {
         if (!pluginRecordSpec.isSatisfiedBy(currentRecordEntity)) {
@@ -304,7 +348,7 @@ export class UpdateRecordHandler
         nextOrder = orderValues[0];
       }
 
-      const committed = yield* await handler.domainWriteTransaction.execute(
+      const committedResult = await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
           return safeTry(async function* () {
@@ -461,6 +505,16 @@ export class UpdateRecordHandler
           });
         }
       );
+      if (committedResult.isErr()) {
+        return err(
+          await handler.tableQueryService.resolveRecordSchemaError(
+            context,
+            tableForUpdate,
+            committedResult.error
+          )
+        );
+      }
+      const committed = committedResult.value;
 
       const mutationResult = committed.value;
       const events = committed.events;

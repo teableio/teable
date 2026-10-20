@@ -95,6 +95,9 @@
     "description": "Tous les projets que j'ai été invité à rejoindre",
     "empty": "Aucun projet partagé avec moi pour le moment"
   },
+  "quickSearch": {
+    "placeholder": "Rechercher des projets ou des ressources"
+  },
   "aiSetting": {
     "title": "Paramètres IA",
     "description": "Gérer les paramètres IA de votre espace",

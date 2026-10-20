@@ -7,6 +7,7 @@ Declaration: If the folder I belong to changes, please update me.
 - Provide the Kysely Postgres dialect backed by the `pg` driver.
 - Re-export shared Postgres DB tokens/config schema and the UnitOfWork implementation from the shared adapter package.
 - Expose DI helpers for registering the database into containers.
+- Coordinate table schema writes through a dedicated advisory-lock pool that never competes with the shared meta/request pool.
 - Provide opt-in, async-scoped cancellation for interactive reads without adding a SQL timeout or coupling the domain model to HTTP/ShareDB.
 
 ## Subfolders
@@ -21,7 +22,14 @@ Declaration: If the folder I belong to changes, please update me.
 - `src/cancellablePool.ts` - Kysely pool facade with per-checkout cancellation ownership; preserves raw pool instrumentation and external pool lifetime.
 - `src/cancelRequest.ts` - Separate PostgreSQL CancelRequest connection to the original peer, retaining TLS verification and server identity.
 - `src/unitOfWork.ts` - Re-exported transaction wrapper for v2 UnitOfWork.
+- `src/schemaCoordination.ts` - Dedicated `pg.Pool` advisory-lock coordinator for table schema leases.
 - `src/index.ts` - Package public exports.
+
+## Schema coordination invariants
+
+- A lease pins one dedicated-pool connection in an open transaction; `pg_advisory_xact_lock[_shared]` is taken per sorted table id. The lock cannot outlive the transaction, so a lost connection releases it server-side.
+- Exhausting the coordination pool queues only coordination acquires. Business queries on the shared meta pool keep running, and `destroy()` rejects queued acquires instead of draining them after `pool.end()`.
+- A checked-out client installs its own `error` listener (pg only listens while idle). A connection error destroys that client, marks the lease broken, and makes `release()` a no-op; release otherwise commits and returns the client, or rolls back and destroys it when the commit fails.
 
 ## Cancellation invariants
 

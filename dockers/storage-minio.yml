@@ -1,7 +1,7 @@
 
 services:
   teable-storage:
-    image: minio/minio:RELEASE.2024-02-17T01-15-57Z
+    image: ghcr.io/teableio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: teable-storage
     hostname: teable-storage
     restart: always
@@ -21,7 +21,7 @@ services:
     command: server /data --console-address ":9001"
 
   createbuckets:
-    image: minio/mc:RELEASE.2024-02-16T11-05-48Z
+    image: ghcr.io/teableio/minio-mc:RELEASE.2025-04-16T18-13-26Z
     networks:
       - teable-net
     depends_on:

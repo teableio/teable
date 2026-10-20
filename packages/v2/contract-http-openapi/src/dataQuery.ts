@@ -1,9 +1,12 @@
 import {
   DATA_QUERY_EXECUTE_PATH,
+  type ExplainDataQueryResponseDto,
+  DATA_QUERY_EXPLAIN_PATH,
   type ExecuteDataQueryResponseDto,
   DATA_QUERY_VALIDATE_PATH,
   type ValidateDataQueryResponseDto,
 } from '@teable/v2-contract-http';
+import { explainDataQueryEndpoint } from '@teable/v2-contract-http-implementation/data-query-explain';
 import {
   executeDataQueryEndpoint,
   validateDataQueryEndpoint,
@@ -15,10 +18,15 @@ import {
   isUnauthorizedError,
   type IExecutionContext,
 } from '@teable/v2-core';
-import type { QueryExecutionService } from '@teable/v2-data-query';
+import type { QueryExecutionService, QueryExplainExecutionService } from '@teable/v2-data-query';
 
 export interface IDataQueryFetchHandlerOptions {
   service: Pick<QueryExecutionService, 'execute' | 'validate'>;
+  /**
+   * Opt-in explain handler. Omitting it keeps /queries/explain unmounted, which
+   * is how a disabled deployment stays route-absent.
+   */
+  explainService?: Pick<QueryExplainExecutionService, 'explain'>;
   /** Authenticate the original request; throw an unauthorized/forbidden DomainError to deny access. */
   createExecutionContext: (request: Request) => IExecutionContext | Promise<IExecutionContext>;
 }
@@ -33,7 +41,7 @@ export type DataQueryFetchHandler = {
 
 const respond = (
   status: number,
-  body: ExecuteDataQueryResponseDto | ValidateDataQueryResponseDto,
+  body: ExecuteDataQueryResponseDto | ValidateDataQueryResponseDto | ExplainDataQueryResponseDto,
   headers?: HeadersInit
 ): DataQueryFetchHandlerResult => ({
   matched: true,
@@ -76,7 +84,9 @@ export const createDataQueryFetchHandler = (
 ): DataQueryFetchHandler => ({
   async handle(request: Request): Promise<DataQueryFetchHandlerResult> {
     const path = new URL(request.url).pathname;
-    if (path !== DATA_QUERY_EXECUTE_PATH && path !== DATA_QUERY_VALIDATE_PATH)
+    const isExplain = path === DATA_QUERY_EXPLAIN_PATH;
+    if (isExplain && !options.explainService) return { matched: false };
+    if (path !== DATA_QUERY_EXECUTE_PATH && path !== DATA_QUERY_VALIDATE_PATH && !isExplain)
       return { matched: false };
     if (request.method !== 'POST') {
       return respond(
@@ -118,8 +128,9 @@ export const createDataQueryFetchHandler = (
     }
 
     try {
-      const result =
-        path === DATA_QUERY_VALIDATE_PATH
+      const result = isExplain
+        ? await explainDataQueryEndpoint(context, rawInput, options.explainService!)
+        : path === DATA_QUERY_VALIDATE_PATH
           ? await validateDataQueryEndpoint(context, rawInput, options.service)
           : await executeDataQueryEndpoint(context, rawInput, options.service);
       return respond(result.status, result.body);

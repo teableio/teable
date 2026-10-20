@@ -69,6 +69,10 @@ type ComputedActivityReadOptions = {
   includePauseDiagnostics?: boolean;
   heal?: boolean;
   includeFields?: boolean;
+  /** Absolute deadline shared by the first read and a version-churn reread. Internal. */
+  deadlineAt?: number;
+  /** Coalescer key used to keep the last good snapshot for budget fallbacks. Internal. */
+  coalesceKey?: string;
 };
 
 /** A snapshot plus the projection version it was produced from; without a version it is never stored. */
@@ -82,6 +86,8 @@ type CachedActivityRead = {
 // few poll ticks after churn subsides.
 const RECONCILE_COOLDOWN_MS = 15_000;
 const RECONCILE_COOLDOWN_MAX_ENTRIES = 10_000;
+// Bound the per-scope fallback snapshots served when a budgeted read is canceled.
+const LAST_GOOD_MAX_ENTRIES = 1_000;
 
 const emptyPauseDiagnostics = (): ComputeActivityPauseDiagnostics => ({
   effective: false,
@@ -89,6 +95,11 @@ const emptyPauseDiagnostics = (): ComputeActivityPauseDiagnostics => ({
   queuedTaskCount: 0,
   oldestQueuedAt: null,
 });
+
+// SQLSTATE 57014 is the server canceling the statement at statement_timeout.
+const isBudgetFailure = (error: unknown): boolean =>
+  error instanceof ComputedActivityReadBudgetExceededError ||
+  (typeof error === 'object' && error !== null && 'code' in error && error.code === '57014');
 
 const toIsoString = (value: Date | string): string =>
   value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -184,6 +195,11 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
   // shared projection, so one read per table+scope per retention window serves
   // them all — and only while the projection token is unchanged.
   private readonly readCoalescer = new ComputedActivityReadCoalescer<CachedActivityRead>();
+
+  // Last successful snapshot per coalescer scope. A budgeted poll that is
+  // canceled returns this snapshot marked `syncing` instead of a 500; the next
+  // poll refreshes it. Bounded so per-user field scopes cannot grow forever.
+  private readonly lastGood = new Map<string, TableComputeActivitySnapshot>();
 
   // `computed_field_activity`/`computed_table_activity` are the only inputs whose
   // change the client is notified about, so their version is the freshness token:
@@ -306,17 +322,23 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
     }
 
     const key = this.readCoalesceKey(context, tableId, requestedBaseId, options);
-    if (key === undefined) return this.readByTableId(context, tableId, requestedBaseId, options);
-
-    const deadline =
+    const deadlineAt =
       options?.budgetMs === undefined ? undefined : Date.now() + Math.min(options.budgetMs, 5000);
+    const readOptions: ComputedActivityReadOptions = {
+      ...(options ?? {}),
+      deadlineAt,
+      ...(key === undefined ? {} : { coalesceKey: key }),
+    };
+    if (key === undefined)
+      return this.readByTableId(context, tableId, requestedBaseId, readOptions);
+
     // A table whose version cannot be read (missing relation, permissions) is read
     // normally and never stored: the read path owns how that failure is reported.
     const readVersion = async (): Promise<string | undefined> => {
       try {
-        return await this.readActivityVersion(tableId, deadline);
+        return await this.readActivityVersion(tableId, deadlineAt);
       } catch (error) {
-        if (error instanceof ComputedActivityReadBudgetExceededError) throw error;
+        if (isBudgetFailure(error)) throw error;
         return undefined;
       }
     };
@@ -331,12 +353,19 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
           // result is already re-read after those writes, so it is kept unlabeled
           // instead of being re-read (which would drop its reconciliation marker).
           let label = await readVersion();
-          let result = await this.readByTableId(context, tableId, requestedBaseId, options);
+          let result = await this.readByTableId(context, tableId, requestedBaseId, readOptions);
           if (label !== undefined) {
             let check = await readVersion();
             if (check !== label && result.isOk() && !result.value.reconciliationPerformed) {
+              // Hot-table poll: accept the first snapshot (one write behind) rather
+              // than paying a second full transaction that can exhaust the request
+              // budget on an already-stalled event loop. The next poll refreshes it;
+              // strict (unbudgeted) and healing reads keep the old reread semantics.
+              if (options?.budgetMs !== undefined && options.heal !== true) {
+                return { token: undefined, result };
+              }
               label = check;
-              result = await this.readByTableId(context, tableId, requestedBaseId, options);
+              result = await this.readByTableId(context, tableId, requestedBaseId, readOptions);
               check = await readVersion();
             }
             if (check !== label) label = undefined;
@@ -350,12 +379,16 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
           // no rows and are shared so a broken table is not hammered once per caller.
           shareable: (value) => !value.result.isOk() || value.token !== undefined,
           revalidate: async (value) => (await readVersion()) === value.token,
-          ...(deadline === undefined ? {} : { deadline }),
+          ...(deadlineAt === undefined ? {} : { deadline: deadlineAt }),
         }
       );
+      if (cached.result.isOk()) this.rememberLastGood(key, cached.result.value);
       return cached.result;
     } catch (error) {
-      if (error instanceof ComputedActivityReadBudgetExceededError) {
+      if (isBudgetFailure(error)) {
+        if (options?.budgetMs !== undefined && options.heal !== true) {
+          return ok(this.syncingSnapshot(key, tableId, requestedBaseId, options));
+        }
         return err(this.readBudgetFailedError(tableId, error));
       }
       throw error;
@@ -367,6 +400,35 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       message: 'Compute activity read budget failed',
       details: { tableId, error: error instanceof Error ? error.message : String(error) },
     });
+  }
+
+  private syncingSnapshot(
+    key: string | undefined,
+    tableId: string,
+    requestedBaseId?: string,
+    options?: ComputedActivityReadOptions
+  ): TableComputeActivitySnapshot {
+    const cached = key === undefined ? undefined : this.lastGood.get(key);
+    if (cached) return { ...cached, observationState: 'syncing' };
+    return {
+      observedAt: new Date().toISOString(),
+      observationState: 'syncing',
+      tableId,
+      baseId: requestedBaseId ?? '',
+      table: null,
+      fields: [],
+      reliabilityIsAccessScoped: options?.readableFieldIds !== undefined,
+      diagnostics: buildDiagnostics([], emptyPauseDiagnostics()),
+    };
+  }
+
+  private rememberLastGood(key: string, snapshot: TableComputeActivitySnapshot): void {
+    if (snapshot.observationState === 'syncing') return;
+    if (!this.lastGood.has(key) && this.lastGood.size >= LAST_GOOD_MAX_ENTRIES) {
+      const oldest = this.lastGood.keys().next().value;
+      if (oldest !== undefined) this.lastGood.delete(oldest);
+    }
+    this.lastGood.set(key, snapshot);
   }
 
   private async readByTableId(
@@ -397,7 +459,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         })
       );
     }
-    const deadline = Date.now() + Math.min(options.budgetMs, 5000);
+    const deadline = options.deadlineAt ?? Date.now() + Math.min(options.budgetMs, 5000);
     let unit: PostgresUnitOfWorkTransaction<V1TeableDatabase> | undefined;
     try {
       const value = await this.db.transaction().execute(async (trx) => {
@@ -410,15 +472,20 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         {
           const original = connection.executeQuery;
           const execute = original.bind(connection);
+          const remaining = Math.floor(deadline - Date.now());
+          if (remaining <= 0) throw new ComputedActivityReadBudgetExceededError();
+          // Set the server-side backstop once per transaction. Per-query set_config
+          // doubled every read's round trips and made an event-loop stall consume
+          // the remaining budget before the actual query ran.
+          await execute(
+            sql`select set_config('statement_timeout', ${String(remaining)}, true)`.compile(trx)
+          );
+          if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
           // The transaction exclusively owns this connection. Restore before commit/rollback.
           connection.executeQuery = async <R>(query: CompiledQuery): Promise<QueryResult<R>> => {
-            const remaining = Math.floor(deadline - Date.now());
-            if (remaining <= 0) throw new Error('Compute activity read budget exceeded');
-            await execute(
-              sql`select set_config('statement_timeout', ${String(remaining)}, true)`.compile(trx)
-            );
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
             const result = await execute<R>(query);
-            if (Date.now() >= deadline) throw new Error('Compute activity read budget exceeded');
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
             return result;
           };
           try {
@@ -427,13 +494,13 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
               tableId,
               requestedBaseId,
               true,
-              options?.readableFieldIds,
-              options?.includePauseDiagnostics ? deadline : undefined,
-              options?.heal !== true,
-              options?.includeFields !== false
+              options.readableFieldIds,
+              options.includePauseDiagnostics ? deadline : undefined,
+              options.heal !== true,
+              options.includeFields !== false
             );
             if (result.isErr()) throw result.error;
-            if (Date.now() >= deadline) throw new Error('Compute activity read budget exceeded');
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
             return result.value;
           } finally {
             connection.executeQuery = original;
@@ -444,6 +511,12 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       return ok(value);
     } catch (error) {
       await unit?.runAfterRollbackHandlers();
+      if (isBudgetFailure(error)) {
+        if (options.budgetMs !== undefined && options.heal !== true) {
+          return ok(this.syncingSnapshot(options.coalesceKey, tableId, requestedBaseId, options));
+        }
+        return err(this.readBudgetFailedError(tableId, error));
+      }
       if (isDomainError(error)) return err(error);
       return err(
         domainError.infrastructure({
@@ -475,7 +548,8 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         readableFieldIds,
         pauseDeadline,
         skipHeal,
-        includeFields
+        includeFields,
+        budgeted
       );
       if (initial.isErr()) return err(initial.error);
       if (skipHeal) return ok(initial.value);
@@ -537,7 +611,8 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         loaded,
         budgeted && pauseDeadline === undefined,
         readableFieldIds,
-        pauseDeadline
+        pauseDeadline,
+        budgeted
       );
       if (healed.isErr())
         return budgeted ? err(healed.error) : ok({ ...initial.value, observationState: 'syncing' });
@@ -547,6 +622,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         reconciliationPerformed: budgeted || !getPostgresTransaction(context),
       });
     } catch (error) {
+      if (budgeted && isBudgetFailure(error)) throw error;
       return err(
         domainError.infrastructure({
           message: 'Failed to load compute activity',
@@ -689,7 +765,8 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
     readableFieldIds?: readonly string[],
     pauseDeadline?: number,
     skipReliability = false,
-    includeFields = true
+    includeFields = true,
+    budgeted = false
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>> {
     try {
       const db = (getPostgresTransaction(context) ??
@@ -807,6 +884,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         diagnostics,
       });
     } catch (error) {
+      if (budgeted && isBudgetFailure(error)) throw error;
       return err(
         domainError.infrastructure({
           message: 'Failed to load compute activity',

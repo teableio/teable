@@ -13,7 +13,6 @@ export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] 
 export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => {
   const { connection } = useConnection();
   const channel = getBaseNodeChannel(baseId);
-  const presence = connection?.getPresence(channel);
   const queryClient = useQueryClient();
 
   // Initialize treeItems from cache to avoid flash of empty state on remount
@@ -63,16 +62,16 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     setBuiltFrom(nodes);
   }, [queryData?.nodes, setTreeItems, isRestrictedAuthority]);
 
+  // The channel's presence is looked up here, not in render, and never destroyed: a destroyed
+  // ShareDB presence re-subscribes fine but drops out of the connection's routing once the
+  // pending unsubscribe settles, so a mount following a cleanup (Strict Mode, a project's tree
+  // handed from the sidebar's provider to the page's) would listen on an orphan and never
+  // hear another change. Every instance listens; the last one out unsubscribes.
   useEffect(() => {
-    if (!presence || !channel) {
+    if (!connection || !channel) {
       return;
     }
-
-    if (presence.subscribed) {
-      return;
-    }
-
-    presence.subscribe();
+    const presence = connection.getPresence(channel);
 
     const receiveHandler = () => {
       const { remotePresences } = presence;
@@ -85,13 +84,15 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     };
 
     presence.on('receive', receiveHandler);
+    presence.subscribe();
 
     return () => {
-      presence?.removeListener('receive', receiveHandler);
-      presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
-      presence?.listenerCount('receive') === 0 && presence?.destroy();
+      presence.removeListener('receive', receiveHandler);
+      if (presence.listenerCount('receive') === 0) {
+        presence.unsubscribe();
+      }
     };
-  }, [connection, presence, channel, invalidateMenu]);
+  }, [connection, channel, invalidateMenu]);
 
   // treeItems answers for the latest result once rebuilt from it; a refetch in flight or failed
   // leaves the old result standing, which is no answer.

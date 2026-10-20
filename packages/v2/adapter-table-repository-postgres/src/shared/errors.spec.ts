@@ -449,6 +449,48 @@ describe('PostgreSQL error utilities', () => {
           error: 'Error: Database error',
         });
       });
+
+      it.each([
+        { code: '42703', message: 'column "removed_column" does not exist' },
+        { code: '42703', message: 'column "removed_column" of relation "records" does not exist' },
+        { cause: { code: '42703', message: 'column t.removed_column does not exist' } },
+        { originalError: { code: '42703', column: 'removed_column' } },
+        { meta: { code: '42703', message: 'column "removed_column" does not exist' } },
+      ])(
+        'retains missing-column diagnostics without assuming a concurrent deletion: %o',
+        (pgError) => {
+          const result = wrapDatabaseError(pgError, 'update', { tableName, recordId });
+
+          expect(result.tags).toContain('infrastructure');
+          expect(result.tags).not.toContain('conflict');
+          expect(result.code).toBe('db.undefined_column');
+          expect(result.details).toMatchObject({
+            tableName,
+            recordId,
+            pgCode: '42703',
+            column: 'removed_column',
+          });
+        }
+      );
+
+      it('keeps missing internal table columns as infrastructure failures', () => {
+        const result = wrapDatabaseError(
+          { code: '42703', message: 'column "payload" of relation "record_trash" does not exist' },
+          'insert',
+          { tableName: 'record_trash' }
+        );
+        expect(result.tags).toContain('infrastructure');
+        expect(result.tags).not.toContain('conflict');
+        expect(result.details).toMatchObject({ tableName: 'record_trash', column: 'payload' });
+      });
+
+      it('terminates cyclic driver error chains without classifying unrelated faults', () => {
+        const pgError: { code: string; cause?: unknown } = { code: '08006' };
+        pgError.cause = pgError;
+        const result = wrapDatabaseError(pgError, 'update', { tableName, recordId });
+        expect(result.code).toBe('infrastructure.database.update_failed');
+        expect(result.tags).toContain('infrastructure');
+      });
     });
 
     describe('query operation', () => {

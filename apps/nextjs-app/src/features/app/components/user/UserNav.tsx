@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { UserNavExtras } from '@overridable/UserNavExtras';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { PersonalSettingTab, useSettingStore } from '../setting/useSettingStore';
@@ -87,6 +88,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           <Key className="size-4 shrink-0" />
           {t('setting:personalAccessToken')}
         </DropdownMenuItem>
+        <UserNavExtras />
         <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
           <ExitIcon className="size-4 shrink-0" />
           {t('settings.nav.logout')}

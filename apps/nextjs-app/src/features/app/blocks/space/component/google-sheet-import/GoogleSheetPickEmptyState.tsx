@@ -25,7 +25,7 @@ export const GoogleSheetPickEmptyState = ({
       type="button"
       disabled={picking}
       onClick={onPick}
-      className="flex w-full flex-col items-center gap-4 rounded-lg border py-8 transition-colors hover:bg-accent/50"
+      className="flex w-full flex-col items-center gap-4 rounded-lg border py-8 transition-colors hover:bg-accent"
     >
       <GoogleSheet className="size-9" />
       {/* Visual only — the real button is the whole card around it. */}

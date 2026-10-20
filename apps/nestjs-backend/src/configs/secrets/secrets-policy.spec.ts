@@ -13,6 +13,7 @@ const fullEnv = {
   BACKEND_JWT_SECRET: 'jwt-secret',
   BACKEND_SESSION_SECRET: 'session-secret',
   BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'ai-config-secret',
+  BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET: 'third-party-credential-secret',
   BACKEND_MAIL_ENCRYPTION_KEY: 'k'.repeat(16),
   BACKEND_MAIL_ENCRYPTION_IV: 'v'.repeat(16),
   BACKEND_STORAGE_ENCRYPTION_KEY: 'k'.repeat(16),
@@ -30,13 +31,20 @@ describe('secrets guard', () => {
 
   it('reports every secret missing on an empty environment, with pin teaching', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
-    // envVariableSecret is EE/cloud-only (requiredWhen) — an empty community
-    // env is not nagged about it, everything else is required.
-    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - 1);
-    expect(missing.map((s) => s.envKey)).not.toContain('BACKEND_ENV_VARIABLE_SECRET');
+    // envVariableSecret and thirdPartyCredentialEncryptionSecret are EE/cloud-only
+    // (requiredWhen) — an empty community env is not nagged about them,
+    // everything else is required.
+    const eeOnly = [
+      'BACKEND_ENV_VARIABLE_SECRET',
+      'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
+    ];
+    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - eeOnly.length);
+    for (const envKey of eeOnly) {
+      expect(missing.map((s) => s.envKey)).not.toContain(envKey);
+    }
     expect(
       findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'EE' }).map((s) => s.envKey)
-    ).toContain('BACKEND_ENV_VARIABLE_SECRET');
+    ).toEqual(expect.arrayContaining(eeOnly));
 
     const message = buildMissingSecretsMessage(missing);
     expect(message).toContain('BACKEND_JWT_SECRET (or SECRET_KEY)');

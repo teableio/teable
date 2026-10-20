@@ -47,6 +47,8 @@ import {
   FolderInput,
   Info,
   Pen,
+  Pin,
+  PinOff,
   ShieldCheck,
   Trash,
 } from 'lucide-react';
@@ -152,6 +154,9 @@ interface IBaseNodeMoreProps {
     onClick: () => void;
     disabled?: boolean;
   }>;
+
+  /** Pin / Unpin, placed after Rename; a host that pins from the menu passes it. */
+  pin?: { pinned: boolean; onToggle: () => void };
 }
 
 interface ITableOperationProps extends IBaseNodeMoreProps {
@@ -169,6 +174,35 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   canMoveToBase?: boolean;
   nodeTypeLabel: string;
 }
+
+/** Whether any of a menu group's entries shows. */
+const anyOf = (...entries: unknown[]) => entries.some(Boolean);
+
+/** The line between two menu groups, drawn only when both show something. */
+const GroupSeparator = ({ above, below }: { above: boolean; below: boolean }) =>
+  above && below ? <DropdownMenuSeparator /> : null;
+
+/** The menu's Pin / Unpin entry, as a dropdown item or, on mobile, a list row. */
+const PinItem = ({
+  pin,
+  list,
+}: {
+  pin: NonNullable<IBaseNodeMoreProps['pin']>;
+  list?: boolean;
+}) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const Icon = pin.pinned ? PinOff : Pin;
+  const label = pin.pinned ? t('table:aiChat.unpin') : t('table:aiChat.pin');
+  if (list) {
+    return <ListMenuItem icon={<Icon className="size-4" />} label={label} onClick={pin.onToggle} />;
+  }
+  return (
+    <DropdownMenuItem onClick={pin.onToggle}>
+      <Icon className="me-2 size-4" />
+      {label}
+    </DropdownMenuItem>
+  );
+};
 
 const CommonOperation = (props: ICommonOperationProps) => {
   const {
@@ -189,6 +223,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     canMoveToBase: canMoveToBaseProp,
     nodeTypeLabel,
     extraActions = [],
+    pin,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -278,13 +313,11 @@ const CommonOperation = (props: ICommonOperationProps) => {
     />
   );
 
-  const hasVisibleCommonActions =
-    canRename ||
-    canDelete ||
-    canPermanentDelete ||
-    canDuplicate ||
-    Boolean(shareNodeId) ||
-    Boolean(node);
+  // The menu's groups: edit, info, then delete on its own.
+  const hasEditGroup = anyOf(canRename, pin, canDuplicate);
+  const hasInfoGroup = anyOf(shareNodeId, node);
+  const hasDeleteGroup = anyOf(canPermanentDelete, canDelete);
+  const hasVisibleCommonActions = anyOf(hasEditGroup, hasInfoGroup, hasDeleteGroup);
   const hasCommonActions = hasVisibleCommonActions || canShare;
 
   if (!hasCommonActions && !extraActions.length) {
@@ -311,6 +344,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={() => onRename?.()}
           />
         )}
+        {pin && <PinItem pin={pin} list />}
         {canDuplicate && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -405,12 +439,14 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
+          {pin && <PinItem pin={pin} />}
           {canDuplicate && (
             <DropdownMenuItem onClick={handleDuplicateClick}>
               <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
+          <GroupSeparator above={hasEditGroup} below={hasInfoGroup} />
           {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
               <Share2 className="me-2 size-4" />
@@ -429,6 +465,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:baseNode.moveToBase.menu')}
             </DropdownMenuItem>
           )}
+          <GroupSeparator above={anyOf(hasEditGroup, hasInfoGroup)} below={hasDeleteGroup} />
           {canPermanentDelete && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -605,6 +642,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     onRecordClick,
     variant = 'dropdown',
     contentAlign = 'end',
+    pin,
   } = props;
 
   const baseId = useBaseId() as string;
@@ -920,6 +958,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={() => onRename?.()}
           />
         )}
+        {pin && <PinItem pin={pin} list />}
         {menuPermission.duplicateTable && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -1043,6 +1082,24 @@ export const TableOperation = (props: ITableOperationProps) => {
     );
   }
 
+  // The menu's groups: edit, data, info, then delete on its own.
+  const hasEditGroup = anyOf(
+    onDescription,
+    menuPermission.updateTable,
+    pin,
+    menuPermission.duplicateTable
+  );
+  const hasDataGroup = anyOf(
+    menuPermission.exportTable,
+    menuPermission.importTable,
+    menuPermission.apiTable,
+    menuPermission.tableRecordHistory,
+    menuPermission.tableTrash,
+    menuPermission.tableArchive,
+    loginApps?.length
+  );
+  const hasInfoGroup = anyOf(shareNodeId, node);
+
   // Dropdown variant for desktop
   return (
     <>
@@ -1066,6 +1123,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
+          {pin && <PinItem pin={pin} />}
           {menuPermission.duplicateTable && (
             <DropdownMenuItem
               disabled={isPreviewing}
@@ -1078,8 +1136,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
-          {(menuPermission.updateTable || menuPermission.duplicateTable) &&
-            menuPermission.exportTable && <DropdownMenuSeparator />}
+          <GroupSeparator above={hasEditGroup} below={hasDataGroup} />
 
           {menuPermission.exportTable && (
             <DropdownMenuItem onClick={() => trigger?.()}>
@@ -1201,6 +1258,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             </DropdownMenuSub>
           )}
 
+          <GroupSeparator above={anyOf(hasEditGroup, hasDataGroup)} below={hasInfoGroup} />
           {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
               <Share2 className="me-2 size-4" />
@@ -1221,7 +1279,10 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:baseNode.moveToBase.menu')}
             </DropdownMenuItem>
           )}
-
+          <GroupSeparator
+            above={anyOf(hasEditGroup, hasDataGroup, hasInfoGroup)}
+            below={Boolean(menuPermission.deleteTable)}
+          />
           {menuPermission.deleteTable && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

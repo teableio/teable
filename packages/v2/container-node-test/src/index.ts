@@ -5,12 +5,14 @@ import { dirname, resolve, resolve as resolvePath } from 'node:path';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  V2PgTableSchemaCoordination,
   PostgresUnitOfWork,
   registerV2PostgresDb,
   v2DataDbTokens,
   v2MetaDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
+
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
@@ -160,6 +162,17 @@ export interface IV2NodeTestContainerOptions {
   formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   logToConsole?: boolean;
   logLevel?: V2NodeTestContainerLogLevel;
+  /**
+   * Table-scoped schema coordination. Real Postgres containers open a
+   * dedicated pool from the resolved connection string; PGlite/memory uses the
+   * core no-op.
+   */
+  schemaCoordination?:
+    | {
+        /** Session application name while a coordination lease is held. */
+        applicationName?: string;
+      }
+    | false;
   // Kept for call-site compatibility. Delete now writes id-only record_trash
   // markers inside the postgres delete transaction, so the event-bus sink is
   // no longer used.
@@ -329,6 +342,19 @@ export const createV2NodeTestContainer = async (
   const metaDb = c.resolve<Kysely<V1TeableDatabase>>(v2MetaDbTokens.db);
   const dataDb = c.resolve<Kysely<V1TeableDatabase>>(v2DataDbTokens.db);
   const db = dataDb;
+
+  if (!shouldUsePglite && options.schemaCoordination !== false) {
+    const coordinationOptions = options.schemaCoordination;
+    c.registerInstance(
+      v2CoreTokens.tableSchemaCoordination,
+      new V2PgTableSchemaCoordination({
+        connectionString,
+        ...(coordinationOptions?.applicationName !== undefined
+          ? { applicationName: coordinationOptions.applicationName }
+          : {}),
+      })
+    );
+  }
 
   const tableMaxRowLimit = resolveTableMaxRowLimit(
     options.tableMaxRowLimit ??
@@ -664,6 +690,9 @@ export const createV2NodeTestContainer = async (
     processOutboxOnce,
     dispose: async () => {
       try {
+        await c
+          .resolve<{ destroy?: () => Promise<void> }>(v2CoreTokens.tableSchemaCoordination)
+          .destroy?.();
         const closers = Array.from(new Set([metaDb, dataDb]));
         await Promise.all(closers.map((db) => db.destroy()));
       } finally {

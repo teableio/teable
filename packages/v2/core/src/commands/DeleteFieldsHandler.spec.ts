@@ -29,6 +29,11 @@ import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { TableProvisionOperationOptions, TableProvisionState } from '../ports/TableRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+  type TableSchemaCoordinationMode,
+} from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { flattenUndoRedoCommands, type UndoRedoCommandData } from '../ports/UndoRedoStore';
@@ -42,6 +47,25 @@ import {
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
 });
+
+class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
+  readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
+    [];
+  releaseCount = 0;
+
+  async acquire(
+    _context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: TableSchemaCoordinationMode
+  ) {
+    this.calls.push({ tableIds, mode });
+    return ok(
+      createTableSchemaCoordinationLease(mode, tableIds, async () => {
+        this.releaseCount += 1;
+      })
+    );
+  }
+}
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
@@ -452,6 +476,38 @@ describe('DeleteFieldsHandler', () => {
     const redoLeaves = flattenUndoRedoCommands(entry!.entry.redoCommand);
     expect(redoLeaves.map((leaf) => leaf.type)).toEqual(['DeleteField', 'DeleteField']);
     expect(deleteFieldIds(redoLeaves)).toEqual([targetFieldA.toString(), targetFieldB.toString()]);
+  });
+
+  it('holds an exclusive lease through bulk field deletion', async () => {
+    const baseId = createBaseId('j');
+    const tableId = createTableId('j');
+    const targetFieldA = createFieldId('k');
+    const targetFieldB = createFieldId('l');
+    const initialTable = buildTable(baseId, tableId, [targetFieldA, targetFieldB]);
+    const harness = createHarness(initialTable);
+    const coordination = new RecordingTableSchemaCoordination();
+    const handler = new DeleteFieldsHandler(
+      harness.tableRepository,
+      harness.tableUpdateFlow,
+      harness.sideEffectService as unknown as FieldDeletionSideEffectService,
+      harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
+      harness.undoRedoService as unknown as UndoRedoStackService,
+      harness.fieldDeleteSnapshotSink,
+      coordination
+    );
+
+    const command = DeleteFieldsCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldIds: [targetFieldA.toString(), targetFieldB.toString()],
+    })._unsafeUnwrap();
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    expect(coordination.releaseCount).toBe(1);
   });
 
   it('returns not found before updating or recording undo/redo when a target field is missing', async () => {

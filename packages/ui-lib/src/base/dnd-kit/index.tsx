@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { useSortable, SortableContext, type SortableContextProps } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import React, { useMemo, type JSX } from 'react';
+import React, { useEffect, useId, useMemo, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 
 type IProvidedProps = ReturnType<typeof useSortable> & {
@@ -25,6 +25,8 @@ interface IDraggableContainerProps {
 }
 
 const DndKitContext = (props: React.ComponentProps<typeof DndContext>) => {
+  // dnd-kit's own ids come from a counter, which the server and the browser count differently.
+  const id = useId();
   const sensors = useSensors(
     useSensor(TouchSensor, {
       activationConstraint: {
@@ -39,7 +41,7 @@ const DndKitContext = (props: React.ComponentProps<typeof DndContext>) => {
     })
   );
   return (
-    <DndContext sensors={sensors} {...props}>
+    <DndContext sensors={sensors} id={id} {...props}>
       {props.children}
     </DndContext>
   );
@@ -52,6 +54,9 @@ const Droppable = (
   const { overlayRender, ...rest } = props;
   const children = props.children;
   const { active } = context;
+  // The overlay's portal needs the document: none on the server, where the list still renders.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const customerOverLay = useMemo(() => {
     if (Array.isArray(children)) {
@@ -89,7 +94,7 @@ const Droppable = (
   return (
     <SortableContext {...rest}>
       {children}
-      {!customerOverLay
+      {mounted && !customerOverLay
         ? (createPortal(
             <DragOverlay>{dragOverRender}</DragOverlay>,
             document.body

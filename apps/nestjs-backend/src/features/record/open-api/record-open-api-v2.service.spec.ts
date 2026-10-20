@@ -397,6 +397,54 @@ describe('RecordOpenApiV2Service', () => {
     });
   });
 
+  // A cross-base link write reaches the foreign table whether or not typecast is
+  // set, so the foreign-base read check must run on the default id-write path,
+  // not only when typecast resolves titles — the follow-up branch the earlier
+  // typecast-only cross-base fix did not reach. Each case forces the check to
+  // reject and asserts the write is refused before any foreign table is touched.
+  describe('cross-base link read check runs regardless of typecast', () => {
+    const forbidden = new Error('foreign-forbidden');
+    const linkFields = { [primaryFieldId]: [{ id: 'rec1111111111111111' }] };
+    const rejectCheck = () => {
+      const assertForeignTablesReadable = vi.fn().mockRejectedValue(forbidden);
+      Object.assign(service, { crossBaseLinkAccess: { assertForeignTablesReadable } });
+      return assertForeignTablesReadable;
+    };
+
+    it('updateRecord checks even when typecast is omitted', async () => {
+      const check = rejectCheck();
+      await expect(
+        service.updateRecord(tableIdText, 'rec1111111111111111', {
+          record: { fields: linkFields },
+        } as never)
+      ).rejects.toBe(forbidden);
+      expect(check).toHaveBeenCalledWith(tableIdText, Object.keys(linkFields));
+      expect(getContainer).not.toHaveBeenCalled();
+    });
+
+    it('updateRecords checks even when typecast is omitted', async () => {
+      const check = rejectCheck();
+      await expect(
+        service.updateRecords(tableIdText, {
+          records: [{ id: 'rec1111111111111111', fields: linkFields }],
+        } as never)
+      ).rejects.toBe(forbidden);
+      expect(check).toHaveBeenCalledWith(tableIdText, new Set(Object.keys(linkFields)));
+      expect(getContainer).not.toHaveBeenCalled();
+    });
+
+    it('createRecords checks even when typecast is omitted', async () => {
+      const check = rejectCheck();
+      await expect(
+        service.createRecords(tableIdText, {
+          records: [{ fields: linkFields }],
+        } as never)
+      ).rejects.toBe(forbidden);
+      expect(check).toHaveBeenCalledWith(tableIdText, Object.keys(linkFields));
+      expect(getContainer).not.toHaveBeenCalled();
+    });
+  });
+
   it('resolves range record ids through the v2 query path', async () => {
     const recordIds = await service.getRecordIdsFromRanges(`tbl${'c'.repeat(16)}`, {
       viewId: `viw${'v'.repeat(16)}`,

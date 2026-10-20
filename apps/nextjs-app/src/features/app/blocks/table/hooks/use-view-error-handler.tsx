@@ -1,5 +1,5 @@
 import { HttpError, HttpErrorCode } from '@teable/core';
-import { BaseNodeResourceType, getViewList } from '@teable/openapi';
+import { getViewList } from '@teable/openapi';
 import {
   useBaseId,
   useConnection,
@@ -11,11 +11,12 @@ import {
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ConnectionReceiveRequest } from 'sharedb/lib/sharedb';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
+import { useBaseResource, type IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
+import { useNavigateToView } from '@/features/app/hooks/useResourceNavigation';
 import { tableConfig } from '@/features/i18n/table.config';
-import { getNodeUrl } from '../../base/base-node/hooks';
 import { isStaleViewAnchor, STALE_VIEW_PARAM } from './stale-view-fallback';
 
 const anchorKey = (tableId: string, viewId: string) => `${tableId}/${viewId}`;
@@ -69,14 +70,18 @@ const useStaleViewToast = () => {
  * suspicion costs is this one request.
  */
 const useConfirmedViewRedirect = () => {
-  const router = useRouter();
   const notifyStaleView = useStaleViewToast();
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const shareUrlPrefix = useShareUrlPrefix();
+  const navigateToView = useNavigateToView();
+  // The anchor at decision time, not at call time: the user may have moved on meanwhile.
+  const anchor = useBaseResource() as IBaseResourceTable;
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
 
   return useCallback(
-    async (props: { baseId: string; tableId: string; suspectViewId: string }) => {
-      const { baseId, tableId, suspectViewId } = props;
+    async (props: { tableId: string; suspectViewId: string }) => {
+      const { tableId, suspectViewId } = props;
       // Share/template anchors are fixed by their config — never rewrite them
       if (isReadOnlyPreview || shareUrlPrefix) return;
       const key = anchorKey(tableId, suspectViewId);
@@ -93,17 +98,12 @@ const useConfirmedViewRedirect = () => {
         // no view left at all — the no-view empty state owns this case
         if (!targetView) return;
         // the user navigated away while we confirmed — don't compete
-        if (!router.asPath.includes(`/${tableId}/${suspectViewId}`)) return;
-        const url = getNodeUrl({
-          baseId,
-          resourceType: BaseNodeResourceType.Table,
-          resourceId: tableId,
-          viewId: targetView.id,
-        });
-        if (!url) return;
+        if (anchorRef.current.tableId !== tableId || anchorRef.current.viewId !== suspectViewId) {
+          return;
+        }
         notifyStaleView({ key, viewName: targetView.name });
         // replace, not push: Back must not step into the deleted view again
-        router.replace(url, undefined, { shallow: true });
+        navigateToView(tableId, targetView.id, { replace: true });
       } catch {
         // the list fetch failed (table gone, network down) — a view-level
         // redirect can't be decided; the next trigger past the cooldown
@@ -114,7 +114,7 @@ const useConfirmedViewRedirect = () => {
         lastConfirmAt.set(key, Date.now());
       }
     },
-    [router, notifyStaleView, isReadOnlyPreview, shareUrlPrefix]
+    [navigateToView, notifyStaleView, isReadOnlyPreview, shareUrlPrefix]
   );
 };
 
@@ -152,7 +152,7 @@ export const useViewErrorHandler = (baseId: string, tableId: string, viewId: str
         httpError.code === HttpErrorCode.VIEW_NOT_FOUND ||
         httpError.code === HttpErrorCode.NOT_FOUND
       ) {
-        confirmedViewRedirect({ baseId, tableId, suspectViewId: viewId });
+        confirmedViewRedirect({ tableId, suspectViewId: viewId });
       }
     };
 
@@ -202,7 +202,7 @@ const useStaleViewRecovery = () => {
 
   useEffect(() => {
     if (!suspectStale || !baseId || !tableId || !viewId) return;
-    confirmedViewRedirect({ baseId, tableId, suspectViewId: viewId });
+    confirmedViewRedirect({ tableId, suspectViewId: viewId });
   }, [suspectStale, baseId, tableId, viewId, confirmedViewRedirect]);
 };
 

@@ -31,6 +31,7 @@ import { InvitationModule } from './features/invitation/invitation.module';
 import { MailSenderOpenApiModule } from './features/mail-sender/open-api/mail-sender-open-api.module';
 import { MailSenderMergeModule } from './features/mail-sender/open-api/mail-sender.merge.module';
 import { NextModule } from './features/next/next.module';
+import { NotificationCleanupModule } from './features/notification/cleanup/notification-cleanup.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
 import { OrganizationModule } from './features/organization/organization.module';
@@ -54,6 +55,7 @@ import { UserModule } from './features/user/user.module';
 import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
 import { DomainEventWakeupConsumerModule } from './features/v2/domain-event-outbox-trigger/domain-event-wakeup-consumer.module';
 import { V2DataQueryModule } from './features/v2/v2-data-query.module';
+import { V2DataQueryExplainModule } from './features/v2/v2-data-query-explain.module';
 import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -88,6 +90,7 @@ export const appModules = {
     ShortLinkModule,
     BaseShareModule,
     NotificationModule,
+    NotificationCleanupModule,
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,
@@ -116,6 +119,7 @@ export const appModules = {
     BuiltinAssetsInitModule,
     V2Module,
     V2DataQueryModule.register(),
+    V2DataQueryExplainModule.register(),
     ComputedOutboxWakeupConsumerModule.register(),
     DomainEventWakeupConsumerModule,
   ],

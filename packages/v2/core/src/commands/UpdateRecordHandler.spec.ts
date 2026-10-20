@@ -43,8 +43,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -60,6 +60,11 @@ import type {
   UpdateOptions,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+  type TableSchemaCoordinationMode,
+} from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import {
@@ -424,6 +429,30 @@ class FakeRecordOrderCalculator implements IRecordOrderCalculator {
   }
 }
 
+class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
+  readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
+    [];
+  releaseCount = 0;
+
+  constructor(private readonly failure?: DomainError) {}
+
+  async acquire(
+    _context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: TableSchemaCoordinationMode
+  ) {
+    this.calls.push({ tableIds, mode });
+    if (this.failure) {
+      return err(this.failure);
+    }
+    return ok(
+      createTableSchemaCoordinationLease(mode, tableIds, async () => {
+        this.releaseCount += 1;
+      })
+    );
+  }
+}
+
 const createHandler = (
   tableQueryService: TableQueryService,
   recordRepository: ITableRecordRepository,
@@ -434,7 +463,8 @@ const createHandler = (
   eventBus: IEventBus,
   undoRedoStackService: UndoRedoStackService,
   unitOfWork: IUnitOfWork,
-  foreignTableLoader?: ConstructorParameters<typeof UpdateRecordHandler>[12]
+  foreignTableLoader?: ConstructorParameters<typeof UpdateRecordHandler>[12],
+  tableSchemaCoordination?: ConstructorParameters<typeof UpdateRecordHandler>[13]
 ) =>
   new UpdateRecordHandler(
     tableQueryService,
@@ -449,7 +479,8 @@ const createHandler = (
     tableUpdateFlow,
     new EventBusDomainWriteTransaction(unitOfWork, eventBus),
     undoRedoStackService,
-    foreignTableLoader
+    foreignTableLoader,
+    tableSchemaCoordination
   );
 
 class FakeRecordMutationSpecResolverService {
@@ -1554,5 +1585,137 @@ describe('UpdateRecordHandler', () => {
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().code).toBe('field.not_found');
     });
+  });
+});
+
+describe('UpdateRecordHandler schema coordination', () => {
+  const setup = (
+    coordination: ITableSchemaCoordination,
+    options: { failFindOne?: DomainError } = {}
+  ) => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+    const recordId = recordResult.record.id().toString();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordId,
+      version: 1,
+      fields: { [textFieldId.toString()]: 'Old Title' },
+    };
+    if (options.failFindOne) {
+      recordQueryRepository.failFindOne = options.failFindOne;
+    }
+
+    const handler = createHandler(
+      new TableQueryService(tableRepository),
+      new FakeTableRecordRepository(),
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
+      new FakeEventBus(),
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      new FakeUnitOfWork(),
+      undefined,
+      coordination
+    );
+
+    return { table, tableId, textFieldId, recordId, handler, recordQueryRepository };
+  };
+
+  it('holds a shared lease for an ordinary update', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, recordId, handler } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('holds an exclusive lease for typecast updates', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, recordId, handler } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [textFieldId.toString()]: 'New Title' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('does not coordinate ordered updates because row-order CIC cannot run inside the lease', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { table, tableId, textFieldId, recordId, handler } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [textFieldId.toString()]: 'New Title' },
+      order: {
+        viewId: table.views()[0]!.id().toString(),
+        anchorId: recordId,
+        position: 'after',
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([]);
+    expect(coordination.releaseCount).toBe(0);
+  });
+
+  it('returns the coordination failure before reading table metadata', async () => {
+    const acquireError = domainError.infrastructure({
+      code: 'schema_coordination.acquire_failed',
+      message: 'Failed to acquire table schema coordination locks',
+    });
+    const coordination = new RecordingTableSchemaCoordination(acquireError);
+    const { tableId, textFieldId, recordId, handler, recordQueryRepository } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().code).toBe('schema_coordination.acquire_failed');
+    expect(recordQueryRepository.findOneCalls).toBe(0);
+    expect(coordination.releaseCount).toBe(0);
+  });
+
+  it('releases the lease when the update fails', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, recordId, handler } = setup(coordination, {
+      failFindOne: domainError.notFound({ message: 'Record not found' }),
+    });
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(coordination.releaseCount).toBe(1);
   });
 });

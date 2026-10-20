@@ -28,6 +28,11 @@ import type { FieldDeleteSnapshotSinkInput } from '../ports/FieldDeleteSnapshotS
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+  type TableSchemaCoordinationMode,
+} from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { flattenUndoRedoCommands } from '../ports/UndoRedoStore';
@@ -46,6 +51,25 @@ const createContext = (): IExecutionContext => {
 };
 
 const noopUndoRedoService = createNoopUndoRedoStackService();
+
+class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
+  readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
+    [];
+  releaseCount = 0;
+
+  async acquire(
+    _context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: TableSchemaCoordinationMode
+  ) {
+    this.calls.push({ tableIds, mode });
+    return ok(
+      createTableSchemaCoordinationLease(mode, tableIds, async () => {
+        this.releaseCount += 1;
+      })
+    );
+  }
+}
 
 class FakeFieldDeleteSnapshotSink {
   calls: FieldDeleteSnapshotSinkInput[] = [];
@@ -314,6 +338,42 @@ describe('DeleteFieldHandler', () => {
       secondaryFieldId.toString()
     );
     expect(fieldDeleteSnapshotSink.completions).toBe(1);
+  });
+
+  it('holds an exclusive lease through field deletion', async () => {
+    const { table, baseId, tableId, secondaryFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const coordination = new RecordingTableSchemaCoordination();
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink(),
+      coordination
+    );
+
+    const commandResult = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldId: secondaryFieldId.toString(),
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    expect(coordination.releaseCount).toBe(1);
   });
 
   it('returns not found when field is missing', async () => {

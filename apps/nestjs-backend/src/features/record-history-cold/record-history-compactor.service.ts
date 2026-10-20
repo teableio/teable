@@ -5,6 +5,8 @@ import {
   supersededKeys,
   swapCompactedStatsEntries,
 } from '../cold-archive/compaction';
+import { expireColdMonths, readColdExpiryDryRun } from '../cold-archive/retention';
+import type { ListedColdPart } from '../cold-archive/storage-ops';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import { truncateColdRow } from './part-codec';
 import type { IParsedPartKey, ITableColdStats } from './part-codec';
@@ -44,13 +46,18 @@ export class RecordHistoryCompactorService {
 
   constructor(private readonly coldStorage: RecordHistoryColdStorageService) {}
 
-  /** compact every closed month of a table; the current one is reported as open, not compacted */
+  /**
+   * delete the months past retention, then compact every closed month of a
+   * table; the current one is reported as open, not compacted
+   */
   async compactTable(tableId: string): Promise<ICompactMonthResult[]> {
     const now = new Date();
     const currentMonth = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const partsByMonth = await this.coldStorage.listTableParts(tableId);
+    const expired = await this.expireMonths(tableId, partsByMonth, now);
     const results: ICompactMonthResult[] = [];
     for (const [yyyymm, parts] of partsByMonth) {
+      if (expired.has(yyyymm)) continue;
       if (yyyymm >= currentMonth) {
         results.push({
           tableId,
@@ -129,6 +136,29 @@ export class RecordHistoryCompactorService {
       rows,
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  private async expireMonths(
+    tableId: string,
+    partsByMonth: Map<string, ListedColdPart<IParsedPartKey>[]>,
+    now: Date
+  ): Promise<Set<string>> {
+    return expireColdMonths({
+      category: 'record-history',
+      scope: tableId,
+      partsByMonth,
+      retentionDays: recordHistoryColdConfig().coldRetentionDays,
+      dryRun: readColdExpiryDryRun(),
+      logger: this.logger,
+      now,
+      dropFromStats: async (keys) => {
+        const stats = await this.coldStorage.readStats(tableId);
+        if (!stats) return;
+        for (const key of keys) delete stats.parts[key];
+        await this.coldStorage.writeStats(tableId, stats);
+      },
+      deleteMonth: (_yyyymm, keys) => this.coldStorage.deleteKeys(keys),
+    });
   }
 
   /** external sort + id-dedup: inputs are read one at a time, order-agnostic */

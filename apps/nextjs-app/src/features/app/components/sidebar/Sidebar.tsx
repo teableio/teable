@@ -14,6 +14,7 @@ import {
 } from '../toggle-side-bar/constant';
 import { HoverWrapper } from '../toggle-side-bar/HoverWrapper';
 import { SheetWrapper } from '../toggle-side-bar/SheetWrapper';
+import { ResizeHandleBar, resizeHandleStyle } from './ResizeHandleBar';
 import { SidebarHeader } from './SidebarHeader';
 import { useSidebarStore } from './useSidebarStore';
 
@@ -165,15 +166,9 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
       }}
       handleClasses={isRtl ? { left: 'group' } : { right: 'group' }}
       handleStyles={
-        isRtl
-          ? { left: { width: '6px', left: '-6px' } }
-          : { right: { width: '6px', right: '-6px' } }
+        isRtl ? { left: resizeHandleStyle('left') } : { right: resizeHandleStyle('right') }
       }
-      handleComponent={{
-        [isRtl ? 'left' : 'right']: (
-          <div className="h-full w-px bg-transparent transition-colors group-hover:bg-primary/50 group-active:bg-primary" />
-        ),
-      }}
+      handleComponent={{ [isRtl ? 'left' : 'right']: <ResizeHandleBar /> }}
     >
       <div className={sidebarClassName} onContextMenu={preventContextMenuUnlessText}>
         {sidebarContent}

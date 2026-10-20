@@ -6,7 +6,7 @@ export const GalleryToolBar: React.FC = () => {
   const { isViewConfigurable } = useViewConfigurable();
 
   return (
-    <div className="flex h-12 items-center border-y px-1 py-2 sm:gap-1 sm:px-2 md:gap-2 md:px-4">
+    <div className="flex h-12 shrink-0 items-center border-y bg-background px-1 py-2 sm:gap-1 sm:px-2 md:gap-2 md:px-4">
       <ToolBarAddRecordButton />
       <div className="flex min-w-0 flex-1 justify-between @container/toolbar">
         <GalleryViewOperators disabled={!isViewConfigurable} />

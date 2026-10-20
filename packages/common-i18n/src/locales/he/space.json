@@ -95,6 +95,9 @@
     "description": "כל הפרויקטים שהוזמנתי אליהם",
     "empty": "עדיין לא שיתפו איתי פרויקטים"
   },
+  "quickSearch": {
+    "placeholder": "חיפוש פרויקטים או משאבים"
+  },
   "aiSetting": {
     "title": "הגדרות AI",
     "description": "ניהול הגדרות ה-AI של המרחב",

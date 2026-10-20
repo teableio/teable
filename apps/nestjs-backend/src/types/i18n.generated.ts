@@ -2083,6 +2083,24 @@ export type I18nTranslations = {
             "reject": string;
             "policy": string;
             "settings": string;
+            "customize": string;
+            "customBody": string;
+            "save": string;
+            "alwaysOn": string;
+            "categories": {
+                "necessary": {
+                    "title": string;
+                    "description": string;
+                };
+                "analytics": {
+                    "title": string;
+                    "description": string;
+                };
+                "marketing": {
+                    "title": string;
+                    "description": string;
+                };
+            };
         };
     };
     "dashboard": {
@@ -4122,6 +4140,9 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
             "empty": string;
+        };
+        "quickSearch": {
+            "placeholder": string;
         };
         "aiSetting": {
             "title": string;

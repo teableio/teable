@@ -1,6 +1,6 @@
 import { BaseNodeResourceType } from '@teable/openapi';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 interface IBaseResourceBase {
   baseId: string;
@@ -104,26 +104,54 @@ export function parseBaseSlug(slug?: string[]): IBaseResourceParsed {
   }
 }
 
+/**
+ * Resource pages read their ids from the URL. A host that renders one of them off its route
+ * (the chat page's Output pane shows a table, an automation… beside the conversation) provides
+ * the ids here instead, and every `useBaseResource()` caller below it follows.
+ */
+export const BaseResourceOverrideContext = createContext<IBaseResource | undefined>(undefined);
+
+function getBaseResourceId(resource: IBaseResource): string | undefined {
+  switch (resource.resourceType) {
+    case BaseNodeResourceType.Table:
+      return resource.tableId;
+    case BaseNodeResourceType.Dashboard:
+      return resource.dashboardId;
+    case BaseNodeResourceType.Workflow:
+      return resource.workflowId;
+    case BaseNodeResourceType.App:
+      return resource.appId;
+    case BaseNodeResourceType.Routine:
+      return resource.routineId;
+    default:
+      return undefined;
+  }
+}
+
 export function useBaseResource(): IBaseResource {
+  const override = useContext(BaseResourceOverrideContext);
   const router = useRouter();
   const { baseId, slug } = router.query;
 
   return useMemo(() => {
+    if (override) return override;
     const parsed = parseBaseSlug(slug as string[] | undefined);
     return {
       baseId: baseId as string,
       ...parsed,
     };
-  }, [baseId, slug]);
+  }, [override, baseId, slug]);
 }
 
 export function useBaseNodeId(): string | undefined {
+  const override = useContext(BaseResourceOverrideContext);
   const router = useRouter();
   const { slug } = router.query;
   return useMemo(() => {
+    if (override) return getBaseResourceId(override);
     if (!slug || slug.length === 0) {
       return;
     }
     return slug?.[1];
-  }, [slug]);
+  }, [override, slug]);
 }

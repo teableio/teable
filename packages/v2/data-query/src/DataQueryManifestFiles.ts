@@ -4,7 +4,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { isAlias, isMap, isScalar, isSeq, parseDocument, type YAMLMap } from 'yaml';
 import { z } from 'zod';
 
-import { queryError } from './DataQueryDefinition';
+import { dataQueryOptionalParameters, queryError } from './DataQueryDefinition';
 import {
   dataQueryIdSchema,
   dataQueryManifestJsonSchema,
@@ -148,6 +148,9 @@ export function generateAppQueryArtifacts(
   const rows: string[] = [];
   const parameters: string[] = [];
   const functions: string[] = [];
+  const usesPage = Object.values(manifest.queries).some(
+    (query) => query.definition?.page?.includeTotal === true
+  );
   for (const id of ids) {
     const query = manifest.queries[id];
     const definition = query.definition;
@@ -202,16 +205,45 @@ export function generateAppQueryArtifacts(
     const parameterEntries = Object.entries(parameterDefinitions).sort(([a], [b]) =>
       a.localeCompare(b, 'en')
     );
+    const optionalParameters = definition
+      ? dataQueryOptionalParameters(definition)
+      : new Set<string>();
+    const isOptionalParameter = (name: string, parameter: DataQueryParameterDefinition) =>
+      parameter.default !== undefined || optionalParameters.has(name);
     parameters.push(
-      `  ${JSON.stringify(id)}: {\n${parameterEntries.map(([name, parameter]) => `    ${JSON.stringify(name)}${parameter.default !== undefined ? '?' : ''}: ${parameter.type === 'date' ? 'QueryDate' : parameter.type}${parameter.nullable ? ' | null' : ''};`).join('\n')}\n  };`
+      `  ${JSON.stringify(id)}: {\n${parameterEntries
+        .map(
+          ([name, parameter]) =>
+            `    ${JSON.stringify(name)}${
+              isOptionalParameter(name, parameter) ? '?' : ''
+            }: ${parameter.type === 'date' ? 'QueryDate' : parameter.type}${
+              parameter.nullable ? ' | null' : ''
+            };`
+        )
+        .join('\n')}\n  };`
     );
-    const optional = parameterEntries.every(([, parameter]) => parameter.default !== undefined);
-    const returnType =
-      query.result === 'one'
+    const optional = parameterEntries.every(([name, parameter]) =>
+      isOptionalParameter(name, parameter)
+    );
+    const withPage = definition?.page?.includeTotal === true;
+    // Existing queries must keep byte-identical generated modules: only opted-in totals
+    // change the call shape, so already-generated clients still pass the save gate.
+    const returnType = withPage
+      ? `QueryPageResult<QueryRows[${JSON.stringify(id)}]>`
+      : query.result === 'one'
         ? `QueryRows[${JSON.stringify(id)}] | null`
         : `Array<QueryRows[${JSON.stringify(id)}]>`;
+    const signature = `  ${JSON.stringify(id)}: (parameters: QueryParameters[${JSON.stringify(
+      id
+    )}]${optional ? ' = {}' : ''}): Promise<${returnType}>`;
     functions.push(
-      `  ${JSON.stringify(id)}: (parameters: QueryParameters[${JSON.stringify(id)}]${optional ? ' = {}' : ''}): Promise<${returnType}> => execute(${JSON.stringify(id)}, parameters, ${query.result === 'one'}),`
+      withPage
+        ? `${signature} => execute(${JSON.stringify(
+            id
+          )}, parameters, false, true) as unknown as Promise<${returnType}>,`
+        : `${signature} => execute(${JSON.stringify(id)}, parameters, ${query.result === 'one'})${
+            usesPage ? ` as unknown as Promise<${returnType}>` : ''
+          },`
     );
   }
   const definitions = Object.fromEntries(
@@ -280,7 +312,16 @@ ${parameters.join('\n')}
 export type QueryRows = {
 ${rows.join('\n')}
 };
-const definitions = ${json(definitions)};
+${
+  usesPage
+    ? `export type QueryPage = { limit: number; offset: number; total: number };
+export type QueryPageResult<Row> = { rows: Array<Row>; page: QueryPage };
+const isQueryPage = (value: unknown): value is QueryPage =>
+  isObject(value) && typeof value.limit === 'number' && typeof value.offset === 'number' &&
+  typeof value.total === 'number';
+`
+    : ''
+}const definitions = ${json(definitions)};
 const fallbacks = ${json(fallbacks)};
 
 export class QueryError extends Error {
@@ -412,7 +453,50 @@ async function executeLegacy<K extends QueryId, One extends boolean>(
   return (one ? projectedRows[0] ?? null : projectedRows) as One extends true ? QueryRows[K] | null : Array<QueryRows[K]>;
 }
 
-async function execute<K extends QueryId, One extends boolean>(
+${
+  usesPage
+    ? `async function execute<K extends QueryId>(
+  queryId: K, parameters: QueryParameters[K], one: boolean, withPage = false
+): Promise<QueryRows[K] | Array<QueryRows[K]> | QueryPageResult<QueryRows[K]> | null> {
+  const queryFallback = fallbacks[queryId] as { isFallback: boolean } | null;
+  if (definitions[queryId] === null) {
+    // The SQL fallback cannot produce a same-scope total, so never fake one.
+    if (withPage) throw new QueryError('data_query.unsupported_include_total', queryId);
+    return executeLegacy(
+      queryId,
+      parameters,
+      one,
+      queryFallback?.isFallback ? 'unsupported_definition' : 'sql_query_by_design'
+    );
+  }
+  let response: unknown;
+  try {
+    response = await request<unknown>('/v2/queries/execute', {
+      method: 'POST', acceptErrorResponse: true,
+      body: { queryId, definition: definitions[queryId], parameters },
+    });
+  } catch {
+    throw new QueryError('data_query.transport_failed', queryId);
+  }
+  if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
+  if (response.ok === false && isObject(response.error) && typeof response.error.code === 'string') {
+    if (canFallback(response.error.code) && queryFallback && !withPage)
+      return executeLegacy(queryId, parameters, one, response.error.code);
+    throw new QueryError(response.error.code, queryId);
+  }
+  if (response.ok !== true || !isObject(response.data) || !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
+    throw new QueryError('data_query.invalid_response', queryId);
+  }
+  const rows = response.data.rows;
+  if (one && rows.length > 1) throw new QueryError('data_query.cardinality', queryId);
+  if (withPage) {
+    if (!isQueryPage(response.data.page)) throw new QueryError('data_query.invalid_response', queryId);
+    return { rows, page: response.data.page } as QueryPageResult<QueryRows[K]>;
+  }
+  return (one ? rows[0] ?? null : rows) as QueryRows[K] | Array<QueryRows[K]>;
+}
+`
+    : `async function execute<K extends QueryId, One extends boolean>(
   queryId: K, parameters: QueryParameters[K], one: One
 ): Promise<One extends true ? QueryRows[K] | null : Array<QueryRows[K]>> {
   const queryFallback = fallbacks[queryId] as { isFallback: boolean } | null;
@@ -445,7 +529,8 @@ async function execute<K extends QueryId, One extends boolean>(
   if (one && rows.length > 1) throw new QueryError('data_query.cardinality', queryId);
   return (one ? rows[0] ?? null : rows) as One extends true ? QueryRows[K] | null : Array<QueryRows[K]>;
 }
-
+`
+}
 export const queries = {
 ${functions.join('\n')}
 };

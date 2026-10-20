@@ -1,7 +1,16 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
-import { ArrowDown, ArrowUp, History, Image, Link, Maximize2, MessageSquare } from '@teable/icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  History,
+  Image,
+  Link,
+  Maximize2,
+  MessageSquare,
+  MessageSquareDot,
+} from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -18,6 +27,7 @@ import { CopyPlus, Trash } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useAddToChat } from '../../hooks/useAddToChat';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useGallery } from '../hooks';
 import { CARD_COVER_HEIGHT, CARD_STYLE } from '../utils';
@@ -43,6 +53,7 @@ export const Card = (props: IKanbanCardProps) => {
     setExpandRecordId,
   } = useGallery();
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
+  const { chatEnabled, addToChat } = useAddToChat();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
     permission;
@@ -209,6 +220,12 @@ export const Card = (props: IKanbanCardProps) => {
             <MessageSquare className="size-4" />
             {/* read-only collaborators open the thread, they just can't add to it */}
             {cardCommentCreatable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title')}
+          </ContextMenuItem>
+        )}
+        {chatEnabled && (
+          <ContextMenuItem onClick={() => addToChat(card.id)}>
+            <MessageSquareDot className="size-4" />
+            {t('table:menu.addToChat')}
           </ContextMenuItem>
         )}
         {cardDeletable && (

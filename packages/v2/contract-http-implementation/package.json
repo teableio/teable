@@ -30,6 +30,13 @@
       "module": "./dist/handlers/dataQuery/executeDataQuery.js",
       "require": "./dist/handlers/dataQuery/executeDataQuery.cjs"
     },
+    "./data-query-explain": {
+      "@teable/source": "./src/handlers/dataQuery/explainDataQuery.ts",
+      "types": "./src/handlers/dataQuery/explainDataQuery.ts",
+      "import": "./dist/handlers/dataQuery/explainDataQuery.js",
+      "module": "./dist/handlers/dataQuery/explainDataQuery.js",
+      "require": "./dist/handlers/dataQuery/explainDataQuery.cjs"
+    },
     "./table-query-ops": {
       "@teable/source": "./src/tableQueryOpsRouter.ts",
       "types": "./src/tableQueryOpsRouter.ts",

@@ -95,6 +95,9 @@
     "description": "All the projects that invited me to join",
     "empty": "No projects shared with me yet"
   },
+  "quickSearch": {
+    "placeholder": "Search projects or resources"
+  },
   "integration": {},
   "aiSetting": {
     "title": "AI settings",

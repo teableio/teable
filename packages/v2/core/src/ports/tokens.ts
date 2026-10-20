@@ -42,6 +42,7 @@ export const v2CoreTokens = {
   attachmentUrlSignerService: Symbol('v2.core.attachmentUrlSignerService'),
   attachmentValueResolverService: Symbol('v2.core.attachmentValueResolverService'),
   attachmentValueDecoratorService: Symbol('v2.core.attachmentValueDecoratorService'),
+  tableSchemaCoordination: Symbol('v2.core.tableSchemaCoordination'),
   recordChangedValueDecoratorService: Symbol('v2.core.recordChangedValueDecoratorService'),
   userValueResolverService: Symbol('v2.core.userValueResolverService'),
   userLookupService: Symbol('v2.core.userLookupService'),

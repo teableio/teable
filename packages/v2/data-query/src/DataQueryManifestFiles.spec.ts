@@ -596,4 +596,83 @@ void row; void wrong;`,
         .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
     ).toEqual([]);
   });
+
+  it('generates a mixed manifest that typechecks with narrow per-query results', () => {
+    const mixed = generateAppQueryArtifacts({
+      schemaVersion: 1,
+      queries: {
+        paged: {
+          result: 'many',
+          definition: {
+            version: 1,
+            kind: 'records',
+            tableId: `tbl${'a'.repeat(16)}`,
+            select: [{ system: 'id', alias: 'id' }],
+            page: { limit: 2, includeTotal: true },
+          },
+        },
+        legacy: {
+          result: 'many',
+          definition: {
+            version: 1,
+            kind: 'records',
+            tableId: `tbl${'a'.repeat(16)}`,
+            select: [{ system: 'id', alias: 'id' }],
+          },
+        },
+        legacyOne: {
+          result: 'one',
+          definition: {
+            version: 1,
+            kind: 'records',
+            tableId: `tbl${'a'.repeat(16)}`,
+            select: [{ system: 'id', alias: 'id' }],
+            recordId: `rec${'b'.repeat(16)}`,
+          },
+        },
+      },
+    })._unsafeUnwrap().module;
+    const files: Record<string, string> = {
+      '/mixed/queries.ts': mixed,
+      '/mixed/request.ts':
+        'export declare function request<T>(path:string, options:unknown):Promise<T>; export declare function getConfig(): {baseId:string};',
+      '/mixed/server-only.d.ts': "declare module 'server-only';",
+      '/mixed/consumer.ts': `import {queries} from './queries';
+async function check() {
+  const paged = await queries.paged();
+  const total: number = paged.page.total;
+  const rows: Array<{id: string}> = await queries.legacy();
+  const one: {id: string} | null = await queries.legacyOne();
+  // @ts-expect-error legacy queries keep the array result
+  const wrongPage = (await queries.legacy()).page;
+  void wrongPage;
+  void total; void rows; void one;
+}
+void check;`,
+    };
+    const options: ts.CompilerOptions = {
+      noEmit: true,
+      strict: true,
+      skipLibCheck: true,
+      types: [],
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    };
+    const host = ts.createCompilerHost(options);
+    const originalRead = host.readFile;
+    const originalExists = host.fileExists;
+    const originalDirectoryExists = host.directoryExists;
+    host.readFile = (path) => files[path] ?? originalRead(path);
+    host.fileExists = (path) => path in files || originalExists(path);
+    host.directoryExists = (path) => path === '/mixed' || Boolean(originalDirectoryExists?.(path));
+    host.getSourceFile = (path, languageVersion) => {
+      const source = host.readFile(path);
+      return source === undefined ? undefined : ts.createSourceFile(path, source, languageVersion);
+    };
+    expect(
+      ts
+        .getPreEmitDiagnostics(ts.createProgram(Object.keys(files), options, host))
+        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+    ).toEqual([]);
+  });
 });
