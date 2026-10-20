@@ -56,6 +56,7 @@ export const SideBarFooter: React.FC = () => {
             variant="ghost"
             size={'sm'}
             className="min-w-0 flex-1 justify-start overflow-hidden py-1.5 ps-2 text-sm font-normal"
+            data-user-nav-trigger=""
           >
             <UserAvatar className="border" user={user} />
             <p className="truncate" title={user.name}>

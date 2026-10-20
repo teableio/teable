@@ -95,6 +95,9 @@
     "description": "Tutti i progetti a cui sono stato invitato a partecipare",
     "empty": "Nessun progetto condiviso ancora"
   },
+  "quickSearch": {
+    "placeholder": "Cerca progetti o risorse"
+  },
   "aiSetting": {
     "title": "Impostazioni AI",
     "description": "Gestisci le impostazioni AI del tuo spazio",

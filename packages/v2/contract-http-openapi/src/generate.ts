@@ -1,5 +1,5 @@
 import { OpenAPIGenerator } from '@orpc/openapi';
-import { dataQueryContract, v2Contract } from '@teable/v2-contract-http';
+import { dataQueryContract, dataQueryExplainContract, v2Contract } from '@teable/v2-contract-http';
 
 export interface IV2OpenApiGenerateOptions {
   title?: string;
@@ -12,7 +12,10 @@ export const generateV2OpenApiDocument = async (options: IV2OpenApiGenerateOptio
   const openAPIGenerator = new OpenAPIGenerator();
 
   const contract = options.includeDataQuery
-    ? { ...v2Contract, queries: dataQueryContract }
+    ? {
+        ...v2Contract,
+        queries: { ...dataQueryContract, ...dataQueryExplainContract },
+      }
     : v2Contract;
   return openAPIGenerator.generate(contract, {
     info: {

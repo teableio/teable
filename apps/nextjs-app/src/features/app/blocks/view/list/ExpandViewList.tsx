@@ -1,6 +1,5 @@
 import { verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DraggableHandle } from '@teable/icons';
-import { BaseNodeResourceType } from '@teable/openapi';
 import { useTablePermission, useViewId } from '@teable/sdk/hooks';
 import {
   Popover,
@@ -14,13 +13,11 @@ import {
   Command,
 } from '@teable/ui-lib/shadcn';
 import { List } from 'lucide-react';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useBaseResource, type IBaseResourceTable } from '../../../hooks/useBaseResource';
-import { getNodeUrl } from '../../base/base-node/hooks';
+import { useNavigateToView } from '../../../hooks/useResourceNavigation';
 import { VIEW_ICON_MAP } from '../constant';
 import { DraggableWrapper } from './DraggableWrapper';
 
@@ -29,11 +26,10 @@ export const ExpandViewList = () => {
   const [open, setOpen] = useState(false);
   const [isDraggable, setIsDraggable] = useState(true);
   const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
-  const router = useRouter();
   const permission = useTablePermission();
-  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
+  const { tableId } = useBaseResource() as IBaseResourceTable;
+  const navigateToView = useNavigateToView();
   const curViewId = useViewId();
-  const shareUrlPrefix = useShareUrlPrefix();
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -90,16 +86,7 @@ export const ExpandViewList = () => {
                       opacity: isDragging ? '0.6' : '1',
                     }}
                     onSelect={() => {
-                      const url = getNodeUrl({
-                        baseId,
-                        resourceType: BaseNodeResourceType.Table,
-                        resourceId: tableId,
-                        viewId: id,
-                        urlPrefix: shareUrlPrefix,
-                      });
-                      if (url) {
-                        router.push(url, undefined, { shallow: true });
-                      }
+                      navigateToView(tableId, id);
                       setOpen(false);
                     }}
                   >

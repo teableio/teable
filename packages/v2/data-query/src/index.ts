@@ -1,4 +1,7 @@
 export * from './types';
+export * from './DataQueryExplain';
+export * from './DataQueryExplainService';
+export * from './QueryExplainExecutionService';
 export {
   DataQueryDefinition,
   dataQueryDefinitionInputSchema,
@@ -11,5 +14,6 @@ export * from './ports';
 export * from './QueryExecutionService';
 export * from './queryExecutionProtocol';
 export * from './DataQueryManifest';
+export * from './DataQueryManifestLint';
 export * from './DataQueryManifestFiles';
 export * from './managedQueryTool.generated';

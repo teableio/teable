@@ -129,7 +129,7 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
       </div>
 
       <div className="absolute end-0 top-0 z-10 hidden h-full items-center group-focus-within:flex group-hover:flex">
-        <div className="h-full w-8 bg-gradient-to-r from-accent/0 to-accent dark:from-[#303132]/0 dark:to-[#303132] rtl:bg-gradient-to-l" />
+        <div className="h-full w-8 bg-gradient-to-r from-transparent to-accent dark:from-[#303132]/0 dark:to-[#303132] rtl:bg-gradient-to-l" />
         <div className="flex h-full items-center gap-1 bg-accent px-2 py-1 dark:bg-[#303132]">
           {isError ? (
             <UploadActionButton label={t('upload.statusRetry')} onClick={onRetry}>

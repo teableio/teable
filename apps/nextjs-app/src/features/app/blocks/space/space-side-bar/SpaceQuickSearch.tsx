@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { LayoutGrid, Search, Table2 } from '@teable/icons';
 import { type ISpaceSearchItem } from '@teable/openapi';
 import { spaceSearch } from '@teable/openapi';
+import { useBase } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import {
   CommandDialog,
@@ -26,9 +27,12 @@ import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getNodeUrl } from '../../base/base-node/hooks';
+import { useBaseNodeContext } from '../../base/base-node/hooks/useBaseNodeContext';
+import { PaletteExtras, ProjectNodeGroups } from '../../base/base-side-bar/PaletteGroups';
 
 interface Props {
-  spaceId: string;
+  /** The space searched beyond the current project; none where the reader has no space (shared projects). */
+  spaceId?: string;
 }
 
 const SearchTypeIconMap = {
@@ -40,6 +44,10 @@ const SearchTypeIconMap = {
   routine: CalendarClockIcon,
 };
 
+/**
+ * ⌘K: the theme switch and settings on opening; as the reader types, the current project's
+ * matching nodes first, then what the space search finds beyond them.
+ */
 export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -93,17 +101,24 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['space-search', spaceId, debouncedSearch],
     queryFn: ({ pageParam }) =>
-      spaceSearch(spaceId, {
+      spaceSearch(spaceId ?? '', {
         search: debouncedSearch,
         pageSize: 10,
         cursor: pageParam,
       }).then((r) => r.data),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled: open && debouncedSearch.length > 0,
+    enabled: open && Boolean(spaceId) && debouncedSearch.length > 0,
   });
 
-  const allResults = useMemo(() => data?.pages?.flatMap((page) => page.list) ?? [], [data]);
+  // The project the page is on lists its own nodes at once; the space search adds the rest.
+  const base = useBase();
+  const baseId = base?.id;
+  const { treeItems } = useBaseNodeContext();
+  const allResults = useMemo(() => {
+    const local = new Set(Object.values(treeItems).map((item) => item.resourceId));
+    return (data?.pages?.flatMap((page) => page.list) ?? []).filter((item) => !local.has(item.id));
+  }, [data, treeItems]);
 
   const navigateTo = (item: ISpaceSearchItem) => {
     setOpen(false);
@@ -161,15 +176,22 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
         }}
       >
         <CommandInput
-          placeholder={t('common:quickAction.placeHolder')}
+          placeholder={t('space:quickSearch.placeholder')}
           value={search}
           onValueChange={handleSearchChange}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
         />
         <CommandList>
-          {debouncedSearch.length > 0 && !isLoading && allResults.length === 0 && (
-            <CommandEmpty>{t('common:noResult')}</CommandEmpty>
+          {search.length > 0 && !isLoading && <CommandEmpty>{t('common:noResult')}</CommandEmpty>}
+          {baseId && search.length > 0 && (
+            <ProjectNodeGroups
+              baseId={baseId}
+              projectName={base.name}
+              treeItems={treeItems}
+              search={search}
+              onNavigate={() => handleOpenChange(false)}
+            />
           )}
 
           {allResults.map((item) => {
@@ -224,6 +246,7 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
               </Button>
             </div>
           )}
+          <PaletteExtras search={search} onClose={() => handleOpenChange(false)} />
         </CommandList>
       </CommandDialog>
     </>

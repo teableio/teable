@@ -8,5 +8,6 @@ export default defineConfig({
     'src/handlers/index.ts',
     'src/tableQueryOpsRouter.ts',
     'src/handlers/dataQuery/executeDataQuery.ts',
+    'src/handlers/dataQuery/explainDataQuery.ts',
   ],
 });

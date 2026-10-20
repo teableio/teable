@@ -49,6 +49,40 @@ const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
 
 const failure = (code: string, message: string): DomainError =>
   domainError.validation({ code: `data_query.${code}`, message });
+/**
+ * PostgreSQL-side de-duplication for multi-value lookup/rollup storage.
+ * First occurrence wins, NULL/scalars pass through unchanged, and elements compare
+ * by their stored JSON shape so an identical object collapses while a distinct one stays.
+ */
+const buildArrayDistinctExpression = (
+  expression: RawBuilder<unknown>
+): RawBuilder<unknown> => sql`case
+  when ${expression} is null then null
+  when jsonb_typeof(${expression}::jsonb) = 'array' then coalesce((
+    select jsonb_agg(deduped.element order by deduped.first_position)
+    from (
+      select item.element, min(item.ord) as first_position
+      from jsonb_array_elements(${expression}::jsonb) with ordinality as item(element, ord)
+      group by item.element
+    ) as deduped
+  ), '[]'::jsonb)
+  else ${expression}
+end`;
+
+/** pg returns count(*) as a string; never let an unsafe total silently round. */
+const parseTotal = (value: unknown): number | undefined => {
+  if (typeof value === 'number')
+    return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+  if (typeof value === 'bigint')
+    return value >= BigInt(0) && value <= BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number(value)
+      : undefined;
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
 
 /** Compiles stored-value reads only. No query plans, scopes or caller values are cached. */
 export class PostgresDataQueryExecutor implements IDataQueryExecutor {
@@ -74,6 +108,22 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     query: BoundDataQuery,
     scope: RecordQueryPluginScope
   ): Result<CompiledQuery<Row>, DomainError> {
+    return this.buildQueries(context, table, query, scope).map((queries) => queries.rows);
+  }
+
+  private buildQueries(
+    context: IExecutionContext,
+    table: ITableReadModel,
+    query: BoundDataQuery,
+    scope: RecordQueryPluginScope
+  ): Result<
+    {
+      rows: CompiledQuery<Row>;
+      count?: CompiledQuery<{ total: unknown }>;
+      constantTotal?: number;
+    },
+    DomainError
+  > {
     try {
       const db = this.db;
       return safeTry(function* () {
@@ -161,32 +211,53 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         };
         if (snapshot.kind === 'records') {
           const selections = snapshot.select.map((projection) => {
-            const expression =
-              'system' in projection
-                ? sql.id('t', systemColumns[projection.system])
-                : values.get(projection.fieldId)!;
-            return sql`${expression} as ${sql.id(projection.alias)}`;
+            if ('system' in projection) {
+              return sql`${sql.id('t', systemColumns[projection.system])} as ${sql.id(
+                projection.alias
+              )}`;
+            }
+            const expression = values.get(projection.fieldId)!;
+            return sql`${
+              projection.arrayDistinct === true
+                ? buildArrayDistinctExpression(expression)
+                : expression
+            } as ${sql.id(projection.alias)}`;
           });
-          for (const sort of snapshot.sort ?? []) {
+          for (const sort of query.sort) {
             if ('system' in sort) {
               addOrder(sql.id('t', systemColumns[sort.system]), sort.order, true);
               continue;
             }
-            const clauses = yield* buildStoredFieldOrderByClauses(
-              fields.get(sort.fieldId)!,
-              columns.get(sort.fieldId)!,
-              sort.order,
-              't',
-              { columnExpression: values.get(sort.fieldId)! }
-            );
+            if (!('fieldId' in sort)) {
+              return err(
+                failure('invalid_sort', 'Records sorting requires a field or system target')
+              );
+            }
+            const field = fields.get(sort.fieldId);
+            const column = columns.get(sort.fieldId);
+            const value = values.get(sort.fieldId);
+            if (!field || !column || !value) {
+              return err(failure('invalid_sort', 'A sort field is not part of the query binding'));
+            }
+            const clauses = yield* buildStoredFieldOrderByClauses(field, column, sort.order, 't', {
+              columnExpression: value,
+            });
             for (const clause of clauses)
               addOrder(clause.expression, clause.direction, clause.matchV1Nulls);
           }
           addOrder(sql.id('t', '__id'), 'asc');
-          return ok(
-            sql<Row>`select ${sql.join(selections)} from ${from} ${where}
-            order by ${sql.join(orders)} limit ${query.limit} offset ${query.offset}`.compile(db)
-          );
+          const rows = sql<Row>`select ${sql.join(selections)} from ${from} ${where}
+            order by ${sql.join(orders)} limit ${query.limit} offset ${query.offset}`.compile(db);
+          return ok({
+            rows,
+            ...(query.includeTotal
+              ? {
+                  count: sql<{
+                    total: unknown;
+                  }>`select count(*) as ${sql.id('total')} from ${from} ${where}`.compile(db),
+                }
+              : {}),
+          });
         }
 
         const sourceIds = [
@@ -229,17 +300,31 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           groups.set(group.fieldId, expression);
           selections.push(sql`${expression} as ${sql.id(group.alias)}`);
         }
-        const groupOrders = [...(snapshot.sort ?? [])];
+        const groupOrders = [...query.sort];
         const orderedIds = new Set(
-          groupOrders.flatMap((sort) => ('fieldId' in sort ? [sort.fieldId] : []))
+          groupOrders.flatMap((sort) => {
+            if ('fieldId' in sort) return [sort.fieldId];
+            if ('alias' in sort) {
+              const group = snapshot.groupBy?.find((candidate) => candidate.alias === sort.alias);
+              return group ? [group.fieldId] : [];
+            }
+            return [];
+          })
         );
         for (const group of snapshot.groupBy ?? []) {
           if (!orderedIds.has(group.fieldId))
             groupOrders.push({ fieldId: group.fieldId, order: 'asc' });
         }
         for (const sort of groupOrders) {
+          if ('alias' in sort) {
+            // The alias is the selected output column; sorting never re-evaluates the aggregate.
+            addOrder(sql.id(sort.alias), sort.order, true);
+            continue;
+          }
           if (!('fieldId' in sort) || !groups.has(sort.fieldId)) {
-            return err(failure('invalid_sort', 'Aggregate sorting requires a group field'));
+            return err(
+              failure('invalid_sort', 'Aggregate sorting requires a group field or alias')
+            );
           }
           const expression = groups.get(sort.fieldId)!;
           const clauses = yield* buildStoredFieldOrderByClauses(
@@ -256,10 +341,17 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         }
         const groupClause = groups.size ? sql`group by ${sql.join([...groups.values()])}` : sql``;
         const orderClause = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
-        return ok(
-          sql<Row>`select ${sql.join(selections)} from (${source}) as ${sql.id('a')}
-          ${groupClause} ${orderClause} limit ${query.limit} offset ${query.offset}`.compile(db)
-        );
+        const rows = sql<Row>`select ${sql.join(selections)} from (${source}) as ${sql.id('a')}
+          ${groupClause} ${orderClause} limit ${query.limit} offset ${query.offset}`.compile(db);
+        if (!query.includeTotal) return ok({ rows });
+        // Without grouping the aggregate always produces exactly one result row.
+        if (!groups.size) return ok({ rows, constantTotal: 1 });
+        const count = sql<{
+          total: unknown;
+        }>`select count(*) as ${sql.id('total')} from (
+          select 1 from (${source}) as ${sql.id('a')} ${groupClause}
+        ) as ${sql.id('g')}`.compile(db);
+        return ok({ rows, count });
       });
     } catch {
       return err(failure('compile_failed', 'Unable to compile data query'));
@@ -276,7 +368,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       context,
       'compile',
       { 'teable.component': 'repository' },
-      async () => this.compile(context, table, query, scope)
+      async () => this.buildQueries(context, table, query, scope)
     );
     if (compiled.isErr()) return err(compiled.error);
     try {
@@ -289,16 +381,33 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           'teable.data_query.kind': query.definition.kind,
           'teable.data_query.limit': query.limit,
           'teable.data_query.offset': query.offset,
+          ...(query.includeTotal ? { 'teable.data_query.include_total': true } : {}),
         },
         async () => {
           try {
+            const queries = compiled.value;
+            // Rows and the total must share one snapshot: READ COMMITTED would give each
+            // statement its own, letting a concurrent commit change the count mid-page.
             return ok(
               await this.db.transaction().execute(async (transaction) => {
-                await sql`set transaction read only`.execute(transaction);
-                await sql`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)`.execute(
-                  transaction
+                // Compiling through the outer handle keeps these statements on the real
+                // transaction while recording remains possible for tests.
+                await transaction.executeQuery(
+                  sql`set transaction isolation level repeatable read`.compile(this.db)
                 );
-                return transaction.executeQuery(compiled.value);
+                await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
+                await transaction.executeQuery(
+                  sql`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)`.compile(
+                    this.db
+                  )
+                );
+                const pages = await transaction.executeQuery(queries.rows);
+                if (!query.includeTotal) return { pages, total: undefined };
+                if (queries.constantTotal !== undefined)
+                  return { pages, total: queries.constantTotal };
+                if (!queries.count) throw new Error('Missing count query');
+                const counted = await transaction.executeQuery(queries.count);
+                return { pages, total: parseTotal(counted.rows[0]?.total) };
               })
             );
           } catch (error) {
@@ -324,20 +433,31 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         }
       );
       if (read.isErr()) return err(read.error);
-      const result = read.value;
+      const { pages, total } = read.value;
+      if (query.includeTotal && total === undefined) {
+        return err(
+          domainError.infrastructure({
+            code: 'data_query.execution_failed',
+            message: 'Unable to resolve the data query total',
+          })
+        );
+      }
       const aggregates = new Map(
         (query.definition.kind === 'aggregate' ? query.definition.aggregates : []).map(
           (aggregate) => [aggregate.alias, aggregate.statisticFunc]
         )
       );
       return ok({
-        rows: result.rows.map((row) => {
+        rows: pages.rows.map((row) => {
           const output: Row = {};
           for (const [alias, value] of Object.entries(row)) {
             output[alias] = normalizeDataQueryValue(value, aggregates.get(alias));
           }
           return output;
         }),
+        ...(total === undefined
+          ? {}
+          : { page: { limit: query.limit, offset: query.offset, total } }),
       });
     } catch {
       return err(

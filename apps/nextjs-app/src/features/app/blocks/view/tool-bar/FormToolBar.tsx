@@ -78,7 +78,7 @@ export const FormToolBar: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-wrap items-center justify-end border-y px-4 py-2 @container/toolbar sm:justify-between">
+    <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-end border-y bg-background px-4 py-1 @container/toolbar sm:justify-between">
       <div className="hidden flex-1 sm:flex">
         {isEditable && (
           <Tabs size="sm" value={currentMode} onValueChange={(v) => setFormMode(v as FormMode)}>

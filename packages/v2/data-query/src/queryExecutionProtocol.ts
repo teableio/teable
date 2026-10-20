@@ -14,8 +14,20 @@ export const executeDataQueryRequestSchema = z
 
 export type ExecuteDataQueryRequest = z.infer<typeof executeDataQueryRequestSchema>;
 
+export const dataQueryPageSchema = z
+  .object({
+    limit: z.number().int().min(1).max(1000),
+    offset: z.number().int().min(0).max(2147483647),
+    total: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const queryExecutionResultSchema = z
-  .object({ rows: z.array(z.record(z.string(), z.json())) })
+  .object({
+    rows: z.array(z.record(z.string(), z.json())),
+    /** Omitted unless the definition opts in with page.includeTotal. */
+    page: dataQueryPageSchema.optional(),
+  })
   .strict();
 
 /** Structural discovery; live field semantics and authorization are enforced by execution. */

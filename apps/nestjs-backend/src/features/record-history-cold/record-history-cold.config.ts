@@ -1,4 +1,5 @@
 import { readBoolEnv, readNonNegativeIntEnv, readPositiveIntEnv } from '../cold-archive/env';
+import { readColdRetentionDays } from '../cold-archive/retention';
 
 /** redis set of table ids the flusher wrote parts for since the last compaction */
 export const RECORD_HISTORY_COMPACT_PENDING_KEY = 'record-history-cold:compact-pending';
@@ -67,6 +68,8 @@ export interface IRecordHistoryColdConfig {
   s3ReadTimeoutMs: number;
   /** buffer rows older than this raise the flush-lag alarm (default 72h) */
   bufferLagAlarmMs: number;
+  /** compaction deletes cold months that ended this many days ago; 0 (default) keeps them forever */
+  coldRetentionDays: number;
 }
 
 /**
@@ -129,5 +132,6 @@ export const recordHistoryColdConfig = (): IRecordHistoryColdConfig => {
       'BACKEND_RECORD_HISTORY_COLD_BUFFER_LAG_ALARM_MS',
       72 * 60 * 60 * 1000
     ),
+    coldRetentionDays: readColdRetentionDays('BACKEND_RECORD_HISTORY_COLD_RETENTION_DAYS'),
   };
 };

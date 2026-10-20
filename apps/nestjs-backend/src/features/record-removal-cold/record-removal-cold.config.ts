@@ -1,4 +1,5 @@
 import { readBoolEnv, readNonNegativeIntEnv, readPositiveIntEnv } from '../cold-archive/env';
+import { readColdRetentionDays } from '../cold-archive/retention';
 
 /** redis set of table ids the flusher wrote parts for since the last compaction */
 export const RECORD_REMOVAL_COMPACT_PENDING_KEY = 'record-removal-cold:compact-pending';
@@ -66,6 +67,9 @@ export interface IRecordRemovalColdConfig {
   truncateRowUnits: number;
   // overall budget for the S3 segment of a removal cold read
   s3ReadTimeoutMs: number;
+  // compaction deletes deleted/ cold months that ended this many days ago
+  // (archived/ never expires); 0 (default) keeps them forever
+  deletedColdRetentionDays: number;
 }
 
 // The feature ships ON by default and migrates transparently: the flush run
@@ -128,5 +132,6 @@ export const recordRemovalColdConfig = (): IRecordRemovalColdConfig => {
       16 * 1024 * 1024
     ),
     s3ReadTimeoutMs: readPositiveIntEnv('BACKEND_RECORD_REMOVAL_COLD_S3_READ_TIMEOUT_MS', 10_000),
+    deletedColdRetentionDays: readColdRetentionDays('BACKEND_RECORD_REMOVAL_COLD_RETENTION_DAYS'),
   };
 };

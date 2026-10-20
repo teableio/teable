@@ -37,8 +37,8 @@ import type { Response } from 'express';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCacheService } from '../../performance-cache';
-import { decryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { SettingService } from '../setting/setting.service';
+import { decryptAiIntegrationConfig } from '../space/ai-integration-secrets';
 import { AiGatewayModelsService } from './ai-gateway-models.service';
 import {
   aiProviderFetch,
@@ -440,7 +440,10 @@ export class AiService implements OnModuleInit {
     });
 
     const aiIntegrationConfig = aiIntegration?.config
-      ? decryptAiConfigSecrets(JSON.parse(aiIntegration.config), `integration:${aiIntegration.id}`)
+      ? decryptAiIntegrationConfig(
+          JSON.parse(aiIntegration.config),
+          `integration:${aiIntegration.id}`
+        )
       : null;
     const { aiConfig } = await this.settingService.getSetting();
 

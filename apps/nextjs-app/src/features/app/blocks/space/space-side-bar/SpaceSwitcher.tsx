@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Check, ChevronDown, LayoutGrid, Plus, ShieldUser, Trash2 } from '@teable/icons';
+import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, Plus, ShieldUser } from '@teable/icons';
 import {
   createSpace,
   getSubscriptionSummaryList,
@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Building2 } from 'lucide-react';
+import { Building2, Recycle, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -45,12 +45,55 @@ import { useSpaceList } from '../hooks';
 import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';
 
+/**
+ * A highlight no space carries: cmdk highlights its first item while its value is empty, so a
+ * list with no current space (the shared-base page) opens with none highlighted instead.
+ */
+const NO_HIGHLIGHT = '__none__';
+
+/** What the trigger names: the space, or "Shared with me" for a reader who is no member of it. */
+const TriggerIdentity = ({
+  isField,
+  name,
+  avatar,
+  sharedOnly,
+}: {
+  isField: boolean;
+  name?: string;
+  avatar?: string | null;
+  sharedOnly: boolean;
+}) => (
+  <>
+    {sharedOnly ? (
+      <Users className={cn('shrink-0 text-muted-foreground', isField ? 'size-4' : 'size-5')} />
+    ) : (
+      <SpaceAvatar
+        name={name ?? ''}
+        avatar={avatar}
+        className={isField ? 'size-6 text-xs' : 'size-8'}
+        fallbackClassName={isField ? 'bg-muted' : undefined}
+      />
+    )}
+    <p className={cn('min-w-0 truncate text-start', isField ? 'flex-1 text-sm' : 'font-semibold')}>
+      {name}
+    </p>
+  </>
+);
+
 interface ISpaceSwitcherProps {
   open?: boolean;
   setOpen?: (open: boolean) => void;
   upgradeTip?: ReactNode;
   creditUsage?: ReactNode;
   spaceInnerSettingModal?: ReactNode;
+  /** The space shown; a page without a `spaceId` route param (a project page) passes it. */
+  spaceId?: string;
+  /** `field` draws the trigger as a full-width select box (the chat-first space shell's sidebar). */
+  variant?: 'inline' | 'field';
+  /** The reader is no member of this space, only invited into a project of it: the trigger reads "Shared with me". */
+  sharedOnly?: boolean;
+  /** Where "Shared with me" opens: a new tab (the default), or this one for a shell that lists shared projects itself. */
+  sharedBaseTarget?: '_blank' | '_self';
 }
 
 export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
@@ -60,7 +103,12 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
     upgradeTip,
     creditUsage,
     spaceInnerSettingModal,
+    spaceId: spaceIdProp,
+    variant = 'inline',
+    sharedOnly = false,
+    sharedBaseTarget = '_blank',
   } = props;
+  const isField = variant === 'field';
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { user } = useSession();
@@ -89,7 +137,8 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   const pinMap = usePinMap();
   const { spaceList } = useSpaceList();
-  const { spaceId: currentSpaceId } = useParams<{ spaceId: string }>();
+  const { spaceId: paramSpaceId } = useParams<{ spaceId: string }>();
+  const currentSpaceId = spaceIdProp ?? paramSpaceId;
 
   const { data: subscriptionList } = useQuery({
     queryKey: ['subscription-summary-list'],
@@ -133,10 +182,14 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
     },
   });
 
+  // The current space, or none where no space is current; a hover that leaves falls back to it,
+  // since cmdk keeps the last item the pointer crossed highlighted.
+  const defaultHighlight = sharedOnly || !currentSpaceId ? NO_HIGHLIGHT : currentSpaceId;
+
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      setHighlightedValue(currentSpaceId);
+      setHighlightedValue(defaultHighlight);
     }
   };
 
@@ -174,17 +227,24 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
       <Popover modal open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
-            variant="ghost"
+            variant={isField ? 'outline' : 'ghost'}
             size="sm"
-            className="h-10 max-w-full justify-start overflow-hidden p-2 text-base"
+            className={cn(
+              'h-10 max-w-full justify-start overflow-hidden',
+              isField ? 'h-9 w-full gap-2 bg-muted px-2 font-normal dark:bg-muted' : 'p-2 text-base'
+            )}
           >
-            <SpaceAvatar
-              name={currentSpace?.name ?? ''}
-              avatar={currentSpace?.avatar}
-              className="size-8 shrink-0"
+            <TriggerIdentity
+              isField={isField}
+              name={sharedOnly ? t('space:sharedBase.title') : currentSpace?.name}
+              avatar={sharedOnly ? undefined : currentSpace?.avatar}
+              sharedOnly={sharedOnly}
             />
-            <p className="min-w-0 truncate text-start font-semibold">{currentSpace?.name}</p>
-            <ChevronDown className="size-4 shrink-0" />
+            {isField ? (
+              <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-4 shrink-0" />
+            )}
           </Button>
         </PopoverTrigger>
 
@@ -224,7 +284,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
                 <CommandGroup className="px-2 py-0">
                   {sortedSpaceList?.map((space) => {
-                    const isSelected = space.id === currentSpaceId;
+                    const isSelected = !sharedOnly && space.id === currentSpaceId;
                     const subscription = subscriptionMap.get(space.id);
                     const spaceIsPinned = pinMap?.[space.id];
 
@@ -234,6 +294,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                         value={space.id}
                         keywords={[space.name]}
                         onSelect={() => handleSelectSpace(space)}
+                        onPointerLeave={() => setHighlightedValue(defaultHighlight)}
                         className={cn('group flex items-center gap-2 rounded-md h-10')}
                       >
                         <div className="flex min-w-0 grow items-center gap-2">
@@ -280,13 +341,14 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
             <div className="flex flex-col px-2 py-1">
               <Link
                 href="/space/shared-base"
-                target="_blank"
+                target={sharedBaseTarget}
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
                 className="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-accent"
               >
                 <LayoutGrid className="size-4 shrink-0" />
-                <span className="text-sm">{t('space:sharedBase.title')}</span>
+                <span className="truncate text-sm">{t('space:sharedBase.title')}</span>
+                {sharedOnly && <Check className="ms-auto size-4 shrink-0" />}
               </Link>
 
               {user?.isAdmin && (
@@ -322,7 +384,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                 onClick={() => setOpen(false)}
                 className="flex h-8 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
-                <Trash2 className="size-4 shrink-0" />
+                <Recycle className="size-4 shrink-0" />
                 <span className="text-sm">{t('common:trash.spaceTrash')}</span>
               </Link>
             </div>

@@ -10,10 +10,12 @@ interface IInviteSpacePopoverProps {
     role: IRole;
   };
   children: React.ReactNode;
+  /** Which edge of the trigger the content lines up with; a full-width sidebar row wants `start`. */
+  align?: 'start' | 'center' | 'end';
 }
 
 export const InviteSpacePopover = (props: IInviteSpacePopoverProps) => {
-  const { space, children } = props;
+  const { space, children, align = 'end' } = props;
   const [open, setOpen] = useState(false);
   const [isSubPage, setIsSubPage] = useState(false);
   const onOpenChange = (open: boolean) => {
@@ -27,7 +29,7 @@ export const InviteSpacePopover = (props: IInviteSpacePopoverProps) => {
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         className={cn('h-auto w-[480px] rounded-xl border p-6 shadow-lg', !isSubPage && 'pb-3')}
-        align="end"
+        align={align}
       >
         <InviteSpaceContent
           spaceId={space.id}

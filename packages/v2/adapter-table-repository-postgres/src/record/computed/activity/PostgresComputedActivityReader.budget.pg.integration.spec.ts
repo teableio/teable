@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import { createV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
 import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import { FieldId, NoopLogger, ok, TableId } from '@teable/v2-core';
@@ -209,4 +210,70 @@ describePg('PostgresComputedActivityReader statement cancellation (Postgres)', (
       }
     }
   );
+
+  it('returns a syncing snapshot instead of a budget error when a poll is canceled', async () => {
+    const projector = new ComputedActivityProjector(db, new NoopLogger());
+    projector.configureAsyncProjection({ enabled: false });
+    const reader = new PostgresComputedActivityReader(db, projector);
+    const acquired = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const held = holder.transaction().execute(async (trx) => {
+      await sql`lock table computed_update_pause_scope in access exclusive mode`.execute(trx);
+      acquired.resolve();
+      await release.promise;
+    });
+    await acquired.promise;
+    try {
+      const started = performance.now();
+      const result = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+        budgetMs: 250,
+        includePauseDiagnostics: true,
+      });
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().observationState).toBe('syncing');
+      expect(performance.now() - started).toBeLessThan(2000);
+    } finally {
+      release.resolve();
+      await held;
+    }
+  });
+
+  it('keeps the last good fields when a later poll is canceled', async () => {
+    const projector = new ComputedActivityProjector(db, new NoopLogger());
+    projector.configureAsyncProjection({ enabled: false });
+    const reader = new PostgresComputedActivityReader(db, projector);
+    await sql`
+      insert into computed_field_activity (field_id, table_id, base_id, status, updated_at)
+      values (${FIELD_ID}, ${TABLE_ID}, ${BASE_ID}, 'idle', now())
+      on conflict (field_id) do update set updated_at = now()
+    `.execute(db);
+    const first = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+      budgetMs: 1000,
+      includePauseDiagnostics: true,
+    });
+    expect(first.isOk()).toBe(true);
+    expect(first._unsafeUnwrap().fields.length).toBeGreaterThan(0);
+    // Expire the coalescer's short cache so the second call actually reads again.
+    await sleep(1100);
+    const acquired = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const held = holder.transaction().execute(async (trx) => {
+      await sql`lock table computed_update_pause_scope in access exclusive mode`.execute(trx);
+      acquired.resolve();
+      await release.promise;
+    });
+    await acquired.promise;
+    try {
+      const second = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+        budgetMs: 250,
+        includePauseDiagnostics: true,
+      });
+      expect(second.isOk()).toBe(true);
+      expect(second._unsafeUnwrap().observationState).toBe('syncing');
+      expect(second._unsafeUnwrap().fields.length).toBeGreaterThan(0);
+    } finally {
+      release.resolve();
+      await held;
+    }
+  });
 });

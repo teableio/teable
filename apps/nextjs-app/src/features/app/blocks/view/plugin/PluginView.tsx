@@ -30,6 +30,7 @@ export const PluginView = () => {
       pluginInstallId={pluginInstallId}
       positionId={id}
       positionType={PluginPosition.View}
+      className="bg-background"
       pluginUrl={plugin.url}
       tableId={tableId}
       viewId={view.id}

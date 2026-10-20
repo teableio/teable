@@ -430,7 +430,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid hsl(var(--border) / 0.5);
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   background: hsl(var(--popover) / 0.88);
   color: hsl(var(--muted-foreground));
@@ -448,7 +448,7 @@
 }
 
 .milkdown-toolbar-toggle:hover {
-  background: hsl(var(--accent) / 0.9);
+  background: hsl(var(--accent));
   color: hsl(var(--foreground));
   border-color: hsl(var(--border));
 }
@@ -472,7 +472,7 @@
   gap: 2px;
   min-width: 104px;
   padding: 4px;
-  border: 1px solid hsl(var(--border) / 0.6);
+  border: 1px solid hsl(var(--border));
   border-radius: 10px;
   background: hsl(var(--popover) / 0.92);
   box-shadow:
@@ -502,7 +502,7 @@
   grid-column: 1 / -1;
   height: 1px;
   margin: 2px 4px;
-  background: hsl(var(--border) / 0.4);
+  background: hsl(var(--border));
 }
 
 .milkdown-toolbar-btn {
@@ -525,7 +525,7 @@
 }
 
 .milkdown-toolbar-btn:hover {
-  background: hsl(var(--accent) / 0.8);
+  background: hsl(var(--accent));
   color: hsl(var(--foreground));
 }
 
@@ -559,7 +559,7 @@
   align-items: center;
   gap: 1px;
   padding: 3px;
-  border: 1px solid hsl(var(--border) / 0.6);
+  border: 1px solid hsl(var(--border));
   border-radius: 10px;
   background: hsl(var(--popover) / 0.92);
   box-shadow:
@@ -589,7 +589,7 @@
 .milkdown-selection-separator {
   width: 1px;
   height: 14px;
-  background: hsl(var(--border) / 0.5);
+  background: hsl(var(--border));
   margin: 0 1px;
   flex-shrink: 0;
 }
@@ -614,7 +614,7 @@
 }
 
 .milkdown-selection-btn:hover {
-  background: hsl(var(--accent) / 0.8);
+  background: hsl(var(--accent));
   color: hsl(var(--foreground));
 }
 
@@ -651,7 +651,7 @@
   width: 200px;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid hsl(var(--border) / 0.5);
+  border: 1px solid hsl(var(--border));
   border-radius: 7px;
   background: hsl(var(--background) / 0.6);
   color: hsl(var(--foreground));

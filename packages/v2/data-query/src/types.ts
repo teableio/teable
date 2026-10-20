@@ -12,25 +12,52 @@ export type DataQueryParameterDefinition = {
   nullable?: boolean;
   default?: RecordFilterValue;
 };
+/** Explicit sort-order values. A parameterized order may only resolve to one of these. */
+export type DataQuerySortOrder = 'asc' | 'desc';
+export type DataQueryFilterLeaf = {
+  fieldId: string;
+  operator: RecordFilterOperator;
+  value: RecordFilterValue | DataQueryParameterReference;
+  /** Skip this leaf when its parameter is absent. Literal values cannot be optional. */
+  optional?: boolean;
+};
 export type DataQueryFilter =
   | { conjunction: 'and' | 'or'; items: DataQueryFilter[] }
   | { not: DataQueryFilter }
-  | {
-      fieldId: string;
-      operator: RecordFilterOperator;
-      value: RecordFilterValue | DataQueryParameterReference;
-    };
+  | DataQueryFilterLeaf;
 export type DataQuerySystemField =
   | 'id'
   | 'createdTime'
   | 'lastModifiedTime'
   | 'autoNumber'
   | 'version';
-export type DataQueryFieldProjection = { fieldId: string; alias: string };
+export type DataQueryFieldProjection = {
+  fieldId: string;
+  alias: string;
+  /** Deduplicate multi-value lookup/rollup arrays in PostgreSQL, first occurrence order. */
+  arrayDistinct?: boolean;
+};
 export type DataQuerySystemProjection = { system: DataQuerySystemField; alias: string };
+/** A concrete sort target an allow-list may expose to a parameterized sort. */
+export type DataQuerySortTarget = { fieldId: string } | { system: DataQuerySystemField };
 export type DataQuerySort =
-  | { fieldId: string; order: 'asc' | 'desc' }
-  | { system: DataQuerySystemField; order: 'asc' | 'desc' };
+  | { fieldId: string; order: DataQuerySortOrder }
+  | { system: DataQuerySystemField; order: DataQuerySortOrder }
+  /** Aggregate output alias. Compiled to `ORDER BY <alias>` without re-evaluating the aggregate. */
+  | { alias: string; order: DataQuerySortOrder }
+  | {
+      field: DataQueryParameterReference;
+      order: DataQuerySortOrder | DataQueryParameterReference;
+      /** Declared allow-list; a resolved value outside it is rejected, never interpolated. */
+      allowed: DataQuerySortTarget[];
+      /** Skip the whole item when its field or order parameter is absent. */
+      optional?: boolean;
+    };
+/** Runtime sort items after parameter binding; only these reach SQL compilation. */
+export type DataQuerySortResolved =
+  | { fieldId: string; order: DataQuerySortOrder }
+  | { system: DataQuerySystemField; order: DataQuerySortOrder }
+  | { alias: string; order: DataQuerySortOrder };
 export type DataQueryAggregate = {
   fieldId: string;
   statisticFunc: TableRecordAggregationFunction;
@@ -44,6 +71,8 @@ type DataQueryDefinitionBase = {
   page?: {
     limit: number | DataQueryParameterReference;
     offset?: number | DataQueryParameterReference;
+    /** Opt-in: also return the unpaginated total for the same scope and filters. */
+    includeTotal?: boolean;
   };
   sort?: DataQuerySort[];
 };
@@ -70,6 +99,9 @@ export type BoundDataQuery = {
   readonly recordId?: string;
   readonly limit: number;
   readonly offset: number;
+  /** Fully resolved sorts: parameterized items are replaced by validated concrete targets. */
+  readonly sort: ReadonlyArray<DataQuerySortResolved>;
+  readonly includeTotal: boolean;
 };
 export type DataQueryFieldUsage =
   | 'projection'

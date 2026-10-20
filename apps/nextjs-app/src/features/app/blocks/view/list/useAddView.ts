@@ -1,17 +1,12 @@
 import { ViewType } from '@teable/core';
-import { BaseNodeResourceType } from '@teable/openapi';
-import { useBaseId, useTable, useViews } from '@teable/sdk/hooks';
-import { useRouter } from 'next/router';
+import { useTable, useViews } from '@teable/sdk/hooks';
 import { useCallback } from 'react';
-import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
-import { getNodeUrl } from '../../base/base-node/hooks';
+import { useNavigateToView } from '@/features/app/hooks/useResourceNavigation';
 
 export function useAddView() {
   const table = useTable();
-  const baseId = useBaseId() as string;
   const views = useViews();
-  const router = useRouter();
-  const shareUrlPrefix = useShareUrlPrefix();
+  const navigateToView = useNavigateToView();
   const viewName = views?.[views.length - 1]?.name + ' ' + views?.length;
 
   return useCallback(
@@ -26,19 +21,8 @@ export function useAddView() {
           type,
         })
       ).data;
-      const viewId = viewDoc.id;
-
-      const url = getNodeUrl({
-        baseId,
-        resourceType: BaseNodeResourceType.Table,
-        resourceId: table.id,
-        viewId,
-        urlPrefix: shareUrlPrefix,
-      });
-      if (url) {
-        router.push(url, undefined, { shallow: true });
-      }
+      navigateToView(table.id, viewDoc.id);
     },
-    [router, table, viewName, baseId, shareUrlPrefix]
+    [navigateToView, table, viewName]
   );
 }

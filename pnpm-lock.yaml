@@ -2397,12 +2397,18 @@ importers:
       '@teable/v2-adapter-db-postgres-shared':
         specifier: workspace:*
         version: link:../adapter-db-postgres-shared
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
       kysely:
         specifier: 0.28.17
         version: 0.28.17
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
       pg:
         specifier: 8.11.5
         version: 8.11.5
@@ -2413,6 +2419,9 @@ importers:
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
+      '@testcontainers/postgresql':
+        specifier: 11.10.0
+        version: 11.10.0(supports-color@9.4.0)
       '@types/node':
         specifier: 24.13.2
         version: 24.13.2

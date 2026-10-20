@@ -58,6 +58,7 @@ import type { Expression, Kysely, QueryResult, RawBuilder, SqlBool } from 'kysel
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { extractUndefinedColumnError } from '../../shared/errors';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import {
@@ -2230,6 +2231,8 @@ const extractDatabaseErrorDetails = (
   if (typeof candidate.constraint === 'string') {
     details.constraint = candidate.constraint;
   }
+  const undefinedColumn = extractUndefinedColumnError(error);
+  if (undefinedColumn) Object.assign(details, undefinedColumn);
 
   return Object.keys(details).length > 0 ? details : undefined;
 };

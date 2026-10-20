@@ -473,7 +473,7 @@ export const ExpandMarkdownEditor = ({
         <button
           ref={triggerRef}
           type="button"
-          className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border/40 hover:bg-muted hover:text-foreground"
+          className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border hover:bg-muted hover:text-foreground"
           onClick={handleExpandClick}
           title="Expand editor"
         >

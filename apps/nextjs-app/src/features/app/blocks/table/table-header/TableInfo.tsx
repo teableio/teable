@@ -148,7 +148,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-border/80 bg-muted/60 px-1 text-[9px] leading-none text-muted-foreground transition-colors hover:bg-muted"
+                    className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-border bg-muted/60 px-1 text-[9px] leading-none text-muted-foreground transition-colors hover:bg-muted"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ShieldCheck className="size-2.5 shrink-0" />

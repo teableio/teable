@@ -95,6 +95,9 @@
     "description": "Katılmaya davet edildiğim tüm projeler",
     "empty": "Henüz paylaşılan proje yok"
   },
+  "quickSearch": {
+    "placeholder": "Proje veya kaynak ara"
+  },
   "aiSetting": {
     "title": "AI ayarları",
     "description": "Alanınızın AI ayarlarını yönetin",

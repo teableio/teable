@@ -81,6 +81,45 @@ describe('opt-in data query HTTP client', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('accepts an optional page without breaking existing row-only responses', async () => {
+    for (const [body, expected] of [
+      [
+        { ok: true, data: { rows: [{ title: 'A' }] } },
+        { ok: true, data: { rows: [{ title: 'A' }] } },
+      ],
+      [
+        {
+          ok: true,
+          data: { rows: [{ title: 'A' }], page: { limit: 1, offset: 0, total: 7 } },
+        },
+        {
+          ok: true,
+          data: { rows: [{ title: 'A' }], page: { limit: 1, offset: 0, total: 7 } },
+        },
+      ],
+    ] as const) {
+      const client = createDataQueryHttpClient({
+        baseUrl: 'https://host/api/v2',
+        fetch: async () => Response.json(body),
+      });
+      expect(await client.execute(request)).toEqual(expected);
+    }
+    for (const page of [
+      { limit: 1, offset: 0 },
+      { limit: 1, offset: 0, total: -1 },
+      { limit: 0, offset: 0, total: 1 },
+    ]) {
+      const client = createDataQueryHttpClient({
+        baseUrl: 'https://host/api/v2',
+        fetch: async () => Response.json({ ok: true, data: { rows: [], page } }),
+      });
+      expect(await client.execute(request)).toMatchObject({
+        ok: false,
+        error: { code: 'data_query.invalid_response' },
+      });
+    }
+  });
+
   it('sanitizes network and credential-provider exceptions', async () => {
     for (const headers of [
       undefined,

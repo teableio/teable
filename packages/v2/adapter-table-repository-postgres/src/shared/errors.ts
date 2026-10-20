@@ -97,6 +97,41 @@ export const isNotNullViolation = (error: unknown): boolean => {
   return false;
 };
 
+/** Keep SQL diagnostics without assuming an undefined column was deleted by a user. */
+export const extractUndefinedColumnError = (
+  error: unknown
+): { pgCode: '42703'; column?: string; table?: string; schema?: string } | undefined => {
+  const pending: unknown[] = [error];
+  const seen = new Set<object>();
+  while (pending.length > 0) {
+    const candidate = pending.pop();
+    if (!candidate || typeof candidate !== 'object' || seen.has(candidate)) continue;
+    seen.add(candidate);
+    const details = candidate as Record<string, unknown>;
+    if (details.code === '42703') {
+      const message = typeof details.message === 'string' ? details.message : '';
+      const column =
+        typeof details.column === 'string'
+          ? details.column
+          : /column (?:\w+\.)?"([^"]+)"(?: of relation "[^"]+")? does not exist/.exec(
+              message
+            )?.[1] ?? /column (?:\w+\.)?(\w+) does not exist/.exec(message)?.[1];
+      const table =
+        typeof details.table === 'string'
+          ? details.table
+          : /of relation "([^"]+)"/.exec(message)?.[1];
+      return {
+        pgCode: '42703',
+        ...(column ? { column } : {}),
+        ...(table ? { table } : {}),
+        ...(typeof details.schema === 'string' ? { schema: details.schema } : {}),
+      };
+    }
+    pending.push(details.cause, details.originalError, details.meta);
+  }
+  return undefined;
+};
+
 export type DatabaseOperation = 'insert' | 'update' | 'delete' | 'query';
 
 export interface WrapDatabaseErrorContext {
@@ -328,6 +363,8 @@ export const wrapDatabaseError = (
     tableName: context.tableName,
     error: describeError(error),
   };
+  const undefinedColumn = extractUndefinedColumnError(error);
+  if (undefinedColumn) Object.assign(details, undefinedColumn);
   if (context.recordId) {
     details.recordId = context.recordId;
   }
@@ -338,7 +375,7 @@ export const wrapDatabaseError = (
   const recordNoun = operation === 'delete' && context.count !== undefined ? 'records' : 'record';
   return domainError.infrastructure({
     message: `Failed to ${operation} ${recordNoun}: ${describeError(error)}`,
-    code: `infrastructure.database.${operation}_failed`,
+    code: undefinedColumn ? 'db.undefined_column' : `infrastructure.database.${operation}_failed`,
     details,
   });
 };

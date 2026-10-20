@@ -168,10 +168,18 @@ describe('generated data-query OpenAPI contract', () => {
     expect(
       acceptsSuccess({ ok: true, data: { rows: [{ optional: null, nested: ['value'] }] } })
     ).toBe(true);
+    expect(
+      acceptsSuccess({
+        ok: true,
+        data: { rows: [{ title: 'Alpha' }], page: { limit: 1, offset: 0, total: 3 } },
+      })
+    ).toBe(true);
     for (const invalid of [
       { ok: true },
       { ok: true, data: { rows: 'not an array' } },
       { ok: false, data: { rows: [] } },
+      { ok: true, data: { rows: [], page: { limit: 1, offset: 0 } } },
+      { ok: true, data: { rows: [], page: { limit: 1, offset: 0, total: -1 } } },
     ]) {
       expect(acceptsSuccess(invalid)).toBe(false);
     }

@@ -191,9 +191,9 @@ export const TablePage = ({
 }: ITablePageProps) => {
   return (
     <DynamicTable
-      fieldServerData={fieldServerData ?? []}
-      viewServerData={viewServerData ?? []}
-      recordsServerData={recordsServerData ?? { records: [] }}
+      fieldServerData={fieldServerData}
+      viewServerData={viewServerData}
+      recordsServerData={recordsServerData}
       recordServerData={recordServerData}
       groupPointsServerDataMap={groupPointsServerDataMap}
     />

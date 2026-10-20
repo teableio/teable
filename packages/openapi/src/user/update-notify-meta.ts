@@ -5,6 +5,11 @@ import { z } from '../zod';
 
 export const UPDATE_USER_NOTIFY_META = '/user/notify-meta';
 
+/** The Web shell a user works in: chat-first (default) or the classic project/table layout. */
+export const SPACE_LAYOUTS = ['chat', 'classic'] as const;
+export const spaceLayoutSchema = z.enum(SPACE_LAYOUTS);
+export type ISpaceLayout = z.infer<typeof spaceLayoutSchema>;
+
 export const userNotifyMetaSchema = z.object({
   email: z.boolean().optional(),
   appBuilderChatIntroDismissed: z.boolean().optional(),
@@ -14,6 +19,8 @@ export const userNotifyMetaSchema = z.object({
    */
   pushGate: z.boolean().optional(),
   pushResult: z.boolean().optional(),
+  /** Absent means the chat-first space shell; `classic` opts back into the previous layout. */
+  spaceLayout: spaceLayoutSchema.optional(),
   /** Client ids of the OAuth apps whose notifications the user turned off. */
   mutedApps: z.array(z.string()).optional(),
 });

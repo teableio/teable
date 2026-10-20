@@ -56,6 +56,33 @@ const logicalDirectionRules = [
   { selector: `TemplateElement[value.raw=${physicalUtility}]`, message },
 ];
 
+/**
+ * These color tokens already carry their own transparency (`--border: 0 0% 0% / 0.08`,
+ * and `--accent` in dark mode). An opacity modifier stacks a second alpha, so
+ * `border-border/40` compiles to `hsl(0 0% 0% / 0.08 / 0.4)`: invalid, and the
+ * property falls back to its initial value (borders turn currentColor, backgrounds
+ * transparent).
+ */
+// `\x2F` is the modifier's `/`, spelled so that esquery does not end the regex there.
+const alphaTokenWithModifier = new RegExp(
+  String.raw`(^|\s)!?(?:\S*:)?!?` +
+    String.raw`(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|divide|from|via|to|outline|stroke|fill|shadow|caret|accent|decoration|placeholder)` +
+    String.raw`-(?:border|border-high|input|surface|accent)\x2F`
+);
+
+const alphaTokenMessage =
+  'border, border-high, input, surface and accent already have their own transparency; ' +
+  'an opacity modifier (/NN) on them produces invalid CSS and the color is dropped. ' +
+  'Use the token without a modifier.';
+
+const alphaTokenRules = [
+  { selector: `Literal[value=${alphaTokenWithModifier}]`, message: alphaTokenMessage },
+  {
+    selector: `TemplateElement[value.raw=${alphaTokenWithModifier}]`,
+    message: alphaTokenMessage,
+  },
+];
+
 module.exports = {
   env: {
     browser: true,
@@ -71,7 +98,7 @@ module.exports = {
       ],
       rules: {
         'tailwindcss/no-custom-classname': 'off',
-        'no-restricted-syntax': ['error', ...logicalDirectionRules],
+        'no-restricted-syntax': ['error', ...logicalDirectionRules, ...alphaTokenRules],
       },
     },
   ],

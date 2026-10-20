@@ -1,4 +1,4 @@
-import { Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { Lock, MoreHorizontal, Settings } from '@teable/icons';
 import { BillingProductLevel } from '@teable/openapi';
 import { useBasePermission, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import {
@@ -9,6 +9,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Recycle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -51,7 +52,7 @@ const MoreMenu = () => {
               className="my-[2px] w-full justify-start text-sm"
             >
               <Link href={`/base/${baseId}/trash`} className="font-normal">
-                <Trash2 className="size-4 shrink-0" />
+                <Recycle className="size-4 shrink-0" />
                 <p className="truncate">{t('common:noun.trash')}</p>
                 <div className="grow basis-0"></div>
               </Link>

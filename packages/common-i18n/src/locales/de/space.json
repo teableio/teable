@@ -95,6 +95,9 @@
     "description": "Alle Projekte, zu denen ich eingeladen wurde",
     "empty": "Noch keine geteilten Projekte"
   },
+  "quickSearch": {
+    "placeholder": "Projekte oder Ressourcen suchen"
+  },
   "aiSetting": {
     "title": "KI-Einstellungen",
     "description": "Verwalten Sie die KI-Einstellungen Ihres Space",

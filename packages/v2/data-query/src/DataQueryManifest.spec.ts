@@ -236,4 +236,69 @@ describe('canonical named query manifest', () => {
   ])('rejects malformed fallback manifest %#', (query) => {
     expect(parseDataQueryManifest({ schemaVersion: 1, queries: { query } }).isErr()).toBe(true);
   });
+
+  it('rejects fallbacks that cannot preserve the new structured semantics', () => {
+    const fallback = { sql: 'SELECT 1 AS id', outputs: [{ alias: 'id', wireType: 'string' }] };
+    const cases = [
+      { ...definition, page: { limit: 10, includeTotal: true } },
+      {
+        ...definition,
+        parameters: { label: { type: 'string' } },
+        filter: {
+          fieldId: `fld${'b'.repeat(16)}`,
+          operator: 'is',
+          value: { type: 'parameter', name: 'label' },
+          optional: true,
+        },
+      },
+      {
+        ...definition,
+        parameters: { by: { type: 'string' } },
+        sort: [
+          {
+            field: { type: 'parameter', name: 'by' },
+            order: 'asc',
+            allowed: [{ system: 'id' }],
+          },
+        ],
+      },
+      {
+        ...definition,
+        select: [{ fieldId: `fld${'c'.repeat(16)}`, alias: 'id', arrayDistinct: true }],
+      },
+    ];
+    for (const structured of cases) {
+      const error = parseDataQueryManifest({
+        schemaVersion: 1,
+        queries: {
+          guarded: {
+            mode: 'auto',
+            definition: structured,
+            fallback: { ...fallback, outputs: [{ alias: 'id', wireType: 'string' }] },
+          },
+        },
+      })._unsafeUnwrapErr();
+      expect(error.message).toContain('queries.guarded.fallback');
+    }
+    expect(
+      parseDataQueryManifest({
+        schemaVersion: 1,
+        queries: { plain: { mode: 'auto', definition, fallback } },
+      }).isOk()
+    ).toBe(true);
+  });
+});
+
+describe('array-distinct projection scope', () => {
+  it('rejects arrayDistinct on aggregate groupBy instead of ignoring it', () => {
+    const error = DataQueryDefinition.create({
+      version: 1,
+      kind: 'aggregate',
+      tableId: `tbl${'a'.repeat(16)}`,
+      groupBy: [{ fieldId: `fld${'b'.repeat(16)}`, alias: 'bucket', arrayDistinct: true }],
+      aggregates: [{ fieldId: `fld${'c'.repeat(16)}`, statisticFunc: 'count', alias: 'count' }],
+    })._unsafeUnwrapErr();
+    expect(error.code).toBe('data_query.array_distinct_scope');
+    expect(error.message).toContain('groupBy.0');
+  });
 });

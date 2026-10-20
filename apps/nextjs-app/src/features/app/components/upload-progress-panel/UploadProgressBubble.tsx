@@ -48,7 +48,7 @@ export const UploadProgressBubble = ({
         'transition-colors hover:bg-muted/30',
         hasActiveUploads && 'border-primary/20',
         hasErrors && 'border-destructive/20',
-        !hasActiveUploads && !hasErrors && 'border-border/50'
+        !hasActiveUploads && !hasErrors && 'border-border'
       )}
     >
       <div className="flex items-center gap-2.5">

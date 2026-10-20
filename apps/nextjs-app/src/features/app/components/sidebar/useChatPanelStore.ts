@@ -22,12 +22,19 @@ import { persist } from 'zustand/middleware';
  */
 interface IChatPanelState {
   status: 'open' | 'close' | 'expanded';
+  /**
+   * Every ask to show the panel, counted even while it is already showing: a shell that draws
+   * the chat elsewhere (the chat-first dock) brings it on screen on each one.
+   */
+  openRequests: number;
   panelType: 'general' | 'app-builder';
   /** Advances when add-to-chat must open the mobile sheet, not only the desktop panel. */
   mobileOpenSignal: number;
   setPanelType: (type: 'general' | 'app-builder') => void;
   close: () => void;
   open: () => void;
+  /** Ask for the panel without shrinking an expanded one: 'close' becomes 'open', the rest stays. */
+  ensureOpen: () => void;
   requestMobileOpen: () => void;
   expand: () => void;
   toggleVisible: () => void;
@@ -50,6 +57,7 @@ export const useChatPanelStore = create<IChatPanelState>()(
   persist(
     (set) => ({
       status: 'open',
+      openRequests: 0,
       panelType: 'app-builder',
       mobileOpenSignal: 0,
       setPanelType: (type: 'general' | 'app-builder') => set({ panelType: type }),
@@ -57,9 +65,14 @@ export const useChatPanelStore = create<IChatPanelState>()(
         set(() => ({
           status: 'close',
         })),
-      open: () => set({ status: 'open' }),
+      open: () => set((state) => ({ status: 'open', openRequests: state.openRequests + 1 })),
+      ensureOpen: () =>
+        set((state) => ({
+          status: state.status === 'close' ? 'open' : state.status,
+          openRequests: state.openRequests + 1,
+        })),
       requestMobileOpen: () => set((state) => ({ mobileOpenSignal: state.mobileOpenSignal + 1 })),
-      expand: () => set({ status: 'expanded' }),
+      expand: () => set((state) => ({ status: 'expanded', openRequests: state.openRequests + 1 })),
       toggleVisible: () =>
         set((state) => ({
           status: state.status !== 'close' ? 'close' : 'open',

@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
@@ -9,6 +9,10 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { type IExecutionContext } from '../ports/ExecutionContext';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -46,11 +50,44 @@ export class UpdateRecordsHandler
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.recordBulkUpdateService)
-    private readonly recordBulkUpdateService: RecordBulkUpdateService
+    private readonly recordBulkUpdateService: RecordBulkUpdateService,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: IExecutionContext,
+    command: UpdateRecordsCommand
+  ): Promise<Result<UpdateRecordsResult, DomainError>> {
+    // Row-order preparation performs CREATE INDEX CONCURRENTLY; a held
+    // coordination snapshot would block it. Keep this path outside the lease.
+    if (command.order != null) {
+      return this.execute(context, command);
+    }
+
+    // T7946: take the table lease before the bulk path reads table metadata.
+    // Only the command table is covered; link foreign tables read later for
+    // typecast title fill are not part of this lease.
+    const mode = command.typecast ? 'exclusive' : 'shared';
+    const leaseResult = await this.tableSchemaCoordination.acquire(
+      context,
+      [command.tableId.toString()],
+      mode
+    );
+    if (leaseResult.isErr()) {
+      return err(leaseResult.error);
+    }
+
+    const lease = leaseResult.value;
+    try {
+      return await this.execute(context, command);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  private async execute(
     context: IExecutionContext,
     command: UpdateRecordsCommand
   ): Promise<Result<UpdateRecordsResult, DomainError>> {

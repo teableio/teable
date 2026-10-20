@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
 import type {
   IMoveBaseNodeRo,
@@ -8,6 +8,7 @@ import type {
   IBaseNodeVo,
 } from '@teable/openapi';
 import {
+  BaseNodeResourceType,
   moveBaseNode,
   createBaseNode,
   deleteBaseNode,
@@ -15,6 +16,7 @@ import {
   updateBaseNode,
   permanentDeleteBaseNode,
 } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
@@ -36,6 +38,29 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const { t } = useTranslation(['table', 'common']);
 
   const { treeItems, invalidateMenu } = useBaseNodeContext();
+  const queryClient = useQueryClient();
+  // Pins carry the node's name and vanish with it.
+  const invalidatePins = () =>
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
+  // The node's own page caches its name too.
+  const invalidateNodeDetail = ({ resourceType, resourceId }: IBaseNodeVo) => {
+    switch (resourceType) {
+      case BaseNodeResourceType.Dashboard:
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(resourceId) });
+        break;
+      case BaseNodeResourceType.Workflow:
+        queryClient.invalidateQueries({
+          queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
+        });
+        break;
+      case BaseNodeResourceType.Routine:
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.routineItem(baseId, resourceId) });
+        break;
+      case BaseNodeResourceType.App:
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
+        break;
+    }
+  };
 
   const { mutateAsync: createNodeFn } = useMutation({
     mutationFn: (ro: ICreateBaseNodeRo) => createBaseNode(baseId, ro).then((res) => res.data),
@@ -48,6 +73,8 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IUpdateBaseNodeRo }) =>
       updateBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => {
+      invalidatePins();
+      invalidateNodeDetail(node);
       props?.onUpdateSuccess?.(node);
     },
     onError: (error, variables) => {
@@ -83,6 +110,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     onSuccess: (_, { nodeId }) => {
       props?.onDeleteSuccess?.(nodeId);
       invalidateMenu();
+      invalidatePins();
     },
   });
 

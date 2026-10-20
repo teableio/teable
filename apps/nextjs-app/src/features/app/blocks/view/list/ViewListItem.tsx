@@ -1,9 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Lock, Share2, Star, Trash } from '@teable/icons';
-import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
+import { duplicateView } from '@teable/openapi';
 import {
-  useBaseId,
   useIsReadOnlyPreview,
   usePersonalView,
   useTableId,
@@ -24,13 +23,11 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { CopyPlus, Download, Pen, Unlock } from 'lucide-react';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect, useMemo } from 'react';
-import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
+import { useNavigateToView } from '@/features/app/hooks/useResourceNavigation';
 import { useDownload } from '../../../hooks/useDownLoad';
-import { getNodeUrl } from '../../base/base-node/hooks';
 import { usePinMap } from '../../space/usePinMap';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
@@ -50,8 +47,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableId = useTableId() as string;
-  const baseId = useBaseId() as string;
-  const router = useRouter();
+  const navigateToView = useNavigateToView();
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
   const { t } = useTranslation(['table', 'common']);
@@ -63,7 +59,6 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const { personalViewCommonQuery } = usePersonalView();
   const viewData = useView();
-  const shareUrlPrefix = useShareUrlPrefix();
 
   const { mutateAsync: duplicateViewFn, isPending: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId, view.id),
@@ -72,16 +67,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       if (!id) {
         return;
       }
-      const url = getNodeUrl({
-        baseId,
-        resourceType: BaseNodeResourceType.Table,
-        resourceId: tableId,
-        viewId: id,
-        urlPrefix: shareUrlPrefix,
-      });
-      if (url) {
-        router.push(url, undefined, { shallow: true });
-      }
+      navigateToView(tableId, id);
     },
   });
   const downloadUrl = useMemo(() => {
@@ -152,16 +138,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
 
   const navigateHandler = () => {
     resetSearchHandler?.();
-    const url = getNodeUrl({
-      baseId,
-      resourceType: BaseNodeResourceType.Table,
-      resourceId: tableId,
-      viewId: view.id,
-      urlPrefix: shareUrlPrefix,
-    });
-    if (url) {
-      router.push(url, undefined, { shallow: true });
-    }
+    navigateToView(tableId, view.id);
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
   const pinMap = usePinMap();

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
+  V2PgTableSchemaCoordination,
   PostgresUnitOfWork,
   registerV2PostgresDataDb,
   registerV2PostgresMetaDb,
@@ -10,6 +11,7 @@ import {
   v2PostgresDbTokens,
   type IV2PostgresDbDependencies,
 } from '@teable/v2-adapter-db-postgres-pg';
+
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import {
   SpaceCreditTableRowLimitPolicy,
@@ -122,6 +124,16 @@ export interface IV2NodePgContainerOptions {
    * with the guard on every delete-undo would silently restore nothing.
    */
   undoRedoRestorePurgeGuard?: boolean;
+  /**
+   * Table-scoped schema coordination for record writes versus field deletion.
+   * A dedicated pool is opened from the meta DSN unless `false` disables it.
+   */
+  schemaCoordination?:
+    | {
+        /** Session application name while a coordination lease is held. */
+        applicationName?: string;
+      }
+    | false;
   tableQueryOps?: RegisterV2TableOpsOptions &
     Pick<
       RegisterV2TableOpsPostgresAdapterOptions<unknown, unknown, TableQueryObservationDatabase>,
@@ -165,6 +177,7 @@ const registerPostgresDatabases = async (
 ): Promise<{
   readonly metaDb: IV2PostgresStateAdapterConfig['db'];
   readonly dataDb: IV2PostgresStateAdapterConfig['db'];
+  readonly metaConnectionString: string;
 }> => {
   const metaConnectionString =
     options.metaConnectionString ??
@@ -211,6 +224,7 @@ const registerPostgresDatabases = async (
   return {
     metaDb: c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'],
     dataDb: c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'],
+    metaConnectionString,
   };
 };
 
@@ -247,11 +261,33 @@ const registerTableQueryOpsDependencies = async (
   decorateV2TableRecordQueryRepositoryWithTableOps(c);
 };
 
+const registerSchemaCoordination = (
+  c: DependencyContainer,
+  options: IV2NodePgContainerOptions,
+  metaConnectionString: string
+): void => {
+  if (options.schemaCoordination === false) {
+    return;
+  }
+  const coordinationOptions = options.schemaCoordination;
+  c.registerInstance(
+    v2CoreTokens.tableSchemaCoordination,
+    new V2PgTableSchemaCoordination({
+      connectionString: metaConnectionString,
+      ...(coordinationOptions?.applicationName !== undefined
+        ? { applicationName: coordinationOptions.applicationName }
+        : {}),
+    })
+  );
+};
+
 export const registerV2NodePgDependencies = async (
   c: DependencyContainer = container,
   options: IV2NodePgContainerOptions
 ): Promise<DependencyContainer> => {
-  const { metaDb, dataDb } = await registerPostgresDatabases(c, options);
+  const { metaDb, dataDb, metaConnectionString } = await registerPostgresDatabases(c, options);
+
+  registerSchemaCoordination(c, options, metaConnectionString);
 
   const tableDataSafetyLimits = mergeTableDataSafetyLimits(
     resolveTableDataSafetyLimitsFromEnv(),
@@ -505,4 +541,15 @@ export const createV2NodePgContainer = async (
   const c = container.createChildContainer();
   await registerV2NodePgDependencies(c, options);
   return c;
+};
+
+/** Destroy the dedicated schema coordination pool before the host closes its DBs. */
+export const disposeV2NodePgContainer = async (c: DependencyContainer): Promise<void> => {
+  if (!c.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
+    return;
+  }
+  const coordination = c.resolve<{ destroy?: () => Promise<void> }>(
+    v2CoreTokens.tableSchemaCoordination
+  );
+  await coordination.destroy?.();
 };

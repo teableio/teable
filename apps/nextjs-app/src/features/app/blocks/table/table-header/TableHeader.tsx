@@ -327,7 +327,7 @@ export const TableHeader: React.FC = () => {
     <Fragment>
       <div
         className={cn(
-          'flex h-12 shrink-0 flex-row items-center gap-2 ps-4 pe-2 @container/view-header',
+          'flex h-12 shrink-0 flex-row items-center gap-2 bg-background ps-4 pe-2 @container/view-header',
           tipVisible && 'border-b'
         )}
       >

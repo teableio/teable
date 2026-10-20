@@ -8,7 +8,7 @@ import {
   recordInstanceFieldMap,
 } from '@teable/sdk/model';
 import { fireEvent, render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KanbanContext } from '../context/KanbanContext';
 import { KanbanCard } from './KanbanCard';
 
@@ -19,6 +19,10 @@ vi.mock('@teable/sdk/hooks', async (importOriginal) => ({
   useFieldStaticGetter: () => () => ({ Icon: () => null }),
 }));
 vi.mock('../../hooks/useContextMenu', () => ({ useContextMenu: () => ({}) }));
+const chat = vi.hoisted(() => ({ enabled: true, addToChat: vi.fn() }));
+vi.mock('../../hooks/useAddToChat', () => ({
+  useAddToChat: () => ({ chatEnabled: chat.enabled, addToChat: chat.addToChat }),
+}));
 vi.mock('next-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@teable/sdk/context/app/i18n', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -121,4 +125,64 @@ describe('KanbanCard unclicked button', () => {
       unmount();
     }
   );
+});
+
+describe('KanbanCard add to chat', () => {
+  const renderCard = () => {
+    const card = recordInstanceFieldMap(
+      createRecordInstance({ id: 'recCard', fields: { [primary.id]: 'r1' } } as IRecord),
+      { [primary.id]: primary }
+    );
+    return render(
+      <KanbanContext.Provider
+        value={{
+          permission: {
+            stackCreatable: false,
+            stackEditable: false,
+            stackDeletable: false,
+            stackDraggable: false,
+            cardCreatable: false,
+            cardEditable: false,
+            cardDeletable: false,
+            cardDraggable: false,
+            cardCommentReadable: false,
+            cardCommentCreatable: false,
+          },
+          stackField: primary,
+          primaryField: primary,
+          displayFields: [],
+          setExpandRecordId: vi.fn(),
+        }}
+      >
+        <KanbanCard
+          card={card}
+          stack={{ id: 'uncategorized', data: null, count: 1 }}
+          provided={provided}
+        />
+      </KanbanContext.Provider>
+    );
+  };
+
+  beforeEach(() => {
+    chat.enabled = true;
+    chat.addToChat.mockClear();
+  });
+
+  it('shows the card menu entry and references the clicked card', async () => {
+    const { getByText, findByText } = renderCard();
+
+    fireEvent.contextMenu(getByText('r1'));
+    fireEvent.click(await findByText('table:menu.addToChat'));
+
+    expect(chat.addToChat).toHaveBeenCalledWith('recCard');
+  });
+
+  it('hides the entry when AI chat is unavailable', () => {
+    chat.enabled = false;
+    const { getByText, queryByText } = renderCard();
+
+    fireEvent.contextMenu(getByText('r1'));
+
+    expect(queryByText('table:menu.addToChat')).toBeNull();
+  });
 });

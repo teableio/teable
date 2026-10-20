@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Kysely, PostgresDialect } from 'kysely';
-import type { Pool as PgPool } from 'pg';
+import type * as Pg from 'pg';
 import { createCancellablePool } from './cancellablePool';
 import type { PostgresProtocolConnectionConstructor } from './cancelRequest';
 import type { IV2PostgresDbConfig } from './config';
@@ -12,7 +12,7 @@ import type { IV2PostgresDbConfig } from './config';
 declare const __non_webpack_require__: NodeRequire | undefined;
 const useNativeRequire = typeof __non_webpack_require__ !== 'undefined';
 
-const loadPg = async (): Promise<typeof import('pg')> => {
+export const loadPg = async (): Promise<typeof Pg> => {
   if (useNativeRequire) {
     // In webpack environment, use native require to ensure OTel instrumentation works
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,7 +23,7 @@ const loadPg = async (): Promise<typeof import('pg')> => {
 };
 
 export interface IV2PostgresDbDependencies {
-  pool?: PgPool;
+  pool?: Pg.Pool;
 }
 
 const createPgDb = async <DB>(
@@ -71,13 +71,13 @@ export const createV2PostgresDb = async <DB = unknown>(
 };
 
 type PgDefaultExport = {
-  Pool: typeof import('pg').Pool;
-  Connection: typeof import('pg').Connection;
+  Pool: typeof Pg.Pool;
+  Connection: typeof Pg.Connection;
 };
 
-const hasPgDefault = (
-  value: typeof import('pg')
-): value is typeof import('pg') & {
+export const hasPgDefault = (
+  value: typeof Pg
+): value is typeof Pg & {
   default: PgDefaultExport;
 } => {
   return 'default' in value && !!value.default && 'Pool' in value.default;

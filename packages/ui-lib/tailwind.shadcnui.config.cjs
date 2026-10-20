@@ -51,7 +51,10 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      // The small steps follow --radius, so a layout that sets it rounds them alike; xl and up
+      // keep Tailwind's fixed values. At the default 0.5rem, DEFAULT equals Tailwind's 0.25rem.
       borderRadius: {
+        DEFAULT: 'calc(var(--radius) - 0.25rem)',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',

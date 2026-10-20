@@ -6,6 +6,8 @@ import {
   supersededKeys,
   swapCompactedStatsEntries,
 } from '../cold-archive/compaction';
+import { expireColdMonths, readColdExpiryDryRun } from '../cold-archive/retention';
+import type { ListedColdPart } from '../cold-archive/storage-ops';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import { truncateRemovalRow } from './part-codec';
 import type { ColdRemovalReason, IParsedPartKey, ITableColdStats } from './part-codec';
@@ -60,6 +62,7 @@ export class RecordRemovalCompactorService {
     private readonly tombstoneService: RecordRemovalTombstoneService
   ) {}
 
+  // delete the deleted/ months past retention (archived/ never expires), then
   // compact every closed month of a table, both reason prefixes; the current
   // month is reported as open, not compacted
   async compactTable(tableId: string): Promise<ICompactMonthResult[]> {
@@ -68,7 +71,12 @@ export class RecordRemovalCompactorService {
     const results: ICompactMonthResult[] = [];
     const partsByReason = await this.coldStorage.listTableParts(tableId);
     for (const [reason, partsByMonth] of partsByReason) {
+      const expired =
+        reason === 'deleted'
+          ? await this.expireDeletedMonths(tableId, partsByMonth, now)
+          : new Set<string>();
       for (const [yyyymm, parts] of partsByMonth) {
+        if (expired.has(yyyymm)) continue;
         if (yyyymm >= currentMonth) {
           results.push({
             tableId,
@@ -161,6 +169,29 @@ export class RecordRemovalCompactorService {
       tombstonedRows,
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  private async expireDeletedMonths(
+    tableId: string,
+    partsByMonth: Map<string, ListedColdPart<IParsedPartKey>[]>,
+    now: Date
+  ): Promise<Set<string>> {
+    return expireColdMonths({
+      category: 'record-removal-deleted',
+      scope: tableId,
+      partsByMonth,
+      retentionDays: recordRemovalColdConfig().deletedColdRetentionDays,
+      dryRun: readColdExpiryDryRun(),
+      logger: this.logger,
+      now,
+      dropFromStats: async (keys) => {
+        const stats = await this.coldStorage.readStats(tableId, 'deleted');
+        if (!stats) return;
+        for (const key of keys) delete stats.parts[key];
+        await this.coldStorage.writeStats(tableId, 'deleted', stats);
+      },
+      deleteMonth: (_yyyymm, keys) => this.coldStorage.deleteKeys(keys),
+    });
   }
 
   // Tombstones live in the table's data db (next to record_trash). Loading

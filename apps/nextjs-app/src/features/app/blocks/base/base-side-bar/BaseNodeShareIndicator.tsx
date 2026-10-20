@@ -82,7 +82,7 @@ export const BaseNodeShareIndicator = ({
               className
             )}
           >
-            <Share2 className="size-3.5" />
+            <Share2 className="size-4" />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top">

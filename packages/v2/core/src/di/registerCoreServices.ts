@@ -73,6 +73,7 @@ import type { IRecordQueryPlugin } from '../ports/RecordQueryPlugin';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { ITableDataSafetyLimitPlugin } from '../ports/TableDataSafetyLimitPlugin';
 import type { ITableOperationPlugin } from '../ports/TableOperationPlugin';
+import { NoopTableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
 import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
@@ -169,6 +170,13 @@ export const registerV2CoreServices = (
   // TableQueryService - common table lookup operations
   if (!container.isRegistered(v2CoreTokens.tableQueryService)) {
     container.register(v2CoreTokens.tableQueryService, TableQueryService, { lifecycle });
+  }
+
+  // TableSchemaCoordination - no-op unless the host registers a database adapter
+  if (!container.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
+    container.register(v2CoreTokens.tableSchemaCoordination, NoopTableSchemaCoordination, {
+      lifecycle,
+    });
   }
 
   if (!container.isRegistered(v2CoreTokens.tableQueryObservability)) {

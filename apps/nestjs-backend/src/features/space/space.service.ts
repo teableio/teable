@@ -40,7 +40,6 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
-import { decryptAiConfigSecrets, encryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
 import { assertUniqueProviderModels } from '../ai/ai.service';
 import { assertAiProviderBaseUrlsAllowed } from '../ai/util';
@@ -54,6 +53,7 @@ import { queueClearCacheKeys } from '../model/helper';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
+import { decryptAiIntegrationConfig, encryptAiIntegrationConfig } from './ai-integration-secrets';
 import { DataDbBindingService } from './data-db-binding.service';
 import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
@@ -790,7 +790,7 @@ export class SpaceService {
     const integrationList = await this.getStoredIntegrationList(spaceId);
     return integrationList.map((item) => ({
       ...item,
-      config: decryptAiConfigSecrets(item.config, `integration:${item.id}`),
+      config: decryptAiIntegrationConfig(item.config, `integration:${item.id}`),
     }));
   }
 
@@ -799,7 +799,7 @@ export class SpaceService {
     return {
       ...row,
       config: JSON.stringify(
-        decryptAiConfigSecrets(JSON.parse(row.config), `integration:${row.id}`)
+        decryptAiIntegrationConfig(JSON.parse(row.config), `integration:${row.id}`)
       ),
     };
   }
@@ -828,7 +828,7 @@ export class SpaceService {
             resourceId: spaceId,
             type,
             enable,
-            config: JSON.stringify(encryptAiConfigSecrets(nextConfig)),
+            config: JSON.stringify(encryptAiIntegrationConfig(nextConfig)),
           },
         });
         await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
@@ -850,7 +850,7 @@ export class SpaceService {
       const updated = await this.prismaService.integration.update({
         where: { id },
         data: {
-          config: JSON.stringify(encryptAiConfigSecrets(nextConfig)),
+          config: JSON.stringify(encryptAiIntegrationConfig(nextConfig)),
           enable: enable ?? originalEnable,
         },
       });
@@ -908,7 +908,7 @@ export class SpaceService {
       updateData.enable = enable;
     }
     if (config) {
-      updateData.config = JSON.stringify(encryptAiConfigSecrets(config));
+      updateData.config = JSON.stringify(encryptAiIntegrationConfig(config));
     }
     await this.assertIntegrationInSpace(integrationId, spaceId);
     const res = await this.prismaService.integration.update({
