@@ -255,9 +255,10 @@ type TransactionResult = {
 
 @CommandHandler(CreateTablesCommand)
 @injectable()
-export class CreateTablesHandler
-  implements ICommandHandler<CreateTablesCommand, CreateTablesResult>
-{
+export class CreateTablesHandler implements ICommandHandler<
+  CreateTablesCommand,
+  CreateTablesResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

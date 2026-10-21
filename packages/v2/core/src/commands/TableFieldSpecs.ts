@@ -599,9 +599,11 @@ export const collectForeignTableReferences = (
   specs: ReadonlyArray<ICreateTableFieldSpec>
 ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> => {
   return specs
-    .reduce<
-      Result<ReadonlyArray<LinkForeignTableReference>, DomainError>
-    >((acc, spec) => acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])), ok([]))
+    .reduce<Result<ReadonlyArray<LinkForeignTableReference>, DomainError>>(
+      (acc, spec) =>
+        acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])),
+      ok([])
+    )
     .map((refs) => uniqueForeignTableReferences(refs));
 };
 

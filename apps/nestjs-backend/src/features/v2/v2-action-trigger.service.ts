@@ -448,9 +448,7 @@ class V2ViewGroupUpdatedActionTriggerProjection implements IEventHandler<ViewGro
 }
 
 @ProjectionHandler(ViewColumnMetaUpdated)
-class V2ViewColumnMetaUpdatedActionTriggerProjection
-  implements IEventHandler<ViewColumnMetaUpdated>
-{
+class V2ViewColumnMetaUpdatedActionTriggerProjection implements IEventHandler<ViewColumnMetaUpdated> {
   constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
@@ -476,9 +474,7 @@ class V2ViewColumnMetaUpdatedActionTriggerProjection
 }
 
 @ProjectionHandler(TableActionTriggerRequested)
-class V2TableActionTriggerRequestedProjection
-  implements IEventHandler<TableActionTriggerRequested>
-{
+class V2TableActionTriggerRequestedProjection implements IEventHandler<TableActionTriggerRequested> {
   constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(

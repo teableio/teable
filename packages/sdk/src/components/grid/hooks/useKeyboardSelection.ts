@@ -3,17 +3,16 @@ import type { IEditorContainerProps, IEditorRef } from '../components';
 import { SelectionRegionType } from '../interface';
 import type { IRange } from '../interface';
 
-interface ISelectionKeyboardProps
-  extends Omit<
-    IEditorContainerProps,
-    | 'theme'
-    | 'onChange'
-    | 'scrollState'
-    | 'activeCellBound'
-    | 'real2RowIndex'
-    | 'getCellContent'
-    | 'onCellActivated'
-  > {
+interface ISelectionKeyboardProps extends Omit<
+  IEditorContainerProps,
+  | 'theme'
+  | 'onChange'
+  | 'scrollState'
+  | 'activeCellBound'
+  | 'real2RowIndex'
+  | 'getCellContent'
+  | 'onCellActivated'
+> {
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }
 

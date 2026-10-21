@@ -47,9 +47,10 @@ export class DeleteRecordsResult {
 
 @CommandHandler(DeleteRecordsCommand)
 @injectable()
-export class DeleteRecordsHandler
-  implements ICommandHandler<DeleteRecordsCommand, DeleteRecordsResult>
-{
+export class DeleteRecordsHandler implements ICommandHandler<
+  DeleteRecordsCommand,
+  DeleteRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

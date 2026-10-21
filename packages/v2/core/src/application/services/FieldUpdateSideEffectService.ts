@@ -646,6 +646,6 @@ export class FieldUpdateSideEffectService {
       return ok(undefined);
     }
 
-    return ok(TableUpdateViewColumnMetaSpec.create(updates));
+    return ok(TableUpdateViewColumnMetaSpec.create(table, updates));
   }
 }

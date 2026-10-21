@@ -21,9 +21,7 @@ type PreparedTableFieldLimitState = {
   readonly sourceTable: Table;
 };
 
-export class TableFieldLimitFieldOperationPlugin
-  implements IFieldOperationPlugin<PreparedTableFieldLimitState>
-{
+export class TableFieldLimitFieldOperationPlugin implements IFieldOperationPlugin<PreparedTableFieldLimitState> {
   readonly name = 'table-field-limit';
 
   constructor(

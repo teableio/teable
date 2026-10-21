@@ -366,13 +366,13 @@ export class DataDbHealthService implements OnApplicationBootstrap, OnModuleDest
   ): Promise<void> {
     const now = new Date();
     const failures =
-      next.state === 'healthy' ? 0 : next.failures ?? connection.consecutiveHealthFailures + 1;
+      next.state === 'healthy' ? 0 : (next.failures ?? connection.consecutiveHealthFailures + 1);
     if (connection.healthState === next.state) {
       await this.prismaService!.dataDbConnection.update({
         where: { id: connection.id },
         data: {
           lastHealthCheckAt: now,
-          healthReason: next.state === 'healthy' ? null : next.reason ?? undefined,
+          healthReason: next.state === 'healthy' ? null : (next.reason ?? undefined),
           consecutiveHealthFailures: failures,
         },
       });

@@ -381,7 +381,7 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
         const options =
           typeof row.options === 'string'
             ? (JSON.parse(row.options) as { symmetricFieldId?: string; isOneWay?: boolean })
-            : (row.options as { symmetricFieldId?: string; isOneWay?: boolean } | null) ?? {};
+            : ((row.options as { symmetricFieldId?: string; isOneWay?: boolean } | null) ?? {});
 
         return options.symmetricFieldId === symmetricFieldId && options.isOneWay !== true;
       } catch {

@@ -21,9 +21,10 @@ export class GetViewPluginInstallResult {
 
 @QueryHandler(GetViewPluginInstallQuery)
 @injectable()
-export class GetViewPluginInstallHandler
-  implements IQueryHandler<GetViewPluginInstallQuery, GetViewPluginInstallResult>
-{
+export class GetViewPluginInstallHandler implements IQueryHandler<
+  GetViewPluginInstallQuery,
+  GetViewPluginInstallResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

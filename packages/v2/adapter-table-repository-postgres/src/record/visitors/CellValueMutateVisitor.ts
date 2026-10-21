@@ -581,7 +581,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
         linkItems.some((item) => item.id && !item.title);
       const storedValue = linkField.isMultipleValue()
         ? linkItems
-        : linkItems[0] ?? (rawValue == null ? null : rawValue);
+        : (linkItems[0] ?? (rawValue == null ? null : rawValue));
 
       visitor.changedFieldIds.push(fieldId);
       if (hasMissingTitles && linkItems.length > 0) {

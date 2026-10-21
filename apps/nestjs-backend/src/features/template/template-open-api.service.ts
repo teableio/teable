@@ -349,7 +349,7 @@ export class TemplateOpenApiService {
     const scope = {
       templateId,
       name: ro.name ?? original.name,
-      ...(ro.baseId ?? original.baseId ? { baseId: ro.baseId ?? original.baseId } : {}),
+      ...((ro.baseId ?? original.baseId) ? { baseId: ro.baseId ?? original.baseId } : {}),
     };
     const next: Record<string, unknown> = { ...ro, cover: newCover };
     const changedKeys = TEMPLATE_UPDATE_KEYS.filter(

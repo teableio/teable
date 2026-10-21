@@ -124,7 +124,7 @@ describe('AI provider SSRF guard', () => {
       );
     });
 
-    it('lets the instance admin routes reach any provider they test', async () => {
+    it('lets the instance admin routes reach a provider on the private network', async () => {
       const compatible = await generate(
         LLMProviderType.OPENAI_COMPATIBLE,
         instanceAdminProviderFetch
@@ -132,6 +132,19 @@ describe('AI provider SSRF guard', () => {
       expect(compatible.text).toBe('ok');
       // The stock SDK speaks another wire format to this stub; reaching it is the point.
       await generate(LLMProviderType.OPENAI, instanceAdminProviderFetch).catch(() => undefined);
+      expect(requests).toHaveLength(2);
+    });
+
+    // The metadata-only guard is the undici dispatcher (it checks the connected peer, so a
+    // test cannot reach 169.254.169.254 to watch it refuse); assert the admin routes use it.
+    it('sends the instance admin routes through the cloud-metadata guard', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      await generate(LLMProviderType.OPENAI_COMPATIBLE, instanceAdminProviderFetch);
+      expect(fetchSpy.mock.calls.at(-1)?.[1]).toHaveProperty('dispatcher');
+
+      process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+      await generate(LLMProviderType.OPENAI_COMPATIBLE, instanceAdminProviderFetch);
+      expect(fetchSpy.mock.calls.at(-1)?.[1]).not.toHaveProperty('dispatcher');
       expect(requests).toHaveLength(2);
     });
   });

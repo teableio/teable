@@ -1,0 +1,309 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "react"],
+  "jsPlugins": [
+    {
+      "name": "teable",
+      "specifier": "../plugin/index.js"
+    },
+    {
+      "name": "import-js",
+      "specifier": "eslint-plugin-import"
+    },
+    {
+      "name": "@stylistic",
+      "specifier": "@stylistic/eslint-plugin"
+    }
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "@stylistic/spaced-comment": [
+      "error",
+      "always",
+      {
+        "line": {
+          "markers": ["/"],
+          "exceptions": ["-", "+"]
+        },
+        "block": {
+          "markers": ["!"],
+          "exceptions": ["*"],
+          "balanced": true
+        }
+      }
+    ],
+    "import-js/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "object"],
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "import/no-duplicates": [
+      "error",
+      {
+        "considerQueryString": true
+      }
+    ],
+    "typescript/ban-tslint-comment": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-expect-error": "allow-with-description",
+        "minimumDescriptionLength": 10,
+        "ts-ignore": true,
+        "ts-nocheck": true,
+        "ts-check": false
+      }
+    ],
+    "typescript/no-explicit-any": [
+      "error",
+      {
+        "ignoreRestArgs": false
+      }
+    ],
+    "no-empty-function": [
+      "error",
+      {
+        "allow": ["private-constructors"]
+      }
+    ],
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        // ESLint 8's default; oxlint defaults to reporting unused catch bindings.
+        "caughtErrors": "none",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "teable/consistent-type-imports": [
+      "error",
+      {
+        "prefer": "type-imports"
+      }
+    ],
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "typescript/ban-types": "error",
+    "no-array-constructor": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "no-loss-of-precision": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-var-requires": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/triple-slash-reference": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "for-direction": "error",
+    "no-async-promise-executor": "error",
+    "no-case-declarations": "error",
+    "no-class-assign": "error",
+    "no-compare-neg-zero": "error",
+    "no-cond-assign": "error",
+    "no-constant-condition": "error",
+    "no-control-regex": "error",
+    "no-debugger": "error",
+    "no-delete-var": "error",
+    "no-dupe-else-if": "error",
+    "no-duplicate-case": "error",
+    "no-empty": "error",
+    "no-empty-character-class": "error",
+    "no-empty-pattern": "error",
+    "no-ex-assign": "error",
+    "no-extra-boolean-cast": "error",
+    "no-fallthrough": "error",
+    "no-global-assign": "error",
+    "no-inner-declarations": "error",
+    "no-invalid-regexp": "error",
+    "no-irregular-whitespace": "error",
+    "no-misleading-character-class": "error",
+    "no-nonoctal-decimal-escape": "error",
+    "no-prototype-builtins": "error",
+    "no-regex-spaces": "error",
+    "no-self-assign": "error",
+    "no-shadow-restricted-names": "error",
+    "no-sparse-arrays": "error",
+    "no-unsafe-finally": "error",
+    "no-unsafe-optional-chaining": "error",
+    "no-unused-labels": "error",
+    "no-useless-backreference": "error",
+    "no-useless-catch": "error",
+    "no-useless-escape": "error",
+    "no-with": "error",
+    "require-yield": "error",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "teable/naming-convention": [
+      "error",
+      {
+        "selector": "default",
+        "format": ["camelCase"],
+        "leadingUnderscore": "forbid",
+        "trailingUnderscore": "forbid"
+      },
+      {
+        "selector": "import",
+        "format": ["camelCase", "PascalCase"]
+      },
+      {
+        "selector": "variable",
+        "format": ["camelCase"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "variable",
+        "modifiers": ["global", "const"],
+        "format": ["UPPER_CASE", "camelCase", "PascalCase"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": ["function"],
+        "format": ["camelCase"]
+      },
+      {
+        "selector": "parameter",
+        "format": ["camelCase"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": ["enum", "enumMember"],
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "class",
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "classProperty",
+        "format": ["camelCase"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "objectLiteralProperty",
+        "format": ["camelCase", "snake_case", "UPPER_CASE", "PascalCase"],
+        "leadingUnderscore": "allowSingleOrDouble",
+        "trailingUnderscore": "allowSingleOrDouble"
+      },
+      {
+        "selector": "interface",
+        "format": ["PascalCase"],
+        "prefix": ["I"]
+      },
+      {
+        "selector": "typeAlias",
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": ["typeProperty"],
+        "format": ["camelCase"],
+        "leadingUnderscore": "allowDouble"
+      },
+      {
+        "selector": ["typeParameter"],
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "classProperty",
+        "modifiers": ["public", "static"],
+        "format": ["UPPER_CASE"]
+      },
+      {
+        "selector": "parameter",
+        "modifiers": ["unused"],
+        "format": ["camelCase"],
+        "leadingUnderscore": "allow"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      // oxlint does not inherit a top-level `env` through `extends`.
+      "files": ["**/*"],
+      "env": {
+        "es6": true,
+        "node": true
+      }
+    },
+    {
+      "files": ["**/*.d.ts"],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    },
+    {
+      // oxlint also sees through `as` casts (`(a?.b as T).c`), which tests use to
+      // read mocked call arguments; ESLint's rule did not.
+      "files": ["**/*.{spec,test}.{js,jsx,ts,tsx}", "**/*.e2e-spec*.{ts,tsx}"],
+      "rules": {
+        "no-unsafe-optional-chaining": "warn"
+      }
+    },
+    {
+      "files": ["**/*.{js,cjs}"],
+      "rules": {
+        "constructor-super": "error",
+        "getter-return": "error",
+        "no-const-assign": "error",
+        "no-dupe-class-members": "error",
+        "no-dupe-keys": "error",
+        "no-func-assign": "error",
+        "no-import-assign": "error",
+        "no-obj-calls": "error",
+        "no-redeclare": "error",
+        "no-setter-return": "error",
+        "no-this-before-super": "error",
+        "no-undef": "error",
+        "no-unreachable": "error",
+        "no-unsafe-negation": "error",
+        "typescript/ban-ts-comment": "off",
+        "typescript/no-explicit-any": "off",
+        "teable/consistent-type-imports": "off",
+        "typescript/no-var-requires": "off",
+        "no-var": "off",
+        "prefer-const": "off",
+        "prefer-rest-params": "off",
+        "prefer-spread": "off",
+        "teable/naming-convention": "off"
+      }
+    },
+    {
+      "files": ["**/*.mjs"],
+      "rules": {
+        "constructor-super": "error",
+        "getter-return": "error",
+        "no-const-assign": "error",
+        "no-dupe-class-members": "error",
+        "no-dupe-keys": "error",
+        "no-func-assign": "error",
+        "no-import-assign": "error",
+        "no-obj-calls": "error",
+        "no-redeclare": "error",
+        "no-setter-return": "error",
+        "no-this-before-super": "error",
+        "no-undef": "error",
+        "no-unreachable": "error",
+        "no-unsafe-negation": "error",
+        "teable/consistent-type-imports": "off",
+        "no-var": "off",
+        "prefer-const": "off",
+        "prefer-rest-params": "off",
+        "prefer-spread": "off",
+        "teable/naming-convention": "off"
+      }
+    }
+  ]
+}

@@ -13,8 +13,9 @@ import type { IViewFilterConditionItem } from '../types';
 import { BaseFieldValue } from './BaseFieldValue';
 import type { IFilterReferenceSource } from './BaseFieldValue';
 
-interface IFieldValue<T extends IConditionItemProperty = IViewFilterConditionItem>
-  extends IBaseFilterCustomComponentProps<T, T['value']> {
+interface IFieldValue<
+  T extends IConditionItemProperty = IViewFilterConditionItem,
+> extends IBaseFilterCustomComponentProps<T, T['value']> {
   components?: IFilterComponents;
   referenceSource?: IFilterReferenceSource;
 }

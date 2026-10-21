@@ -9,8 +9,7 @@ import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSp
 
 export class RecordByIdsSpec<
   V extends ITableRecordConditionSpecVisitor = ITableRecordConditionSpecVisitor,
-> implements ISpecification<TableRecord, V>
-{
+> implements ISpecification<TableRecord, V> {
   private constructor(private readonly recordIdsValue: ReadonlyArray<RecordId>) {}
 
   static create(recordIds: ReadonlyArray<RecordId>): RecordByIdsSpec {

@@ -23,12 +23,12 @@
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-mock-records.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
+    "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+    "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
@@ -42,8 +42,8 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@toon-format/toon": "2.3.1",
     "@types/node": "24.13.2",
-    "eslint": "8.57.0",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "tsx": "4.23.15",

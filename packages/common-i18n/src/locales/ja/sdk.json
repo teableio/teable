@@ -1504,7 +1504,8 @@
     "pin": {
       "alreadyExists": "お気に入りは既に存在します",
       "notFound": "お気に入りが見つかりません",
-      "anchorNotFound": "アンカーお気に入りが見つかりません"
+      "anchorNotFound": "アンカーお気に入りが見つかりません",
+      "targetNotFound": "お気に入りに追加する項目が見つかりません"
     },
     "trash": {
       "invalidResourceType": "無効なリソースタイプ",

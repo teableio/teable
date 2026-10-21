@@ -750,9 +750,9 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       queuedFieldCount + calculatingFieldCount > 0 ? 'calculating' : 'idle';
     return Boolean(
       snapshot.table &&
-        (snapshot.table.status !== expectedTableStatus ||
-          snapshot.table.queuedFieldCount !== queuedFieldCount ||
-          snapshot.table.calculatingFieldCount !== calculatingFieldCount)
+      (snapshot.table.status !== expectedTableStatus ||
+        snapshot.table.queuedFieldCount !== queuedFieldCount ||
+        snapshot.table.calculatingFieldCount !== calculatingFieldCount)
     );
   }
 

@@ -517,7 +517,7 @@ export function useComputeActivitySubscription(
   }, [enabled, requestRefresh]);
 
   return {
-    snapshot: enabled ? query.data ?? null : null,
+    snapshot: enabled ? (query.data ?? null) : null,
     tableMeta: tableMeta ?? null,
     fieldMetaById,
     diagnostics,
@@ -527,7 +527,7 @@ export function useComputeActivitySubscription(
       enabled,
       Boolean(
         query.isError ||
-          (query.data && connection && !connected && connection.state !== 'connecting')
+        (query.data && connection && !connected && connection.state !== 'connecting')
       ),
       Boolean(query.data),
       query.data?.observationState

@@ -17,7 +17,10 @@ import type { ViewId } from '../domain/table/views/ViewId';
 import { captureViewSnapshot } from '../domain/table/views/ViewSnapshot';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { ITableRepository } from '../ports/TableRepository';
-import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
+import type {
+  IViewOperationPlugin,
+  ViewOperationUpdatePayload,
+} from '../ports/ViewOperationPlugin';
 import { ViewOperationKind } from '../ports/ViewOperationPlugin';
 import { UpdateViewColumnMetaCommand } from './UpdateViewColumnMetaCommand';
 import { UpdateViewColumnMetaHandler } from './UpdateViewColumnMetaHandler';
@@ -300,5 +303,50 @@ describe('UpdateViewColumnMetaHandler', () => {
     expect(undoRejected.flow.calls).toBe(1);
     expect(undoRejected.capture).toHaveBeenCalledTimes(2);
     expect(undoRejected.appendUpdate).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the primary field visible on gallery views while applying the rest of the patch', async () => {
+    const fixture = buildTable();
+    const gallery = fixture.table.createView({ type: 'gallery', name: 'Gallery' })._unsafeUnwrap();
+    const table = gallery.updateResult.table;
+    const preparedPayloads: ViewOperationUpdatePayload[] = [];
+    const setup = createHandler({
+      tableResult: ok(table),
+      plugins: [
+        {
+          name: 'capture',
+          supports: () => true,
+          prepare: (pluginContext) => {
+            preparedPayloads.push(pluginContext.payload as ViewOperationUpdatePayload);
+            return ok(undefined);
+          },
+        },
+      ],
+    });
+    const command = UpdateViewColumnMetaCommand.create({
+      tableId: table.id().toString(),
+      viewId: gallery.view.id().toString(),
+      columnMeta: [
+        { fieldId: fixture.primaryFieldId.toString(), columnMeta: { visible: false } },
+        { fieldId: fixture.secondaryFieldId.toString(), columnMeta: { visible: false } },
+      ],
+    })._unsafeUnwrap();
+
+    const result = (await setup.handler.handle(context, command))._unsafeUnwrap();
+    const nextColumnMeta = result.nextColumnMeta.toDto();
+    const persisted = result.table
+      .getView(gallery.view.id())
+      ._unsafeUnwrap()
+      .columnMeta()
+      ._unsafeUnwrap()
+      .toDto();
+
+    expect(nextColumnMeta[fixture.primaryFieldId.toString()]).toMatchObject({ visible: true });
+    expect(nextColumnMeta[fixture.secondaryFieldId.toString()]).toMatchObject({ visible: false });
+    expect(persisted).toEqual(nextColumnMeta);
+    expect(preparedPayloads[0]!.patch.columnMeta).toMatchObject({
+      [fixture.primaryFieldId.toString()]: { visible: true },
+      [fixture.secondaryFieldId.toString()]: { visible: false },
+    });
   });
 });

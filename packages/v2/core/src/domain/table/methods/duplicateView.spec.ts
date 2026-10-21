@@ -7,6 +7,7 @@ import { Table } from '../Table';
 import { TableId } from '../TableId';
 import { TableName } from '../TableName';
 import { ViewId } from '../views/ViewId';
+import { captureViewSnapshot, rehydrateViewSnapshot } from '../views/ViewSnapshot';
 
 const buildTable = (): Table => {
   const builder = Table.builder()
@@ -157,5 +158,62 @@ describe('Table.duplicateView', () => {
         },
       })
     ).toSatisfy((result) => result.isErr() && result.error.code === 'validation.invalid');
+  });
+
+  it('keeps the gallery primary column visible when duplicating historical metadata', () => {
+    const sourceTable = buildTable();
+    const gallery = sourceTable
+      .createView({ type: 'gallery', name: 'Gallery', options: { coverFieldId: null } })
+      ._unsafeUnwrap();
+    const table = gallery.updateResult.table;
+    const primaryFieldId = table.primaryFieldId();
+    const secondaryFieldId = table.getFields()[1]!.id();
+    const snapshot = captureViewSnapshot(gallery.view)._unsafeUnwrap();
+    const historicalView = rehydrateViewSnapshot({
+      ...snapshot,
+      columnMeta: {
+        ...snapshot.columnMeta,
+        [primaryFieldId.toString()]: {
+          ...snapshot.columnMeta[primaryFieldId.toString()],
+          order: 0,
+          width: 260,
+          visible: false,
+        },
+        [secondaryFieldId.toString()]: {
+          ...snapshot.columnMeta[secondaryFieldId.toString()],
+          order: 1,
+          width: 120,
+          visible: false,
+        },
+      },
+    })._unsafeUnwrap();
+    const historicalTable = Table.rehydrate({
+      id: table.id(),
+      baseId: table.baseId(),
+      name: table.name(),
+      fields: table.getFields(),
+      views: [historicalView],
+      primaryFieldId,
+    })._unsafeUnwrap();
+
+    const duplicated = historicalTable.duplicateView(historicalView.id())._unsafeUnwrap();
+    const columnMeta = duplicated.updateResult.table
+      .getView(duplicated.view.id())
+      ._unsafeUnwrap()
+      .columnMeta()
+      ._unsafeUnwrap()
+      .toDto();
+
+    expect(columnMeta[primaryFieldId.toString()]).toEqual({
+      order: 0,
+      width: 260,
+      visible: true,
+    });
+    expect(columnMeta[secondaryFieldId.toString()]).toEqual({
+      order: 1,
+      width: 120,
+      visible: false,
+    });
+    expect(duplicated.view.columnMeta()._unsafeUnwrap().toDto()).toEqual(columnMeta);
   });
 });

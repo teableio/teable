@@ -103,9 +103,12 @@ describe('link id-only payload title regression (e2e)', () => {
 
     const storedRows = await prisma
       .txClient()
-      .$queryRawUnsafe<
-        { value: unknown }[]
-      >(knex(launchesTable.dbTableName).select({ value: linkField.dbFieldName }).where('__id', launchId).toQuery());
+      .$queryRawUnsafe<{ value: unknown }[]>(
+        knex(launchesTable.dbTableName)
+          .select({ value: linkField.dbFieldName })
+          .where('__id', launchId)
+          .toQuery()
+      );
 
     expect(storedRows).toHaveLength(1);
     expect(storedRows[0]?.value).toEqual([

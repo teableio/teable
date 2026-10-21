@@ -51,9 +51,10 @@ export class DuplicateRecordResult {
 
 @CommandHandler(DuplicateRecordCommand)
 @injectable()
-export class DuplicateRecordHandler
-  implements ICommandHandler<DuplicateRecordCommand, DuplicateRecordResult>
-{
+export class DuplicateRecordHandler implements ICommandHandler<
+  DuplicateRecordCommand,
+  DuplicateRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

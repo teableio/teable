@@ -28,9 +28,10 @@ export class ApplyRecordOrdersResult {
 
 @CommandHandler(ApplyRecordOrdersCommand)
 @injectable()
-export class ApplyRecordOrdersHandler
-  implements ICommandHandler<ApplyRecordOrdersCommand, ApplyRecordOrdersResult>
-{
+export class ApplyRecordOrdersHandler implements ICommandHandler<
+  ApplyRecordOrdersCommand,
+  ApplyRecordOrdersResult
+> {
   private static readonly UPDATE_BATCH_SIZE = 500;
 
   private static *buildBatches(

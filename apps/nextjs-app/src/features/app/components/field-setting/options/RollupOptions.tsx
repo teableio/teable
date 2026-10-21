@@ -84,7 +84,7 @@ export const RollupOptions = (props: {
         timeZone:
           formatting && 'timeZone' in formatting && formatting?.timeZone
             ? formatting.timeZone
-            : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+            : (options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
       };
 
       const formattingSchema = getFormattingSchema(newCellValueType);

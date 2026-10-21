@@ -226,7 +226,7 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
             ? linkItems
             : this.rawValue
           : Array.isArray(this.rawValue)
-            ? linkItems[0] ?? null
+            ? (linkItems[0] ?? null)
             : this.rawValue;
         columnValues[this.ctx.dbFieldName] =
           storedValue === null || storedValue === undefined ? null : JSON.stringify(storedValue);

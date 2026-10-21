@@ -280,6 +280,54 @@ Jane,,555-1234
     }
   });
 
+  it('returns 504 for a cut create-table CSV source without leaving a table', async () => {
+    const tableName = 'Cut URL Import';
+    const payload = `Title,Note\n${Array.from(
+      { length: 25_000 },
+      (_, index) => `row-${index},${'x'.repeat(40)}`
+    ).join('\n')}\n`;
+    const delivered = payload.slice(0, 1_200_000);
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8' });
+      res.write(delivered, () => {
+        setTimeout(() => res.destroy(new Error('source cut')), 10);
+      });
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`${ctx.baseUrl}/tables/importCsv`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          csvUrl: `http://127.0.0.1:${port}/import.csv`,
+          tableName,
+        }),
+      });
+
+      expect(response.status).toBe(504);
+      expect(await response.json()).toMatchObject({
+        ok: false,
+        error: {
+          code: 'csv.source_interrupted',
+          details: { retryable: true, maxBytes: 512 * 1024 * 1024 },
+        },
+      });
+      expect(
+        (await ctx.listTables({ q: tableName })).some((table) => table.name === tableName)
+      ).toBe(false);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  }, 60_000);
+
   it('returns 400 for empty CSV', async () => {
     const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
 

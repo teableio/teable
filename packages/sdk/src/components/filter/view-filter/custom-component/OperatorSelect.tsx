@@ -19,8 +19,9 @@ interface IOperatorOptions {
   label: string;
 }
 
-interface IBaseOperatorSelectProps<T extends IConditionItemProperty = IViewFilterConditionItem>
-  extends IBaseFilterCustomComponentProps<T, IFilterItem['operator']> {
+interface IBaseOperatorSelectProps<
+  T extends IConditionItemProperty = IViewFilterConditionItem,
+> extends IBaseFilterCustomComponentProps<T, IFilterItem['operator']> {
   disabledOperators?: IFilterOperator[];
 }
 

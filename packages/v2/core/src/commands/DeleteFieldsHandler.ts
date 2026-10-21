@@ -82,9 +82,10 @@ type DeletionCleanupTableState = {
 
 @CommandHandler(DeleteFieldsCommand)
 @injectable()
-export class DeleteFieldsHandler
-  implements ICommandHandler<DeleteFieldsCommand, DeleteFieldsResult>
-{
+export class DeleteFieldsHandler implements ICommandHandler<
+  DeleteFieldsCommand,
+  DeleteFieldsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -575,7 +576,7 @@ export class DeleteFieldsHandler
       if (result.isErr()) return err(result.error);
       if (result.value?.columnMeta) {
         specs.push(
-          TableUpdateViewColumnMetaSpec.create([
+          TableUpdateViewColumnMetaSpec.create(candidateTable, [
             {
               viewId: result.value.viewId,
               fieldId: result.value.fieldId,

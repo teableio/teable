@@ -1,4 +1,4 @@
-import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable/core';
+import { CellValueType, DbFieldType, FieldType, Relationship, ViewType } from '@teable/core';
 import Knex from 'knex';
 import type { Knex as KnexType } from 'knex';
 import { vi } from 'vitest';
@@ -249,5 +249,98 @@ describe('TableDuplicateService.duplicateLinkJunction', () => {
     expect(executedSql[1]).toContain('"bseTarget"."junction_fldTargetTasks_fldTargetOwner"');
 
     await dataKnex.destroy();
+  });
+});
+
+type DuplicateViewsInternals = {
+  prismaService: {
+    view: { findMany: () => Promise<unknown> };
+    field: { findFirst: () => Promise<{ id: string } | null> };
+    txClient: () => { view: { createMany: (args: unknown) => Promise<unknown> } };
+  };
+  cls: { get: () => string };
+  duplicateViews: (
+    sourceTableId: string,
+    targetTableId: string,
+    fieldMap: Record<string, string>
+  ) => Promise<Record<string, string>>;
+};
+
+type DuplicateViewCreateManyArgs = {
+  data: { columnMeta: string; options: string; tableId: string }[];
+};
+
+describe('TableDuplicateService.duplicateViews', () => {
+  it('keeps the duplicated gallery primary visible and remaps the cover field', async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const sourcePrimaryFieldId = 'fldSourcePrimary';
+    const sourceOtherFieldId = 'fldSourceOther';
+    const sourceCoverFieldId = 'fldSourceCover';
+    const targetPrimaryFieldId = 'fldTargetPrimary';
+    const targetOtherFieldId = 'fldTargetOther';
+    const targetCoverFieldId = 'fldTargetCover';
+
+    const prismaService = {
+      view: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'viwSourceGallery',
+            name: 'Gallery',
+            type: ViewType.Gallery,
+            version: 4,
+            order: 0,
+            columnMeta: JSON.stringify({
+              [sourcePrimaryFieldId]: { order: 0, visible: false },
+              [sourceOtherFieldId]: { order: 1, visible: false },
+            }),
+            options: JSON.stringify({ coverFieldId: sourceCoverFieldId }),
+            sort: null,
+            group: null,
+            filter: null,
+            description: null,
+            isLocked: null,
+            enableShare: null,
+            shareId: null,
+            shareMeta: null,
+            createdTime: new Date(),
+            lastModifiedTime: null,
+            deletedTime: null,
+            createdBy: 'usrSource',
+            lastModifiedBy: null,
+            tableId: 'tblSource',
+          },
+        ]),
+      },
+      field: {
+        findFirst: vi.fn().mockResolvedValue({ id: sourcePrimaryFieldId }),
+      },
+      txClient: () => ({ view: { createMany } }),
+    };
+
+    const service = Object.create(TableDuplicateService.prototype) as TableDuplicateService;
+    // The private fields are stubbed on a prototype instance, matching the other tests here.
+    const internal = service as unknown as DuplicateViewsInternals;
+    internal.prismaService = prismaService;
+    internal.cls = { get: () => 'usrTest' };
+
+    await internal.duplicateViews('tblSource', 'tblTarget', {
+      [sourcePrimaryFieldId]: targetPrimaryFieldId,
+      [sourceOtherFieldId]: targetOtherFieldId,
+      [sourceCoverFieldId]: targetCoverFieldId,
+    });
+
+    // The mock records createMany's Prisma payload without its generated type.
+    const createManyArgs = createMany.mock.calls[0][0] as DuplicateViewCreateManyArgs;
+    const created = createManyArgs.data[0];
+    const columnMeta = JSON.parse(created.columnMeta) as Record<
+      string,
+      { order: number; visible?: boolean }
+    >;
+    expect(columnMeta).toEqual({
+      [targetPrimaryFieldId]: { order: 0, visible: true },
+      [targetOtherFieldId]: { order: 1, visible: false },
+    });
+    expect(JSON.parse(created.options)).toEqual({ coverFieldId: targetCoverFieldId });
+    expect(created.tableId).toBe('tblTarget');
   });
 });

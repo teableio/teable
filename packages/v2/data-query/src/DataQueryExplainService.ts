@@ -68,12 +68,14 @@ export class DataQueryExplainService {
             context,
             'schema.compatibility',
             attributes,
-            async () => DataQueryBinding.prepare(definition, table)
+            async () =>
+              DataQueryBinding.prepare(definition, table, { deferOperatorRejection: true })
           );
           const query = yield* definition.bind(input.parameters ?? {});
           const scope = yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
             this.authorize(context, table, binding, query)
           );
+          if (binding.deferredFilterError) return err(binding.deferredFilterError);
           const result = yield* await this.explainer.explain(context, table, query, scope);
           return ok(result);
         }.bind(this)

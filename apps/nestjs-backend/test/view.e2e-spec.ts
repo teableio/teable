@@ -2809,6 +2809,38 @@ describe('OpenAPI ViewController (e2e)', () => {
         })
       ).resolves.toEqual(rowBefore);
     });
+
+    it('keeps a gallery primary field visible and applies the rest of the batch', async () => {
+      const [primaryField, secondaryField] = table.fields;
+      const coverField = await createField(table.id, {
+        name: 'Cover',
+        type: FieldType.Attachment,
+      });
+      const gallery = await createViewApi(table.id, {
+        name: 'Gallery primary',
+        type: ViewType.Gallery,
+        options: { coverFieldId: coverField.id },
+      });
+
+      const response = await updateViewColumnMeta(table.id, gallery.data.id, [
+        { fieldId: primaryField.id, columnMeta: { visible: false } },
+        { fieldId: secondaryField.id, columnMeta: { visible: false } },
+      ]);
+
+      expect(response.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('updateViewColumnMeta');
+      const view = await getView(table.id, gallery.data.id);
+      expect(view.columnMeta[primaryField.id]).toMatchObject({ visible: true });
+      expect(view.columnMeta[secondaryField.id]).toMatchObject({ visible: false });
+      expect(view.options).toMatchObject({ coverFieldId: coverField.id });
+
+      await updateViewColumnMeta(table.id, gallery.data.id, [
+        { fieldId: secondaryField.id, columnMeta: { visible: true } },
+      ]);
+      const restored = await getView(table.id, gallery.data.id);
+      expect(restored.columnMeta[primaryField.id]).toMatchObject({ visible: true });
+      expect(restored.columnMeta[secondaryField.id]).toMatchObject({ visible: true });
+      expect(restored.options).toMatchObject({ coverFieldId: coverField.id });
+    });
   });
 
   describe('Update View filter v2 canary (T6420)', () => {

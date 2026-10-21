@@ -110,9 +110,7 @@ export interface IPostgresRecordMutationSnapshotCaptureService {
   ): Promise<Result<IPostgresRecordMutationSnapshotCaptureSession, DomainError>>;
 }
 
-class PostgresRecordMutationSnapshotCaptureSession
-  implements IPostgresRecordMutationSnapshotCaptureSession
-{
+class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMutationSnapshotCaptureSession {
   private closed = false;
 
   constructor(
@@ -206,9 +204,7 @@ class PostgresRecordMutationSnapshotCaptureSession
 }
 
 @injectable()
-export class PostgresRecordMutationSnapshotCaptureService
-  implements IPostgresRecordMutationSnapshotCaptureService
-{
+export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRecordMutationSnapshotCaptureService {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly rootDb: Kysely<V1TeableDatabase>,

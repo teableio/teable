@@ -21,13 +21,10 @@ export class UpdateComputedOutboxWorkerConcurrencyResult {
 
 @CommandHandler(UpdateComputedOutboxWorkerConcurrencyCommand)
 @injectable()
-export class UpdateComputedOutboxWorkerConcurrencyHandler
-  implements
-    ICommandHandler<
-      UpdateComputedOutboxWorkerConcurrencyCommand,
-      UpdateComputedOutboxWorkerConcurrencyResult
-    >
-{
+export class UpdateComputedOutboxWorkerConcurrencyHandler implements ICommandHandler<
+  UpdateComputedOutboxWorkerConcurrencyCommand,
+  UpdateComputedOutboxWorkerConcurrencyResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

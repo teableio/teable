@@ -156,7 +156,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
   const { t } = useTranslation('common');
   const roleStatic = useRoleStatic();
   const [expandedPrincipalKeys, setExpandedPrincipalKeys] = useState<Set<string>>(new Set());
-  const loadedCount = groupByPrincipal ? uniqueList?.length ?? 0 : list?.length ?? 0;
+  const loadedCount = groupByPrincipal ? (uniqueList?.length ?? 0) : (list?.length ?? 0);
 
   const getPrincipal = (item: CollaboratorItem | UniqueCollaboratorItem) => {
     return item.type === PrincipalType.User

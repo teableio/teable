@@ -284,7 +284,7 @@ export const useGridAsyncRecords = (
       // A same-view scope change has no seed for the new result set, so its
       // structure must drop to the loading placeholder as well.
       setLoadedRecordMap({});
-      setGroupPoints(useSeedStructure ? initGroupPoints ?? null : null);
+      setGroupPoints(useSeedStructure ? (initGroupPoints ?? null) : null);
     };
 
     // row counts collected under the previous result set must not place rows

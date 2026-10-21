@@ -26,9 +26,10 @@ export class ApplyViewSnapshotResult {
 
 @CommandHandler(ApplyViewSnapshotCommand)
 @injectable()
-export class ApplyViewSnapshotHandler
-  implements ICommandHandler<ApplyViewSnapshotCommand, ApplyViewSnapshotResult>
-{
+export class ApplyViewSnapshotHandler implements ICommandHandler<
+  ApplyViewSnapshotCommand,
+  ApplyViewSnapshotResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
@@ -60,6 +61,9 @@ export class ApplyViewSnapshotHandler
       if (!snapshotResult.updateResult) {
         return ok(ApplyViewSnapshotResult.create(table));
       }
+      // plugins must observe what the aggregate persists, not the raw undo entry
+      const restoredView = yield* snapshotResult.updateResult.table.getView(snapshotView.id());
+      const snapshotColumnMeta = (yield* restoredView.columnMeta()).toDto();
 
       const pluginExecution = yield* await handler.viewOperationPluginRunner.prepare(
         isRestore
@@ -76,6 +80,7 @@ export class ApplyViewSnapshotHandler
                   filter: snapshotQueryDefaults.filter(),
                   sort: snapshotQueryDefaults.sort(),
                   group: snapshotQueryDefaults.group(),
+                  columnMeta: snapshotColumnMeta,
                   options: snapshotView.options(),
                 },
               },
@@ -93,7 +98,7 @@ export class ApplyViewSnapshotHandler
                   isLocked: snapshotView.isLocked(),
                   shareMeta: snapshotView.shareMeta(),
                   order: command.snapshot.order,
-                  columnMeta: command.snapshot.columnMeta,
+                  columnMeta: snapshotColumnMeta,
                   filter: snapshotQueryDefaults.filter(),
                   sort: snapshotQueryDefaults.sort(),
                   group: snapshotQueryDefaults.group(),

@@ -19,9 +19,10 @@ export class ListComputedOutboxAnomaliesResult {
 
 @QueryHandler(ListComputedOutboxAnomaliesQuery)
 @injectable()
-export class ListComputedOutboxAnomaliesHandler
-  implements IQueryHandler<ListComputedOutboxAnomaliesQuery, ListComputedOutboxAnomaliesResult>
-{
+export class ListComputedOutboxAnomaliesHandler implements IQueryHandler<
+  ListComputedOutboxAnomaliesQuery,
+  ListComputedOutboxAnomaliesResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

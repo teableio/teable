@@ -2482,7 +2482,7 @@ export class RecordOpenApiV2Service {
     for (const item of items) {
       const fieldId = byId.has(item.fieldId)
         ? item.fieldId
-        : byName.get(item.fieldId) ?? byDbName.get(item.fieldId);
+        : (byName.get(item.fieldId) ?? byDbName.get(item.fieldId));
       if (!fieldId) {
         continue;
       }

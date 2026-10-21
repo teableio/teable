@@ -399,7 +399,7 @@ const transformSelectFilterValue = (
   if (Array.isArray(value)) {
     const nextValues = value
       .filter((entry) => !(typeof entry === 'string' && removeSet.has(entry)))
-      .map((entry) => (typeof entry === 'string' ? renameMap.get(entry) ?? entry : entry));
+      .map((entry) => (typeof entry === 'string' ? (renameMap.get(entry) ?? entry) : entry));
 
     if (nextValues.length === 0) {
       return { removeItem: true, changed: true };

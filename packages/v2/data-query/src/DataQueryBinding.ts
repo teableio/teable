@@ -1,11 +1,13 @@
 import {
   buildRecordConditionSpec,
+  buildRecordConditionValue,
   FieldValueTypeVisitor,
   getValidRecordAggregationFunctions,
   isRecordFilterDateValue,
   isRecordFilterFieldReferenceValue,
   RecordConditionDateValue,
   recordFilterSchema,
+  resolveFieldConditionSpecInput,
   ConditionalLookupField,
   type DomainError,
   type Field,
@@ -111,6 +113,52 @@ const validateLiteralFilterValue = (
   return ok(undefined);
 };
 
+/**
+ * Locate the first filter leaf the record-condition builder rejects for its field/operator pair.
+ * Acceptance is delegated to core's normalizer, so checkbox null folding and stale user-operator
+ * adaptation apply exactly as they do during condition spec creation.
+ * Returns undefined when every leaf is locatable, so a residual rejection (value shape,
+ * cross-table reference, …) still falls back to the generic incompatibility error.
+ */
+const locateFilterLeafError = (
+  table: ITableReadModel,
+  node: RecordFilterNode
+): DomainError | undefined => {
+  if ('items' in node) {
+    for (const child of node.items) {
+      const located = locateFilterLeafError(table, child);
+      if (located) return located;
+    }
+    return undefined;
+  }
+  if ('not' in node) return locateFilterLeafError(table, node.not);
+
+  const fieldResult = table.getField((candidate) => candidate.id().toString() === node.fieldId);
+  if (fieldResult.isErr()) return queryError('field_missing', 'A required filter field is missing');
+  const field = fieldResult.value;
+  const valueType = field.accept(new FieldValueTypeVisitor());
+  if (valueType.isErr()) return queryError('field_type', 'Cannot resolve filter field type');
+
+  // A leaf whose value cannot be built is rejected for its value, not its operator; keep
+  // scanning so a sibling with an actually unsupported operator is still reported.
+  const conditionValue = buildRecordConditionValue(table, node.value);
+  if (conditionValue.isErr()) return undefined;
+
+  const resolution = resolveFieldConditionSpecInput(field, {
+    operator: node.operator,
+    value: conditionValue.value,
+  });
+  if (resolution.isErr() || resolution.value.accepted) return undefined;
+
+  const fieldType = field.type().toString();
+  const { operator, supportedOperators } = resolution.value;
+  return queryError(
+    'filter_operator_unsupported',
+    `Filter operator "${operator}" is not supported for field ${node.fieldId} (${fieldType}); supported operators: ${supportedOperators.join(', ')}`,
+    { fieldId: node.fieldId, fieldType, operator, supportedOperators }
+  );
+};
+
 /** Strict, non-sanitizing validation, shared by preparation and the executor's actual bound values. */
 export const validateDataQueryFilter = (
   table: ITableReadModel,
@@ -120,10 +168,13 @@ export const validateDataQueryFilter = (
   if (filter === null || !recordFilterSchema.safeParse(filter).success)
     return err(queryError('invalid_filter', 'Invalid query filter'));
   const spec = buildRecordConditionSpec(table, filter);
-  if (spec.isErr())
+  if (spec.isErr()) {
+    const located = locateFilterLeafError(table, filter);
+    if (located) return err(located);
     return err(
       queryError('filter_incompatible', 'Query filter is incompatible with the current schema')
     );
+  }
   const validateNode = (node: RecordFilterNode): Result<void, DomainError> =>
     safeTry(function* () {
       if ('items' in node) {
@@ -343,11 +394,21 @@ const describeOutputs = (
     return ok(outputs);
   });
 
+export type DataQueryBindingPrepareOptions = {
+  /**
+   * Defer a located unsupported-operator rejection until the caller has authorized the table.
+   * A denied caller must not learn a field's type or operator matrix.
+   */
+  readonly deferOperatorRejection?: boolean;
+};
+
 export class DataQueryBinding {
   private constructor(
     readonly definition: DataQueryDefinition,
     readonly dependencies: ReadonlyArray<DataQueryFieldDependency>,
-    readonly outputs: ReadonlyArray<DataQueryOutput>
+    readonly outputs: ReadonlyArray<DataQueryOutput>,
+    /** Present only when preparation deferred an operator rejection past authorization. */
+    readonly deferredFilterError?: DomainError
   ) {
     freezeQueryValue(dependencies);
     freezeQueryValue(outputs);
@@ -356,13 +417,21 @@ export class DataQueryBinding {
 
   static prepare(
     definition: DataQueryDefinition,
-    table: ITableReadModel
+    table: ITableReadModel,
+    options: DataQueryBindingPrepareOptions = {}
   ): Result<DataQueryBinding, DomainError> {
     return safeTry(function* () {
       const snapshot = definition.snapshot();
       if (snapshot.tableId !== table.id().toString())
         return err(queryError('table_mismatch', 'Query table does not match the loaded table'));
-      yield* validateDefinitionFilters(snapshot, table);
+      const filterValidation = validateDefinitionFilters(snapshot, table);
+      const deferredFilterError =
+        options.deferOperatorRejection &&
+        filterValidation.isErr() &&
+        filterValidation.error.code === 'data_query.filter_operator_unsupported'
+          ? filterValidation.error
+          : undefined;
+      if (filterValidation.isErr() && !deferredFilterError) return err(filterValidation.error);
       const dependencies: DataQueryFieldDependency[] = [];
       const fields = new Map<string, Field>();
       const descriptions = new Map<string, DataQueryFieldDependency>();
@@ -392,7 +461,7 @@ export class DataQueryBinding {
         }
       }
       const outputs = yield* describeOutputs(snapshot, fields, descriptions);
-      return ok(new DataQueryBinding(definition, dependencies, outputs));
+      return ok(new DataQueryBinding(definition, dependencies, outputs, deferredFilterError));
     });
   }
 }

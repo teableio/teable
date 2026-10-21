@@ -1,0 +1,40 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    {
+      "name": "teable",
+      "specifier": "../plugin/index.js"
+    },
+    {
+      "name": "tailwindcss",
+      "specifier": "eslint-plugin-tailwindcss"
+    }
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "overrides": [
+    {
+      // oxlint does not inherit a top-level `env` through `extends`.
+      "files": ["**/*"],
+      "env": {
+        "browser": true,
+        "es6": true,
+        "node": true
+      }
+    },
+    {
+      "files": ["**/*.{jsx,tsx}"],
+      "rules": {
+        "tailwindcss/classnames-order": "warn",
+        "tailwindcss/enforces-negative-arbitrary-values": "warn",
+        "tailwindcss/enforces-shorthand": "warn",
+        "tailwindcss/migration-from-tailwind-2": "warn",
+        "tailwindcss/no-contradicting-classname": "error",
+        "tailwindcss/no-unnecessary-arbitrary-value": "warn",
+        "teable/tailwind-alpha-token-opacity": "error",
+        "teable/tailwind-logical-direction": "error"
+      }
+    }
+  ]
+}

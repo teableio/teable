@@ -8,9 +8,7 @@ import type {
  * Returns true for functions that can be safely converted to PostgreSQL SQL expressions
  * suitable for use in generated columns, false for unsupported functions.
  */
-export class GeneratedColumnQuerySupportValidatorPostgres
-  implements IGeneratedColumnQuerySupportValidator
-{
+export class GeneratedColumnQuerySupportValidatorPostgres implements IGeneratedColumnQuerySupportValidator {
   private context?: IFormulaConversionContext;
 
   setContext(context: IFormulaConversionContext): void {

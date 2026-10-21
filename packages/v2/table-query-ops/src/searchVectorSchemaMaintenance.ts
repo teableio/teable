@@ -26,9 +26,7 @@ type SearchVectorSchemaEvent = FieldUpdated | FieldDeleted;
 @ProjectionHandler(FieldUpdated)
 @ProjectionHandler(FieldDeleted)
 @injectable()
-export class TableSearchVectorSchemaMaintenanceProjection
-  implements IEventHandler<SearchVectorSchemaEvent>
-{
+export class TableSearchVectorSchemaMaintenanceProjection implements IEventHandler<SearchVectorSchemaEvent> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,

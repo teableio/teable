@@ -484,7 +484,7 @@ describe('Table', () => {
       },
     })._unsafeUnwrap();
 
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: hiddenView.id(),
         fieldId: notesField.id(),
@@ -545,7 +545,7 @@ describe('Table', () => {
       },
     })._unsafeUnwrap();
 
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: targetView.id(),
         fieldId: notesField.id(),
@@ -620,7 +620,7 @@ describe('Table', () => {
       },
     })._unsafeUnwrap();
 
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: targetView.id(),
         fieldId: notesField.id(),
@@ -681,7 +681,7 @@ describe('Table', () => {
     const sparseMeta = ViewColumnMeta.create({
       [titleField.id().toString()]: { order: 0 },
     })._unsafeUnwrap();
-    const sparseTable = TableUpdateViewColumnMetaSpec.create([
+    const sparseTable = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: targetView.id(),
         fieldId: titleField.id(),

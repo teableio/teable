@@ -503,7 +503,7 @@ export const NotificationsManage: React.FC = () => {
                         isSelected ? 'bg-background/80' : 'bg-muted/70'
                       )}
                     >
-                      {severity ? notifySummary?.[severity] ?? 0 : totalSummaryCount}
+                      {severity ? (notifySummary?.[severity] ?? 0) : totalSummaryCount}
                     </span>
                   </Button>
                 );

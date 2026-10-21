@@ -224,10 +224,10 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         group: command.groupBy,
       });
       const effectiveFilter = command.ignoreViewQuery
-        ? command.filter ?? undefined
+        ? (command.filter ?? undefined)
         : mergedDefaults.filter();
       const effectiveSort = command.ignoreViewQuery
-        ? command.sort ?? undefined
+        ? (command.sort ?? undefined)
         : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
@@ -335,7 +335,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       // 8. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
-        ? command.groupBy ?? undefined
+        ? (command.groupBy ?? undefined)
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
@@ -970,13 +970,13 @@ export class ClearStreamApplicationService extends ClearHandler {
     });
 
     const effectiveFilter = command.ignoreViewQuery
-      ? command.filter ?? undefined
-      : mergedDefaults.filter() ?? undefined;
+      ? (command.filter ?? undefined)
+      : (mergedDefaults.filter() ?? undefined);
     const effectiveSort = command.ignoreViewQuery
-      ? command.sort ?? undefined
+      ? (command.sort ?? undefined)
       : mergedDefaults.sort();
     const effectiveGroup = command.ignoreViewQuery
-      ? command.groupBy ?? undefined
+      ? (command.groupBy ?? undefined)
       : mergedDefaults.group();
 
     const actorResolvedFilter = replaceCurrentUserTagInFilter(

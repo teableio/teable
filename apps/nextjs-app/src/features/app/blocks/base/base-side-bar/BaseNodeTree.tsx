@@ -202,11 +202,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     isEditMode &&
     Boolean(
       canCreateTable ||
-        canCreateDashboard ||
-        canCreateWorkflow ||
-        canCreateRoutine ||
-        canCreateApp ||
-        canCreateFolder
+      canCreateDashboard ||
+      canCreateWorkflow ||
+      canCreateRoutine ||
+      canCreateApp ||
+      canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
   const { sharedNodeIds } = useSharedNodeIds();

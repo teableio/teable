@@ -11,9 +11,9 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
  * Narrows repository hydration to the requested Field children without changing
  * which Table aggregate root matches the query.
  */
-export class TableWithFieldIdsSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableWithFieldIdsSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private constructor(private readonly fieldIdsValue: ReadonlyArray<FieldId>) {}
 
   static create(fieldIds: ReadonlyArray<FieldId>): TableWithFieldIdsSpec {

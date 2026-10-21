@@ -1973,7 +1973,7 @@ IF(
           isComplete: (events) =>
             Boolean(
               findRecordChangeMap(events, host.id, aliceRecordId) &&
-                findRecordChangeMap(events, host.id, nobodyRecordId)
+              findRecordChangeMap(events, host.id, nobodyRecordId)
             ),
           timeoutMs: 5000,
         }

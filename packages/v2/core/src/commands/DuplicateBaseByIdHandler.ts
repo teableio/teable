@@ -98,9 +98,10 @@ const toNormalizedField = (
 
 @CommandHandler(DuplicateBaseByIdCommand)
 @injectable()
-export class DuplicateBaseByIdHandler
-  implements ICommandHandler<DuplicateBaseByIdCommand, DuplicateBaseByIdResult>
-{
+export class DuplicateBaseByIdHandler implements ICommandHandler<
+  DuplicateBaseByIdCommand,
+  DuplicateBaseByIdResult
+> {
   constructor(
     @inject(v2CoreTokens.baseRepository)
     private readonly baseRepository: BaseRepositoryPort.IBaseRepository,

@@ -52,6 +52,18 @@ export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 501 | 503 | 50
  */
 const DB_STATEMENT_TIMEOUT_CODE = 'db.statement_timeout';
 
+/**
+ * An import source is a dependency stream (HTTP storage, proxy, or a caller
+ * stream). When it ends before the last row, the import transaction rolled back
+ * and the caller can retry, so these are gateway timeouts rather than internal
+ * failures. Literals, not core constants: this package may resolve a built core.
+ */
+const IMPORT_SOURCE_INTERRUPTED_CODES = new Set([
+  'import.source_interrupted',
+  'csv.source_interrupted',
+  'record.insert_many_stream.source_interrupted',
+]);
+
 export const apiErrorResponseDtoSchema = z.object({
   ok: z.literal(false),
   error: z.object({
@@ -105,6 +117,7 @@ export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus 
   if (isNotImplementedError(error)) return 501;
   if (error.code === COMPUTE_PAUSED_WRITE_BLOCKED_CODE) return 409;
   if (error.code === DB_STATEMENT_TIMEOUT_CODE) return 504;
+  if (IMPORT_SOURCE_INTERRUPTED_CODES.has(error.code)) return 504;
   if (isValidationError(error) || isConflictError(error) || isInvariantError(error)) return 400;
   return 500;
 };

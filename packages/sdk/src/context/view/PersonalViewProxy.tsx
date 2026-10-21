@@ -13,11 +13,10 @@ interface IPersonalViewProxyProps {
   children: React.ReactNode;
 }
 
-export interface IProxyPersonalView
-  extends Omit<
-    IViewInstance,
-    'updateFilter' | 'updateSort' | 'updateGroup' | 'updateOption' | 'updateColumnMeta'
-  > {
+export interface IProxyPersonalView extends Omit<
+  IViewInstance,
+  'updateFilter' | 'updateSort' | 'updateGroup' | 'updateOption' | 'updateColumnMeta'
+> {
   updateFilter: (filter: IFilter) => void;
   updateSort: (sort: ISort) => void;
   updateGroup: (group: IGroup) => void;

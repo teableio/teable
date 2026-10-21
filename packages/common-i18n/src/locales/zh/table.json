@@ -1532,7 +1532,7 @@
       "selectionSelectedFields": "此上下文仅包含选中的字段。",
       "selectionIdentificationOnly": "主字段标题仅用于识别记录。",
       "selectionEmpty": "空值",
-      "selectionOpenRecord": "打开记录 {{id}}",
+      "selectionOpenRecord": "打开记录 {{name}}",
       "selectionPrevious": "上一页",
       "selectionNext": "下一页",
       "selectionPage": "第 {{start}}–{{end}} 条，共 {{count}} 条记录"

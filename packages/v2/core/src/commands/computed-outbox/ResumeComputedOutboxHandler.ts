@@ -19,9 +19,10 @@ export class ResumeComputedOutboxResult {
 
 @CommandHandler(ResumeComputedOutboxCommand)
 @injectable()
-export class ResumeComputedOutboxHandler
-  implements ICommandHandler<ResumeComputedOutboxCommand, ResumeComputedOutboxResult>
-{
+export class ResumeComputedOutboxHandler implements ICommandHandler<
+  ResumeComputedOutboxCommand,
+  ResumeComputedOutboxResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

@@ -12,6 +12,13 @@ export type CsvSource =
   | { type: 'stream'; data: AsyncIterable<Uint8Array | string> }
   | { type: 'url'; url: string };
 
+/** A staged URL source ended before its last byte; nothing from it was written. */
+export const CSV_SOURCE_INTERRUPTED_CODE = 'csv.source_interrupted';
+/** A staged URL source exceeded the host's single-file snapshot limit. */
+export const CSV_SOURCE_TOO_LARGE_CODE = 'csv.source_too_large';
+/** Host storage failed while staging a URL source; retrying the same request will not help. */
+export const CSV_SOURCE_SNAPSHOT_IO_FAILED_CODE = 'csv.source_snapshot_io_failed';
+
 /**
  * CSV 解析结果 - 包含头部和数据迭代器
  */
@@ -53,7 +60,7 @@ export interface CsvParseOptions {
   hasHeader?: boolean;
   /** 编码，默认 utf-8 */
   encoding?: CsvEncoding;
-  /** 跳过空行，默认 true */
+  /** Skip empty rows, default true */
   skipEmptyLines?: boolean;
 }
 

@@ -55,9 +55,10 @@ export class CreateFieldsResult {
 
 @CommandHandler(CreateFieldsCommand)
 @injectable()
-export class CreateFieldsHandler
-  implements ICommandHandler<CreateFieldsCommand, CreateFieldsResult>
-{
+export class CreateFieldsHandler implements ICommandHandler<
+  CreateFieldsCommand,
+  CreateFieldsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
@@ -250,7 +251,7 @@ export class CreateFieldsHandler
       let progressed = false;
       let deferredError: DomainError | undefined;
 
-      for (let index = 0; index < remaining.length; ) {
+      for (let index = 0; index < remaining.length;) {
         const current = remaining[index]!;
         const attemptResult = this.tryPlanField(
           currentTable,

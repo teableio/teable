@@ -176,7 +176,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
               size="sm"
               style={removeButtonStyle ?? HIDDEN_STYLE}
               // Physical, like the reserved gap it sits in: this subtree is pinned LTR.
-              // eslint-disable-next-line no-restricted-syntax
+              // eslint-disable-next-line teable/tailwind-logical-direction
               className="absolute right-0 top-0 px-3 text-[13px] text-muted-foreground hover:text-foreground"
               onClick={onRemoveClick}
             >

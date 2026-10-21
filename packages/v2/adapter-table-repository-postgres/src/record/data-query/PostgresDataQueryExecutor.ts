@@ -295,7 +295,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const multiplicity = yield* resolveUserGroupIdentityMultiplicity(field);
           const expression =
             multiplicity == null
-              ? buildDateLikeGroupExpression(field, 'a', group.fieldId) ?? column
+              ? (buildDateLikeGroupExpression(field, 'a', group.fieldId) ?? column)
               : buildUserGroupIdentityExpr(column, multiplicity);
           groups.set(group.fieldId, expression);
           selections.push(sql`${expression} as ${sql.id(group.alias)}`);

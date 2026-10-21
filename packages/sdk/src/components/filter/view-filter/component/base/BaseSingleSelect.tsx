@@ -59,7 +59,7 @@ function SelectOptionItem<O extends IOption<string>>(props: Readonly<ISelectOpti
           {optionRender?.(option) ?? option.label ?? defaultLabel}
         </span>
       ) : (
-        optionRender?.(option) ?? option.label ?? defaultLabel
+        (optionRender?.(option) ?? option.label ?? defaultLabel)
       )}
       {inDrawer && selected && <Check className="size-4 shrink-0" />}
     </CommandItem>
@@ -257,9 +257,9 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
       )}
     >
       {value ? (
-        (selectedValue && displayRender?.(selectedValue)) ?? (
+        ((selectedValue && displayRender?.(selectedValue)) ?? (
           <span className="truncate">{label}</span>
-        )
+        ))
       ) : (
         <span className={cn('text-sm font-normal text-muted-foreground', placeholderClassName)}>
           {selectPlaceholder}

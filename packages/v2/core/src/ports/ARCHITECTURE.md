@@ -29,6 +29,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   immediate headers for an ambiguous delimiter. The Papa adapter scores fixed lexical previews and
   replays ambiguous decoded prefixes from private Node files or browser IndexedDB. Detection can
   wait until EOF; disk/quota failures propagate and owner cleanup runs on every ordinary exit.
+  A `url` source on a Node host is snapshotted to request-owned storage before any row is yielded,
+  so a slow or interrupted network read never runs inside the write transaction. The snapshot is
+  bounded by `TEABLE_CSV_SOURCE_MAX_BYTES` (default 512 MiB); local staging failures and source
+  interruptions are separate error codes, and transport text is not exposed publicly. Streaming
+  import writes in one transaction: a source interruption commits zero rows, the caller retries the
+  whole file, and the host does not reattempt on its own.
 - `DotTeaParser.ts` - Role: port interface; Purpose: parse .tea structure inputs.
 - `DomainWriteTransaction.ts` - Role: transaction-owned event delivery; Purpose: commit data and journal
   together. `executeStream` appends bounded batches, disables replay of one-shot input, and returns

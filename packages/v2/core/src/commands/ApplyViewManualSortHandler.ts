@@ -51,9 +51,10 @@ export class ApplyViewManualSortResult {
 
 @CommandHandler(ApplyViewManualSortCommand)
 @injectable()
-export class ApplyViewManualSortHandler
-  implements ICommandHandler<ApplyViewManualSortCommand, ApplyViewManualSortResult>
-{
+export class ApplyViewManualSortHandler implements ICommandHandler<
+  ApplyViewManualSortCommand,
+  ApplyViewManualSortResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

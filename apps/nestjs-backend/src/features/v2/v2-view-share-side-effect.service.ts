@@ -31,9 +31,9 @@ type IV2ViewShareSideEffectDb = {
 
 @ProjectionHandler(ViewShareIdRefreshed)
 @ProjectionHandler(ViewShareDisabled)
-export class V2ViewShareIdRefreshedShortLinkProjection
-  implements IEventHandler<ViewShareIdRefreshed | ViewShareDisabled>
-{
+export class V2ViewShareIdRefreshedShortLinkProjection implements IEventHandler<
+  ViewShareIdRefreshed | ViewShareDisabled
+> {
   private readonly logger = new Logger(V2ViewShareIdRefreshedShortLinkProjection.name);
 
   constructor(

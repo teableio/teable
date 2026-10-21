@@ -62,9 +62,7 @@ const reserveViewColumnMetaRealtimeProjection = (
 
 @ProjectionHandler(ViewColumnMetaUpdated)
 @injectable()
-export class ViewColumnMetaUpdatedRealtimeProjection
-  implements IEventHandler<ViewColumnMetaUpdated>
-{
+export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<ViewColumnMetaUpdated> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,

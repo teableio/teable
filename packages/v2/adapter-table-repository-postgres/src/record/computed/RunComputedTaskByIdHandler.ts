@@ -17,9 +17,10 @@ import type { ComputedUpdateWorker } from './worker/ComputedUpdateWorker';
 
 @CommandHandler(RunComputedTaskByIdCommand)
 @injectable()
-export class RunComputedTaskByIdHandler
-  implements ICommandHandler<RunComputedTaskByIdCommand, RunComputedTaskByIdResult>
-{
+export class RunComputedTaskByIdHandler implements ICommandHandler<
+  RunComputedTaskByIdCommand,
+  RunComputedTaskByIdResult
+> {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateWorker)
     private readonly worker: ComputedUpdateWorker

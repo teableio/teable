@@ -69,7 +69,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
       sourceColor: color,
       ...(resolvedTheme === 'dark'
         ? getSelectColorPairs(color, resolvedTheme)
-        : displayChoiceMap[name] ?? getSelectColorPairs(color, resolvedTheme)),
+        : (displayChoiceMap[name] ?? getSelectColorPairs(color, resolvedTheme))),
     }));
   }, [options, displayChoiceMap, resolvedTheme]);
 

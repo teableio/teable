@@ -7,7 +7,7 @@ import { ValueObject } from '../../shared/ValueObject';
 import type { Field } from '../fields/Field';
 import type { FieldId } from '../fields/FieldId';
 import { FieldFormVisibilityVisitor } from '../fields/visitors/FieldFormVisibilityVisitor';
-import type { ViewType } from './ViewType';
+import { ViewType } from './ViewType';
 
 export type ViewColumnMetaEntry = {
   order?: number | null;
@@ -44,6 +44,61 @@ export const getDefaultViewColumnOrderByFieldId = (
       : [fieldIds[primaryIndex]!, ...fieldIds.filter((fieldId) => !fieldId.equals(primaryFieldId))];
 
   return new Map(orderedFieldIds.map((fieldId, index) => [fieldId.toString(), index]));
+};
+
+/**
+ * Gallery cards are titled with the primary field, so a gallery `visible: false`
+ * on that column leaves the view with an unrenderable card grid. Payload builders
+ * (`updateViewColumnMeta`, `applyViewSnapshot`, creation, duplication, field undo)
+ * normalize the entry before persisting it; read and rehydrate paths keep the
+ * stored value so historical configurations stay loadable.
+ */
+export const keepPrimaryFieldVisible = (
+  viewType: ViewType,
+  entry: ViewColumnMetaEntry
+): ViewColumnMetaEntry =>
+  viewType.equals(ViewType.gallery()) && entry.visible === false
+    ? { ...entry, visible: true }
+    : entry;
+
+/**
+ * Column-map form of {@link keepPrimaryFieldVisible}. Returns the input map
+ * untouched when the primary entry is absent or already visible.
+ */
+export const keepPrimaryColumnVisible = (
+  viewType: ViewType,
+  primaryFieldId: FieldId,
+  columnMeta: ViewColumnMetaValue
+): ViewColumnMetaValue => {
+  const key = primaryFieldId.toString();
+  const entry = columnMeta[key];
+  if (!entry) return columnMeta;
+  const nextEntry = keepPrimaryFieldVisible(viewType, entry);
+  return nextEntry === entry ? columnMeta : { ...columnMeta, [key]: nextEntry };
+};
+
+/**
+ * Diffs two metadata maps for the fields the caller owns. Shared by every update
+ * builder so reported changes match what the aggregate and repository persist.
+ */
+export const diffColumnMetaChanges = (
+  fieldIdByValue: ReadonlyMap<string, FieldId>,
+  previous: ViewColumnMetaValue,
+  next: ViewColumnMetaValue
+): ReadonlyArray<ViewColumnMetaChange> => {
+  const changes: ViewColumnMetaChange[] = [];
+  for (const fieldId of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+    const typedFieldId = fieldIdByValue.get(fieldId);
+    if (!typedFieldId || JSON.stringify(previous[fieldId]) === JSON.stringify(next[fieldId])) {
+      continue;
+    }
+    changes.push({
+      fieldId: typedFieldId,
+      ...(previous[fieldId] !== undefined ? { previousColumnMeta: previous[fieldId] } : {}),
+      nextColumnMeta: next[fieldId] ?? {},
+    });
+  }
+  return changes;
 };
 
 const viewColumnMetaEntrySchema: z.ZodType<ViewColumnMetaEntry> = z.looseObject({
@@ -168,6 +223,16 @@ export class ViewColumnMeta extends ValueObject {
     }
 
     return ViewColumnMeta.create(columnMeta);
+  }
+
+  /**
+   * Returns this metadata with the primary column visible for gallery views. Every
+   * payload builder passes through here, so no producer can persist a gallery whose
+   * cards would render without a title.
+   */
+  withPrimaryFieldVisible(viewType: ViewType, primaryFieldId: FieldId): ViewColumnMeta {
+    const next = keepPrimaryColumnVisible(viewType, primaryFieldId, this.value);
+    return next === this.value ? this : new ViewColumnMeta(next);
   }
 
   equals(other: ViewColumnMeta): boolean {

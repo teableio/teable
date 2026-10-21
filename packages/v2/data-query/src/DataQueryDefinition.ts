@@ -637,7 +637,7 @@ type SortContext = { groupFieldIds: ReadonlySet<string>; outputAliases: Readonly
 
 const sortContext = (value: DataQueryDefinitionInput): SortContext => ({
   groupFieldIds: new Set(
-    (value.kind === 'aggregate' ? value.groupBy ?? [] : []).map((group) => group.fieldId)
+    (value.kind === 'aggregate' ? (value.groupBy ?? []) : []).map((group) => group.fieldId)
   ),
   outputAliases: new Set(
     value.kind === 'records'
@@ -768,10 +768,10 @@ const bindPage = (
   }
   const limit = isParameterReference(page?.limit)
     ? values.get(page.limit.name)
-    : page?.limit ?? 100;
+    : (page?.limit ?? 100);
   const offset = isParameterReference(page?.offset)
     ? values.get(page.offset.name)
-    : page?.offset ?? 0;
+    : (page?.offset ?? 0);
   if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 1000) {
     return err(queryError('invalid_page', 'Pagination must use bounded integers'));
   }

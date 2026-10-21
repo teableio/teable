@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "bracketSpacing": true,
+  "trailingComma": "es5",
+  "bracketSameLine": false,
+  "useTabs": false,
+  "endOfLine": "lf",
+  "sortPackageJson": false,
+  "overrides": [
+    {
+      "files": ["*.md"],
+      "options": {
+        "singleQuote": false,
+        "quoteProps": "preserve"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    ".idea/",
+    ".vscode/",
+    "pnpm-lock.yaml",
+    "**/.next",
+    "**/.out",
+    "**/dist",
+    "**/build",
+    "**/.tmp",
+    "**/.cache",
+    "apps/playground/src/routeTree.gen.ts",
+    "packages/openapi/src/openapi-snippet",
+    "**/*.hbs",
+    "**/migration_lock.toml"
+  ]
+}

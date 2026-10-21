@@ -69,7 +69,7 @@ export class PapaparseCsvParser implements ICsvParser {
         ? parseResult.data
         : this.mapRowsToGeneratedHeaders(parseResult.data as unknown as string[][]);
       const headers: string[] = hasHeader
-        ? parseResult.meta.fields ?? []
+        ? (parseResult.meta.fields ?? [])
         : rows[0]
           ? Object.keys(rows[0])
           : [];
@@ -105,7 +105,7 @@ export class PapaparseCsvParser implements ICsvParser {
     const iterator = parseCsvRows(source, {
       delimiter: options?.delimiter,
       encoding: options?.encoding,
-      skipEmptyLines: options?.skipEmptyLines ?? true ? 'greedy' : false,
+      skipEmptyLines: (options?.skipEmptyLines ?? true) ? 'greedy' : false,
     });
     try {
       const first = await iterator.next();

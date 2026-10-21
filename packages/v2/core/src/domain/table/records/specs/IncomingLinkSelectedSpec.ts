@@ -20,8 +20,7 @@ export type IncomingLinkHostCondition = ISpecification<
 
 export class IncomingLinkSelectedSpec<
   V extends ITableRecordConditionSpecVisitor = ITableRecordConditionSpecVisitor,
-> implements ISpecification<TableRecord, V>
-{
+> implements ISpecification<TableRecord, V> {
   private constructor(
     private readonly modeValue: IncomingLinkSelectedMode,
     private readonly selfKeyNameValue: string,

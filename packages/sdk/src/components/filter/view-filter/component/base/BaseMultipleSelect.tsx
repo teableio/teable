@@ -196,7 +196,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                   {optionRender?.(option) ?? option.label}
                 </span>
               ) : (
-                optionRender?.(option) ?? option.label
+                (optionRender?.(option) ?? option.label)
               )}
               {inDrawer && values?.includes(option.value) && <Check className="size-4 shrink-0" />}
             </CommandItem>

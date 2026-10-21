@@ -422,7 +422,7 @@ export class TableMoveService {
       if (host) next = { ...next, fkHostTableName: host };
       if (typeof next.foreignTableId === 'string') {
         const explicit = typeof next.baseId === 'string' ? next.baseId : undefined;
-        const foreignBase = moved.has(next.foreignTableId) ? to : explicit ?? hostBefore;
+        const foreignBase = moved.has(next.foreignTableId) ? to : (explicit ?? hostBefore);
         next = this.withRebasedMarker(next, hostAfter, foreignBase) ?? next;
       }
       return next;
@@ -431,7 +431,7 @@ export class TableMoveService {
     for (const row of rows) {
       const snapshot = this.parseJson<{ fields?: Record<string, unknown>[] }>(row.snapshot);
       if (!snapshot || !Array.isArray(snapshot.fields)) continue;
-      const hostBefore = moved.has(row.tableId) ? from : hostBaseOf.get(row.tableId) ?? from;
+      const hostBefore = moved.has(row.tableId) ? from : (hostBaseOf.get(row.tableId) ?? from);
       const hostAfter = moved.has(row.tableId) ? to : hostBefore;
       let changed = false;
       const fields = snapshot.fields.map((field) => {

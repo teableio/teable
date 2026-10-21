@@ -9,5 +9,5 @@
     "checkJs": true
   },
   "exclude": ["node_modules", "dist", "build"],
-  "include": [".eslintrc.*", "**/*.ts", "**/*.js", "**/*.cjs", "**/*.mjs", "**/*.json"]
+  "include": ["**/*.ts", "**/*.js", "**/*.cjs", "**/*.mjs", "**/*.json"]
 }

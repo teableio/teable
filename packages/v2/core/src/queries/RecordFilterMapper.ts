@@ -56,7 +56,7 @@ const resolveField = (table: ITableReadModel, rawFieldId: string) => {
   );
 };
 
-const buildConditionValue = (
+export const buildRecordConditionValue = (
   table: ITableReadModel,
   rawValue: RecordFilterValue
 ): Result<RecordConditionValue | undefined, DomainError> => {
@@ -208,7 +208,7 @@ const buildPolarityFromNode = (
       );
     }
     return resolveField(table, node.fieldId).andThen((field) =>
-      buildConditionValue(table, node.value).andThen((value) =>
+      buildRecordConditionValue(table, node.value).andThen((value) =>
         field
           .spec()
           .create({ operator: node.operator, value })
@@ -281,7 +281,7 @@ const sanitizeNode = (
     const fieldResult = resolveField(table, node.fieldId);
     if (fieldResult.isErr()) return ok(null);
 
-    const valueResult = buildConditionValue(table, node.value);
+    const valueResult = buildRecordConditionValue(table, node.value);
     if (valueResult.isErr()) return ok(null);
 
     const specResult = fieldResult.value.spec().create({

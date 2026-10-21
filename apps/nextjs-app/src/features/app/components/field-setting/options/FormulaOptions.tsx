@@ -71,7 +71,7 @@ export const FormulaOptionsInner = (props: {
       timeZone:
         formatting && 'timeZone' in formatting && formatting?.timeZone
           ? formatting.timeZone
-          : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+          : (options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
     };
     if (newCellValueType !== cellValueType || expressionHasError) {
       const defaultFormatting = getDefaultFormatting(newCellValueType);

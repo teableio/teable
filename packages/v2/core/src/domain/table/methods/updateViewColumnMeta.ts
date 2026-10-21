@@ -7,6 +7,7 @@ import type { TableViewColumnMetaUpdate } from '../specs/TableUpdateViewColumnMe
 import type { Table } from '../Table';
 import type { TableUpdateResult } from '../TableMutator';
 import {
+  diffColumnMetaChanges,
   getDefaultViewColumnOrderByFieldId,
   type ViewColumnMeta,
   type ViewColumnMetaChange,
@@ -93,16 +94,17 @@ export function updateViewColumnMeta(
       return err(fieldNotFound(table, missingFieldIds));
     }
 
+    const primaryFieldId = table.primaryFieldId();
     const hidesPrimaryField = patches.some(
-      ({ fieldId, columnMeta }) =>
-        fieldId.equals(table.primaryFieldId()) && columnMeta.hidden === true
+      ({ fieldId, columnMeta }) => fieldId.equals(primaryFieldId) && columnMeta.hidden === true
     );
-    const viewType = view.type().toString();
-    if (hidesPrimaryField && viewType !== 'calendar' && viewType !== 'form') {
+    const viewType = view.type();
+    const viewTypeName = viewType.toString();
+    if (hidesPrimaryField && viewTypeName !== 'calendar' && viewTypeName !== 'form') {
       return err(
         domainError.validation({
           code: 'view.primary_field_cannot_be_hidden',
-          message: `Primary field can not be hidden for view type ${viewType}`,
+          message: `Primary field can not be hidden for view type ${viewTypeName}`,
         })
       );
     }
@@ -120,7 +122,7 @@ export function updateViewColumnMeta(
     const previousColumnMetaValue = previousColumnMeta.toDto();
     const defaultOrderByFieldId = getDefaultViewColumnOrderByFieldId(
       table.getFields(),
-      table.primaryFieldId()
+      primaryFieldId
     );
     const patchesWithOrders = patches.map((patch) => {
       const fieldId = patch.fieldId.toString();
@@ -142,9 +144,9 @@ export function updateViewColumnMeta(
     const patchResult = yield* previousColumnMeta.applyPatches(patchesWithOrders);
     const previousOptions = view.options();
     const nextOptions = adjustFrozenFieldOptions({
-      viewType,
+      viewType: viewTypeName,
       options: previousOptions,
-      previousColumnMeta: previousColumnMeta.toDto(),
+      previousColumnMeta: previousColumnMetaValue,
       nextColumnMeta: patchResult.columnMeta.toDto(),
       patchedFieldIds: new Set(patches.map(({ fieldId }) => fieldId.toString())),
     });
@@ -164,12 +166,22 @@ export function updateViewColumnMeta(
       ...(nextOptions !== undefined ? { previousOptions, nextOptions, optionsChanged: true } : {}),
     };
     const updateResult = yield* table.update((mutator) => mutator.updateViewColumnMeta(update));
+    // report what the aggregate actually holds after the invariant-preserving update
+    const updatedView = yield* updateResult.table.getView(viewId);
+    const nextColumnMeta = yield* updatedView.columnMeta();
+    const fieldIdByValue = new Map(
+      table.getFields().map((field) => [field.id().toString(), field.id()] as const)
+    );
 
     return ok({
       viewId,
       previousColumnMeta,
-      nextColumnMeta: patchResult.columnMeta,
-      changes: patchResult.changes,
+      nextColumnMeta,
+      changes: diffColumnMetaChanges(
+        fieldIdByValue,
+        previousColumnMetaValue,
+        nextColumnMeta.toDto()
+      ),
       ...(nextOptions !== undefined ? { previousOptions, nextOptions } : {}),
       updateResult,
     });

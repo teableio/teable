@@ -219,15 +219,13 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
     if (usesJunction) {
       return field.fkHostTableNameString().andThen((junctionTable) =>
         field.selfKeyNameString().andThen((selfKey) =>
-          field.foreignKeyNameString().map(
-            (foreignKey): LinkOrderBy => ({
-              source: 'junction',
-              column: orderColumn,
-              junctionTable,
-              selfKey,
-              foreignKey,
-            })
-          )
+          field.foreignKeyNameString().map((foreignKey): LinkOrderBy => ({
+            source: 'junction',
+            column: orderColumn,
+            junctionTable,
+            selfKey,
+            foreignKey,
+          }))
         )
       );
     }

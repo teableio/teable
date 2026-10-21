@@ -25,9 +25,9 @@ import {
 
 type ViewShareStateEvent = ViewShareEnabled | ViewShareDisabled;
 
-abstract class ViewShareStateRealtimeProjection<TEvent extends ViewShareStateEvent>
-  implements IEventHandler<TEvent>
-{
+abstract class ViewShareStateRealtimeProjection<
+  TEvent extends ViewShareStateEvent,
+> implements IEventHandler<TEvent> {
   constructor(
     protected readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
     protected readonly tableRepository: TableRepositoryPort.ITableRepository,

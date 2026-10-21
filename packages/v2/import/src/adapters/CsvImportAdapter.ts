@@ -1,5 +1,7 @@
 import { parseCsvRows } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
+  CSV_SOURCE_INTERRUPTED_CODE,
+  CSV_SOURCE_SNAPSHOT_IO_FAILED_CODE,
   domainError,
   type CsvSource,
   type DomainError,
@@ -54,6 +56,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     const iterator = parseCsvRows(source, {
       delimiter: options?.delimiter,
       skipEmptyLines: true,
+      snapshotSource: options?.snapshotSource,
     });
     try {
       const first = await iterator.next();
@@ -84,7 +87,13 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     } catch (error) {
       await iterator.return(undefined);
       const failure = domainError.fromUnknown(error);
-      if (failure.tags.includes('validation')) return err(failure);
+      if (
+        failure.tags.includes('validation') ||
+        failure.code === CSV_SOURCE_INTERRUPTED_CODE ||
+        failure.code === CSV_SOURCE_SNAPSHOT_IO_FAILED_CODE
+      ) {
+        return err(failure);
+      }
       return err(
         domainError.infrastructure({
           message: `CSV parsing failed: ${failure.message}`,
@@ -110,7 +119,8 @@ export class CsvImportAdapter implements IImportSourceAdapter {
       DomainError
     >
   > {
-    const parseResult = await this.parse(source, options);
+    // A preview must not stage the whole URL source: read the sample and cancel.
+    const parseResult = await this.parse(source, { ...options, snapshotSource: false });
     if (parseResult.isErr()) return err(parseResult.error);
 
     const { headers, rows, rowsAsync } = parseResult.value;

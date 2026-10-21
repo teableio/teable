@@ -454,7 +454,7 @@ export class Workday extends DateTimeFunc {
     const extraDays = count % 5;
     let targetDate = startDate.add(weeks * 7, unit);
 
-    for (let i = 0; i < extraDays; ) {
+    for (let i = 0; i < extraDays;) {
       targetDate = targetDate.add(efficientSign, unit);
       const holidayIndex = holidays.findIndex((holiday) => holiday.isSame(targetDate, unit));
       if (holidayIndex > -1) holidays.splice(holidayIndex);

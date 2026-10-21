@@ -377,7 +377,7 @@ export class RedisNativeService {
     const replies = await pipe.exec();
     return keys.map((_, i) => {
       const [err, count] = replies?.[i] ?? [null, 0];
-      return err ? 0 : (count as number) ?? 0;
+      return err ? 0 : ((count as number) ?? 0);
     });
   }
 

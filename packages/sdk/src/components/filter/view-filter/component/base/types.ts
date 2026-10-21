@@ -31,8 +31,10 @@ interface IBaseSelect<V, O = IOption<V>> {
   drawerTitle?: string;
 }
 
-interface IBaseMultipleSelect<V, O = IOption<V>>
-  extends Omit<IBaseSelect<V, O>, 'onSelect' | 'value'> {
+interface IBaseMultipleSelect<V, O = IOption<V>> extends Omit<
+  IBaseSelect<V, O>,
+  'onSelect' | 'value'
+> {
   value: V[] | null;
   onSelect: (value: V[]) => void;
 }

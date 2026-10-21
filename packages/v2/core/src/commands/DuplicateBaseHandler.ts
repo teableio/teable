@@ -124,9 +124,10 @@ const resetDuplicatedViewIdentity = (
 
 @CommandHandler(DuplicateBaseCommand)
 @injectable()
-export class DuplicateBaseHandler
-  implements ICommandHandler<DuplicateBaseCommand, DuplicateBaseResult>
-{
+export class DuplicateBaseHandler implements ICommandHandler<
+  DuplicateBaseCommand,
+  DuplicateBaseResult
+> {
   constructor(
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
@@ -462,19 +463,23 @@ export class DuplicateBaseHandler
     }
 
     return this.tableMapper.toDomain(dto).andThen((table) =>
-      resolveFormulaFields(table, { sourceBudget: params.sourceBudget }).andThen(() =>
-        table.foreignTableReferences().map((foreignTableReferences) => {
-          table.addDomainEvent(
-            TableCreated.create({
-              tableId: table.id(),
-              baseId: table.baseId(),
-              tableName: table.name(),
-              fieldIds: table.fieldIds(),
-              viewIds: table.viewIds(),
-            })
-          );
-          return { table, fieldSpecs: [], foreignTableReferences };
-        })
+      table.normalizeViewInvariants().andThen(() =>
+        // A copied base persists new tables, so it must not inherit a historical
+        // gallery config that hides the primary column.
+        resolveFormulaFields(table, { sourceBudget: params.sourceBudget }).andThen(() =>
+          table.foreignTableReferences().map((foreignTableReferences) => {
+            table.addDomainEvent(
+              TableCreated.create({
+                tableId: table.id(),
+                baseId: table.baseId(),
+                tableName: table.name(),
+                fieldIds: table.fieldIds(),
+                viewIds: table.viewIds(),
+              })
+            );
+            return { table, fieldSpecs: [], foreignTableReferences };
+          })
+        )
       )
     );
   }

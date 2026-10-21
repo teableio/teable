@@ -1482,7 +1482,7 @@ export const splitSeedGroupsForPlan = (
   const primary =
     preferredTableId === undefined
       ? nonEmpty[0]
-      : nonEmpty.find((group) => group.tableId.equals(preferredTableId)) ?? nonEmpty[0];
+      : (nonEmpty.find((group) => group.tableId.equals(preferredTableId)) ?? nonEmpty[0]);
 
   return {
     seedTableId: primary.tableId,

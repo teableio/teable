@@ -66,9 +66,10 @@ export class DuplicateTableResult {
 
 @CommandHandler(DuplicateTableCommand)
 @injectable()
-export class DuplicateTableHandler
-  implements ICommandHandler<DuplicateTableCommand, DuplicateTableResult>
-{
+export class DuplicateTableHandler implements ICommandHandler<
+  DuplicateTableCommand,
+  DuplicateTableResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

@@ -400,9 +400,10 @@ const mergeSortWithViewDefaults = (
 
 @QueryHandler(ListTableRecordsQuery)
 @injectable()
-export class ListTableRecordsHandler
-  implements IQueryHandler<ListTableRecordsQuery, ListTableRecordsResult>
-{
+export class ListTableRecordsHandler implements IQueryHandler<
+  ListTableRecordsQuery,
+  ListTableRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

@@ -364,7 +364,7 @@ const useBackendSelectionStats = (params: {
     : null;
   const isLoading = needsBackend && (liveKey !== debouncedKey || isFetching);
 
-  return { needsBackend, data: needsBackend ? data ?? null : null, isLoading };
+  return { needsBackend, data: needsBackend ? (data ?? null) : null, isLoading };
 };
 
 const LoadingValue = () => (
@@ -515,7 +515,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
           className={segmentButtonClass}
         >
           <span className="text-muted-foreground">{label}:</span>
-          <span className="font-medium">{isLoading ? <LoadingValue /> : value ?? fallback}</span>
+          <span className="font-medium">{isLoading ? <LoadingValue /> : (value ?? fallback)}</span>
           {copiedKey === key && <CopiedOverlay />}
         </button>
       </TooltipTrigger>

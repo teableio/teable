@@ -1509,7 +1509,8 @@
     "pin": {
       "alreadyExists": "ההצמדה כבר קיימת",
       "notFound": "ההצמדה לא נמצאה",
-      "anchorNotFound": "עוגן ההצמדה לא נמצא"
+      "anchorNotFound": "עוגן ההצמדה לא נמצא",
+      "targetNotFound": "הפריט להצמדה לא נמצא"
     },
     "trash": {
       "invalidResourceType": "סוג המשאב אינו חוקי",

@@ -1184,6 +1184,12 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       throwDomainError('NOT_FOUND', result.body.error);
     }
 
+    // Dependency timeouts (statement timeout, interrupted import source) are
+    // retryable, so keep 504 instead of collapsing them into a 500.
+    if (result.status === 504) {
+      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
+    }
+
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
@@ -1210,6 +1216,12 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    // Dependency timeouts (statement timeout, interrupted import source) are
+    // retryable, so keep 504 instead of collapsing them into a 500.
+    if (result.status === 504) {
+      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     }
 
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);

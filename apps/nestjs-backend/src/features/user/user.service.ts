@@ -236,7 +236,7 @@ export class UserService {
     }
     try {
       // `?? {}`: the column could hold the literal JSON "null".
-      const parsed = refMeta ? JSON.parse(refMeta) ?? {} : {};
+      const parsed = refMeta ? (JSON.parse(refMeta) ?? {}) : {};
       return JSON.stringify({
         ...parsed,
         ...(oauthRedirect && typeof parsed.query !== 'string'

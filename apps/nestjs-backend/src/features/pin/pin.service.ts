@@ -30,6 +30,7 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { LastVisitService } from '../user/last-visit/last-visit.service';
 
 /**
@@ -37,8 +38,23 @@ import { LastVisitService } from '../user/last-visit/last-visit.service';
  * (`pin_resource`, already filtered by user and type), joins the resource table onto them and
  * selects the shared column set through `pinColumns`. All branches are UNION ALLed into a
  * single statement, so listing pins costs one round trip however many types are pinned.
+ * Each branch keeps only resources inside `access`: a pin is never a way to read the name of
+ * something the caller cannot open, whether they lost access after pinning it or pinned a
+ * foreign id to begin with.
  */
-export type IPinSource = (pins: Knex.QueryBuilder) => IPinBranch | Promise<IPinBranch>;
+export type IPinSource = (
+  pins: Knex.QueryBuilder,
+  access: IPinAccess
+) => IPinBranch | Promise<IPinBranch>;
+
+/**
+ * The bases and spaces the caller collaborates on, directly or through a department: the same
+ * collaborator rows PermissionService resolves roles from.
+ */
+export interface IPinAccess {
+  baseIds: string[];
+  spaceIds: string[];
+}
 
 /**
  * A branch's query, wrapped: knex builders are thenables, so handing one back through an
@@ -78,7 +94,8 @@ export class PinService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly lastVisitService: LastVisitService
+    private readonly lastVisitService: LastVisitService,
+    protected readonly collaboratorService: CollaboratorService
   ) {}
 
   /**
@@ -88,50 +105,68 @@ export class PinService {
    * has no branch here is simply left out.
    */
   protected readonly pinSources: Partial<Record<PinType, IPinSource>> = {
-    [PinType.Space]: (pins) => ({
+    [PinType.Space]: (pins, access) => ({
       query: pins
         .join('space', 'space.id', 'pin_resource.resource_id')
         .whereNull('space.deleted_time')
+        // A base collaborator sees the space their base lives in, as the space list does.
+        .where((visible) =>
+          visible
+            .whereIn('space.id', access.spaceIds)
+            .orWhereIn(
+              'space.id',
+              this.knex('base').select('space_id').whereIn('id', access.baseIds)
+            )
+        )
         .select(this.pinColumns({ name: 'space.name' })),
     }),
-    [PinType.Base]: (pins) => ({
-      query: pins
-        .join('base', 'base.id', 'pin_resource.resource_id')
-        .whereNull('base.deleted_time')
-        .select(this.pinColumns({ name: 'base.name', icon: 'base.icon' })),
+    [PinType.Base]: (pins, access) => ({
+      query: this.whereInAccessibleBase(
+        pins.join('base', 'base.id', 'pin_resource.resource_id').whereNull('base.deleted_time'),
+        'base.id',
+        access
+      ).select(this.pinColumns({ name: 'base.name', icon: 'base.icon' })),
     }),
-    [PinType.Table]: (pins) => ({
-      query: pins
-        .join('table_meta', 'table_meta.id', 'pin_resource.resource_id')
-        .whereNull('table_meta.deleted_time')
-        .select(
-          this.pinColumns({
-            name: 'table_meta.name',
-            icon: 'table_meta.icon',
-            parentBaseId: 'table_meta.base_id',
-          })
-        ),
+    [PinType.Table]: (pins, access) => ({
+      query: this.whereInAccessibleBase(
+        pins
+          .join('table_meta', 'table_meta.id', 'pin_resource.resource_id')
+          .whereNull('table_meta.deleted_time'),
+        'table_meta.base_id',
+        access
+      ).select(
+        this.pinColumns({
+          name: 'table_meta.name',
+          icon: 'table_meta.icon',
+          parentBaseId: 'table_meta.base_id',
+        })
+      ),
     }),
-    [PinType.View]: (pins) => ({
-      query: pins
-        .join('view', 'view.id', 'pin_resource.resource_id')
-        .join('table_meta', 'table_meta.id', 'view.table_id')
-        .whereNull('view.deleted_time')
-        .whereNull('table_meta.deleted_time')
-        .select(
-          this.pinColumns({
-            name: 'view.name',
-            parentBaseId: 'table_meta.base_id',
-            meta: this.knex.raw(
-              "jsonb_build_object('tableId', table_meta.id, 'type', view.type, 'options', view.options)"
-            ),
-          })
-        ),
+    [PinType.View]: (pins, access) => ({
+      query: this.whereInAccessibleBase(
+        pins
+          .join('view', 'view.id', 'pin_resource.resource_id')
+          .join('table_meta', 'table_meta.id', 'view.table_id')
+          .whereNull('view.deleted_time')
+          .whereNull('table_meta.deleted_time'),
+        'table_meta.base_id',
+        access
+      ).select(
+        this.pinColumns({
+          name: 'view.name',
+          parentBaseId: 'table_meta.base_id',
+          meta: this.knex.raw(
+            "jsonb_build_object('tableId', table_meta.id, 'type', view.type, 'options', view.options)"
+          ),
+        })
+      ),
     }),
-    [PinType.Dashboard]: (pins) => ({
-      query: pins
-        .join('dashboard', 'dashboard.id', 'pin_resource.resource_id')
-        .select(this.pinColumns({ name: 'dashboard.name', parentBaseId: 'dashboard.base_id' })),
+    [PinType.Dashboard]: (pins, access) => ({
+      query: this.whereInAccessibleBase(
+        pins.join('dashboard', 'dashboard.id', 'pin_resource.resource_id'),
+        'dashboard.base_id',
+        access
+      ).select(this.pinColumns({ name: 'dashboard.name', parentBaseId: 'dashboard.base_id' })),
     }),
   };
 
@@ -140,6 +175,28 @@ export class PinService {
     return this.knex('pin_resource')
       .where('pin_resource.created_by', userId)
       .andWhere('pin_resource.type', type);
+  }
+
+  /** The caller's bases and spaces, read once per request and handed to every branch. */
+  protected async getPinAccess(): Promise<IPinAccess> {
+    const { baseIds, spaceIds } =
+      await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
+    return { baseIds, spaceIds };
+  }
+
+  /** Keeps the rows whose base (`baseIdColumn`) the caller collaborates on, or whose space. */
+  protected whereInAccessibleBase(
+    query: Knex.QueryBuilder,
+    baseIdColumn: string,
+    access: IPinAccess
+  ) {
+    return query.whereIn(
+      baseIdColumn,
+      this.knex('base')
+        .select('id')
+        .whereIn('id', access.baseIds)
+        .orWhereIn('space_id', access.spaceIds)
+    );
   }
 
   /** The column set every branch selects, so the branches can be UNION ALLed. */
@@ -192,8 +249,34 @@ export class PinService {
     return aggregate._max.order || 0;
   }
 
+  /**
+   * Whether the caller may pin `id`: the type's own list branch, run against a stand-in pin row,
+   * finds it alive and inside the caller's bases and spaces. A foreign or missing id answers the
+   * same way, so adding a pin is not an existence check either.
+   */
+  private async isPinnable(type: PinType, id: string): Promise<boolean> {
+    const source = this.pinSources[type];
+    if (!source) return false;
+    const candidate: Knex.QueryBuilder = this.knex.from(
+      this.knex.raw(
+        '(SELECT ?::text AS resource_id, ?::text AS type, 0 AS "order", ?::text AS created_by) AS pin_resource',
+        [id, type, this.cls.get('user.id')]
+      )
+    );
+    const { query } = await source(candidate, await this.getPinAccess());
+    const rows = await this.prismaService.$queryRawUnsafe<unknown[]>(query.limit(1).toQuery());
+    return rows.length > 0;
+  }
+
   async addPin(query: AddPinRo) {
     const { type, id } = query;
+    if (!(await this.isPinnable(type, id))) {
+      throw new CustomHttpException('Pin target not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.pin.targetNotFound',
+        },
+      });
+    }
     const maxOrder = await this.getMaxOrder({
       createdBy: this.cls.get('user.id'),
     });
@@ -246,8 +329,9 @@ export class PinService {
     const types = [...new Set(requested)].filter((type) => this.pinSources[type]);
     if (!userId || types.length === 0) return [];
 
+    const access = await this.getPinAccess();
     const branches = await Promise.all(
-      types.map((type) => this.pinSources[type]!(this.pinsOf(userId, type)))
+      types.map((type) => this.pinSources[type]!(this.pinsOf(userId, type), access))
     );
     const [first, ...rest] = branches.map((branch) => branch.query);
     const statement = (rest.length ? first.unionAll(rest, true) : first)
@@ -273,7 +357,9 @@ export class PinService {
    * Entry URL per pinned base (its last visited table/view, keyed by baseId)
    * and pinned table (its last visited view, keyed by tableId), resolved
    * purely from the user's own visit history — independent of getList so the
-   * pin list itself is never coupled to entry resolution.
+   * pin list itself is never coupled to entry resolution. A base the caller
+   * never visited falls back to its first table, so only bases inside the
+   * caller's access are resolved at all.
    */
   async getEntryMap(): Promise<IPinEntryMapVo> {
     const userId = this.cls.get('user.id');
@@ -284,14 +370,33 @@ export class PinService {
       },
       select: { resourceId: true, type: true },
     });
-    const baseIds = pins.filter((pin) => pin.type === PinType.Base).map((pin) => pin.resourceId);
+    const pinnedBaseIds = pins
+      .filter((pin) => pin.type === PinType.Base)
+      .map((pin) => pin.resourceId);
     const tableIds = pins.filter((pin) => pin.type === PinType.Table).map((pin) => pin.resourceId);
-    const tables = tableIds.length
+    const pinnedTables = tableIds.length
       ? await this.prismaService.tableMeta.findMany({
           where: { id: { in: tableIds }, deletedTime: null },
           select: { id: true, baseId: true },
         })
       : [];
+    const candidateBaseIds = [...new Set([...pinnedBaseIds, ...pinnedTables.map((t) => t.baseId)])];
+    const access = candidateBaseIds.length ? await this.getPinAccess() : undefined;
+    const accessibleBaseIds = new Set(
+      access
+        ? (
+            await this.prismaService.base.findMany({
+              where: {
+                id: { in: candidateBaseIds },
+                OR: [{ id: { in: access.baseIds } }, { spaceId: { in: access.spaceIds } }],
+              },
+              select: { id: true },
+            })
+          ).map((base) => base.id)
+        : []
+    );
+    const baseIds = pinnedBaseIds.filter((id) => accessibleBaseIds.has(id));
+    const tables = pinnedTables.filter((table) => accessibleBaseIds.has(table.baseId));
     const [baseEntryMap, tableEntryMap] = await Promise.all([
       this.lastVisitService.getBaseEntryMap(userId, baseIds),
       this.lastVisitService.getTableEntryUrls(

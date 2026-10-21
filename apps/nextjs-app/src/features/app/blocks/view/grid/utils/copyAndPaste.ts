@@ -15,9 +15,9 @@ import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { getSelectionCell } from './selection';
 
 export enum ClipboardTypes {
-  'text' = 'text/plain',
-  'html' = 'text/html',
-  'Files' = 'Files',
+  text = 'text/plain',
+  html = 'text/html',
+  Files = 'Files',
 }
 
 export const rangeTypes = {

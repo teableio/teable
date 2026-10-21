@@ -1091,8 +1091,8 @@ export class PostgresTableSearchVectorExecutor {
     // succeed; failed candidates must never remove the previous working index.
     const preserveCurrentObjects = Boolean(
       currentConfig &&
-        currentConfig.generated_column_name !== columnName &&
-        currentConfig.index_name !== indexName
+      currentConfig.generated_column_name !== columnName &&
+      currentConfig.index_name !== indexName
     );
 
     const changedManagedObjects = input.payload.rebuild || !alreadyReady;

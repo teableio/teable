@@ -51,9 +51,7 @@ export const reclaimDropClaimExpiredBefore = (now: Date): Date =>
  * writers); a delta only becomes known once the baseline is at least idleMs
  * old, so a freshly sampled index can never be reclaimed on partial evidence.
  */
-export class PostgresTableSearchAccessPathReclaimSource
-  implements TableSearchAccessPathReclaimSource
-{
+export class PostgresTableSearchAccessPathReclaimSource implements TableSearchAccessPathReclaimSource {
   constructor(
     private readonly opsMetaDb: Kysely<TableQueryOpsDatabase>,
     private readonly observationDb: Kysely<TableQueryObservationDatabase>,
@@ -93,17 +91,15 @@ export class PostgresTableSearchAccessPathReclaimSource
         const readyAt = config.last_modified_time ?? config.created_time;
         return readyAt && input.now.getTime() - readyAt.getTime() >= input.minHoldMs;
       });
-      const due = dueConfigs.rows.map(
-        (config): TableSearchAccessPathReclaimCandidate => ({
-          phase: 'drop_due',
-          tableId: config.table_id,
-          baseId: config.base_id,
-          scopeKey: config.candidate_key,
-          configVersion: config.config_version,
-          accessPathReadyAt: config.created_time ?? config.last_modified_time ?? input.now,
-          dropAfter: config.reclaim_drop_after,
-        })
-      );
+      const due = dueConfigs.rows.map((config): TableSearchAccessPathReclaimCandidate => ({
+        phase: 'drop_due',
+        tableId: config.table_id,
+        baseId: config.base_id,
+        scopeKey: config.candidate_key,
+        configVersion: config.config_version,
+        accessPathReadyAt: config.created_time ?? config.last_modified_time ?? input.now,
+        dropAfter: config.reclaim_drop_after,
+      }));
       if (!held.length) return ok(due);
 
       const [activityByTable, idxScanByIndex] = await Promise.all([

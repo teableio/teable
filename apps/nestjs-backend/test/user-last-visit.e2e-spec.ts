@@ -9,6 +9,8 @@ import {
   createView,
   deleteBase,
   deleteView,
+  GET_USER_LAST_VISIT,
+  GET_USER_LAST_VISIT_MAP,
   getUserLastVisit,
   getUserLastVisitBaseNode,
   getUserLastVisitListBase,
@@ -18,6 +20,7 @@ import {
   userLastVisitListBaseVoSchema,
 } from '@teable/openapi';
 import { isEmpty } from 'lodash';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getViews, initApp, permanentDeleteBase, permanentDeleteTable } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
@@ -252,6 +255,29 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userLastVisit.length).toEqual(0);
+  });
+
+  // pentest IDOR-VULN-03: with no visit of their own, the lookups used to fall back to the
+  // first table/view under any base or table id, including another tenant's.
+  it('answers nothing about a base or table the caller cannot open', async () => {
+    const outsider = await createNewUserAxios({
+      email: `last-visit-outsider-${Date.now()}@test-last-visit.com`,
+      password: '12345678a',
+    });
+    const lookups = [
+      { resourceType: LastVisitResourceType.Table, parentResourceId: base.id },
+      { resourceType: LastVisitResourceType.Dashboard, parentResourceId: base.id },
+      { resourceType: LastVisitResourceType.View, parentResourceId: table1.id },
+    ];
+    for (const params of lookups) {
+      const res = await outsider.get(GET_USER_LAST_VISIT, { params });
+      expect(res.status).toBe(200);
+      expect(isEmpty(res.data)).toBe(true);
+    }
+    const map = await outsider.get(GET_USER_LAST_VISIT_MAP, {
+      params: { resourceType: LastVisitResourceType.Table, parentResourceId: base.id },
+    });
+    expect(map.data).toEqual({});
   });
 
   describe('getUserLastVisitBaseNode', () => {

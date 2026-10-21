@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { FieldId } from '../fields/FieldId';
-import { ViewColumnMeta } from './ViewColumnMeta';
+import {
+  keepPrimaryColumnVisible,
+  keepPrimaryFieldVisible,
+  ViewColumnMeta,
+} from './ViewColumnMeta';
+import { ViewType } from './ViewType';
 
 const fieldId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
 
@@ -74,5 +79,54 @@ describe('ViewColumnMeta.rehydrate', () => {
     raw[fieldKey]!.width = 1;
     dto[fieldKey]!.width = 2;
     expect(metadata.toDto()[fieldKey]).toEqual({ order: 0, width: 180, extra: true });
+  });
+});
+
+describe('keepPrimaryFieldVisible', () => {
+  it('repairs a hidden gallery primary entry without mutating the input', () => {
+    const entry = { order: 0, width: 260, visible: false, hidden: false };
+
+    expect(keepPrimaryFieldVisible(ViewType.gallery(), entry)).toEqual({
+      ...entry,
+      visible: true,
+    });
+    expect(entry.visible).toBe(false);
+  });
+
+  it('leaves other view types and already visible entries untouched', () => {
+    const hiddenEntry = { visible: false };
+    const visibleEntry = { visible: true };
+
+    expect(keepPrimaryFieldVisible(ViewType.kanban(), hiddenEntry)).toBe(hiddenEntry);
+    expect(keepPrimaryFieldVisible(ViewType.grid(), hiddenEntry)).toBe(hiddenEntry);
+    expect(keepPrimaryFieldVisible(ViewType.gallery(), visibleEntry)).toBe(visibleEntry);
+  });
+});
+
+describe('keepPrimaryColumnVisible', () => {
+  const secondaryFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+
+  it('normalizes only the primary key and preserves sibling metadata', () => {
+    const columnMeta = {
+      [fieldId.toString()]: { order: 0, width: 260, visible: false },
+      [secondaryFieldId.toString()]: { order: 1, width: 120, visible: false },
+    };
+
+    const result = keepPrimaryColumnVisible(ViewType.gallery(), fieldId, columnMeta);
+
+    expect(result[fieldId.toString()]).toEqual({ order: 0, width: 260, visible: true });
+    expect(result[secondaryFieldId.toString()]).toBe(columnMeta[secondaryFieldId.toString()]);
+    expect(columnMeta[fieldId.toString()]).toEqual({ order: 0, width: 260, visible: false });
+  });
+
+  it('returns the same map for non-gallery views and visible primary entries', () => {
+    const hiddenPrimary = { [fieldId.toString()]: { order: 0, visible: false } };
+    const visiblePrimary = { [fieldId.toString()]: { order: 0, visible: true } };
+
+    expect(keepPrimaryColumnVisible(ViewType.kanban(), fieldId, hiddenPrimary)).toBe(hiddenPrimary);
+    expect(keepPrimaryColumnVisible(ViewType.grid(), fieldId, hiddenPrimary)).toBe(hiddenPrimary);
+    expect(keepPrimaryColumnVisible(ViewType.gallery(), fieldId, visiblePrimary)).toBe(
+      visiblePrimary
+    );
   });
 });

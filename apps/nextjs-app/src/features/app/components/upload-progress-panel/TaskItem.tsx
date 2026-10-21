@@ -92,7 +92,7 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
     task.attachmentItem?.lgThumbnailUrl ??
     task.attachmentItem?.smThumbnailUrl ??
     (isImage(mimetype) ? task.attachmentItem?.presignedUrl : undefined);
-  const previewUrl = isCompleted ? completedPreviewUrl ?? imageUrl : imageUrl;
+  const previewUrl = isCompleted ? (completedPreviewUrl ?? imageUrl) : imageUrl;
 
   return (
     <div

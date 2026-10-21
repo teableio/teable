@@ -89,7 +89,7 @@ describe('TableUpdateViewColumnMetaSpec', () => {
     expect(viewB).toBeTruthy();
     if (!notesField || !viewA || !viewB) return;
 
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: viewA.id(),
         fieldId: notesField.id(),

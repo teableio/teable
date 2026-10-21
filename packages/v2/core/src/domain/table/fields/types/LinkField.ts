@@ -497,7 +497,7 @@ export class LinkField
       visibleFieldIds != null &&
       visibleFieldIds.some((fieldId) => fieldId.equals(deletedField.id()));
     const nextVisibleFieldIds = shouldCleanVisibleFieldIds
-      ? visibleFieldIds?.filter((fieldId) => !fieldId.equals(deletedField.id())) ?? null
+      ? (visibleFieldIds?.filter((fieldId) => !fieldId.equals(deletedField.id())) ?? null)
       : visibleFieldIds;
     const normalizedVisibleFieldIds =
       nextVisibleFieldIds != null && nextVisibleFieldIds.length === 0 ? null : nextVisibleFieldIds;

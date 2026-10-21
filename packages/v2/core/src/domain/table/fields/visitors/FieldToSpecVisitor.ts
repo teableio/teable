@@ -475,7 +475,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
         ? parsed.items.length === 0
           ? null
           : parsed.items
-        : parsed.items[0] ?? null;
+        : (parsed.items[0] ?? null);
       return ok(
         new SetUserValueSpec(
           field.id(),

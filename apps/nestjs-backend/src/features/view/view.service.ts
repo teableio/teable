@@ -525,6 +525,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
     await this.assertTableWritable(tableId);
+    await this.normalizeGalleryPrimaryColumnMetaOps(tableId, opsMap);
     const { updateViewMap, updateViewKeySet } = this.getBatchUpdateViewContext(opsMap);
     if (updateViewKeySet.size === 0) {
       return;
@@ -692,6 +693,85 @@ export class ViewService implements IReadonlyAdapterService {
     }
 
     return res;
+  }
+
+  /**
+   * Gallery cards are titled by the primary field, so a `visible: false` patch for it
+   * leaves the view without a renderable card. Persisted column meta and emitted ops must
+   * agree, so every op that would hide the gallery primary field is rewritten to keep it
+   * visible. Only that flag is normalized: the rest of the patch, the other fields in the
+   * same batch and all other view metadata stay as requested. Undo/redo replays inverted
+   * raw ops through this same boundary, so a historical hide cannot be restored.
+   */
+  private async normalizeGalleryPrimaryColumnMetaOps(
+    tableId: string,
+    opsMap: { [viewId: string]: IOtOperation[] }
+  ) {
+    const candidateViewIds = Object.entries(opsMap)
+      .filter(([, ops]) =>
+        ops.some((op) => {
+          const context = ViewOpBuilder.detect(op);
+          return (
+            context?.name === OpName.UpdateViewColumnMeta &&
+            context.newColumnMeta != null &&
+            'visible' in context.newColumnMeta &&
+            context.newColumnMeta.visible === false
+          );
+        })
+      )
+      .map(([viewId]) => viewId);
+    if (!candidateViewIds.length) {
+      return;
+    }
+
+    const galleryViews = await this.prismaService.txClient().view.findMany({
+      where: {
+        id: { in: candidateViewIds },
+        tableId,
+        deletedTime: null,
+        type: ViewType.Gallery,
+      },
+      select: { id: true },
+    });
+    if (!galleryViews.length) {
+      return;
+    }
+
+    const primaryField = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    const primaryFieldId = primaryField?.id;
+    if (!primaryFieldId) {
+      return;
+    }
+
+    for (const { id: viewId } of galleryViews) {
+      const ops = opsMap[viewId];
+      ops.forEach((op, index) => {
+        const context = ViewOpBuilder.detect(op);
+        const newColumnMeta =
+          context?.name === OpName.UpdateViewColumnMeta ? context.newColumnMeta : null;
+
+        if (
+          context?.name !== OpName.UpdateViewColumnMeta ||
+          context.fieldId !== primaryFieldId ||
+          !newColumnMeta ||
+          !('visible' in newColumnMeta) ||
+          newColumnMeta.visible !== false
+        ) {
+          return;
+        }
+
+        // Callers emit these ops after the transaction, so the normalized op replaces the
+        // requested one in place: ShareDB then publishes exactly what was persisted.
+        ops[index] = ViewOpBuilder.editor.updateViewColumnMeta.build({
+          fieldId: context.fieldId,
+          newColumnMeta: { ...newColumnMeta, visible: true } as IColumn,
+          oldColumnMeta: context.oldColumnMeta ?? undefined,
+        });
+      });
+    }
   }
 
   getBatchUpdateViewContext(opsMap: { [viewId: string]: IOtOperation[] }) {

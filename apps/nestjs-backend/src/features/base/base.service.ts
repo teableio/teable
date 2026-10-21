@@ -201,10 +201,10 @@ export class BaseService {
       isCanary: context.canarySpaceMap.get(base.spaceId) || undefined,
       v2Status: base.v2Enabled
         ? { useV2: true, reason: 'new_base' }
-        : context.spaceDecisionMap.get(base.spaceId) ?? {
+        : (context.spaceDecisionMap.get(base.spaceId) ?? {
             useV2: false,
             reason: 'feature_not_enabled',
-          },
+          }),
     };
   }
 

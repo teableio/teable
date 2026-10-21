@@ -9,8 +9,10 @@ import type { IDataDbRoutingSnapshot } from '../../global/data-db-client-manager
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 
 /** This projection belongs to query admission, not to the Table domain or a second connection pool. */
-export interface IDataQueryAdmissionDb
-  extends Pick<V1TeableDatabase, 'base' | 'space' | 'space_data_db_binding'> {
+export interface IDataQueryAdmissionDb extends Pick<
+  V1TeableDatabase,
+  'base' | 'space' | 'space_data_db_binding'
+> {
   collaborator: V1TeableDatabase['collaborator'] & { role_name: string };
   template: { id: string; snapshot: string | null };
   data_db_connection: {

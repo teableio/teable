@@ -41,6 +41,7 @@ import {
 } from '@overridable/SpaceInnerSettingModal';
 import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
+import { DataDbBadge } from '../DataDbBadge';
 import { useSpaceList } from '../hooks';
 import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';
@@ -94,6 +95,8 @@ interface ISpaceSwitcherProps {
   sharedOnly?: boolean;
   /** Where "Shared with me" opens: a new tab (the default), or this one for a shell that lists shared projects itself. */
   sharedBaseTarget?: '_blank' | '_self';
+  /** Where a picked space goes, in place of its page. */
+  onSelectSpace?: (spaceId: string) => void;
 }
 
 export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
@@ -107,6 +110,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
     variant = 'inline',
     sharedOnly = false,
     sharedBaseTarget = '_blank',
+    onSelectSpace,
   } = props;
   const isField = variant === 'field';
   const router = useRouter();
@@ -212,6 +216,10 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   const handleSelectSpace = (space: IGetSpaceVo) => {
     setOpen(false);
     if (space.id === currentSpaceId) return;
+    if (onSelectSpace) {
+      onSelectSpace(space.id);
+      return;
+    }
     router.push({
       pathname: '/space/[spaceId]',
       query: {
@@ -240,6 +248,12 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
               avatar={sharedOnly ? undefined : currentSpace?.avatar}
               sharedOnly={sharedOnly}
             />
+            {isField && !sharedOnly && (
+              <DataDbBadge
+                dataDb={currentSpace?.dataDb}
+                className="h-5 rounded-sm px-1.5 text-[10px]"
+              />
+            )}
             {isField ? (
               <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
             ) : (

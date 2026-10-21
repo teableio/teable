@@ -129,7 +129,7 @@ export class RecordHistoryFlusherService {
     const deleteRequested =
       options.mode === 'backfill'
         ? options.deleteEnabled === true
-        : options.deleteEnabled ?? config.deleteEnabled;
+        : (options.deleteEnabled ?? config.deleteEnabled);
     // merged reads are unconditional (every process can serve cold data),
     // so deletion after verified upload is safe wherever it was requested
     const deleteEnabled = deleteRequested;

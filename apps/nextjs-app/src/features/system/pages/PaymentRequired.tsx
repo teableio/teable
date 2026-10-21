@@ -31,8 +31,8 @@ export const PaymentRequiredPage: FC<PaymentRequiredPageProps> = ({
       imageDarkSrc="/images/layout/upgrade-dark.png"
       imageAlt="Payment Required"
       // The backend's 402 localizations pitch an upgrade: not inside the native WebView.
-      title={upgradeCtaEnabled ? title ?? defaultTitle : defaultTitle}
-      description={upgradeCtaEnabled ? description ?? defaultDescription : defaultDescription}
+      title={upgradeCtaEnabled ? (title ?? defaultTitle) : defaultTitle}
+      description={upgradeCtaEnabled ? (description ?? defaultDescription) : defaultDescription}
       button={button ?? { label: t('system.links.backToHome'), href: '/' }}
     />
   );

@@ -6886,10 +6886,10 @@ export class SpaceDataDbMigrationService {
       .filter((row): row is ISpaceDataDbExcludedForeignKey =>
         Boolean(
           row.schemaName &&
-            row.tableName &&
-            row.constraintName &&
-            row.referencedSchemaName &&
-            row.referencedTableName
+          row.tableName &&
+          row.constraintName &&
+          row.referencedSchemaName &&
+          row.referencedTableName
         )
       )
       .sort((left, right) =>

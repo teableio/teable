@@ -313,7 +313,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         imageManager,
         spriteManager,
         theme: finalTheme,
-        fill: isCellActive ? cellBg : fill ?? cellBg,
+        fill: isCellActive ? cellBg : (fill ?? cellBg),
       });
     }
   }
@@ -2026,7 +2026,7 @@ export const drawStatisticCell = (
       y,
       width,
       height,
-      fill: isHovered ? hoverBgColor ?? columnStatisticBgHoveredPrimary : bgColor,
+      fill: isHovered ? (hoverBgColor ?? columnStatisticBgHoveredPrimary) : bgColor,
     });
   }
 

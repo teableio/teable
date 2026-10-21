@@ -1,0 +1,65 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["jest"],
+  "categories": {
+    "correctness": "off"
+  },
+  "overrides": [
+    {
+      // oxlint does not inherit a top-level `env` through `extends`.
+      "files": ["**/*"],
+      "env": {
+        "es6": true,
+        "node": true
+      }
+    },
+    {
+      "files": ["**/*.{spec,test}.{js,jsx,ts,tsx}"],
+      "rules": {
+        "import/no-duplicates": "off",
+        "typescript/ban-ts-comment": "off",
+        "typescript/no-explicit-any": "off",
+        "no-empty-function": "off",
+        "jest/no-focused-tests": "error"
+      }
+    },
+    {
+      "files": ["**/*.test.{js,jsx,ts,tsx}"],
+      "rules": {
+        "jest/prefer-mock-promise-shorthand": "error",
+        "jest/no-commented-out-tests": "error",
+        "jest/prefer-hooks-in-order": "error",
+        "jest/prefer-hooks-on-top": "error",
+        // jest/no-conditional-in-test and jest/prefer-strict-equal are left out:
+        // eslint-plugin-jest ignored calls imported from 'vitest', so they never
+        // ran on our tests, while oxlint applies them to vitest imports too.
+        "jest/no-duplicate-hooks": "error",
+        "jest/no-test-return-statement": "error",
+        "jest/prefer-to-have-length": "error",
+        "jest/consistent-test-it": [
+          "error",
+          {
+            "fn": "it"
+          }
+        ],
+        "jest/expect-expect": "warn",
+        "jest/no-alias-methods": "error",
+        "jest/no-conditional-expect": "error",
+        "jest/no-deprecated-functions": "error",
+        "jest/no-disabled-tests": "warn",
+        "jest/no-done-callback": "error",
+        "jest/no-export": "error",
+        "jest/no-identical-title": "error",
+        "jest/no-interpolation-in-snapshots": "error",
+        "jest/no-jasmine-globals": "error",
+        "jest/no-mocks-import": "error",
+        "jest/no-standalone-expect": "error",
+        "jest/no-test-prefixes": "error",
+        "jest/valid-describe-callback": "error",
+        "jest/valid-expect-in-promise": "error",
+        "jest/valid-expect": "error",
+        "jest/valid-title": "error"
+      }
+    }
+  ]
+}

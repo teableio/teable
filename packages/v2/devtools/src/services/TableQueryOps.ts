@@ -76,8 +76,7 @@ export interface TableQueryOpsExecuteSearchAccessPathInput extends TableQueryOps
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsValidateSearchAccessPathTempTableInput
-  extends TableQueryOpsScopeInput {
+export interface TableQueryOpsValidateSearchAccessPathTempTableInput extends TableQueryOpsScopeInput {
   readonly connection?: string;
   readonly fieldIds?: readonly string[];
   readonly provider?: TableQueryOpsSearchAccessPathProvider;
@@ -90,27 +89,26 @@ export interface TableQueryOpsValidateSearchAccessPathTempTableInput
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsSearchAccessPathTempTableValidationScope
-  extends Omit<TableQueryOpsValidateSearchAccessPathTempTableInput, 'sampleSearches'> {
+export interface TableQueryOpsSearchAccessPathTempTableValidationScope extends Omit<
+  TableQueryOpsValidateSearchAccessPathTempTableInput,
+  'sampleSearches'
+> {
   readonly sampleSearchCount: number;
   readonly sampleSearchLengthBuckets: readonly ('none' | 'short' | 'medium' | 'long')[];
 }
 
 /** @deprecated Use TableQueryOpsAnalyzeSearchAccessPathsInput. */
-export interface TableQueryOpsAnalyzeSearchVectorsInput
-  extends TableQueryOpsAnalyzeSearchAccessPathsInput {
+export interface TableQueryOpsAnalyzeSearchVectorsInput extends TableQueryOpsAnalyzeSearchAccessPathsInput {
   readonly languageConfig?: string;
 }
 
 /** @deprecated Use TableQueryOpsExecuteSearchAccessPathInput. */
-export interface TableQueryOpsExecuteSearchVectorInput
-  extends TableQueryOpsExecuteSearchAccessPathInput {
+export interface TableQueryOpsExecuteSearchVectorInput extends TableQueryOpsExecuteSearchAccessPathInput {
   readonly languageConfig?: string;
 }
 
 /** @deprecated Use TableQueryOpsValidateSearchAccessPathTempTableInput. */
-export interface TableQueryOpsValidateSearchVectorTempTableInput
-  extends TableQueryOpsValidateSearchAccessPathTempTableInput {
+export interface TableQueryOpsValidateSearchVectorTempTableInput extends TableQueryOpsValidateSearchAccessPathTempTableInput {
   readonly languageConfig?: string;
 }
 

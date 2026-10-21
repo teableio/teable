@@ -25,9 +25,9 @@ type FilterSet = {
 const isFilterSet = (value: unknown): value is FilterSet =>
   Boolean(
     value &&
-      typeof value === 'object' &&
-      'filterSet' in value &&
-      Array.isArray((value as FilterSet).filterSet)
+    typeof value === 'object' &&
+    'filterSet' in value &&
+    Array.isArray((value as FilterSet).filterSet)
   );
 
 const flattenFilterItems = (filter: unknown): FilterItem[] => {

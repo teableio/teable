@@ -7,9 +7,9 @@ import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
-export class TableByIdsSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableByIdsSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private constructor(private readonly tableIdsValue: ReadonlyArray<TableId>) {}
 
   static create(tableIds: ReadonlyArray<TableId>): TableByIdsSpec {

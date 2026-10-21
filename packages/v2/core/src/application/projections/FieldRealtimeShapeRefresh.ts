@@ -229,7 +229,7 @@ export const buildFieldShapeRefreshChanges = (
       continue;
     }
     const rawValue = snapshot[key];
-    const value = key === 'options' ? rawValue ?? {} : rawValue;
+    const value = key === 'options' ? (rawValue ?? {}) : rawValue;
     if (value == null) {
       continue;
     }

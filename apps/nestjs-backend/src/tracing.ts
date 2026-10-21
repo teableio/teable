@@ -16,6 +16,7 @@
  * | OTEL_LOG_LEVEL                     | SDK diagnostic log level       | (disabled)       | (disabled)   |
  * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
  * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
+ * | OTEL_SLOW_TRACE_THRESHOLD_MS       | Slow-trace promotion (ms)      | 1000             | 1000         |
  * | OTEL_BSP_MAX_QUEUE_SIZE            | Trace BSP max queue size       | 2048             | 2048         |
  * | OTEL_BSP_MAX_EXPORT_BATCH_SIZE     | Trace BSP max export batch     | 512              | 512          |
  * | OTEL_BSP_SCHEDULE_DELAY            | Trace BSP delay (ms)           | 5000             | 5000         |
@@ -33,6 +34,10 @@
  * - Smart export always sends errors and HTTP 5xx responses (regardless of ratio) and promotes
  *   their whole trace so it arrives complete; everything else follows the trace-level
  *   OTEL_EXPORT_RATIO (see tracing-span-export.ts)
+ * - Smart export also promotes a trace complete when any span ends at or above
+ *   OTEL_SLOW_TRACE_THRESHOLD_MS (default 1000 ms, non-positive/invalid values fall back to
+ *   the default), so slow successful requests keep their internal spans. With the default
+ *   OTEL_EXPORT_RATIO of 0.1 this raises retention above 10% for slow traffic only.
  * - Any single trace is truncated past TRACE_EXPORT_SPAN_CAP detail spans, so a leaked
  *   context cannot funnel a pod's whole lifetime into one unbounded trace
  */
@@ -60,7 +65,11 @@ import {
   setTeableDbSpanAttributes,
   setTeableDbSpanAttributesFromSpan,
 } from './tracing-db-context';
-import { createSmartSpanProcessor } from './tracing-span-export';
+import {
+  createSmartSpanProcessor,
+  DEFAULT_SLOW_TRACE_THRESHOLD_MS,
+  normalizeSlowTraceThresholdMs,
+} from './tracing-span-export';
 
 // Use webpack's special require that bypasses bundling, falling back to standard require
 // This is needed because webpack transforms import.meta.url and createRequire in ways
@@ -88,6 +97,7 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '1.0',
+    OTEL_SLOW_TRACE_THRESHOLD_MS: '1000',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -101,6 +111,7 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '0.1',
+    OTEL_SLOW_TRACE_THRESHOLD_MS: '1000',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -156,6 +167,9 @@ const logEndpoint = getConfig('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT');
 const metricsEndpoint = getConfig('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT');
 const serviceName = getConfig('OTEL_SERVICE_NAME') || 'teable';
 const exportRatio = Math.max(0, Math.min(1, parseNumber(getConfig('OTEL_EXPORT_RATIO'), 0.1)));
+const slowTraceThresholdMs = normalizeSlowTraceThresholdMs(
+  parseNumber(getConfig('OTEL_SLOW_TRACE_THRESHOLD_MS'), DEFAULT_SLOW_TRACE_THRESHOLD_MS)
+);
 const traceBatchMaxQueueSize = parseIntegerConfig('OTEL_BSP_MAX_QUEUE_SIZE', 2048, 1);
 const traceBatchMaxExportBatchSize = Math.min(
   traceBatchMaxQueueSize,
@@ -294,6 +308,7 @@ const spanProcessors = [
           new OTLPTraceExporter(createExporterOptions(traceEndpoint)),
           {
             exportRatio,
+            slowTraceThresholdMs,
             maxQueueSize: traceBatchMaxQueueSize,
             maxExportBatchSize: traceBatchMaxExportBatchSize,
             scheduledDelayMillis: traceBatchScheduledDelayMillis,
@@ -416,7 +431,7 @@ const otelSDK = new opentelemetry.NodeSDK({
 // Log configuration on startup
 otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
-    `exportRatio=${exportRatio * 100}%, ` +
+    `exportRatio=${exportRatio * 100}%, slowTraceThreshold=${slowTraceThresholdMs}ms, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +

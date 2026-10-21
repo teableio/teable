@@ -51,9 +51,10 @@ export class UpdateViewSortResult {
 
 @CommandHandler(UpdateViewSortCommand)
 @injectable()
-export class UpdateViewSortHandler
-  implements ICommandHandler<UpdateViewSortCommand, UpdateViewSortResult>
-{
+export class UpdateViewSortHandler implements ICommandHandler<
+  UpdateViewSortCommand,
+  UpdateViewSortResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

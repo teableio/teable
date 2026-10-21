@@ -37,9 +37,10 @@ export class RestoreRecordsResult {
 
 @CommandHandler(RestoreRecordsCommand)
 @injectable()
-export class RestoreRecordsHandler
-  implements ICommandHandler<RestoreRecordsCommand, RestoreRecordsResult>
-{
+export class RestoreRecordsHandler implements ICommandHandler<
+  RestoreRecordsCommand,
+  RestoreRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

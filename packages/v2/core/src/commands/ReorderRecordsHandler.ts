@@ -35,9 +35,10 @@ export class ReorderRecordsResult {
 
 @CommandHandler(ReorderRecordsCommand)
 @injectable()
-export class ReorderRecordsHandler
-  implements ICommandHandler<ReorderRecordsCommand, ReorderRecordsResult>
-{
+export class ReorderRecordsHandler implements ICommandHandler<
+  ReorderRecordsCommand,
+  ReorderRecordsResult
+> {
   private static readonly UPDATE_BATCH_SIZE = 500;
   private static *buildBatches(
     updates: ReadonlyArray<RecordUpdateResult>

@@ -42,6 +42,7 @@ import {
   resolveRealtimeTranscriptionModel,
   SettingKey,
 } from '@teable/openapi';
+import { getSafeAxiosAgents } from '@teable/v2-utils';
 import { APICallError, RetryError, createGateway, generateText, tool, generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
@@ -351,9 +352,9 @@ export class SettingOpenApiService {
         voiceInput: {
           enabled: Boolean(
             (aiConfig?.realtimeTranscription?.enabled ?? true) &&
-              (aiConfig?.realtimeTranscription?.apiKey ||
-                process.env.OPENAI_TRANSCRIPTION_API_KEY ||
-                process.env.OPENAI_REALTIME_API_KEY)
+            (aiConfig?.realtimeTranscription?.apiKey ||
+              process.env.OPENAI_TRANSCRIPTION_API_KEY ||
+              process.env.OPENAI_REALTIME_API_KEY)
           ),
           model: resolveRealtimeTranscriptionModel(aiConfig?.realtimeTranscription?.model),
           maxSessionDurationSec:
@@ -1465,7 +1466,7 @@ export class SettingOpenApiService {
       );
       body.append('model', DEFAULT_REALTIME_TRANSCRIPTION_MODEL);
 
-      const response = await fetch(transcriptionUrl, {
+      const response = await instanceAdminProviderFetch(transcriptionUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -1587,7 +1588,11 @@ export class SettingOpenApiService {
 
     const url = `${apiBase}/v2/user`;
     try {
-      await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+      // Same reach as the AI provider tests: private network yes, cloud metadata no.
+      await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        ...getSafeAxiosAgents({ allowPrivateNetwork: true }),
+      });
       return { success: true };
     } catch (error) {
       if (!axios.isAxiosError(error)) {

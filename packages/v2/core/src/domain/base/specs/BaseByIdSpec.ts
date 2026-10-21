@@ -7,9 +7,10 @@ import type { Base } from '../Base';
 import type { BaseId } from '../BaseId';
 import type { IBaseSpecVisitor } from './IBaseSpecVisitor';
 
-export class BaseByIdSpec<V extends IBaseSpecVisitor = IBaseSpecVisitor>
-  implements ISpecification<Base, V>
-{
+export class BaseByIdSpec<V extends IBaseSpecVisitor = IBaseSpecVisitor> implements ISpecification<
+  Base,
+  V
+> {
   private constructor(private readonly baseIdValue: BaseId) {}
 
   static create(baseId: BaseId): BaseByIdSpec {

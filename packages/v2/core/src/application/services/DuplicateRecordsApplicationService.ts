@@ -314,13 +314,13 @@ export class DuplicateRecordsApplicationService {
     });
 
     const effectiveFilter = command.ignoreViewQuery
-      ? command.filter ?? undefined
-      : mergedDefaults.filter() ?? undefined;
+      ? (command.filter ?? undefined)
+      : (mergedDefaults.filter() ?? undefined);
     const effectiveSort = command.ignoreViewQuery
-      ? command.sort ?? undefined
+      ? (command.sort ?? undefined)
       : mergedDefaults.sort();
     const effectiveGroup = command.ignoreViewQuery
-      ? command.groupBy ?? undefined
+      ? (command.groupBy ?? undefined)
       : mergedDefaults.group();
 
     const actorResolvedFilter = replaceCurrentUserTagInFilter(

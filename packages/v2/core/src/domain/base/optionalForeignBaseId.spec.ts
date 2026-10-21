@@ -68,8 +68,8 @@ describe('optionalBaseIdsEqual', () => {
 
   it('compares defined ids', () => {
     expect(optionalBaseIdsEqual(baseId, baseId)).toBe(true);
-    expect(
-      optionalBaseIdsEqual(baseId, BaseId.create('bseyyyyyyyyyyyyyyyy')._unsafeUnwrap())
-    ).toBe(false);
+    expect(optionalBaseIdsEqual(baseId, BaseId.create('bseyyyyyyyyyyyyyyyy')._unsafeUnwrap())).toBe(
+      false
+    );
   });
 });

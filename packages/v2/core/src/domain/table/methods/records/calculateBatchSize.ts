@@ -67,7 +67,7 @@ export function calculateBatchSize(
   const options =
     typeof userBatchSizeOrOptions === 'number'
       ? { userBatchSize: userBatchSizeOrOptions }
-      : userBatchSizeOrOptions ?? {};
+      : (userBatchSizeOrOptions ?? {});
   const maxBatchSize = options.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE;
 
   // If user explicitly specified a batch size, use it (but respect min/max bounds)

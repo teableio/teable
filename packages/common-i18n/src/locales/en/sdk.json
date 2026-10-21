@@ -1513,7 +1513,8 @@
     "pin": {
       "alreadyExists": "Pin already exists",
       "notFound": "Pin not found",
-      "anchorNotFound": "Pin anchor not found"
+      "anchorNotFound": "Pin anchor not found",
+      "targetNotFound": "The item to pin was not found"
     },
     "trash": {
       "invalidResourceType": "Invalid resource type",

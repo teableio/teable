@@ -51,14 +51,14 @@ const nextConfig = {
               connectSrc: ["'self'", 'https:'],
               mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
               imgSrc: ["'self'", 'https:', 'http:', 'data:'],
-            } 
+            },
           }),
           {
             key: 'Content-Security-Policy',
-            value: 'frame-ancestors *'
+            value: 'frame-ancestors *',
           },
           { key: 'Cross-Origin-Opener-Policy', value: isProd ? 'same-origin' : 'unsafe-none' },
-          { key: 'Cross-Origin-Embedder-Policy', value: isProd ? 'same-origin' : 'unsafe-none' }
+          { key: 'Cross-Origin-Embedder-Policy', value: isProd ? 'same-origin' : 'unsafe-none' },
         ],
       },
     ];

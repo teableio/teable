@@ -430,9 +430,10 @@ export class RestoreFieldStreamApplicationService {
 
 @CommandHandler(RestoreFieldStreamCommand)
 @injectable()
-export class RestoreFieldStreamHandler
-  implements ICommandHandler<RestoreFieldStreamCommand, RestoreFieldStreamResult>
-{
+export class RestoreFieldStreamHandler implements ICommandHandler<
+  RestoreFieldStreamCommand,
+  RestoreFieldStreamResult
+> {
   constructor(
     @inject(v2CoreTokens.restoreFieldStreamApplicationService)
     private readonly restoreFieldStreamApplicationService: RestoreFieldStreamApplicationService

@@ -299,7 +299,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     // QueryEmitter's inserted-snapshot path only passes agentCustom. Its callback
     // runs in queryPoll's CLS child, which still owns this subscription's signal.
     const signal = collection.startsWith(`${IdPrefix.Record}_`)
-      ? getQueryCancellationSignal(options) ?? this.cls.get('interactiveQueryAbort')
+      ? (getQueryCancellationSignal(options) ?? this.cls.get('interactiveQueryAbort'))
       : undefined;
     try {
       if (signal?.aborted) throw new ShareDbQueryCancelledError();

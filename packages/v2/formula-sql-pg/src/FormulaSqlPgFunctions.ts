@@ -1389,7 +1389,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ' '
     );
     const defaultSql = defaultResult
-      ? mergedResults.defaultValueSql ?? defaultResult.valueSql
+      ? (mergedResults.defaultValueSql ?? defaultResult.valueSql)
       : 'NULL';
     const valueSql = guardValueSql(
       this.budget.sql`(CASE ${casesSql} ELSE ${defaultSql} END)`,

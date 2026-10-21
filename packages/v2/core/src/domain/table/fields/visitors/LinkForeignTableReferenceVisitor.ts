@@ -39,9 +39,9 @@ export const toLinkForeignTableReference = (
   baseId?: BaseId
 ): LinkForeignTableReference => (baseId ? { foreignTableId, baseId } : { foreignTableId });
 
-export class LinkForeignTableReferenceVisitor
-  implements IFieldVisitor<ReadonlyArray<LinkForeignTableReference>>
-{
+export class LinkForeignTableReferenceVisitor implements IFieldVisitor<
+  ReadonlyArray<LinkForeignTableReference>
+> {
   collect(
     fields: ReadonlyArray<Field>
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {

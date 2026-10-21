@@ -46,14 +46,14 @@
   "scripts": {
     "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache",
     "dev": "microbundle watch",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/sdk.eslintcache",
+    "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "run-s test-unit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
-    "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
+    "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "@belgattitude/http-exception": "1.5.0",
@@ -147,12 +147,12 @@
     "@types/turndown": "5.0.6",
     "@vitest/coverage-v8": "4.1.12",
     "cross-env": "7.0.3",
-    "eslint": "8.57.0",
     "get-tsconfig": "4.7.3",
     "happy-dom": "21.0.3",
     "microbundle": "0.15.1",
     "npm-run-all2": "6.1.2",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "rimraf": "5.0.5",

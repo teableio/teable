@@ -18,9 +18,10 @@ export type SubmitRecordResult = CreateRecordResult;
 
 @CommandHandler(SubmitRecordCommand)
 @injectable()
-export class SubmitRecordHandler
-  implements ICommandHandler<SubmitRecordCommand, SubmitRecordResult>
-{
+export class SubmitRecordHandler implements ICommandHandler<
+  SubmitRecordCommand,
+  SubmitRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

@@ -493,7 +493,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       if (result.isErr()) return err(result.error);
       if (result.value?.columnMeta) {
         specs.push(
-          TableUpdateViewColumnMetaSpec.create([
+          TableUpdateViewColumnMetaSpec.create(candidateTable, [
             {
               viewId: result.value.viewId,
               fieldId: result.value.fieldId,

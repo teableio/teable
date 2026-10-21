@@ -184,9 +184,9 @@ export interface ComputedFieldSelectExpressionVisitorOptions {
   resolveSystemUserSnapshotsFromUsers?: boolean;
 }
 
-export class ComputedFieldSelectExpressionVisitor
-  implements IFieldVisitor<AliasedRawBuilder<unknown, string>>
-{
+export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
+  AliasedRawBuilder<unknown, string>
+> {
   private readonly columnVisitor = new FieldOutputColumnVisitor();
   private readonly fieldReferenceVisitor: FieldReferenceSqlVisitor;
   private readonly preferStoredLastModifiedFormula: boolean;

@@ -50,33 +50,14 @@
     },
   ],
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+    "recommendations": ["oxc.oxc-vscode"],
   },
   "settings": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "explicit",
+      "source.fixAll.oxc": "explicit",
     },
-    // Disable vscode formatting for js,jsx,ts,tsx files
-    // to allow dbaeumer.vscode-eslint to format them
-    "[javascript]": {
-      "editor.formatOnSave": false,
-    },
-    "eslint.alwaysShowStatus": true,
-    // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
-    "eslint.workingDirectories": [
-      "./apps/nextjs-app",
-      "./apps/nestjs-backend",
-      "./packages/common-i18n",
-      "./packages/sdk",
-      "./packages/core",
-      "./packages/icons",
-      "./packages/db-main-prisma",
-      "./packages/eslint-config-bases",
-      "./packages/ui-lib",
-      "./plugins",
-    ],
     "cSpell.words": [
       "combobox",
       "DATEPICKEROPTIONS",

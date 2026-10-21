@@ -466,7 +466,7 @@ export class FormulaSqlPgTranslator {
                   .map((raw) => raw.toUpperCase() === 'TEXT')
                   .unwrapOr(false)
               ? 'scalar'
-              : lookupSql.storageKind ?? metadata.storageKind
+              : (lookupSql.storageKind ?? metadata.storageKind)
         )
       )
       .orElse(() =>

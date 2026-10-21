@@ -2830,7 +2830,7 @@ describe('PostgresTableRepository (pg)', () => {
         await repo.updateOne(
           context,
           inserted,
-          TableUpdateViewColumnMetaSpec.create([
+          TableUpdateViewColumnMetaSpec.create(inserted, [
             {
               viewId: view.id(),
               fieldId,

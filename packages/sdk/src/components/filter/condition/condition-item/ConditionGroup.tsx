@@ -24,9 +24,7 @@ import type {
 import { ConjunctionSelect } from '../ConjunctionSelect';
 
 interface IConditionGroupProps
-  extends IComponentWithChildren,
-    Pick<IBaseFilterComponentProps, 'path'>,
-    IBaseConditionProps {
+  extends IComponentWithChildren, Pick<IBaseFilterComponentProps, 'path'>, IBaseConditionProps {
   conjunction: IConjunction;
 }
 

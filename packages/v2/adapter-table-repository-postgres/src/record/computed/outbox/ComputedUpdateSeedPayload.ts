@@ -436,7 +436,7 @@ export const mergeSeedPayloads = (
   const mergedCyclePolicy =
     existing.cyclePolicy === 'skip' || incoming.cyclePolicy === 'skip'
       ? 'skip'
-      : existing.cyclePolicy ?? incoming.cyclePolicy;
+      : (existing.cyclePolicy ?? incoming.cyclePolicy);
 
   return {
     taskType: 'seed',

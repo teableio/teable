@@ -298,7 +298,7 @@ export class BaseNodeService {
     const { id, type, createdBy, createdTime, lastModifiedBy, lastModifiedTime, ...resourceMeta } =
       rawResource;
     const map = userMap ?? (await this.getUserMap([createdBy, lastModifiedBy]));
-    const resolveUser = (userId?: string | null) => (userId ? map.get(userId) ?? null : null);
+    const resolveUser = (userId?: string | null) => (userId ? (map.get(userId) ?? null) : null);
     const formatDate = (value: unknown) =>
       value instanceof Date ? value.toISOString() : typeof value === 'string' ? value : null;
     const resourceMetaWithAudit = {

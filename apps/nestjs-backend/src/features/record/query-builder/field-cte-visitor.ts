@@ -931,7 +931,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   ): void {
     const source =
       table.id === this.table.id
-        ? this.state.getOriginalMainTableSource() ?? table.dbTableName
+        ? (this.state.getOriginalMainTableSource() ?? table.dbTableName)
         : table.dbTableName;
     builder.from(`${source} as ${alias}`);
     if (table.id === this.table.id) {

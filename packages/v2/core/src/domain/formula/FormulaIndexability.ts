@@ -583,9 +583,10 @@ class FormulaPredicatePushdownVisitor
     if (functionName !== FunctionName.If) {
       return ctx
         .expr()
-        .reduce<
-          FormulaPredicatePushdownAnalysis | undefined
-        >((result, expr) => result ?? expr.accept(this), undefined);
+        .reduce<FormulaPredicatePushdownAnalysis | undefined>(
+          (result, expr) => result ?? expr.accept(this),
+          undefined
+        );
     }
 
     const predicate = ctx.expr(0);

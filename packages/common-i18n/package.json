@@ -30,15 +30,15 @@
   },
   "scripts": {
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/common-i18n.eslintcache",
+    "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "24.13.2",
     "cross-env": "7.0.3",
-    "eslint": "8.57.0",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "typescript": "5.4.3"
   }

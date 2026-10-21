@@ -22,9 +22,10 @@ export class ApplyFieldSnapshotResult {
 
 @CommandHandler(ApplyFieldSnapshotCommand)
 @injectable()
-export class ApplyFieldSnapshotHandler
-  implements ICommandHandler<ApplyFieldSnapshotCommand, ApplyFieldSnapshotResult>
-{
+export class ApplyFieldSnapshotHandler implements ICommandHandler<
+  ApplyFieldSnapshotCommand,
+  ApplyFieldSnapshotResult
+> {
   constructor(
     @inject(v2CoreTokens.fieldUndoRedoReplayService)
     private readonly fieldUndoRedoReplayService: FieldUndoRedoReplayService

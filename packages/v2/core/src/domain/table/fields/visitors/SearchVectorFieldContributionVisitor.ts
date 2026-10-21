@@ -60,9 +60,7 @@ const skip = (
   skippedReason,
 });
 
-export class SearchDocumentFieldContributionVisitor
-  implements IFieldVisitor<SearchDocumentFieldContribution>
-{
+export class SearchDocumentFieldContributionVisitor implements IFieldVisitor<SearchDocumentFieldContribution> {
   /**
    * Cover every canonical text projection used by substring search. The
    * narrower per-field index policy must not restrict this document: an

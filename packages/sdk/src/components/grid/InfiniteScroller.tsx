@@ -20,15 +20,14 @@ import { getWheelDelta } from './utils';
 import { getThumbDragRatio } from './utils/scrollbar';
 import { cancelTimeout, requestTimeout } from './utils/utils';
 
-export interface ScrollerProps
-  extends Pick<
-    IGridProps,
-    | 'smoothScrollX'
-    | 'smoothScrollY'
-    | 'scrollBarVisible'
-    | 'onScrollChanged'
-    | 'onVisibleRegionChanged'
-  > {
+export interface ScrollerProps extends Pick<
+  IGridProps,
+  | 'smoothScrollX'
+  | 'smoothScrollY'
+  | 'scrollBarVisible'
+  | 'onScrollChanged'
+  | 'onVisibleRegionChanged'
+> {
   coordInstance: CoordinateManager;
   containerWidth: number;
   containerHeight: number;

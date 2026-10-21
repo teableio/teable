@@ -42,9 +42,10 @@ export class RefreshViewShareIdResult {
 
 @CommandHandler(RefreshViewShareIdCommand)
 @injectable()
-export class RefreshViewShareIdHandler
-  implements ICommandHandler<RefreshViewShareIdCommand, RefreshViewShareIdResult>
-{
+export class RefreshViewShareIdHandler implements ICommandHandler<
+  RefreshViewShareIdCommand,
+  RefreshViewShareIdResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

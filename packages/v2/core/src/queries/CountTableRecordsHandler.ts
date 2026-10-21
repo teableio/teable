@@ -45,9 +45,10 @@ export class CountTableRecordsResult {
 
 @QueryHandler(CountTableRecordsQuery)
 @injectable()
-export class CountTableRecordsHandler
-  implements IQueryHandler<CountTableRecordsQuery, CountTableRecordsResult>
-{
+export class CountTableRecordsHandler implements IQueryHandler<
+  CountTableRecordsQuery,
+  CountTableRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

@@ -60,7 +60,7 @@ export const defaultTableTemplate: TableTemplateDefinition = {
         views: [{ type: 'grid', name: 'Grid view' }],
         // The empty records are the template's content: include them unless
         // the caller explicitly opts out.
-        records: options?.includeRecords ?? true ? createDefaultTableRecords() : undefined,
+        records: (options?.includeRecords ?? true) ? createDefaultTableRecords() : undefined,
       },
     ],
   }),

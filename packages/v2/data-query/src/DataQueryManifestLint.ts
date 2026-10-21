@@ -90,10 +90,10 @@ const definitionShape = (definition: DataQueryDefinitionInput): string =>
   canonicalJson({
     kind: definition.kind,
     tableId: definition.tableId,
-    recordId: definition.kind === 'records' ? definition.recordId ?? null : undefined,
+    recordId: definition.kind === 'records' ? (definition.recordId ?? null) : undefined,
     select: definition.kind === 'records' ? definition.select : undefined,
     aggregates: definition.kind === 'aggregate' ? definition.aggregates : undefined,
-    groupBy: definition.kind === 'aggregate' ? definition.groupBy ?? [] : undefined,
+    groupBy: definition.kind === 'aggregate' ? (definition.groupBy ?? []) : undefined,
   });
 
 const variantShape = (definition: DataQueryDefinitionInput): string =>

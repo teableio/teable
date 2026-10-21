@@ -231,6 +231,7 @@ export * from './commands/ImportCsvHandler';
 export * from './commands/ImportExcelCommand';
 export * from './commands/ImportExcelHandler';
 export * from './application/services/ImportTabularTableService';
+export * from './application/services/importSourceErrors';
 export * from './commands/ImportDotTeaStructureCommand';
 export * from './commands/ImportDotTeaStructureHandler';
 export * from './commands/ImportRecordsCommand';

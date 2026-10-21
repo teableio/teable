@@ -79,9 +79,11 @@ export class RecordWriteSideEffectVisitor implements IFieldVisitor<RecordWriteSi
     const visitor = new RecordWriteSideEffectVisitor(recordFieldValues, typecast);
     return table
       .getFields()
-      .reduce<
-        Result<RecordWriteSideEffects, DomainError>
-      >((acc, field) => acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])), ok([]));
+      .reduce<Result<RecordWriteSideEffects, DomainError>>(
+        (acc, field) =>
+          acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])),
+        ok([])
+      );
   }
 
   visitSingleLineTextField(_: SingleLineTextField): Result<RecordWriteSideEffects, DomainError> {

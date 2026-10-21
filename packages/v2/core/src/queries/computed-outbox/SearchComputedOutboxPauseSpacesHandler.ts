@@ -21,10 +21,10 @@ export class SearchComputedOutboxPauseSpacesResult {
 
 @QueryHandler(SearchComputedOutboxPauseSpacesQuery)
 @injectable()
-export class SearchComputedOutboxPauseSpacesHandler
-  implements
-    IQueryHandler<SearchComputedOutboxPauseSpacesQuery, SearchComputedOutboxPauseSpacesResult>
-{
+export class SearchComputedOutboxPauseSpacesHandler implements IQueryHandler<
+  SearchComputedOutboxPauseSpacesQuery,
+  SearchComputedOutboxPauseSpacesResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

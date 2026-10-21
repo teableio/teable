@@ -44,9 +44,10 @@ export class UpdateViewLockedResult {
 
 @CommandHandler(UpdateViewLockedCommand)
 @injectable()
-export class UpdateViewLockedHandler
-  implements ICommandHandler<UpdateViewLockedCommand, UpdateViewLockedResult>
-{
+export class UpdateViewLockedHandler implements ICommandHandler<
+  UpdateViewLockedCommand,
+  UpdateViewLockedResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

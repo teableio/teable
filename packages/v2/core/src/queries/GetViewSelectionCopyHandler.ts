@@ -105,9 +105,10 @@ export class GetViewSelectionCopyResult {
 
 @QueryHandler(GetViewSelectionCopyQuery)
 @injectable()
-export class GetViewSelectionCopyHandler
-  implements IQueryHandler<GetViewSelectionCopyQuery, GetViewSelectionCopyResult>
-{
+export class GetViewSelectionCopyHandler implements IQueryHandler<
+  GetViewSelectionCopyQuery,
+  GetViewSelectionCopyResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,

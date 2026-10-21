@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../eslint-config-bases/src/bases/typescript.json",
+    "../../eslint-config-bases/src/bases/regexp.json",
+    "../../eslint-config-bases/src/bases/jest.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "teable/naming-convention": "off",
+    "typescript/no-this-alias": "off",
+    "no-console": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "typescript/no-explicit-any": "off",
+        "no-empty-function": "off"
+      }
+    }
+  ]
+}

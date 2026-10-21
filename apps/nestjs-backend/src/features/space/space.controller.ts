@@ -12,7 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { HttpErrorCode, Role } from '@teable/core';
+import { HttpErrorCode } from '@teable/core';
 import {
   type IBaseEntryMapVo,
   type ICreateSpaceVo,
@@ -380,23 +380,7 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
     updateSpaceCollaborateRo: UpdateSpaceCollaborateRo
   ): Promise<void> {
-    if (
-      updateSpaceCollaborateRo.role !== Role.Owner &&
-      (await this.collaboratorService.isUniqueOwnerUser(
-        spaceId,
-        updateSpaceCollaborateRo.principalId
-      ))
-    ) {
-      throw new CustomHttpException(
-        'Cannot change the role of the only owner of the space',
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.space.cannotChangeOnlyOwnerRole',
-          },
-        }
-      );
-    }
+    // The service refuses demoting the only owner, under the space's collaborator lock.
     await this.collaboratorService.updateCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
@@ -411,22 +395,7 @@ export class SpaceController {
     @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
     deleteSpaceCollaboratorRo: DeleteSpaceCollaboratorRo
   ): Promise<void> {
-    if (
-      await this.collaboratorService.isUniqueOwnerUser(
-        spaceId,
-        deleteSpaceCollaboratorRo.principalId
-      )
-    ) {
-      throw new CustomHttpException(
-        'Cannot delete the only owner of the space',
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.space.cannotDeleteOnlyOwner',
-          },
-        }
-      );
-    }
+    // The service refuses removing the only owner, under the space's collaborator lock.
     await this.collaboratorService.deleteCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,

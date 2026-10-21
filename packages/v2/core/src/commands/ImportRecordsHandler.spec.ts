@@ -14,6 +14,7 @@ import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -562,6 +563,173 @@ describe('ImportRecordsHandler', () => {
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap().totalImported).toBe(2);
     expect(pulledWhenInserted).toEqual([1, 2]);
+  });
+
+  it('reports a source interruption as a retryable import failure with zero committed rows', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['row 1']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.insertManyStream = async () =>
+      err(
+        domainError.infrastructure({
+          code: 'record.insert_many_stream.source_interrupted',
+          message: 'Record insert source was interrupted after 500 row(s) in 1 batch(es)',
+          details: { insertedRows: 500, insertedBatches: 1, cause: 'terminated' },
+        })
+      );
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        batchSize: 500,
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('import.source_interrupted');
+    expect(error.message).toContain('nothing was committed');
+    expect(error.details).toMatchObject({
+      insertedRows: 500,
+      insertedBatches: 1,
+      committedRows: 0,
+      retryable: true,
+    });
+    expect(error.details).not.toHaveProperty('cause');
+    expect(error.message).not.toContain('terminated');
+  });
+
+  it('keeps an empty required value as a validation error, not a source interruption', async () => {
+    const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Required Import')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withNotNull(FieldNotNull.required())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored')
+    );
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('validation.field.not_null');
+    expect(error.code).not.toBe('import.source_interrupted');
+    expect(tableRecordRepository.inserted).toEqual([]);
+  });
+
+  it('keeps the recorded failure when the source cleanup rejects a second time', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowsAsync: {
+          [Symbol.asyncIterator]() {
+            return this;
+          },
+          async next() {
+            return { done: true, value: undefined };
+          },
+          async return() {
+            throw new Error('source already closed by the repository');
+          },
+        },
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.insertManyStream = async () =>
+      err(domainError.validation({ message: 'write failed before inserting' }));
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('write failed before inserting');
   });
 
   it('checks importAppend plugins per append chunk instead of the whole imported row count', async () => {

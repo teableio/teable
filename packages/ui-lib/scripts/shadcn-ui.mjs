@@ -18,7 +18,7 @@ function fixAliases(componentName) {
 
     writeFileSync(filePath, content, 'utf-8');
 
-    execSync(`pnpm eslint ${filePath} --fix`, { stdio: 'inherit' });
+    execSync(`pnpm oxlint --fix ${filePath}`, { stdio: 'inherit' });
 
     console.log('Fixed.');
   };

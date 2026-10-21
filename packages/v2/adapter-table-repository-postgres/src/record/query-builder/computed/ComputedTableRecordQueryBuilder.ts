@@ -1565,7 +1565,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             const rowsOrderBy = conditionSort
               ? buildResolvedConditionalOrderByExpr(conditionSort)
               : conditionLimit !== undefined
-                ? buildLinkOrderByExpr(linkOrderBy) ?? sql.ref(`${F}.__auto_number`)
+                ? (buildLinkOrderByExpr(linkOrderBy) ?? sql.ref(`${F}.__auto_number`))
                 : null;
             if (rowsOrderBy) {
               rowsQuery = rowsQuery.orderBy(rowsOrderBy);
@@ -1982,7 +1982,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const limitValue = canUseUnboundedOrderlessRollup
             ? undefined
             : isConditionalDerived
-              ? configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT
+              ? (configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT)
               : configuredLimit;
           const useUncorrelatedRollupFastPath =
             this.shouldUseConditionalRollupFastPath(foreignTable, firstColumnType) &&
@@ -1997,7 +1997,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             (limitValue !== undefined
               ? isConditionalDerived
                 ? DEFAULT_CONDITIONAL_ORDER_BY
-                : linkOrderBy ?? DEFAULT_CONDITIONAL_ORDER_BY
+                : (linkOrderBy ?? DEFAULT_CONDITIONAL_ORDER_BY)
               : null);
           const needsSubquery = Boolean(orderByForLimit || limitValue);
           const sourceAlias = needsSubquery ? `${lateral.alias}_src` : F;
@@ -2366,7 +2366,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
         const needsRanking = !group.orderInsensitive || group.limit !== undefined;
         const limitValue = needsRanking
-          ? group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT
+          ? (group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT)
           : undefined;
 
         if (needsRanking && limitValue !== undefined) {

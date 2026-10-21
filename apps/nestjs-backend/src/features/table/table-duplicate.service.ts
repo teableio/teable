@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
+import type { IColumn, IColumnMeta, ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
   FieldType,
@@ -926,6 +926,14 @@ export class TableDuplicateService {
     const sourceToTargetViewMap = {} as Record<string, string>;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
+    const sourcePrimaryField = await this.prismaService.field.findFirst({
+      where: { tableId: sourceTableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    const targetPrimaryFieldId = sourcePrimaryField?.id
+      ? sourceToTargetFieldMap[sourcePrimaryField.id]
+      : undefined;
+
     await prisma.view.createMany({
       data: viewsWithoutPlugin.map((view) => {
         const fieldsToReplace = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
@@ -942,6 +950,21 @@ export class TableDuplicateService {
           },
           {} as Partial<typeof view>
         );
+
+        // Gallery cards are titled by the duplicated table's primary field. The copied
+        // source metadata may still hide it, so the remapped primary entry is normalized
+        // the same way view creation does; every other column and the cover field stay.
+        if (view.type === ViewType.Gallery && targetPrimaryFieldId && updatedFields.columnMeta) {
+          const parsedColumnMeta = JSON.parse(updatedFields.columnMeta) as IColumnMeta;
+          const primaryColumnMeta = parsedColumnMeta[targetPrimaryFieldId];
+          if (primaryColumnMeta) {
+            parsedColumnMeta[targetPrimaryFieldId] = {
+              ...primaryColumnMeta,
+              visible: true,
+            } as IColumn;
+            updatedFields.columnMeta = JSON.stringify(parsedColumnMeta);
+          }
+        }
 
         const newViewId = generateViewId();
 

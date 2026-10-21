@@ -29,9 +29,10 @@ export class GetViewFilterLinkRecordsResult {
 
 @QueryHandler(GetViewFilterLinkRecordsQuery)
 @injectable()
-export class GetViewFilterLinkRecordsHandler
-  implements IQueryHandler<GetViewFilterLinkRecordsQuery, GetViewFilterLinkRecordsResult>
-{
+export class GetViewFilterLinkRecordsHandler implements IQueryHandler<
+  GetViewFilterLinkRecordsQuery,
+  GetViewFilterLinkRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

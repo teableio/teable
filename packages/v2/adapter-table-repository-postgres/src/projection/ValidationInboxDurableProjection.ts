@@ -33,9 +33,7 @@ const quoteIdent = (value: string): string => `"${value.replaceAll('"', '""')}"`
 @DurableProjectionHandler(RecordsBatchUpdated, 'table.records.batch-updated.v1', durableOptions)
 @DurableProjectionHandler(RecordsDeleted, 'table.records.deleted.v1', durableOptions)
 @DurableProjectionHandler(RecordReordered, 'table.record.reordered.v1', durableOptions)
-export class ValidationInboxDurableProjection
-  implements IDurableProjectionHandler<ProjectionMessageJson>
-{
+export class ValidationInboxDurableProjection implements IDurableProjectionHandler<ProjectionMessageJson> {
   readonly consumerId = RECORD_VALIDATION_CONSUMER_ID;
 
   constructor(

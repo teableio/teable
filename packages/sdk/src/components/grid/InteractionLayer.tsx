@@ -65,17 +65,16 @@ import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
 
-export interface IInteractionLayerProps
-  extends Omit<
-    IGridProps,
-    | 'freezeColumnCount'
-    | 'rowCount'
-    | 'rowHeight'
-    | 'style'
-    | 'smoothScrollX'
-    | 'smoothScrollY'
-    | 'onVisibleRegionChanged'
-  > {
+export interface IInteractionLayerProps extends Omit<
+  IGridProps,
+  | 'freezeColumnCount'
+  | 'rowCount'
+  | 'rowHeight'
+  | 'style'
+  | 'smoothScrollX'
+  | 'smoothScrollY'
+  | 'onVisibleRegionChanged'
+> {
   theme: IGridTheme;
   width: number;
   height: number;

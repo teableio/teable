@@ -73,6 +73,11 @@ export interface IImportOptions {
   delimiter?: string;
   /** Enable type casting (default: true) */
   typecast?: boolean;
+  /**
+   * Stage a URL source before parsing (default: true). Bounded previews set
+   * false so they read only the sample and cancel the response body.
+   */
+  snapshotSource?: boolean;
 }
 
 /**

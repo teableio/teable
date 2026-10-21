@@ -12,9 +12,7 @@ import { buildRecordCollection } from './TableRecordRealtimeDTO';
 
 @ProjectionHandler(ViewManualSortApplied)
 @injectable()
-export class ViewManualSortAppliedRealtimeProjection
-  implements IEventHandler<ViewManualSortApplied>
-{
+export class ViewManualSortAppliedRealtimeProjection implements IEventHandler<ViewManualSortApplied> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine

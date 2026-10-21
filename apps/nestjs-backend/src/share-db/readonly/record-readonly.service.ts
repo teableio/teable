@@ -107,9 +107,13 @@ export class RecordReadonlyServiceAdapter
   async getVersionAndType(tableId: string, recordId: string) {
     const table = await this.validateTable(tableId);
     return this.databaseRouter
-      .queryDataPrismaForTable<
-        { version: number; deletedTime: Date | null }[]
-      >(tableId, this.knex(table.dbTableName).select('__version as version').where('__id', recordId).toQuery())
+      .queryDataPrismaForTable<{ version: number; deletedTime: Date | null }[]>(
+        tableId,
+        this.knex(table.dbTableName)
+          .select('__version as version')
+          .where('__id', recordId)
+          .toQuery()
+      )
       .then((res) => this.formatVersionAndType(res[0]));
   }
 

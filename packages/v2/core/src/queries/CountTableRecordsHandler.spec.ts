@@ -220,7 +220,7 @@ describe('CountTableRecordsHandler', () => {
       .getField((field) => field.name().toString() === 'Status')
       ._unsafeUnwrap();
     const view = table.views()[0]!;
-    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create([
+    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: view.id(),
         fieldId: statusField.id(),

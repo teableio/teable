@@ -25,9 +25,10 @@ export class UpdateTablePropertiesResult {
 
 @CommandHandler(UpdateTablePropertiesCommand)
 @injectable()
-export class UpdateTablePropertiesHandler
-  implements ICommandHandler<UpdateTablePropertiesCommand, UpdateTablePropertiesResult>
-{
+export class UpdateTablePropertiesHandler implements ICommandHandler<
+  UpdateTablePropertiesCommand,
+  UpdateTablePropertiesResult
+> {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow
