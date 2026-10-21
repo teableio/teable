@@ -6,8 +6,8 @@ import {
   MINIMAX_PROVIDER_ENDPOINTS,
 } from '@teable/openapi';
 import { generateText, jsonSchema, streamText, tool } from 'ai';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getAdaptedProviderOptions, modelProviders } from './util';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getAdaptedProviderOptions, modelProviders, setInstanceAiProviderOriginsResolver } from './util';
 
 const apiKey = 'offline-test-key';
 const modelIds = [...MINIMAX_MODEL_IDS, 'MiniMax-M2.7', 'saved-custom-model'];
@@ -46,7 +46,11 @@ const getModel = (baseURL: string, modelId: string) =>
     getAdaptedProviderOptions(LLMProviderType.MINIMAX, { name: modelId, baseURL, apiKey }) as never
   )(modelId);
 
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => setInstanceAiProviderOriginsResolver(async () => endpoints));
+afterEach(() => {
+  setInstanceAiProviderOriginsResolver(async () => []);
+  vi.unstubAllGlobals();
+});
 
 describe('MiniMax serialized requests', () => {
   it('has Flash first with direct API metadata and no invented cache-write rate', () => {

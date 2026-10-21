@@ -272,10 +272,11 @@ export const modelProviders = {
   [LLMProviderType.COHERE]: withProviderFetch(createCohere),
   [LLMProviderType.MISTRAL]: withProviderFetch(createMistral),
   [LLMProviderType.DEEPSEEK]: withProviderFetch(createDeepSeek),
-  [LLMProviderType.MINIMAX]: withProviderFetch((options) =>
-    isMiniMaxMessagesEndpoint(options.baseURL)
-      ? createAnthropic(options)
-      : createOpenAICompatible(options)
+  [LLMProviderType.MINIMAX]: withProviderFetch(
+    (options: Parameters<typeof createOpenAICompatible>[0]) =>
+      isMiniMaxMessagesEndpoint(options.baseURL)
+        ? createAnthropic(options)
+        : createOpenAICompatible(options)
   ),
   [LLMProviderType.QWEN]: withProviderFetch(createOpenAICompatible),
   [LLMProviderType.ZHIPU]: withProviderFetch(createOpenAICompatible),
