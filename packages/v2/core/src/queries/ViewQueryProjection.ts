@@ -109,7 +109,7 @@ export const projectViewForQuery = (
           const order =
             typeof entry.order === 'number' && Number.isFinite(entry.order)
               ? entry.order
-              : defaultOrderByFieldId.get(fieldId) ?? 0;
+              : (defaultOrderByFieldId.get(fieldId) ?? 0);
           return [fieldId, projectColumnMetaEntry(viewType, entry, order)];
         })
     );

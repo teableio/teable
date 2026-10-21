@@ -20,12 +20,12 @@ const isFieldSettingCandidate = (field: unknown): field is IFieldVo => {
   const candidate = field as Partial<IFieldVo>;
   return Boolean(
     candidate.id &&
-      candidate.name &&
-      candidate.type &&
-      fieldTypes.has(candidate.type) &&
-      candidate.cellValueType &&
-      candidate.dbFieldType &&
-      candidate.dbFieldName
+    candidate.name &&
+    candidate.type &&
+    fieldTypes.has(candidate.type) &&
+    candidate.cellValueType &&
+    candidate.dbFieldType &&
+    candidate.dbFieldName
   );
 };
 

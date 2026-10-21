@@ -2455,7 +2455,7 @@ export class FormulaSqlPgExpressionBuilder {
         this.isBlankStringLiteral(result) ? makeExpr('NULL', type, isArray, undefined) : undefined;
       const coerceDefault = (coerce: (expr: SqlExpr) => SqlExpr): string | undefined =>
         defaultResult
-          ? nullifyBlank(defaultResult)?.valueSql ?? coerce(defaultResult).valueSql
+          ? (nullifyBlank(defaultResult)?.valueSql ?? coerce(defaultResult).valueSql)
           : undefined;
       switch (type) {
         case 'number': {

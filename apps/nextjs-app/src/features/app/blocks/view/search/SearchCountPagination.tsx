@@ -125,7 +125,7 @@ export const SearchCountPagination = forwardRef<
     }
 
     const nextCursor =
-      result.data?.length ?? 0 >= PaginationBuffer ? skipLength + PaginationBuffer : null;
+      (result.data?.length ?? 0 >= PaginationBuffer) ? skipLength + PaginationBuffer : null;
 
     return {
       data: result.data || [],

@@ -8,6 +8,7 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
 import { DbFieldName } from '../../domain/table/fields/DbFieldName';
@@ -19,10 +20,12 @@ import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineT
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
+import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
+import { GalleryView } from '../../domain/table/views/types/GalleryView';
 import { GridView } from '../../domain/table/views/types/GridView';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../domain/table/views/ViewId';
@@ -31,6 +34,7 @@ import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
 import type { ICommandBus } from '../../ports/CommandBus';
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
@@ -45,7 +49,6 @@ import {
 } from '../../ports/TableRecordRepository';
 import type { ITableRepository, TableUpdatePersistResult } from '../../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
-import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 
 import { FieldUndoRedoReplayService } from './FieldUndoRedoReplayService';
 import type { TableUpdateFlow } from './TableUpdateFlow';
@@ -343,11 +346,17 @@ class FakeUnitOfWork implements IUnitOfWork {
 class FakeTableUpdateFlow {
   calls = 0;
   latestTable?: Table;
+  mutateSpec?: ISpecification<Table, ITableSpecVisitor>;
 
   async execute(
     _: IExecutionContext,
     target: { table: Table },
-    mutate: (table: Table) => Result<{ table: Table }, DomainError>
+    mutate: (
+      table: Table
+    ) => Result<
+      { table: Table; mutateSpec?: ISpecification<Table, ITableSpecVisitor> },
+      DomainError
+    >
   ): Promise<
     Result<{ table: Table; events: IDomainEvent[]; postPersistEvents: IDomainEvent[] }, DomainError>
   > {
@@ -357,6 +366,7 @@ class FakeTableUpdateFlow {
       return err(mutateResult.error);
     }
     this.latestTable = mutateResult.value.table;
+    this.mutateSpec = mutateResult.value.mutateSpec;
     return ok({ table: mutateResult.value.table, events: [], postPersistEvents: [] });
   }
 }
@@ -574,5 +584,88 @@ describe('FieldUndoRedoReplayService', () => {
     expect(result.isOk()).toBe(true);
     expect(recordRepository.updatedBatches).toHaveLength(1);
     expect(eventBus.publishedMany).toHaveLength(0);
+  });
+
+  it('repairs a legacy hidden gallery primary while replaying a field snapshot', async () => {
+    const titleField = SingleLineTextField.create({
+      id: FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Title')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    titleField
+      .setDbFieldName(DbFieldName.rehydrate(titleField.id().toString())._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const scoreField = NumberField.create({
+      id: FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Score')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    scoreField
+      .setDbFieldName(DbFieldName.rehydrate(scoreField.id().toString())._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const gallery = GalleryView.create({
+      id: ViewId.create(`viw${'w'.repeat(16)}`)._unsafeUnwrap(),
+      name: ViewName.create('Gallery')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    gallery
+      .setColumnMeta(
+        ViewColumnMeta.create({
+          [titleField.id().toString()]: { order: 0, width: 200, visible: false },
+          [scoreField.id().toString()]: { order: 1 },
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+    gallery.setQueryDefaults(ViewQueryDefaults.empty())._unsafeUnwrap();
+    const table = Table.rehydrate({
+      id: TableId.create(`tbl${'w'.repeat(16)}`)._unsafeUnwrap(),
+      baseId: BaseId.create(`bse${'w'.repeat(16)}`)._unsafeUnwrap(),
+      name: TableName.create('Undo Replay Gallery')._unsafeUnwrap(),
+      fields: [titleField, scoreField],
+      views: [gallery],
+      primaryFieldId: titleField.id(),
+    })._unsafeUnwrap();
+
+    const flow = new FakeTableUpdateFlow();
+    const service = new FieldUndoRedoReplayService(
+      new FakeTableRepository([table, table]),
+      new FakeCommandBus(),
+      new FakeTableRecordQueryRepository(),
+      new FakeTableRecordRepository(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      asTableUpdateFlow(flow)
+    );
+
+    const result = await service.replay(buildContext(), {
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      snapshot: {
+        field: {
+          id: scoreField.id().toString(),
+          name: 'Score',
+          type: 'number',
+        },
+        views: [
+          {
+            viewId: gallery.id().toString(),
+            columnMeta: { visible: false },
+            orderedFieldIds: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const persisted = flattenAndSpecs(flow.mutateSpec).find(
+      (spec): spec is TableUpdateViewColumnMetaSpec => spec instanceof TableUpdateViewColumnMetaSpec
+    );
+    const update = persisted?.updates().find((item) => item.viewId.equals(gallery.id()));
+    const payload = update?.columnMeta.toDto();
+    expect(payload?.[titleField.id().toString()]).toMatchObject({
+      order: 0,
+      width: 200,
+      visible: true,
+    });
+    expect(payload?.[scoreField.id().toString()]).toMatchObject({
+      order: 1,
+      visible: false,
+    });
   });
 });

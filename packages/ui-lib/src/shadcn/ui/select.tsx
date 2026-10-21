@@ -36,7 +36,8 @@ const selectTriggerVariants = cva(
 );
 
 interface SelectTriggerProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>, 'size'>,
+  extends
+    Omit<React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>, 'size'>,
     VariantProps<typeof selectTriggerVariants> {}
 
 const SelectTrigger = React.forwardRef<

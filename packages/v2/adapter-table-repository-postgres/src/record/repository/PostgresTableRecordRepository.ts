@@ -2112,21 +2112,59 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     };
 
+    // An import source is a stream this adapter does not own. Its failure
+    // (network/read cut) is reported separately from a write failure so callers
+    // keep progress and retry, while DomainErrors raised by the source pass
+    // through unchanged.
+    let sourceFailure: { error: unknown } | undefined;
+    const nextBatch = async (
+      iterator:
+        | AsyncIterator<core.InsertManyStreamBatchInput>
+        | Iterator<core.InsertManyStreamBatchInput>
+    ): Promise<IteratorResult<core.InsertManyStreamBatchInput> | undefined> => {
+      try {
+        return await iterator.next();
+      } catch (error) {
+        if (core.isDomainError(error)) throw error;
+        sourceFailure = { error };
+        return undefined;
+      }
+    };
+
+    let iterator:
+      | AsyncIterator<core.InsertManyStreamBatchInput>
+      | Iterator<core.InsertManyStreamBatchInput>
+      | undefined;
+    let iterationCompleted = false;
     try {
-      if (Symbol.asyncIterator in batches) {
-        for await (const batch of batches as AsyncIterable<core.InsertManyStreamBatchInput>) {
-          const result = await processBatch(batch);
-          if (result.isErr()) {
-            return err(result.error);
-          }
+      iterator =
+        Symbol.asyncIterator in batches
+          ? (batches as AsyncIterable<core.InsertManyStreamBatchInput>)[Symbol.asyncIterator]()
+          : (batches as Iterable<core.InsertManyStreamBatchInput>)[Symbol.iterator]();
+      let next = await nextBatch(iterator);
+      while (next !== undefined && !next.done) {
+        const result = await processBatch(next.value);
+        if (result.isErr()) {
+          throw result.error;
         }
-      } else {
-        for (const batch of batches as Iterable<core.InsertManyStreamBatchInput>) {
-          const result = await processBatch(batch);
-          if (result.isErr()) {
-            return err(result.error);
-          }
-        }
+        next = await nextBatch(iterator);
+      }
+      iterationCompleted = next !== undefined;
+
+      if (sourceFailure) {
+        return err(
+          core.domainError.infrastructure({
+            code: 'record.insert_many_stream.source_interrupted',
+            message: `Record insert source was interrupted after ${totalInserted} row(s) in ${batchIndex} batch(es); nothing was committed, retry the whole source.`,
+            details: {
+              insertedRows: totalInserted,
+              insertedBatches: batchIndex,
+              retryable: true,
+            },
+            // Non-enumerable diagnostic; public message/details stay bounded.
+            cause: sourceFailure.error,
+          })
+        );
       }
 
       if (hasEnqueuedSeeds) {
@@ -2160,6 +2198,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             })
       );
     } finally {
+      // for-await closes the source on early exit; a manual loop must do the
+      // same so a partially consumed source is released. Cleanup failures are
+      // swallowed so they never replace the error that ended iteration.
+      if (!iterationCompleted) {
+        try {
+          await iterator?.return?.();
+        } catch {
+          // The original error (write or source) is the one callers see.
+        }
+      }
       if (!deferredScheduled) await deferredSeeds?.dispose();
     }
   }

@@ -1491,8 +1491,8 @@ describe('Realtime projections', () => {
     };
     const filtered = originalTable.updateViewFilter(targetView.id(), filter)._unsafeUnwrap()
       .updateResult!.table;
-    const cleared = filtered.updateViewFilter(targetView.id(), null)._unsafeUnwrap().updateResult!
-      .table;
+    const cleared = filtered.updateViewFilter(targetView.id(), null)._unsafeUnwrap()
+      .updateResult!.table;
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(cleared);
     const mapper = new FakeTableMapper((table) => {
@@ -1722,10 +1722,10 @@ describe('Realtime projections', () => {
     const sort = {
       sortObjs: [{ fieldId: originalTable.primaryFieldId().toString(), order: 'asc' as const }],
     };
-    const sorted = originalTable.updateViewSort(targetView.id(), sort)._unsafeUnwrap().updateResult!
-      .table;
-    const cleared = sorted.updateViewSort(targetView.id(), null)._unsafeUnwrap().updateResult!
-      .table;
+    const sorted = originalTable.updateViewSort(targetView.id(), sort)._unsafeUnwrap()
+      .updateResult!.table;
+    const cleared = sorted.updateViewSort(targetView.id(), null)._unsafeUnwrap()
+      .updateResult!.table;
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(cleared);
     const projection = new ViewSortUpdatedRealtimeProjection(
@@ -1758,8 +1758,8 @@ describe('Realtime projections', () => {
     const group = [{ fieldId: originalTable.primaryFieldId().toString(), order: 'asc' as const }];
     const grouped = originalTable.updateViewGroup(targetView.id(), group)._unsafeUnwrap()
       .updateResult!.table;
-    const cleared = grouped.updateViewGroup(targetView.id(), null)._unsafeUnwrap().updateResult!
-      .table;
+    const cleared = grouped.updateViewGroup(targetView.id(), null)._unsafeUnwrap()
+      .updateResult!.table;
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(cleared);
     const projection = new ViewGroupUpdatedRealtimeProjection(

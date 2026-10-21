@@ -283,9 +283,7 @@ const ensureRawUpdateLimits = (
   return ok(undefined);
 };
 
-export class TableDataSafetyLimitFieldOperationPlugin
-  implements IFieldOperationPlugin<PreparedTableDataSafetyFieldLimitState>
-{
+export class TableDataSafetyLimitFieldOperationPlugin implements IFieldOperationPlugin<PreparedTableDataSafetyFieldLimitState> {
   readonly name = 'table-data-safety-field-limit';
   readonly enforce = 'post' as const;
 

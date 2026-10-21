@@ -11,11 +11,9 @@ import {
   executeUpdateRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
-import type {
-  ICommandBus,
-  IComputedActivityReader,
-  IQueryBus,
-} from '@teable/v2-core' with { 'resolution-mode': 'import' };
+import type { ICommandBus, IComputedActivityReader, IQueryBus } from '@teable/v2-core' with {
+  'resolution-mode': 'import',
+};
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { V2ContainerService } from './v2-container.service';

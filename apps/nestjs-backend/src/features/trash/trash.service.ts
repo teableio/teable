@@ -669,7 +669,7 @@ export class TrashService {
       fields: parsedSnapshot.fields,
     });
 
-    return nameResult.isOk() ? nameResult.value ?? '' : '';
+    return nameResult.isOk() ? (nameResult.value ?? '') : '';
   }
 
   async getResourceMapByIds(

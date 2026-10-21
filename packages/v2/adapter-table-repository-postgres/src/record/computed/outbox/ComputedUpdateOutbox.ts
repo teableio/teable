@@ -399,13 +399,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'estimatedComplexity' in params.item && typeof params.item.estimatedComplexity === 'number'
         ? params.item.estimatedComplexity
         : isFieldBackfillOutboxItem(params.item)
-          ? params.item.estimatedRowCount ?? params.item.fieldIds.length
+          ? (params.item.estimatedRowCount ?? params.item.fieldIds.length)
           : isSeedOutboxItem(params.item)
             ? params.item.seedRecordIds.length
             : 1;
 
     const estimatedDirtyRecords = isFieldBackfillOutboxItem(params.item)
-      ? params.item.estimatedRowCount ?? 0
+      ? (params.item.estimatedRowCount ?? 0)
       : isSeedOutboxItem(params.item)
         ? params.item.seedRecordIds.length
         : sumDirtyRecordCount(
@@ -2432,7 +2432,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     seedRecordCount?: number
   ): Promise<Result<boolean, DomainError>> {
     const taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
-    const leaseOwner = typeof taskOrId === 'string' ? null : taskOrId.lockedBy ?? null;
+    const leaseOwner = typeof taskOrId === 'string' ? null : (taskOrId.lockedBy ?? null);
     const skipActivityProjection = options?.skipActivityProjection ?? false;
     const fieldErrors = options?.fieldErrors;
     const span = context?.tracer?.startSpan('teable.outbox.markDone', {
@@ -2558,7 +2558,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           const startedAt =
             typeof taskOrId === 'string'
               ? undefined
-              : taskOrId.lockedAt ?? taskOrId.createdAt ?? undefined;
+              : (taskOrId.lockedAt ?? taskOrId.createdAt ?? undefined);
           const durationMs =
             startedAt instanceof Date ? Math.max(0, Date.now() - startedAt.getTime()) : undefined;
           const activityResult = await this.activityProjector.onTaskDone(
@@ -2654,7 +2654,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         source_field_ids:
           changeType === SEED_CHANGE_TYPE
             ? affectedFieldIds
-            : parseSourceFieldIds(row.dirty_stats) ?? [],
+            : (parseSourceFieldIds(row.dirty_stats) ?? []),
         seed_record_count: seedRecordCount ?? countSeedRecordsForHistory(row, taskItem),
         stage_depth: Number(row.stage_depth ?? 0),
         predecessor_task_id: row.predecessor_task_id ? String(row.predecessor_task_id) : null,

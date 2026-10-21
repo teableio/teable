@@ -61,9 +61,10 @@ export class FieldConversionDryRunResult {
 
 @QueryHandler(DryRunFieldConversionQuery)
 @injectable()
-export class DryRunFieldConversionHandler
-  implements IQueryHandler<DryRunFieldConversionQuery, FieldConversionDryRunResult>
-{
+export class DryRunFieldConversionHandler implements IQueryHandler<
+  DryRunFieldConversionQuery,
+  FieldConversionDryRunResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,

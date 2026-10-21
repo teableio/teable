@@ -16,6 +16,20 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const CROSS_SITE_FORM_POST_CALLBACKS = new Set(['/api/auth/apple/callback']);
 
+// Endpoints that sign an anonymous browser in. A cross-site form POST to one of them is
+// login CSRF: the victim's browser ends up in the attacker's account, and whatever the
+// victim enters next lands there. They run before any session cookie exists, so the
+// session origin check never sees them. The browser's own `Sec-Fetch-Site` is checked
+// for them on every deployment: it does not depend on PUBLIC_ORIGIN or proxy headers
+// being right, and no legitimate sign-in arrives cross-site (the session cookie is
+// SameSite=Lax, so a cross-site fetch could not use the session anyway).
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const SESSION_CREATING_ROUTES = new Set([
+  '/api/auth/signin',
+  '/api/auth/signin-with-code',
+  '/api/auth/signup',
+]);
+
 @Injectable()
 export class SessionCsrfMiddleware implements NestMiddleware {
   constructor(
@@ -24,6 +38,10 @@ export class SessionCsrfMiddleware implements NestMiddleware {
   ) {}
 
   use(req: Request, _res: Response, next: NextFunction) {
+    if (this.isSessionCreatingRequest(req) && this.isCrossSiteFetch(req)) {
+      return next(new ForbiddenException('Cross-site sign-in request is not allowed'));
+    }
+
     if (!this.shouldValidate(req)) {
       return next();
     }
@@ -47,16 +65,30 @@ export class SessionCsrfMiddleware implements NestMiddleware {
     if (!UNSAFE_METHODS.has(req.method.toUpperCase())) {
       return false;
     }
-    if (!req.originalUrl.startsWith('/api/')) {
+    const path = this.routePath(req);
+    if (!path.startsWith('/api/')) {
       return false;
     }
-    if (CROSS_SITE_FORM_POST_CALLBACKS.has(req.originalUrl.split('?')[0])) {
+    if (CROSS_SITE_FORM_POST_CALLBACKS.has(path)) {
       return false;
     }
-    if (!this.hasSessionCookie(req)) {
+    if (!this.hasSessionCookie(req) && !this.isSessionCreatingRequest(req)) {
       return false;
     }
     return !this.hasBearerAuth(req);
+  }
+
+  private isSessionCreatingRequest(req: Request) {
+    return (
+      UNSAFE_METHODS.has(req.method.toUpperCase()) &&
+      SESSION_CREATING_ROUTES.has(this.routePath(req))
+    );
+  }
+
+  // Express routes case-insensitively and ignores a trailing slash (`/API/Auth/SignIn/`
+  // reaches the `/api/auth/signin` handler), so paths are compared the same way.
+  private routePath(req: Request) {
+    return req.originalUrl.split('?')[0].replace(/\/+$/, '').toLowerCase();
   }
 
   private hasSessionCookie(req: Request) {

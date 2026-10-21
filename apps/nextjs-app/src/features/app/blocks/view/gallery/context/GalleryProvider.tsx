@@ -10,7 +10,7 @@ import {
   useButtonClickStatus,
   useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
-import type { AttachmentField, GalleryView, IFieldInstance } from '@teable/sdk/model';
+import type { AttachmentField, GalleryView } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
 import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { GalleryContext } from './GalleryContext';
@@ -24,6 +24,16 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const { commentReadable, commentWritable } = useCommentPermission();
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
+
+  const { primaryField, displayFields } = useMemo(() => {
+    // A stored config can hide the primary field, but it still titles every card:
+    // resolve it from the readable set so the card area keeps rendering.
+    const primaryField = readableFields.find((field) => field.isPrimary) ?? null;
+    return {
+      primaryField,
+      displayFields: fields.filter((field) => !field.isPrimary),
+    };
+  }, [fields, readableFields]);
   const visibleFieldIds = useDeepCompareMemoize(
     fields.map(({ id }) => id).sort((a, b) => Number(a > b) - Number(a < b))
   ) as string[];
@@ -53,9 +63,11 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const projectionFieldIds = useMemo(() => {
     // projection is a field-id set, not a sequence: keep it order-stable so
     // downstream cache keys don't churn when fields are reordered
-    const ids = coverField ? new Set([...visibleFieldIds, coverField.id]) : visibleFieldIds;
+    const ids = new Set(visibleFieldIds);
+    if (coverField) ids.add(coverField.id);
+    if (primaryField) ids.add(primaryField.id);
     return [...ids].sort((a, b) => Number(a > b) - Number(a < b));
-  }, [coverField, visibleFieldIds]);
+  }, [coverField, primaryField, visibleFieldIds]);
 
   const recordQuery = useMemo(() => {
     // same contract as useRecords: search must only hit the fields this view
@@ -84,23 +96,6 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       cardCommentCreatable: commentWritable,
     };
   }, [permission, commentReadable, commentWritable]);
-
-  const { primaryField, displayFields } = useMemo(() => {
-    let primaryField: IFieldInstance | null = null;
-    const displayFields = fields.filter((f) => {
-      if (f.isPrimary) {
-        primaryField = f;
-        return false;
-      }
-      return true;
-    });
-
-    return {
-      primaryField: primaryField as unknown as IFieldInstance,
-      displayFields,
-    };
-  }, [fields]);
-
   const value = useMemo(() => {
     return {
       recordQuery,
@@ -145,7 +140,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <GalleryContext.Provider value={value}>
-      {primaryField && children}
+      {children}
       {tableId && (
         <ExpandRecorder
           tableId={tableId}

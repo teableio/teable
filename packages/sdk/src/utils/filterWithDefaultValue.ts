@@ -104,7 +104,7 @@ export const generateValueByFilteredField = ({
     case FieldType.Link: {
       return isMultipleCellValue
         ? (value as string[])?.map((v) => linkMap[v] ?? { title: '', id: v })
-        : linkMap[value as string] ?? { title: '', id: value };
+        : (linkMap[value as string] ?? { title: '', id: value });
     }
     default:
       assertNever(type as never);

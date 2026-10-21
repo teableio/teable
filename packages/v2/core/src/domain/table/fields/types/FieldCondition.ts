@@ -652,7 +652,7 @@ export class FieldCondition extends ValueObject {
                 // Field reference - resolve from host table if provided, otherwise from main table
                 const refFieldIdValue = isSelfTableReference
                   ? filterItemEntry.fieldId
-                  : referencedFieldIdFromValue ?? String(filterItemEntry.value);
+                  : (referencedFieldIdFromValue ?? String(filterItemEntry.value));
                 const refFieldResult = FieldCondition.resolveConditionField(
                   refFieldIdValue,
                   hostFields,

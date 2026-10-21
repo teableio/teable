@@ -301,7 +301,7 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
     const result = await client.raw<{ id: string; checksum: string }>(
       `SELECT "id", "checksum" FROM "${DATA_DB_MIGRATION_TABLE}" ORDER BY "id"`
     );
-    const rows = Array.isArray(result) ? result : result.rows ?? [];
+    const rows = Array.isArray(result) ? result : (result.rows ?? []);
     return new Map(rows.map((row) => [row.id, row.checksum]));
   }
 

@@ -23,12 +23,12 @@
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-adapter-table-repository-postgres.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
+    "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent --bail 1",
     "test-unit-cover": "pnpm test-unit --coverage",
-    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+    "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "@teable/i18n-keys": "workspace:*",
@@ -60,8 +60,8 @@
     "@testcontainers/postgresql": "11.10.0",
     "@types/node": "24.13.2",
     "@vitest/coverage-v8": "4.1.12",
-    "eslint": "8.57.0",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "testcontainers": "11.10.0",
     "tsdown": "0.18.1",

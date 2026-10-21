@@ -30,9 +30,10 @@ export class GetTableCommentCountResult {
 
 @QueryHandler(GetTableCommentCountQuery)
 @injectable()
-export class GetTableCommentCountHandler
-  implements IQueryHandler<GetTableCommentCountQuery, GetTableCommentCountResult>
-{
+export class GetTableCommentCountHandler implements IQueryHandler<
+  GetTableCommentCountQuery,
+  GetTableCommentCountResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

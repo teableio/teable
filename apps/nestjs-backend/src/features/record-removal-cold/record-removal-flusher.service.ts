@@ -164,7 +164,7 @@ export class RecordRemovalFlusherService {
     const deleteEnabled =
       options.mode === 'backfill'
         ? options.deleteEnabled === true
-        : options.deleteEnabled ?? config.deleteEnabled;
+        : (options.deleteEnabled ?? config.deleteEnabled);
     const concurrency = options.tableConcurrency ?? config.tableConcurrency;
     const maxRows = options.maxRows ?? config.maxRowsPerRun;
     const maxBytes = options.maxBytes ?? config.maxBytesPerRun;

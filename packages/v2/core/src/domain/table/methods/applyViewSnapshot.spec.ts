@@ -110,4 +110,91 @@ describe('Table.applyViewSnapshot', () => {
     expect(restored.description()).toBeUndefined();
     expect(restored.options()).toBeUndefined();
   });
+
+  it('repairs a historical hidden gallery primary when restoring an existing view', () => {
+    const table = buildTable();
+    const gallery = table
+      .createView({ type: 'gallery', name: 'Gallery', options: { coverFieldId: null } })
+      ._unsafeUnwrap();
+    const tableWithGallery = gallery.updateResult.table;
+    const primaryFieldId = tableWithGallery.primaryFieldId();
+    const snapshot = captureViewSnapshot(gallery.view)._unsafeUnwrap();
+    const historicalView = rehydrateViewSnapshot({
+      ...snapshot,
+      columnMeta: {
+        ...snapshot.columnMeta,
+        [primaryFieldId.toString()]: {
+          ...snapshot.columnMeta[primaryFieldId.toString()],
+          order: 0,
+          width: 300,
+          visible: false,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const result = tableWithGallery.applyViewSnapshot(historicalView)._unsafeUnwrap();
+    expect(result.updateResult).toBeDefined();
+    const restored = result.updateResult!.table.getView(gallery.view.id())._unsafeUnwrap();
+
+    expect(restored.columnMeta()._unsafeUnwrap().toDto()[primaryFieldId.toString()]).toEqual({
+      order: 0,
+      width: 300,
+      visible: true,
+    });
+    expect(restored.options()).toEqual({ coverFieldId: null });
+  });
+
+  it('repairs a historical hidden gallery primary when reviving a missing view', () => {
+    const table = buildTable();
+    const gallery = table
+      .createView({ type: 'gallery', name: 'Gallery', options: { coverFieldId: null } })
+      ._unsafeUnwrap();
+    const tableWithGallery = gallery.updateResult.table;
+    const primaryFieldId = tableWithGallery.primaryFieldId();
+    const snapshot = captureViewSnapshot(gallery.view)._unsafeUnwrap();
+    const historicalView = rehydrateViewSnapshot({
+      ...snapshot,
+      columnMeta: {
+        ...snapshot.columnMeta,
+        [primaryFieldId.toString()]: {
+          ...snapshot.columnMeta[primaryFieldId.toString()],
+          order: 0,
+          visible: false,
+        },
+      },
+    })._unsafeUnwrap();
+    const tableWithoutGallery = tableWithGallery.deleteView(gallery.view.id())._unsafeUnwrap()
+      .updateResult.table;
+
+    const result = tableWithoutGallery.applyViewSnapshot(historicalView)._unsafeUnwrap();
+    expect(result.updateResult).toBeDefined();
+    const restored = result.updateResult!.table.getView(gallery.view.id())._unsafeUnwrap();
+
+    expect(restored.columnMeta()._unsafeUnwrap().toDto()[primaryFieldId.toString()]).toMatchObject({
+      visible: true,
+    });
+  });
+
+  it('keeps non-gallery primary visibility exactly as the snapshot recorded it', () => {
+    const table = buildTable();
+    const target = table.views()[0]!;
+    const fieldId = table.primaryFieldId().toString();
+    const snapshot = captureViewSnapshot(target)._unsafeUnwrap();
+    const snapshotView = rehydrateViewSnapshot({
+      ...snapshot,
+      columnMeta: {
+        ...snapshot.columnMeta,
+        [fieldId]: { order: 0, width: 320, visible: false },
+      },
+    })._unsafeUnwrap();
+
+    const result = table.applyViewSnapshot(snapshotView)._unsafeUnwrap();
+    const restored = result.updateResult!.table.getView(target.id())._unsafeUnwrap();
+
+    expect(restored.columnMeta()._unsafeUnwrap().toDto()[fieldId]).toEqual({
+      order: 0,
+      width: 320,
+      visible: false,
+    });
+  });
 });

@@ -55,9 +55,9 @@ type PreparedRowLimitState = {
   readonly maxRowCount: number;
 };
 
-export class PostgresTableRowLimitPlugin
-  implements core.IRecordWritePlugin<PreparedRowLimitState | undefined>
-{
+export class PostgresTableRowLimitPlugin implements core.IRecordWritePlugin<
+  PreparedRowLimitState | undefined
+> {
   readonly name = 'postgres-table-row-limit';
 
   constructor(

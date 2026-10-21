@@ -405,8 +405,8 @@ export class SharedViewRecordQueryV2Service {
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const table = await this.loadTable(tableId, container, context);
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const viewId = isLinkSelectionQuery ? view?.id : linkOptions?.filterByViewId ?? view?.id;
-    const rawFilter = isLinkSelectionQuery ? undefined : query.filter ?? linkOptions?.filter;
+    const viewId = isLinkSelectionQuery ? view?.id : (linkOptions?.filterByViewId ?? view?.id);
+    const rawFilter = isLinkSelectionQuery ? undefined : (query.filter ?? linkOptions?.filter);
     const filter = await this.normalizeFilter(
       tableId,
       rawFilter,
@@ -502,8 +502,8 @@ export class SharedViewRecordQueryV2Service {
     const table = await this.loadTable(tableId, container, context);
 
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const viewId = isLinkSelectionQuery ? view?.id : linkOptions?.filterByViewId ?? view?.id;
-    const rawFilter = isLinkSelectionQuery ? undefined : linkOptions?.filter ?? query.filter;
+    const viewId = isLinkSelectionQuery ? view?.id : (linkOptions?.filterByViewId ?? view?.id);
+    const rawFilter = isLinkSelectionQuery ? undefined : (linkOptions?.filter ?? query.filter);
     const filter = await this.normalizeFilter(
       tableId,
       rawFilter,

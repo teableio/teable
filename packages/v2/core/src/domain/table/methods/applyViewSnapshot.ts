@@ -2,33 +2,14 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../shared/DomainError';
-import type { FieldId } from '../fields/FieldId';
 import { TableUpdateViewQueryDefaultsSpec } from '../specs/TableUpdateViewQueryDefaultsSpec';
 import type { Table } from '../Table';
 import type { TableUpdateResult } from '../TableMutator';
 import type { View } from '../views/View';
-import type { ViewColumnMetaChange, ViewColumnMetaValue } from '../views/ViewColumnMeta';
+import { diffColumnMetaChanges } from '../views/ViewColumnMeta';
 
 const jsonEquals = (left: unknown, right: unknown): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
-
-const buildColumnMetaChanges = (
-  fieldIdByValue: ReadonlyMap<string, FieldId>,
-  previous: ViewColumnMetaValue,
-  next: ViewColumnMetaValue
-): ReadonlyArray<ViewColumnMetaChange> => {
-  const changes: ViewColumnMetaChange[] = [];
-  for (const fieldId of new Set([...Object.keys(previous), ...Object.keys(next)])) {
-    const typedFieldId = fieldIdByValue.get(fieldId);
-    if (!typedFieldId || jsonEquals(previous[fieldId], next[fieldId])) continue;
-    changes.push({
-      fieldId: typedFieldId,
-      ...(previous[fieldId] !== undefined ? { previousColumnMeta: previous[fieldId] } : {}),
-      nextColumnMeta: next[fieldId] ?? {},
-    });
-  }
-  return changes;
-};
 
 export type ApplyViewSnapshotMethodResult = {
   readonly updateResult?: TableUpdateResult;
@@ -48,7 +29,10 @@ export const applyViewSnapshot = function (
 
     const current = currentResult.value;
     const previousMeta = yield* current.columnMeta();
-    const nextMeta = yield* snapshotView.columnMeta();
+    const nextMeta = (yield* snapshotView.columnMeta()).withPrimaryFieldVisible(
+      snapshotView.type(),
+      table.primaryFieldId()
+    );
     const previousQuery = yield* current.queryDefaults();
     const nextQuery = yield* snapshotView.queryDefaults();
     const previousOrder = current.order();
@@ -56,7 +40,7 @@ export const applyViewSnapshot = function (
     const fieldIdByValue = new Map(
       table.getFields().map((field) => [field.id().toString(), field.id()] as const)
     );
-    const changes = buildColumnMetaChanges(fieldIdByValue, previousMeta.toDto(), nextMeta.toDto());
+    const changes = diffColumnMetaChanges(fieldIdByValue, previousMeta.toDto(), nextMeta.toDto());
     const optionsChanged = !jsonEquals(current.options(), snapshotView.options());
     const shareMetaChanged = !jsonEquals(current.shareMeta(), snapshotView.shareMeta());
     const queryChanged =

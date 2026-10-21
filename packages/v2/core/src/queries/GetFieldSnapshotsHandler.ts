@@ -36,9 +36,10 @@ export class GetFieldSnapshotsResult {
 
 @QueryHandler(GetFieldSnapshotsQuery)
 @injectable()
-export class GetFieldSnapshotsHandler
-  implements IQueryHandler<GetFieldSnapshotsQuery, GetFieldSnapshotsResult>
-{
+export class GetFieldSnapshotsHandler implements IQueryHandler<
+  GetFieldSnapshotsQuery,
+  GetFieldSnapshotsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository

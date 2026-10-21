@@ -164,9 +164,10 @@ const replaceMappedIds = <T>(value: T, replacements: ReadonlyMap<string, string>
 
 @CommandHandler(ImportDotTeaStructureCommand)
 @injectable()
-export class ImportDotTeaStructureHandler
-  implements ICommandHandler<ImportDotTeaStructureCommand, ImportDotTeaStructureResult>
-{
+export class ImportDotTeaStructureHandler implements ICommandHandler<
+  ImportDotTeaStructureCommand,
+  ImportDotTeaStructureResult
+> {
   constructor(
     @inject(v2CoreTokens.dotTeaParser)
     private readonly dotTeaParser: DotTeaParserPort.IDotTeaParser,

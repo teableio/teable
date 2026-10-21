@@ -21,9 +21,10 @@ export class GetDefaultViewIdResult {
 
 @QueryHandler(GetDefaultViewIdQuery)
 @injectable()
-export class GetDefaultViewIdHandler
-  implements IQueryHandler<GetDefaultViewIdQuery, GetDefaultViewIdResult>
-{
+export class GetDefaultViewIdHandler implements IQueryHandler<
+  GetDefaultViewIdQuery,
+  GetDefaultViewIdResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

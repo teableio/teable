@@ -31,9 +31,10 @@ export class GetRecordCollaboratorsResult {
 
 @QueryHandler(GetRecordCollaboratorsQuery)
 @injectable()
-export class GetRecordCollaboratorsHandler
-  implements IQueryHandler<GetRecordCollaboratorsQuery, GetRecordCollaboratorsResult>
-{
+export class GetRecordCollaboratorsHandler implements IQueryHandler<
+  GetRecordCollaboratorsQuery,
+  GetRecordCollaboratorsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

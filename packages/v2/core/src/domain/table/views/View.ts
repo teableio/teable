@@ -5,6 +5,7 @@ import type { RecordFilter, RecordFilterNode } from '../../../queries/RecordFilt
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import type { Field } from '../fields/Field';
+import type { FieldId } from '../fields/FieldId';
 import type { FieldDeletionContext } from '../OnTeableFieldDeleted';
 import type {
   OnTeableViewFieldDeleted,
@@ -12,14 +13,14 @@ import type {
   ViewFieldDeletionUpdate,
 } from './OnTeableViewFieldDeleted';
 import type { ViewAuditMetadata } from './ViewAuditMetadata';
-import { ViewColumnMeta } from './ViewColumnMeta';
+import { keepPrimaryColumnVisible, ViewColumnMeta } from './ViewColumnMeta';
 import type { ViewId } from './ViewId';
 import type { ViewName } from './ViewName';
 import type { ViewOrder } from './ViewOrder';
 import { ViewProperties } from './ViewProperties';
 import type { ViewQueryDefaults } from './ViewQueryDefaults';
 import { ViewQueryDefaults as ViewQueryDefaultsValue } from './ViewQueryDefaults';
-import type { ViewType } from './ViewType';
+import { ViewType } from './ViewType';
 import type { ViewVersion } from './ViewVersion';
 import type { IViewVisitor } from './visitors/IViewVisitor';
 
@@ -115,6 +116,29 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
       return err(domainError.invariant({ message: 'ViewColumnMeta already set' }));
     }
     this.columnMetaValue = columnMeta;
+    return ok(undefined);
+  }
+
+  /**
+   * Gallery cards are titled with the primary field, so persisted metadata must
+   * keep that column visible. Mutations call this before storing the view; read
+   * and rehydrate paths deliberately leave historical `visible: false` intact.
+   */
+  ensurePrimaryFieldVisible(primaryFieldId: FieldId): Result<void, DomainError> {
+    if (!this.typeValue.equals(ViewType.gallery())) return ok(undefined);
+
+    const currentResult = this.columnMeta();
+    if (currentResult.isErr()) return err(currentResult.error);
+    const current = currentResult.value;
+    const currentValue = current.toDto();
+    const nextValue = keepPrimaryColumnVisible(this.typeValue, primaryFieldId, currentValue);
+    if (nextValue === currentValue) return ok(undefined);
+
+    const nextResult = ViewColumnMeta.create(nextValue);
+    if (nextResult.isErr()) return err(nextResult.error);
+    // setColumnMeta only accepts the first assignment; this is an in-place
+    // invariant repair immediately before the aggregate persists the view.
+    this.columnMetaValue = nextResult.value;
     return ok(undefined);
   }
 
@@ -217,7 +241,7 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
     );
 
     const nextManualSort =
-      nextSort && nextSort.length > 0 ? currentQueryDefaultsDto.manualSort ?? false : undefined;
+      nextSort && nextSort.length > 0 ? (currentQueryDefaultsDto.manualSort ?? false) : undefined;
 
     const nextQueryDefaultsDto = {
       ...(nextFilter !== undefined ? { filter: nextFilter } : {}),

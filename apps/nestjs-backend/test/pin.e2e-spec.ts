@@ -1,13 +1,22 @@
 import type { INestApplication } from '@nestjs/common';
 import { ViewType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IPinEntryMapVo, IGetPinListVo, IUserMeVo } from '@teable/openapi';
 import {
+  ADD_PIN,
   addPin,
   deletePin,
   deleteView,
+  GET_PIN_ENTRY_MAP,
+  GET_PIN_LIST,
   getPinList,
   PinType,
   updatePinOrder,
+  USER_ME,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { getError } from './utils/get-error';
 import {
   createBase,
   createSpace,
@@ -156,5 +165,50 @@ describe('OpenAPI PinController (e2e)', () => {
     const pinRes = await getPinList();
     expect(pinRes.status).toBe(200);
     expect(pinRes.data.map((pin) => pin.id)).toEqual([tableId, baseId, spaceId, viewId]);
+  });
+
+  // pentest IDOR-VULN-02: a pin must not read the name of something the caller cannot open.
+  describe('resources of another tenant', () => {
+    let outsider: AxiosInstance;
+    let outsiderId: string;
+
+    beforeAll(async () => {
+      outsider = await createNewUserAxios({
+        email: `pin-outsider-${Date.now()}@test-pin.com`,
+        password: '12345678a',
+      });
+      outsiderId = (await outsider.get<IUserMeVo>(USER_ME)).data.id;
+    });
+
+    it('cannot pin them, and an unknown id is refused the same way', async () => {
+      const targets = [
+        { id: spaceId, type: PinType.Space },
+        { id: baseId, type: PinType.Base },
+        { id: tableId, type: PinType.Table },
+        { id: viewId, type: PinType.View },
+        { id: 'bseNotExist0000000', type: PinType.Base },
+      ];
+      for (const target of targets) {
+        const error = await getError(() => outsider.post(ADD_PIN, target));
+        expect(error?.status).toBe(404);
+      }
+      expect((await outsider.get<IGetPinListVo>(GET_PIN_LIST)).data).toEqual([]);
+    });
+
+    it('never lists or resolves a pin row that points at them', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.pinResource.createMany({
+        data: [
+          { type: PinType.Base, resourceId: baseId, createdBy: outsiderId, order: 1 },
+          { type: PinType.Table, resourceId: tableId, createdBy: outsiderId, order: 2 },
+        ],
+      });
+      try {
+        expect((await outsider.get<IGetPinListVo>(GET_PIN_LIST)).data).toEqual([]);
+        expect((await outsider.get<IPinEntryMapVo>(GET_PIN_ENTRY_MAP)).data).toEqual({});
+      } finally {
+        await prisma.pinResource.deleteMany({ where: { createdBy: outsiderId } });
+      }
+    });
   });
 });

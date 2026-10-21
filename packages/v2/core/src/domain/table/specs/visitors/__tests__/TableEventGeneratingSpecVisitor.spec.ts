@@ -257,7 +257,7 @@ describe('TableEventGeneratingSpecVisitor', () => {
       },
     })._unsafeUnwrap();
 
-    TableUpdateViewColumnMetaSpec.create([
+    TableUpdateViewColumnMetaSpec.create(table, [
       { viewId, fieldId, columnMeta },
       { viewId, fieldId: createFieldId('e'), columnMeta },
     ])

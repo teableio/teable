@@ -35,9 +35,10 @@ export class DuplicateViewResult {
 
 @CommandHandler(DuplicateViewCommand)
 @injectable()
-export class DuplicateViewHandler
-  implements ICommandHandler<DuplicateViewCommand, DuplicateViewResult>
-{
+export class DuplicateViewHandler implements ICommandHandler<
+  DuplicateViewCommand,
+  DuplicateViewResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

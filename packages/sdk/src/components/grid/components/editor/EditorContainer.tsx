@@ -23,24 +23,23 @@ import { RatingEditor } from './RatingEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
-export interface IEditorContainerProps
-  extends Pick<
-    IInteractionLayerProps,
-    | 'theme'
-    | 'coordInstance'
-    | 'scrollToItem'
-    | 'real2RowIndex'
-    | 'getCellContent'
-    | 'onUndo'
-    | 'onRedo'
-    | 'onCopy'
-    | 'onPaste'
-    | 'onDelete'
-    | 'onRowAppend'
-    | 'onRowExpand'
-    | 'scrollBy'
-    | 'disableEnterMoveDown'
-  > {
+export interface IEditorContainerProps extends Pick<
+  IInteractionLayerProps,
+  | 'theme'
+  | 'coordInstance'
+  | 'scrollToItem'
+  | 'real2RowIndex'
+  | 'getCellContent'
+  | 'onUndo'
+  | 'onRedo'
+  | 'onCopy'
+  | 'onPaste'
+  | 'onDelete'
+  | 'onRowAppend'
+  | 'onRowExpand'
+  | 'scrollBy'
+  | 'disableEnterMoveDown'
+> {
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;

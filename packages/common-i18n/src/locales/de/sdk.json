@@ -1508,7 +1508,8 @@
     "pin": {
       "alreadyExists": "Favorit bereits vorhanden",
       "notFound": "Favorit nicht gefunden",
-      "anchorNotFound": "Anker-Favorit nicht gefunden"
+      "anchorNotFound": "Anker-Favorit nicht gefunden",
+      "targetNotFound": "Das Element für den Favoriten wurde nicht gefunden"
     },
     "trash": {
       "invalidResourceType": "Ungültiger Ressourcentyp",

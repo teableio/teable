@@ -1527,7 +1527,8 @@
     "pin": {
       "alreadyExists": "التثبيت موجود بالفعل",
       "notFound": "التثبيت غير موجود",
-      "anchorNotFound": "مرساة التثبيت غير موجودة"
+      "anchorNotFound": "مرساة التثبيت غير موجودة",
+      "targetNotFound": "العنصر المراد تثبيته غير موجود"
     },
     "trash": {
       "invalidResourceType": "نوع مورد غير صالح",

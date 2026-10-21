@@ -392,11 +392,11 @@ export class RecordInsertBuilder {
                 : buildUserFieldJsonValue({
                     userId,
                     userName: entry.isCreatedBy
-                      ? context.createdByName ?? context.actorName ?? createdBy
-                      : context.lastModifiedByName ?? context.actorName ?? userId,
+                      ? (context.createdByName ?? context.actorName ?? createdBy)
+                      : (context.lastModifiedByName ?? context.actorName ?? userId),
                     userEmail: entry.isCreatedBy
-                      ? context.createdByEmail ?? context.actorEmail
-                      : context.lastModifiedByEmail ?? context.actorEmail,
+                      ? (context.createdByEmail ?? context.actorEmail)
+                      : (context.lastModifiedByEmail ?? context.actorEmail),
                   });
             continue;
           }

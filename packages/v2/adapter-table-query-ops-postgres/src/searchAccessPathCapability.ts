@@ -97,9 +97,7 @@ export const readPostgresSearchAccessPathCapabilities = async (
   return result.rows.map(resolveSearchAccessPathCapability);
 };
 
-export class PostgresTableSearchAccessPathCapabilityReader
-  implements TableSearchAccessPathCapabilityReader
-{
+export class PostgresTableSearchAccessPathCapabilityReader implements TableSearchAccessPathCapabilityReader {
   constructor(private readonly db: Kysely<UnknownPostgresDatabase>) {}
 
   async read(_context: IExecutionContext) {

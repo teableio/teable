@@ -112,7 +112,7 @@ export const UnifiedSettingDialogContent = ({
   const routeParams = useParams<{ spaceId?: string }>();
   const base = useBase() as { spaceId?: string } | undefined;
   const resolvedSpaceId = includeSpaceSettings
-    ? spaceIdProp ?? routeParams?.spaceId ?? base?.spaceId
+    ? (spaceIdProp ?? routeParams?.spaceId ?? base?.spaceId)
     : undefined;
 
   const { data: space } = useQuery({

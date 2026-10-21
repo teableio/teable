@@ -349,8 +349,8 @@ export class ShareService {
     // even when they fall outside that view — otherwise an already-linked record outside
     // the configured view reports rowCount 0. T4864.
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const viewId = isLinkSelectionQuery ? id : filterByViewId ?? id;
-    const filter = isLinkSelectionQuery ? undefined : linkOptions?.filter ?? query?.filter;
+    const viewId = isLinkSelectionQuery ? id : (filterByViewId ?? id);
+    const filter = isLinkSelectionQuery ? undefined : (linkOptions?.filter ?? query?.filter);
     const result = await this.aggregationService.performRowCount(tableId, {
       ...query,
       viewId,
@@ -404,7 +404,7 @@ export class ShareService {
     // field's view scope — otherwise an already-linked record outside the configured
     // view renders blank. The view scope/filter only constrains the candidate list. T4864.
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const filter = isLinkSelectionQuery ? undefined : query?.filter ?? linkFilter;
+    const filter = isLinkSelectionQuery ? undefined : (query?.filter ?? linkFilter);
 
     return await this.recordService.getRecords(
       tableId,
@@ -451,7 +451,7 @@ export class ShareService {
       return { records: [] };
     }
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const filter = isLinkSelectionQuery ? undefined : query?.filter ?? linkFilter;
+    const filter = isLinkSelectionQuery ? undefined : (query?.filter ?? linkFilter);
 
     return this.recordOpenApiV2Service.getRecords(tableId, {
       viewId: isLinkSelectionQuery ? id : viewId,

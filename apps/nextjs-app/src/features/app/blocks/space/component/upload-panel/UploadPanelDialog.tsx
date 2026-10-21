@@ -141,7 +141,9 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
   const updateTableProgress = React.useCallback(
     (event: IImportBaseProgressEvent) => {
       const isLinkFieldsProgress = event.phase.startsWith('link_fields_');
-      const tableKey = isLinkFieldsProgress ? '__link_fields__' : event.tableId ?? event.tableName;
+      const tableKey = isLinkFieldsProgress
+        ? '__link_fields__'
+        : (event.tableId ?? event.tableName);
       if (!tableKey) return;
 
       setTableProgresses((previous) => ({
@@ -150,7 +152,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
           tableId: tableKey,
           tableName: isLinkFieldsProgress
             ? tAny('space:import.phase.linkFieldsData')
-            : event.tableName ?? tableKey,
+            : (event.tableName ?? tableKey),
           processedRows: event.processedRows ?? previous[tableKey]?.processedRows ?? 0,
           totalRows: event.totalRows ?? previous[tableKey]?.totalRows,
           batchProcessedRows:

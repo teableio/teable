@@ -23,9 +23,10 @@ export class ListComputedOutboxQueueJobsResult {
 
 @QueryHandler(ListComputedOutboxQueueJobsQuery)
 @injectable()
-export class ListComputedOutboxQueueJobsHandler
-  implements IQueryHandler<ListComputedOutboxQueueJobsQuery, ListComputedOutboxQueueJobsResult>
-{
+export class ListComputedOutboxQueueJobsHandler implements IQueryHandler<
+  ListComputedOutboxQueueJobsQuery,
+  ListComputedOutboxQueueJobsResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

@@ -104,11 +104,24 @@ export const aiProviderFetch: typeof fetch = async (input, init) => {
   return getGuardedFetch()(url, init as Parameters<ISsrfSafeFetchFn>[1]);
 };
 
+let instanceAdminFetch: ISsrfSafeFetchFn | undefined;
+
 /**
  * For the instance admin's own routes (testing a provider before saving it,
- * batch tests, gateway key checks): operator input, not tenant input.
+ * batch tests, gateway and transcription key checks): operator input, not
+ * tenant input, so the private network stays reachable (a LAN model, a
+ * VPC-internal gateway) on every edition. The cloud-metadata addresses do not:
+ * these routes hand the upstream's answer back in their error messages, which
+ * would make them a way to read instance credentials.
  */
-export const instanceAdminProviderFetch: typeof fetch = (input, init) => fetch(input, init);
+export const instanceAdminProviderFetch: typeof fetch = (input, init) => {
+  if (isSsrfProtectionDisabled()) {
+    return fetch(input, init);
+  }
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  instanceAdminFetch ??= createSsrfSafeFetch({ allowPrivateNetwork: true });
+  return instanceAdminFetch(url, init as Parameters<ISsrfSafeFetchFn>[1]);
+};
 
 /**
  * Wraps a provider factory so its requests go through `aiProviderFetch`

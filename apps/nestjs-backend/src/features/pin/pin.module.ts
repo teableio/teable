@@ -5,8 +5,7 @@ import { PinController } from './pin.controller';
 import { PinService } from './pin.service';
 
 @Module({
-  // CollaboratorModule: editions that resolve access-scoped pin types (enterprise chat pins)
-  // extend PinService and need it injected.
+  // CollaboratorModule: every pin branch is scoped to the caller's bases and spaces.
   imports: [LastVisitModule, CollaboratorModule],
   providers: [PinService],
   controllers: [PinController],

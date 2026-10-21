@@ -27,9 +27,10 @@ export class UserDefaultValue extends ValueObject {
 
     const ids = parsed.data.map((v) => UserId.create(v));
     return ids
-      .reduce<
-        Result<ReadonlyArray<UserId>, DomainError>
-      >((acc, next) => acc.andThen((arr) => next.map((id) => [...arr, id])), ok([]))
+      .reduce<Result<ReadonlyArray<UserId>, DomainError>>(
+        (acc, next) => acc.andThen((arr) => next.map((id) => [...arr, id])),
+        ok([])
+      )
       .map((values) => new UserDefaultValue(values));
   }
 

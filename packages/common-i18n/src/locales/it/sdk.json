@@ -1512,7 +1512,8 @@
     "pin": {
       "alreadyExists": "Il preferito esiste già",
       "notFound": "Preferito non trovato",
-      "anchorNotFound": "Ancoraggio del preferito non trovato"
+      "anchorNotFound": "Ancoraggio del preferito non trovato",
+      "targetNotFound": "Elemento da aggiungere ai preferiti non trovato"
     },
     "trash": {
       "invalidResourceType": "Tipo di risorsa non valido",

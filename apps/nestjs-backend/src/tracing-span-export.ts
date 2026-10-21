@@ -6,6 +6,9 @@
  * reach the backend:
  * - error / 5xx spans always export and promote their whole trace:
  *   buffered spans are flushed, later spans export directly
+ * - a span at or above `slowTraceThresholdMs` (OTEL_SLOW_TRACE_THRESHOLD_MS,
+ *   default 1000 ms) promotes its trace the same way, so a slow but successful
+ *   request keeps the internal spans that explain where its time went
  * - traces picked by the traceId hash (OTEL_EXPORT_RATIO) export in full
  * - other traces export only priority spans (SERVER/route/handler, keeps APM
  *   stats accurate); the rest are buffered and discarded once the trace's
@@ -37,9 +40,13 @@ export const EXPORTED_TTL_MS = 10 * 60 * 1000;
 export const SETTLED_LINGER_MS = 10_000;
 export const TOMBSTONE_CAP = 10_000;
 export const TRACE_EXPORT_SPAN_CAP = 10_000;
+export const DEFAULT_SLOW_TRACE_THRESHOLD_MS = 1000;
 const CLEANUP_INTERVAL_MS = 30_000;
 
 const truncationLogger = new Logger('SmartSpanExport');
+/** Emits one trace-correlated decision line per sampled trace, so a missing
+ * detail span is explainable instead of inferred. */
+const samplingLogger = new Logger('TraceSampling');
 
 export const hashTraceId = (traceId: string): number => {
   // FNV-1a hash for better distribution
@@ -81,6 +88,20 @@ export const isErrorSpan = (span: ReadableSpan): boolean => {
   return typeof httpStatusCode === 'number' && httpStatusCode >= 500;
 };
 
+/**
+ * Normalizes the slow-trace threshold. Anything that is not a finite number
+ * above zero falls back to the default: 0 or a negative value must never mean
+ * "promote every trace", which would silently disable OTEL_EXPORT_RATIO.
+ * Fractional values are floored.
+ */
+export const normalizeSlowTraceThresholdMs = (value?: number): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_SLOW_TRACE_THRESHOLD_MS;
+  }
+  const thresholdMs = Math.floor(value);
+  return thresholdMs > 0 ? thresholdMs : DEFAULT_SLOW_TRACE_THRESHOLD_MS;
+};
+
 export interface ISmartSpanProcessorOptions {
   exportRatio: number;
   maxQueueSize: number;
@@ -91,6 +112,12 @@ export interface ISmartSpanProcessorOptions {
   exportTimeoutMillis: number;
   /** Detail spans one trace may export before it is truncated as runaway. */
   maxExportedSpansPerTrace?: number;
+  /**
+   * Slow-request tail promotion threshold (ms). A span ending at or above it
+   * promotes its trace like an error span; defaults to
+   * DEFAULT_SLOW_TRACE_THRESHOLD_MS and is ignored in full-export mode.
+   */
+  slowTraceThresholdMs?: number;
 }
 
 interface ITraceState {
@@ -101,6 +128,7 @@ interface ITraceState {
   lastTouchedMs: number;
   exportedSpans: number;
   truncationLogged: boolean;
+  decisionLogged: boolean;
 }
 
 /**
@@ -141,6 +169,7 @@ class TraceStore {
         lastTouchedMs: nowMs,
         exportedSpans: 0,
         truncationLogged: false,
+        decisionLogged: false,
       };
       this.traces.set(traceId, trace);
     }
@@ -243,19 +272,25 @@ class TraceStore {
     }
   }
 
-  sweep(nowMs: number): void {
+  sweep(nowMs: number, onDiscard?: (traceId: string, trace: ITraceState) => void): void {
     let tombstones = 0;
     for (const [traceId, trace] of this.traces) {
-      if (this.reapIfExpired(traceId, trace, nowMs)) tombstones++;
+      if (this.reapIfExpired(traceId, trace, nowMs, onDiscard)) tombstones++;
     }
     if (tombstones > TOMBSTONE_CAP) this.evictTombstones(tombstones - TOMBSTONE_CAP, nowMs);
   }
 
   /** Applies the shape's TTL to one record; returns true for a live tombstone. */
-  private reapIfExpired(traceId: string, trace: ITraceState, nowMs: number): boolean {
+  private reapIfExpired(
+    traceId: string,
+    trace: ITraceState,
+    nowMs: number,
+    onDiscard?: (traceId: string, trace: ITraceState) => void
+  ): boolean {
     if (trace.liveSpans > 0) {
       // Presumed leaked (a span started but never ended) after LIVE_TTL_MS.
       if (nowMs - trace.lastTouchedMs > LIVE_TTL_MS) {
+        onDiscard?.(traceId, trace);
         this.drainBuffer(traceId, trace);
         this.traces.delete(traceId);
       }
@@ -267,6 +302,7 @@ class TraceStore {
       const sinceMs = trace.settledAtMs > 0 ? trace.settledAtMs : trace.lastTouchedMs;
       const ttlMs = trace.settledAtMs > 0 ? SETTLED_LINGER_MS : PENDING_TTL_MS;
       if (nowMs - sinceMs > ttlMs) {
+        onDiscard?.(traceId, trace);
         this.drainBuffer(traceId, trace);
         this.traces.delete(traceId);
       }
@@ -355,6 +391,7 @@ export const createSmartSpanProcessor = (
     Promise.all([priorityProcessor.shutdown(), batchProcessor.shutdown()]).then(() => undefined);
 
   // Full export: every span routes directly, no lifecycle tracking needed.
+  // The slow-trace threshold is irrelevant here: every trace is already complete.
   if (exportRatio >= 1.0) {
     return {
       onStart: forwardStart,
@@ -367,13 +404,21 @@ export const createSmartSpanProcessor = (
     };
   }
 
+  const slowTraceThresholdMs = normalizeSlowTraceThresholdMs(options.slowTraceThresholdMs);
   const store = new TraceStore();
   let lastCleanupMs = Date.now();
 
   const cleanup = (nowMs: number): void => {
     if (nowMs - lastCleanupMs < CLEANUP_INTERVAL_MS) return;
     lastCleanupMs = nowMs;
-    store.sweep(nowMs);
+    store.sweep(nowMs, (traceId, trace) =>
+      recordDecision(traceId, trace, {
+        reason: 'ratio',
+        exportRatio,
+        selected: false,
+        bufferedSpans: trace.spans.length,
+      })
+    );
   };
 
   // Backstop for idle processes: onEnd also triggers cleanup, but with no
@@ -410,6 +455,13 @@ export const createSmartSpanProcessor = (
     batchProcessor.onEnd(span);
   };
 
+  /** One structured, trace-correlated line per trace: what was kept and why. */
+  const recordDecision = (traceId: string, trace: ITraceState, decision: object): void => {
+    if (trace.decisionLogged) return;
+    trace.decisionLogged = true;
+    samplingLogger.log(`trace export decision ${JSON.stringify({ traceId, ...decision })}`);
+  };
+
   const promote = (traceId: string, trace: ITraceState, nowMs: number): void => {
     trace.promotedUntilMs = nowMs + EXPORTED_TTL_MS;
     for (const buffered of store.drainBuffer(traceId, trace)) {
@@ -419,6 +471,7 @@ export const createSmartSpanProcessor = (
 
   const decide = (span: ReadableSpan, trace: ITraceState, traceId: string, nowMs: number): void => {
     if (isErrorSpan(span)) {
+      recordDecision(traceId, trace, { reason: 'error' });
       promote(traceId, trace, nowMs);
       routeCounted(span, trace, traceId, nowMs);
       return;
@@ -433,6 +486,29 @@ export const createSmartSpanProcessor = (
 
     // Deterministic per traceId, so picked traces need no stored state.
     if (getTraceDecision(traceId, exportRatio)) {
+      // Only a detail span is worth a decision line: a priority-only trace keeps
+      // nothing that could go missing, and the state of such a trace is inert, so
+      // logging every priority span would repeat the line for one trace id.
+      if (!isPriorityTraceSpan(span)) {
+        recordDecision(traceId, trace, { reason: 'ratio', exportRatio, selected: true });
+      }
+      routeCounted(span, trace, traceId, nowMs);
+      return;
+    }
+
+    // Slow-request tail promotion: an ended span at or above the threshold
+    // promotes the trace exactly like an error span, so a slow but successful
+    // request keeps the buffered spans that explain where its time went.
+    // Placed before onEnd settles the trace, so the children of the last span
+    // are still in the buffer and survive.
+    const spanDurationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
+    if (spanDurationMs >= slowTraceThresholdMs) {
+      recordDecision(traceId, trace, {
+        reason: 'slow',
+        durationMs: Math.round(spanDurationMs),
+        thresholdMs: slowTraceThresholdMs,
+      });
+      promote(traceId, trace, nowMs);
       routeCounted(span, trace, traceId, nowMs);
       return;
     }

@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./src/bases/typescript.json"],
+  "ignorePatterns": [".*", "build", "dist"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  }
+}

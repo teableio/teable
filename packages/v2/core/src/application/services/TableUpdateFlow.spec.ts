@@ -401,7 +401,7 @@ describe('TableUpdateFlow', () => {
     const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
       tableToUpdate.update((mutator) =>
         mutator.applySpecs([
-          TableUpdateViewColumnMetaSpec.create([
+          TableUpdateViewColumnMetaSpec.create(tableToUpdate, [
             {
               viewId: view.id(),
               fieldId,

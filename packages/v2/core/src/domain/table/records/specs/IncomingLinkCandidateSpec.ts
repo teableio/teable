@@ -14,8 +14,7 @@ export type IncomingLinkCandidateMode =
 
 export class IncomingLinkCandidateSpec<
   V extends ITableRecordConditionSpecVisitor = ITableRecordConditionSpecVisitor,
-> implements ISpecification<TableRecord, V>
-{
+> implements ISpecification<TableRecord, V> {
   private constructor(
     private readonly modeValue: IncomingLinkCandidateMode,
     private readonly selfKeyNameValue: string,

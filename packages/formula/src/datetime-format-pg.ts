@@ -218,7 +218,7 @@ export const expandLocalizedDatetimeFormat = (
 ): string => {
   const parts: string[] = [];
   let start = 0;
-  for (let i = 0; i < literal.length; ) {
+  for (let i = 0; i < literal.length;) {
     const token = sortedLocalizedDatetimeFormatTokens.find((candidate) =>
       literal.startsWith(candidate, i)
     );
@@ -245,7 +245,7 @@ const forEachSupportedDatetimeFormatToken = (
 ) => {
   const expandedLiteral = expandLocalizedDatetimeFormat(literal, writer);
 
-  for (let i = 0; i < expandedLiteral.length; ) {
+  for (let i = 0; i < expandedLiteral.length;) {
     const token = sortedSupportedDatetimeFormatTokens.find((candidate) =>
       expandedLiteral.startsWith(candidate, i)
     );
@@ -428,7 +428,7 @@ export const buildDatetimeParseGuardRegex = (
 
   const parts = ['^'];
 
-  for (let i = 0; i < literal.length; ) {
+  for (let i = 0; i < literal.length;) {
     let matched = false;
     // Tokens are ASCII and bounded in length; avoid copying the entire suffix
     // for every character of an arbitrary format literal.

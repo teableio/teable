@@ -10,7 +10,7 @@ export interface IGalleryContext {
   isCoverFit?: boolean;
   isFieldNameHidden?: boolean;
   permission: IGalleryPermission;
-  primaryField: IFieldInstance;
+  primaryField: IFieldInstance | null;
   displayFields: IFieldInstance[];
   setExpandRecordId: Dispatch<SetStateAction<string | undefined>>;
 }

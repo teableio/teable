@@ -396,7 +396,7 @@ describe('CreateFieldHandler', () => {
     if (!viewA || !viewB) return;
 
     const viewAMeta = viewA.columnMeta()._unsafeUnwrap().toDto();
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(initialTable, [
       {
         viewId: viewA.id(),
         fieldId: FieldId.create(notesFieldId)._unsafeUnwrap(),

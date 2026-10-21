@@ -21,10 +21,10 @@ export class RecoverComputedOutboxAnomalyCommandResult {
 
 @CommandHandler(RecoverComputedOutboxAnomalyCommand)
 @injectable()
-export class RecoverComputedOutboxAnomalyHandler
-  implements
-    ICommandHandler<RecoverComputedOutboxAnomalyCommand, RecoverComputedOutboxAnomalyCommandResult>
-{
+export class RecoverComputedOutboxAnomalyHandler implements ICommandHandler<
+  RecoverComputedOutboxAnomalyCommand,
+  RecoverComputedOutboxAnomalyCommandResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

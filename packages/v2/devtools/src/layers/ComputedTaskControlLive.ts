@@ -212,7 +212,7 @@ export const ComputedTaskControlLive = Layer.effect(
             catch: (error) => CliError.fromUnknown(error),
           });
 
-          const leaseId = 'leaseId' in input ? input.leaseId : result.target?.id ?? null;
+          const leaseId = 'leaseId' in input ? input.leaseId : (result.target?.id ?? null);
           const scopeType =
             result.target?.scopeType ?? ('scopeType' in input ? input.scopeType : null);
           const scopeId = result.target?.scopeId ?? ('scopeId' in input ? input.scopeId : null);

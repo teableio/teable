@@ -1353,6 +1353,8 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     if (this.viewsValue.some((existing) => existing.name().equals(view.name()))) {
       return err(domainError.conflict({ message: 'View names must be unique' }));
     }
+    const ensurePrimaryVisibleResult = view.ensurePrimaryFieldVisible(this.primaryFieldIdValue);
+    if (ensurePrimaryVisibleResult.isErr()) return err(ensurePrimaryVisibleResult.error);
     const columnMetaResult = view.columnMeta();
     if (columnMetaResult.isErr()) return err(columnMetaResult.error);
     const queryDefaultsResult = view.queryDefaults();
@@ -1370,6 +1372,19 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);
+  }
+
+  /**
+   * Repairs every child view so a persisted gallery keeps its primary column visible.
+   * Aggregate factories (duplicate, base copy) call this once after rebuilding a table;
+   * metadata payloads are normalized where they are constructed.
+   */
+  normalizeViewInvariants(): Result<Table, DomainError> {
+    for (const view of this.viewsValue) {
+      const result = view.ensurePrimaryFieldVisible(this.primaryFieldIdValue);
+      if (result.isErr()) return err(result.error);
+    }
+    return ok(this);
   }
 
   removeView(viewId: ViewId): Result<Table, DomainError> {

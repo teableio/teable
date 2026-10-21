@@ -267,7 +267,7 @@ const useGenerateGroupCellFn = () => {
               const url = getFileCover(mimetype, presignedUrl, theme);
               return {
                 id,
-                url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
+                url: isSystemFileIcon(mimetype) ? url : (smThumbnailUrl ?? url),
                 fallbackUrl: getFieldIconString(mimetype, theme),
                 width,
                 height,

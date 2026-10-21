@@ -137,9 +137,10 @@ export class RunTableQueryRecommendedIndexCommand extends PublicCommand {
 
 @CommandHandler(RecordTableQueryObservationCommand)
 @injectable()
-export class RecordTableQueryObservationHandler
-  implements ICommandHandler<RecordTableQueryObservationCommand, void>
-{
+export class RecordTableQueryObservationHandler implements ICommandHandler<
+  RecordTableQueryObservationCommand,
+  void
+> {
   constructor(
     @inject(v2TableOpsTokens.observationSink)
     private readonly observationSink: TableQueryObservationSink
@@ -155,9 +156,10 @@ export class RecordTableQueryObservationHandler
 
 @QueryHandler(AnalyzeTableQueryRiskQuery)
 @injectable()
-export class AnalyzeTableQueryRiskHandler
-  implements IQueryHandler<AnalyzeTableQueryRiskQuery, AnalyzeTableQueryRiskResult>
-{
+export class AnalyzeTableQueryRiskHandler implements IQueryHandler<
+  AnalyzeTableQueryRiskQuery,
+  AnalyzeTableQueryRiskResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -207,10 +209,10 @@ export class AnalyzeTableQueryRiskHandler
 
 @CommandHandler(AnalyzeAndRecommendTableQueryCommand)
 @injectable()
-export class AnalyzeAndRecommendTableQueryHandler
-  implements
-    ICommandHandler<AnalyzeAndRecommendTableQueryCommand, AnalyzeAndRecommendTableQueryResult>
-{
+export class AnalyzeAndRecommendTableQueryHandler implements ICommandHandler<
+  AnalyzeAndRecommendTableQueryCommand,
+  AnalyzeAndRecommendTableQueryResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -296,9 +298,10 @@ export class AnalyzeAndRecommendTableQueryHandler
 
 @CommandHandler(AcceptTableQueryRecommendationCommand)
 @injectable()
-export class AcceptTableQueryRecommendationHandler
-  implements ICommandHandler<AcceptTableQueryRecommendationCommand, TableQueryRemediationTask>
-{
+export class AcceptTableQueryRecommendationHandler implements ICommandHandler<
+  AcceptTableQueryRecommendationCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.recommendationRepository)
     private readonly recommendationRepository: TableQueryRecommendationRepository,
@@ -358,9 +361,10 @@ export class AcceptTableQueryRecommendationHandler
 
 @CommandHandler(DismissTableQueryRecommendationCommand)
 @injectable()
-export class DismissTableQueryRecommendationHandler
-  implements ICommandHandler<DismissTableQueryRecommendationCommand, TableQueryRecommendation>
-{
+export class DismissTableQueryRecommendationHandler implements ICommandHandler<
+  DismissTableQueryRecommendationCommand,
+  TableQueryRecommendation
+> {
   constructor(
     @inject(v2TableOpsTokens.recommendationRepository)
     private readonly recommendationRepository: TableQueryRecommendationRepository,
@@ -388,10 +392,10 @@ export class DismissTableQueryRecommendationHandler
 
 @CommandHandler(DecideTableQueryRecommendationCommand)
 @injectable()
-export class DecideTableQueryRecommendationHandler
-  implements
-    ICommandHandler<DecideTableQueryRecommendationCommand, DecideTableQueryRecommendationResult>
-{
+export class DecideTableQueryRecommendationHandler implements ICommandHandler<
+  DecideTableQueryRecommendationCommand,
+  DecideTableQueryRecommendationResult
+> {
   constructor(
     @inject(v2TableOpsTokens.decisionPolicy)
     private readonly decisionPolicy: TableQueryDecisionPolicy,
@@ -491,9 +495,10 @@ export class DecideTableQueryRecommendationHandler
 
 @CommandHandler(RunTableQueryRemediationTaskCommand)
 @injectable()
-export class RunTableQueryRemediationTaskHandler
-  implements ICommandHandler<RunTableQueryRemediationTaskCommand, TableQueryRemediationTask>
-{
+export class RunTableQueryRemediationTaskHandler implements ICommandHandler<
+  RunTableQueryRemediationTaskCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.taskRepository)
     private readonly taskRepository: TableQueryRemediationTaskRepository,
@@ -591,9 +596,10 @@ export class RunTableQueryRemediationTaskHandler
 
 @CommandHandler(RunTableQueryRecommendedIndexCommand)
 @injectable()
-export class RunTableQueryRecommendedIndexHandler
-  implements ICommandHandler<RunTableQueryRecommendedIndexCommand, TableQueryRemediationTask>
-{
+export class RunTableQueryRecommendedIndexHandler implements ICommandHandler<
+  RunTableQueryRecommendedIndexCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.taskRepository)
     private readonly taskRepository: TableQueryRemediationTaskRepository,

@@ -1508,7 +1508,8 @@
     "pin": {
       "alreadyExists": "收藏已存在",
       "notFound": "未找到收藏",
-      "anchorNotFound": "未找到锚点收藏"
+      "anchorNotFound": "未找到锚点收藏",
+      "targetNotFound": "未找到要收藏的内容"
     },
     "trash": {
       "invalidResourceType": "无效的资源类型",

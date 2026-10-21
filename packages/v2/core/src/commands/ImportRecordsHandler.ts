@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { toImportWriteError } from '../application/services/importSourceErrors';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
@@ -82,9 +83,10 @@ interface ImportStreamState {
  */
 @CommandHandler(ImportRecordsCommand)
 @injectable()
-export class ImportRecordsHandler
-  implements ICommandHandler<ImportRecordsCommand, ImportRecordsResult>
-{
+export class ImportRecordsHandler implements ICommandHandler<
+  ImportRecordsCommand,
+  ImportRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.importSourceRegistry)
     private readonly registry: IImportSourceRegistryPort.IImportSourceRegistry,
@@ -229,7 +231,7 @@ export class ImportRecordsHandler
                 }
               );
               if (insertResult.isErr()) {
-                return err(insertResult.error);
+                return err(toImportWriteError(insertResult.error));
               }
               return ok(insertResult.value);
             } catch (error) {
@@ -257,7 +259,14 @@ export class ImportRecordsHandler
         return ok(ImportRecordsResult.create(insertResult.totalInserted, committed.events));
       });
     } finally {
-      await rowsIterator?.return?.();
+      try {
+        // The repository already closes the batch iterator on error paths
+        // (IteratorClose), which reaches this same source iterator. A second
+        // cleanup rejection must never replace the recorded import outcome.
+        await rowsIterator?.return?.();
+      } catch {
+        // The import result or its error already owns the outcome.
+      }
     }
   }
 
@@ -346,8 +355,10 @@ export class ImportRecordsHandler
           batchFieldValues,
           typecast
         );
+        // Throw the DomainError itself: the insert-stream adapter distinguishes
+        // source interruptions from caller/input failures by this type.
         if (sideEffectResult.isErr()) {
-          throw new Error(sideEffectResult.error.message);
+          throw sideEffectResult.error;
         }
         state.table = sideEffectResult.value.table;
 
@@ -360,7 +371,7 @@ export class ImportRecordsHandler
             { publishEvents: false }
           );
           if (updateResult.isErr()) {
-            throw new Error(updateResult.error.message);
+            throw updateResult.error;
           }
           state.table = updateResult.value.table;
           const appended = await events.append(updateResult.value.events ?? [], [state.table]);
@@ -374,7 +385,7 @@ export class ImportRecordsHandler
         emitRecordCreatedEvents: false,
       });
       if (createResult.isErr()) {
-        throw new Error(createResult.error.message);
+        throw createResult.error;
       }
 
       let records = [...createResult.value.records];
@@ -550,7 +561,7 @@ export class ImportRecordsHandler
     );
 
     if (resolveResult.isErr()) {
-      throw new Error(resolveResult.error.message);
+      throw resolveResult.error;
     }
 
     const resolvedSpecs = resolveResult.value;

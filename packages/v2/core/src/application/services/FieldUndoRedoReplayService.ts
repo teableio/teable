@@ -379,6 +379,7 @@ export class FieldUndoRedoReplayService {
             : restoredMeta;
       }
 
+      // payload construction normalizes gallery visibility when the spec is built
       const nextMetaResult = ViewColumnMeta.create(nextMetaRaw);
       if (nextMetaResult.isErr()) {
         return err(nextMetaResult.error);
@@ -402,7 +403,7 @@ export class FieldUndoRedoReplayService {
     return ok(
       composeAndSpecsOrUndefined([
         ...(columnMetaUpdates.length
-          ? [TableUpdateViewColumnMetaSpec.create(columnMetaUpdates)]
+          ? [TableUpdateViewColumnMetaSpec.create(table, columnMetaUpdates)]
           : []),
         ...(queryDefaultsUpdates.length
           ? [TableUpdateViewQueryDefaultsSpec.create(queryDefaultsUpdates)]

@@ -338,9 +338,7 @@ export class V2CollaboratorNotificationDispatcher {
 }
 
 @ProjectionHandler(RecordCreated)
-export class V2RecordCreatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordCreated>
-{
+export class V2RecordCreatedCollaboratorNotificationProjection implements IEventHandler<RecordCreated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
@@ -371,9 +369,7 @@ export class V2RecordCreatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordsBatchCreated)
-export class V2RecordsBatchCreatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordsBatchCreated>
-{
+export class V2RecordsBatchCreatedCollaboratorNotificationProjection implements IEventHandler<RecordsBatchCreated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
@@ -402,9 +398,7 @@ export class V2RecordsBatchCreatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordUpdated)
-export class V2RecordUpdatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordUpdated>
-{
+export class V2RecordUpdatedCollaboratorNotificationProjection implements IEventHandler<RecordUpdated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
@@ -435,9 +429,7 @@ export class V2RecordUpdatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordsBatchUpdated)
-export class V2RecordsBatchUpdatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordsBatchUpdated>
-{
+export class V2RecordsBatchUpdatedCollaboratorNotificationProjection implements IEventHandler<RecordsBatchUpdated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(

@@ -2407,7 +2407,7 @@ export class ComputedFieldUpdater {
             const sqlSummary =
               executedSqls.length > 1
                 ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
-                : executedSqls[0]?.sql ?? '';
+                : (executedSqls[0]?.sql ?? '');
             const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
 
             // Record SQL on span
@@ -2515,7 +2515,7 @@ export class ComputedFieldUpdater {
           const sqlSummary =
             executedSqls.length > 1
               ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
-              : executedSqls[0]?.sql ?? '';
+              : (executedSqls[0]?.sql ?? '');
           const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
 
           // Record SQL on span
@@ -2992,7 +2992,7 @@ export class ComputedFieldUpdater {
       const SEED_ALL_THRESHOLD =
         options?.representation === 'exact-ids'
           ? Number.POSITIVE_INFINITY
-          : options?.seedAllThreshold ?? DEFAULT_SEED_ALL_THRESHOLD;
+          : (options?.seedAllThreshold ?? DEFAULT_SEED_ALL_THRESHOLD);
       const seedAllTableIds: TableId[] = [];
       const normalTableIds: string[] = [];
 

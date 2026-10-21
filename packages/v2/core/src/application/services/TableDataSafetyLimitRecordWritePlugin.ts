@@ -77,9 +77,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
   }
 };
 
-export class TableDataSafetyLimitRecordWritePlugin
-  implements IRecordWritePlugin<PreparedTableDataSafetyRecordLimitState>
-{
+export class TableDataSafetyLimitRecordWritePlugin implements IRecordWritePlugin<PreparedTableDataSafetyRecordLimitState> {
   readonly name = 'table-data-safety-record-limit';
   readonly enforce = 'post' as const;
 

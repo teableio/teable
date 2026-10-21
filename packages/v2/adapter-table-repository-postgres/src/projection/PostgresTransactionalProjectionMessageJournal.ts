@@ -57,9 +57,7 @@ export const serializeProjectionPayload = (payload: unknown): string =>
   );
 
 @injectable()
-export class PostgresTransactionalProjectionMessageJournal
-  implements ITransactionalProjectionMessageJournal
-{
+export class PostgresTransactionalProjectionMessageJournal implements ITransactionalProjectionMessageJournal {
   constructor(
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,

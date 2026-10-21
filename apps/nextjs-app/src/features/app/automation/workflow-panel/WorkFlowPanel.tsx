@@ -17,13 +17,9 @@ interface WorkFlowPanelProps {
 }
 
 const WorkFlowPanel = forwardRef<WorkFlowPanelRef, WorkFlowPanelProps>((_props, ref) => {
-  useImperativeHandle(
-    ref,
-    () => {
-      return {};
-    },
-    []
-  );
+  useImperativeHandle(ref, () => {
+    return {};
+  }, []);
 
   return <AutomationPage />;
 });

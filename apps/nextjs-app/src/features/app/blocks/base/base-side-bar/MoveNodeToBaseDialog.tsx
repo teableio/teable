@@ -570,7 +570,7 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
               if (!targetBaseId) return;
               // unticking goes back to the bare question; ticking restarts
               // the walk from what the first answer offered
-              const ids = next ? plainCheck?.dependencyClosure.map((i) => i.nodeId) ?? [] : [];
+              const ids = next ? (plainCheck?.dependencyClosure.map((i) => i.nodeId) ?? []) : [];
               setClosureIds(ids);
               startCheck(targetBaseId, ids, next);
             }}

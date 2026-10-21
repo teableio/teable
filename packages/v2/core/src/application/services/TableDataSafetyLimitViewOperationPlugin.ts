@@ -173,9 +173,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
   return ok(undefined);
 };
 
-export class TableDataSafetyLimitViewOperationPlugin
-  implements IViewOperationPlugin<PreparedTableDataSafetyViewLimitState>
-{
+export class TableDataSafetyLimitViewOperationPlugin implements IViewOperationPlugin<PreparedTableDataSafetyViewLimitState> {
   readonly name = 'table-data-safety-view-operation-limit';
   readonly enforce = 'post' as const;
 

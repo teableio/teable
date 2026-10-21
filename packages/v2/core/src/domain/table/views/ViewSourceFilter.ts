@@ -351,7 +351,7 @@ export class ViewSourceFilter extends ValueObject {
   }
 
   toCanonical(): RecordFilter {
-    return this.value == null ? null : mapGroup(this.value) ?? null;
+    return this.value == null ? null : (mapGroup(this.value) ?? null);
   }
 
   equals(other: ViewSourceFilter): boolean {

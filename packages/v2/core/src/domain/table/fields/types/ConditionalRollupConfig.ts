@@ -73,12 +73,7 @@ export class ConditionalRollupConfig extends ValueObject {
         FieldId.create(data.lookupFieldId).andThen((lookupFieldId) =>
           FieldCondition.create(data.condition).andThen((condition) => {
             return ok(
-              new ConditionalRollupConfig(
-                parsedBaseId,
-                foreignTableId,
-                lookupFieldId,
-                condition
-              )
+              new ConditionalRollupConfig(parsedBaseId, foreignTableId, lookupFieldId, condition)
             );
           })
         )

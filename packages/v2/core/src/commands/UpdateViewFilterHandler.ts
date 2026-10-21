@@ -45,9 +45,10 @@ export class UpdateViewFilterResult {
 
 @CommandHandler(UpdateViewFilterCommand)
 @injectable()
-export class UpdateViewFilterHandler
-  implements ICommandHandler<UpdateViewFilterCommand, UpdateViewFilterResult>
-{
+export class UpdateViewFilterHandler implements ICommandHandler<
+  UpdateViewFilterCommand,
+  UpdateViewFilterResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

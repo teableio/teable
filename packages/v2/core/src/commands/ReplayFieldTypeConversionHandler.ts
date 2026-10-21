@@ -22,9 +22,10 @@ export class ReplayFieldTypeConversionResult {
 
 @CommandHandler(ReplayFieldTypeConversionCommand)
 @injectable()
-export class ReplayFieldTypeConversionHandler
-  implements ICommandHandler<ReplayFieldTypeConversionCommand, ReplayFieldTypeConversionResult>
-{
+export class ReplayFieldTypeConversionHandler implements ICommandHandler<
+  ReplayFieldTypeConversionCommand,
+  ReplayFieldTypeConversionResult
+> {
   constructor(
     @inject(v2CoreTokens.fieldUndoRedoReplayService)
     private readonly fieldUndoRedoReplayService: FieldUndoRedoReplayService

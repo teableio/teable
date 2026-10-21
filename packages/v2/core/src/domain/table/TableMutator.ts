@@ -299,7 +299,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
   }
 
   updateViewColumnMeta(update: TableViewColumnMetaUpdate): this {
-    const spec = TableUpdateViewColumnMetaSpec.create([update]);
+    const spec = TableUpdateViewColumnMetaSpec.create(this.currentTable, [update]);
     const nextTableResult = spec.mutate(this.currentTable);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);

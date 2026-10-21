@@ -348,8 +348,7 @@ const evaluateRecordCondition = (
 
 export abstract class RecordConditionSpec<
   V extends ITableRecordConditionSpecVisitor = ITableRecordConditionSpecVisitor,
-> implements ISpecification<TableRecord, V>
-{
+> implements ISpecification<TableRecord, V> {
   protected constructor(private readonly fieldValue: Field) {}
 
   field(): Field {

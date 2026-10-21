@@ -34,6 +34,7 @@ import type * as TableSchemaRepositoryPort from '../../ports/TableSchemaReposito
 import type * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
+import { toImportWriteError } from './importSourceErrors';
 import type { TableOperationPluginExecution } from './TableOperationPluginRunner';
 import { TableOperationPluginRunner } from './TableOperationPluginRunner';
 import {
@@ -344,35 +345,37 @@ export class ImportTabularTableService {
                 emitRecordCreatedEvents: false,
               });
 
-              const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
-                dataTransactionContext,
-                persistedTable,
-                handler.consumeBatchesAsync(
-                  batchGenerator,
-                  pluginExecution,
+              const insertResult = yield* (
+                await handler.tableRecordRepository.insertManyStream(
                   dataTransactionContext,
+                  persistedTable,
+                  handler.consumeBatchesAsync(
+                    batchGenerator,
+                    pluginExecution,
+                    dataTransactionContext,
+                    {
+                      table: persistedTable,
+                      batchSize: command.batchSize,
+                      operationId,
+                      totalRecordCount,
+                      events,
+                      tablePluginExecution,
+                    }
+                  ),
                   {
-                    table: persistedTable,
-                    batchSize: command.batchSize,
-                    operationId,
-                    totalRecordCount,
-                    events,
-                    tablePluginExecution,
+                    deferComputedUpdates: true,
+                    enqueueDeferredComputedUpdates: true,
+                    onBatchInserted: (progress) => {
+                      command.onProgress?.({
+                        phase: 'inserting',
+                        processedRows: progress.totalInserted,
+                        currentBatch: progress.batchIndex + 1,
+                        totalRows: knownRowCount,
+                      });
+                    },
                   }
-                ),
-                {
-                  deferComputedUpdates: true,
-                  enqueueDeferredComputedUpdates: true,
-                  onBatchInserted: (progress) => {
-                    command.onProgress?.({
-                      phase: 'inserting',
-                      processedRows: progress.totalInserted,
-                      currentBatch: progress.batchIndex + 1,
-                      totalRows: knownRowCount,
-                    });
-                  },
-                }
-              );
+                )
+              ).mapErr(toImportWriteError);
 
               command.onProgress?.({
                 phase: 'completed',

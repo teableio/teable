@@ -535,13 +535,16 @@ export class ImportOpenApiV2Service {
 
       // Map domain error to HTTP status
       const status =
-        result.error.code === 'import.field_not_found' ||
-        result.error.code === 'import.column_index_out_of_range' ||
-        result.error.tags?.includes('validation')
-          ? HttpStatus.BAD_REQUEST
-          : result.error.tags?.includes('not-found')
-            ? HttpStatus.NOT_FOUND
-            : HttpStatus.INTERNAL_SERVER_ERROR;
+        result.error.code === 'import.source_interrupted' ||
+        result.error.code === 'csv.source_interrupted'
+          ? HttpStatus.GATEWAY_TIMEOUT
+          : result.error.code === 'import.field_not_found' ||
+              result.error.code === 'import.column_index_out_of_range' ||
+              result.error.tags?.includes('validation')
+            ? HttpStatus.BAD_REQUEST
+            : result.error.tags?.includes('not-found')
+              ? HttpStatus.NOT_FOUND
+              : HttpStatus.INTERNAL_SERVER_ERROR;
 
       throwV2Error(result.error, status);
     }

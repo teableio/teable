@@ -34,9 +34,10 @@ export class GetViewCollaboratorsResult {
 
 @QueryHandler(GetViewCollaboratorsQuery)
 @injectable()
-export class GetViewCollaboratorsHandler
-  implements IQueryHandler<GetViewCollaboratorsQuery, GetViewCollaboratorsResult>
-{
+export class GetViewCollaboratorsHandler implements IQueryHandler<
+  GetViewCollaboratorsQuery,
+  GetViewCollaboratorsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

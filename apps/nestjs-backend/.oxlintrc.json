@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../packages/eslint-config-bases/src/bases/typescript.json",
+    "../../packages/eslint-config-bases/src/bases/sonar.json",
+    "../../packages/eslint-config-bases/src/bases/regexp.json",
+    "../../packages/eslint-config-bases/src/bases/jest.json",
+    "../../packages/eslint-config-bases/src/bases/no-ssrf.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "overrides": [
+    {
+      "files": ["src/utils/ssrf-http.ts"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "teable/no-bare-fetch": "off"
+      }
+    },
+    {
+      "files": ["src/event-emitter/events/**/*.event.ts"],
+      "rules": {
+        "teable/naming-convention": "off"
+      }
+    },
+    {
+      "files": ["src/**/*.controller.ts"],
+      "rules": {
+        "teable/consistent-type-imports": "off"
+      }
+    }
+  ]
+}

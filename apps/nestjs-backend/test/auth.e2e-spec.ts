@@ -63,6 +63,12 @@ import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
 
+const anonymousAxios = () => {
+  const instance = createAxios();
+  instance.defaults.baseURL = openApiAxios.defaults.baseURL;
+  return instance;
+};
+
 describe('Auth Controller (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
@@ -337,6 +343,49 @@ describe('Auth Controller (e2e)', () => {
     });
   });
 
+  describe('cross-site sign-in (login CSRF)', () => {
+    const csrfEmail = 'signin-csrf@test-auth.com';
+    const password = '12345678a';
+
+    beforeAll(async () => {
+      await createNewUserAxios({ email: csrfEmail, password });
+    });
+
+    afterAll(async () => {
+      await prismaService.user.deleteMany({ where: { email: csrfEmail } });
+    });
+
+    it('api/auth/signin - a form POST from another site gets no session', async () => {
+      const error = await getError(() =>
+        anonymousAxios().post(
+          SIGN_IN,
+          new URLSearchParams({ email: csrfEmail, password }).toString(),
+          {
+            /* eslint-disable @typescript-eslint/naming-convention */
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Origin: 'https://evil.example',
+              'Sec-Fetch-Site': 'cross-site',
+            },
+            /* eslint-enable @typescript-eslint/naming-convention */
+          }
+        )
+      );
+      expect(error?.status).toBe(403);
+    });
+
+    it('api/auth/signin - a same-origin sign-in still works', async () => {
+      const res = await anonymousAxios().post<IUserMeVo>(
+        SIGN_IN,
+        { email: csrfEmail, password },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        { headers: { 'Sec-Fetch-Site': 'same-origin' } }
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers['set-cookie']?.join(';')).toContain(AUTH_SESSION_COOKIE_NAME);
+    });
+  });
+
   describe('sign in with email code', () => {
     const codeEmail = 'signin-code@test-auth.com';
     let cacheService: CacheService;
@@ -345,12 +394,6 @@ describe('Auth Controller (e2e)', () => {
       const cached = await cacheService.get(`auth:signin-code:${codeEmail}`);
       expect(cached?.code).toMatch(/^\d{6}$/);
       return cached!.code;
-    };
-
-    const anonymousAxios = () => {
-      const instance = createAxios();
-      instance.defaults.baseURL = openApiAxios.defaults.baseURL;
-      return instance;
     };
 
     beforeAll(async () => {

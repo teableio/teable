@@ -45,9 +45,7 @@ const tableNameLength = (context: TableOperationPluginContext): number => {
   }
 };
 
-export class TableDataSafetyLimitTableOperationPlugin
-  implements ITableOperationPlugin<PreparedTableDataSafetyOperationLimitState>
-{
+export class TableDataSafetyLimitTableOperationPlugin implements ITableOperationPlugin<PreparedTableDataSafetyOperationLimitState> {
   readonly name = 'table-data-safety-table-operation-limit';
   readonly enforce = 'post' as const;
 

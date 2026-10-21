@@ -6,9 +6,9 @@ import type { Table } from '../Table';
 import type { TableName } from '../TableName';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
-export class TableByNameSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableByNameSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private constructor(private readonly tableNameValue: TableName) {}
 
   static create(tableName: TableName): TableByNameSpec {

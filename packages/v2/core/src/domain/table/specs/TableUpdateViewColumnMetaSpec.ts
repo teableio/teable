@@ -6,7 +6,11 @@ import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../fields/FieldId';
 import { Table } from '../Table';
 import type { View } from '../views/View';
-import { ViewColumnMeta, type ViewColumnMetaChange } from '../views/ViewColumnMeta';
+import {
+  keepPrimaryFieldVisible,
+  ViewColumnMeta,
+  type ViewColumnMetaChange,
+} from '../views/ViewColumnMeta';
 import type { ViewId } from '../views/ViewId';
 import { CloneViewVisitor } from '../views/visitors/CloneViewVisitor';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
@@ -21,6 +25,9 @@ export type TableViewColumnMetaUpdate = {
   optionsChanged?: boolean;
 };
 
+// Every producer builds this spec through `create(table, updates)`, so the persisted
+// payload and the mutated aggregate both carry invariant-preserving metadata.
+
 export class TableUpdateViewColumnMetaSpec<
   V extends ITableSpecVisitor = ITableSpecVisitor,
 > extends MutateOnlySpec<Table, V> {
@@ -28,8 +35,42 @@ export class TableUpdateViewColumnMetaSpec<
     super();
   }
 
-  static create(updates: ReadonlyArray<TableViewColumnMetaUpdate>): TableUpdateViewColumnMetaSpec {
-    return new TableUpdateViewColumnMetaSpec(updates);
+  static create(
+    table: Table,
+    updates: ReadonlyArray<TableViewColumnMetaUpdate>
+  ): TableUpdateViewColumnMetaSpec {
+    return new TableUpdateViewColumnMetaSpec(
+      updates.map((update) => TableUpdateViewColumnMetaSpec.normalizeUpdate(table, update))
+    );
+  }
+
+  /**
+   * A gallery primary column is never hidden in persisted metadata. The value object
+   * owns the rule; this method only applies it to the payload and to the reported
+   * changes so events and rows stay identical.
+   */
+  private static normalizeUpdate(
+    table: Table,
+    update: TableViewColumnMetaUpdate
+  ): TableViewColumnMetaUpdate {
+    const view = table.getView(update.viewId);
+    if (view.isErr()) return update;
+
+    const viewType = view.value.type();
+    const primaryFieldId = table.primaryFieldId();
+    const columnMeta = update.columnMeta.withPrimaryFieldVisible(viewType, primaryFieldId);
+    const changes = update.changes
+      ?.map((change) =>
+        change.fieldId.equals(primaryFieldId)
+          ? { ...change, nextColumnMeta: keepPrimaryFieldVisible(viewType, change.nextColumnMeta) }
+          : change
+      )
+      .filter(
+        (change) =>
+          JSON.stringify(change.previousColumnMeta) !== JSON.stringify(change.nextColumnMeta)
+      );
+
+    return { ...update, columnMeta, ...(changes ? { changes } : {}) };
   }
 
   static fromTableWithFieldId(
@@ -73,7 +114,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-      return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+      return updatesResult.map((updates) => this.create(table, updates));
     });
   }
 
@@ -102,7 +143,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-    return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+    return updatesResult.map((updates) => this.create(table, updates));
   }
 
   static forDuplicatePlacement(params: {
@@ -159,7 +200,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-    return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+    return updatesResult.map((updates) => this.create(table, updates));
   }
 
   updates(): ReadonlyArray<TableViewColumnMetaUpdate> {

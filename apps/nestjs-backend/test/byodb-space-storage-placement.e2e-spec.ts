@@ -1039,9 +1039,9 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       };
       const schemaRows = await scopedDataPrisma
         .txClient()
-        .$queryRawUnsafe<
-          Array<{ schema: string; historyTable: string | null }>
-        >(`select current_schema()::text as schema, to_regclass('record_history')::text as "historyTable"`);
+        .$queryRawUnsafe<Array<{ schema: string; historyTable: string | null }>>(
+          `select current_schema()::text as schema, to_regclass('record_history')::text as "historyTable"`
+        );
       expect(schemaRows).toEqual([
         { schema: poolerInternalSchema, historyTable: 'record_history' },
       ]);

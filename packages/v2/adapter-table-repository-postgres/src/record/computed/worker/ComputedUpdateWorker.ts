@@ -3062,7 +3062,7 @@ export class ComputedUpdateWorker {
       // propagation completed; a truncated slice re-seeds from the old cursor.
       const seedAllCursors = propagationTruncated
         ? plan.seedAllCursors
-        : partialOutcome.seedAllCursors ?? plan.seedAllCursors;
+        : (partialOutcome.seedAllCursors ?? plan.seedAllCursors);
       // Normalize every whole-table-seeded source (explicit seed-all and the
       // implicit schema-update case alike, as reported by the batch itself) to
       // explicit seedAllTableIds: continuations must not re-derive the implicit
@@ -3137,7 +3137,7 @@ export class ComputedUpdateWorker {
             )
           ).values(),
         ]
-      : params.fallbackCollectTableIds ?? stageStepTables;
+      : (params.fallbackCollectTableIds ?? stageStepTables);
     const seedGroupsResult = await this.updater.collectStageOutputSeedGroups(params.context, {
       scopeId: params.ledgerScopeId,
       tableIds: dirtyCollectionTableIds,

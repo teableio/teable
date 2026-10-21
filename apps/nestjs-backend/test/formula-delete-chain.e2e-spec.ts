@@ -97,9 +97,9 @@ describe('Formula delete dependency chain (e2e)', () => {
     const row = (
       await prisma
         .txClient()
-        .$queryRawUnsafe<
-          Record<string, unknown>[]
-        >(`SELECT * FROM "${schema}"."${tableName}" LIMIT 1`)
+        .$queryRawUnsafe<Record<string, unknown>[]>(
+          `SELECT * FROM "${schema}"."${tableName}" LIMIT 1`
+        )
     )[0];
     expect(row?.[fieldB.dbFieldName]).toBeNull();
     expect(row?.[fieldC.dbFieldName]).toBeNull();

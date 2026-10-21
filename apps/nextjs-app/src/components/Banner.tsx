@@ -14,7 +14,7 @@ export const Banner: FC<Props> = () => {
             <p className="ms-3 truncate font-medium text-white">
               <span className="md:hidden">We announced a new product!</span>
               <span className="hidden md:inline">
-                Big news! We're excited to announce a brand new product.
+                Big news! We&apos;re excited to announce a brand new product.
               </span>
             </p>
           </div>

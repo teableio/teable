@@ -62,9 +62,7 @@ const resolveItem = (
 };
 
 @injectable()
-export class AttachmentValueResolverService
-  implements ICellValueSpecResolver<SetAttachmentValueSpec>
-{
+export class AttachmentValueResolverService implements ICellValueSpecResolver<SetAttachmentValueSpec> {
   constructor(
     @inject(v2CoreTokens.attachmentLookupService)
     private readonly attachmentLookupService: IAttachmentLookupService
@@ -186,7 +184,7 @@ export class AttachmentValueResolverService
           resolvedItems.push(resolveItem(item, stored, usedIds, false));
         }
 
-        const resolvedValue = normalized.isArray ? resolvedItems : resolvedItems[0] ?? null;
+        const resolvedValue = normalized.isArray ? resolvedItems : (resolvedItems[0] ?? null);
         resolvedSpecs.push(
           new SetAttachmentValueSpec(
             spec.fieldId,

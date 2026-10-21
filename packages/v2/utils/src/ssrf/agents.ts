@@ -128,14 +128,14 @@ const selectPrivateNetworkAgentByProtocol = (parsedUrl: URL) =>
  * SSRF-safe http/https agents for axios: `axios.get(url, { ...getSafeAxiosAgents() })`.
  * Returns an empty object (default agents) when protection is disabled via env var.
  */
-export function getSafeAxiosAgents(): {
+export function getSafeAxiosAgents(options?: ISafeAgentOptions): {
   httpAgent?: RequestFilteringHttpAgent;
   httpsAgent?: RequestFilteringHttpsAgent;
 } {
   if (isSsrfProtectionDisabled()) {
     return EMPTY_AGENTS;
   }
-  return SAFE_AGENTS;
+  return options?.allowPrivateNetwork ? PRIVATE_NETWORK_AGENTS : SAFE_AGENTS;
 }
 
 /**

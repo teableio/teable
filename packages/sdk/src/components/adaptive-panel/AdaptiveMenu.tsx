@@ -125,7 +125,7 @@ export const AdaptiveMenu = (props: IAdaptiveMenuProps) => {
                     <div
                       role="group"
                       aria-labelledby={section.label ? labelId : undefined}
-                      aria-label={section.label ? undefined : section.ariaLabel ?? title}
+                      aria-label={section.label ? undefined : (section.ariaLabel ?? title)}
                       className="flex flex-col"
                     >
                       {section.options.map(({ value, label, Icon }) => {

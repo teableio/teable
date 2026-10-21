@@ -5,9 +5,7 @@ let manifest;
 try {
   manifest = require('./.next/build-manifest.json');
 } catch (e) {
-  throw new Error(
-    'Cannot find a NextJs build folder, did you forget to build ?'
-  );
+  throw new Error('Cannot find a NextJs build folder, did you forget to build ?');
 }
 const pages = manifest.pages;
 

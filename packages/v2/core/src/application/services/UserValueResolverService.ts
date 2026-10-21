@@ -39,9 +39,9 @@ const toUserItem = (user: UserLookupRecord): UserItem => {
 };
 
 @injectable()
-export class UserValueResolverService
-  implements ICellValueSpecResolver<SetUserValueSpec | SetUserValueByIdentifierSpec>
-{
+export class UserValueResolverService implements ICellValueSpecResolver<
+  SetUserValueSpec | SetUserValueByIdentifierSpec
+> {
   constructor(
     @inject(v2CoreTokens.userLookupService)
     private readonly userLookupService: IUserLookupService
@@ -181,7 +181,7 @@ export class UserValueResolverService
             resolvedItems.push(toUserItem(user));
           }
 
-          const resolvedValue = spec.isMultiple ? resolvedItems : resolvedItems[0] ?? null;
+          const resolvedValue = spec.isMultiple ? resolvedItems : (resolvedItems[0] ?? null);
           resolvedSpecs.push(
             new SetUserValueSpec(
               spec.fieldId,
@@ -219,7 +219,7 @@ export class UserValueResolverService
           resolvedItems.push(toUserItem(user));
         }
 
-        const resolvedValue = normalized.isArray ? resolvedItems : resolvedItems[0] ?? null;
+        const resolvedValue = normalized.isArray ? resolvedItems : (resolvedItems[0] ?? null);
         resolvedSpecs.push(
           new SetUserValueSpec(
             spec.fieldId,

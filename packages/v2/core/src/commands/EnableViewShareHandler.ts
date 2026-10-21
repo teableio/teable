@@ -37,9 +37,10 @@ export class EnableViewShareResult {
 
 @CommandHandler(EnableViewShareCommand)
 @injectable()
-export class EnableViewShareHandler
-  implements ICommandHandler<EnableViewShareCommand, EnableViewShareResult>
-{
+export class EnableViewShareHandler implements ICommandHandler<
+  EnableViewShareCommand,
+  EnableViewShareResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

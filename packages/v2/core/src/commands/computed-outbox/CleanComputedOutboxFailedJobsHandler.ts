@@ -18,10 +18,10 @@ export class CleanComputedOutboxFailedJobsResult {
 
 @CommandHandler(CleanComputedOutboxFailedJobsCommand)
 @injectable()
-export class CleanComputedOutboxFailedJobsHandler
-  implements
-    ICommandHandler<CleanComputedOutboxFailedJobsCommand, CleanComputedOutboxFailedJobsResult>
-{
+export class CleanComputedOutboxFailedJobsHandler implements ICommandHandler<
+  CleanComputedOutboxFailedJobsCommand,
+  CleanComputedOutboxFailedJobsResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

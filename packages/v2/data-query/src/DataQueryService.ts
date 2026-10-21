@@ -82,7 +82,7 @@ export class DataQueryService {
           context,
           'schema.compatibility',
           attributes,
-          async () => DataQueryBinding.prepare(definition, table)
+          async () => DataQueryBinding.prepare(definition, table, { deferOperatorRejection: true })
         );
         return ok({ table, binding, attributes });
       }.bind(this)
@@ -100,6 +100,7 @@ export class DataQueryService {
           yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
             this.authorize(context, table, binding)
           );
+          if (binding.deferredFilterError) return err(binding.deferredFilterError);
           return ok({ outputs: binding.outputs });
         }.bind(this)
       );
@@ -127,6 +128,7 @@ export class DataQueryService {
           const scope = yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
             this.authorize(context, table, binding, query)
           );
+          if (binding.deferredFilterError) return err(binding.deferredFilterError);
           const result = yield* await this.executor.execute(context, table, query, scope);
           return ok(result);
         }.bind(this)

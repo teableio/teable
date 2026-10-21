@@ -286,9 +286,9 @@ export class RecordQueryPluginExecution {
 
       const restrictsAccess = Boolean(
         scope.recordSpec ||
-          scope.skipRecordSpec ||
-          scope.readableFieldIds != null ||
-          scope.fieldMasks?.length
+        scope.skipRecordSpec ||
+        scope.readableFieldIds != null ||
+        scope.fieldMasks?.length
       );
       if (restrictsAccess) {
         hasRestrictingScope = true;

@@ -1047,7 +1047,7 @@ describe('ListTableRecordsHandler', () => {
       .getField((field) => field.name().toString() === 'Status')
       ._unsafeUnwrap();
     const view = table.views()[0]!;
-    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create([
+    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: view.id(),
         fieldId: statusField.id(),
@@ -1102,7 +1102,7 @@ describe('ListTableRecordsHandler', () => {
       .getField((field) => field.name().toString() === 'Status')
       ._unsafeUnwrap();
     const view = table.views()[0]!;
-    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create([
+    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: view.id(),
         fieldId: statusField.id(),
@@ -1495,7 +1495,7 @@ describe('ListTableRecordsHandler', () => {
       ._unsafeUnwrap();
     const view = table.views()[0]!;
     const baseMeta = view.columnMeta()._unsafeUnwrap().toDto();
-    const tableWithHiddenFields = TableUpdateViewColumnMetaSpec.create([
+    const tableWithHiddenFields = TableUpdateViewColumnMetaSpec.create(table, [
       {
         viewId: view.id(),
         fieldId: titleField.id(),

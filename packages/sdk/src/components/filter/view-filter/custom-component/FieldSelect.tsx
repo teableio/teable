@@ -12,8 +12,9 @@ import { useFields } from '../hooks/useFields';
 import { useFilterModal } from '../hooks/useFilterModal';
 import type { IViewFilterConditionItem } from '../types';
 
-interface IFieldSelectProps<T extends IConditionItemProperty = IViewFilterConditionItem>
-  extends IBaseFilterCustomComponentProps<T, string | null> {}
+interface IFieldSelectProps<
+  T extends IConditionItemProperty = IViewFilterConditionItem,
+> extends IBaseFilterCustomComponentProps<T, string | null> {}
 
 export const FieldSelect = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IFieldSelectProps<T>

@@ -152,7 +152,7 @@ const MultiFieldContent = ({
     [targetFields, selectedFieldId]
   );
 
-  const selectedItems = selectedFieldId ? fieldRiskMap.get(selectedFieldId) ?? [] : [];
+  const selectedItems = selectedFieldId ? (fieldRiskMap.get(selectedFieldId) ?? []) : [];
 
   return (
     <AlertDialogDescription asChild>

@@ -18,6 +18,7 @@ import {
   DefaultTableMapper,
   buildRecordConditionSpec,
   domainError,
+  err,
   ok,
 } from '@teable/v2-core';
 import type {
@@ -1787,19 +1788,183 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const { db } = createRecordingDb();
     const repo = createRepository(db, table);
 
+    const sourceError = domainError.validation({ message: 'insert stream exploded' });
+    const close = vi.fn(async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+      throw new Error('source close failed');
+    });
     const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
       [Symbol.asyncIterator]() {
         return {
           next: async () => {
-            throw domainError.validation({ message: 'insert stream exploded' });
+            throw sourceError;
+          },
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    expect(result._unsafeUnwrapErr()).toBe(sourceError);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifies a source stream failure with the progress it observed', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SourceInterruptedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const record = TableRecord.fromRawFieldValues({
+      id: RECORD_ID,
+      tableId,
+      fields: { [nameFieldId.toString()]: 'Alice' },
+    })._unsafeUnwrap();
+    vi.spyOn(repo, 'insertMany').mockResolvedValue(ok({}));
+
+    const sourceError = new TypeError(
+      'fetch failed for https://bucket.example/source.csv?X-Amz-Signature=secret'
+    );
+    let served = 0;
+    const close = vi.fn(
+      async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
+        done: true,
+        value: undefined,
+      })
+    );
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+            served += 1;
+            if (served === 1) return { done: false, value: [record] };
+            throw sourceError;
+          },
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('record.insert_many_stream.source_interrupted');
+    expect(error.tags).toContain('infrastructure');
+    expect(error.message).toContain('interrupted after 1 row(s) in 1 batch(es)');
+    expect(error.message).not.toContain('X-Amz-Signature');
+    expect(error.details).toMatchObject({
+      insertedRows: 1,
+      insertedBatches: 1,
+      retryable: true,
+    });
+    expect(error.details).not.toHaveProperty('cause');
+    expect(error.cause).toBe(sourceError);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the stream once when a write fails and cleanup also throws', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('WriteFailedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const writeError = domainError.infrastructure({
+      code: 'record.write_failed',
+      message: 'write failed',
+    });
+    const insertMany = vi.spyOn(repo, 'insertMany').mockResolvedValue(err(writeError));
+    const close = vi.fn(async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+      throw new Error('source close failed');
+    });
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
+            done: false,
+            value: [],
+          }),
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    expect(result._unsafeUnwrapErr()).toBe(writeError);
+    expect(insertMany).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a thrown non-Error source failure instead of treating it as completion', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('ValuelessSourceFailureTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async () => {
+            // An interrupted source is not required to throw an Error instance.
+            throw undefined;
           },
         };
       },
     };
 
     const result = await repo.insertManyStream({ actorId }, table, batches);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('insert stream exploded');
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('record.insert_many_stream.source_interrupted');
+    expect(error.details).toMatchObject({
+      insertedRows: 0,
+      insertedBatches: 0,
+      retryable: true,
+    });
   });
 
   it('skips changed-field returning for restore-style insert streams', async () => {

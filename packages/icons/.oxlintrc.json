@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../eslint-config-bases/src/bases/sonar.json",
+    "../eslint-config-bases/src/bases/react.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts", "/scripts"]
+}

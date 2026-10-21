@@ -369,10 +369,10 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         group: command.groupBy,
       });
       const effectiveFilter = command.ignoreViewQuery
-        ? command.filter ?? undefined
+        ? (command.filter ?? undefined)
         : mergedDefaults.filter();
       const effectiveSort = command.ignoreViewQuery
-        ? command.sort ?? undefined
+        ? (command.sort ?? undefined)
         : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
@@ -464,7 +464,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
-        ? command.groupBy ?? undefined
+        ? (command.groupBy ?? undefined)
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
@@ -2046,7 +2046,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const title =
           typeof existingTitle === 'string'
             ? existingTitle
-            : linkTitleMap?.get(recordId) ?? undefined;
+            : (linkTitleMap?.get(recordId) ?? undefined);
         return title ? { ...(item as Record<string, unknown>), id: recordId, title } : item;
       }
 
@@ -2592,10 +2592,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       group: command.groupBy,
     });
     const effectiveFilter = command.ignoreViewQuery
-      ? command.filter ?? undefined
+      ? (command.filter ?? undefined)
       : mergedDefaults.filter();
     const effectiveSort = command.ignoreViewQuery
-      ? command.sort ?? undefined
+      ? (command.sort ?? undefined)
       : mergedDefaults.sort();
 
     const actorResolvedFilter = replaceCurrentUserTagInFilter(
@@ -2719,7 +2719,7 @@ export class PasteStreamApplicationService extends PasteHandler {
     });
 
     const effectiveGroup = command.ignoreViewQuery
-      ? command.groupBy ?? undefined
+      ? (command.groupBy ?? undefined)
       : mergedDefaults.group();
     const groupByOrderByResult = resolveGroupByToOrderBy(effectiveGroup);
     if (groupByOrderByResult.isErr()) {

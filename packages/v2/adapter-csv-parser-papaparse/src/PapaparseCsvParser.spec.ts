@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm';
 import Papa from 'papaparse';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as replayFactory from './createCsvReplayStore';
+import { CSV_SOURCE_MAX_BYTES_ENV, DEFAULT_CSV_SOURCE_MAX_BYTES } from './CsvSourceSnapshot';
 import { createNodeCsvReplayStore } from './NodeCsvReplayStore';
 import { PapaparseCsvParser } from './PapaparseCsvParser';
 import { parseCsvRows } from './parseCsvRows';
@@ -33,6 +34,7 @@ const createCsvResponse = (chunks: string[]) => {
 describe('PapaparseCsvParser', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -224,26 +226,173 @@ describe('PapaparseCsvParser', () => {
     expect(rows).toEqual([{ [header]: 'value', b: '1' }]);
   });
 
-  it('cancels and unlocks URL bodies when the consumer stops', async () => {
-    const cancel = vi.fn();
-    const body = new ReadableStream<Uint8Array>({
-      pull(controller) {
-        controller.enqueue(new TextEncoder().encode('Name,Age\nAlice,30\n'));
-      },
-      cancel,
-    });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+  const snapshotDirectories = async () =>
+    (await readdir(tmpdir())).filter((name) => name.startsWith('teable-csv-source-'));
+
+  it('snapshots a URL body before yielding rows and releases it when the consumer stops', async () => {
+    const before = await snapshotDirectories();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createCsvResponse(['Name,Age\nAlice,30\nBob,40\n']))
+    );
     const result = await new PapaparseCsvParser().parseAsync({
       type: 'url',
       url: 'https://example.com/synthetic.csv',
     });
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
+    // The network body is complete before the first row reaches the consumer.
+    const snapshots = await snapshotDirectories();
+    expect(snapshots.length).toBe(before.length + 1);
+
     const iterator = result.value.rowsAsync![Symbol.asyncIterator]();
-    // Even a consumer which only needed headers must be able to release the source.
+    const first = await iterator.next();
+    expect(first.value).toEqual({ Name: 'Alice', Age: '30' });
+    // Even a consumer which only needed the header must release the snapshot.
     await iterator.return?.();
-    expect(cancel).toHaveBeenCalledOnce();
-    expect(body.locked).toBe(false);
+    expect(await snapshotDirectories()).toEqual(before);
+  });
+
+  it('reports a bounded interrupted-source error instead of a raw stream failure', async () => {
+    const before = await snapshotDirectories();
+    const encoder = new TextEncoder();
+    let sent = false;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (!sent) {
+                sent = true;
+                controller.enqueue(encoder.encode('Name,Age\nAlice,30\n'));
+                return;
+              }
+              controller.error(new TypeError('terminated'));
+            },
+          })
+        )
+      )
+    );
+
+    const result = await new PapaparseCsvParser().parseAsync({
+      type: 'url',
+      url: 'https://example.com/cut.csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('csv.source_interrupted');
+    expect(error.message).toContain('interrupted after 18 byte(s)');
+    expect(error.message).toContain('512 MiB single-file limit');
+    expect(error.message).toContain('retry the whole import');
+    expect(error.message).not.toContain('terminated');
+    expect(error.details).toMatchObject({
+      receivedBytes: 18,
+      maxBytes: DEFAULT_CSV_SOURCE_MAX_BYTES,
+      retryable: true,
+    });
+    expect(error.details).not.toHaveProperty('cause');
+    expect((error.cause as Error).message).toBe('terminated');
+    expect(await snapshotDirectories()).toEqual(before);
+  });
+
+  it('does not expose transport content from a failed fetch', async () => {
+    const presignedUrl = 'https://bucket.example/source.csv?X-Amz-Signature=secret';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError(`fetch failed for ${presignedUrl}`))
+    );
+
+    const result = await new PapaparseCsvParser().parseAsync({
+      type: 'url',
+      url: 'https://example.com/source.csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('csv.source_interrupted');
+    expect(error.message).not.toContain('X-Amz-Signature');
+    expect(JSON.stringify(error.details)).not.toContain('X-Amz-Signature');
+    expect((error.cause as Error).message).toContain('X-Amz-Signature');
+  });
+
+  it('classifies a local staging failure as infrastructure', async () => {
+    vi.stubEnv('TMPDIR', '/nonexistent-teable-snapshot-root/import');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new PapaparseCsvParser().parseAsync({
+      type: 'url',
+      url: 'https://example.com/source.csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('csv.source_snapshot_io_failed');
+    expect(error.tags).toContain('infrastructure');
+    expect(error.details).toMatchObject({ retryable: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('cancels the response body when the snapshot file cannot be opened', async () => {
+    const before = await snapshotDirectories();
+    const getBuiltinModule = process.getBuiltinModule.bind(process);
+    vi.spyOn(process, 'getBuiltinModule').mockImplementation(((id: string) => {
+      if (id !== 'node:fs') return getBuiltinModule(id);
+      const fs = getBuiltinModule('node:fs');
+      return {
+        ...fs,
+        promises: {
+          ...fs.promises,
+          open: vi.fn().mockRejectedValue(new Error('EIO')),
+        },
+      };
+    }) as unknown as typeof process.getBuiltinModule);
+    const cancel = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('Name\nAlice\n'));
+            },
+            cancel,
+          })
+        )
+      )
+    );
+
+    const result = await new PapaparseCsvParser().parseAsync({
+      type: 'url',
+      url: 'https://example.com/source.csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('csv.source_snapshot_io_failed');
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(await snapshotDirectories()).toEqual(before);
+  });
+
+  it('rejects a URL source above the snapshot byte limit without parsing rows', async () => {
+    vi.stubEnv(CSV_SOURCE_MAX_BYTES_ENV, '8');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createCsvResponse(['Name,Age\nAlice,30\nBob,40\n']))
+    );
+
+    const result = await new PapaparseCsvParser().parseAsync({
+      type: 'url',
+      url: 'https://example.com/large.csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('csv.source_too_large');
+    expect(error.message).toContain('TEABLE_CSV_SOURCE_MAX_BYTES');
+    expect(error.details).toMatchObject({ maxBytes: 8 });
+    expect(error.details?.receivedBytes).toBeGreaterThan(8);
   });
 
   it('streams explicit data without allocating all parsed rows', async () => {

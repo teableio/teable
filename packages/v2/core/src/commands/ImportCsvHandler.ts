@@ -34,9 +34,10 @@ export { ImportTabularTableResult as ImportCsvResult } from '../application/serv
  */
 @CommandHandler(ImportCsvCommand)
 @injectable()
-export class ImportCsvHandler
-  implements ICommandHandler<ImportCsvCommand, ImportTabularTableResult>
-{
+export class ImportCsvHandler implements ICommandHandler<
+  ImportCsvCommand,
+  ImportTabularTableResult
+> {
   private readonly tabularImporter: ImportTabularTableService;
 
   constructor(

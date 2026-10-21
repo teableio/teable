@@ -1508,7 +1508,8 @@
     "pin": {
       "alreadyExists": "Favori zaten mevcut",
       "notFound": "Favori bulunamadı",
-      "anchorNotFound": "Favori bağlantı noktası bulunamadı"
+      "anchorNotFound": "Favori bağlantı noktası bulunamadı",
+      "targetNotFound": "Favorilere eklenecek öğe bulunamadı"
     },
     "trash": {
       "invalidResourceType": "Geçersiz kaynak türü",

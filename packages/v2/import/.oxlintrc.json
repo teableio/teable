@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../eslint-config-bases/src/bases/typescript.json",
+    "../../eslint-config-bases/src/bases/sonar.json",
+    "../../eslint-config-bases/src/bases/regexp.json",
+    "../../eslint-config-bases/src/bases/jest.json",
+    "../../eslint-config-bases/src/bases/no-ssrf.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "import-js/order": "warn",
+    "sonarjs/no-duplicate-string": "warn"
+  },
+  "overrides": [
+    {
+      // Rules a preset sets for a file pattern can only be changed from an override.
+      "files": ["**/*"],
+      "rules": {
+        "sonarjs/cognitive-complexity": "warn"
+      }
+    }
+  ]
+}

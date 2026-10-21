@@ -15,8 +15,9 @@ const PopoverAnchor = PopoverPrimitive.Anchor;
 const PopoverArrow = PopoverPrimitive.Arrow;
 
 // Customize portal container element
-interface PopoverContentProps
-  extends React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> {
+interface PopoverContentProps extends React.ComponentPropsWithoutRef<
+  typeof PopoverPrimitive.Content
+> {
   container?: HTMLElement | null;
 }
 

@@ -31,9 +31,10 @@ export class UpdateViewPluginStorageResult {
 
 @CommandHandler(UpdateViewPluginStorageCommand)
 @injectable()
-export class UpdateViewPluginStorageHandler
-  implements ICommandHandler<UpdateViewPluginStorageCommand, UpdateViewPluginStorageResult>
-{
+export class UpdateViewPluginStorageHandler implements ICommandHandler<
+  UpdateViewPluginStorageCommand,
+  UpdateViewPluginStorageResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

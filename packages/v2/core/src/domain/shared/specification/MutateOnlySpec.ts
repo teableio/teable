@@ -4,9 +4,10 @@ import type { DomainError } from '../DomainError';
 import type { ISpecification } from './ISpecification';
 import type { ISpecVisitor } from './ISpecVisitor';
 
-export abstract class MutateOnlySpec<T, V extends ISpecVisitor = ISpecVisitor>
-  implements ISpecification<T, V>
-{
+export abstract class MutateOnlySpec<
+  T,
+  V extends ISpecVisitor = ISpecVisitor,
+> implements ISpecification<T, V> {
   isSatisfiedBy(_: T): boolean {
     return true;
   }

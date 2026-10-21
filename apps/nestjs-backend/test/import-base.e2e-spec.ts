@@ -1049,7 +1049,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const primaryOptions =
         typeof importedPrimaryField?.options === 'string'
           ? (JSON.parse(importedPrimaryField.options) as { expression?: string })
-          : (importedPrimaryField?.options as { expression?: string }) ?? {};
+          : ((importedPrimaryField?.options as { expression?: string }) ?? {});
 
       expect(primaryOptions.expression).toBeDefined();
       expect(primaryOptions.expression).toContain(`{${importedRemainingField!.id}}`);
@@ -1063,7 +1063,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const persistedMeta =
         typeof primaryFieldRaw.meta === 'string'
           ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
-          : primaryFieldRaw.meta ?? {};
+          : (primaryFieldRaw.meta ?? {});
       expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
     });
   });
@@ -2030,7 +2030,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const primaryOptions =
         typeof importedPrimaryField?.options === 'string'
           ? (JSON.parse(importedPrimaryField.options) as { expression?: string })
-          : (importedPrimaryField?.options as { expression?: string }) ?? {};
+          : ((importedPrimaryField?.options as { expression?: string }) ?? {});
       expect(primaryOptions.expression).toContain(`{${importedRemainingField!.id}}`);
       expect(importedPrimaryField?.hasError).toBeFalsy();
 
@@ -2042,7 +2042,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const persistedMeta =
         typeof primaryFieldRaw.meta === 'string'
           ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
-          : primaryFieldRaw.meta ?? {};
+          : (primaryFieldRaw.meta ?? {});
       expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
     });
 

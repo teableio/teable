@@ -49,9 +49,10 @@ export type RestoreRecordsStreamResult = AsyncIterable<RestoreRecordsStreamEvent
 
 @CommandHandler(RestoreRecordsStreamCommand)
 @injectable()
-export class RestoreRecordsStreamHandler
-  implements ICommandHandler<RestoreRecordsStreamCommand, RestoreRecordsStreamResult>
-{
+export class RestoreRecordsStreamHandler implements ICommandHandler<
+  RestoreRecordsStreamCommand,
+  RestoreRecordsStreamResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

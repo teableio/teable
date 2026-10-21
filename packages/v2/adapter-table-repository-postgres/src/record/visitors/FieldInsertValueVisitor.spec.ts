@@ -45,7 +45,7 @@ const createLinkField = (params: {
           : undefined,
         tableName: params.hostTableName?.includes('.')
           ? params.hostTableName.split('.')[1]
-          : params.hostTableName ?? 'junction_links',
+          : (params.hostTableName ?? 'junction_links'),
       }),
   }),
   selfKeyNameString: () => ok(params.selfKeyName ?? '__fk_self'),

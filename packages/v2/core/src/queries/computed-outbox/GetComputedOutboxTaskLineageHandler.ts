@@ -19,9 +19,10 @@ export class GetComputedOutboxTaskLineageResult {
 
 @QueryHandler(GetComputedOutboxTaskLineageQuery)
 @injectable()
-export class GetComputedOutboxTaskLineageHandler
-  implements IQueryHandler<GetComputedOutboxTaskLineageQuery, GetComputedOutboxTaskLineageResult>
-{
+export class GetComputedOutboxTaskLineageHandler implements IQueryHandler<
+  GetComputedOutboxTaskLineageQuery,
+  GetComputedOutboxTaskLineageResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

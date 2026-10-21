@@ -31,9 +31,10 @@ export class SetButtonValueResult {
 
 @CommandHandler(SetButtonValueCommand)
 @injectable()
-export class SetButtonValueHandler
-  implements ICommandHandler<SetButtonValueCommand, SetButtonValueResult>
-{
+export class SetButtonValueHandler implements ICommandHandler<
+  SetButtonValueCommand,
+  SetButtonValueResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

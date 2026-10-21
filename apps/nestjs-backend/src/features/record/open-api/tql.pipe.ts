@@ -4,9 +4,9 @@ import type { IFilter } from '@teable/core';
 import { parseTQL } from '@teable/core';
 
 @Injectable()
-export class TqlPipe<T extends { filterByTql?: string; filter?: IFilter }>
-  implements PipeTransform
-{
+export class TqlPipe<
+  T extends { filterByTql?: string; filter?: IFilter },
+> implements PipeTransform {
   transform(value: T, _metadata: ArgumentMetadata) {
     this.transformFilterTql(value);
     return value;

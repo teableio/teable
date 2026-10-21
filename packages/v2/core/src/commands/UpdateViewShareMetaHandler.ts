@@ -44,9 +44,10 @@ export class UpdateViewShareMetaResult {
 
 @CommandHandler(UpdateViewShareMetaCommand)
 @injectable()
-export class UpdateViewShareMetaHandler
-  implements ICommandHandler<UpdateViewShareMetaCommand, UpdateViewShareMetaResult>
-{
+export class UpdateViewShareMetaHandler implements ICommandHandler<
+  UpdateViewShareMetaCommand,
+  UpdateViewShareMetaResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

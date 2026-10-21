@@ -48,9 +48,10 @@ export class DuplicateFieldResult {
 
 @CommandHandler(DuplicateFieldCommand)
 @injectable()
-export class DuplicateFieldHandler
-  implements ICommandHandler<DuplicateFieldCommand, DuplicateFieldResult>
-{
+export class DuplicateFieldHandler implements ICommandHandler<
+  DuplicateFieldCommand,
+  DuplicateFieldResult
+> {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,

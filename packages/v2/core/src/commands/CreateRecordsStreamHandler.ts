@@ -35,9 +35,10 @@ export class CreateRecordsStreamResult {
 
 @CommandHandler(CreateRecordsStreamCommand)
 @injectable()
-export class CreateRecordsStreamHandler
-  implements ICommandHandler<CreateRecordsStreamCommand, CreateRecordsStreamResult>
-{
+export class CreateRecordsStreamHandler implements ICommandHandler<
+  CreateRecordsStreamCommand,
+  CreateRecordsStreamResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

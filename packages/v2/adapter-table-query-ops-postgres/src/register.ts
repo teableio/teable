@@ -151,7 +151,7 @@ const registerObservationDependencies = async (
   container: DependencyContainer,
   input: ObservationRegistrationInput
 ): Promise<void> => {
-  const observationDb = input.disabled ? undefined : input.db ?? input.metaDb;
+  const observationDb = input.disabled ? undefined : (input.db ?? input.metaDb);
   if (observationDb && input.ensureSchema) {
     await ensureTableQueryObservationSchema(observationDb);
   }

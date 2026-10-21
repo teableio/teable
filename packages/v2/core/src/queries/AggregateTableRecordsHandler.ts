@@ -58,9 +58,10 @@ export class AggregateTableRecordsResult {
 
 @QueryHandler(AggregateTableRecordsQuery)
 @injectable()
-export class AggregateTableRecordsHandler
-  implements IQueryHandler<AggregateTableRecordsQuery, AggregateTableRecordsResult>
-{
+export class AggregateTableRecordsHandler implements IQueryHandler<
+  AggregateTableRecordsQuery,
+  AggregateTableRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
@@ -262,7 +263,7 @@ export class AggregateTableRecordsHandler
         }
         let aggregation = yield* table.createRecordAggregation({
           viewId: aggregationViewId,
-          fields: applyViewDefaults ? fields : fields ?? [],
+          fields: applyViewDefaults ? fields : (fields ?? []),
           groupBy: query.take != null ? undefined : groupBy,
           includeHiddenFields,
         });

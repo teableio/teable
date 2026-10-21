@@ -139,9 +139,10 @@ export const excelParseResultToCsvParseResult = (
  */
 @CommandHandler(ImportExcelCommand)
 @injectable()
-export class ImportExcelHandler
-  implements ICommandHandler<ImportExcelCommand, ImportTabularTableResult>
-{
+export class ImportExcelHandler implements ICommandHandler<
+  ImportExcelCommand,
+  ImportTabularTableResult
+> {
   private readonly tabularImporter: ImportTabularTableService;
 
   constructor(

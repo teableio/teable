@@ -1,6 +1,7 @@
 # Plugin Development Guide
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Plugin Structure](#plugin-structure)
 3. [Creating a Plugin](#creating-a-plugin)
@@ -17,19 +18,20 @@ Plugins are extensions that can be integrated into different positions within th
 
 Plugins can be integrated into two main positions:
 
-````typescript:packages/openapi/src/plugin/types.ts
+```typescript:packages/openapi/src/plugin/types.ts
 export enum PluginPosition {
   Dashboard = 'dashboard',
   View = 'view',
 }
-````
+```
 
 ## Plugin Structure
 
 ### Project Structure
+
 The plugins project uses Next.js App Router structure:
 
-````bash
+```bash
 plugins/
 ├── src/
 │   ├── app/
@@ -52,12 +54,13 @@ plugins/
 │   └── types.ts
 ├── package.json
 └── tsconfig.json
-````
+```
 
 ### Plugin Page Structure
+
 Each plugin should have its own directory under `src/app/` with the following structure:
 
-````typescript:plugins/src/app/chart/page.tsx
+```typescript:plugins/src/app/chart/page.tsx
 import type { Metadata } from 'next';
 import { EnvProvider } from '../../components/EnvProvider';
 import { I18nProvider } from '../../components/I18nProvider';
@@ -93,24 +96,26 @@ export default async function Home(props: { searchParams: IPageParams }) {
     </main>
   );
 }
-````
+```
 
 ## Creating a Plugin
 
 ### 1. Create Plugin Directory
+
 Add a new directory under `src/app/` for your plugin:
 
-````bash
+```bash
 src/app/my-plugin/
 ├── components/
 ├── page.tsx
 └── favicon.ico
-````
+```
 
 ### 2. Configure Plugin
+
 Create a plugin configuration file:
 
-````typescript:apps/nestjs-backend/src/features/plugin/official/config/my-plugin.ts
+```typescript:apps/nestjs-backend/src/features/plugin/official/config/my-plugin.ts
 import { PluginPosition } from '@teable/openapi';
 import type { IOfficialPluginConfig } from './types';
 
@@ -133,7 +138,7 @@ export const myPluginConfig: IOfficialPluginConfig = {
   pluginUserId: 'plgmypluginuser',
   avatarPath: 'static/plugin/my-plugin.png',
 };
-````
+```
 
 ## Plugin Bridge
 
@@ -141,7 +146,7 @@ The Plugin Bridge enables communication between your plugin and the main applica
 
 ### Bridge Methods
 
-````typescript:apps/nextjs-app/src/features/app/components/plugin/PluginRender.tsx
+```typescript:apps/nextjs-app/src/features/app/components/plugin/PluginRender.tsx
 const methods: IParentBridgeMethods = {
   expandRecord: (recordIds) => {
     console.log('expandRecord', recordIds);
@@ -158,11 +163,11 @@ const methods: IParentBridgeMethods = {
     onExpand?.();
   },
 };
-````
+```
 
 ### Initializing the Bridge
 
-````typescript:packages/sdk/src/plugin-bridge/bridge.ts
+```typescript:packages/sdk/src/plugin-bridge/bridge.ts
 export const initializeBridge = async () => {
   if (typeof window === 'undefined') {
     return;
@@ -173,13 +178,13 @@ export const initializeBridge = async () => {
   (window as any)._teable_plugin_bridge = bridge;
   return bridge;
 };
-````
+```
 
 ## Internationalization
 
 Add translations for your plugin under `src/locales/[plugin-name]/`:
 
-````json:plugins/src/locales/my-plugin/zh.json
+```json:plugins/src/locales/my-plugin/zh.json
 {
   "title": "我的插件",
   "description": "插件描述",
@@ -188,7 +193,7 @@ Add translations for your plugin under `src/locales/[plugin-name]/`:
     "cancel": "取消"
   }
 }
-````
+```
 
 ## Publishing
 
@@ -198,13 +203,13 @@ Add translations for your plugin under `src/locales/[plugin-name]/`:
 
 ### Plugin Status Flow
 
-````typescript:packages/openapi/src/plugin/types.ts
+```typescript:packages/openapi/src/plugin/types.ts
 export enum PluginStatus {
   Developing = 'developing',
   Reviewing = 'reviewing',
   Published = 'published',
 }
-````
+```
 
 ## Best Practices
 

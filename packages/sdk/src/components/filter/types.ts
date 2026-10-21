@@ -40,8 +40,9 @@ export interface IConditionItemProperty {
 // base common types
 export type IConditionItem<T extends IConditionItemProperty = IConditionItemProperty> = T;
 
-export interface IConditionGroup<T extends IConditionItemProperty = IConditionItemProperty>
-  extends IBaseFilterProperty {
+export interface IConditionGroup<
+  T extends IConditionItemProperty = IConditionItemProperty,
+> extends IBaseFilterProperty {
   children: (IConditionItem<T> | IConditionGroup<T>)[];
 }
 

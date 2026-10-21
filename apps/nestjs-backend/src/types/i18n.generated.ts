@@ -3856,6 +3856,7 @@ export type I18nTranslations = {
                 "alreadyExists": string;
                 "notFound": string;
                 "anchorNotFound": string;
+                "targetNotFound": string;
             };
             "trash": {
                 "invalidResourceType": string;

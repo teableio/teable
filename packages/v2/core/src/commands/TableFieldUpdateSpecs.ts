@@ -305,7 +305,7 @@ const revealHiddenFormFieldSpec = (
     });
   }
   if (updates.length === 0) return ok(undefined);
-  return ok(TableUpdateViewColumnMetaSpec.create(updates));
+  return ok(TableUpdateViewColumnMetaSpec.create(table, updates));
 };
 
 const detachReplacementField = (field: Field, table: Table): Result<Field, DomainError> => {
@@ -1985,7 +1985,7 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
     const nextExpression = this.expressionValue ?? currentExpression;
     const nextTimeZone = this.timeZoneValue ?? currentTimeZone;
     let nextFormatting = this.formattingValue ?? currentFormatting;
-    const nextShowAs = this.shouldClearShowAs ? undefined : this.showAsValue ?? currentShowAs;
+    const nextShowAs = this.shouldClearShowAs ? undefined : (this.showAsValue ?? currentShowAs);
 
     // Resolve the valuesType from the foreign table's lookup field when available.
     // This is necessary because the current field's cellValueType is the *result* of
@@ -2688,7 +2688,7 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
         valuesField: valuesField.value,
         timeZone: this.timeZoneValue ?? currentField.timeZone(),
         formatting: nextFormatting,
-        showAs: this.shouldClearShowAs ? undefined : this.showAsValue ?? currentField.showAs(),
+        showAs: this.shouldClearShowAs ? undefined : (this.showAsValue ?? currentField.showAs()),
       });
       if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
       const updatedField = updatedFieldResult.value;
@@ -3621,11 +3621,11 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
           currentWorkflow,
           this.workflowClearable.shouldClear
             ? undefined
-            : this.workflowClearable.value ?? currentWorkflow,
+            : (this.workflowClearable.value ?? currentWorkflow),
           currentConfirm,
           this.confirmClearable.shouldClear
             ? undefined
-            : this.confirmClearable.value ?? currentConfirm
+            : (this.confirmClearable.value ?? currentConfirm)
         )
       );
     }
@@ -3985,7 +3985,7 @@ const parseTypeConversion = (
     id: currentField.id().toString(),
     name: fieldName,
     description: Object.hasOwn(input, 'description')
-      ? input.description ?? null
+      ? (input.description ?? null)
       : currentField.description(),
     options: input.options,
     config: input.config,

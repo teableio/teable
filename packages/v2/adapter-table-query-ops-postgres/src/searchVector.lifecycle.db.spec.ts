@@ -84,8 +84,8 @@ const asStringArray = (value: unknown): string[] => {
 // URL fails while booting testcontainers.
 const hasTestDatabaseUrl = Boolean(
   process.env.TEABLE_V2_TEST_DATABASE_URL ??
-    process.env.PRISMA_DATABASE_URL ??
-    process.env.DATABASE_URL
+  process.env.PRISMA_DATABASE_URL ??
+  process.env.DATABASE_URL
 );
 const describeWithDb =
   process.env.TEABLE_V2_RUN_SEARCH_VECTOR_PG_INTEGRATION === '1' || hasTestDatabaseUrl

@@ -133,7 +133,7 @@ const printTableSnapshot = (
       ...record,
       fields: Object.fromEntries(
         Object.entries(record.fields).map(([key, value]) => {
-          const parsed = typeof value === 'string' ? parseJsonArrayCell(value) ?? value : value;
+          const parsed = typeof value === 'string' ? (parseJsonArrayCell(value) ?? value) : value;
           if (
             Array.isArray(parsed) &&
             parsed.some((item) => typeof item === 'object' && item !== null && 'title' in item)
@@ -3499,7 +3499,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Link arrays may be returned in non-deterministic order; sort for stable assertions/snapshots.
         const stableParentRecords = parentRecords.map((record) => {
           const raw = record.fields[parentLinkFieldId];
-          const normalized = typeof raw === 'string' ? parseJsonArrayCell(raw) ?? raw : raw;
+          const normalized = typeof raw === 'string' ? (parseJsonArrayCell(raw) ?? raw) : raw;
           const sorted =
             Array.isArray(normalized) &&
             normalized.some((item) => typeof item === 'object' && item !== null && 'title' in item)

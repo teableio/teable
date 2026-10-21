@@ -50,7 +50,7 @@ export const convertLinkPasteCellValue = (
 
   const allStructured = items.every((item) => typeof item === 'object');
   if (allStructured) {
-    return targetField.isMultipleCellValue ? items : items[0] ?? null;
+    return targetField.isMultipleCellValue ? items : (items[0] ?? null);
   }
 
   // Plain-text / title tokens remain comma-joined for typecast resolution.

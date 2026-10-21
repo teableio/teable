@@ -17,9 +17,10 @@ import { QueryHandler, type IQueryHandler } from './QueryHandler';
 
 @QueryHandler(GetFieldFilterLinkRecordsQuery)
 @injectable()
-export class GetFieldFilterLinkRecordsHandler
-  implements IQueryHandler<GetFieldFilterLinkRecordsQuery, GetViewFilterLinkRecordsResult>
-{
+export class GetFieldFilterLinkRecordsHandler implements IQueryHandler<
+  GetFieldFilterLinkRecordsQuery,
+  GetViewFilterLinkRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

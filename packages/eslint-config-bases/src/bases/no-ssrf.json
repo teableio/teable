@@ -1,0 +1,39 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    {
+      "name": "teable",
+      "specifier": "../plugin/index.js"
+    }
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "no-restricted-imports": [
+      "warn",
+      {
+        "paths": [
+          {
+            "name": "axios",
+            "message": "Use getSafeAxiosAgents() (SSRF-safe httpAgent/httpsAgent). For fixed server-configured internal endpoints, disable the lint line with a justification."
+          },
+          {
+            "name": "node-fetch",
+            "message": "Use safeFetch (SSRF-safe). For fixed server-configured internal endpoints, disable the lint line with a justification."
+          }
+        ]
+      }
+    ],
+    "teable/no-bare-fetch": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.spec.ts", "**/*.e2e-spec.ts"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "teable/no-bare-fetch": "off"
+      }
+    }
+  ]
+}

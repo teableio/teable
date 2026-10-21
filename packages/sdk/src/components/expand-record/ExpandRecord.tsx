@@ -163,7 +163,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
   return (
     <ExpandRecordWrap
-      model={isMobile ? ExpandRecordModel.Drawer : model ?? ExpandRecordModel.Modal}
+      model={isMobile ? ExpandRecordModel.Drawer : (model ?? ExpandRecordModel.Modal)}
       visible={visible}
       onClose={onClose}
       className={cn({ 'max-w-5xl': commentVisible })}

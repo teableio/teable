@@ -1,8 +1,9 @@
 import { promises as dnsPromises } from 'node:dns';
+import { createServer, type Server } from 'node:http';
 import { LLMProviderType } from '@teable/openapi';
 import { APICallError, generateImage as aiGenerateImage, generateText as aiGenerateText } from 'ai';
 import axios from 'axios';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 vi.mock('../../mail-sender/mail-helpers', () => ({
@@ -549,5 +550,71 @@ describe('SettingOpenApiService.testLLM upstream errors', () => {
     const message = await failureMessage();
     expect(message).toContain('The provider responded with HTTP 401');
     expect(message).not.toContain('internal service body');
+  });
+});
+
+/**
+ * The instance admin's key tests take a base URL from the request and hand the
+ * upstream's answer back, so they may reach the private network (a LAN or VPC
+ * peer) but never the cloud-metadata addresses (pentest SSRF-02/03).
+ */
+describe('SettingOpenApiService.testApiKey reach', () => {
+  const service = Object.create(SettingOpenApiService.prototype) as SettingOpenApiService;
+  let server: Server;
+  let baseUrl: string;
+  let requests: string[];
+
+  beforeEach(
+    () =>
+      new Promise<void>((resolve) => {
+        process.env.NEXT_BUILD_ENV_EDITION = 'CLOUD';
+        (service as unknown as { logger: unknown }).logger = { warn: vi.fn(), error: vi.fn() };
+        requests = [];
+        server = createServer((req, res) => {
+          requests.push(`${req.method} ${req.url} ${req.headers['content-type'] ?? ''}`);
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ text: '' }));
+        });
+        server.listen(0, '127.0.0.1', () => {
+          baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
+          resolve();
+        });
+      })
+  );
+
+  afterEach(async () => {
+    delete process.env.NEXT_BUILD_ENV_EDITION;
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it('refuses a Vercel base URL on a cloud-metadata address', async () => {
+    const result = await service.testApiKey({
+      type: 'vercel',
+      apiKey: 'token',
+      baseUrl: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/role#',
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.message).toMatch(/cloud metadata/);
+  });
+
+  it('still reaches a Vercel base URL on the private network', async () => {
+    const result = await service.testApiKey({ type: 'vercel', apiKey: 'token', baseUrl });
+    expect(result).toEqual({ success: true });
+    expect(requests).toEqual(['GET /v1/v2/user ']);
+  });
+
+  it('sends the transcription test through the guarded fetch and still reaches the server', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const result = await service.testApiKey({
+      type: 'realtimeTranscription',
+      apiKey: 'key',
+      baseUrl,
+    });
+    expect(result).toEqual({ success: true });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatch(/^POST \/v1\/audio\/transcriptions multipart\/form-data/);
+    expect(fetchSpy.mock.calls[0]?.[1]).toHaveProperty('dispatcher');
   });
 });

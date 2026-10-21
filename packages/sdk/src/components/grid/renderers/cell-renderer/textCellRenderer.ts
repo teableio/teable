@@ -203,7 +203,7 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
 
     const [hoverX, hoverY] = hoverCellPosition;
     // activeCellBound describes the active cell even while hit-testing others
-    const scrollTop = isActive ? activeCellBound?.scrollTop ?? 0 : 0;
+    const scrollTop = isActive ? (activeCellBound?.scrollTop ?? 0) : 0;
     const segments = computeSegments({
       ctx,
       text: displayData,

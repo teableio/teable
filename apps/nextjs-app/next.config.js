@@ -243,9 +243,6 @@ const nextConfig = {
     tsconfigPath: NEXT_BUILD_ENV_TSCONFIG,
   },
 
-  // Note: eslint configuration is no longer supported in next.config.js
-  // Use ESLint CLI directly: npx eslint .
-
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
     const socketProxy = {

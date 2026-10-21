@@ -14,9 +14,10 @@ import { DeleteByRangeCommand } from './DeleteByRangeCommand';
 
 @CommandHandler(DeleteByRangeCommand)
 @injectable()
-export class DeleteByRangeHandler
-  implements ICommandHandler<DeleteByRangeCommand, DeleteByRangeResult>
-{
+export class DeleteByRangeHandler implements ICommandHandler<
+  DeleteByRangeCommand,
+  DeleteByRangeResult
+> {
   constructor(
     @inject(v2CoreTokens.deleteByRangeApplicationService)
     private readonly deleteByRangeApplicationService: DeleteByRangeApplicationService

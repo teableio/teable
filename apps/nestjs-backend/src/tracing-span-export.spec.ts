@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { Logger } from '@nestjs/common';
 import type { SpanContext } from '@opentelemetry/api';
 import { context, SpanKind, SpanStatusCode, trace, TraceFlags } from '@opentelemetry/api';
 import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
@@ -12,6 +13,8 @@ import {
   isDroppedPrismaSpan,
   isErrorSpan,
   isPriorityTraceSpan,
+  normalizeSlowTraceThresholdMs,
+  DEFAULT_SLOW_TRACE_THRESHOLD_MS,
   EXPORTED_TTL_MS,
   GLOBAL_CAP,
   LIVE_TTL_MS,
@@ -116,6 +119,7 @@ const DEFAULT_OPTIONS = {
   priorityScheduledDelayMillis: 1000,
   exportTimeoutMillis: 30_000,
   maxExportedSpansPerTrace: TRACE_EXPORT_SPAN_CAP,
+  slowTraceThresholdMs: DEFAULT_SLOW_TRACE_THRESHOLD_MS,
 };
 
 const createProcessor = (overrides: Partial<typeof DEFAULT_OPTIONS> = {}) => {
@@ -193,6 +197,30 @@ describe('span predicates', () => {
   });
 });
 
+describe('slow trace threshold', () => {
+  it('normalizes invalid values to the default instead of promoting everything', () => {
+    for (const invalid of [undefined, Number.NaN, Number.POSITIVE_INFINITY, 0, -1, 0.5]) {
+      expect(normalizeSlowTraceThresholdMs(invalid)).toBe(DEFAULT_SLOW_TRACE_THRESHOLD_MS);
+    }
+    expect(DEFAULT_SLOW_TRACE_THRESHOLD_MS).toBe(1000);
+    expect(normalizeSlowTraceThresholdMs(250)).toBe(250);
+    expect(normalizeSlowTraceThresholdMs(1500.9)).toBe(1500);
+  });
+
+  it('does not promote every trace when configured as 0 or negative', async () => {
+    for (const slowTraceThresholdMs of [0, -5]) {
+      const { processor, batchExporter } = createProcessor({ slowTraceThresholdMs });
+      const root = makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' });
+      startSpan(processor, root);
+      runSpan(processor, makeSpan({ name: 'child' }));
+      processor.onEnd(root);
+      await processor.forceFlush();
+      expect(names(batchExporter)).toEqual([]);
+      await processor.shutdown();
+    }
+  });
+});
+
 describe('createSmartSpanProcessor', () => {
   it('exports every span of a sampled trace', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
@@ -266,23 +294,105 @@ describe('createSmartSpanProcessor', () => {
     expect(names(batchExporter)).toEqual(['tail', 'error']);
   });
 
-  it('slow spans follow the trace-level export ratio instead of promoting', async () => {
+  it('promotes a slow successful root and flushes its buffered detail spans', async () => {
+    const { processor, batchExporter, priorityExporter } = createProcessor();
+    const root = makeSpan({
+      name: 'slow-root',
+      kind: SpanKind.SERVER,
+      parent: 'none',
+      durationMs: 1500,
+    });
+    startSpan(processor, root);
+    runSpan(processor, makeSpan({ name: 'compile' }));
+    runSpan(processor, makeSpan({ name: 'database.readOnly' }));
+    processor.onEnd(root);
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['compile', 'database.readOnly']);
+    expect(names(priorityExporter)).toEqual(['slow-root']);
+  });
+
+  it('promotes mid-trace at the threshold and exports subsequent spans in full', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
     const root = makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' });
     startSpan(processor, root);
     runSpan(processor, makeSpan({ name: 'early' }));
-    runSpan(processor, makeSpan({ name: 'slow-child', durationMs: 6000 }));
+    // exactly at the default threshold: promotes before the last span settles
+    runSpan(processor, makeSpan({ name: 'compile', durationMs: 1000 }));
+    runSpan(processor, makeSpan({ name: 'after-promotion' }));
     processor.onEnd(root);
     await processor.forceFlush();
-    // unsampled trace: the slow child is buffered and discarded like any other span
-    expect(names(batchExporter)).toEqual([]);
+    expect(names(batchExporter)).toEqual(['early', 'compile', 'after-promotion']);
     expect(names(priorityExporter)).toEqual(['root']);
+  });
 
-    // sampled trace: the slow child exports via the ratio decision, not promotion
-    const { processor: p2, batchExporter: b2 } = createProcessor();
-    runSpan(p2, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'slow-child', durationMs: 6000 }));
+  it('keeps a fast successful trace at priority spans only', async () => {
+    const { processor, batchExporter, priorityExporter } = createProcessor();
+    const root = makeSpan({ name: 'fast-root', kind: SpanKind.SERVER, parent: 'none' });
+    startSpan(processor, root);
+    runSpan(processor, makeSpan({ name: 'fast-child', durationMs: 999 }));
+    processor.onEnd(root);
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual([]);
+    expect(names(priorityExporter)).toEqual(['fast-root']);
+  });
+
+  it('records a trace-correlated decision line with the promotion reason', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    try {
+      const { processor } = createProcessor();
+      const root = makeSpan({
+        name: 'slow-root',
+        kind: SpanKind.SERVER,
+        parent: 'none',
+        durationMs: 1500,
+      });
+      startSpan(processor, root);
+      runSpan(processor, makeSpan({ name: 'compile' }));
+      processor.onEnd(root);
+      const messages = log.mock.calls.map(([message]) => String(message));
+      expect(messages).toContainEqual(expect.stringContaining('"reason":"slow"'));
+      expect(messages).toContainEqual(expect.stringContaining('"thresholdMs":1000'));
+      // Span names can carry SQL text from the pg instrumentation: never log them.
+      expect(messages.join('\n')).not.toContain('slow-root');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('records the ratio outcome only when the buffered detail spans are discarded', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = Date.now();
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    try {
+      const { processor } = createProcessor();
+      const root = makeSpan({ name: 'fast-root', kind: SpanKind.SERVER, parent: 'none' });
+      startSpan(processor, root);
+      runSpan(processor, makeSpan({ name: 'fast-child' }));
+      processor.onEnd(root);
+      // Still lingering: a late error could still promote the trace, so no decision yet.
+      expect(log.mock.calls.map(([message]) => String(message))).toEqual([]);
+
+      vi.setSystemTime(start + SETTLED_LINGER_MS + 60_000);
+      runSpan(processor, makeSpan({ traceId: findTraceIds(2, false)[1], name: 'other' }));
+      const messages = log.mock.calls.map(([message]) => String(message));
+      expect(messages).toContainEqual(expect.stringContaining('"reason":"ratio"'));
+      expect(messages).toContainEqual(expect.stringContaining('"bufferedSpans":1'));
+      expect(messages).toContainEqual(expect.stringContaining('"selected":false'));
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('honors a custom slow threshold', async () => {
+    const { processor, batchExporter } = createProcessor({ slowTraceThresholdMs: 250 });
+    runSpan(processor, makeSpan({ name: 'below', durationMs: 249 }));
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual([]);
+
+    const { processor: p2, batchExporter: b2 } = createProcessor({ slowTraceThresholdMs: 250 });
+    runSpan(p2, makeSpan({ name: 'at', durationMs: 250 }));
     await p2.forceFlush();
-    expect(names(b2)).toEqual(['slow-child']);
+    expect(names(b2)).toEqual(['at']);
   });
 
   it('flushes the buffer when only the root span errors', async () => {
@@ -382,7 +492,7 @@ describe('createSmartSpanProcessor', () => {
   it('exportRatio >= 1.0 exports everything immediately without lifecycle tracking', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor({ exportRatio: 1.0 });
     // no onStart on purpose: the ratio >= 1 path needs no live-span bookkeeping
-    processor.onEnd(makeSpan({ name: 'child' }));
+    processor.onEnd(makeSpan({ name: 'child', durationMs: 60_000 }));
     await processor.forceFlush();
     expect(names(batchExporter)).toEqual(['child']);
     processor.onEnd(makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' }));
@@ -648,7 +758,7 @@ describe('createSmartSpanProcessor', () => {
 });
 
 describe('integration with real SDK spans', () => {
-  it('promotes an errored trace in full and discards a slow-but-clean one', async () => {
+  it('promotes errored and slow traces in full, discards a fast clean one', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor({ exportRatio: 0 });
     const provider = new BasicTracerProvider({ spanProcessors: [processor] });
     const tracer = provider.getTracer('test');
@@ -669,7 +779,7 @@ describe('integration with real SDK spans', () => {
     expect(names(batchExporter)).toEqual(['fast-child']);
     expect(names(priorityExporter)).toEqual(['error-root']);
 
-    // slow-but-clean request: follows the ratio (0 here), children are discarded
+    // slow-but-clean request: a slow span promotes the trace, so children survive
     const root2 = tracer.startSpan('slow-root', {
       kind: SpanKind.SERVER,
       startTime: t0,
@@ -680,8 +790,22 @@ describe('integration with real SDK spans', () => {
     slowChild.end(t0 + 6000);
     root2.end(t0 + 10_600);
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['fast-child']);
+    expect(names(batchExporter)).toEqual(['fast-child', 'slow-child']);
     expect(names(priorityExporter)).toEqual(['error-root', 'slow-root']);
+
+    // fast-but-clean request: follows the ratio (0 here), the child is discarded
+    const root3 = tracer.startSpan('fast-root', {
+      kind: SpanKind.SERVER,
+      startTime: t0,
+      root: true,
+    });
+    const ctx3 = trace.setSpan(context.active(), root3);
+    const fastCleanChild = tracer.startSpan('fast-clean-child', { startTime: t0 }, ctx3);
+    fastCleanChild.end(t0 + 5);
+    root3.end(t0 + 20);
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['fast-child', 'slow-child']);
+    expect(names(priorityExporter)).toEqual(['error-root', 'slow-root', 'fast-root']);
 
     await provider.shutdown();
   });

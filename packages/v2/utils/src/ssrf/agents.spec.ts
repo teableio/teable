@@ -27,6 +27,21 @@ describe('getSafeAxiosAgents', () => {
   it('should return same cached object', () => {
     expect(getSafeAxiosAgents()).toBe(getSafeAxiosAgents());
   });
+
+  // The same agents as getSafeFetchAgent({ allowPrivateNetwork }), whose cloud-metadata
+  // rejection is covered below.
+  it('returns the private-network agents with allowPrivateNetwork', () => {
+    const agents = getSafeAxiosAgents({ allowPrivateNetwork: true });
+    const selectAgent = getSafeFetchAgent({ allowPrivateNetwork: true })!;
+    expect(agents).not.toBe(getSafeAxiosAgents());
+    expect(agents.httpAgent).toBe(selectAgent(new URL('http://a')));
+    expect(agents.httpsAgent).toBe(selectAgent(new URL('https://a')));
+  });
+
+  it('honours the env opt-out with allowPrivateNetwork too', () => {
+    process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+    expect(getSafeAxiosAgents({ allowPrivateNetwork: true })).toEqual({});
+  });
 });
 
 describe('getSafeFetchAgent', () => {

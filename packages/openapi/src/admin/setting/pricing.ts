@@ -327,12 +327,10 @@ export function normalizeGatewayPricing(
     if (Array.isArray(val)) {
       // The gateway may omit `min` (first tier implicitly starts at 0); the
       // canonical pricingTierSchema requires it, so fill it in here
-      pricing[camel] = (val as IRawPricingTier[]).map(
-        (tier, i, arr): IPricingTier => ({
-          ...tier,
-          min: tier.min ?? (i === 0 ? 0 : arr[i - 1].max ?? 0),
-        })
-      );
+      pricing[camel] = (val as IRawPricingTier[]).map((tier, i, arr): IPricingTier => ({
+        ...tier,
+        min: tier.min ?? (i === 0 ? 0 : (arr[i - 1].max ?? 0)),
+      }));
     }
   }
 

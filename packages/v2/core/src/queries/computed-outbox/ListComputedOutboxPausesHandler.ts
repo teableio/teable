@@ -19,9 +19,10 @@ export class ListComputedOutboxPausesResult {
 
 @QueryHandler(ListComputedOutboxPausesQuery)
 @injectable()
-export class ListComputedOutboxPausesHandler
-  implements IQueryHandler<ListComputedOutboxPausesQuery, ListComputedOutboxPausesResult>
-{
+export class ListComputedOutboxPausesHandler implements IQueryHandler<
+  ListComputedOutboxPausesQuery,
+  ListComputedOutboxPausesResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

@@ -19,9 +19,7 @@ type QueuedTaskRow = {
   readonly id: string;
 };
 
-export class PostgresTableSearchVectorSchemaMaintenanceScheduler
-  implements TableSearchVectorSchemaMaintenanceScheduler
-{
+export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements TableSearchVectorSchemaMaintenanceScheduler {
   constructor(private readonly metaDb: Kysely<UnknownPostgresDatabase>) {}
 
   async schedule(

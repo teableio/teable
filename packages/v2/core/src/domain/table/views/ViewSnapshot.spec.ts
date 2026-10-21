@@ -63,4 +63,25 @@ describe('ViewSnapshot', () => {
     expect(restored.shareId()).toBeUndefined();
     expect(restored.shareMeta()).toEqual({ allowCopy: true });
   });
+
+  it('preserves a legacy gallery primary visibility during pure rehydration', () => {
+    const table = buildTable();
+    const gallery = table
+      .createView({ type: 'gallery', name: 'Gallery', options: { coverFieldId: null } })
+      ._unsafeUnwrap();
+    const primaryKey = table.primaryFieldId().toString();
+    const snapshot = captureViewSnapshot(gallery.view)._unsafeUnwrap();
+
+    const restored = rehydrateViewSnapshot({
+      ...snapshot,
+      columnMeta: {
+        ...snapshot.columnMeta,
+        [primaryKey]: { ...snapshot.columnMeta[primaryKey], visible: false },
+      },
+    })._unsafeUnwrap();
+
+    expect(restored.columnMeta()._unsafeUnwrap().toDto()[primaryKey]).toMatchObject({
+      visible: false,
+    });
+  });
 });

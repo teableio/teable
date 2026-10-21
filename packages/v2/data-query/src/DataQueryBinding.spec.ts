@@ -1,12 +1,13 @@
 import {
   ActorId,
   DefaultTableMapper,
+  domainError,
   NoopLogger,
   RecordQueryPluginRunner,
   type IRecordQueryPlugin,
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DataQueryBinding, validateDataQueryFilter } from './DataQueryBinding';
@@ -21,6 +22,7 @@ const otherNumberId = `fld${'c'.repeat(16)}`;
 const checkboxId = `fld${'d'.repeat(16)}`;
 const dateId = `fld${'e'.repeat(16)}`;
 const linkId = `fld${'f'.repeat(16)}`;
+const selectId = `fld${'s'.repeat(16)}`;
 const mapper = new DefaultTableMapper();
 const tableDto = (): ITablePersistenceDTO => ({
   id: tableId,
@@ -34,6 +36,19 @@ const tableDto = (): ITablePersistenceDTO => ({
     { id: otherNumberId, name: 'Other', dbFieldName: 'other', type: 'number' },
     { id: checkboxId, name: 'Done', dbFieldName: 'done', type: 'checkbox' },
     { id: dateId, name: 'Date', dbFieldName: 'date', type: 'date' },
+    {
+      id: selectId,
+      name: 'Priority',
+      dbFieldName: 'priority',
+      type: 'singleSelect',
+      options: {
+        choices: [
+          { id: 'choP1', name: 'P1', color: 'blue' },
+          { id: 'choP2', name: 'P2', color: 'yellow' },
+          { id: 'choP3', name: 'P3', color: 'green' },
+        ],
+      },
+    },
     {
       id: linkId,
       name: 'Relation',
@@ -221,6 +236,214 @@ describe('DataQueryBinding', () => {
     })._unsafeUnwrap();
     expect(DataQueryBinding.prepare(checkbox, table).isOk()).toBe(true);
     expect(checkbox.bind({})._unsafeUnwrap().filter).toMatchObject({ value: null });
+  });
+
+  it('locates an unsupported filter operator on the offending field instead of collapsing it', () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const unsupported = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: selectId, operator: 'isGreaterEqual', value: 'P2' },
+    })._unsafeUnwrap();
+    const error = DataQueryBinding.prepare(unsupported, table)._unsafeUnwrapErr();
+    expect(error).toMatchObject({
+      code: 'data_query.filter_operator_unsupported',
+      tags: ['validation'],
+      details: {
+        fieldId: selectId,
+        fieldType: 'singleSelect',
+        operator: 'isGreaterEqual',
+        supportedOperators: ['is', 'isNot', 'isAnyOf', 'isNoneOf', 'isEmpty', 'isNotEmpty'],
+      },
+    });
+    expect(error.message).toContain(selectId);
+    expect(error.message).toContain('singleSelect');
+    expect(error.message).toContain('isGreaterEqual');
+    expect(error.message).toContain('isAnyOf');
+
+    const supported = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: selectId, operator: 'isAnyOf', value: ['P2', 'P3'] },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(supported, table).isOk()).toBe(true);
+  });
+
+  it('honors core checkbox null folding before locating a later unsupported leaf', () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      ...records,
+      filter: {
+        conjunction: 'and',
+        items: [
+          { fieldId: checkboxId, operator: 'isNot', value: null },
+          { fieldId: selectId, operator: 'isGreaterEqual', value: 'P2' },
+        ],
+      },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(definition, table)._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.filter_operator_unsupported',
+      details: { fieldId: selectId, operator: 'isGreaterEqual' },
+    });
+
+    const checkboxOnly = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: checkboxId, operator: 'isNot', value: null },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(checkboxOnly, table).isOk()).toBe(true);
+  });
+
+  it('honors core stale user-operator adaptation before locating a later unsupported leaf', () => {
+    const userId = `fld${'u'.repeat(16)}`;
+    const dto = tableDto();
+    dto.fields = [
+      ...dto.fields,
+      {
+        id: userId,
+        name: 'Owner',
+        dbFieldName: 'owner',
+        type: 'user',
+        options: { isMultiple: false },
+      },
+    ];
+    const table = mapper.toDomain(dto)._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      ...records,
+      filter: {
+        conjunction: 'and',
+        items: [
+          { fieldId: userId, operator: 'isExactly', value: ['usrReader'] },
+          { fieldId: selectId, operator: 'isGreaterEqual', value: 'P2' },
+        ],
+      },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(definition, table)._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.filter_operator_unsupported',
+      details: { fieldId: selectId, operator: 'isGreaterEqual' },
+    });
+
+    const adaptedOnly = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: userId, operator: 'isExactly', value: ['usrReader'] },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(adaptedOnly, table).isOk()).toBe(true);
+  });
+
+  it('withholds located operator details from a caller denied the table', async () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    let denied = true;
+    const plugin: IRecordQueryPlugin = {
+      name: 'table-guard',
+      supports: () => true,
+      guard: () =>
+        denied
+          ? err(domainError.forbidden({ code: 'data_query.forbidden', message: 'Denied' }))
+          : ok(undefined),
+    };
+    const execute = vi.fn(async () => ok({ rows: [] }));
+    const service = new DataQueryService(
+      { findOne: async () => ok(table) },
+      new RecordQueryPluginRunner([plugin], new NoopLogger()),
+      { execute }
+    );
+    const context = { actorId: ActorId.create('reader')._unsafeUnwrap() };
+    const definition = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: selectId, operator: 'isGreaterEqual', value: 'P2' },
+    })._unsafeUnwrap();
+
+    const forbidden = await service.execute(context, definition);
+    expect(forbidden._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.forbidden',
+      tags: ['forbidden'],
+    });
+    expect(JSON.stringify(forbidden._unsafeUnwrapErr())).not.toContain('singleSelect');
+    expect(JSON.stringify(forbidden._unsafeUnwrapErr())).not.toContain('supportedOperators');
+    expect(execute).not.toHaveBeenCalled();
+
+    denied = false;
+    expect((await service.execute(context, definition))._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.filter_operator_unsupported',
+      details: { fieldId: selectId, fieldType: 'singleSelect', operator: 'isGreaterEqual' },
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('keeps located field and value errors distinct from operator and residual incompatibility', () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    expect(
+      validateDataQueryFilter(table, {
+        fieldId: `fld${'z'.repeat(16)}`,
+        operator: 'is',
+        value: 'x',
+      })._unsafeUnwrapErr()
+    ).toMatchObject({
+      code: 'data_query.field_missing',
+      message: 'A required filter field is missing',
+    });
+    expect(
+      validateDataQueryFilter(table, {
+        fieldId: numberId,
+        operator: 'is',
+        value: 'not-a-number',
+      })._unsafeUnwrapErr()
+    ).toMatchObject({
+      code: 'data_query.filter_value_type',
+      message: 'Filter literal has an incompatible value type',
+    });
+    // A cross-table field reference is a residual incompatibility: its operator is valid,
+    // so it cannot be attributed to one field/operator pair.
+    expect(
+      validateDataQueryFilter(table, {
+        fieldId: numberId,
+        operator: 'is',
+        value: { type: 'field', fieldId: otherNumberId, tableId: `tbl${'z'.repeat(16)}` },
+      })._unsafeUnwrapErr()
+    ).toMatchObject({ code: 'data_query.filter_incompatible' });
+  });
+
+  it('resolves lookup operators through the inner field', () => {
+    const lookupId = `fld${'l'.repeat(16)}`;
+    const dto = tableDto();
+    dto.fields = [
+      ...dto.fields,
+      {
+        id: lookupId,
+        name: 'Lookup priority',
+        type: 'singleSelect',
+        dbFieldName: 'lookup_priority',
+        isLookup: true,
+        isMultipleCellValue: false,
+        options: {
+          choices: [
+            { id: 'choP1', name: 'P1', color: 'blue' },
+            { id: 'choP2', name: 'P2', color: 'yellow' },
+          ],
+        },
+        lookupOptions: {
+          linkFieldId: linkId,
+          foreignTableId: `tbl${'b'.repeat(16)}`,
+          lookupFieldId: selectId,
+        },
+      },
+    ];
+    const table = mapper.toDomain(dto)._unsafeUnwrap();
+    const unsupported = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: lookupId, operator: 'isGreaterEqual', value: 'P2' },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(unsupported, table)._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.filter_operator_unsupported',
+      details: {
+        fieldId: lookupId,
+        fieldType: 'lookup',
+        operator: 'isGreaterEqual',
+        supportedOperators: ['is', 'isNot', 'isAnyOf', 'isNoneOf', 'isEmpty', 'isNotEmpty'],
+      },
+    });
+    const supported = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: lookupId, operator: 'is', value: 'P2' },
+    })._unsafeUnwrap();
+    expect(DataQueryBinding.prepare(supported, table).isOk()).toBe(true);
   });
 
   it('revalidates runtime values even when representative parameter values pass', () => {

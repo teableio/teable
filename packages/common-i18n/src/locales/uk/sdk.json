@@ -1516,7 +1516,8 @@
     "pin": {
       "alreadyExists": "Вибране вже існує",
       "notFound": "Вибране не знайдено",
-      "anchorNotFound": "Якір вибраного не знайдено"
+      "anchorNotFound": "Якір вибраного не знайдено",
+      "targetNotFound": "Елемент для додавання у вибране не знайдено"
     },
     "trash": {
       "invalidResourceType": "Недійсний тип ресурсу",

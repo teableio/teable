@@ -111,9 +111,8 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     const { v2CoreTokens } = await import('@teable/v2-core');
     const { v2PostgresDdlTokens } = await import('../schema/di/tokens');
     const { v2RecordRepositoryPostgresTokens } = await import('../record/di/tokens');
-    const { PostgresTableSchemaRepository } = await import(
-      '../schema/repositories/PostgresTableSchemaRepository'
-    );
+    const { PostgresTableSchemaRepository } =
+      await import('../schema/repositories/PostgresTableSchemaRepository');
     const { TableRecordQueryBuilderManager } = await import('../record/query-builder');
     const {
       HybridWithOutboxStrategy,

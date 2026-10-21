@@ -26,9 +26,7 @@ const viewCollectionPrefix = 'viw';
 
 @ProjectionHandler(ViewDescriptionUpdated)
 @injectable()
-export class ViewDescriptionUpdatedRealtimeProjection
-  implements IEventHandler<ViewDescriptionUpdated>
-{
+export class ViewDescriptionUpdatedRealtimeProjection implements IEventHandler<ViewDescriptionUpdated> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,

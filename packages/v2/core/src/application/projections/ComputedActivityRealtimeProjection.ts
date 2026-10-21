@@ -20,9 +20,7 @@ import { ProjectionHandler } from './Projection';
  */
 @ProjectionHandler(ComputedActivityBatchChanged)
 @injectable()
-export class ComputedActivityRealtimeProjection
-  implements IEventHandler<ComputedActivityBatchChanged>
-{
+export class ComputedActivityRealtimeProjection implements IEventHandler<ComputedActivityBatchChanged> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine

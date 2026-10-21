@@ -28,9 +28,10 @@ export class GetComputeActivityResult {
 
 @QueryHandler(GetComputeActivityQuery)
 @injectable()
-export class GetComputeActivityHandler
-  implements IQueryHandler<GetComputeActivityQuery, GetComputeActivityResult>
-{
+export class GetComputeActivityHandler implements IQueryHandler<
+  GetComputeActivityQuery,
+  GetComputeActivityResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

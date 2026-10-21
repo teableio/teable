@@ -13,7 +13,6 @@
   },
   "exclude": ["**/node_modules", "**/.*/*", "dist"],
   "include": [
-    ".eslintrc.*",
     "**/*.ts",
     "**/*.tsx",
     "**/*.mts",

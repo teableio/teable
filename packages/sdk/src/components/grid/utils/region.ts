@@ -12,23 +12,22 @@ import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
 import { getRowControlCheckboxOffsetX, getRowControlOffsetX } from './rowControl';
 
-interface ICheckRegionProps
-  extends Pick<
-    IRenderLayerProps,
-    | 'theme'
-    | 'height'
-    | 'columns'
-    | 'scrollState'
-    | 'dragState'
-    | 'selection'
-    | 'isSelecting'
-    | 'columnResizeState'
-    | 'coordInstance'
-    | 'columnStatistics'
-    | 'isMultiSelectionEnable'
-    | 'rowControlPaddingX'
-    | 'getLinearRow'
-  > {
+interface ICheckRegionProps extends Pick<
+  IRenderLayerProps,
+  | 'theme'
+  | 'height'
+  | 'columns'
+  | 'scrollState'
+  | 'dragState'
+  | 'selection'
+  | 'isSelecting'
+  | 'columnResizeState'
+  | 'coordInstance'
+  | 'columnStatistics'
+  | 'isMultiSelectionEnable'
+  | 'rowControlPaddingX'
+  | 'getLinearRow'
+> {
   rowControls: IRowControlItem[];
   position: IRegionPosition;
   isFreezing: boolean;

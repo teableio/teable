@@ -19,9 +19,10 @@ export class ExtendComputedOutboxPauseResult {
 
 @CommandHandler(ExtendComputedOutboxPauseCommand)
 @injectable()
-export class ExtendComputedOutboxPauseHandler
-  implements ICommandHandler<ExtendComputedOutboxPauseCommand, ExtendComputedOutboxPauseResult>
-{
+export class ExtendComputedOutboxPauseHandler implements ICommandHandler<
+  ExtendComputedOutboxPauseCommand,
+  ExtendComputedOutboxPauseResult
+> {
   constructor(
     @inject(v2CoreTokens.computedOutboxAdmin)
     private readonly admin: IComputedOutboxAdmin

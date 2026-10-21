@@ -1552,7 +1552,7 @@
       "selectionSelectedFields": "Only the selected fields are included in this context.",
       "selectionIdentificationOnly": "The primary title is shown for identification only.",
       "selectionEmpty": "Empty",
-      "selectionOpenRecord": "Open record {{id}}",
+      "selectionOpenRecord": "Open record {{name}}",
       "selectionPrevious": "Previous",
       "selectionNext": "Next",
       "selectionPage": "{{start}}–{{end}} of {{count}} records"

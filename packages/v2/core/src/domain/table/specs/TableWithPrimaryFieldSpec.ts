@@ -10,9 +10,9 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
  * Narrows repository hydration to the primary Field without changing
  * which Table aggregate root matches the query.
  */
-export class TableWithPrimaryFieldSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableWithPrimaryFieldSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   static create(): TableWithPrimaryFieldSpec {
     return new TableWithPrimaryFieldSpec();
   }

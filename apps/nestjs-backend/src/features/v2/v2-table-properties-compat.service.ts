@@ -72,9 +72,9 @@ export function tableDocOps(event: TablePropertiesUpdated | TableRenamed): IOtOp
  */
 @ProjectionHandler(TablePropertiesUpdated)
 @ProjectionHandler(TableRenamed)
-export class V2TablePropertiesDocProjection
-  implements IEventHandler<TablePropertiesUpdated | TableRenamed>
-{
+export class V2TablePropertiesDocProjection implements IEventHandler<
+  TablePropertiesUpdated | TableRenamed
+> {
   private readonly logger = new Logger(V2TablePropertiesDocProjection.name);
 
   constructor(

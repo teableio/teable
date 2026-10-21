@@ -11,9 +11,9 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
  * Selects a Table that contains the requested View and allows repository
  * adapters to hydrate only that child View.
  */
-export class TableByViewIdSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableByViewIdSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private constructor(private readonly viewIdValue: ViewId) {}
 
   static create(viewId: ViewId): TableByViewIdSpec {

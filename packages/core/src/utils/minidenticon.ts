@@ -33,7 +33,7 @@ const minidenticon: MinidenticonFunction = function (
   return (
     [...new Array(seed ? 25 : 0)].reduce(
       (acc, _, i) =>
-        hash & (1 << i % 15)
+        hash & (1 << (i % 15))
           ? acc +
             `<rect x="${i > 14 ? 7 - Math.trunc(i / 5) : Math.trunc(i / 5)}" y="${i % 5}" width="1" height="1"/>`
           : acc,

@@ -12,7 +12,7 @@ import type { TableId } from './TableId';
 declare const ForeignTableBrand: unique symbol;
 
 export class ForeignTable extends ValueObject {
-  private declare readonly [ForeignTableBrand]: void;
+  declare private readonly [ForeignTableBrand]: void;
 
   private constructor(private readonly tableValue: Table) {
     super();

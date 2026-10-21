@@ -51,9 +51,10 @@ export class UpdateViewGroupResult {
 
 @CommandHandler(UpdateViewGroupCommand)
 @injectable()
-export class UpdateViewGroupHandler
-  implements ICommandHandler<UpdateViewGroupCommand, UpdateViewGroupResult>
-{
+export class UpdateViewGroupHandler implements ICommandHandler<
+  UpdateViewGroupCommand,
+  UpdateViewGroupResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

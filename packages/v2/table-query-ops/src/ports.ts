@@ -381,9 +381,7 @@ export interface TableSearchVectorSchemaMaintenanceScheduler {
   ): Promise<Result<TableSearchVectorSchemaMaintenanceSchedule | undefined, DomainError>>;
 }
 
-export class NoopTableSearchVectorSchemaMaintenanceScheduler
-  implements TableSearchVectorSchemaMaintenanceScheduler
-{
+export class NoopTableSearchVectorSchemaMaintenanceScheduler implements TableSearchVectorSchemaMaintenanceScheduler {
   async schedule(): Promise<
     Result<TableSearchVectorSchemaMaintenanceSchedule | undefined, DomainError>
   > {

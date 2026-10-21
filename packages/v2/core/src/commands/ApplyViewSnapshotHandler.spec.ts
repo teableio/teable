@@ -148,6 +148,95 @@ describe('ApplyViewSnapshotHandler', () => {
     );
   });
 
+  it('sends the repaired gallery column meta to the update plugin', async () => {
+    const builder = Table.builder()
+      .withBaseId(BaseId.create(`bse${'g'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Gallery snapshot')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+    builder.view().gallery().defaultName().done();
+    const table = builder.build()._unsafeUnwrap();
+    table.pullDomainEvents();
+
+    const gallery = table.views()[0]!;
+    const primaryKey = table.primaryFieldId().toString();
+    const captured = captureViewSnapshot(gallery)._unsafeUnwrap();
+    const historicalSnapshot: ViewSnapshotValue = {
+      ...captured,
+      name: 'Restored gallery',
+      columnMeta: {
+        ...captured.columnMeta,
+        [primaryKey]: { ...captured.columnMeta[primaryKey], visible: false },
+      },
+    };
+    const prepare = vi.fn(() => ok(undefined));
+    const setup = createHandler({
+      tableResult: ok(table),
+      plugins: [
+        {
+          name: 'capture',
+          supports: (kind) => kind === ViewOperationKind.update,
+          prepare,
+          guard: () => ok(undefined),
+        },
+      ],
+    });
+
+    (await setup.handler.handle(context, commandFor(table, historicalSnapshot)))._unsafeUnwrap();
+
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          patch: expect.objectContaining({
+            columnMeta: expect.objectContaining({
+              [primaryKey]: expect.objectContaining({ visible: true }),
+            }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('sends repaired column meta when reviving a missing gallery view', async () => {
+    const table = buildTable();
+    const created = table.createView({ type: 'gallery', name: 'Deleted gallery' })._unsafeUnwrap();
+    const primaryKey = table.primaryFieldId().toString();
+    const captured = captureViewSnapshot(created.view)._unsafeUnwrap();
+    const legacySnapshot: ViewSnapshotValue = {
+      ...captured,
+      name: 'Revived gallery',
+      columnMeta: {
+        ...captured.columnMeta,
+        [primaryKey]: { ...captured.columnMeta[primaryKey], visible: false },
+      },
+    };
+    const prepare = vi.fn(() => ok(undefined));
+    const setup = createHandler({
+      tableResult: ok(table),
+      plugins: [
+        {
+          name: 'capture',
+          supports: (kind) => kind === ViewOperationKind.create,
+          prepare,
+          guard: () => ok(undefined),
+        },
+      ],
+    });
+
+    (await setup.handler.handle(context, commandFor(table, legacySnapshot)))._unsafeUnwrap();
+
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          view: expect.objectContaining({
+            columnMeta: expect.objectContaining({
+              [primaryKey]: expect.objectContaining({ visible: true }),
+            }),
+          }),
+        }),
+      })
+    );
+  });
+
   it('restores a missing child as an unshared View through the Table create boundary', async () => {
     const table = buildTable();
     const created = table

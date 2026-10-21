@@ -306,11 +306,12 @@ describe('v2 http createTable (e2e)', () => {
       statusField.options &&
       typeof statusField.options === 'object' &&
       'choices' in statusField.options
-        ? (statusField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? []
+        ? ((statusField.options as { choices?: Array<{ id?: string; name: string }> }).choices ??
+          [])
         : [];
     const tagChoices =
       tagField.options && typeof tagField.options === 'object' && 'choices' in tagField.options
-        ? (tagField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? []
+        ? ((tagField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? [])
         : [];
     await ensureAttachmentTables(ctx);
     const attachment = await seedAttachment(ctx);

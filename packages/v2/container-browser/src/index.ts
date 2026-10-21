@@ -89,9 +89,9 @@ export const registerV2BrowserPgliteDependencies = async (
     db: dataDb,
     ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
-    ...(options.tableMaxRowLimit ??
+    ...((options.tableMaxRowLimit ??
     options.maxFreeRowLimit ??
-    options.tableDataSafetyLimits?.tableSchema?.maxRowsPerTable
+    options.tableDataSafetyLimits?.tableSchema?.maxRowsPerTable)
       ? {
           tableMaxRowLimit:
             options.tableMaxRowLimit ??

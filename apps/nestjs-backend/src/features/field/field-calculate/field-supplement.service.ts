@@ -760,7 +760,7 @@ export class FieldSupplementService {
     // Request options may still carry formatting/showAs overrides. Source structural
     // options (e.g. select choices) must win over stale request options (T6332/T6208).
     const mirroredSourceOptions = config?.stripSourceFormulaExecutableOptions
-      ? stripLookupFormulaExecutableOptions(safeSourceOptions) ?? {}
+      ? (stripLookupFormulaExecutableOptions(safeSourceOptions) ?? {})
       : (safeSourceOptions as Record<string, unknown>);
 
     const sourceFormatting =
@@ -861,7 +861,7 @@ export class FieldSupplementService {
     const mergedLookupOptions =
       newLookupOptions && oldLookupOptions
         ? { ...oldLookupOptions, ...newLookupOptions }
-        : newLookupOptions ?? oldLookupOptions;
+        : (newLookupOptions ?? oldLookupOptions);
 
     return this.prepareLookupField(tableId, {
       ...oldFieldVo,

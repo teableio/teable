@@ -54,9 +54,10 @@ export class UpdateViewColumnMetaResult {
 
 @CommandHandler(UpdateViewColumnMetaCommand)
 @injectable()
-export class UpdateViewColumnMetaHandler
-  implements ICommandHandler<UpdateViewColumnMetaCommand, UpdateViewColumnMetaResult>
-{
+export class UpdateViewColumnMetaHandler implements ICommandHandler<
+  UpdateViewColumnMetaCommand,
+  UpdateViewColumnMetaResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

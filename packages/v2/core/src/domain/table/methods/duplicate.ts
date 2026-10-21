@@ -290,6 +290,9 @@ export function duplicate(
     };
     const duplicatedDto = rewriteDuplicatedDto(dto, params, context);
     const duplicatedTable = yield* params.mapper.toDomain(duplicatedDto);
+    // A duplicated table is a new persisted aggregate, so it must not inherit a
+    // historical gallery config that hides the primary column.
+    yield* duplicatedTable.normalizeViewInvariants();
 
     yield* ensureDuplicatedLinkDbConfigs(duplicatedTable);
 

@@ -1022,7 +1022,7 @@ const dayjsFormatToPostgres = (dayjsFmt: string): string => {
   return dayjsFmt.replace(/\[[^\]]*\]|YYYY|MMMM|MMM|MM|DD|HH|hh|mm|[MDA]/g, (match) =>
     match.startsWith('[')
       ? `"${match.slice(1, -1).replaceAll('"', '\\"')}"`
-      : {
+      : ({
           YYYY: 'YYYY',
           MMMM: 'FMMonth',
           MMM: 'Mon',
@@ -1034,7 +1034,7 @@ const dayjsFormatToPostgres = (dayjsFmt: string): string => {
           M: 'FMMM',
           D: 'FMDD',
           A: 'AM',
-        }[match] ?? match
+        }[match] ?? match)
   );
 };
 

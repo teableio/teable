@@ -42,10 +42,10 @@ extend(timezone);
 const importTimeZone = 'Asia/Shanghai';
 
 enum TestFileFormat {
-  'CSV' = 'csv',
-  'TSV' = 'tsv',
-  'TXT' = 'txt',
-  'XLSX' = 'xlsx',
+  CSV = 'csv',
+  TSV = 'tsv',
+  TXT = 'txt',
+  XLSX = 'xlsx',
 }
 
 const defaultTestSheetKey = 'Sheet1';

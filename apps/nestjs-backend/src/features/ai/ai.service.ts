@@ -114,11 +114,11 @@ export class AiService implements OnModuleInit {
     const config = provider.modelConfigs?.[model];
     return Boolean(
       config?.pricing?.input ||
-        config?.pricing?.output ||
-        config?.pricing?.image ||
-        config?.inputRate != null ||
-        config?.outputRate != null ||
-        config?.imageRate != null
+      config?.pricing?.output ||
+      config?.pricing?.image ||
+      config?.inputRate != null ||
+      config?.outputRate != null ||
+      config?.imageRate != null
     );
   }
 

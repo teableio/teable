@@ -23,17 +23,14 @@ import { UpdateNumberFormattingSpec } from '../UpdateNumberFormattingSpec';
 import { UpdateSingleSelectOptionsSpec } from '../UpdateSingleSelectOptionsSpec';
 
 // Minimal spy visitor that tracks which visit methods are called
-class SpyVisitor
-  implements
-    Pick<
-      ITableSpecVisitor,
-      | 'visit'
-      | 'visitUpdateFormulaExpression'
-      | 'visitUpdateNumberFormatting'
-      | 'visitUpdateSingleSelectOptions'
-      | 'visitUpdateDateFormatting'
-    >
-{
+class SpyVisitor implements Pick<
+  ITableSpecVisitor,
+  | 'visit'
+  | 'visitUpdateFormulaExpression'
+  | 'visitUpdateNumberFormatting'
+  | 'visitUpdateSingleSelectOptions'
+  | 'visitUpdateDateFormatting'
+> {
   readonly calls: string[] = [];
 
   visit(_: ISpecification<unknown, ITableSpecVisitor>) {

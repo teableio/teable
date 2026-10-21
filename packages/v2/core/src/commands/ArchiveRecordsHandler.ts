@@ -66,9 +66,10 @@ type ArchiveTransactionOutcome = {
 
 @CommandHandler(ArchiveRecordsCommand)
 @injectable()
-export class ArchiveRecordsHandler
-  implements ICommandHandler<ArchiveRecordsCommand, ArchiveRecordsResult>
-{
+export class ArchiveRecordsHandler implements ICommandHandler<
+  ArchiveRecordsCommand,
+  ArchiveRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,

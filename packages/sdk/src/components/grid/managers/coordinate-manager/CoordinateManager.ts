@@ -200,7 +200,7 @@ export class CoordinateManager implements ICoordinate {
     if (lastIndex > 0 && itemMetadataMap[lastIndex] == null) {
       console.warn('lastIndex is not found in itemMetadataMap', lastIndex, itemMetadataMap);
     }
-    const lastMeasuredItemOffset = lastIndex > 0 ? itemMetadataMap[lastIndex]?.offset ?? 0 : 0;
+    const lastMeasuredItemOffset = lastIndex > 0 ? (itemMetadataMap[lastIndex]?.offset ?? 0) : 0;
 
     if (lastMeasuredItemOffset >= offset) {
       return this.findNearestCellIndexBinary(offset, 0, lastIndex, itemType);

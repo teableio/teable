@@ -71,7 +71,7 @@ export const ByodbSpaceCreateSection = (props: IByodbSpaceCreateSectionProps) =>
       )
     : [];
   const availableDatabases =
-    preflightResult && !hasStaleResult ? preflightResult.availableDatabases ?? [] : [];
+    preflightResult && !hasStaleResult ? (preflightResult.availableDatabases ?? []) : [];
   const selectedDatabase = getDatabaseNameFromUrl(url);
 
   return (

@@ -28,9 +28,10 @@ export class GetRecordStatusResult {
 
 @QueryHandler(GetRecordStatusQuery)
 @injectable()
-export class GetRecordStatusHandler
-  implements IQueryHandler<GetRecordStatusQuery, GetRecordStatusResult>
-{
+export class GetRecordStatusHandler implements IQueryHandler<
+  GetRecordStatusQuery,
+  GetRecordStatusResult
+> {
   private readonly getRecordByIdHandler: GetRecordByIdHandler;
   private readonly listTableRecordsHandler: ListTableRecordsHandler;
 

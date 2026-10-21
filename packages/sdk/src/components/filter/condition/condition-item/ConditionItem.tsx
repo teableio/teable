@@ -22,8 +22,7 @@ import { FieldValue } from './base-component/FieldValue';
 import { OperatorSelect } from './base-component/OperatorSelect';
 
 interface IConditionItemProps<T extends IConditionItemProperty = IConditionItemProperty>
-  extends IBaseConditionProps,
-    IBaseFilterComponentProps {
+  extends IBaseConditionProps, IBaseFilterComponentProps {
   value: T;
 }
 

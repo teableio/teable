@@ -113,9 +113,9 @@ export const extractUndefinedColumnError = (
       const column =
         typeof details.column === 'string'
           ? details.column
-          : /column (?:\w+\.)?"([^"]+)"(?: of relation "[^"]+")? does not exist/.exec(
+          : (/column (?:\w+\.)?"([^"]+)"(?: of relation "[^"]+")? does not exist/.exec(
               message
-            )?.[1] ?? /column (?:\w+\.)?(\w+) does not exist/.exec(message)?.[1];
+            )?.[1] ?? /column (?:\w+\.)?(\w+) does not exist/.exec(message)?.[1]);
       const table =
         typeof details.table === 'string'
           ? details.table

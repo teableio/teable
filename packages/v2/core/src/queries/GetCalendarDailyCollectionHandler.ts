@@ -53,9 +53,10 @@ export class GetCalendarDailyCollectionResult {
 
 @QueryHandler(GetCalendarDailyCollectionQuery)
 @injectable()
-export class GetCalendarDailyCollectionHandler
-  implements IQueryHandler<GetCalendarDailyCollectionQuery, GetCalendarDailyCollectionResult>
-{
+export class GetCalendarDailyCollectionHandler implements IQueryHandler<
+  GetCalendarDailyCollectionQuery,
+  GetCalendarDailyCollectionResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

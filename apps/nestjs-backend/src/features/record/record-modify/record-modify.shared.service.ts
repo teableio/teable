@@ -251,7 +251,9 @@ export class RecordModifySharedService {
           );
         }
         const fieldId = fieldsMap.get(fieldNameOrId)!.id;
-        const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id]?.fields[fieldId] ?? null;
+        const oldCellValue = isNewRecord
+          ? null
+          : (oldRecordsMap[record.id]?.fields[fieldId] ?? null);
         cellContexts.push({
           recordId: record.id,
           fieldId,

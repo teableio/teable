@@ -27,9 +27,10 @@ export class SelectDefaultValue extends ValueObject {
 
     const names = parsed.data.map((v) => SelectOptionName.create(v));
     return names
-      .reduce<
-        Result<ReadonlyArray<SelectOptionName>, DomainError>
-      >((acc, next) => acc.andThen((arr) => next.map((name) => [...arr, name])), ok([]))
+      .reduce<Result<ReadonlyArray<SelectOptionName>, DomainError>>(
+        (acc, next) => acc.andThen((arr) => next.map((name) => [...arr, name])),
+        ok([])
+      )
       .map((values) => new SelectDefaultValue(values));
   }
 

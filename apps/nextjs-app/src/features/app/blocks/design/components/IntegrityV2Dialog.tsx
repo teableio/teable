@@ -338,16 +338,16 @@ export const IntegrityV2Dialog = ({
   const tableGroups = groupResultsByTable(filteredResults);
   const canRepairWarnings = Boolean(
     baseId &&
-      !isRunning &&
-      results.some((result) => result.status === 'warn' && result.repair?.available)
+    !isRunning &&
+    results.some((result) => result.status === 'warn' && result.repair?.available)
   );
   const canRepairAny = Boolean(
     baseId &&
-      !isRunning &&
-      results.some(
-        (result) =>
-          (result.status === 'warn' || result.status === 'error') && result.repair?.available
-      )
+    !isRunning &&
+    results.some(
+      (result) =>
+        (result.status === 'warn' || result.status === 'error') && result.repair?.available
+    )
   );
   const hasFilteredOutAll = filteredResults.length === 0 && results.length > 0;
 

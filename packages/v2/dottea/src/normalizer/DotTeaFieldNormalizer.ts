@@ -138,7 +138,7 @@ const normalizeCondition = (value: Record<string, unknown> | undefined) => {
       | undefined,
     limit:
       typeof (condition?.limit ?? value?.limit) === 'number'
-        ? condition?.limit ?? value?.limit
+        ? (condition?.limit ?? value?.limit)
         : undefined,
   };
 };

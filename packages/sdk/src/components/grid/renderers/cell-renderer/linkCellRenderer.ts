@@ -202,7 +202,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     if (!ctx) return { type: CellRegionType.Blank };
 
     // activeCellBound describes the active cell even while hit-testing others
-    const scrollTop = isActive ? activeCellBound?.scrollTop ?? 0 : 0;
+    const scrollTop = isActive ? (activeCellBound?.scrollTop ?? 0) : 0;
     const hoverY = originHoverY + scrollTop;
 
     setFontSize(fontSizeSM);

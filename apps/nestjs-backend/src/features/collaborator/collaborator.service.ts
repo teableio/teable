@@ -241,9 +241,9 @@ export class CollaboratorService {
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     const res = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<
-        { count: number }[]
-      >(builder.select(this.knex.raw('COUNT(*) as count')).toQuery());
+      .$queryRawUnsafe<{ count: number }[]>(
+        builder.select(this.knex.raw('COUNT(*) as count')).toQuery()
+      );
     return Number(res[0].count);
   }
 
@@ -443,9 +443,9 @@ export class CollaboratorService {
     await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
     const res = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<
-        { count: number }[]
-      >(builder.select(this.knex.raw('COUNT(*) as count')).toQuery());
+      .$queryRawUnsafe<{ count: number }[]>(
+        builder.select(this.knex.raw('COUNT(*) as count')).toQuery()
+      );
     return Number(res[0].count);
   }
 
@@ -482,9 +482,9 @@ export class CollaboratorService {
     await this.getSpaceCollaboratorBuilder(uniqBuilder, spaceId, { ...options, includeBase: true });
     const uniqRes = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<
-        { count: number }[]
-      >(uniqBuilder.select(this.knex.raw('COUNT(DISTINCT users.id) as count')).toQuery());
+      .$queryRawUnsafe<{ count: number }[]>(
+        uniqBuilder.select(this.knex.raw('COUNT(DISTINCT users.id) as count')).toQuery()
+      );
     return Number(uniqRes[0].count);
   }
 
@@ -817,69 +817,83 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    const { currentColl, targetColl } = await this.getOperatorCollaborators({
-      currentPrincipalId: currentUserId,
-      targetPrincipalId: principalId,
-      resourceId,
-      resourceType,
-    });
+    const { result, spaceId } = await this.prismaService.$tx(async () => {
+      const spaceId = await this.lockSpaceCollaborators(resourceId, resourceType);
+      if (
+        resourceType === CollaboratorType.Space &&
+        (await this.isUniqueOwnerUser(resourceId, principalId))
+      ) {
+        throw new CustomHttpException(
+          'Cannot delete the only owner of the space',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.space.cannotDeleteOnlyOwner',
+            },
+          }
+        );
+      }
+      const { currentColl, targetColl } = await this.getOperatorCollaborators({
+        currentPrincipalId: currentUserId,
+        targetPrincipalId: principalId,
+        resourceId,
+        resourceType,
+      });
 
-    // validate user can operator target user
-    if (
-      currentUserId !== principalId &&
-      currentColl.roleName !== Role.Owner &&
-      !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
-    ) {
-      throw new CustomHttpException(
-        'You do not have permission to delete this collaborator',
-        HttpErrorCode.RESTRICTED_RESOURCE,
-        {
-          localization: {
-            i18nKey: 'httpErrors.collaborator.noPermissionToDelete',
+      // validate user can operator target user
+      if (
+        currentUserId !== principalId &&
+        currentColl.roleName !== Role.Owner &&
+        !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
+      ) {
+        throw new CustomHttpException(
+          'You do not have permission to delete this collaborator',
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.collaborator.noPermissionToDelete',
+            },
+          }
+        );
+      }
+      const result = await this.prismaService.txClient().collaborator.delete({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          resourceType_resourceId_principalId_principalType: {
+            resourceId: resourceId,
+            resourceType: resourceType,
+            principalId,
+            principalType,
           },
-        }
-      );
-    }
-    const result = await this.prismaService.txClient().collaborator.delete({
-      where: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        resourceType_resourceId_principalId_principalType: {
-          resourceId: resourceId,
-          resourceType: resourceType,
-          principalId,
-          principalType,
         },
-      },
+      });
+      if (resourceType === CollaboratorType.Base) {
+        await this.audit.emitAtomic({
+          action: Events.BASE_COLLABORATOR_DELETE,
+          resourceId,
+          params: {
+            baseId: resourceId,
+            spaceId,
+            principalId,
+            principalType,
+            oldRole: targetColl.roleName,
+          },
+        });
+      } else if (resourceType === CollaboratorType.Space) {
+        await this.audit.emitAtomic({
+          action: Events.SPACE_COLLABORATOR_DELETE,
+          resourceId,
+          params: {
+            spaceId,
+            principalId,
+            principalType,
+            oldRole: targetColl.roleName,
+          },
+        });
+      }
+      return { result, spaceId };
     });
-    let spaceId: string = resourceId;
-    if (resourceType === CollaboratorType.Base) {
-      const space = await this.prismaService
-        .txClient()
-        .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
-      spaceId = space.spaceId;
-      await this.audit.emitAtomic({
-        action: Events.BASE_COLLABORATOR_DELETE,
-        resourceId,
-        params: {
-          baseId: resourceId,
-          spaceId,
-          principalId,
-          principalType,
-          oldRole: targetColl.roleName,
-        },
-      });
-    } else if (resourceType === CollaboratorType.Space) {
-      await this.audit.emitAtomic({
-        action: Events.SPACE_COLLABORATOR_DELETE,
-        resourceId,
-        params: {
-          spaceId,
-          principalId,
-          principalType,
-          oldRole: targetColl.roleName,
-        },
-      });
-    }
+    // After the commit: async listeners (seat sync) read outside the transaction.
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_DELETE,
       new CollaboratorDeleteEvent(spaceId)
@@ -901,92 +915,102 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    const { currentColl, targetColl } = await this.getOperatorCollaborators({
-      currentPrincipalId: currentUserId,
-      targetPrincipalId: principalId,
-      resourceId,
-      resourceType,
-    });
-
-    // validate user can operator target user
-    if (
-      currentUserId !== principalId &&
-      currentColl.roleName !== targetColl.roleName &&
-      !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
-    ) {
-      throw new CustomHttpException(
-        `You do not have permission to operator this collaborator: ${principalId}`,
-        HttpErrorCode.RESTRICTED_RESOURCE,
-        {
-          localization: {
-            i18nKey: 'httpErrors.collaborator.noPermissionToUpdate',
-          },
-        }
-      );
-    }
-
-    // validate user can operator target role
-    if (role !== currentColl.roleName && !canManageRole(currentColl.roleName as IRole, role)) {
-      throw new CustomHttpException(
-        `You do not have permission to operator this role: ${role}`,
-        HttpErrorCode.RESTRICTED_RESOURCE,
-        {
-          localization: {
-            i18nKey: 'httpErrors.collaborator.noPermissionToOperateRole',
-          },
-        }
-      );
-    }
-
-    if (
-      role === Role.Owner &&
-      resourceType === CollaboratorType.Space &&
-      targetColl.roleName !== Role.Owner &&
-      principalType === PrincipalType.User
-    ) {
-      await this.validateOwnedSpaceLimit(resourceId, [principalId]);
-    }
-
-    const res = await this.prismaService.txClient().collaborator.updateMany({
-      where: {
-        resourceId: resourceId,
-        resourceType: resourceType,
-        principalId: principalId,
-        principalType: principalType,
-      },
-      data: {
-        roleName: role,
-        lastModifiedBy: currentUserId,
-      },
-    });
-
-    let spaceId: string = '';
-    if (resourceType === CollaboratorType.Base) {
-      const space = await this.prismaService
-        .txClient()
-        .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
-      spaceId = space.spaceId;
-      // Only emit when role actually changes — same-role PATCHes
-      // (e.g. no-op idempotency calls) shouldn't bloat the audit log.
-      if (targetColl.roleName !== role) {
-        await this.audit.emitAtomic({
-          action: Events.BASE_COLLABORATOR_UPDATE,
-          resourceId,
-          params: {
-            baseId: resourceId,
-            spaceId,
-            principalId,
-            principalType,
-            oldRole: targetColl.roleName,
-            newRole: role,
-          },
-        });
+    const { res, spaceId } = await this.prismaService.$tx(async () => {
+      const spaceId = await this.lockSpaceCollaborators(resourceId, resourceType);
+      if (
+        resourceType === CollaboratorType.Space &&
+        role !== Role.Owner &&
+        (await this.isUniqueOwnerUser(resourceId, principalId))
+      ) {
+        throw new CustomHttpException(
+          'Cannot change the role of the only owner of the space',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.space.cannotChangeOnlyOwnerRole',
+            },
+          }
+        );
       }
-    } else if (resourceType === CollaboratorType.Space) {
-      spaceId = resourceId;
-      // Also records ownership transfers: there is no dedicated endpoint, the new owner is
-      // promoted through this role update (newRole: owner).
-      if (targetColl.roleName !== role) {
+      const { currentColl, targetColl } = await this.getOperatorCollaborators({
+        currentPrincipalId: currentUserId,
+        targetPrincipalId: principalId,
+        resourceId,
+        resourceType,
+      });
+
+      // validate user can operator target user
+      if (
+        currentUserId !== principalId &&
+        currentColl.roleName !== targetColl.roleName &&
+        !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
+      ) {
+        throw new CustomHttpException(
+          `You do not have permission to operator this collaborator: ${principalId}`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.collaborator.noPermissionToUpdate',
+            },
+          }
+        );
+      }
+
+      // validate user can operator target role
+      if (role !== currentColl.roleName && !canManageRole(currentColl.roleName as IRole, role)) {
+        throw new CustomHttpException(
+          `You do not have permission to operator this role: ${role}`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.collaborator.noPermissionToOperateRole',
+            },
+          }
+        );
+      }
+
+      if (
+        role === Role.Owner &&
+        resourceType === CollaboratorType.Space &&
+        targetColl.roleName !== Role.Owner &&
+        principalType === PrincipalType.User
+      ) {
+        await this.validateOwnedSpaceLimit(resourceId, [principalId]);
+      }
+
+      const res = await this.prismaService.txClient().collaborator.updateMany({
+        where: {
+          resourceId: resourceId,
+          resourceType: resourceType,
+          principalId: principalId,
+          principalType: principalType,
+        },
+        data: {
+          roleName: role,
+          lastModifiedBy: currentUserId,
+        },
+      });
+
+      if (resourceType === CollaboratorType.Base) {
+        // Only emit when role actually changes — same-role PATCHes
+        // (e.g. no-op idempotency calls) shouldn't bloat the audit log.
+        if (targetColl.roleName !== role) {
+          await this.audit.emitAtomic({
+            action: Events.BASE_COLLABORATOR_UPDATE,
+            resourceId,
+            params: {
+              baseId: resourceId,
+              spaceId,
+              principalId,
+              principalType,
+              oldRole: targetColl.roleName,
+              newRole: role,
+            },
+          });
+        }
+      } else if (resourceType === CollaboratorType.Space && targetColl.roleName !== role) {
+        // Also records ownership transfers: there is no dedicated endpoint, the new owner is
+        // promoted through this role update (newRole: owner).
         await this.audit.emitAtomic({
           action: Events.SPACE_COLLABORATOR_UPDATE,
           resourceId,
@@ -999,16 +1023,38 @@ export class CollaboratorService {
           },
         });
       }
-    }
+      return { res, spaceId };
+    });
 
-    if (spaceId) {
-      this.eventEmitterService.emitAsync(
-        Events.COLLABORATOR_UPDATE,
-        new CollaboratorUpdateEvent(spaceId)
-      );
-    }
+    // After the commit: async listeners (seat sync) read outside the transaction.
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_UPDATE,
+      new CollaboratorUpdateEvent(spaceId)
+    );
 
     return res;
+  }
+
+  /**
+   * Collaborator changes within one space run one at a time (pentest RACE-01/02). The
+   * "only owner" count and the operator's own role are read after this lock, so two
+   * requests can no longer both pass their checks against the same snapshot: demoting
+   * one of two owners while removing the other used to leave the space with none.
+   * FOR NO KEY UPDATE leaves foreign-key checks against the space row unblocked.
+   */
+  private async lockSpaceCollaborators(resourceId: string, resourceType: CollaboratorType) {
+    const spaceId =
+      resourceType === CollaboratorType.Base
+        ? (
+            await this.prismaService
+              .txClient()
+              .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } })
+          ).spaceId
+        : resourceId;
+    await this.prismaService.txClient().$queryRaw`
+      SELECT "id" FROM "space" WHERE "id" = ${spaceId} FOR NO KEY UPDATE
+    `;
+    return spaceId;
   }
 
   async getCurrentUserCollaboratorsBaseAndSpaceArray(searchRoles?: IRole[]) {

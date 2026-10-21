@@ -19,7 +19,6 @@ components.forEach((component) => {
   execSync(command, { stdio: 'inherit', cwd: process.cwd() });
 });
 
-execSync(
-  `pnpm eslint --ext .ts,.tsx --fix --rule 'typescript-eslint/naming-convention: off' ${componentsDir}`,
-  { stdio: 'inherit' }
-);
+execSync(`pnpm oxlint --fix --allow teable/naming-convention ${componentsDir}`, {
+  stdio: 'inherit',
+});

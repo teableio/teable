@@ -107,7 +107,7 @@ const ensureStatuses = (
 const normalizeTableMatch = (
   tableIds: ReadonlyArray<string> | undefined,
   tableMatch: ComputedTaskTableMatch | undefined
-): ComputedTaskTableMatch | undefined => (tableIds?.length ? tableMatch ?? 'any' : undefined);
+): ComputedTaskTableMatch | undefined => (tableIds?.length ? (tableMatch ?? 'any') : undefined);
 
 const toIso = (value: Date | null | undefined): string => (value ? value.toISOString() : '');
 
@@ -770,7 +770,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
                 .map(([targetTableId, edgeCount]) => ({
                   targetTableId,
                   targetTableName:
-                    targetTableId === '-' ? '-' : tableNames.get(targetTableId) ?? targetTableId,
+                    targetTableId === '-' ? '-' : (tableNames.get(targetTableId) ?? targetTableId),
                   edgeCount,
                 }))
                 .sort(

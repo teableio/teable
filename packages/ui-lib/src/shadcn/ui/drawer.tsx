@@ -78,7 +78,8 @@ const drawerVariants = cva(
 );
 
 interface IDrawerContentProps
-  extends React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>,
+  extends
+    React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>,
     VariantProps<typeof drawerVariants> {
   container?: HTMLElement | null;
   overlayClassName?: string;
