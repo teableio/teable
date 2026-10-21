@@ -34,9 +34,14 @@ export type LinkForeignTableReference = {
   baseId?: BaseId;
 };
 
-export class LinkForeignTableReferenceVisitor
-  implements IFieldVisitor<ReadonlyArray<LinkForeignTableReference>>
-{
+export const toLinkForeignTableReference = (
+  foreignTableId: TableId,
+  baseId?: BaseId
+): LinkForeignTableReference => (baseId ? { foreignTableId, baseId } : { foreignTableId });
+
+export class LinkForeignTableReferenceVisitor implements IFieldVisitor<
+  ReadonlyArray<LinkForeignTableReference>
+> {
   collect(
     fields: ReadonlyArray<Field>
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
@@ -185,22 +190,12 @@ export class LinkForeignTableReferenceVisitor
   visitConditionalRollupField(
     field: ConditionalRollupField
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    // Conditional rollup fields reference foreign tables directly
-    return ok([
-      {
-        foreignTableId: field.foreignTableId(),
-      },
-    ]);
+    return ok([toLinkForeignTableReference(field.foreignTableId(), field.baseId())]);
   }
 
   visitConditionalLookupField(
     field: ConditionalLookupField
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    // Conditional lookup fields reference foreign tables directly
-    return ok([
-      {
-        foreignTableId: field.foreignTableId(),
-      },
-    ]);
+    return ok([toLinkForeignTableReference(field.foreignTableId(), field.baseId())]);
   }
 }

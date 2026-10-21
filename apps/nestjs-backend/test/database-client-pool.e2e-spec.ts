@@ -8,16 +8,24 @@ import { initApp } from './utils/init-app';
 
 describe('database client pool topology (e2e)', () => {
   let app: INestApplication;
+  let previousEnabled: string | undefined;
 
   beforeAll(async () => {
+    previousEnabled = process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    process.env.V2_TABLE_QUERY_OPS_ENABLED = 'true';
     app = (await initApp()).app;
   });
 
   afterAll(async () => {
     await app.close();
+    if (previousEnabled == null) {
+      delete process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    } else {
+      process.env.V2_TABLE_QUERY_OPS_ENABLED = previousEnabled;
+    }
   });
 
-  it('uses one physical PostgreSQL pool for default Prisma, V2 Kysely, and Knex traffic', async () => {
+  it('bulkheads observations from the shared Prisma, V2 Kysely, and Knex pool', async () => {
     await app.get(V2ContainerService).getContainer();
 
     const registry = app.get(PgPoolRegistry);
@@ -41,16 +49,25 @@ describe('database client pool topology (e2e)', () => {
     expect(metaKnex).toBe(dataKnex);
     expect(metaKnex).toBe(customKnex);
     expect(metaKnex.client.pool).toBeUndefined();
-    expect(snapshots).toHaveLength(1);
-    expect(snapshots[0]).toMatchObject({ waiting: 0 });
+    expect(snapshots).toHaveLength(2);
+    const shared = snapshots.find((snapshot) => snapshot.poolName == null)!;
+    const observations = snapshots.find(
+      (snapshot) => snapshot.poolName === 'table-query-observation'
+    )!;
+    expect(shared).toMatchObject({ applicationName: 'teable', waiting: 0 });
+    expect(observations).toMatchObject({
+      applicationName: 'teable-table-query-observation',
+      max: 2,
+      references: 1,
+      waiting: 0,
+    });
     // Shared-app workers retain private test apps until process teardown because
     // closing one can end process-global pools. Those apps add leases, not pools.
-    expect(snapshots[0]!.references).toBeGreaterThanOrEqual(3);
-    expect(snapshots[0]!.total).toBeLessThanOrEqual(snapshots[0]!.max);
-    expect(activity).toHaveLength(1);
-    expect(activity[0]!.applicationName).toBe('teable');
-    // Other retained test apps can have their own pool against this worker DB.
-    // The current app's registry count must still be represented in PostgreSQL.
-    expect(activity[0]!.connections).toBeGreaterThanOrEqual(BigInt(snapshots[0]!.total));
+    expect(shared.references).toBeGreaterThanOrEqual(3);
+    expect(shared.total).toBeLessThanOrEqual(shared.max);
+    expect(observations.total).toBeLessThanOrEqual(2);
+    const mainActivity = activity.filter((row) => row.applicationName === 'teable');
+    expect(mainActivity).toHaveLength(1);
+    expect(mainActivity[0]!.connections).toBeGreaterThanOrEqual(BigInt(shared.total));
   });
 });

@@ -3,6 +3,7 @@
     "empty": "Empty",
     "noRecords": "No records available",
     "unnamedRecord": "Unnamed record",
+    "recordDeleted": "Record deleted",
     "untitled": "Untitled",
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -32,7 +33,9 @@
     "resetSuccess": "Reset successfully",
     "click": "Click",
     "clickedCount": "{{label}}: Clicked {{text}} times",
-    "atLeastOne": "At least reserve a {{noun}}"
+    "close": "Close",
+    "atLeastOne": "At least reserve a {{noun}}",
+    "selectField": "Select field"
   },
   "notification": {
     "title": "Notification"
@@ -44,7 +47,10 @@
   },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
-    "loadFileError": "Failed to load file"
+    "loadFileError": "Failed to load file",
+    "previousAttachment": "Previous",
+    "nextAttachment": "Next",
+    "deleteAttachment": "Delete"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -198,6 +204,17 @@
       "isAfter": "is after",
       "isOnOrBefore": "is on or before",
       "isOnOrAfter": "is on or after",
+      "user": {
+        "is": "is",
+        "isNot": "is not",
+        "isAnyOf": "is any of",
+        "isNoneOf": "is not any of",
+        "hasAnyOf": "has any of",
+        "hasAllOf": "has all of",
+        "isExactly": "is exactly",
+        "isNotExactly": "is not",
+        "hasNoneOf": "has none of"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -244,7 +261,11 @@
         "pastNumberOfDays": "past number of days",
         "nextNumberOfDays": "next number of days"
       }
-    }
+    },
+    "selectOperator": "Select operator",
+    "selectConjunction": "Select conjunction",
+    "selectDateMode": "Select date option",
+    "selectValue": "Select value"
   },
   "color": {
     "label": "Color"
@@ -273,7 +294,10 @@
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
+    "previousRecord": "Previous",
+    "nextRecord": "Next",
     "duplicateRecord": "Duplicate record",
+    "addToChat": "Add to Chat",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
     "addRecordComment": "Add comment",
@@ -306,14 +330,16 @@
     "addButton": "Add another sort",
     "autoSort": "Automatically sort records",
     "selectASCLabel": "first → last",
-    "selectDESCLabel": "last → first"
+    "selectDESCLabel": "last → first",
+    "orderTitle": "Select sort order"
   },
   "group": {
     "label": "Group",
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_other": "Group by {{count}} fields",
     "setTips": "Group by",
-    "addButton": "Add subgroup"
+    "addButton": "Add subgroup",
+    "maxLimitTip": "You can group by up to {{count}} fields"
   },
   "field": {
     "title": {
@@ -351,7 +377,7 @@
       "date": "Record dates or times.",
       "createdTime": "Show when a record was created.",
       "lastModifiedTime": "Show the most recent update time.",
-      "attachment": "Upload files or AI generate images, supports models such as 🍌 Nano banana pro",
+      "attachment": "Upload files or AI generate images, supports models such as GPT Image 2",
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
@@ -384,15 +410,14 @@
       "spaceInviteEmail": "Invite via email in space",
       "spaceInviteLink": "Invite via link in space",
       "spaceGrantRole": "Grant role in space",
-      "baseCreate": "Create base",
-      "baseDelete": "Delete base",
-      "baseRead": "Read base",
-      "baseReadAll": "Read all bases",
-      "baseUpdate": "Update base",
-      "baseInviteEmail": "Invite via email in base",
-      "baseInviteLink": "Invite via link in base",
+      "baseCreate": "Create project",
+      "baseDelete": "Delete project",
+      "baseRead": "Read project",
+      "baseReadAll": "Read all projects",
+      "baseUpdate": "Update project",
+      "baseInviteEmail": "Invite via email in project",
+      "baseInviteLink": "Invite via link in project",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
-      "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",
       "tableRead": "Read table",
       "tableDelete": "Delete table",
@@ -402,6 +427,8 @@
       "tableTrashRead": "Read table trash",
       "tableTrashUpdate": "Update table trash",
       "tableTrashReset": "Reset table trash",
+      "tableArchiveRead": "Read table archive",
+      "tableArchiveManage": "Manage table archive",
       "viewCreate": "Create view",
       "viewDelete": "Delete view",
       "viewRead": "Read view",
@@ -417,18 +444,26 @@
       "recordRead": "Read record",
       "recordUpdate": "Update record",
       "recordCopy": "Copy record",
+      "recordArchive": "Archive record",
       "automationCreate": "Create automation",
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
+      "routineCreate": "Create routine",
+      "routineDelete": "Delete routine",
+      "routineRead": "Read routine",
+      "routineUpdate": "Update routine",
       "appCreate": "Create app",
       "appDelete": "Delete app",
       "appRead": "Read app",
       "appUpdate": "Update app",
       "userEmailRead": "Read current user email",
       "userIntegrations": "Manage user integrations",
+      "userSpacesRead": "Read current user's spaces (name, plan and seats)",
+      "userSelfHostedLicensesRead": "Read current user's self-hosted license purchases (plan and seats)",
+      "userNotificationsSend": "Send notifications to the current user",
       "recordHistoryRead": "Read record history",
-      "baseQuery": "Query base",
+      "baseQuery": "Query project",
       "instanceRead": "Read instance",
       "instanceUpdate": "Update instance",
       "enterpriseRead": "Read enterprise configuration",
@@ -439,10 +474,11 @@
     "table": "Table",
     "view": "View",
     "space": "Space",
-    "base": "Base",
+    "base": "Project",
     "field": "Field",
     "record": "Record",
     "automation": "Automation",
+    "routine": "Routine",
     "app": "App",
     "user": "User",
     "recordHistory": "Record history",
@@ -630,8 +666,8 @@
       "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
     },
     "ERROR": {
-      "summary": "Returns the error value.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "summary": "Returns a custom error. Text formula cells display #ERROR: followed by the message; IS_ERROR returns true.",
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Returns true if the expression causes an error.",
@@ -694,8 +730,8 @@
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "Returns the number of working days after [startDate] up to and including [endDate]. This is a business-day count, not a calendar-day diff, so weekends and an optional list of holidays are excluded. For calendar-day elapsed time, use `DATETIME_DIFF(endDate, startDate, \"day\")`. The result is negative when [endDate] is earlier than [startDate], and WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) returns n.",
-      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+      "summary": "Returns the number of working days between [startDate] and [endDate], including both endpoints when they are working days. Weekends and an optional list of holidays are excluded. The result is negative when [endDate] is earlier than [startDate]. The same working day returns 1; the same weekend or holiday returns 0. For elapsed calendar days, use `DATETIME_DIFF(endDate, startDate, \"day\")`.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "Compares two dates up to a unit and determines whether they are identical. Returns true if yes, false if no.",
@@ -890,7 +926,8 @@
       "editLink": "Edit link",
       "linkText": "Link text",
       "enterUrl": "Enter URL"
-    }
+    },
+    "tooManyImages": "You can add up to {{count}} images at a time"
   },
   "memberSelector": {
     "title": "Select members",
@@ -910,10 +947,12 @@
     "creditLimitExceeded": "Credits have exceeded the limit",
     "restrictedResource": "Restricted resource",
     "notFound": "Not found",
+    "viewNotFound": "View not found",
     "conflict": "Conflict",
     "unprocessableEntity": "Unprocessable entity",
     "userLimitExceeded": "User limit exceeded",
     "tooManyRequests": "Too many requests",
+    "payloadTooLarge": "Payload too large",
     "internalServerError": "Internal server error",
     "databaseConnectionUnavailable": "Database connection unavailable",
     "gatewayTimeout": "Gateway timeout",
@@ -935,7 +974,13 @@
       "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
       "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
       "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
-      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "formulaCompileNodesMax": "The formula's expanded structure exceeds the compilation limit of {{max}} nodes. Reduce repeated references or complex branches. This change was not saved.",
+      "formulaCompileDepthMax": "The formula's calculation structure exceeds the nesting limit of {{max}} levels. Reduce nested functions or chained operations. This change was not saved.",
+      "formulaReferenceDepthMax": "The formula exceeds the reference depth limit of {{max}} levels. Shorten chains of references between formulas. This change was not saved.",
+      "formulaBindingsMax": "Compiling the formula requires more than {{max}} intermediate calculation bindings. Simplify the formula's branches and referenced calculations. This change was not saved.",
+      "formulaCompileBytesMax": "The formula's intermediate compilation fragments exceed the total limit of {{max}} bytes. Reduce large literals, repeated references or complex branches. This change was not saved.",
+      "formulaSqlBytesMax": "The database query generated for the formula exceeds the limit of {{max}} bytes. Simplify the formula and its referenced calculations. This change was not saved.",
+      "tablesPerBaseMax": "This project has reached the table limit. Maximum is {{max}} tables.",
       "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
       "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
       "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
@@ -950,15 +995,21 @@
       "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
       "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
     },
-    "validation": {
-      "field": {
-        "unique": "Field must have a unique value"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
+      "recordFieldValueNotNull": "Field \"{{fieldName}}\" does not allow empty values, please fill it in before submitting.",
+      "recordFieldValueDuplicate": "Field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
+      "recordDeleteBlockedByRequiredLink": "Cannot delete: required link field \"{{fieldName}}\" in table \"{{tableName}}\" would become empty.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "Cannot delete: this record is still referenced by a link field in another table.",
+      "recordDeleteBlockedByLink": "Cannot delete: link field \"{{fieldName}}\" in table \"{{tableName}}\" still references this record.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
+      "linkBatchDuplicate": "Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.",
+      "linkOneManyDuplicate": "Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.",
+      "linkOneOneDuplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship.",
+      "fieldMaxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields.",
+      "fieldRequiredExistingValues": "Cannot mark field \"{{fieldName}}\" as required because existing records contain empty values.",
+      "fieldUniqueExistingValues": "Cannot mark field \"{{fieldName}}\" as unique because existing records contain duplicate values.",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
@@ -1015,6 +1066,10 @@
       "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
       "passwordLoginDisabled": "Password login is disabled"
     },
+    "connectorEvent": {
+      "accountNotGranted": "The connector event trigger needs a connected account granted to this resource",
+      "notEnabled": "Connector events are not enabled on this deployment"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field",
       "triggerNotFound": "Automation must have a trigger node",
@@ -1022,6 +1077,7 @@
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "testFailed": "Automation test failed, please check the automation configuration",
       "runFailed": "Automation run failed",
+      "activatorDeactivated": "The account that activated this automation has been deactivated",
       "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated",
@@ -1030,14 +1086,18 @@
       "runNotFound": "Automation run not found",
       "anchorNotFound": "Anchor automation not found",
       "validationError": "Automation configuration validation error",
-      "tableNotInBase": "You can only subscribe to a table within your base",
+      "tableNotInBase": "You can only subscribe to a table within your project",
       "alreadyActiveAndNotDraft": "Automation already active and not draft",
       "noActiveSnapshot": "Automation has no active snapshot",
       "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
       "workflowMustBeActiveToRerun": "Workflow must be active to rerun",
       "snapshotChangedOnlyFullRerun": "Workflow has been modified since this run. Only full rerun is allowed.",
+      "runPayloadColdTruncated": "Parts of this run were truncated during cold archiving; rerun from it is not available",
+      "runListOffsetTooDeep": "This page is too far into the run history for offset paging; continue with the cursor returned by the previous page.",
       "controlStepsMissingOnlyFullRerun": "Control node data is missing for this run. Only full rerun is supported.",
       "triggerNodeAlreadyExists": "This automation already has a trigger node",
+      "scheduledIntervalTooShort": "Scheduled automations must run at least {{min}} minutes apart",
+      "emailPollIntervalTooShort": "Email triggers must check for new mail no more often than every {{min}} minutes",
       "unSupportLogicType": "Unsupported logic type",
       "generateLogicError": "Generate logic node error",
       "logicNotFound": "Automation logic node not found",
@@ -1050,6 +1110,8 @@
       "unsupportedCategory": "Unsupported category",
       "unknownConnectionType": "Unknown email connection type",
       "imapPasswordNotConfigured": "IMAP password not configured",
+      "secretNotGranted": "Secret {{alias}} is not granted to the automation",
+      "credentialMustBeSecret": "Credentials must be secrets granted to the automation",
       "integrationNotFound": "Integration not found or has no credentials",
       "webhookTriggerNotFound": "Webhook trigger not found",
       "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
@@ -1057,16 +1119,17 @@
       "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Unknown dataset: {{datasetId}}",
       "apiKeyNotConfigured": "Scrape service is not configured",
       "triggerFailed": "Scrape trigger failed: {{detail}}",
-      "snapshotError": "Scrape snapshot error: {{detail}}",
-      "timeout": "Scrape timed out after {{seconds}}s"
+      "catalogFailed": "Scrape catalog request failed: {{detail}}",
+      "creditEstimateExceeded": "This scrape's estimated credits exceed what is available right now",
+      "runOverLimit": "This scrape can cost up to {{maxCredits}} credits, over the {{limit}} allowed for one run."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "{{provider}} connections are no longer supported and cannot be granted"
     },
     "space": {
       "notFound": "Space not found",
@@ -1082,17 +1145,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "Base not found",
-      "cannotAccess": "You don't have permission to access base {{baseId}}",
-      "anchorNotFound": "Anchor base {{anchorId}} not found",
-      "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
+      "notFound": "Project not found",
+      "cannotAccess": "You don't have permission to access project {{baseId}}",
+      "anchorNotFound": "Anchor project {{anchorId}} not found",
+      "baseAndSpaceMismatch": "Project {{baseId}} and space {{spaceId}} mismatch",
       "templateNotFound": "Template {{templateId}} not found"
     },
     "baseNode": {
-      "baseIdIsRequired": "Base ID is required",
+      "baseIdIsRequired": "Project ID is required",
       "nodeIdIsRequired": "Node ID is required",
       "invalidResourceType": "Invalid resource type",
-      "notFound": "Base node not found",
+      "notFound": "Project node not found",
       "parentMustBeFolder": "Parent must be a folder",
       "cannotDuplicateFolder": "Cannot duplicate folder",
       "cannotDeleteEmptyFolder": "Cannot delete folder because it is not empty",
@@ -1106,7 +1169,27 @@
       "folderDepthLimitExceeded": "Folder depth limit exceeded",
       "folderNotFound": "Folder not found",
       "anchorNotFound": "Anchor node not found",
-      "nameAlreadyExists": "Name already exists"
+      "nameAlreadyExists": "Name already exists",
+      "targetBaseRequired": "Target project is required",
+      "moveBlocked": "Cannot move node to the target project ({{code}})"
+    },
+    "routine": {
+      "notFound": "Routine not found",
+      "runNotFound": "Routine run not found",
+      "configRequiredToActivate": "Cannot activate a routine without a saved config",
+      "noFutureOccurrence": "The schedule has no future occurrence",
+      "onlyActiveCanDeactivate": "Only an active routine can be deactivated",
+      "configRequiredToRun": "Cannot run a routine without a saved config",
+      "runAlreadyInFlight": "A run of this routine is already in flight",
+      "runNowWhileActiveEvent": "This routine is active and already receives its events; trigger one to see it run",
+      "invalidRunCursor": "Invalid run list cursor",
+      "invalidSchedule": "Invalid routine schedule: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat not found",
+      "accessDenied": "You are not allowed to access this chat",
+      "archived": "Chat is archived",
+      "serverAuthoredType": "Chats of type {{type}} are created by the server"
     },
     "dashboard": {
       "notFound": "Dashboard not found"
@@ -1146,7 +1229,7 @@
       "loginRequired": "Sign in to edit this shared view"
     },
     "baseShare": {
-      "notFound": "Base share not found or sharing is disabled",
+      "notFound": "Project share not found or sharing is disabled",
       "alreadyExists": "A share already exists for this node",
       "copyNotAllowed": "This share does not allow copying"
     },
@@ -1162,16 +1245,10 @@
     "pluginChart": {
       "queryNotFound": "Plugin chart query not found"
     },
-    "dbConnection": {
-      "unsupportedDriver": "Unsupported database driver: {{driver}}",
-      "onlyOwnerCanRemove": "Only the base owner can remove database connection for base {{baseId}}",
-      "onlyOwnerCanCreate": "Only the base owner can create database connection for base {{baseId}}",
-      "roleNotExist": "Database role {{role}} does not exist"
-    },
     "baseQuery": {
       "queryFailed": "Query failed: {{message}}",
       "invalidJoinType": "Invalid join type: {{joinType}}",
-      "tableNotFound": "Table {{tableId}} not found in base {{baseId}}"
+      "tableNotFound": "Table {{tableId}} not found in project {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
@@ -1191,7 +1268,7 @@
       "accessTokenNoPermission": "Access token does not have the required permission",
       "invalidResource": "Resource is not valid",
       "notAllowedSpace": "You don't have permission to access this space",
-      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedBase": "You don't have permission to access this project",
       "notAllowedTables": "You don't have permission to access tables({{tableIds}})",
       "notAllowedOperationTable": "You don't have permission to operate on this table",
       "notAllowedOperationRecord": "You don't have permission to operate on this record",
@@ -1211,7 +1288,7 @@
       "primaryFieldCannotBeDisabledForRead": "Primary field cannot be disabled for read access",
       "fieldDuplicated": "Field is duplicated in permission configuration",
       "cannotSetRecordPermissionGroup": "Cannot set this combination of record permissions({{actions}})",
-      "notFoundBaseAndTable": "Base ID and Table ID not found",
+      "notFoundBaseAndTable": "Project ID and Table ID not found",
       "roleTablesShouldNotBeEmpty": "Authority matrix role tables should not be empty"
     },
     "selection": {
@@ -1229,6 +1306,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds or fromRecordIds is required for normal computed field",
       "recordFieldsRequired": "Record fields is undefined",
       "uniqueUnsupportedType": "Field {{name}}[{{fieldId}}] does not support field value unique validation",
+      "optionsUnsupportedType": "Field {{name}}[{{fieldId}}] does not support these patched options: {{options}}",
       "notNullValidationWhenCreateField": "Field {{name}}[{{fieldId}}] does not support not null validation when creating a new field",
       "dbFieldNameAlreadyExists": "Database field name {{dbFieldName}} already exists",
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
@@ -1242,6 +1320,7 @@
       "lookupAndLinkLengthMatch": "lookupValues length should be same as linkCellValues length",
       "cycleDetected": "Cycle detected",
       "cycleDetectedCreateField": "Cycle detected, cannot create field {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Cycle detected, cannot create field",
       "recordMapNotFound": "Record not found in table {{tableName}} for field {{fieldName}}",
       "forbidDeletePrimaryField": "Forbid delete primary field",
       "foreignTableIdInvalid": "Foreign table {{foreignTableId}} invalid",
@@ -1305,11 +1384,17 @@
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
+      "upgradeRequired": "This feature is not available on your current plan. Please upgrade your plan to use it.",
       "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded",
+      "exceedMaxAttachmentSizeLimit": "Attachment storage has reached your plan limit. Please upgrade your plan or remove some attachments.",
+      "exceedMaxSystemEmailLimit": "Monthly email sends have reached your plan limit. Please upgrade your plan.",
       "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
       "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
       "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
-      "customerNotFound": "No billing customer record found for this space."
+      "planNotAvailable": "This plan option is no longer available for new subscriptions.",
+      "seatLimitExceeded": "Not enough purchased seats. Add seats to invite more collaborators.",
+      "customerNotFound": "No billing customer record found for this space.",
+      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1330,12 +1415,15 @@
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
+      "providerModelDuplicated": "Model {{model}} is listed under both \"{{first}}\" and \"{{second}}\"; a model may appear in only one provider of a type",
       "gatewayApiKeyNotSet": "AI Gateway API key is not configured",
       "testLLMFailed": "LLM connection test failed",
+      "providerBaseUrlBlocked": "AI provider base URL {{baseUrl}} points to a private or unresolvable network address and is blocked. Self-hosted deployments can allow it through TEABLE_SSRF_TRUSTED_ORIGINS.",
       "audioNotSupported": "Audio input not supported by this model {{model}}",
       "imageNotSupported": "Image input not supported by this model {{model}}",
       "modelNotSet": "AI model is not set",
       "unsupportedFileType": "Unsupported file type {{mimetype}}",
+      "attachmentDownloadFailed": "Failed to download attachment: {{reason}}",
       "unsupportedModelType": "Unsupported model type",
       "embeddingModelNotSet": "Embedding model is not set",
       "validateActionFailed": "Validate field AI action failed",
@@ -1390,9 +1478,9 @@
       "noPermissionToDelete": "You do not have permission to delete this collaborator",
       "noPermissionToUpdate": "You do not have permission to update this collaborator",
       "noPermissionToOperateRole": "You do not have permission to operate this role",
-      "alreadyExistedInBase": "Collaborator has already existed in base",
+      "alreadyExistedInBase": "Collaborator has already existed in project",
       "userNotFound": "User not found: {{userIds}}",
-      "baseNotFound": "Base not found",
+      "baseNotFound": "Project not found",
       "noPermissionToAddRole": "You do not have permission to add this role collaborator",
       "departmentNotFound": "Department not found"
     },
@@ -1425,14 +1513,15 @@
     "pin": {
       "alreadyExists": "Pin already exists",
       "notFound": "Pin not found",
-      "anchorNotFound": "Pin anchor not found"
+      "anchorNotFound": "Pin anchor not found",
+      "targetNotFound": "The item to pin was not found"
     },
     "trash": {
       "invalidResourceType": "Invalid resource type",
       "notFound": "Trash item not found",
-      "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
-      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
-      "parentBaseTrashed": "Unable to restore this item because its parent base is also in trash",
+      "parentSpaceTrashed": "Unable to restore this project because its parent space is also in trash",
+      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent project or space is also in trash",
+      "parentBaseTrashed": "Unable to restore this item because its parent project is also in trash",
       "parentNotFound": "Parent resource not found",
       "tableNotFound": "Table trash item not found"
     },
@@ -1445,8 +1534,10 @@
     "domainVerification": {
       "notFound": "No domain verification code found",
       "invalidCode": "Invalid verification code",
+      "tooManyAttempts": "Too many incorrect codes. Please request a new verification code",
       "resendCooldown": "Please wait for 1 minute before requesting a new code",
-      "alreadyVerified": "Domain already verified"
+      "alreadyVerified": "Domain already verified",
+      "requiredForSso": "Verify an email domain first: SSO can only sign in users whose email belongs to a verified domain"
     },
     "organization": {
       "notFound": "Organization not found",
@@ -1460,11 +1551,12 @@
     },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",
+      "signupUnavailableInApp": "No account is linked to this sign-in. Sign in with the account you already use.",
       "emailDomainBanned": "This email domain has been banned due to policy violations",
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
       "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
       "systemUser": "User is a system user",
-      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)",
+      "soleOwnerOfSpaces": "User is the only owner of spaces that must be acknowledged or handed over before the account can be deleted",
       "notFound": "User not found",
       "cannotDeleteAdmin": "Cannot delete admin user",
       "cannotDeactivateAdmin": "Cannot deactivate admin user",
@@ -1524,7 +1616,11 @@
       "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
       "invalidZip": "Invalid ZIP file",
       "domainAlreadyInUse": "This domain is already bound to another app",
-      "domainReserved": "Subdomain is reserved"
+      "domainReserved": "Subdomain is reserved",
+      "siteInfoBeforeGeneration": "Generate the app before customizing its site info",
+      "generationEditingConflict": "An AI generation is currently editing this app. Please retry the file update after it finishes.",
+      "siteInfoLayoutNotEditable": "This app's code isn't set up to accept site info edits here. Send a chat message asking the AI to change the site title, description or icon instead.",
+      "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead."
     },
     "reward": {
       "notFound": "Reward not found",
@@ -1534,6 +1630,7 @@
       "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
       "invalidPostUrl": "Invalid post URL format",
       "postAlreadyUsed": "This post has already been used to claim a reward",
+      "tooManyFailedAttempts": "Too many failed verification attempts this week",
       "unsupportedPlatformUrl": "Unsupported social platform URL",
       "unsupportedPlatform": "Unsupported platform: {{platform}}",
       "minCharCount": "Post must have at least {{count}} characters",
@@ -1547,6 +1644,33 @@
       "linkedInPostNotFound": "LinkedIn post not found: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
       "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
+    },
+    "tableProvisionPending": "Table structure is updating. Please try again shortly."
+  },
+  "usageLimitBanner": {
+    "viewDetail": "View details",
+    "rows": {
+      "title": "This space uses {{current}} rows, exceeding your plan limit of {{limit}}",
+      "titleIncrement": "This action adds {{increment}} rows, exceeding your plan limit of {{limit}}",
+      "titleBatch": "This operation would exceed your plan limit of {{limit}} rows",
+      "description": "You can't add more records. Upgrade to lift the limit instantly, or free up space by deleting records.",
+      "unit": "rows",
+      "constraint": "No more records can be added on the current plan. Free up space by deleting records."
+    },
+    "credit": {
+      "unit": "credits"
+    },
+    "attachments": {
+      "unit": "Attachments"
+    },
+    "generic": {
+      "description": "Upgrade your plan to lift this limit."
+    },
+    "neutral": {
+      "title": "This action exceeds a limit of the space's current plan"
+    },
+    "seats": {
+      "unit": "seats"
     }
   }
 }

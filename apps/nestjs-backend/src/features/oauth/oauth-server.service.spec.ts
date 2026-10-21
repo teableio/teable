@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { HttpErrorCode } from '@teable/core';
@@ -11,6 +10,7 @@ import { mockDeep } from 'vitest-mock-extended';
 import { CacheService } from '../../cache/cache.service';
 import { CustomHttpException } from '../../custom.exception';
 import { GlobalModule } from '../../global/global.module';
+import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { OAuthServerService } from './oauth-server.service';
 import { OAuthModule } from './oauth.module';
 
@@ -18,7 +18,7 @@ describe('OAuthServerService', () => {
   let service: OAuthServerService;
   const prismaService = mockDeep<PrismaService>();
   const cacheService = mockDeep<CacheService>();
-  const jwtService = mockDeep<JwtService>();
+  const jwtService = mockDeep<TeableJwtService>();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,7 +28,7 @@ describe('OAuthServerService', () => {
       .useValue(prismaService)
       .overrideProvider(CacheService)
       .useValue(cacheService)
-      .overrideProvider(JwtService)
+      .overrideProvider(TeableJwtService)
       .useValue(jwtService)
       .compile();
 
@@ -179,6 +179,80 @@ describe('OAuthServerService', () => {
         done
       );
       expect(done).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('authorizeImmediate', () => {
+    const client = {
+      clientId: 'clientId',
+      scopes: ['user|email_read', 'user|spaces_read'],
+      redirectUri: 'http://localhost/callback',
+    };
+    const user = { id: 'userId' } as any;
+    let done: Mock;
+    let touchAuthorize: MockInstance;
+
+    // approved `daysAgo`, and the app holding tokens with these scope sets
+    const approved = (daysAgo: number, ...held: string[][]) => {
+      prismaService.oAuthAppAuthorized.findUnique.mockResolvedValue({
+        authorizedTime: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+      } as any);
+      prismaService.accessToken.findMany.mockResolvedValue(
+        held.map((scopes) => ({ scopes: JSON.stringify(scopes) })) as any
+      );
+    };
+    const immediate = () =>
+      service['authorizeImmediate'](client, user, [], 'code', {} as any, done as any);
+
+    beforeEach(() => {
+      done = vitest.fn();
+      touchAuthorize = vitest.spyOn(service as any, 'touchAuthorize').mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      vitest.restoreAllMocks();
+    });
+
+    it('skips the consent screen for scopes the app already holds, across its tokens', async () => {
+      approved(1, ['user|email_read'], ['user|spaces_read', 'user|integrations']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, true, undefined, undefined);
+      expect(touchAuthorize).toHaveBeenCalledWith('clientId', 'userId', client.scopes);
+      // only the tokens it could still refresh count
+      expect(prismaService.accessToken.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'clientId',
+            userId: 'userId',
+            createdTime: { gt: expect.any(Date) },
+          }),
+        })
+      );
+    });
+
+    it('asks again when the app asks for a scope it does not hold', async () => {
+      approved(1, ['user|email_read']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+      expect(touchAuthorize).not.toHaveBeenCalled();
+    });
+
+    it('asks again when the app got no token out of the approval', async () => {
+      approved(1);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+    });
+
+    it('asks again once the approval has lapsed, whatever the app holds', async () => {
+      approved(8, ['user|email_read', 'user|spaces_read']);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
+    });
+
+    it('asks a user who never approved the app', async () => {
+      prismaService.oAuthAppAuthorized.findUnique.mockResolvedValue(null);
+      await immediate();
+      expect(done).toHaveBeenCalledWith(null, false, undefined, undefined);
     });
   });
 
@@ -648,6 +722,147 @@ describe('OAuthServerService', () => {
           message: 'Token request rate limit exceeded, please try again later',
         })
       );
+    });
+  });
+
+  describe('deviceCodeExchange', () => {
+    const pkceClient = { clientId: 'client1', name: 'Teable CLI', type: 'pkce' };
+    const approvedState = {
+      clientId: 'client1',
+      scopes: ['record|read'],
+      userCode: 'BBBB-CCCC',
+      status: 'approved' as const,
+      user: { id: 'userId', name: 'Boris', email: 'boris@teable.io' },
+      expiresAt: Date.now() + 60_000,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let deviceService: any;
+    let mockGenerateAccessToken: MockInstance;
+    let mockGetRefreshToken: MockInstance;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const makeReq = (overrides: Record<string, any> = {}) => ({
+      user: pkceClient,
+      body: { device_code: 'device-code-1' },
+      ...overrides,
+    });
+    const makeRes = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = { statusCode: 200 };
+      res.setHeader = vitest.fn();
+      res.end = vitest.fn();
+      return res;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const exchange = (req: any, res: any, next: Mock) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (service as any).deviceCodeExchange(req, res, next);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sentJson = (res: any) => JSON.parse(res.end.mock.calls[0][0]);
+
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      deviceService = (service as any).deviceService;
+      mockGenerateAccessToken = vitest.spyOn(service as any, 'generateAccessToken');
+      mockGetRefreshToken = vitest.spyOn(service as any, 'getRefreshToken');
+    });
+
+    afterEach(() => {
+      vitest.restoreAllMocks();
+    });
+
+    it('rejects a request with no authenticated client', async () => {
+      const res = makeRes();
+      const next = vitest.fn();
+
+      await exchange(makeReq({ user: undefined }), res, next);
+
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: 'Invalid client' }));
+      expect(res.end).not.toHaveBeenCalled();
+    });
+
+    it('answers invalid_request when device_code is missing', async () => {
+      const res = makeRes();
+      const next = vitest.fn();
+
+      await exchange(makeReq({ body: {} }), res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(400);
+      expect(sentJson(res)).toEqual({
+        error: 'invalid_request',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        error_description: 'device_code is required',
+      });
+    });
+
+    it('answers authorization_pending as a 400 payload, not an exception', async () => {
+      vitest.spyOn(deviceService, 'poll').mockResolvedValue({ status: 'pending' });
+      const res = makeRes();
+      const next = vitest.fn();
+
+      await exchange(makeReq(), res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(400);
+      expect(sentJson(res)).toEqual({ error: 'authorization_pending' });
+    });
+
+    it('mints a token pair for an approved poll, with no secret for a PKCE client', async () => {
+      vitest
+        .spyOn(deviceService, 'poll')
+        .mockResolvedValue({ status: 'approved', state: approvedState });
+      mockGenerateAccessToken.mockResolvedValue({ id: 'atk1', token: 'access' });
+      mockGetRefreshToken.mockResolvedValue('refresh');
+      const res = makeRes();
+      const next = vitest.fn();
+
+      await exchange(makeReq(), res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(200);
+      expect(sentJson(res)).toMatchObject({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        access_token: 'access',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        refresh_token: 'refresh',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        token_type: 'Bearer',
+        scopes: ['record|read'],
+      });
+      expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+      // issueTokenPair is shared with the code grant; a PKCE client has no
+      // secret and the token row must record that, not crash on it.
+      expect(prismaService.oAuthAppToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          clientId: 'client1',
+          appSecretId: undefined,
+          createdBy: 'userId',
+        }),
+      });
+    });
+
+    it('restores the claimed approval when issuance fails, then reports the error', async () => {
+      vitest
+        .spyOn(deviceService, 'poll')
+        .mockResolvedValue({ status: 'approved', state: approvedState });
+      const restore = vitest.spyOn(deviceService, 'restore').mockResolvedValue(undefined);
+      // The real checkTokenRateLimit trips: poll consumed the code, issuance
+      // cannot proceed — the approval must go back for the next poll.
+      cacheService.incr.mockResolvedValue(9999);
+      const res = makeRes();
+      const next = vitest.fn();
+
+      await exchange(makeReq(), res, next);
+
+      expect(restore).toHaveBeenCalledWith('device-code-1', approvedState);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Token request rate limit exceeded, please try again later',
+        })
+      );
+      expect(res.end).not.toHaveBeenCalled();
     });
   });
 });

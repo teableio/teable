@@ -29,9 +29,24 @@ type AffectedUserFieldRow = {
   dbTableName: string;
   dbFieldName: string;
   isMultipleCellValue: boolean | null;
+  /** Base data lives in an external data database; the shared plane only holds a stale copy. */
+  externallyBound: boolean;
 };
 
 const USER_SNAPSHOT_FIELD_TYPES = ['user', 'createdBy', 'lastModifiedBy'] as const;
+
+/**
+ * Mirrors the outbox claim fence (`buildComputedTaskNotForeignBoundCondition`): once a space is
+ * bound to an external data database, the tables the shared container can reach are an orphaned
+ * pre-switch copy. Marked per row instead of filtered in SQL so the caller can report the skip.
+ */
+const EXTERNALLY_BOUND_BASE_SQL = sql<boolean>`exists (
+  select 1
+  from space_data_db_binding as sdb
+  join "base" as fbb on fbb.space_id = sdb.space_id
+  where fbb.id = accessible_base.base_id
+    and sdb.mode <> 'default'
+)`;
 
 @injectable()
 export class UserRenamePropagationService implements IUserRenamePropagationService {
@@ -52,7 +67,22 @@ export class UserRenamePropagationService implements IUserRenamePropagationServi
   ): Promise<Result<void, DomainError>> {
     const dataDb = resolvePostgresDbOrTx(this.db, context, 'data');
     const metaDb = resolvePostgresDbOrTx(this.metaDb, context, 'meta');
-    const affectedFields = await this.getAffectedUserFields(metaDb, input.userId.toString());
+    const candidateFields = await this.getAffectedUserFields(metaDb, input.userId.toString());
+    // The shared plane is the meta database: an externally bound base still has its pre-switch
+    // tables there, so patching them would rewrite rows nobody reads and hand stale fields to the
+    // refresh closure, whose tasks the claim path then fences out of the shared outbox forever.
+    const affectedFields = input.sharedDataPlane
+      ? candidateFields.filter((field) => !field.externallyBound)
+      : candidateFields;
+    if (input.sharedDataPlane) {
+      const skipped = candidateFields.length - affectedFields.length;
+      if (skipped > 0) {
+        this.logger.info('user-rename: skipped externally bound user fields', {
+          userId: input.userId.toString(),
+          fieldCount: skipped,
+        });
+      }
+    }
     if (affectedFields.length === 0) return ok(undefined);
 
     // Rename mutates denormalized user snapshots first, then hands the touched physical fields to
@@ -117,6 +147,7 @@ export class UserRenamePropagationService implements IUserRenamePropagationServi
         'field.db_field_name as dbFieldName',
         'field.is_multiple_cell_value as isMultipleCellValue',
         'table_meta.db_table_name as dbTableName',
+        EXTERNALLY_BOUND_BASE_SQL.as('externallyBound'),
       ])
       .where('field.type', 'in', USER_SNAPSHOT_FIELD_TYPES)
       .where('field.is_lookup', 'is', null)

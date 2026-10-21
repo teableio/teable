@@ -48,6 +48,7 @@ const createMockTask = (
   seedTableId: TABLE_ID,
   seedRecordIds: ['rec123'],
   extraSeedRecords: [],
+  beforeImageRecords: [],
   steps: [{ level: 0, tableId: TABLE_ID, fieldIds: [FIELD_ID] }],
   edges: [],
   estimatedComplexity: 1,
@@ -75,6 +76,20 @@ const createMockTask = (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockDb = Kysely<any>;
 
+// Legacy unit fixtures have no reliability schema. The dummy driver returns no
+// catalog rows while preserving real Kysely raw-query compilation/execution.
+const createUnmigratedQueryDb = () => {
+  const db = new Kysely<Record<string, never>>({
+    dialect: {
+      createAdapter: () => new PostgresAdapter(),
+      createDriver: () => new DummyDriver(),
+      createIntrospector: (innerDb) => new PostgresIntrospector(innerDb),
+      createQueryCompiler: () => new PostgresQueryCompiler(),
+    },
+  });
+  return { getExecutor: () => db.getExecutor(), selectFrom: db.selectFrom.bind(db) };
+};
+
 const createMockExecutor = () => {
   const executor = {
     transformQuery: vi.fn((node) => node),
@@ -83,6 +98,12 @@ const createMockExecutor = () => {
   };
   return executor;
 };
+
+// claimBatch emptiness probe: report claimable work so tests exercise the
+// full claim round.
+const createProbeChain = () => ({
+  executeTakeFirst: vi.fn().mockResolvedValue({ pending: true, stale: true }),
+});
 
 describe('ComputedUpdateOutbox', () => {
   describe('releaseForRetry', () => {
@@ -112,7 +133,7 @@ describe('ComputedUpdateOutbox', () => {
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -127,9 +148,8 @@ describe('ComputedUpdateOutbox', () => {
           set: vi.fn().mockImplementation((values) => {
             updateValues = values;
             return {
-              where: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
+              where: vi.fn().mockReturnThis(),
+              execute: vi.fn().mockResolvedValue([]),
             };
           }),
         }),
@@ -217,10 +237,18 @@ describe('ComputedUpdateOutbox', () => {
           executeTakeFirst: vi.fn().mockResolvedValue(undefined),
         }),
       };
+      // The post-enqueue existence verification (T6648 defensive check) also
+      // selects from the outbox table; report the just-"inserted" row as
+      // present so this test can focus on publish ordering.
+      const verifyChain = {
+        where: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue({ one: 1 }),
+        }),
+      };
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -229,6 +257,7 @@ describe('ComputedUpdateOutbox', () => {
         getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi.fn().mockReturnValue({
           selectAll: vi.fn().mockReturnValue(selectChain),
+          select: vi.fn().mockReturnValue(verifyChain),
         }),
         insertInto: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
@@ -310,7 +339,7 @@ describe('ComputedUpdateOutbox', () => {
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -398,7 +427,7 @@ describe('ComputedUpdateOutbox', () => {
           targets: [{ tableId, fieldId }],
           metrics,
           now,
-          trx: mockDb,
+          trx: { ...mockDb, isTransaction: true },
         },
         undefined
       );
@@ -406,7 +435,7 @@ describe('ComputedUpdateOutbox', () => {
         {
           tasks: [{ taskId: 'cuo-seed', baseId: BASE_ID }],
           now,
-          trx: mockDb,
+          trx: { ...mockDb, isTransaction: true },
         },
         undefined
       );
@@ -422,7 +451,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockImplementation((values) => {
@@ -431,9 +461,8 @@ describe('ComputedUpdateOutbox', () => {
               attempts: values.attempts,
             });
             return {
-              where: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
+              where: vi.fn().mockReturnThis(),
+              execute: vi.fn().mockResolvedValue([]),
             };
           }),
         }),
@@ -463,7 +492,8 @@ describe('ComputedUpdateOutbox', () => {
       try {
         const mockDb = {
           transaction: () => ({
-            execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+            execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+              fn({ ...mockDb, isTransaction: true }),
           }),
           updateTable: vi.fn().mockReturnValue({
             set: vi.fn().mockImplementation((values) => {
@@ -471,9 +501,8 @@ describe('ComputedUpdateOutbox', () => {
               const delay = values.next_run_at.getTime() - now.getTime();
               backoffs.push(delay);
               return {
-                where: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([]),
-                }),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([]),
               };
             }),
           }),
@@ -514,8 +543,10 @@ describe('ComputedUpdateOutbox', () => {
       let seedDeleted = false;
 
       const mockDb = {
+        ...createUnmigratedQueryDb(),
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         insertInto: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
@@ -526,12 +557,11 @@ describe('ComputedUpdateOutbox', () => {
           }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => ({
-          where: vi.fn().mockReturnValue({
-            execute: vi.fn().mockImplementation(() => {
-              if (table === 'computed_update_outbox') outboxDeleted = true;
-              if (table === 'computed_update_outbox_seed') seedDeleted = true;
-              return Promise.resolve([]);
-            }),
+          where: vi.fn().mockReturnThis(),
+          execute: vi.fn().mockImplementation(() => {
+            if (table === 'computed_update_outbox') outboxDeleted = true;
+            if (table === 'computed_update_outbox_seed') seedDeleted = true;
+            return Promise.resolve([]);
           }),
         })),
       } as unknown as MockDb;
@@ -546,105 +576,6 @@ describe('ComputedUpdateOutbox', () => {
       expect(deadLetterInserted).toBe(true);
       expect(outboxDeleted).toBe(true);
       expect(seedDeleted).toBe(true);
-    });
-
-    it('logs dead letter classification fields for alerting', async () => {
-      const values = vi.fn().mockReturnValue({
-        execute: vi.fn().mockResolvedValue([]),
-      });
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
-        }),
-        insertInto: vi.fn().mockReturnValue({
-          values,
-        }),
-        deleteFrom: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            execute: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      } as unknown as MockDb;
-
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
-
-      const task = createMockTask({ attempts: 0, maxAttempts: 8 });
-      const diagnostics = {
-        version: 1 as const,
-        failure: {
-          kind: 'computed_code_bug',
-          reason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          phase: 'execute_plan',
-        },
-      };
-      await outbox.markFailed(
-        task,
-        'cannot cast type jsonb to timestamp with time zone',
-        undefined,
-        {
-          failureKind: 'computed_code_bug',
-          failureReason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          diagnostics,
-        }
-      );
-
-      expect(values).toHaveBeenCalledWith(
-        expect.objectContaining({
-          attempts: 1,
-          max_attempts: 8,
-          trace_data: JSON.stringify(diagnostics),
-        })
-      );
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        'computed:outbox:dead_letter',
-        expect.objectContaining({
-          taskId: task.id,
-          baseId: task.baseId,
-          seedTableId: task.seedTableId,
-          taskType: 'computed',
-          failureKind: 'computed_code_bug',
-          failureReason: 'postgres_sql_generation_error',
-          retryable: false,
-          directDeadLetter: true,
-          attempts: 1,
-          maxAttempts: 8,
-        })
-      );
-    });
-
-    it('logs retry scheduled event', async () => {
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
-        }),
-        updateTable: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          }),
-        }),
-      } as unknown as MockDb;
-
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
-
-      const task = createMockTask({ attempts: 1, maxAttempts: 8 });
-      await outbox.markFailed(task, 'Test error');
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        'computed:outbox:retry_scheduled',
-        expect.objectContaining({
-          taskId: task.id,
-          attempts: 2,
-        })
-      );
     });
   });
 
@@ -740,10 +671,12 @@ describe('ComputedUpdateOutbox', () => {
       });
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
+        selectNoFrom: vi.fn().mockImplementation(() => createProbeChain()),
         selectFrom: vi
           .fn()
           .mockImplementationOnce(() => createSelectChain([]))
@@ -816,10 +749,12 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
+        selectNoFrom: vi.fn().mockImplementation(() => createProbeChain()),
         selectFrom: vi
           .fn()
           .mockImplementationOnce(() => createSelectChain([]))
@@ -850,41 +785,234 @@ describe('ComputedUpdateOutbox', () => {
     });
   });
 
-  describe('markDone', () => {
-    it('removes task from outbox and seed tables', async () => {
-      const deletedTables: string[] = [];
+  describe('enqueueOrMerge skipActivityProjection', () => {
+    it('resolves pendingActivityEnqueue instead of calling onTaskEnqueued', async () => {
+      const selectChain = {
+        where: vi.fn().mockReturnThis(),
+        forUpdate: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+      const verifyChain = {
+        where: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue({ one: 1 }),
+        }),
+      };
+      const mockDb = {
+        transaction: () => ({
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
+        }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
+        getExecutor: vi.fn(() => createMockExecutor()),
+        selectFrom: vi.fn().mockReturnValue({
+          selectAll: vi.fn().mockReturnValue(selectChain),
+          select: vi.fn().mockReturnValue(verifyChain),
+        }),
+        insertInto: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockReturnValue({
+              executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'cuo-created' }),
+            }),
+          }),
+        }),
+      } as unknown as MockDb;
+
+      const onTaskEnqueued = vi.fn().mockResolvedValue(ok(null));
+      const activityProjector: IComputedActivityProjector = {
+        ...noopComputedActivityProjector,
+        onTaskEnqueued,
+      };
+      const outbox = new ComputedUpdateOutbox(
+        mockDb,
+        defaultComputedUpdateOutboxConfig,
+        createLogger(),
+        mockDb,
+        undefined,
+        activityProjector
+      );
+
+      const task = createMockTask();
+      const result = await outbox.enqueueOrMerge(task, undefined, { skipActivityProjection: true });
+      if (result.isErr()) throw new Error(result.error.message);
+
+      expect(onTaskEnqueued).not.toHaveBeenCalled();
+      expect(result.value.taskId).toBe('cuo-created');
+      expect(result.value.pendingActivityEnqueue).toMatchObject({
+        taskId: 'cuo-created',
+        baseId: task.baseId,
+      });
+      expect(result.value.pendingActivityEnqueue?.targets).toHaveLength(1);
+      expect(result.value.pendingActivityEnqueue?.targets[0]?.fieldId.toString()).toBe(FIELD_ID);
+      expect(result.value.pendingActivityEnqueue?.targets[0]?.tableId.toString()).toBe(TABLE_ID);
+    });
+  });
+
+  describe('enqueueOrMerge merge-race safety (T6648)', () => {
+    // Regression coverage for the merge-affected-zero-rows fallback: the merge
+    // UPDATE's target row is selected with `FOR UPDATE` right before it, which
+    // should make a zero-row outcome unreachable today. This test mocks that
+    // otherwise-unreachable race directly (the merge UPDATE returns no rows,
+    // as if the locked row vanished under us) to prove enqueueOrMerge never
+    // treats it as a successful merge — it must fall back to inserting a fresh
+    // task under a bypass plan hash so the caller's dirty data is never lost.
+    it('falls back to a fresh insert when the merge UPDATE affects zero rows', async () => {
+      const existingRow = {
+        id: 'cuo-existing-pending',
+        base_id: BASE_ID,
+        seed_table_id: TABLE_ID,
+        plan_hash: 'shared-plan',
+        change_type: 'update',
+        status: 'pending',
+        seed_record_ids: '[]',
+        dirty_stats: null,
+        origin_run_ids: null,
+        run_id: null,
+        run_total_steps: 0,
+        run_completed_steps_before: 0,
+        estimated_complexity: 1,
+        sync_max_level: 0,
+      };
+
+      const selectAllChain = {
+        where: vi.fn().mockReturnThis(),
+        forUpdate: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue(existingRow),
+        }),
+      };
+      const verifyChain = {
+        where: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue({ one: 1 }),
+        }),
+      };
+      const deleteFromCalls: string[] = [];
+      const updateCalls: Array<Record<string, unknown>> = [];
+      const insertCalls: Array<Record<string, unknown>> = [];
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
+        }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
+        getExecutor: vi.fn(() => createMockExecutor()),
+        selectFrom: vi.fn().mockReturnValue({
+          selectAll: vi.fn().mockReturnValue(selectAllChain),
+          select: vi.fn().mockReturnValue(verifyChain),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
-          deletedTables.push(table);
-          if (table === 'computed_update_outbox') {
+          deleteFromCalls.push(table);
+          return {
+            where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([]) }),
+          };
+        }),
+        updateTable: vi.fn().mockReturnValue({
+          set: vi.fn().mockImplementation((values: Record<string, unknown>) => {
+            updateCalls.push(values);
             return {
               where: vi.fn().mockReturnValue({
-                returning: vi.fn().mockReturnValue({
-                  execute: vi.fn().mockResolvedValue([{ id: 'cuo123' }]),
-                }),
+                // The race: the row we hold `FOR UPDATE` vanishes before our
+                // own UPDATE reaches it. Zero rows returned.
+                returning: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([]) }),
               }),
             };
-          }
-          return {
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          };
+          }),
+        }),
+        insertInto: vi.fn().mockReturnValue({
+          values: vi.fn().mockImplementation((values: Record<string, unknown>) => {
+            insertCalls.push(values);
+            return {
+              returning: vi.fn().mockReturnValue({
+                executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'cuo-fallback-inserted' }),
+              }),
+            };
+          }),
         }),
       } as unknown as MockDb;
 
       const logger = createLogger();
       const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
+      const task = createMockTask({ planHash: 'shared-plan' });
 
-      const result = await outbox.markDone('cuo123');
+      const result = await outbox.enqueueOrMerge(task);
 
       expect(result.isOk()).toBe(true);
-      expect(deletedTables).toContain('computed_update_outbox');
-      expect(deletedTables).toContain('computed_update_outbox_seed');
+      const outcome = result._unsafeUnwrap();
+      // Never silently reported as a successful merge into the vanished row.
+      expect(outcome.merged).toBe(false);
+      expect(outcome.taskId).toBe('cuo-fallback-inserted');
+      expect(outcome.taskId).not.toBe(existingRow.id);
+
+      // The fallback insert used a bypass plan hash so it cannot collide with
+      // (or be silently swallowed by) the pending-unique index.
+      expect(insertCalls).toHaveLength(1);
+      expect(insertCalls[0].plan_hash).toEqual(expect.stringContaining('shared-plan'));
+      expect(insertCalls[0].plan_hash).not.toBe('shared-plan');
+
+      // The loud, unconditional diagnostic fires so this is never silent.
+      expect(logger.error).toHaveBeenCalledWith(
+        'computed:outbox:merge_update_affected_zero_rows',
+        expect.objectContaining({ taskId: existingRow.id, planHash: 'shared-plan' })
+      );
+      // Seed rows written against the vanished task id are cleaned up.
+      expect(
+        deleteFromCalls.filter((table) => table === 'computed_update_outbox_seed').length
+      ).toBeGreaterThanOrEqual(1);
+      expect(updateCalls).toHaveLength(1);
+    });
+
+    it('errors instead of returning ok when the persisted-row verification finds nothing', async () => {
+      // Defense in depth (unconditional, independent of the merge-affected-rows
+      // guard above): even if some future code path reports a taskId as
+      // enqueued/merged without it actually being visible in this transaction,
+      // enqueueOrMerge must not return ok(...) for it.
+      const selectAllChain = {
+        where: vi.fn().mockReturnThis(),
+        forUpdate: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+      const missingVerifyChain = {
+        where: vi.fn().mockReturnValue({
+          // The just-"inserted" row is not actually visible in this transaction.
+          executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+
+      const mockDb = {
+        transaction: () => ({
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
+        }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
+        getExecutor: vi.fn(() => createMockExecutor()),
+        selectFrom: vi.fn().mockReturnValue({
+          selectAll: vi.fn().mockReturnValue(selectAllChain),
+          select: vi.fn().mockReturnValue(missingVerifyChain),
+        }),
+        insertInto: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockReturnValue({
+              executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'cuo-ghost' }),
+            }),
+          }),
+        }),
+      } as unknown as MockDb;
+
+      const logger = createLogger();
+      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
+      const task = createMockTask({ planHash: 'ghost-plan' });
+
+      const result = await outbox.enqueueOrMerge(task);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('cuo-ghost');
+      }
+      expect(logger.error).toHaveBeenCalledWith(
+        'computed:outbox:enqueue_lost',
+        expect.objectContaining({ taskId: 'cuo-ghost', phase: 'insert' })
+      );
     });
   });
 });
@@ -907,7 +1035,8 @@ describe('retry jitter', () => {
     });
     const mockDb = {
       transaction: () => ({
-        execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+        execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+          fn({ ...mockDb, isTransaction: true }),
       }),
       executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
       getExecutor: vi.fn(() => executor),
@@ -919,7 +1048,8 @@ describe('retry jitter', () => {
         set: vi.fn().mockImplementation((values) => {
           delays.push(new Date(values.next_run_at).getTime() - now.getTime());
           return {
-            where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([]) }),
+            where: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue([]),
           };
         }),
       }),

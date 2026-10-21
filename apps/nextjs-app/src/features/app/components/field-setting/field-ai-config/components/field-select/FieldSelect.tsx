@@ -96,10 +96,10 @@ export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
         className={cn('flex', disabled && 'pointer-events-none opacity-50')}
       >
         <Check
-          className={cn('mr-2 h-4 w-4 flex-shrink-0', isSelected ? 'opacity-100' : 'opacity-0')}
+          className={cn('me-2 h-4 w-4 flex-shrink-0', isSelected ? 'opacity-100' : 'opacity-0')}
         />
         {icon}
-        <span className="ml-2 truncate">{name}</span>
+        <span className="ms-2 truncate">{name}</span>
       </CommandItem>
     );
 

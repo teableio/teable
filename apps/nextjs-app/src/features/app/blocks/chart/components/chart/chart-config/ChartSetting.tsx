@@ -17,7 +17,7 @@ export const ChartSetting = (props: { className?: string }) => {
   }
 
   return (
-    <ScrollArea className={cn('border-l p-4 w-80', className)}>
+    <ScrollArea className={cn('border-s p-4 w-80', className)}>
       <QueryStatus />
       <div className="mt-9 space-y-4">
         <ConfigItem label={t('form.chartType.label')}>

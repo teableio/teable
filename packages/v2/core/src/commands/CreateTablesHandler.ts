@@ -255,9 +255,10 @@ type TransactionResult = {
 
 @CommandHandler(CreateTablesCommand)
 @injectable()
-export class CreateTablesHandler
-  implements ICommandHandler<CreateTablesCommand, CreateTablesResult>
-{
+export class CreateTablesHandler implements ICommandHandler<
+  CreateTablesCommand,
+  CreateTablesResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
@@ -289,7 +290,7 @@ export class CreateTablesHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTablesCommand
   ): Promise<Result<CreateTablesResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateTablesResult, DomainError>(async function* () {
       const tableCommands = command.tables;
 
@@ -352,6 +353,15 @@ export class CreateTablesHandler
           hostTable: table,
           foreignTables,
         });
+      }
+      for (let index = 0; index < tableCommands.length; index += 1) {
+        const table = builtTables[index];
+        const recordsFieldValues = tableCommands[index]?.records ?? [];
+        if (table && recordsFieldValues.length > 0) {
+          yield* table.createRecords(recordsFieldValues, {
+            emitRecordCreatedEvents: false,
+          });
+        }
       }
 
       const metadataResult = yield* await handler.unitOfWork.withTransaction(

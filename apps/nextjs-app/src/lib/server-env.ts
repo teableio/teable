@@ -8,13 +8,14 @@ export interface IServerEnv {
   brandName?: string;
   brandLogo?: string;
   templateSiteLink?: string;
-  microsoftClarityId?: string;
   umamiWebSiteId?: string;
   gaId?: string;
-  googleAdsConversionId?: string;
   marketingGaId?: string;
   posthogKey?: string;
   posthogHost?: string;
+  posthogWebHost?: string;
+  posthogUiHost?: string;
+  metaPixelId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
@@ -26,6 +27,8 @@ export interface IServerEnv {
   };
   edition?: string;
   passwordLoginDisabled?: boolean;
+  /** The request came from the native mobile app's WebView (embed mode). */
+  embedMode?: boolean;
   // global settings
   globalSettings?: {
     disallowSignUp?: boolean;
@@ -39,11 +42,16 @@ export interface IServerEnv {
   maxSearchFieldCount?: number;
   chatContextAttachmentSize?: number;
   publicOrigin?: string;
-  publicDatabaseProxy?: string;
   changeEmailSendMailCodeRate?: number;
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
+  /**
+   * Set only when ENABLE_RTL_UI=false takes RTL interface mirroring back out.
+   * Phrased as the exception rather than the rule so the normal case stays
+   * `undefined` and never reaches the client payload at all.
+   */
+  rtlUiDisabled?: boolean;
   forceV2All?: boolean;
   allowCrossSpaceReference?: boolean;
   task?: {

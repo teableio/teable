@@ -24,7 +24,7 @@ export const ErrorPage: FC<Props> = (props) => {
         description={t('system.error.description')}
         button={{ label: t('system.links.backToHome'), href: '/' }}
       />
-      <div className="absolute bottom-0 right-0 m-5 flex flex-col gap-1 rounded-lg border bg-background p-4 text-left text-sm">
+      <div className="absolute bottom-0 end-0 m-5 flex flex-col gap-1 rounded-lg border bg-background p-4 text-start text-sm">
         <div className="flex gap-2" data-testid="error-status-code">
           <span className="text-muted-foreground">Code: </span>
           <span className="text-foreground">{statusCode}</span>

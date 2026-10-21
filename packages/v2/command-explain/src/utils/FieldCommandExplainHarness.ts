@@ -223,6 +223,7 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
     const captureCascadeStatements = this.captureCascadeStatements.bind(this);
     const captureCascadePlanStatements = this.captureCascadePlanStatements.bind(this);
     const db = this.options.db;
+    const typeValidationStrategy = this.options.typeValidationStrategy;
     return safeTry<Table, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
 
@@ -240,6 +241,7 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
         tableName,
         tableId: table.id().toString(),
         table,
+        typeValidationStrategy,
       });
 
       yield* mutateSpec.accept(visitor);

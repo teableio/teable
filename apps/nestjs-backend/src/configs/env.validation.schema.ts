@@ -1,6 +1,32 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import Joi from 'joi';
 
+import { resolveBoolean } from '../features/v2/v2-config-parsers';
+import { DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY } from './computed-outbox-trigger.config';
+
+/** `envName` becomes required once `SOCIAL_AUTH_PROVIDERS` lists `provider`. */
+const requiredForSocialProvider = (
+  provider: string,
+  envName: string,
+  schema: Joi.StringSchema = Joi.string()
+) =>
+  Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(new RegExp(`(^|,)(${provider})(,|$)`))
+      .required(),
+    then: schema.required().messages({
+      'any.required': `The \`${envName}\` is required when \`SOCIAL_AUTH_PROVIDERS\` includes \`${provider}\``,
+    }),
+  });
+
+// `<Services ID>:<Team ID>:<Key ID>`: a reverse-DNS Services ID and two 10-character Apple ids.
+const appleClientSchema = Joi.string()
+  .pattern(/^[^:\s]+:[A-Z0-9]{10}:[A-Z0-9]{10}$/)
+  .messages({
+    'string.pattern.base':
+      'The `BACKEND_APPLE_CLIENT` must be `<Services ID>:<Team ID>:<Key ID>`, e.g. `ai.example.signin:ABCDE12345:FGHIJ67890`',
+  });
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
   PORT: Joi.number().default(3000),
@@ -24,12 +50,34 @@ export const envValidationSchema = Joi.object({
 
   PUBLIC_ORIGIN: Joi.string().uri().required(),
 
+  // secrets — shape only; production requirements and migration teaching are
+  // enforced by enforceSecretsPolicy (configs/secrets/secrets-policy.ts)
+  SECRET_KEY: Joi.string().optional(),
+  BACKEND_JWT_SECRET: Joi.string().optional(),
+  BACKEND_JWT_SECRET_OLD: Joi.string().optional(),
+  BACKEND_SESSION_SECRET: Joi.string().optional(),
+  BACKEND_SESSION_SECRET_OLD: Joi.string().optional(),
+  BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: Joi.string().optional(),
+  BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: Joi.string().optional(),
+  BACKEND_DATA_DB_URL_ENCRYPTION_KEY: Joi.string().optional(),
+  BACKEND_DATA_DB_URL_ENCRYPTION_IV: Joi.string().optional(),
+  BACKEND_MAIL_ENCRYPTION_KEY: Joi.string().optional(),
+  BACKEND_MAIL_ENCRYPTION_IV: Joi.string().optional(),
+  BACKEND_STORAGE_ENCRYPTION_KEY: Joi.string().optional(),
+  BACKEND_STORAGE_ENCRYPTION_IV: Joi.string().optional(),
+  BACKEND_ENV_VARIABLE_SECRET: Joi.string().optional(),
+
   // Express `trust proxy`: 'true' | 'false' | hop count | IP/CIDR/preset list.
   // Unset = trust private-network proxies (see parseTrustProxy in bootstrap.config).
   BACKEND_TRUST_PROXY: Joi.string().optional(),
 
   // cache
-  BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').default('sqlite'),
+  // Deliberately no Joi default: ConfigModule.forRoot writes validated schema
+  // defaults back into process.env before the registerAs factories run, so a
+  // default here would shadow the URI-aware fallback in cache.config.ts and
+  // pin every deployment that only sets BACKEND_CACHE_REDIS_URI to the wrong
+  // provider. The provider is resolved in cache.config.ts instead.
+  BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').optional(),
   // cache-sqlite
   BACKEND_CACHE_SQLITE_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
     is: 'sqlite',
@@ -43,37 +91,65 @@ export const envValidationSchema = Joi.object({
     .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')
     .required(),
 
+  V2_DATA_QUERY_ENABLED: Joi.alternatives()
+    .try(
+      Joi.boolean(),
+      Joi.string()
+        .trim()
+        .lowercase()
+        .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+        .custom((value) => resolveBoolean(value))
+    )
+    .default(false),
+
+  // Runtime availability for already-adopted Apps when authoring/adoption is disabled.
+  V2_DATA_QUERY_EXECUTE_ENABLED: Joi.alternatives()
+    .try(
+      Joi.boolean(),
+      Joi.string()
+        .trim()
+        .lowercase()
+        .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+        .custom((value) => resolveBoolean(value))
+    )
+    .default(false),
+
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),
-  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number().integer().positive().default(8),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number()
+    .integer()
+    .positive()
+    .default(DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY),
   V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
   V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
   V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
+  V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
+  V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
+  V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: Joi.number().integer().positive().default(500),
+  V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED: Joi.boolean().optional(),
+  // Computed stage budget overrides (0 disables that dimension; all 0 = no staging)
 
-  // per-space scheduling default concurrency limits
+  // per-space scheduling concurrency limits (default and ceiling per resource)
   SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   SPACE_WORKFLOW_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
+  SPACE_ROUTINE_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   // github auth
-  BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
-    is: Joi.string()
-      .regex(/(^|,)(github)(,|$)/)
-      .required(),
-    then: Joi.string().required().messages({
-      'any.required':
-        'The `BACKEND_GITHUB_CLIENT_ID` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
-    }),
-  }),
-  BACKEND_GITHUB_CLIENT_SECRET: Joi.when('SOCIAL_AUTH_PROVIDERS', {
-    is: Joi.string()
-      .regex(/(^|,)(github)(,|$)/)
-      .required(),
-    then: Joi.string().required().messages({
-      'any.required':
-        'The `BACKEND_GITHUB_CLIENT_SECRET` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
-    }),
-  }),
+  BACKEND_GITHUB_CLIENT_ID: requiredForSocialProvider('github', 'BACKEND_GITHUB_CLIENT_ID'),
+  BACKEND_GITHUB_CLIENT_SECRET: requiredForSocialProvider('github', 'BACKEND_GITHUB_CLIENT_SECRET'),
+  // apple auth (Sign in with Apple, web flow)
+  BACKEND_APPLE_CLIENT: requiredForSocialProvider(
+    'apple',
+    'BACKEND_APPLE_CLIENT',
+    appleClientSchema
+  ),
+  BACKEND_APPLE_PRIVATE_KEY: requiredForSocialProvider('apple', 'BACKEND_APPLE_PRIVATE_KEY'),
 
   PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
+  SIGNIN_ACCOUNT_LOCKOUT_ENABLED: Joi.boolean().optional(),
+  SIGNIN_MAX_LOGIN_ATTEMPTS: Joi.number().integer().positive().optional(),
+  SIGNIN_ACCOUNT_LOCKOUT_MINUTES: Joi.number().integer().positive().optional(),
 })
   .custom((env: Record<string, unknown>, helpers) => {
     if (

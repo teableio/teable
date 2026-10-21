@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { sql, Transaction } from 'kysely';
 import type { Kysely } from 'kysely';
 
@@ -58,7 +59,7 @@ export const invalidateUndoCaptureTableCache = (
 };
 
 const nextSavepointName = () =>
-  `teable_undo_capture_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  `teable_undo_capture_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
 
 const toQuotedSavepointIdentifier = (savepointName: string) =>
   `"${savepointName.replaceAll('"', '""')}"`;
@@ -84,6 +85,26 @@ const normalizeUndoCaptureTableKeys = (tableKeys: ReadonlyArray<string>): Readon
   }
 
   return [...normalized];
+};
+
+export const matchesUndoCaptureTableName = (
+  rowTableName: string | null | undefined,
+  expectedTableName: string
+): boolean => {
+  if (!rowTableName) {
+    return true;
+  }
+  if (rowTableName === expectedTableName) {
+    return true;
+  }
+
+  const row = splitSchemaQualifiedTableName(rowTableName);
+  const expected = splitSchemaQualifiedTableName(expectedTableName);
+  if (row.plainTableName !== expected.plainTableName) {
+    return false;
+  }
+
+  return !row.schemaName || !expected.schemaName || row.schemaName === expected.schemaName;
 };
 
 const isTransactionDb = <DB>(db: DbOrTx<DB>): db is Transaction<DB> =>
@@ -168,6 +189,7 @@ const hasUndoCaptureTrigger = async <DB>(db: DbOrTx<DB>, tableKey: string): Prom
       AND c.relname = ${table}
       AND p.proname = '__teable_capture_undo_row'
       AND p.pronamespace = current_schema()::regnamespace
+      AND t.tgenabled = 'O'
     ) AS "exists"
   `.execute(db);
 

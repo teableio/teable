@@ -9,7 +9,7 @@ import { SessionService } from './session.service';
 @Module({
   imports: [SessionHandleModule],
   providers: [SessionService, SessionStoreService],
-  exports: [SessionService],
+  exports: [SessionService, SessionStoreService],
 })
 export class SessionModule implements NestModule {
   constructor(private readonly sessionHandleService: SessionHandleService) {}
@@ -17,6 +17,6 @@ export class SessionModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(this.sessionHandleService.sessionMiddleware, passport.initialize())
-      .forRoutes('/api/*');
+      .forRoutes('/api/{*splat}');
   }
 }

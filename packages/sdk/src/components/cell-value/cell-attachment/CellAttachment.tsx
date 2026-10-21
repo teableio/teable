@@ -1,8 +1,8 @@
 import type { IAttachmentCellValue } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
-import { FilePreviewItem, FilePreviewProvider, cn } from '@teable/ui-lib';
-import { getFileCover, isSystemFileIcon } from '../../editor/attachment';
+import { FilePreviewItem, FilePreviewProvider, cn, isImage } from '@teable/ui-lib';
+import { isSystemFileIcon } from '../../editor/attachment';
 import { useAttachmentPreviewI18Map } from '../../hooks';
+import { FileCover } from '../../upload/FileCover';
 import type { ICellValue } from '../type';
 
 interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
@@ -13,7 +13,6 @@ interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
 export const CellAttachment = (props: ICellAttachment) => {
   const { value, className, style, itemClassName } = props;
   const i18nMap = useAttachmentPreviewI18Map();
-  const { resolvedTheme } = useTheme();
   return (
     <FilePreviewProvider i18nMap={i18nMap}>
       <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
@@ -32,17 +31,17 @@ export const CellAttachment = (props: ICellAttachment) => {
                 itemClassName
               )}
               src={presignedUrl || ''}
+              thumb={lgThumbnailUrl}
               name={name}
               mimetype={mimetype}
               size={size}
             >
-              <img
+              <FileCover
                 className="size-full object-contain"
-                src={
-                  lgThumbnailUrl ??
-                  getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark')
-                }
-                alt={name}
+                iconClassName="size-full"
+                mimetype={mimetype}
+                url={lgThumbnailUrl ?? (isImage(mimetype) ? presignedUrl : undefined)}
+                name={name}
               />
             </FilePreviewItem>
           );

@@ -25,6 +25,9 @@ import {
   setV2AttributionHeaders,
   setV2AttributionOnSentryScope,
 } from '../features/canary/v2-attribution';
+import { ColdStorageUnavailableError } from '../features/cold-archive/cold-errors';
+import { resolveBoolean } from '../features/v2/v2-config-parsers';
+import { dataQueryErrorResponse, dataQueryHostError } from '../features/v2/v2-data-query-http';
 import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
 import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
@@ -49,7 +52,7 @@ const dataDbOtelAttribute = {
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private logger = new Logger(GlobalExceptionFilter.name);
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -62,6 +65,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // Express parsing runs before controller filters. Nest wraps its SyntaxError in a
+    // BadRequestException whose message can contain request data: never observe that error.
+    if (
+      exception instanceof BadRequestException &&
+      request.method === 'POST' &&
+      /^\/api\/v2\/queries\/(?:execute|validate)\/?$/i.test(request.path) &&
+      (resolveBoolean(this.configService.get('V2_DATA_QUERY_ENABLED'), false) ||
+        resolveBoolean(this.configService.get('V2_DATA_QUERY_EXECUTE_ENABLED'), false))
+    ) {
+      const safeException = new BadRequestException('Invalid data query request');
+      this.annotateActiveSpan(safeException);
+      if (response.headersSent) return;
+      const result = dataQueryErrorResponse(dataQueryHostError(safeException));
+      return response.status(result.status).json(result.body);
+    }
     const dataDbContext = this.getDataDbContext();
     const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
 
@@ -73,7 +92,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (responseWritable) {
       setV2AttributionHeaders(response, getV2Attribution(this.cls));
     }
-    this.annotateActiveSpan(dataDbError);
+    this.annotateActiveSpan(exception, dataDbError);
     this.recordDataDbMetric(dataDbError);
     this.captureException(exception, dataDbError);
 
@@ -95,6 +114,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof TemplateAppTokenNotAllowedException) {
       return response.status(exception.getStatus()).json({
         message: exception.message,
+      });
+    }
+    // reaches here only from cold reads that had no local degradation left
+    if (exception instanceof ColdStorageUnavailableError) {
+      return response.status(503).json({
+        message: 'Archived data is temporarily unavailable; please retry.',
+        status: 503,
+        code: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
       });
     }
     if (dataDbError) {
@@ -185,9 +212,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private annotateActiveSpan(dataDbError?: IDataDbRuntimeErrorClassification | null) {
+  private annotateActiveSpan(
+    exception: Error | HttpException,
+    dataDbError?: IDataDbRuntimeErrorClassification | null
+  ) {
     const span = trace.getActiveSpan();
     if (!span) return;
+
+    // NestInstrumentation is disabled (see tracing.ts) and RouteTracingInterceptor never
+    // runs for what a guard or pipe rejects, so this filter is the only place left that
+    // still sees a thrown exception with the request span active.
+    span.recordException(exception);
+    // Only 5xx is the server failing. Marking 4xx would multiply the APM error rate and
+    // promote every routine 404 into a full-detail trace export.
+    const status = dataDbError ? 503 : exceptionParse(exception).getStatus();
+    if (status >= 500) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: dataDbError?.code ?? exception.message,
+      });
+    }
 
     const v2Attributes = getV2AttributionSpanAttributes(getV2Attribution(this.cls));
     if (Object.keys(v2Attributes).length) {
@@ -208,7 +252,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       [dataDbOtelAttribute.retryable]: dataDbError.retryable,
       [dataDbOtelAttribute.userActionable]: dataDbError.userActionable,
     });
-    span.setStatus({ code: SpanStatusCode.ERROR, message: dataDbError.code });
   }
 
   private recordDataDbMetric(dataDbError?: IDataDbRuntimeErrorClassification | null) {

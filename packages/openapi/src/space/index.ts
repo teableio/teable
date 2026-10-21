@@ -1,3 +1,4 @@
+export * from './base-entry-map';
 export * from './create';
 export * from './delete';
 export * from './get-list';
@@ -10,6 +11,7 @@ export * from './invitation-get-link-list';
 export * from './invitation-email';
 export * from './invitation-update-link';
 export * from './collaborator-get-list';
+export * from './collaborator-get-unique-list';
 export * from './collaborator-delete';
 export * from './collaborator-update';
 export * from './get-base-list';

@@ -22,14 +22,24 @@ import {
 describe('Canary Release (e2e)', () => {
   let app: INestApplication;
   let canaryService: CanaryService;
+  // FORCE_V2_ALL bypasses canary routing by design (highest priority), so these
+  // canary semantics are only meaningful on the legacy v1 path.
+  let previousForceV2All: string | undefined;
 
   beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'false';
     const appCtx = await initApp();
     app = appCtx.app;
     canaryService = app.get(CanaryService);
   });
 
   afterAll(async () => {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
     await app.close();
   });
 

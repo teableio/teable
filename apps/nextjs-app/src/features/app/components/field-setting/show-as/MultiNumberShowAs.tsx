@@ -1,11 +1,9 @@
 import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable/core';
 import type { IMultiNumberShowAs } from '@teable/core';
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  cn,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -85,7 +83,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
           <Popover>
             <PopoverTrigger>
               <div
-                className="ml-4 size-5 rounded-full p-[2px]"
+                className="ms-4 size-5 rounded-full p-[2px]"
                 style={{ border: `1px solid ${ColorUtils.getHexForColor(color)}` }}
               >
                 <div

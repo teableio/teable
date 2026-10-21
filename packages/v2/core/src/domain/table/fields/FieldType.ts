@@ -55,98 +55,111 @@ export class FieldType extends ValueObject {
     super();
   }
 
+  // FieldType is immutable and compared by value, so hot paths share one
+  // instance per literal instead of allocating on every static accessor call.
+  private static readonly interned = new Map<IFieldTypeLiteral, FieldType>();
+
+  private static of(value: IFieldTypeLiteral): FieldType {
+    let instance = FieldType.interned.get(value);
+    if (!instance) {
+      instance = new FieldType(value);
+      FieldType.interned.set(value, instance);
+    }
+    return instance;
+  }
+
   static create(raw: unknown): Result<FieldType, DomainError> {
     const parsed = fieldTypeSchema.safeParse(raw);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldType' }));
-    return ok(new FieldType(parsed.data));
+    return ok(FieldType.of(parsed.data));
   }
 
   static singleLineText(): FieldType {
-    return new FieldType('singleLineText');
+    return FieldType.of('singleLineText');
   }
 
   static longText(): FieldType {
-    return new FieldType('longText');
+    return FieldType.of('longText');
   }
 
   static number(): FieldType {
-    return new FieldType('number');
+    return FieldType.of('number');
   }
 
   static rating(): FieldType {
-    return new FieldType('rating');
+    return FieldType.of('rating');
   }
 
   static formula(): FieldType {
-    return new FieldType('formula');
+    return FieldType.of('formula');
   }
 
   static rollup(): FieldType {
-    return new FieldType('rollup');
+    return FieldType.of('rollup');
   }
 
   static singleSelect(): FieldType {
-    return new FieldType('singleSelect');
+    return FieldType.of('singleSelect');
   }
 
   static multipleSelect(): FieldType {
-    return new FieldType('multipleSelect');
+    return FieldType.of('multipleSelect');
   }
 
   static checkbox(): FieldType {
-    return new FieldType('checkbox');
+    return FieldType.of('checkbox');
   }
 
   static attachment(): FieldType {
-    return new FieldType('attachment');
+    return FieldType.of('attachment');
   }
 
   static date(): FieldType {
-    return new FieldType('date');
+    return FieldType.of('date');
   }
 
   static createdTime(): FieldType {
-    return new FieldType('createdTime');
+    return FieldType.of('createdTime');
   }
 
   static lastModifiedTime(): FieldType {
-    return new FieldType('lastModifiedTime');
+    return FieldType.of('lastModifiedTime');
   }
 
   static user(): FieldType {
-    return new FieldType('user');
+    return FieldType.of('user');
   }
 
   static createdBy(): FieldType {
-    return new FieldType('createdBy');
+    return FieldType.of('createdBy');
   }
 
   static lastModifiedBy(): FieldType {
-    return new FieldType('lastModifiedBy');
+    return FieldType.of('lastModifiedBy');
   }
 
   static autoNumber(): FieldType {
-    return new FieldType('autoNumber');
+    return FieldType.of('autoNumber');
   }
 
   static button(): FieldType {
-    return new FieldType('button');
+    return FieldType.of('button');
   }
 
   static link(): FieldType {
-    return new FieldType('link');
+    return FieldType.of('link');
   }
 
   static lookup(): FieldType {
-    return new FieldType('lookup');
+    return FieldType.of('lookup');
   }
 
   static conditionalRollup(): FieldType {
-    return new FieldType('conditionalRollup');
+    return FieldType.of('conditionalRollup');
   }
 
   static conditionalLookup(): FieldType {
-    return new FieldType('conditionalLookup');
+    return FieldType.of('conditionalLookup');
   }
 
   equals(other: FieldType): boolean {

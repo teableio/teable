@@ -21,6 +21,8 @@ const languages = [
   { key: 'uk', title: 'Українська' },
   { key: 'tr', title: 'Türkçe' },
   { key: 'es', title: 'Español (Latinoamérica)' },
+  { key: 'ar', title: 'العربية' },
+  { key: 'he', title: 'עברית' },
   { key: 'default', title: 'Default' },
 ];
 

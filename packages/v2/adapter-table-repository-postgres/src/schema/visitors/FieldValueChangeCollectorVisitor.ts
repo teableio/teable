@@ -5,9 +5,24 @@ import type {
   ITableSpecVisitor,
   TableAddFieldSpec,
   TableAddFieldsSpec,
+  TableAddViewSpec,
+  TableEnsureViewRowOrderSpec,
+  TableRemoveViewSpec,
+  TableRenameViewSpec,
+  TableUpdateViewDescriptionSpec,
+  TableUpdateViewLockedSpec,
+  TableUpdateViewOrderSpec,
+  TableUpdateViewOptionsSpec,
+  TableUpdateViewShareIdSpec,
+  TableUpdateViewShareMetaSpec,
+  TableUpdateViewShareStateSpec,
   TableAddSelectOptionsSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByViewIdSpec,
+  TableWithViewIdsSpec,
+  TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -17,6 +32,7 @@ import type {
   TableUpdateViewColumnMetaSpec,
   TableUpdateViewQueryDefaultsSpec,
   TableRenameSpec,
+  TableUpdatePropertiesSpec,
   // Common field update specs
   TableUpdateFieldNameSpec,
   TableUpdateFieldTypeSpec,
@@ -82,6 +98,8 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   private readonly selfBackfillFieldIdSet = new Map<string, FieldId>();
   private readonly valueChangedFieldIdSet = new Map<string, FieldId>();
   private readonly deferredBackfillFieldIdSet = new Map<string, FieldId>();
+  private readonly removedFieldIdSet = new Map<string, FieldId>();
+  private readonly preservedStoredFieldIdSet = new Map<string, FieldId>();
   private dbStorageTypeChanged = false;
 
   selfBackfillFields(): ReadonlyArray<FieldId> {
@@ -96,11 +114,24 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return [...this.deferredBackfillFieldIdSet.values()];
   }
 
+  preservedStoredFields(): ReadonlyArray<FieldId> {
+    return [...this.preservedStoredFieldIdSet.values()];
+  }
+
   /**
-   * Whether any field conversion changed the underlying DB column type
-   * (cellValueType or isMultipleCellValue changed).
-   * When true, dependent computed fields may have stale column types,
-   * making IS DISTINCT FROM comparisons unsafe.
+   * Fields this mutation removes (including symmetric link fields removed as a
+   * side effect). Their physical columns are dropped with them, so pending
+   * backfill work that targets them cannot make progress any more.
+   */
+  removedFields(): ReadonlyArray<FieldId> {
+    return [...this.removedFieldIdSet.values()];
+  }
+
+  /**
+   * Whether backfill must avoid DISTINCT comparisons across possible type changes.
+   * Lookup retargeting sets this conservatively even when its result type is unchanged.
+   * It must not suppress dependency recomputation; deferredBackfillFields controls
+   * ordering when actual type conversions require updated dependent metadata first.
    */
   hasDbStorageTypeChange(): boolean {
     return this.dbStorageTypeChanged;
@@ -118,6 +149,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     this.deferredBackfillFieldIdSet.set(fieldId.toString(), fieldId);
   }
 
+  private addRemovedField(fieldId: FieldId): void {
+    this.removedFieldIdSet.set(fieldId.toString(), fieldId);
+  }
+
   visit(_: ISpecification): Result<void, DomainError> {
     return ok(undefined);
   }
@@ -126,11 +161,45 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
+  visitTableUpdateProperties(_spec: TableUpdatePropertiesSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
   visitTableAddField(_spec: TableAddFieldSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
   visitTableAddFields(_spec: TableAddFieldsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableAddView(_spec: TableAddViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableEnsureViewRowOrder(_spec: TableEnsureViewRowOrderSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRemoveView(_spec: TableRemoveViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRenameView(_spec: TableRenameViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewDescription(
+    _spec: TableUpdateViewDescriptionSpec
+  ): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewLocked(_spec: TableUpdateViewLockedSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOrder(_spec: TableUpdateViewOrderSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -145,11 +214,28 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
-  visitTableRemoveField(_spec: TableRemoveFieldSpec): Result<void, DomainError> {
+  visitTableRemoveField(spec: TableRemoveFieldSpec): Result<void, DomainError> {
+    this.addRemovedField(spec.field().id());
     return ok(undefined);
   }
 
   visitTableUpdateViewColumnMeta(_spec: TableUpdateViewColumnMetaSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOptions(_spec: TableUpdateViewOptionsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareMeta(_spec: TableUpdateViewShareMetaSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareId(_spec: TableUpdateViewShareIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareState(_spec: TableUpdateViewShareStateSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -164,6 +250,22 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   visitTableById(_spec: TableByIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableByViewId(_spec: TableByViewIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithViewIds(_spec: TableWithViewIdsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithPrimaryField(_spec: TableWithPrimaryFieldSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithFieldIds(_spec: TableWithFieldIdsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -199,6 +301,13 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   visitTableUpdateFieldType(spec: TableUpdateFieldTypeSpec): Result<void, DomainError> {
     if (spec.isTypeConversion()) {
+      // singleSelect → text/longText keeps the column and every cell. There is
+      // no SQL rewrite, so treating it as a value change would still run the
+      // computed planner/cascade over the whole table.
+      if (spec.isValuePreservingConversion()) {
+        return ok(undefined);
+      }
+
       const fieldId = spec.newField().id();
       const newIsComputed = spec.newField().computed().toBoolean();
       // Type conversion rewrites stored values (or value shape), so dependents
@@ -210,8 +319,6 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
         this.addSelfBackfill(fieldId);
       }
 
-      // Detect whether the underlying PG column type changed
-      // (cellValueType or isMultipleCellValue differs).
       const vtVisitor = new FieldValueTypeVisitor();
       const oldVt = spec.oldField().accept(vtVisitor);
       const newVt = spec.newField().accept(vtVisitor);
@@ -222,8 +329,20 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
           !oldVt.value.isMultipleCellValue.equals(newVt.value.isMultipleCellValue))
       ) {
         this.dbStorageTypeChanged = true;
+        // Revisit the dependency closure after field-update side effects have
+        // brought every computed field's metadata and physical column up to date.
+        this.addDeferredBackfill(fieldId);
       }
     } else if (spec.newField().computed().toBoolean()) {
+      const fieldType = spec.newField().type().toString();
+      if (fieldType === 'lastModifiedTime' || fieldType === 'lastModifiedBy') {
+        // Tracking configuration controls future writes, not historical stamps.
+        // Keep stored values for undo while still refreshing dependents.
+        this.addValueChanged(spec.newField().id());
+        this.preservedStoredFieldIdSet.set(spec.newField().id().toString(), spec.newField().id());
+        return ok(undefined);
+      }
+
       const oldField = spec.oldField() as {
         type(): { toString(): string };
         conditionalLookupOptions?: () => { equals(other: unknown): boolean };
@@ -269,6 +388,8 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   visitTableUpdateFieldHasError(spec: TableUpdateFieldHasErrorSpec): Result<void, DomainError> {
     if (spec.isSettingError()) {
       this.addValueChanged(spec.fieldId());
+    } else {
+      this.addSelfBackfill(spec.fieldId());
     }
     return ok(undefined);
   }
@@ -441,6 +562,7 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
       // Formula expression changes may alter the result DB type (e.g. number -> text).
       // Skip DISTINCT filtering during backfill to avoid cross-type comparison errors.
       this.dbStorageTypeChanged = true;
+      this.addDeferredBackfill(spec.fieldId());
     }
     return ok(undefined);
   }
@@ -511,7 +633,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   // RemoveSymmetricLinkField
-  visitRemoveSymmetricLinkField(_spec: RemoveSymmetricLinkFieldSpec): Result<void, DomainError> {
+  visitRemoveSymmetricLinkField(spec: RemoveSymmetricLinkFieldSpec): Result<void, DomainError> {
+    // The symmetric field's JSONB column is dropped with it even though the
+    // junction table survives the twoWay → oneWay conversion.
+    this.addRemovedField(spec.fieldId());
     return ok(undefined);
   }
 }

@@ -18,12 +18,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { SettingKey } from '@teable/openapi';
 import type { ISettingVo } from '@teable/openapi';
-import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { parseSettingContent, SettingModel } from '../model/setting';
+import {
+  decryptSettingSecrets,
+  encryptSettingSecrets,
+  SECRET_BEARING_SETTINGS,
+} from './setting-secrets';
 
 @Injectable()
 export class SettingService {
@@ -42,7 +46,7 @@ export class SettingService {
     const res: Record<string, unknown> = {
       instanceId: '',
     };
-    if (!isArray(settings)) {
+    if (!Array.isArray(settings)) {
       return res as ISettingVo;
     }
 
@@ -65,6 +69,14 @@ export class SettingService {
           setting.createdTime instanceof Date
             ? setting.createdTime.toISOString()
             : setting.createdTime;
+      }
+    }
+
+    // Secrets are stored (and cached in the Redis setting blob) encrypted;
+    // decrypting after the cache keeps only ciphertext in Redis.
+    for (const name of SECRET_BEARING_SETTINGS) {
+      if (res[name]) {
+        res[name] = decryptSettingSecrets(name, res[name]);
       }
     }
 
@@ -105,6 +117,7 @@ export class SettingService {
       if (!aiConfig?.aiGatewayApiKey) {
         res[SettingKey.AI_CONFIG] = {
           ...aiConfig,
+          llmProviders: Array.isArray(aiConfig?.llmProviders) ? aiConfig.llmProviders : [],
           aiGatewayApiKey: envAiGatewayApiKey,
         };
       }
@@ -113,15 +126,19 @@ export class SettingService {
 
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
     const userId = this.cls.get('user.id');
-    const updates = Object.entries(updateSettingRo).map(([name, value]) => ({
-      where: { name },
-      update: { content: JSON.stringify(value ?? null), lastModifiedBy: userId },
-      create: {
-        name,
-        content: JSON.stringify(value ?? null),
-        createdBy: userId,
-      },
-    }));
+    const updates = Object.entries(updateSettingRo).map(([name, value]) => {
+      const stored = encryptSettingSecrets(name, value);
+      const content = JSON.stringify(stored ?? null);
+      return {
+        where: { name },
+        update: { content, lastModifiedBy: userId },
+        create: {
+          name,
+          content,
+          createdBy: userId,
+        },
+      };
+    });
 
     const results = await Promise.all(
       updates.map((update) => this.prismaService.txClient().setting.upsert(update))
@@ -129,7 +146,7 @@ export class SettingService {
 
     const res: Record<string, unknown> = {};
     for (const setting of results) {
-      res[setting.name] = parseSettingContent(setting.content);
+      res[setting.name] = decryptSettingSecrets(setting.name, parseSettingContent(setting.content));
     }
 
     return res as ISettingVo;

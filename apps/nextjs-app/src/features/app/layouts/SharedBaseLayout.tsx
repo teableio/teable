@@ -13,7 +13,9 @@ export const SharedBaseLayout: React.FC<{
   children: React.ReactNode;
   user?: IUser;
   dehydratedState?: DehydratedState;
-}> = ({ children, user, dehydratedState }) => {
+  /** The frame around the page; the plain full-height portal by default. */
+  renderFrame?: (children: React.ReactNode) => React.ReactNode;
+}> = ({ children, user, dehydratedState, renderFrame }) => {
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -26,9 +28,13 @@ export const SharedBaseLayout: React.FC<{
       <AppProvider locale={sdkLocale} lang={i18n.language} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <NotificationProvider>
-            <div id="portal" className="relative flex h-screen w-full items-start">
-              {children}
-            </div>
+            {renderFrame ? (
+              renderFrame(children)
+            ) : (
+              <div id="portal" className="relative flex h-screen w-full items-start">
+                {children}
+              </div>
+            )}
           </NotificationProvider>
         </SessionProvider>
       </AppProvider>

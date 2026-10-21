@@ -16,7 +16,7 @@ const makeCondition = (fieldId: string, value: string) => ({
   },
 });
 
-describe('update-field: conditionalRollup property updates', () => {
+describe('[D01][S01] update-field: conditionalRollup property updates', () => {
   let ctx: SharedTestContext;
   let hostTableId: string;
   let hostPrimaryFieldId: string;
@@ -337,7 +337,7 @@ describe('update-field: conditionalRollup property updates', () => {
     }
   });
 
-  test('should update sort and limit', async () => {
+  test('should update sort and limit for array aggregation', async () => {
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -347,7 +347,7 @@ describe('update-field: conditionalRollup property updates', () => {
         id: fieldId,
         name: 'CR Sort Limit',
         options: {
-          expression: 'sum({values})',
+          expression: 'array_compact({values})',
           timeZone: 'utc',
         },
         config: {

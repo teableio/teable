@@ -15,7 +15,7 @@ export const BasePermissionListener = () => {
   const { user } = useSession();
 
   // Use ref to store the current active toast ID to prevent duplicates
-  const activeToastIdRef = useRef<string | number | undefined>();
+  const activeToastIdRef = useRef<string | number | undefined>(undefined);
 
   const { data: base, refetch } = useQuery({
     queryKey: ReactQueryKeys.base(baseId!),

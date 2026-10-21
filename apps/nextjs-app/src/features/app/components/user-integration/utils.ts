@@ -12,7 +12,8 @@ export const openConnectIntegration = (
     case UserIntegrationProvider.Slack:
     case UserIntegrationProvider.Gmail:
     case UserIntegrationProvider.Outlook:
-    case UserIntegrationProvider.Airtable: {
+    case UserIntegrationProvider.Airtable:
+    case UserIntegrationProvider.GoogleSheet: {
       // Open a centered popup instead of a full new tab for a tidier OAuth flow.
       const width = 600;
       const height = 720;
@@ -39,6 +40,8 @@ export const getUserIntegrationName = (provider: UserIntegrationProvider) => {
       return 'Outlook';
     case UserIntegrationProvider.Airtable:
       return 'Airtable';
+    case UserIntegrationProvider.GoogleSheet:
+      return 'Google Sheets';
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }

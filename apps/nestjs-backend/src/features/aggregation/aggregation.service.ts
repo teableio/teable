@@ -73,7 +73,7 @@ type IStatisticsData = {
  */
 @Injectable()
 export class AggregationService implements IAggregationService {
-  private logger = new Logger(AggregationService.name);
+  private readonly logger = new Logger(AggregationService.name);
   constructor(
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
@@ -159,11 +159,11 @@ export class AggregationService implements IAggregationService {
       useQueryModel,
       skip,
       take,
-      sort: baseSort && baseSort.length ? baseSort : undefined,
+      sort: baseSort?.length ? baseSort : undefined,
       defaultOrderField,
     });
 
-    const aggregationResult = rawAggregationData && rawAggregationData[0];
+    const aggregationResult = rawAggregationData?.[0];
 
     const aggregations: IRawAggregations = [];
     if (aggregationResult) {
@@ -204,7 +204,7 @@ export class AggregationService implements IAggregationService {
     return { aggregations: aggregationsWithGroup };
   }
 
-  private formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
+  private readonly formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
     let convertValue = this.convertValueToNumberOrString(currentValue);
 
     if (!aggFunc) {
@@ -476,9 +476,7 @@ export class AggregationService implements IAggregationService {
     });
 
     if (projectionSet.size === 0) {
-      return allowedFieldIds && allowedFieldIds.length
-        ? Array.from(new Set(allowedFieldIds))
-        : undefined;
+      return allowedFieldIds?.length ? Array.from(new Set(allowedFieldIds)) : undefined;
     }
 
     const projectionArray = Array.from(projectionSet);
@@ -710,6 +708,17 @@ export class AggregationService implements IAggregationService {
     );
   }
 
+  private async mergeViewFilter(
+    tableId: string,
+    queryRo: Pick<ISearchCountRo, 'viewId' | 'ignoreViewQuery' | 'filter'>
+  ): Promise<IFilter | undefined> {
+    if (queryRo.ignoreViewQuery) {
+      return queryRo.filter;
+    }
+    const viewRaw = await this.findView(tableId, { viewId: queryRo.viewId });
+    return mergeWithDefaultFilter(viewRaw?.filter, queryRo.filter);
+  }
+
   private filterFieldInstances(
     fieldInstances: IFieldInstance[],
     withView?: IWithView,
@@ -786,7 +795,7 @@ export class AggregationService implements IAggregationService {
           ? statisticFuncList
           : statisticFunc && [statisticFunc];
 
-        if (hidden !== true && funcList && funcList.length) {
+        if (hidden !== true && funcList?.length) {
           const statisticFieldList = funcList.map((item) => {
             return {
               fieldId,
@@ -881,6 +890,7 @@ export class AggregationService implements IAggregationService {
     }
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
     const queryBuilder = this.knex(dbFieldName);
+    const mergedFilter = await this.mergeViewFilter(tableId, queryRo);
 
     const selectionMap = new Map(
       Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
@@ -892,7 +902,7 @@ export class AggregationService implements IAggregationService {
       .filterQuery(
         queryBuilder,
         fieldInstanceMap,
-        queryRo?.filter,
+        mergedFilter,
         {
           withUserId: this.cls.get('user.id'),
         },
@@ -919,7 +929,6 @@ export class AggregationService implements IAggregationService {
       take,
       skip,
       orderBy,
-      filter,
       groupBy,
       viewId,
       ignoreViewQuery,
@@ -927,6 +936,8 @@ export class AggregationService implements IAggregationService {
     } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+    const mergedFilter = await this.mergeViewFilter(tableId, queryRo);
+    const searchIndexRo = { ...queryRo, filter: mergedFilter };
 
     if (take > 1000) {
       throw new CustomHttpException(
@@ -980,7 +991,7 @@ export class AggregationService implements IAggregationService {
         .filterQuery(
           qb,
           fieldInstanceMap,
-          filter,
+          mergedFilter,
           {
             withUserId: this.cls.get('user.id'),
           },
@@ -1012,7 +1023,7 @@ export class AggregationService implements IAggregationService {
       builder,
       viewCte || dbTableName,
       searchFields,
-      queryRo,
+      searchIndexRo,
       tableIndex,
       { selectionMap },
       basicSortIndex,
@@ -1084,7 +1095,7 @@ export class AggregationService implements IAggregationService {
 
         return result.map((item) => {
           const index = Number(indexResultMap[item.__id]?.row_num);
-          if (isNaN(index)) {
+          if (Number.isNaN(index)) {
             throw new CustomHttpException('Index not found', HttpErrorCode.NOT_FOUND, {
               localization: {
                 i18nKey: 'httpErrors.aggregation.indexNotFound',
@@ -1310,9 +1321,7 @@ export class AggregationService implements IAggregationService {
       },
       {} as Record<string, number>
     );
-    let recordIds = result
-      .map((item) => (isString(item.ids) ? item.ids.split(',') : item.ids))
-      .flat();
+    let recordIds = result.flatMap((item) => (isString(item.ids) ? item.ids.split(',') : item.ids));
     recordIds = Array.from(new Set(recordIds));
 
     if (!recordIds.length) {

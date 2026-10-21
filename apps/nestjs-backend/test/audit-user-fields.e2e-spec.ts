@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecordsVo } from '@teable/openapi';
 import {
   createBase,
@@ -16,6 +17,7 @@ import {
 
 describe('Audit user fields (API only)', () => {
   let app: INestApplication;
+  let prisma: PrismaService;
   const spaceId = globalThis.testConfig.spaceId;
   const userName = globalThis.testConfig.userName;
   const userEmail = globalThis.testConfig.email;
@@ -34,6 +36,7 @@ describe('Audit user fields (API only)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    prisma = app.get(PrismaService);
     const base = await createBase({ name: 'audit-user', spaceId });
     baseId = base.id;
   });
@@ -104,6 +107,72 @@ describe('Audit user fields (API only)', () => {
       email: userEmail,
     });
     expect(updatedJson.fields[lastModifiedByField.id]).toMatchObject({
+      title: userName,
+      email: userEmail,
+    });
+  });
+
+  it('resolves LastModifiedBy user names for legacy raw-id and missing snapshot cells', async () => {
+    const table = await createTable(baseId, { name: 'audit-lmb-legacy', fields: basicFields });
+    const titleFieldId = table.fields?.find((f) => f.name === 'Title')?.id as string;
+    const createdByField = await createField(table.id, { type: FieldType.CreatedBy });
+    const lastModifiedByField = await createField(table.id, { type: FieldType.LastModifiedBy });
+
+    const { records: createdRecords } = await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { fields: { [titleFieldId]: 'legacy-raw-id-cell' } },
+        { fields: { [titleFieldId]: 'missing-snapshot-cell' } },
+      ],
+    });
+    const [legacyRecord, missingSnapshotRecord] = createdRecords;
+
+    // Simulate historical storage shapes that survive in old tables: a bare
+    // user-id string cell, and a NULL cell with only the system audit column.
+    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const { dbFieldName } = await prisma.field.findUniqueOrThrow({
+      where: { id: lastModifiedByField.id },
+      select: { dbFieldName: true },
+    });
+    const [schemaName, physicalTable] = dbTableName.split('.');
+    const userId = globalThis.testConfig.userId;
+    await prisma.$executeRawUnsafe(
+      `UPDATE "${schemaName}"."${physicalTable}" SET "${dbFieldName}" = to_jsonb('${userId}'::text) WHERE "__id" = '${legacyRecord.id}'`
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE "${schemaName}"."${physicalTable}" SET "${dbFieldName}" = NULL WHERE "__id" = '${missingSnapshotRecord.id}'`
+    );
+
+    const list = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+    const legacyTarget = getRecordById(list.records, legacyRecord.id);
+    const nullTarget = getRecordById(list.records, missingSnapshotRecord.id);
+
+    // Control: CreatedBy resolves the user name for the same legacy shapes.
+    expect(legacyTarget?.fields[createdByField.id]).toMatchObject({
+      id: userId,
+      title: userName,
+      email: userEmail,
+    });
+
+    // Regression: LastModifiedBy must resolve the same user name instead of
+    // exposing the raw user id as the display title.
+    expect(legacyTarget?.fields[lastModifiedByField.id]).toMatchObject({
+      id: userId,
+      title: userName,
+      email: userEmail,
+    });
+    expect(nullTarget?.fields[lastModifiedByField.id]).toMatchObject({
+      id: userId,
+      title: userName,
+      email: userEmail,
+    });
+
+    const single = await getRecord(table.id, missingSnapshotRecord.id);
+    expect(single.fields[lastModifiedByField.id]).toMatchObject({
+      id: userId,
       title: userName,
       email: userEmail,
     });

@@ -1,3 +1,4 @@
+import { cn } from '@teable/ui-lib';
 import { useEffect } from 'react';
 import { CommentEditor } from './comment-editor';
 import { CommentList } from './comment-list';
@@ -11,10 +12,11 @@ interface ICommentPanelProps extends IBaseQueryParams {
   tableId: string;
   recordId: string;
   commentId?: string;
+  className?: string;
 }
 
 export const CommentPanel = (props: ICommentPanelProps) => {
-  const { baseId, recordId, tableId, commentId } = props;
+  const { baseId, recordId, tableId, commentId, className } = props;
   const { resetCommentStore } = useCommentStore();
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export const CommentPanel = (props: ICommentPanelProps) => {
 
   return (
     <CommentContext.Provider value={{ baseId, recordId }}>
-      <div className="flex size-full flex-col border-l bg-background">
+      <div className={cn('flex size-full flex-col border-s bg-background', className)}>
         <CommentHeader tableId={tableId} recordId={recordId} />
         <CommentList tableId={tableId} recordId={recordId} commentId={commentId} />
         <CommentEditor tableId={tableId} recordId={recordId} />

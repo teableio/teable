@@ -1,6 +1,5 @@
 # Robots.txt for app.teable.ai
-# Allow crawling of public pages only, disallow all other private pages
+# App pages are private product routes; there is no /public page.
 
 User-agent: *
-Allow: /public/
 Disallow: /

@@ -12,7 +12,7 @@ interface IFilerDatePickerProps {
   onSelect: (date: string) => void;
 }
 
-function DatePicker(props: IFilerDatePickerProps) {
+function DatePicker(props: Readonly<IFilerDatePickerProps>) {
   const { value, onSelect, field } = props;
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
@@ -35,11 +35,11 @@ function DatePicker(props: IFilerDatePickerProps) {
           size="sm"
           variant={'outline'}
           className={cn(
-            'w-max justify-start text-left font-normal m-1',
+            'w-max justify-start text-start font-normal m-1',
             !date && 'text-muted-foreground'
           )}
         >
-          <CalendarIcon className="mr-2 size-4" />
+          <CalendarIcon className="me-2 size-4" />
           {date ? field?.cellValue2String(date) : <span>{t('editor.date.placeholder')}</span>}
         </Button>
       </PopoverTrigger>

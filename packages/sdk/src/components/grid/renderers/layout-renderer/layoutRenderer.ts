@@ -11,6 +11,7 @@ import {
   checkIfRowOrCellActive,
   checkIfRowOrCellSelected,
   calculateMaxRange,
+  getCommentCountOffsetX,
   getRowControlCheckboxOffsetX,
   getRowControlOffsetX,
   hexToRGBA,
@@ -312,7 +313,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         imageManager,
         spriteManager,
         theme: finalTheme,
-        fill: isCellActive ? cellBg : fill ?? cellBg,
+        fill: isCellActive ? cellBg : (fill ?? cellBg),
       });
     }
   }
@@ -679,9 +680,11 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     height,
     rowIndex: activeRowIndex,
     columnIndex,
+    // The content is translated by contentScrollTop above, so the pointer is
+    // shifted into content space for renderers that hit-test while drawing
     hoverCellPosition:
-      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex
-        ? hoverCellPosition
+      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex && hoverCellPosition
+        ? [hoverCellPosition[0], hoverCellPosition[1] + contentScrollTop]
         : null,
     getCellContent,
     isActive: true,
@@ -1229,13 +1232,15 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   ctx.font = `${10}px ${theme.fontFamily}`;
 
   if (commentCount) {
-    const offsetX = getRowControlOffsetX(width, theme, rowControlPaddingX, rowControls.length, 2);
-    drawCommentCount(ctx, {
-      x: x + offsetX - halfSize,
-      y: y + rowHeadIconPaddingTop,
-      count: commentCount,
-      theme,
-    });
+    const offsetX = getCommentCountOffsetX(width, theme, rowControlPaddingX, rowControls);
+    if (offsetX != null) {
+      drawCommentCount(ctx, {
+        x: x + offsetX - halfSize,
+        y: y + rowHeadIconPaddingTop,
+        count: commentCount,
+        theme,
+      });
+    }
   }
 
   if (isChecked || isHover || !rowIndexVisible) {
@@ -2021,7 +2026,7 @@ export const drawStatisticCell = (
       y,
       width,
       height,
-      fill: isHovered ? hoverBgColor ?? columnStatisticBgHoveredPrimary : bgColor,
+      fill: isHovered ? (hoverBgColor ?? columnStatisticBgHoveredPrimary) : bgColor,
     });
   }
 

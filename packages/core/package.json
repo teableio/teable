@@ -33,8 +33,8 @@
   "scripts": {
     "build": "tsc --project ./tsconfig.build.json",
     "dev": "tsc --watch",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
+    "lint": "oxlint && oxfmt --check",
     "antlr4ts-tql": "antlr4ts -visitor -no-listener src/query/parser/*.g4",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
@@ -43,7 +43,7 @@
     "test:watch": "vitest --watch",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
-    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+    "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.1.0",
@@ -52,13 +52,13 @@
     "@types/color": "3.0.6",
     "@types/papaparse": "5.3.14",
     "antlr4ts": "0.5.0-alpha.4",
-    "axios": "1.7.7",
+    "axios": "1.20.0",
     "class-transformer": "0.5.1",
     "color": "4.2.3",
     "date-fns-tz": "3.2.0",
     "dayjs": "1.11.10",
-    "lodash": "4.17.21",
-    "nanoid": "3.3.7",
+    "lodash": "4.18.1",
+    "nanoid": "6.0.2",
     "papaparse": "5.4.1",
     "reflect-metadata": "0.2.1",
     "ts-pattern": "5.0.8",
@@ -69,17 +69,17 @@
     "@size-limit/file": "11.1.2",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.17.0",
-    "@types/node": "22.18.0",
-    "@vitest/coverage-v8": "4.0.17",
+    "@types/node": "24.13.2",
+    "@vitest/coverage-v8": "4.1.12",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
-    "eslint": "8.57.0",
     "get-tsconfig": "4.7.3",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "size-limit": "11.1.2",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

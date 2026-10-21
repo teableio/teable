@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
+import { getRandomIndex } from '../../../shared/IdGenerator';
 import type { Table } from '../../Table';
 import type { FieldId } from '../FieldId';
 import type { AttachmentField } from '../types/AttachmentField';
@@ -30,7 +31,8 @@ import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 import type { IFieldVisitor } from './IFieldVisitor';
-import { normalizeCellDisplayValue, normalizeCellDisplayValues } from './normalizeCellDisplayValue';
+import { normalizeCellDisplayValue } from './normalizeCellDisplayValue';
+import { splitSelectTypecastValues } from './splitSelectTypecastValues';
 
 export type RecordWriteSideEffect = {
   fieldId: FieldId;
@@ -43,9 +45,7 @@ const normalizeSingleSelectValue = (value: unknown): string | null => {
   return normalizeCellDisplayValue(value);
 };
 
-const normalizeMultiSelectValues = (value: unknown): string[] => {
-  return normalizeCellDisplayValues(value);
-};
+const normalizeMultiSelectValues = (value: unknown): string[] => splitSelectTypecastValues(value);
 
 const randomColors = (exists: string[], num: number): FieldColorValue[] => {
   const allColors = [...fieldColorValues];
@@ -54,7 +54,7 @@ const randomColors = (exists: string[], num: number): FieldColorValue[] => {
 
   for (let i = 0; i < num; i += 1) {
     const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
-    const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
+    const randomIndex = getRandomIndex(colorsToChooseFrom.length);
     result.push(colorsToChooseFrom[randomIndex]!);
     if (availableColors.length > 0) {
       availableColors.splice(randomIndex, 1);
@@ -79,9 +79,11 @@ export class RecordWriteSideEffectVisitor implements IFieldVisitor<RecordWriteSi
     const visitor = new RecordWriteSideEffectVisitor(recordFieldValues, typecast);
     return table
       .getFields()
-      .reduce<
-        Result<RecordWriteSideEffects, DomainError>
-      >((acc, field) => acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])), ok([]));
+      .reduce<Result<RecordWriteSideEffects, DomainError>>(
+        (acc, field) =>
+          acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])),
+        ok([])
+      );
   }
 
   visitSingleLineTextField(_: SingleLineTextField): Result<RecordWriteSideEffects, DomainError> {

@@ -1,7 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { testIntegrationLLM, aiConfigVoSchema, getPublicSetting } from '@teable/openapi';
+import {
+  testIntegrationLLM,
+  aiConfigVoSchema,
+  findDuplicateProviderModel,
+  getPublicSetting,
+} from '@teable/openapi';
 import type {
+  IAIConfigVo,
   IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
@@ -11,8 +17,11 @@ import type {
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
+import type { AIActions } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
@@ -27,12 +36,14 @@ interface IAIConfigProps {
   onChange: (value: IAIIntegrationConfig) => Promise<unknown> | void;
   spaceId?: string;
   disabled?: boolean;
+  /** Edition-specific rows rendered right after an AI capability's own row */
+  renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
 }
 
 const emptyArray: never[] = [];
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange, spaceId: spaceIdProp } = props;
+  const { config, onChange, spaceId: spaceIdProp, renderAfterAction } = props;
   const router = useRouter();
   const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
@@ -45,8 +56,8 @@ export const AIConfig = (props: IAIConfigProps) => {
     [config]
   );
 
-  const form = useForm<IAIIntegrationConfig>({
-    resolver: zodResolver(aiConfigVoSchema),
+  const form = useForm<IAIConfigVo>({
+    resolver: zodResolver(aiConfigVoSchema) as Resolver<IAIConfigVo>,
     defaultValues: defaultValues,
   });
   const llmProviders = form.watch('llmProviders') ?? emptyArray;
@@ -95,6 +106,18 @@ export const AIConfig = (props: IAIConfigProps) => {
     const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
     form.setValue('llmProviders', normalizedProviders);
     form.trigger('llmProviders');
+    const duplicate = findDuplicateProviderModel(normalizedProviders);
+    if (duplicate) {
+      toast({
+        title: t('admin.setting.ai.duplicateModel', {
+          model: duplicate.model,
+          first: duplicate.providers[0],
+          second: duplicate.providers[1],
+        }),
+        variant: 'destructive',
+      });
+      return;
+    }
     void onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
   };
 
@@ -189,6 +212,7 @@ export const AIConfig = (props: IAIConfigProps) => {
             return onSubmit(form.getValues());
           }}
           disabled={props.disabled}
+          renderAfterAction={renderAfterAction}
         />
         <AIProviderCard
           control={form.control}

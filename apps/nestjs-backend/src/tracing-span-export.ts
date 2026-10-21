@@ -6,10 +6,19 @@
  * reach the backend:
  * - error / 5xx spans always export and promote their whole trace:
  *   buffered spans are flushed, later spans export directly
+ * - a span at or above `slowTraceThresholdMs` (OTEL_SLOW_TRACE_THRESHOLD_MS,
+ *   default 1000 ms) promotes its trace the same way, so a slow but successful
+ *   request keeps the internal spans that explain where its time went
  * - traces picked by the traceId hash (OTEL_EXPORT_RATIO) export in full
  * - other traces export only priority spans (SERVER/route/handler, keeps APM
  *   stats accurate); the rest are buffered and discarded once the trace's
  *   live-span refcount drops to zero without a promotion
+ * - a trace that has already shipped maxExportedSpansPerTrace detail spans is
+ *   truncated: further detail spans are dropped, priority and error spans
+ *   still go out. A context leak (a long-lived listener that keeps the
+ *   bootstrap context, or a span that is never ended) otherwise funnels a
+ *   pod's whole lifetime into one trace, which no sampling ratio can bound.
+ *   Full-export mode (ratio >= 1.0) keeps no per-trace state and is uncapped.
  *
  * Refcounting (onStart/onEnd) instead of watching for a parentless root span
  * handles remote-parent entry spans and post-response async work uniformly.
@@ -17,6 +26,7 @@
  * shapes and memory bounds. Priority spans batch on a short delay; shutdown
  * drains undecided buffers (they belong to interrupted requests).
  */
+import { Logger } from '@nestjs/common';
 import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { ReadableSpan, SpanExporter, SpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -29,13 +39,20 @@ export const LIVE_TTL_MS = 30 * 60 * 1000;
 export const EXPORTED_TTL_MS = 10 * 60 * 1000;
 export const SETTLED_LINGER_MS = 10_000;
 export const TOMBSTONE_CAP = 10_000;
+export const TRACE_EXPORT_SPAN_CAP = 10_000;
+export const DEFAULT_SLOW_TRACE_THRESHOLD_MS = 1000;
 const CLEANUP_INTERVAL_MS = 30_000;
+
+const truncationLogger = new Logger('SmartSpanExport');
+/** Emits one trace-correlated decision line per sampled trace, so a missing
+ * detail span is explainable instead of inferred. */
+const samplingLogger = new Logger('TraceSampling');
 
 export const hashTraceId = (traceId: string): number => {
   // FNV-1a hash for better distribution
   let hash = 2166136261;
   for (let i = 0; i < traceId.length; i++) {
-    hash ^= traceId.charCodeAt(i);
+    hash ^= traceId.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = (hash * 16777619) >>> 0;
   }
   return hash % 10000;
@@ -56,22 +73,33 @@ const PRISMA_SPINE_SPANS = new Set([
 export const isDroppedPrismaSpan = (span: ReadableSpan): boolean =>
   span.name.startsWith('prisma:') && !PRISMA_SPINE_SPANS.has(span.name);
 
-export const isPriorityTraceSpan = (span: ReadableSpan): boolean => {
-  const attributes = span.attributes;
-  return (
-    span.kind === SpanKind.SERVER ||
-    typeof attributes['teable.route.full'] === 'string' ||
-    typeof attributes['http.route'] === 'string' ||
-    (typeof attributes['nest.controller'] === 'string' &&
-      typeof attributes['nest.handler'] === 'string')
-  );
-};
+// `http.route` and `nest.*` are deliberately not triggers. NestInstrumentation set
+// `http.route` on its controller-handler span, which mirrored the request's SERVER span,
+// so honouring it exported both copies of every request. That instrumentation is disabled
+// now (see tracing.ts); keeping the predicate narrow means re-enabling it cannot quietly
+// double the export volume again.
+export const isPriorityTraceSpan = (span: ReadableSpan): boolean =>
+  span.kind === SpanKind.SERVER || typeof span.attributes['teable.route.full'] === 'string';
 
 export const isErrorSpan = (span: ReadableSpan): boolean => {
   if (span.status.code === SpanStatusCode.ERROR) return true;
 
   const httpStatusCode = span.attributes[ATTR_HTTP_RESPONSE_STATUS_CODE];
   return typeof httpStatusCode === 'number' && httpStatusCode >= 500;
+};
+
+/**
+ * Normalizes the slow-trace threshold. Anything that is not a finite number
+ * above zero falls back to the default: 0 or a negative value must never mean
+ * "promote every trace", which would silently disable OTEL_EXPORT_RATIO.
+ * Fractional values are floored.
+ */
+export const normalizeSlowTraceThresholdMs = (value?: number): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_SLOW_TRACE_THRESHOLD_MS;
+  }
+  const thresholdMs = Math.floor(value);
+  return thresholdMs > 0 ? thresholdMs : DEFAULT_SLOW_TRACE_THRESHOLD_MS;
 };
 
 export interface ISmartSpanProcessorOptions {
@@ -82,6 +110,14 @@ export interface ISmartSpanProcessorOptions {
   /** Short delay for priority spans; APM stats lag by at most this much. */
   priorityScheduledDelayMillis: number;
   exportTimeoutMillis: number;
+  /** Detail spans one trace may export before it is truncated as runaway. */
+  maxExportedSpansPerTrace?: number;
+  /**
+   * Slow-request tail promotion threshold (ms). A span ending at or above it
+   * promotes its trace like an error span; defaults to
+   * DEFAULT_SLOW_TRACE_THRESHOLD_MS and is ignored in full-export mode.
+   */
+  slowTraceThresholdMs?: number;
 }
 
 interface ITraceState {
@@ -90,6 +126,9 @@ interface ITraceState {
   promotedUntilMs: number;
   settledAtMs: number;
   lastTouchedMs: number;
+  exportedSpans: number;
+  truncationLogged: boolean;
+  decisionLogged: boolean;
 }
 
 /**
@@ -104,6 +143,9 @@ interface ITraceState {
  *   PENDING_TTL_MS
  * - tombstone (promoted and settled): kept until promotedUntilMs so late
  *   spans keep exporting; capped at TOMBSTONE_CAP
+ * - counting (has exported detail spans): kept for EXPORTED_TTL_MS past its
+ *   last export so the per-trace export cap survives the gaps between spans;
+ *   also capped at TOMBSTONE_CAP
  *
  * Buffers are capped per trace (PER_TRACE_CAP) and globally (GLOBAL_CAP).
  * `bufferHolders`/`settledHolders` are insertion-ordered views used only to
@@ -119,10 +161,29 @@ class TraceStore {
   getOrCreate(traceId: string, nowMs: number): ITraceState {
     let trace = this.traces.get(traceId);
     if (!trace) {
-      trace = { liveSpans: 0, spans: [], promotedUntilMs: 0, settledAtMs: 0, lastTouchedMs: nowMs };
+      trace = {
+        liveSpans: 0,
+        spans: [],
+        promotedUntilMs: 0,
+        settledAtMs: 0,
+        lastTouchedMs: nowMs,
+        exportedSpans: 0,
+        truncationLogged: false,
+        decisionLogged: false,
+      };
       this.traces.set(traceId, trace);
     }
     return trace;
+  }
+
+  /** A trace keeps its export tally alive between spans, so the cap is not reset. */
+  isCounting(trace: ITraceState, nowMs: number): boolean {
+    return trace.exportedSpans > 0 && nowMs - trace.lastTouchedMs <= EXPORTED_TTL_MS;
+  }
+
+  countExport(trace: ITraceState, nowMs: number): void {
+    trace.exportedSpans++;
+    trace.lastTouchedMs = nowMs;
   }
 
   /** Empties a trace's buffer and returns the spans. The only index-removal point. */
@@ -136,7 +197,12 @@ class TraceStore {
   }
 
   removeIfInert(traceId: string, trace: ITraceState, nowMs: number): void {
-    if (trace.liveSpans === 0 && trace.spans.length === 0 && trace.promotedUntilMs <= nowMs) {
+    if (
+      trace.liveSpans === 0 &&
+      trace.spans.length === 0 &&
+      trace.promotedUntilMs <= nowMs &&
+      !this.isCounting(trace, nowMs)
+    ) {
       this.traces.delete(traceId);
     }
   }
@@ -206,19 +272,25 @@ class TraceStore {
     }
   }
 
-  sweep(nowMs: number): void {
+  sweep(nowMs: number, onDiscard?: (traceId: string, trace: ITraceState) => void): void {
     let tombstones = 0;
     for (const [traceId, trace] of this.traces) {
-      if (this.reapIfExpired(traceId, trace, nowMs)) tombstones++;
+      if (this.reapIfExpired(traceId, trace, nowMs, onDiscard)) tombstones++;
     }
     if (tombstones > TOMBSTONE_CAP) this.evictTombstones(tombstones - TOMBSTONE_CAP, nowMs);
   }
 
   /** Applies the shape's TTL to one record; returns true for a live tombstone. */
-  private reapIfExpired(traceId: string, trace: ITraceState, nowMs: number): boolean {
+  private reapIfExpired(
+    traceId: string,
+    trace: ITraceState,
+    nowMs: number,
+    onDiscard?: (traceId: string, trace: ITraceState) => void
+  ): boolean {
     if (trace.liveSpans > 0) {
       // Presumed leaked (a span started but never ended) after LIVE_TTL_MS.
       if (nowMs - trace.lastTouchedMs > LIVE_TTL_MS) {
+        onDiscard?.(traceId, trace);
         this.drainBuffer(traceId, trace);
         this.traces.delete(traceId);
       }
@@ -230,24 +302,28 @@ class TraceStore {
       const sinceMs = trace.settledAtMs > 0 ? trace.settledAtMs : trace.lastTouchedMs;
       const ttlMs = trace.settledAtMs > 0 ? SETTLED_LINGER_MS : PENDING_TTL_MS;
       if (nowMs - sinceMs > ttlMs) {
+        onDiscard?.(traceId, trace);
         this.drainBuffer(traceId, trace);
         this.traces.delete(traceId);
       }
       return false;
     }
-    if (trace.promotedUntilMs <= nowMs) {
-      this.traces.delete(traceId);
-      return false;
-    }
-    return true;
+    if (trace.promotedUntilMs > nowMs || this.isCounting(trace, nowMs)) return true;
+    this.traces.delete(traceId);
+    return false;
   }
 
   // Evict oldest surplus tombstones; their late spans just fall back to
-  // the hash decision instead of following the promotion.
+  // the hash decision instead of following the promotion, and a truncated
+  // trace gets a fresh export tally.
   private evictTombstones(excess: number, nowMs: number): void {
     for (const [traceId, trace] of this.traces) {
       if (excess === 0) break;
-      if (trace.liveSpans === 0 && trace.spans.length === 0 && trace.promotedUntilMs > nowMs) {
+      if (
+        trace.liveSpans === 0 &&
+        trace.spans.length === 0 &&
+        (trace.promotedUntilMs > nowMs || this.isCounting(trace, nowMs))
+      ) {
         this.traces.delete(traceId);
         excess--;
       }
@@ -274,6 +350,10 @@ export const createSmartSpanProcessor = (
   options: ISmartSpanProcessorOptions
 ): SpanProcessor => {
   const { exportRatio } = options;
+  const maxExportedSpansPerTrace = Math.max(
+    1,
+    options.maxExportedSpansPerTrace ?? TRACE_EXPORT_SPAN_CAP
+  );
   const batchProcessor = new BatchSpanProcessor(batchExporter, {
     maxQueueSize: options.maxQueueSize,
     maxExportBatchSize: options.maxExportBatchSize,
@@ -311,6 +391,7 @@ export const createSmartSpanProcessor = (
     Promise.all([priorityProcessor.shutdown(), batchProcessor.shutdown()]).then(() => undefined);
 
   // Full export: every span routes directly, no lifecycle tracking needed.
+  // The slow-trace threshold is irrelevant here: every trace is already complete.
   if (exportRatio >= 1.0) {
     return {
       onStart: forwardStart,
@@ -323,13 +404,21 @@ export const createSmartSpanProcessor = (
     };
   }
 
+  const slowTraceThresholdMs = normalizeSlowTraceThresholdMs(options.slowTraceThresholdMs);
   const store = new TraceStore();
   let lastCleanupMs = Date.now();
 
   const cleanup = (nowMs: number): void => {
     if (nowMs - lastCleanupMs < CLEANUP_INTERVAL_MS) return;
     lastCleanupMs = nowMs;
-    store.sweep(nowMs);
+    store.sweep(nowMs, (traceId, trace) =>
+      recordDecision(traceId, trace, {
+        reason: 'ratio',
+        exportRatio,
+        selected: false,
+        bufferedSpans: trace.spans.length,
+      })
+    );
   };
 
   // Backstop for idle processes: onEnd also triggers cleanup, but with no
@@ -338,30 +427,89 @@ export const createSmartSpanProcessor = (
   const cleanupTimer = setInterval(() => cleanup(Date.now()), CLEANUP_INTERVAL_MS);
   cleanupTimer.unref?.();
 
+  // Priority spans are the APM baseline and error spans are the scarcest
+  // detail, so neither is truncated; only ordinary detail spans are counted
+  // against the cap that bounds a runaway trace.
+  const routeCounted = (
+    span: ReadableSpan,
+    trace: ITraceState,
+    traceId: string,
+    nowMs: number
+  ): void => {
+    if (isPriorityTraceSpan(span)) {
+      priorityProcessor.onEnd(span);
+      return;
+    }
+    if (!isErrorSpan(span) && trace.exportedSpans >= maxExportedSpansPerTrace) {
+      if (!trace.truncationLogged) {
+        trace.truncationLogged = true;
+        truncationLogger.warn(
+          `Truncating trace ${traceId}: over ${maxExportedSpansPerTrace} exported spans ` +
+            `(latest "${span.name}"). A long-lived listener is holding the bootstrap ` +
+            `context, or a span parenting this work was never ended.`
+        );
+      }
+      return;
+    }
+    store.countExport(trace, nowMs);
+    batchProcessor.onEnd(span);
+  };
+
+  /** One structured, trace-correlated line per trace: what was kept and why. */
+  const recordDecision = (traceId: string, trace: ITraceState, decision: object): void => {
+    if (trace.decisionLogged) return;
+    trace.decisionLogged = true;
+    samplingLogger.log(`trace export decision ${JSON.stringify({ traceId, ...decision })}`);
+  };
+
   const promote = (traceId: string, trace: ITraceState, nowMs: number): void => {
     trace.promotedUntilMs = nowMs + EXPORTED_TTL_MS;
     for (const buffered of store.drainBuffer(traceId, trace)) {
-      batchProcessor.onEnd(buffered);
+      routeCounted(buffered, trace, traceId, nowMs);
     }
   };
 
   const decide = (span: ReadableSpan, trace: ITraceState, traceId: string, nowMs: number): void => {
     if (isErrorSpan(span)) {
+      recordDecision(traceId, trace, { reason: 'error' });
       promote(traceId, trace, nowMs);
-      route(span);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 
     if (isDroppedPrismaSpan(span)) return;
 
     if (trace.promotedUntilMs > nowMs) {
-      route(span);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 
     // Deterministic per traceId, so picked traces need no stored state.
     if (getTraceDecision(traceId, exportRatio)) {
-      route(span);
+      // Only a detail span is worth a decision line: a priority-only trace keeps
+      // nothing that could go missing, and the state of such a trace is inert, so
+      // logging every priority span would repeat the line for one trace id.
+      if (!isPriorityTraceSpan(span)) {
+        recordDecision(traceId, trace, { reason: 'ratio', exportRatio, selected: true });
+      }
+      routeCounted(span, trace, traceId, nowMs);
+      return;
+    }
+
+    // Slow-request tail promotion: an ended span at or above the threshold
+    // promotes the trace exactly like an error span, so a slow but successful
+    // request keeps the buffered spans that explain where its time went.
+    // Placed before onEnd settles the trace, so the children of the last span
+    // are still in the buffer and survive.
+    const spanDurationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
+    if (spanDurationMs >= slowTraceThresholdMs) {
+      recordDecision(traceId, trace, {
+        reason: 'slow',
+        durationMs: Math.round(spanDurationMs),
+        thresholdMs: slowTraceThresholdMs,
+      });
+      promote(traceId, trace, nowMs);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 

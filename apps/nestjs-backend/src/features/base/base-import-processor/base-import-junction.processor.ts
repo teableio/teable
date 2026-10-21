@@ -16,6 +16,7 @@ import * as csvParser from 'csv-parser';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { postgresAddForeignKeyNotValidSql } from '../../../db-provider/postgres-fk-delete-action';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -46,8 +47,8 @@ export const BASE_IMPORT_JUNCTION_CSV_QUEUE = 'base-import-junction-csv-queue';
 @Injectable()
 @Processor(BASE_IMPORT_JUNCTION_CSV_QUEUE)
 export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
-  private logger = new Logger(BaseImportJunctionCsvQueueProcessor.name);
-  private processedJobs = new Set<string>();
+  private readonly logger = new Logger(BaseImportJunctionCsvQueueProcessor.name);
+  private readonly processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -95,8 +96,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     );
 
     const sourceLinkFields = structure.tables
-      .map(({ fields }) => fields)
-      .flat()
+      .flatMap(({ fields }) => fields)
       .filter((f) => f.type === FieldType.Link && !f.isLookup);
 
     const linkFieldRaws = await this.prismaService.field.findMany({
@@ -250,6 +250,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       referenced_table_schema: string;
       referenced_table_name: string;
       referenced_column_name: string;
+      delete_rule: string;
       dbTableName: string;
     }[];
 
@@ -268,6 +269,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
           referenced_table_schema: string;
           referenced_table_name: string;
           referenced_column_name: string;
+          delete_rule: string;
         }[]
       >(foreignKeysInfoSql);
       const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
@@ -316,22 +318,19 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         referenced_table_schema: referencedTableSchema,
         referenced_table_name: referencedTableName,
         referenced_column_name: referencedColumnName,
+        delete_rule: deleteRule,
       } of allForeignKeyInfos) {
         const [schema, tableName] = dbTableName.split('.');
-        const addForeignKeyQuery = dataKnex
-          .raw(
-            'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
-            [
-              schema,
-              tableName,
-              constraint_name,
-              column_name,
-              referencedTableSchema,
-              referencedTableName,
-              referencedColumnName,
-            ]
-          )
-          .toQuery();
+        const addForeignKeyQuery = postgresAddForeignKeyNotValidSql(dataKnex, {
+          schema,
+          tableName,
+          constraintName: constraint_name,
+          columnName: column_name,
+          referencedTableSchema,
+          referencedTableName,
+          referencedColumnName,
+          deleteRule,
+        });
         await prisma.$executeRawUnsafe(addForeignKeyQuery);
       }
     });

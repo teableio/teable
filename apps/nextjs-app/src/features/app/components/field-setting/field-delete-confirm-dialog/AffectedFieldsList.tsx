@@ -1,5 +1,5 @@
 import type { FieldType, ViewType } from '@teable/core';
-import { useBaseId, useFieldStaticGetter } from '@teable/sdk/hooks';
+import { useBaseId, useFieldStaticGetter, useContentDir } from '@teable/sdk/hooks';
 import {
   cn,
   Table,
@@ -23,6 +23,7 @@ interface AffectedFieldsListProps {
 }
 
 export const AffectedFieldsList = ({ items, isMultiField = false }: AffectedFieldsListProps) => {
+  const contentDir = useContentDir();
   const { t } = useTranslation(['common', 'table']);
   const fieldStaticGetter = useFieldStaticGetter();
   const getWorkflowIcon = useStaticResolver('workflow', 'getWorkflowIcon') as (
@@ -114,7 +115,7 @@ export const AffectedFieldsList = ({ items, isMultiField = false }: AffectedFiel
                 <TableCell className="truncate px-4 py-2 text-foreground">
                   <div className="flex items-center gap-2">
                     {Icon && <Icon className="size-4 shrink-0" />}
-                    <span className="truncate" title={displayName}>
+                    <span dir={contentDir} className="truncate" title={displayName}>
                       {displayName}
                     </span>
                   </div>

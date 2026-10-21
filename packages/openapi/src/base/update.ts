@@ -6,7 +6,9 @@ import { createBaseRoSchema } from './create';
 
 export const UPDATE_BASE = '/base/{baseId}';
 
-export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true });
+export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true }).extend({
+  icon: createBaseRoSchema.shape.icon.nullable(),
+});
 
 export type IUpdateBaseRo = z.infer<typeof updateBaseRoSchema>;
 
@@ -21,7 +23,9 @@ export type IUpdateBaseVo = z.infer<typeof updateBaseVoSchema>;
 export const UpdateBaseRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE,
-  description: 'Update a base info',
+  title: 'Patch project',
+  sidebarTitle: 'Update project',
+  description: "Update a project's name or icon.",
   request: {
     params: z.object({
       baseId: z.string(),
@@ -36,7 +40,7 @@ export const UpdateBaseRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns information about a successfully updated base.',
+      description: 'Returns information about a successfully updated project.',
       content: {
         'application/json': {
           schema: updateBaseVoSchema,

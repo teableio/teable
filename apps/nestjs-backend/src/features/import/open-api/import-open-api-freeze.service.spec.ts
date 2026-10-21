@@ -47,6 +47,37 @@ describe('Import open API write freeze', () => {
     expect(service.v2ContainerService.getContainerForBase).not.toHaveBeenCalled();
   });
 
+  it('rejects v2 excel create-table imports before resolving the v2 container', async () => {
+    const service = Object.create(ImportOpenApiV2Service.prototype) as {
+      createTableFromExcelImport: ImportOpenApiV2Service['createTableFromExcelImport'];
+      spaceDataDbMigrationGuard: { assertBaseWritable: ReturnType<typeof vi.fn> };
+      v2ContainerService: { getContainerForBase: ReturnType<typeof vi.fn> };
+      audit: { withOperation: ReturnType<typeof vi.fn> };
+      cls: { get: ReturnType<typeof vi.fn> };
+    };
+    service.audit = {
+      withOperation: vi.fn((_, fn: () => Promise<unknown>) => fn()),
+    };
+    service.cls = { get: vi.fn() };
+    service.spaceDataDbMigrationGuard = {
+      assertBaseWritable: vi.fn().mockRejectedValue(freezeError),
+    };
+    service.v2ContainerService = {
+      getContainerForBase: vi.fn(),
+    };
+
+    await expect(
+      service.createTableFromExcelImport('bseImport', {
+        attachmentUrl: 'https://example.com/import.xlsx',
+        fileType: SUPPORTEDTYPE.EXCEL,
+        worksheets: {},
+      })
+    ).rejects.toBe(freezeError);
+
+    expect(service.spaceDataDbMigrationGuard.assertBaseWritable).toHaveBeenCalledWith('bseImport');
+    expect(service.v2ContainerService.getContainerForBase).not.toHaveBeenCalled();
+  });
+
   it('rejects v2 inplace imports before resolving the v2 container', async () => {
     const service = Object.create(ImportOpenApiV2Service.prototype) as {
       importRecords: ImportOpenApiV2Service['importRecords'];

@@ -45,7 +45,7 @@ const createLinkField = (params: {
           : undefined,
         tableName: params.hostTableName?.includes('.')
           ? params.hostTableName.split('.')[1]
-          : params.hostTableName ?? 'junction_links',
+          : (params.hostTableName ?? 'junction_links'),
       }),
   }),
   selfKeyNameString: () => ok(params.selfKeyName ?? '__fk_self'),
@@ -78,7 +78,6 @@ describe('FieldInsertValueVisitor', () => {
       'visitCreatedByField',
       'visitLastModifiedByField',
       'visitAutoNumberField',
-      'visitButtonField',
       'visitConditionalRollupField',
       'visitConditionalLookupField',
     ] as const) {
@@ -88,6 +87,20 @@ describe('FieldInsertValueVisitor', () => {
       });
     }
   });
+
+  it.each([{ count: 3 }, { count: 0 }, null, undefined])(
+    'maps button count %j into its JSON storage column',
+    (value) => {
+      const visitor = FieldInsertValueVisitor.create(value, {
+        recordId: 'recSource00000001',
+        dbFieldName: 'button_col',
+      });
+      expect(visitor.visitButtonField({} as never)._unsafeUnwrap()).toEqual({
+        columnValues: { button_col: value == null ? null : JSON.stringify(value) },
+        queryExecutors: [],
+      });
+    }
+  );
 
   it('maps single and multiple select values into stored payloads', () => {
     const singleVisitor = FieldInsertValueVisitor.create('choRed00000001', {
@@ -144,6 +157,28 @@ describe('FieldInsertValueVisitor', () => {
     expect(manyMany.columnValues.link_json).toBe(JSON.stringify(rawValue));
     expect(manyMany.queryExecutors).toHaveLength(2);
     expect(oneWay.queryExecutors).toHaveLength(2);
+  });
+
+  it('collapses duplicate ids before storing and linking a created record', () => {
+    const first = { id: 'recForeign0000001' };
+    const second = { id: 'recForeign0000002' };
+    const linkField = createLinkField({
+      relationship: 'manyMany',
+      isOneWay: false,
+      hasOrderColumn: true,
+      orderColumnName: '__order_links',
+      hostTableName: 'public.junction_links',
+    });
+
+    const result = FieldInsertValueVisitor.create([first, second, first], {
+      recordId: 'recSource00000001',
+      dbFieldName: 'link_json',
+    })
+      .visitLinkField(linkField as never)
+      ._unsafeUnwrap();
+
+    expect(result.columnValues.link_json).toBe(JSON.stringify([first, second]));
+    expect(result.queryExecutors).toHaveLength(2);
   });
 
   it('writes foreign key columns or foreign-table updates for fk-based links', () => {

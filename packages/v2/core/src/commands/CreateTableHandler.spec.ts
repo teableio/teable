@@ -677,6 +677,39 @@ describe('CreateTableHandler', () => {
     });
   });
 
+  it('rejects missing not-null record values before starting the table.create schema operation', async () => {
+    const requiredFieldId = `fld${'n'.repeat(16)}`;
+    const commandResult = CreateTableCommand.create({
+      baseId: `bse${'n'.repeat(16)}`,
+      name: 'Required Record Field',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleLineText',
+          id: requiredFieldId,
+          name: 'Required Code',
+          notNull: true,
+        },
+      ],
+      records: [{ fields: { Title: 'Row 1' } }],
+      views: [{ type: 'grid' }],
+    });
+    commandResult._unsafeUnwrap();
+
+    const { handler, tableRepository, schemaRepository, recordRepository } = createHandlerHarness();
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.field.not_null',
+    });
+    expect(tableRepository.inserted).toHaveLength(0);
+    expect(schemaRepository.inserted).toHaveLength(0);
+    expect(recordRepository.inserted).toHaveLength(0);
+    expect(tableRepository.provisionStateChanges).toHaveLength(0);
+  });
+
   it('resolves formula dependencies and types', async () => {
     const numberFieldId = 'fld1111111111111111';
     const formulaFieldId = 'fld2222222222222222';

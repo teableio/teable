@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertPgDumpSupportsServer,
   buildBaseSchemaDumpRestorePlan,
   buildBaseSchemaDumpStreamRestorePlan,
   buildBaseSchemaPgcopydbPlan,
   buildBaseSchemaRestorePlan,
   buildMigrationSharedTablePostgresFdwCopyPlans,
   buildMigrationSharedTablePsqlCopyPlans,
+  buildMigrationSharedTableSqlCopyPlans,
+  buildServerVersionProbePlan,
   buildSharedTablePostgresFdwCopyPlan,
   buildSharedTableCopyPlan,
   buildSharedTablePsqlCopyPlan,
+  parsePostgresMajorVersion,
   postgresToolUrl,
 } from './space-data-db-copy-plan';
 
@@ -107,7 +111,7 @@ describe('space data DB copy plan', () => {
         schemaNames: [],
         workDir,
       })
-    ).toThrow('At least one base schema');
+    ).toThrow('At least one project schema');
   });
 
   it('builds streaming pg_dump to pg_restore plans for base schemas', () => {
@@ -451,23 +455,82 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
-      'computed_update_pause_scope',
+      'attachments_table',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
+      'record_removal_tombstone',
+      'domain_event_outbox',
+      'domain_event_delivery',
+      'domain_event_inbox',
+      'computed_reliability_issue',
+      'computed_reliability_scope',
     ]);
     expect(plans[0].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
-    expect(plans[3].sourceSql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
+    expect(plans.find((plan) => plan.table === 'attachments_table')?.sourceSql).toContain(
+      `"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`
+    );
     expect(plans[4].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
-    expect(plans[6].sourceSql).toContain(
+    expect(plans[6].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
+    expect(plans[7].sourceSql).toContain(
       'FROM "public"."computed_update_outbox" WHERE "base_id" = ANY'
     );
-    expect(plans[7].sourceSql).toContain(
+    const outboxSeedTargetResetSql = String(plans[7].targetReset?.args.at(-2));
+    expect(outboxSeedTargetResetSql).toContain(
+      'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
+    );
+    expect(outboxSeedTargetResetSql).not.toContain('FROM "public"."computed_update_outbox"');
+    expect(plans[8].sourceSql).toContain(
       `split_part("table_name", '.', 1) = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
     );
+    expect(plans[9].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
+    expect(plans[10].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
+    expect(plans[11].sourceSql).toContain(
+      `"event_id" IN (SELECT "id" FROM "public"."domain_event_outbox" WHERE`
+    );
+    expect(plans[12].sourceSql).toContain(
+      `"event_id" IN (SELECT "id" FROM "public"."domain_event_outbox" WHERE`
+    );
+    const deliveryResetSql = String(plans[11].targetReset?.args.at(-2));
+    expect(deliveryResetSql).toContain(
+      'FROM "teable_meta_target"."domain_event_outbox" WHERE "base_id" = ANY'
+    );
+    expect(deliveryResetSql).not.toContain('FROM "public"."domain_event_outbox"');
+    const inboxResetSql = String(plans[12].targetReset?.args.at(-2));
+    expect(inboxResetSql).toContain(
+      'FROM "teable_meta_target"."domain_event_outbox" WHERE "base_id" = ANY'
+    );
+    expect(
+      plans.every((plan) =>
+        plan.targetReset?.args.some((arg) => String(arg).includes('DELETE FROM'))
+      )
+    ).toBe(true);
     expect(plans.every((plan) => plan.source.args.includes(sourceUrl))).toBe(true);
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
+  });
+
+  it('builds INSERT SELECT copy SQL from the same shared-table predicates as psql COPY', () => {
+    const plans = buildMigrationSharedTableSqlCopyPlans({
+      sourceSchema: 'public',
+      targetSchema: 'teable_meta_target',
+      spaceId: 'spcxxx',
+      baseIds: ['bsexxx'],
+      tableIds: ['tblxxx'],
+    });
+    const outbox = plans.find((plan) => plan.table === 'domain_event_outbox');
+    const delivery = plans.find((plan) => plan.table === 'domain_event_delivery');
+    expect(outbox?.copySql).toContain('INSERT INTO "teable_meta_target"."domain_event_outbox"');
+    expect(outbox?.copySql).toContain(
+      'FROM "public"."domain_event_outbox" WHERE "base_id" = ANY(ARRAY[\'bsexxx\']::text[])'
+    );
+    expect(delivery?.copySql).toContain(
+      'FROM "public"."domain_event_delivery" WHERE "event_id" IN (SELECT "id" FROM "public"."domain_event_outbox" WHERE "base_id" = ANY(ARRAY[\'bsexxx\']::text[]))'
+    );
+    expect(delivery?.resetSql).toContain(
+      'DELETE FROM "teable_meta_target"."domain_event_delivery" WHERE "event_id" IN (SELECT "id" FROM "teable_meta_target"."domain_event_outbox"'
+    );
   });
 
   it('uses deleted-table shared scope only for shared rows that reference table_id directly', () => {
@@ -491,12 +554,38 @@ describe('space data DB copy plan', () => {
     expect(plans.find((plan) => plan.table === 'record_trash')?.sourceSql).toContain(
       `"table_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
     );
+    expect(plans.find((plan) => plan.table === 'record_removal_tombstone')?.sourceSql).toContain(
+      `"table_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
+    );
+    expect(plans.find((plan) => plan.table === 'attachments_table')?.sourceSql).toContain(
+      `"table_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
+    );
     expect(plans.find((plan) => plan.table === 'computed_update_outbox_seed')?.sourceSql).toContain(
       `"table_id" = ANY(ARRAY['tblactive']::text[])`
     );
+    expect(plans.find((plan) => plan.table === 'computed_update_pause_scope')).toBeUndefined();
+  });
+
+  it('can still include pause scopes for base-move style copies', () => {
+    const plans = buildMigrationSharedTablePsqlCopyPlans({
+      sourceUrl,
+      targetUrl,
+      sourceSchema: 'public',
+      targetSchema: 'teable_meta_target',
+      spaceId: 'spcxxx',
+      baseIds: ['bsexxx'],
+      tableIds: ['tblactive'],
+      sharedTableIds: ['tblactive', 'tbldeleted'],
+      includePauseScopes: true,
+      includeSpacePauseScopes: false,
+    });
+
     expect(plans.find((plan) => plan.table === 'computed_update_pause_scope')?.sourceSql).toContain(
       `"scope_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
     );
+    expect(
+      plans.find((plan) => plan.table === 'computed_update_pause_scope')?.sourceSql
+    ).not.toContain(`"scope_type" = 'space'`);
   });
 
   it('builds scoped postgres_fdw plans for all migration shared tables', () => {
@@ -516,15 +605,28 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
-      'computed_update_pause_scope',
+      'attachments_table',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
+      'record_removal_tombstone',
+      'domain_event_outbox',
+      'domain_event_delivery',
+      'domain_event_inbox',
+      'computed_reliability_issue',
+      'computed_reliability_scope',
     ]);
     expect(plans[0].sql).toContain('FROM "sdmjxxx_fdw_0"."record_history"');
-    expect(plans[3].sql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
-    expect(plans[6].sql).toContain('FROM "sdmjxxx_fdw_6"."computed_update_outbox"');
+    expect(plans[0].sql).toContain('DELETE FROM "teable_meta_target"."record_history"');
+    expect(plans[4].sql).toContain('FROM "sdmjxxx_fdw_4"."computed_update_outbox"');
+    expect(plans[7].sql).toContain(
+      'DELETE FROM "teable_meta_target"."computed_update_outbox_seed" WHERE "table_id" = ANY'
+    );
+    expect(plans[7].sql).toContain(
+      'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
+    );
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
   });
 
@@ -538,5 +640,55 @@ describe('space data DB copy plan', () => {
         whereSql: '',
       })
     ).toThrow('requires a scoped WHERE clause');
+  });
+});
+
+describe('pg_dump server version compatibility (T6970)', () => {
+  const productionDumpVersion = 'pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg12+2)';
+  const productionServerVersion = '18.4 (Debian 18.4-1.pgdg13+1)';
+
+  it('parses major versions from pg_dump and SHOW server_version text', () => {
+    expect(parsePostgresMajorVersion(productionDumpVersion)).toBe(16);
+    expect(parsePostgresMajorVersion(productionServerVersion)).toBe(18);
+    expect(parsePostgresMajorVersion('pg_dump (PostgreSQL) 18.6 (Homebrew)')).toBe(18);
+  });
+
+  it('T6970: pg_dump 16.15 cannot dump PostgreSQL 18.4', () => {
+    expect(() =>
+      assertPgDumpSupportsServer({
+        dumpVersionText: productionDumpVersion,
+        serverVersionText: productionServerVersion,
+      })
+    ).toThrow(/pg_dump version 16 cannot dump PostgreSQL 18/);
+  });
+
+  it('allows a newer pg_dump to dump equal or older servers', () => {
+    expect(
+      assertPgDumpSupportsServer({
+        dumpVersionText: 'pg_dump (PostgreSQL) 18.4 (Debian 18.4-1.pgdg13+1)',
+        serverVersionText: productionServerVersion,
+      })
+    ).toEqual({ dumpMajor: 18, serverMajor: 18 });
+    expect(
+      assertPgDumpSupportsServer({
+        dumpVersionText: 'pg_dump (PostgreSQL) 18.6 (Homebrew)',
+        serverVersionText: '16.11',
+      })
+    ).toEqual({ dumpMajor: 18, serverMajor: 16 });
+  });
+
+  it('builds a tuples-only SHOW server_version probe for the source URL', () => {
+    expect(buildServerVersionProbePlan(sourceUrl)).toEqual({
+      command: 'psql',
+      args: [
+        '--no-psqlrc',
+        '--quiet',
+        '--tuples-only',
+        '--no-align',
+        '--command',
+        'SHOW server_version',
+        sourceUrl,
+      ],
+    });
   });
 });

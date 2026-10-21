@@ -3,9 +3,11 @@ import { Alert, AlertTitle, AlertDescription } from '@teable/ui-lib/shadcn/ui/al
 import Head from 'next/head';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { useUpgradeCtaEnabled } from '../hooks/useUpgradeCtaEnabled';
 
 export function AppPage() {
   const { t } = useTranslation('common');
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
   return (
     <div className="h-full flex-col md:flex">
       <Head>
@@ -22,12 +24,18 @@ export function AppPage() {
             <span className="text-lg">✨</span> {t('billing.enterpriseFeature')}
           </AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-xs">
-            <p>{t('billing.authorityMatrixRequiresUpgrade')}</p>
-            <Button className="w-fit" variant="default" asChild size="xs">
-              <Link href={`${t('help.appLink')}/setting/license-plan`} target="_blank">
-                {t('billing.viewPricing')}
-              </Link>
-            </Button>
+            <p>
+              {upgradeCtaEnabled
+                ? t('billing.authorityMatrixRequiresUpgrade')
+                : t('mobileEmbed.featureUnavailableDescription')}
+            </p>
+            {upgradeCtaEnabled && (
+              <Button className="w-fit" variant="default" asChild size="xs">
+                <Link href={`${t('help.appLink')}/setting/license-plan`} target="_blank">
+                  {t('billing.viewPricing')}
+                </Link>
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
       </div>

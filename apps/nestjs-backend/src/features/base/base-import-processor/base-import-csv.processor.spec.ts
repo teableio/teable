@@ -40,9 +40,7 @@ describe('BaseImportCsvQueueProcessor', () => {
     processor.storageAdapter = {
       downloadFile: vi
         .fn()
-        .mockResolvedValue(
-          createCsvZipStream({ 'tables/tblSource.csv': '__id,Name\nrec1,Alpha' })
-        ),
+        .mockResolvedValue(createCsvZipStream({ 'tables/tblSource.csv': '__id,Name\nrec1,Alpha' })),
     };
     processor.handleChunk = vi.fn(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));

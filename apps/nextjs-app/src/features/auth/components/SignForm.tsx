@@ -1,13 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
-import type { ISignin, ISignup } from '@teable/openapi';
+import type { ISignin, ISigninWithCode, ISignup } from '@teable/openapi';
 import {
   signup,
   signin,
   signinSchema,
   signupSchema,
+  signinWithCode,
+  signinWithCodeSchema,
   sendSignupVerificationCode,
   sendSignupVerificationCodeRoSchema,
+  sendSigninVerificationCode,
+  sendSigninVerificationCodeRoSchema,
 } from '@teable/openapi';
 import { Spin, Error as ErrorCom } from '@teable/ui-lib/base';
 import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
@@ -23,6 +27,8 @@ import { useCutDown } from '@/features/app/hooks/useCutDown';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { authConfig } from '../../i18n/auth.config';
+import { useCredentialDraftStore } from '../store/useCredentialDraftStore';
+import { PasswordInput } from './PasswordInput';
 import { SendVerificationButton } from './SendVerificationButton';
 import TurnstileWidget from './TurnstileWidget';
 
@@ -43,26 +49,28 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [turnstileToken, setTurnstileToken] = useState<string>();
   const { countdown, setCountdown } = useCutDown();
   const [turnstileKey, setTurnstileKey] = useState<number>(0);
+  // Sign-in only: password (default) or a one-time code mailed to the account.
+  const [signinMode, setSigninMode] = useState<'password' | 'code'>('password');
+  const [signinCode, setSigninCode] = useState<string>('');
+  const [signinCodeSent, setSigninCodeSent] = useState<boolean>(false);
   const env = useEnv();
   const emailRef = useRef<HTMLInputElement>(null);
+  const {
+    email: draftEmail,
+    password: draftPassword,
+    setEmail: setDraftEmail,
+    setPassword: setDraftPassword,
+    clear: clearCredentialDraft,
+  } = useCredentialDraftStore();
 
   const { data: setting } = usePublicSettingQuery();
   const {
     enableWaitlist = false,
-    disallowSignUp = false,
     turnstileSiteKey,
     signupVerificationSendCodeMailRate = 0,
+    emailCodeSigninEnabled = false,
   } = setting ?? {};
-
-  const hasInvitationRedirect = useMemo(() => {
-    try {
-      const redirect = decodeURIComponent((router.query.redirect as string) || '');
-      const url = new URL(redirect, window.location.origin);
-      return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
-    } catch {
-      return false;
-    }
-  }, [router.query.redirect]);
+  const isCodeSignin = type === 'signin' && emailCodeSigninEnabled && signinMode === 'code';
 
   const joinWaitlist = useCallback(() => {
     if (enableWaitlist) {
@@ -78,15 +86,27 @@ export const SignForm: FC<ISignForm> = (props) => {
     setError(undefined);
     setTurnstileToken(undefined);
     setCountdown(0);
+    setSigninMode('password');
+    setSigninCode('');
+    setSigninCodeSent(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
   // Countdown timer for send verification code button
 
   const { mutate: submitMutation } = useMutation({
-    mutationFn: ({ type, form }: { type: 'signin' | 'signup'; form: ISignin }) => {
+    mutationFn: (
+      variables:
+        | { type: 'signin'; form: ISignin }
+        | { type: 'signin-code'; form: ISigninWithCode }
+        | { type: 'signup'; form: ISignin }
+    ) => {
+      const { type, form } = variables;
       if (type === 'signin') {
         return signin(form);
+      }
+      if (type === 'signin-code') {
+        return signinWithCode(form);
       }
       if (type === 'signup') {
         // Affiliate attribution rides the teable_affiliate_via cookie, not this payload.
@@ -151,11 +171,11 @@ export const SignForm: FC<ISignForm> = (props) => {
       // Reset turnstile token after successful submission
       setTurnstileToken(undefined);
       setTurnstileKey((prev) => prev + 1);
+      clearCredentialDraft();
 
-      // Track Google Ads conversion for successful sign-up with user info
+      // Cross-domain GA4 signup event (Google Ads conversions upload server-side)
       if (variables.type === 'signup' && data.data) {
         trackSignUp({
-          conversionId: env.googleAdsConversionId,
           marketingGaId: env.marketingGaId,
           userInfo: {
             id: data.data.id,
@@ -190,6 +210,38 @@ export const SignForm: FC<ISignForm> = (props) => {
     },
     onError: (error: HttpError) => {
       // Reset turnstile on error
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
+      if (
+        error.code === HttpErrorCode.TOO_MANY_REQUESTS &&
+        error.data &&
+        typeof error.data === 'object' &&
+        'seconds' in error.data
+      ) {
+        setError(t('auth:signupError.sendMailRateLimit', { seconds: error.data.seconds }));
+        return;
+      }
+      setError(error.message);
+    },
+    meta: {
+      preventGlobalError: true,
+    },
+  });
+
+  const { mutate: sendSigninCodeMutation, isPending: sendSigninCodeLoading } = useMutation({
+    mutationFn: ({ email, turnstileToken }: { email: string; turnstileToken?: string }) =>
+      sendSigninVerificationCode(email, turnstileToken),
+    onSuccess: () => {
+      setSigninCodeSent(true);
+      setError(undefined);
+      if (signupVerificationSendCodeMailRate > 0) {
+        setCountdown(signupVerificationSendCodeMailRate);
+      }
+      // The token was consumed by the send-code request; resending needs a fresh one.
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
+    },
+    onError: (error: HttpError) => {
       setTurnstileToken(undefined);
       setTurnstileKey((prev) => prev + 1);
       if (
@@ -265,6 +317,23 @@ export const SignForm: FC<ISignForm> = (props) => {
     event.preventDefault();
 
     const email = (event.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
+
+    // Code sign-in: Turnstile is checked when the code is sent, not on submit.
+    if (isCodeSignin) {
+      if (!signinCode) {
+        setError(t('auth:signupError.verificationCodeRequired'));
+        return;
+      }
+      const res = signinWithCodeSchema.safeParse({ email, code: signinCode });
+      if (!res.success) {
+        setError(res.error.issues[0]?.message ?? t('common:noun.unknownError'));
+        return;
+      }
+      setIsLoading(true);
+      submitMutation({ type: 'signin-code', form: res.data });
+      return;
+    }
+
     const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
     const code = (event.currentTarget.elements.namedItem('verification-code') as HTMLInputElement)
       ?.value;
@@ -317,54 +386,103 @@ export const SignForm: FC<ISignForm> = (props) => {
         className
       )}
     >
-      <div className="relative mb-4 text-muted-foreground">
-        <h2 className="text-center text-xl">
+      <div className="relative mb-6 text-muted-foreground">
+        <h2 className="text-start text-base">
           {type === 'signin' ? t('auth:title.signin') : t('auth:title.signup')}
         </h2>
       </div>
       <form className="relative" onSubmit={onSubmit} onChange={() => setError(undefined)}>
-        <div className="grid gap-3">
-          <div className="grid gap-3">
+        <div className="grid gap-4">
+          <div className="grid gap-2">
             <Label htmlFor="email">{t('auth:label.email')}</Label>
             <Input
+              className="h-9 sm:h-8"
               id="email"
               placeholder={t('auth:placeholder.email')}
               type="text"
               autoComplete="username"
               ref={emailRef}
-              onChange={() => {
+              value={draftEmail}
+              onChange={(e) => {
+                setDraftEmail(e.target.value);
                 setSignupVerificationCode(undefined);
                 setSignupVerificationToken(undefined);
+                setSigninCodeSent(false);
               }}
               disabled={isLoading}
             />
           </div>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">{t('auth:label.password')}</Label>
+          {isCodeSignin && (
+            <div className="grid gap-3">
+              <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
+              <Input
+                className="h-9 sm:h-8"
+                id="verification-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder={t('auth:placeholder.verificationCode')}
+                value={signinCode}
+                onChange={(e) => setSigninCode(e.target.value)}
+                disabled={isLoading}
+              />
+              <SendVerificationButton
+                label={signinCodeSent ? undefined : t('auth:button.sendCode')}
+                disabled={sendSigninCodeLoading || countdown > 0}
+                loading={sendSigninCodeLoading}
+                countdown={countdown}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (turnstileSiteKey && !turnstileToken) {
+                    setError(t('auth:signError.turnstileRequired'));
+                    return;
+                  }
+                  const res = sendSigninVerificationCodeRoSchema.safeParse({
+                    email: emailRef.current?.value,
+                    turnstileToken,
+                  });
+                  if (!res.success) {
+                    setError(fromZodError(res.error).message);
+                    return;
+                  }
+                  sendSigninCodeMutation(res.data);
+                }}
+              />
             </div>
-            <Input
-              id="password"
-              placeholder={t('auth:placeholder.password')}
-              type="password"
-              autoComplete={type === 'signup' ? 'new-password' : 'current-password'}
-              disabled={isLoading}
-            />
-            {type === 'signin' && (
-              <Link
-                className="absolute right-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
-                href="/auth/forget-password"
-              >
-                {t('auth:forgetPassword.trigger')}
-              </Link>
-            )}
-          </div>
+          )}
+          {!isCodeSignin && (
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">{t('auth:label.password')}</Label>
+                {type === 'signin' && (
+                  <Link
+                    className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                    href="/auth/forget-password"
+                  >
+                    {t('auth:forgetPassword.trigger')}
+                  </Link>
+                )}
+              </div>
+              <PasswordInput
+                className="h-9 sm:h-8"
+                id="password"
+                placeholder={t('auth:placeholder.password')}
+                type="password"
+                autoComplete={type === 'signup' ? 'new-password' : 'current-password'}
+                value={draftPassword}
+                onChange={(e) => setDraftPassword(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           {enableWaitlist && type === 'signup' && (
             <div className="grid gap-3">
               <Label htmlFor="invite-code">{t('common:waitlist.code')}</Label>
               <div className="flex items-center">
                 <Input
+                  className="h-9 sm:h-8"
                   id="invite-code"
                   type="text"
                   placeholder={t('common:waitlist.inviteCodePlaceholder')}
@@ -380,57 +498,51 @@ export const SignForm: FC<ISignForm> = (props) => {
             </div>
           )}
 
-          <div
-            data-state={showVerificationCode ? 'show' : 'hide'}
-            className={cn('transition-all data-[state=show]:mt-4', {
-              'h-0 overflow-hidden': !showVerificationCode,
-            })}
-          >
-            {showVerificationCode && (
-              <div className="grid gap-3">
-                <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
-                <Input
-                  id="verification-code"
-                  type="text"
-                  placeholder={t('auth:placeholder.verificationCode')}
-                  value={signupVerificationCode}
-                  onChange={(e) => setSignupVerificationCode(e.target.value)}
-                />
-                <SendVerificationButton
-                  disabled={sendSignupVerificationCodeLoading || countdown > 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const emailInput = e.currentTarget.form?.querySelector(
-                      '#email'
-                    ) as HTMLInputElement;
-                    const email = emailInput?.value;
-                    if (!email) {
-                      return;
-                    }
+          {showVerificationCode && (
+            <div className="mt-4 grid gap-3">
+              <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
+              <Input
+                className="h-9 sm:h-8"
+                id="verification-code"
+                type="text"
+                placeholder={t('auth:placeholder.verificationCode')}
+                value={signupVerificationCode}
+                onChange={(e) => setSignupVerificationCode(e.target.value)}
+              />
+              <SendVerificationButton
+                disabled={sendSignupVerificationCodeLoading || countdown > 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const emailInput = e.currentTarget.form?.querySelector(
+                    '#email'
+                  ) as HTMLInputElement;
+                  const email = emailInput?.value;
+                  if (!email) {
+                    return;
+                  }
 
-                    // Check Turnstile verification if enabled
-                    if (turnstileSiteKey && !turnstileToken) {
-                      setError(t('auth:signError.turnstileRequired'));
-                      return;
-                    }
+                  // Check Turnstile verification if enabled
+                  if (turnstileSiteKey && !turnstileToken) {
+                    setError(t('auth:signError.turnstileRequired'));
+                    return;
+                  }
 
-                    const res = sendSignupVerificationCodeRoSchema.safeParse({
-                      email,
-                      turnstileToken,
-                    });
-                    if (!res.success) {
-                      setError(fromZodError(res.error).message);
-                      return;
-                    }
-                    sendSignupVerificationCodeMutation({ email, turnstileToken });
-                  }}
-                  loading={sendSignupVerificationCodeLoading}
-                  countdown={countdown}
-                />
-              </div>
-            )}
-          </div>
+                  const res = sendSignupVerificationCodeRoSchema.safeParse({
+                    email,
+                    turnstileToken,
+                  });
+                  if (!res.success) {
+                    setError(fromZodError(res.error).message);
+                    return;
+                  }
+                  sendSignupVerificationCodeMutation({ email, turnstileToken });
+                }}
+                loading={sendSignupVerificationCodeLoading}
+                countdown={countdown}
+              />
+            </div>
+          )}
 
           {/* Turnstile Widget */}
           {turnstileSiteKey && (
@@ -454,21 +566,23 @@ export const SignForm: FC<ISignForm> = (props) => {
               {isLoading && <Spin />}
               {buttonText}
             </Button>
-            {(!disallowSignUp || hasInvitationRedirect) && (
-              <div className="flex justify-end py-2">
-                <Link
-                  href={{
-                    pathname: type === 'signin' ? '/auth/signup' : '/auth/login',
-                    query: { ...router.query },
-                  }}
-                  shallow
-                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  {type === 'signin' ? t('auth:button.signup') : t('auth:button.signin')}
-                </Link>
-              </div>
-            )}
             <ErrorCom error={error} />
+            {type === 'signin' && emailCodeSigninEnabled && (
+              <Button
+                type="button"
+                variant="link"
+                className="mt-2 h-auto w-full p-0 text-xs text-muted-foreground"
+                disabled={isLoading}
+                onClick={() => {
+                  setSigninMode((mode) => (mode === 'password' ? 'code' : 'password'));
+                  setError(undefined);
+                }}
+              >
+                {signinMode === 'password'
+                  ? t('auth:button.signinWithCode')
+                  : t('auth:button.signinWithPassword')}
+              </Button>
+            )}
           </div>
         </div>
       </form>

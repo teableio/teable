@@ -65,7 +65,7 @@ export const AIModelPreferencesCard = ({
             render={({ field }) => (
               <FormItem>
                 <div className="flex w-full flex-col justify-between">
-                  <div className="flex flex-1 space-x-2">
+                  <div className="flex flex-1 space-x-2 rtl:space-x-reverse">
                     <FormControl className="grow ">
                       <CodingModels
                         value={field.value}
@@ -93,11 +93,11 @@ export const AIModelPreferencesCard = ({
                   <div className="flex flex-col items-center justify-between">
                     <FormLabel className="flex w-full flex-col items-start justify-start gap-2">
                       <span>{t('admin.setting.ai.embeddingModel')}</span>
-                      <FormDescription className="text-left text-xs text-muted-foreground">
+                      <FormDescription className="text-start text-xs text-muted-foreground">
                         {t('admin.setting.ai.embeddingModelDescription')}
                       </FormDescription>
                     </FormLabel>
-                    <div className="flex w-full space-x-2 pt-2">
+                    <div className="flex w-full space-x-2 pt-2 rtl:space-x-reverse">
                       <FormControl className="grow">
                         <AIModelSelect
                           value={field.value ?? ''}

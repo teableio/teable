@@ -24,6 +24,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -376,9 +377,11 @@ const createHandler = (args: {
     createRecordWritePluginRunner(args.plugins),
     args.recordRepository ?? new FakeTableRecordRepository(args.queryRepository),
     args.queryRepository,
-    args.eventBus ?? new FakeEventBus(),
     noopUndoRedoService,
-    args.unitOfWork ?? new FakeUnitOfWork()
+    new EventBusDomainWriteTransaction(
+      args.unitOfWork ?? new FakeUnitOfWork(),
+      args.eventBus ?? new FakeEventBus()
+    )
   );
 
   return new DeleteByRangeHandler(deleteByRangeApplicationService);
@@ -803,7 +806,7 @@ describe('DeleteByRangeHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
   });
 
-  it('returns error when repository delete snapshots disagree with planned rows', async () => {
+  it('uses pre-read snapshots when repository delete snapshots disagree with planned rows', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -831,7 +834,10 @@ describe('DeleteByRangeHandler', () => {
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.missing');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecordIds).toEqual([
+      `rec${'a'.repeat(16)}`,
+      `rec${'b'.repeat(16)}`,
+    ]);
   });
 });

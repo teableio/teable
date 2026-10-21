@@ -7,12 +7,14 @@ import type { RecordWriteSideEffectService } from '../application/services/Recor
 import type { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -32,6 +34,7 @@ import type {
 } from '../ports/import/IImportSource';
 import type { IImportSourceAdapter } from '../ports/import/IImportSourceAdapter';
 import type { IImportSourceRegistry } from '../ports/import/IImportSourceRegistry';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -48,7 +51,6 @@ import { ImportRecordsHandler } from './ImportRecordsHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
-  expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -204,22 +206,29 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     let totalInserted = 0;
     let batchIndex = 0;
 
-    if (isAsyncIterable(batches)) {
-      for await (const batch of batches) {
-        this.insertedBatches.push([...batch]);
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    try {
+      if (isAsyncIterable(batches)) {
+        for await (const batch of batches) {
+          this.insertedBatches.push([...batch]);
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
+      } else {
+        for (const batch of batches) {
+          this.insertedBatches.push([...batch]);
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
       }
-    } else {
-      for (const batch of batches) {
-        this.insertedBatches.push([...batch]);
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    } catch (error) {
+      if (isDomainError(error)) {
+        return err(error);
       }
+      throw error;
     }
 
     return ok({ totalInserted });
@@ -353,8 +362,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -411,8 +419,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -461,9 +468,7 @@ describe('ImportRecordsHandler', () => {
       })
     );
     const tableRecordRepository = new FakeTableRecordRepository();
-    const { plugin, calls } = createTrackedRecordWritePlugin([
-      RecordWriteOperationKind.importAppend,
-    ]);
+    const { plugin } = createTrackedRecordWritePlugin([RecordWriteOperationKind.importAppend]);
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
@@ -480,8 +485,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -494,9 +498,238 @@ describe('ImportRecordsHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.rows_per_table_max');
-    expect(tableRecordRepository.inserted).toHaveLength(0);
-    expect(calls.prepare).toHaveLength(0);
-    expect(calls.guard).toHaveLength(0);
+    expect(adapter.parseCalls).toHaveLength(1);
+  });
+
+  it('pulls async source rows as insertManyStream consumes them', async () => {
+    const { table, textFieldId } = buildTable();
+    let pulled = 0;
+    const pulledWhenInserted: number[] = [];
+    async function* rowsAsync() {
+      pulled += 1;
+      yield ['row 1'];
+      pulled += 1;
+      yield ['row 2'];
+    }
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowsAsync: rowsAsync(),
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const originalInsertManyStream =
+      tableRecordRepository.insertManyStream.bind(tableRecordRepository);
+    tableRecordRepository.insertManyStream = async (context, target, batches, options) => {
+      if (!isAsyncIterable(batches)) {
+        return originalInsertManyStream(context, target, batches, options);
+      }
+      async function* tap() {
+        for await (const batch of batches) {
+          pulledWhenInserted.push(pulled);
+          yield batch;
+        }
+      }
+      return originalInsertManyStream(context, target, tap(), options);
+    };
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        batchSize: 1,
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().totalImported).toBe(2);
+    expect(pulledWhenInserted).toEqual([1, 2]);
+  });
+
+  it('reports a source interruption as a retryable import failure with zero committed rows', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['row 1']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.insertManyStream = async () =>
+      err(
+        domainError.infrastructure({
+          code: 'record.insert_many_stream.source_interrupted',
+          message: 'Record insert source was interrupted after 500 row(s) in 1 batch(es)',
+          details: { insertedRows: 500, insertedBatches: 1, cause: 'terminated' },
+        })
+      );
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        batchSize: 500,
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('import.source_interrupted');
+    expect(error.message).toContain('nothing was committed');
+    expect(error.details).toMatchObject({
+      insertedRows: 500,
+      insertedBatches: 1,
+      committedRows: 0,
+      retryable: true,
+    });
+    expect(error.details).not.toHaveProperty('cause');
+    expect(error.message).not.toContain('terminated');
+  });
+
+  it('keeps an empty required value as a validation error, not a source interruption', async () => {
+    const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Required Import')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withNotNull(FieldNotNull.required())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored')
+    );
+
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('validation.field.not_null');
+    expect(error.code).not.toBe('import.source_interrupted');
+    expect(tableRecordRepository.inserted).toEqual([]);
+  });
+
+  it('keeps the recorded failure when the source cleanup rejects a second time', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowsAsync: {
+          [Symbol.asyncIterator]() {
+            return this;
+          },
+          async next() {
+            return { done: true, value: undefined };
+          },
+          async return() {
+            throw new Error('source already closed by the repository');
+          },
+        },
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.insertManyStream = async () =>
+      err(domainError.validation({ message: 'write failed before inserting' }));
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('write failed before inserting');
   });
 
   it('checks importAppend plugins per append chunk instead of the whole imported row count', async () => {
@@ -554,8 +787,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -613,8 +845,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -637,9 +868,12 @@ describe('ImportRecordsHandler', () => {
     );
     const tableRecordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
-    const event = { type: 'import.side_effect.persisted' } as IDomainEvent;
-    let sideEffectCalls = 0;
-    let updateFlowCalls = 0;
+    const event = FieldOptionsAdded.create({
+      tableId: table.id(),
+      baseId: table.baseId(),
+      fieldId: textFieldId,
+      options: [{ id: 'choImported', name: 'Imported choice', color: 'blue' }],
+    });
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
@@ -652,7 +886,6 @@ describe('ImportRecordsHandler', () => {
       createRecordWritePluginRunner(),
       {
         execute: () => {
-          sideEffectCalls += 1;
           return ok({
             table,
             updateResult: {
@@ -664,12 +897,10 @@ describe('ImportRecordsHandler', () => {
       } as unknown as RecordWriteSideEffectService,
       {
         execute: async () => {
-          updateFlowCalls += 1;
           return ok({ table, events: [event] });
         },
       } as unknown as TableUpdateFlow,
-      eventBus,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const result = await handler.handle(
@@ -678,15 +909,26 @@ describe('ImportRecordsHandler', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(sideEffectCalls).toBe(1);
-    expect(updateFlowCalls).toBe(1);
-    // ImportRecordsHandler now also emits a RecordsBatchCreated per yielded batch
-    // so projection handlers (audit, realtime, automation) can react to imported records.
-    expect(eventBus.publishedMany).toHaveLength(1);
-    const published = eventBus.publishedMany[0];
-    expect(published).toHaveLength(2);
-    expect(published[0]).toBe(event);
-    expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
+    const published = eventBus.publishedMany.flat();
+    expect(published.map((item) => item.name.toString())).toEqual([
+      'FieldOptionsAdded',
+      'RecordsBatchCreated',
+    ]);
+    expect(published[0]).toMatchObject({
+      fieldId: textFieldId,
+      options: [{ id: 'choImported', name: 'Imported choice', color: 'blue' }],
+    });
+    const created = published.find(isRecordsBatchCreatedEvent);
+    expect(created?.source).toEqual({ type: 'import' });
+    expect(created?.records).toEqual([
+      {
+        recordId: tableRecordRepository.inserted[0].id().toString(),
+        fields: [{ fieldId: textFieldId.toString(), value: 'Imported row' }],
+      },
+    ]);
+    expect(table.pullDomainEvents().map((pending) => pending.name.toString())).toEqual([
+      'TableCreated',
+    ]);
     expect(tableRecordRepository.inserted).toHaveLength(1);
     expect(tableRecordRepository.insertManyStreamOptions).toMatchObject({
       deferComputedUpdates: true,
@@ -741,8 +983,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(

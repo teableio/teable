@@ -46,6 +46,7 @@ import {
   copy as apiCopy,
   paste as apiPaste,
   getFields,
+  getView,
   deleteSelection,
   clear,
   updateRecordOrders,
@@ -2039,7 +2040,18 @@ describe('OpenAPI SelectionController (e2e)', () => {
           },
         ],
       });
-      expect(result.data.ids).toEqual([table.records[1].id, table.records[0].id]);
+      // The orderBy decides WHICH rows the ranges map to (same ids in both
+      // engines). The response id order differs: v1 returns ids in selection
+      // order, while v2's DeleteByRange returns them in the repository's
+      // delete-capture order (its pre-delete select has no ORDER BY).
+      const expectedIds = [table.records[1].id, table.records[0].id];
+      if (isForceV2) {
+        expect([...result.data.ids].sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+          [...expectedIds].sort((a, b) => Number(a > b) - Number(a < b))
+        );
+      } else {
+        expect(result.data.ids).toEqual(expectedIds);
+      }
     });
 
     it('should delete selected data with view filter', async () => {
@@ -2334,6 +2346,164 @@ describe('OpenAPI SelectionController (e2e)', () => {
           { label: 'v1', useV2: false },
           { label: 'v2', useV2: true },
         ];
+
+    it('rejects v2 paste-by-id into a non-primary link display field without partial writes', async () => {
+      const targets = await createTable(baseId, {
+        name: 'Paste display targets',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Code', type: FieldType.SingleLineText },
+          { name: 'Amount', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Title: 'Target A', Code: 'A', Amount: 10 } },
+          { fields: { Title: 'Target B', Code: 'B', Amount: 20 } },
+          { fields: { Title: 'Target C', Code: 'C', Amount: 30 } },
+        ],
+      });
+      const sources = await createTable(baseId, {
+        name: 'Paste display sources',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Target',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: targets.id,
+              lookupFieldId: targets.fields[1].id,
+              isOneWay: true,
+            },
+          },
+          { name: 'Copy source', type: FieldType.SingleLineText },
+        ],
+        records: [{ fields: { Name: 'Row A', 'Copy source': 'Missing target' } }],
+      });
+      try {
+        const fieldsBefore = (await getFields(sources.id)).data;
+        const cases = [
+          {
+            fieldIds: [sources.fields[0].id, sources.fields[1].id],
+            content: [['Changed name', 'Missing target']],
+            header: [sources.fields[0], sources.fields[2]],
+          },
+          {
+            fieldIds: [sources.fields[1].id],
+            content: [['Missing target', 'Extra column']],
+            header: [sources.fields[2], sources.fields[2]],
+          },
+          {
+            fieldIds: [sources.fields[0].id],
+            content: [['Changed name', 'Missing target']],
+            header: [sources.fields[0], sources.fields[1]],
+          },
+          {
+            fieldIds: [sources.fields[0].id, sources.fields[1].id],
+            content: [
+              ['Changed name', ''],
+              ['New row', 'Missing target'],
+            ],
+            header: [sources.fields[0], sources.fields[2]],
+          },
+        ];
+        for (const { fieldIds, content, header } of cases) {
+          const response = await axios.patch(
+            urlBuilder(PASTE_BY_ID_URL, { tableId: sources.id }),
+            {
+              viewId: sources.views[0].id,
+              selection: { recordIds: [sources.records[0].id], fieldIds },
+              content,
+              header,
+            },
+            { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
+          );
+          expect(response.status).toBe(400);
+          expect(response.headers['x-teable-v2']).toBe('true');
+          expect(response.data).toMatchObject({
+            data: { domainCode: 'paste.link_auto_create_requires_primary_lookup' },
+          });
+          expect((await getFields(sources.id)).data).toEqual(fieldsBefore);
+          const sourceAfter = await getRecord(sources.id, sources.records[0].id);
+          expect(sourceAfter.fields[sources.fields[0].id]).toBe('Row A');
+          expect(sourceAfter.fields[sources.fields[1].id] ?? null).toBeNull();
+          expect((await getRecordsWithCanary(sources.id, {}, true)).data.records).toHaveLength(1);
+          expect((await getRecordsWithCanary(targets.id, {}, true)).data.records).toHaveLength(3);
+        }
+
+        for (const value of [targets.records[0].id, null]) {
+          await pasteByIdWithCanary(
+            sources.id,
+            {
+              viewId: sources.views[0].id,
+              selection: {
+                recordIds: [sources.records[0].id],
+                fieldIds: [sources.fields[1].id],
+              },
+              content: [[value]],
+            },
+            true
+          );
+          const sourceAfter = await getRecord(sources.id, sources.records[0].id);
+          expect(sourceAfter.fields[sources.fields[1].id] ?? null).toEqual(
+            value ? { id: value, title: 'A' } : null
+          );
+        }
+      } finally {
+        await permanentDeleteTable(baseId, sources.id);
+        await permanentDeleteTable(baseId, targets.id);
+      }
+    });
+
+    it('v2 paste-by-id reserves planned text columns before self-link reciprocal fields', async () => {
+      const target = await createTable(baseId, {
+        name: 'Paste expansion target',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Row A' } }],
+      });
+      try {
+        const link = await createField(target.id, {
+          name: 'Self link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: target.id,
+            lookupFieldId: target.fields[0].id,
+            isOneWay: false,
+          },
+        });
+        const response = await pasteByIdWithCanary(
+          target.id,
+          {
+            viewId: target.views[0].id,
+            selection: {
+              recordIds: [target.records[0].id],
+              fieldIds: [target.fields[0].id],
+            },
+            content: [['Row A', '', 'Expanded value', 'Tail value']],
+            header: [
+              target.fields[0],
+              link,
+              { ...target.fields[0], name: target.name },
+              { ...target.fields[0], name: 'Tail' },
+            ],
+          },
+          true
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.createdFieldIds).toHaveLength(3);
+        const fields = (await getFields(target.id)).data;
+        expect(new Set(fields.map((field) => field.dbFieldName)).size).toBe(fields.length);
+        const textFieldId = response.data.createdFieldIds![1];
+        const record = await getRecord(target.id, target.records[0].id);
+        expect(record.fields[textFieldId]).toBe('Expanded value');
+        const view = (await getView(target.id, target.views[0].id)).data;
+        const orders = response.data.createdFieldIds!.map((id) => view.columnMeta[id].order);
+        expect(orders[0]).toBeLessThan(orders[1]);
+        expect(orders[1]).toBeLessThan(orders[2]);
+      } finally {
+        await permanentDeleteTable(baseId, target.id);
+      }
+    });
 
     it.each(modes)(
       'paste-by-id updates explicit record ids in request order ($label)',
@@ -4323,8 +4493,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
         const recordsAfter = await getRecords(streamTable.id, {
           fieldKeyType: FieldKeyType.Id,
         });
+        // Cleared single-line text is stored as null and omitted from the record
+        // payload, so the first row reads as undefined rather than ''.
         expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
-          '',
+          undefined,
           'new-2',
         ]);
       } finally {

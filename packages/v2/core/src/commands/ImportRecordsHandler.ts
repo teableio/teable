@@ -2,39 +2,37 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { toImportWriteError } from '../application/services/importSourceErrors';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
-import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import { tableDataSafetyLimitErrors } from '../domain/shared/TableDataSafetyLimits';
 import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
+import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
-import * as EventBusPort from '../ports/EventBus';
+import type { TableId } from '../domain/table/TableId';
+import * as DomainWriteTransactionPort from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { IImportParseResult, SourceColumnMap } from '../ports/import/IImportSource';
+import * as IImportSourceRegistryPort from '../ports/import/IImportSourceRegistry';
 import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
   type RecordWriteImportAppendPayload,
   type RecordWritePluginOrchestration,
 } from '../ports/RecordWritePlugin';
-import type {
-  IImportParseResult,
-  IImportProgress,
-  SourceColumnMap,
-} from '../ports/import/IImportSource';
-import * as IImportSourceRegistryPort from '../ports/import/IImportSourceRegistry';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ImportRecordsCommand } from './ImportRecordsCommand';
+import { toAsyncIterable } from './shared/toAsyncIterable';
 
 /**
  * Result of ImportRecordsCommand execution.
@@ -42,11 +40,14 @@ import { ImportRecordsCommand } from './ImportRecordsCommand';
 export class ImportRecordsResult {
   private constructor(
     readonly totalImported: number,
-    readonly events: ReadonlyArray<IDomainEvent>
+    readonly events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>
   ) {}
 
-  static create(totalImported: number, events: ReadonlyArray<IDomainEvent>): ImportRecordsResult {
-    return new ImportRecordsResult(totalImported, [...events]);
+  static create(
+    totalImported: number,
+    events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>
+  ): ImportRecordsResult {
+    return new ImportRecordsResult(totalImported, events);
   }
 }
 
@@ -56,7 +57,6 @@ export class ImportRecordsResult {
  */
 interface ImportStreamState {
   table: Table;
-  events: IDomainEvent[];
   currentBatch: number;
   operationId: string;
   totalRecordCount: number;
@@ -83,9 +83,10 @@ interface ImportStreamState {
  */
 @CommandHandler(ImportRecordsCommand)
 @injectable()
-export class ImportRecordsHandler
-  implements ICommandHandler<ImportRecordsCommand, ImportRecordsResult>
-{
+export class ImportRecordsHandler implements ICommandHandler<
+  ImportRecordsCommand,
+  ImportRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.importSourceRegistry)
     private readonly registry: IImportSourceRegistryPort.IImportSourceRegistry,
@@ -101,17 +102,15 @@ export class ImportRecordsHandler
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: DomainWriteTransactionPort.IDomainWriteTransaction
   ) {}
 
   async handle(
     context: IExecutionContext,
     command: ImportRecordsCommand
   ): Promise<Result<ImportRecordsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { tableId, source, sourceColumnMap, options } = command;
     const skipFirstNLines = options.skipFirstNLines ?? 0;
     const typecast = options.typecast ?? true;
@@ -119,143 +118,156 @@ export class ImportRecordsHandler
     const batchSize = options.batchSize ?? 500;
     const maxRowCount = options.maxRowCount;
 
-    return safeTry<ImportRecordsResult, DomainError>(async function* () {
-      // 1. Find table
-      const tableSpec = TableByIdSpec.create(tableId);
-      const table = yield* await handler.tableRepository.findOne(context, tableSpec);
+    let rowsIterator: AsyncIterator<ReadonlyArray<unknown>> | undefined;
+    try {
+      return await safeTry<ImportRecordsResult, DomainError>(async function* () {
+        // 1. Find table
+        const tableSpec = TableByIdSpec.create(tableId);
+        const table = yield* await handler.tableRepository.findOne(context, tableSpec);
 
-      // 2. Get adapter for source type
-      const adapter = yield* handler.registry.getAdapter(source.type);
+        // 2. Get adapter for source type
+        const adapter = yield* handler.registry.getAdapter(source.type);
 
-      // 3. Parse source (streaming)
-      onProgress?.({ phase: 'parsing', processedRows: 0, currentBatch: 0 });
-      const parseResult = yield* await adapter.parse(source, options);
+        // 3. Parse source (streaming)
+        onProgress?.({ phase: 'parsing', processedRows: 0, currentBatch: 0 });
+        const parsed = yield* await adapter.parse(source, options);
+        rowsIterator = (parsed.rowsAsync ?? toAsyncIterable(parsed.rows ?? []))[
+          Symbol.asyncIterator
+        ]();
+        const iterator = rowsIterator;
+        const parseResult = { ...parsed, rowsAsync: { [Symbol.asyncIterator]: () => iterator } };
+        onProgress?.({
+          phase: 'parsing',
+          processedRows: 0,
+          currentBatch: 0,
+          totalRows:
+            parseResult.rowCount != null
+              ? Math.max(parseResult.rowCount - skipFirstNLines, 0)
+              : undefined,
+        });
 
-      // 4. Validate column mapping
-      yield* handler.validateColumnMapping(table, sourceColumnMap, parseResult.headers);
-      let collectedBatches: {
-        readonly batches: ReadonlyArray<ReadonlyArray<RecordWriteFieldValues>>;
-        readonly totalCount: number;
-      };
-      try {
-        collectedBatches = yield* await handler.collectFieldValueBatches(
-          parseResult,
-          sourceColumnMap,
-          skipFirstNLines,
-          batchSize,
-          maxRowCount
+        // 4. Validate column mapping
+        yield* handler.validateColumnMapping(table, sourceColumnMap, parseResult.headers);
+        const knownDataRowCount = handler.resolveKnownDataRowCount(parsed, skipFirstNLines);
+        const operationId = `import-records:${tableId.toString()}`;
+        const totalRecordCount = knownDataRowCount ?? 0;
+        const totalChunkCount =
+          knownDataRowCount != null ? Math.ceil(knownDataRowCount / batchSize) : 0;
+        onProgress?.({
+          phase: 'inserting',
+          processedRows: 0,
+          currentBatch: 0,
+          totalRows: knownDataRowCount,
+        });
+        const operationPluginExecution = yield* await handler.preparePluginExecution(
+          context,
+          table,
+          {
+            sourceType: source.type,
+            sourceColumnMap,
+            recordsFieldValues: [],
+            batchSize,
+            typecast,
+            recordCount: totalRecordCount,
+            maxRowCount,
+          },
+          {
+            mode: 'stream',
+            scope: 'operation',
+            operationId,
+            totalRecordCount,
+            totalChunkCount,
+          },
+          false
         );
-      } catch (error) {
-        if (error instanceof MaxRowCountExceededError) {
-          return err(
-            domainError.validation({
-              code: 'validation.limit.rows_per_table_max',
-              message: `Exceed max row limit: ${error.maxRowCount}`,
-              details: {
-                max: error.maxRowCount,
-                maxRowCount: error.maxRowCount,
-                rowCount: error.rowCount,
-              },
-            })
-          );
-        }
-        throw error;
-      }
-      const operationId = `import-records:${tableId.toString()}`;
-      const totalChunkCount = collectedBatches.batches.length;
-      const operationPluginExecution = yield* await handler.preparePluginExecution(
-        context,
-        table,
-        {
+
+        // 5. Create streaming state
+        const state: ImportStreamState = {
+          table,
+          currentBatch: 0,
+          operationId,
+          totalRecordCount,
+          totalChunkCount,
           sourceType: source.type,
           sourceColumnMap,
-          recordsFieldValues: [],
-          batchSize,
-          typecast,
-          recordCount: collectedBatches.totalCount,
           maxRowCount,
-        },
-        {
-          mode: 'stream',
-          scope: 'operation',
-          operationId,
-          totalRecordCount: collectedBatches.totalCount,
-          totalChunkCount,
-        },
-        false
-      );
+          previousPluginExecution: operationPluginExecution,
+        };
 
-      // 5. Create streaming state
-      const state: ImportStreamState = {
-        table,
-        events: [],
-        currentBatch: 0,
-        operationId,
-        totalRecordCount: collectedBatches.totalCount,
-        totalChunkCount,
-        sourceType: source.type,
-        sourceColumnMap,
-        maxRowCount,
-        previousPluginExecution: operationPluginExecution,
-      };
-
-      // 6. Stream insert via insertManyStream
-      // Use deferComputedUpdates to avoid blocking the response while computed fields update
-      let insertResult: TableRecordRepositoryPort.InsertManyStreamResult;
-      insertResult = yield* await handler.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) => {
-          try {
-            const recordBatches = handler.createRecordBatchesStream(
-              transactionContext,
-              state,
-              collectedBatches.batches,
-              typecast,
-              onProgress
-            );
-            return await handler.tableRecordRepository.insertManyStream(
-              transactionContext,
-              state.table,
-              recordBatches,
-              {
-                deferComputedUpdates: true,
-                enqueueDeferredComputedUpdates: true,
-                onBatchInserted: (progress) => {
-                  onProgress?.({
-                    phase: 'inserting',
-                    processedRows: progress.totalInserted,
-                    currentBatch: state.currentBatch,
-                  });
-                },
+        // 6. Stream insert via insertManyStream.
+        // Row batches stay an AsyncIterable: parse → field values → records → insert.
+        const committed = yield* await handler.domainWriteTransaction.executeStream(
+          context,
+          async (transactionContext, events) => {
+            try {
+              const recordBatches = handler.createRecordBatchesStream(
+                transactionContext,
+                state,
+                handler.createFieldValueBatches(
+                  parseResult,
+                  sourceColumnMap,
+                  skipFirstNLines,
+                  batchSize,
+                  maxRowCount
+                ),
+                typecast,
+                events
+              );
+              const insertResult = await handler.tableRecordRepository.insertManyStream(
+                transactionContext,
+                state.table,
+                recordBatches,
+                {
+                  deferComputedUpdates: true,
+                  enqueueDeferredComputedUpdates: true,
+                  onBatchInserted: (progress) => {
+                    onProgress?.({
+                      phase: 'inserting',
+                      processedRows: progress.totalInserted,
+                      currentBatch: state.currentBatch,
+                      totalRows: knownDataRowCount ?? progress.totalInserted,
+                    });
+                  },
+                }
+              );
+              if (insertResult.isErr()) {
+                return err(toImportWriteError(insertResult.error));
               }
-            );
-          } catch (error) {
-            if (isDomainError(error)) {
-              return err(error);
+              return ok(insertResult.value);
+            } catch (error) {
+              if (isDomainError(error)) {
+                return err(error);
+              }
+              return err(
+                domainError.fromUnknown(error, {
+                  code: 'import.insert_stream_failed',
+                })
+              );
             }
-            return err(
-              domainError.fromUnknown(error, {
-                code: 'import.insert_stream_failed',
-              })
-            );
           }
-        }
-      );
+        );
+        const insertResult = committed.value;
 
-      // 8. Publish all collected events
-      if (state.events.length > 0) {
-        yield* await handler.eventBus.publishMany(context, state.events);
-      }
+        onProgress?.({
+          phase: 'completed',
+          processedRows: insertResult.totalInserted,
+          currentBatch: state.currentBatch,
+          totalRows: insertResult.totalInserted,
+        });
+        await state.previousPluginExecution.afterCommit();
 
-      onProgress?.({
-        phase: 'completed',
-        processedRows: insertResult.totalInserted,
-        currentBatch: state.currentBatch,
+        return ok(ImportRecordsResult.create(insertResult.totalInserted, committed.events));
       });
-      await state.previousPluginExecution.afterCommit();
-
-      return ok(ImportRecordsResult.create(insertResult.totalInserted, state.events));
-    });
+    } finally {
+      try {
+        // The repository already closes the batch iterator on error paths
+        // (IteratorClose), which reaches this same source iterator. A second
+        // cleanup rejection must never replace the recorded import outcome.
+        await rowsIterator?.return?.();
+      } catch {
+        // The import result or its error already owns the outcome.
+      }
+    }
   }
 
   private async preparePluginExecution(
@@ -296,15 +308,13 @@ export class ImportRecordsHandler
   private async *createRecordBatchesStream(
     context: IExecutionContext,
     state: ImportStreamState,
-    fieldValueBatches: ReadonlyArray<ReadonlyArray<RecordWriteFieldValues>>,
+    fieldValueBatches: AsyncIterable<ReadonlyArray<RecordWriteFieldValues>>,
     typecast: boolean,
-    onProgress?: (progress: IImportProgress) => void
+    events: DomainWriteTransactionPort.IDomainWriteEventWriter
   ): AsyncGenerator<ReadonlyArray<TableRecord>> {
-    for (const batchFieldValues of fieldValueBatches) {
+    for await (const batchFieldValues of fieldValueBatches) {
       const chunkIndex = state.currentBatch;
       state.currentBatch++;
-      const currentBatch = state.currentBatch;
-      onProgress?.({ phase: 'inserting', processedRows: 0, currentBatch });
 
       if (batchFieldValues.length === 0) continue;
 
@@ -345,8 +355,10 @@ export class ImportRecordsHandler
           batchFieldValues,
           typecast
         );
+        // Throw the DomainError itself: the insert-stream adapter distinguishes
+        // source interruptions from caller/input failures by this type.
         if (sideEffectResult.isErr()) {
-          throw new Error(sideEffectResult.error.message);
+          throw sideEffectResult.error;
         }
         state.table = sideEffectResult.value.table;
 
@@ -359,44 +371,32 @@ export class ImportRecordsHandler
             { publishEvents: false }
           );
           if (updateResult.isErr()) {
-            throw new Error(updateResult.error.message);
+            throw updateResult.error;
           }
           state.table = updateResult.value.table;
-          state.events.push(...(updateResult.value.events ?? []));
+          const appended = await events.append(updateResult.value.events ?? [], [state.table]);
+          if (appended.isErr()) throw appended.error;
         }
       }
 
       // Create records for this batch (with typecast)
-      const createResult = state.table.createRecords(batchFieldValues, { typecast });
+      const createResult = state.table.createRecords(batchFieldValues, {
+        typecast,
+        emitRecordCreatedEvents: false,
+      });
       if (createResult.isErr()) {
-        throw new Error(createResult.error.message);
+        throw createResult.error;
       }
 
       let records = [...createResult.value.records];
 
       // Resolve link fields for this batch if typecast enabled
       if (typecast && createResult.value.mutateSpecs) {
-        records = await this.resolveRecordLinks(context, records, createResult.value.mutateSpecs);
-      }
-
-      // Emit a RecordsBatchCreated event so projection handlers (audit log,
-      // realtime, automation) see the imported batch. Without this, the records
-      // are inserted via insertManyStream but no domain event ever fires.
-      const eventRecords = this.toEventRecords(records);
-      if (eventRecords.length > 0) {
-        state.events.push(
-          RecordsBatchCreated.create({
-            tableId: state.table.id(),
-            baseId: state.table.baseId(),
-            records: eventRecords,
-            orchestration: {
-              operationId: state.operationId,
-              totalRecordCount: state.totalRecordCount,
-              totalChunkCount: state.totalChunkCount,
-              chunkIndex,
-              scope: 'chunk',
-            },
-          })
+        records = await this.resolveRecordLinks(
+          context,
+          state.table.id(),
+          records,
+          createResult.value.mutateSpecs
         );
       }
 
@@ -405,8 +405,30 @@ export class ImportRecordsHandler
         throw beforePersistResult.error;
       }
 
-      // Yield processed batch for insertion
+      // Persist the records before running same-transaction event projections.
       yield records;
+      const eventRecords = this.toEventRecords(records);
+      if (eventRecords.length > 0) {
+        const appended = await events.append(
+          [
+            RecordsBatchCreated.create({
+              tableId: state.table.id(),
+              baseId: state.table.baseId(),
+              records: eventRecords,
+              source: { type: 'import' },
+              orchestration: {
+                operationId: state.operationId,
+                totalRecordCount: state.totalRecordCount,
+                totalChunkCount: state.totalChunkCount,
+                chunkIndex,
+                scope: 'chunk',
+              },
+            }),
+          ],
+          [state.table]
+        );
+        if (appended.isErr()) throw appended.error;
+      }
     }
   }
 
@@ -423,45 +445,20 @@ export class ImportRecordsHandler
     }));
   }
 
-  private async collectFieldValueBatches(
+  private async *createFieldValueBatches(
     parseResult: IImportParseResult,
     sourceColumnMap: SourceColumnMap,
     skipFirstNLines: number,
     batchSize: number,
     maxRowCount?: number
-  ): Promise<
-    Result<
-      {
-        readonly batches: ReadonlyArray<ReadonlyArray<RecordWriteFieldValues>>;
-        readonly totalCount: number;
-      },
-      DomainError
-    >
-  > {
-    const batches: Array<ReadonlyArray<RecordWriteFieldValues>> = [];
-    let totalCount = 0;
-
-    try {
-      for await (const rowBatch of this.createRowBatches(
-        parseResult,
-        skipFirstNLines,
-        batchSize,
-        maxRowCount
-      )) {
-        const batchFieldValues = rowBatch.map((row) => this.rowToFieldValues(row, sourceColumnMap));
-        batches.push(batchFieldValues);
-        totalCount += batchFieldValues.length;
-      }
-      return ok({ batches, totalCount });
-    } catch (error) {
-      if (error instanceof MaxRowCountExceededError) {
-        throw error;
-      }
-      return err(
-        domainError.fromUnknown(error, {
-          code: 'import.collect_batches_failed',
-        })
-      );
+  ): AsyncIterable<ReadonlyArray<RecordWriteFieldValues>> {
+    for await (const rowBatch of this.createRowBatches(
+      parseResult,
+      skipFirstNLines,
+      batchSize,
+      maxRowCount
+    )) {
+      yield rowBatch.map((row) => this.rowToFieldValues(row, sourceColumnMap));
     }
   }
 
@@ -477,50 +474,50 @@ export class ImportRecordsHandler
     let batch: ReadonlyArray<unknown>[] = [];
     let rowIndex = 0;
     let processedRows = 0;
-    let exceeded = false;
-    let exceededAt = 0;
 
-    const processRow = (row: ReadonlyArray<unknown>) => {
+    const rows = parseResult.rowsAsync ?? toAsyncIterable(parseResult.rows ?? []);
+    for await (const row of rows) {
       rowIndex++;
-      if (rowIndex <= skipFirstNLines) return;
+      if (rowIndex <= skipFirstNLines) continue;
       if (maxRowCount !== undefined && processedRows >= maxRowCount) {
-        exceeded = true;
-        exceededAt = processedRows + 1;
-        return false;
+        throw domainError.validation({
+          code: tableDataSafetyLimitErrors.rowsPerTableMax.code,
+          message: `Exceed max row limit: ${maxRowCount}`,
+          details: {
+            max: maxRowCount,
+            maxRowCount,
+            rowCount: processedRows + 1,
+          },
+          localization: {
+            i18nKey: tableDataSafetyLimitErrors.rowsPerTableMax.i18nKey,
+            context: { max: maxRowCount },
+          },
+        });
       }
       processedRows++;
       batch.push(row);
-      return true;
-    };
-
-    if (parseResult.rowsAsync) {
-      for await (const row of parseResult.rowsAsync) {
-        const accepted = processRow(row);
-        if (accepted === false) break;
-        if (batch.length >= batchSize) {
-          yield batch;
-          batch = [];
-        }
-      }
-    } else if (parseResult.rows) {
-      for (const row of parseResult.rows) {
-        const accepted = processRow(row);
-        if (accepted === false) break;
-        if (batch.length >= batchSize) {
-          yield batch;
-          batch = [];
-        }
+      if (batch.length >= batchSize) {
+        yield batch;
+        batch = [];
       }
     }
 
-    // Yield remaining rows
     if (batch.length > 0) {
       yield batch;
     }
+  }
 
-    if (exceeded) {
-      throw new MaxRowCountExceededError(maxRowCount ?? 0, exceededAt);
+  private resolveKnownDataRowCount(
+    parseResult: IImportParseResult,
+    skipFirstNLines: number
+  ): number | undefined {
+    if (parseResult.rowCount != null) {
+      return Math.max(parseResult.rowCount - skipFirstNLines, 0);
     }
+    if (!parseResult.rowsAsync && Array.isArray(parseResult.rows)) {
+      return Math.max(parseResult.rows.length - skipFirstNLines, 0);
+    }
+    return undefined;
   }
 
   /**
@@ -529,6 +526,7 @@ export class ImportRecordsHandler
    */
   private async resolveRecordLinks(
     context: IExecutionContext,
+    tableId: TableId,
     records: TableRecord[],
     mutateSpecs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<TableRecord[]> {
@@ -550,7 +548,7 @@ export class ImportRecordsHandler
     }
 
     // Check if any specs need resolution
-    const hasAnyResolution = needsResolutionFlags.some((flag) => flag);
+    const hasAnyResolution = needsResolutionFlags.some(Boolean);
     if (!hasAnyResolution) {
       return records;
     }
@@ -558,11 +556,12 @@ export class ImportRecordsHandler
     // Batch resolve ALL specs at once (single query per resolver type)
     const resolveResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       specsNeedingResolution
     );
 
     if (resolveResult.isErr()) {
-      throw new Error(resolveResult.error.message);
+      throw resolveResult.error;
     }
 
     const resolvedSpecs = resolveResult.value;
@@ -629,15 +628,5 @@ export class ImportRecordsHandler
       fieldValues.set(fieldId, value);
     }
     return fieldValues;
-  }
-}
-
-class MaxRowCountExceededError extends Error {
-  constructor(
-    readonly maxRowCount: number,
-    readonly rowCount: number
-  ) {
-    super(`Exceed max row limit: ${maxRowCount}`);
-    this.name = 'MaxRowCountExceededError';
   }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { join } from 'path';
+import { join } from 'node:path';
 import { Injectable, Optional } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
@@ -30,7 +30,7 @@ import {
   UploadType,
 } from '@teable/openapi';
 import { Knex } from 'knex';
-import { keyBy, map, uniq } from 'lodash';
+import { keyBy, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -41,15 +41,19 @@ import { PerformanceCache, PerformanceCacheService } from '../../performance-cac
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
+import { assertUniqueProviderModels } from '../ai/ai.service';
+import { assertAiProviderBaseUrlsAllowed } from '../ai/util';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { queueClearCacheKeys } from '../model/helper';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
+import { decryptAiIntegrationConfig, encryptAiIntegrationConfig } from './ai-integration-secrets';
 import { DataDbBindingService } from './data-db-binding.service';
 import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
@@ -107,6 +111,8 @@ export class SpaceService {
         ],
         role: Role.Owner,
         spaceId: result.id,
+        // The creator's owner row is implied by the space.create audit row.
+        skipAudit: true,
       });
       await this.createDefaultAIIntegration(result.id);
       return result;
@@ -309,6 +315,8 @@ export class SpaceService {
     const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(UploadType.SpaceAvatar),
     });
 
     const attachmentInput = {
@@ -580,15 +588,17 @@ export class SpaceService {
       .map((row) => row.created_by)
       .filter((id): id is string => id !== null);
 
-    const spaceIdsForBases = uniq(
-      resultsToReturn
-        .filter((row) => row.type === ResourceType.Base)
-        .map((row) => baseMap[row.base_id].spaceId)
-    );
+    const spaceIdsForBases = [
+      ...new Set(
+        resultsToReturn
+          .filter((row) => row.type === ResourceType.Base)
+          .map((row) => baseMap[row.base_id].spaceId)
+      ),
+    ];
     const { spaceOwnerMap } =
       await this.collaboratorService.buildSpaceOwnerContext(spaceIdsForBases);
 
-    const allUserIds = uniq([...userIds, ...spaceOwnerMap.values()]);
+    const allUserIds = [...new Set([...userIds, ...spaceOwnerMap.values()])];
     const userList = await this.prismaService.user.findMany({
       where: { id: { in: allUserIds } },
       select: { id: true, name: true, avatar: true },
@@ -634,34 +644,79 @@ export class SpaceService {
     return { list, total, nextCursor };
   }
 
-  async permanentDeleteSpace(spaceId: string, ignorePermissionCheck: boolean = false) {
-    await this.assertSpaceWritable(spaceId);
+  async permanentDeleteSpace(
+    spaceId: string,
+    ignorePermissionCheck: boolean = false,
+    options?: { force?: boolean }
+  ) {
+    if (options?.force) {
+      await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId, { metadataOnly: true });
+    } else {
+      await this.assertSpaceWritable(spaceId);
+    }
+    if (options?.force && ignorePermissionCheck) {
+      throw new CustomHttpException(
+        'Force removal requires explicit user authorization',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
     if (!ignorePermissionCheck) {
       const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
     }
 
-    await this.prismaService.space
-      .findUniqueOrThrow({
-        where: { id: spaceId },
-      })
-      .catch(() => {
-        throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
-          localization: {
-            i18nKey: 'httpErrors.space.notFound',
-          },
+    if (!options?.force) {
+      await this.prismaService.space
+        .findUniqueOrThrow({
+          where: { id: spaceId },
+        })
+        .catch(() => {
+          throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.space.notFound',
+            },
+          });
         });
-      });
+    }
 
     await this.prismaService.$tx(
       async (prisma) => {
+        if (options?.force) {
+          const space = await prisma.space.findUnique({
+            where: { id: spaceId },
+            select: {
+              deletedTime: true,
+              dataDbBinding: { select: { mode: true, dataDbConnectionId: true } },
+            },
+          });
+          if (!space) {
+            throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+              localization: { i18nKey: 'httpErrors.space.notFound' },
+            });
+          }
+          if (
+            !space.deletedTime ||
+            space.dataDbBinding?.mode !== 'byodb' ||
+            !space.dataDbBinding.dataDbConnectionId
+          ) {
+            throw new CustomHttpException(
+              'Only deleted BYODB spaces can be force removed',
+              HttpErrorCode.VALIDATION_ERROR
+            );
+          }
+        }
+
         const bases = await prisma.base.findMany({
           where: { spaceId },
           select: { id: true },
         });
 
         for (const { id } of bases) {
-          await this.baseService.permanentDeleteBase(id, ignorePermissionCheck);
+          await this.baseService.permanentDeleteBase(
+            id,
+            ignorePermissionCheck,
+            options?.force ? { skipExternalDataDbCleanup: true } : undefined
+          );
         }
 
         await this.cleanSpaceRelatedData(spaceId);
@@ -712,7 +767,7 @@ export class SpaceService {
     keyGenerator: generateIntegrationCacheKey,
     statsType: 'integration',
   })
-  async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
+  private async getStoredIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
     const integrationList = await this.prismaService.integration.findMany({
       where: { resourceId: spaceId },
     });
@@ -729,12 +784,34 @@ export class SpaceService {
     });
   }
 
+  async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
+    // Secrets stay in the stored (encrypted) shape inside the Redis blob;
+    // decrypting after the cache keeps only ciphertext in Redis.
+    const integrationList = await this.getStoredIntegrationList(spaceId);
+    return integrationList.map((item) => ({
+      ...item,
+      config: decryptAiIntegrationConfig(item.config, `integration:${item.id}`),
+    }));
+  }
+
+  /** Stored integration configs hold ciphertext; API responses keep plaintext. */
+  private decryptIntegrationRow<T extends { id: string; config: string }>(row: T): T {
+    return {
+      ...row,
+      config: JSON.stringify(
+        decryptAiIntegrationConfig(JSON.parse(row.config), `integration:${row.id}`)
+      ),
+    };
+  }
+
   async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
     const { type, enable } = addIntegrationRo;
     const { config } = addIntegrationRo;
 
-    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
     if (type === IntegrationType.AI) {
+      // Only the incoming providers: stored ones were vetted when written (or
+      // predate the guard and are already refused at fetch time).
+      await assertAiProviderBaseUrlsAllowed(config.llmProviders);
       const aiIntegration = await this.prismaService.integration.findFirst({
         where: {
           resourceId: spaceId,
@@ -744,32 +821,41 @@ export class SpaceService {
 
       if (!aiIntegration) {
         const nextConfig = normalizeSpaceAIIntegrationConfig(config);
-        return await this.prismaService.integration.create({
+        assertUniqueProviderModels(nextConfig.llmProviders);
+        const created = await this.prismaService.integration.create({
           data: {
             id: generateIntegrationId(),
             resourceId: spaceId,
             type,
             enable,
-            config: JSON.stringify(nextConfig),
+            config: JSON.stringify(encryptAiIntegrationConfig(nextConfig)),
           },
         });
+        await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+        return this.decryptIntegrationRow(created);
       }
 
       const { id, enable: originalEnable } = aiIntegration;
+      // Merge over the STORED shape (values stay encrypted) — encryption is
+      // idempotent on already-prefixed values, so mixed content never
+      // double-encrypts nor downgrades while the write switch is off.
       const originalConfig = JSON.parse(aiIntegration.config);
       const nextConfig = normalizeSpaceAIIntegrationConfig({
         ...originalConfig,
         ...config,
         llmProviders: [...originalConfig.llmProviders, ...config.llmProviders],
       });
+      assertUniqueProviderModels(nextConfig.llmProviders);
 
-      return await this.prismaService.integration.update({
+      const updated = await this.prismaService.integration.update({
         where: { id },
         data: {
-          config: JSON.stringify(nextConfig),
+          config: JSON.stringify(encryptAiIntegrationConfig(nextConfig)),
           enable: enable ?? originalEnable,
         },
       });
+      await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+      return this.decryptIntegrationRow(updated);
     }
 
     const res = await this.prismaService.integration.create({
@@ -797,7 +883,11 @@ export class SpaceService {
         }),
       },
     });
-    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    if (this.cls.isActive() && this.cls.get('tx.client')) {
+      queueClearCacheKeys(this.cls, [generateIntegrationCacheKey(spaceId)]);
+    } else {
+      await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    }
     return res;
   }
 
@@ -810,26 +900,48 @@ export class SpaceService {
     const config = updateIntegrationRo.config
       ? normalizeSpaceAIIntegrationConfig(updateIntegrationRo.config)
       : undefined;
+    if (config) {
+      await assertAiProviderBaseUrlsAllowed(config.llmProviders);
+    }
     const updateData: Record<string, unknown> = {};
     if (enable != null) {
       updateData.enable = enable;
     }
     if (config) {
-      updateData.config = JSON.stringify(config);
+      updateData.config = JSON.stringify(encryptAiIntegrationConfig(config));
     }
+    await this.assertIntegrationInSpace(integrationId, spaceId);
     const res = await this.prismaService.integration.update({
-      where: { id: integrationId },
+      where: { id: integrationId, resourceId: spaceId },
       data: updateData,
     });
     await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
-    return res;
+    return this.decryptIntegrationRow(res);
   }
 
   async deleteIntegration(integrationId: string, spaceId: string) {
+    await this.assertIntegrationInSpace(integrationId, spaceId);
     await this.prismaService.integration.delete({
-      where: { id: integrationId },
+      where: { id: integrationId, resourceId: spaceId },
     });
     await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+  }
+
+  /**
+   * The route authorizes `space|update` on the space in the URL, so the integration must belong to
+   * that space — otherwise an id from another space would let the caller rewrite or delete it (and
+   * read its decrypted keys back from the update response).
+   */
+  private async assertIntegrationInSpace(integrationId: string, spaceId: string) {
+    const integration = await this.prismaService.integration.findFirst({
+      where: { id: integrationId, resourceId: spaceId },
+      select: { id: true },
+    });
+    if (!integration) {
+      throw new CustomHttpException('Integration not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.notFound' },
+      });
+    }
   }
 
   async testIntegrationLLM(testLLMRo: ITestLLMRo) {

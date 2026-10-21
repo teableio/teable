@@ -4,10 +4,12 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { LinkField } from '../../domain/table/fields/types/LinkField';
+import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
@@ -67,7 +69,7 @@ export class PasteLinkAutoResolveService {
     context: IExecutionContext,
     input: IPasteLinkAutoResolveInput
   ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<IPasteLinkAutoResolveResult, DomainError>(async function* () {
       const entries = yield* await service.collectEntries(input);
@@ -82,14 +84,7 @@ export class PasteLinkAutoResolveService {
       }
 
       const foreignTableCache = new Map<string, Table>();
-      for (const entry of entries) {
-        const foreignTable = yield* await service.loadForeignTable(
-          context,
-          foreignTableCache,
-          entry.linkField.foreignTableId()
-        );
-        yield* entry.linkField.validateTitleResolutionTarget(input.table, foreignTable);
-      }
+      yield* await service.validateEntries(context, input.table, entries, foreignTableCache);
 
       const resolveResults = yield* await service.linkTitleResolverService.resolve(
         context,
@@ -144,7 +139,27 @@ export class PasteLinkAutoResolveService {
           foreignTableCache,
           firstEntry.linkField.foreignTableId()
         );
-        const createdTitles = [...group.missingTitles];
+        const primaryFieldResult = foreignTable.getField((field) =>
+          field.id().equals(foreignTable.primaryFieldId())
+        );
+        if (primaryFieldResult.isErr()) {
+          return err(primaryFieldResult.error);
+        }
+        const originalsByKey = new Map<string, string[]>();
+        for (const title of group.missingTitles) {
+          const key = titleKeyForPrimaryField(primaryFieldResult.value, title);
+          if (!key) continue;
+          const originals = originalsByKey.get(key);
+          if (originals) {
+            if (!originals.includes(title)) originals.push(title);
+          } else {
+            originalsByKey.set(key, [title]);
+          }
+        }
+        const createdTitles = [...originalsByKey.keys()];
+        if (createdTitles.length === 0) {
+          continue;
+        }
         yield* service.validateAutoCreateEligibility(
           input.table,
           firstEntry.linkField,
@@ -170,13 +185,19 @@ export class PasteLinkAutoResolveService {
         afterCommitHandlers.push(creationResult.afterCommit);
 
         const createdMap: ResolvedLinkValueMap = new Map();
-        for (let index = 0; index < createdTitles.length; index++) {
-          const title = createdTitles[index]!;
-          const record = creationResult.records[index]!;
-          createdMap.set(title, {
-            id: record.id().toString(),
-            title,
-          });
+        for (let index = 0; index < creationResult.records.length; index++) {
+          const key = createdTitles[index];
+          const record = creationResult.records[index];
+          if (!key || !record) {
+            continue;
+          }
+          for (const title of originalsByKey.get(key) ?? []) {
+            if (createdMap.has(title)) continue;
+            createdMap.set(title, {
+              id: record.id().toString(),
+              title,
+            });
+          }
         }
 
         for (const entryIndex of group.entryIndexes) {
@@ -201,14 +222,45 @@ export class PasteLinkAutoResolveService {
     });
   }
 
+  async validateTitleResolutionTargets(
+    context: IExecutionContext,
+    input: IPasteLinkAutoResolveInput,
+    plannedFields?: ReadonlyArray<Field>
+  ): Promise<Result<void, DomainError>> {
+    const entries = await this.collectEntries(input, plannedFields);
+    if (entries.isErr()) return err(entries.error);
+    return this.validateEntries(context, input.table, entries.value, new Map());
+  }
+
+  private async validateEntries(
+    context: IExecutionContext,
+    hostTable: Table,
+    entries: ReadonlyArray<LinkResolveEntry>,
+    foreignTableCache: Map<string, Table>
+  ): Promise<Result<void, DomainError>> {
+    for (const entry of entries) {
+      const foreignTable = await this.loadForeignTable(
+        context,
+        foreignTableCache,
+        entry.linkField.foreignTableId()
+      );
+      if (foreignTable.isErr()) return err(foreignTable.error);
+      const result = entry.linkField.validateTitleResolutionTarget(hostTable, foreignTable.value);
+      if (result.isErr()) return result;
+    }
+    return ok(undefined);
+  }
+
   private async collectEntries(
-    input: IPasteLinkAutoResolveInput
+    input: IPasteLinkAutoResolveInput,
+    plannedFields?: ReadonlyArray<Field>
   ): Promise<Result<ReadonlyArray<LinkResolveEntry>, DomainError>> {
     const entries: LinkResolveEntry[] = [];
     for (const column of input.editableColumns) {
-      const fieldResult = input.table.getField((candidate) =>
-        candidate.id().equals(column.fieldId)
-      );
+      const plannedField = plannedFields?.find((field) => field.id().equals(column.fieldId));
+      const fieldResult = plannedField
+        ? ok(plannedField)
+        : input.table.getField((candidate) => candidate.id().equals(column.fieldId));
       if (fieldResult.isErr()) {
         return err(fieldResult.error);
       }
@@ -297,6 +349,6 @@ export class PasteLinkAutoResolveService {
   }
 
   private isRecordIdToken(token: string): boolean {
-    return RecordId.create(token).isOk();
+    return RecordId.isCanonical(token);
   }
 }

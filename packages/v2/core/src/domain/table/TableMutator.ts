@@ -17,16 +17,54 @@ import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
 import { TableAddFieldsSpec } from './specs/TableAddFieldsSpec';
 import { TableAddSelectOptionsSpec } from './specs/TableAddSelectOptionsSpec';
+import { TableAddViewSpec } from './specs/TableAddViewSpec';
 import { TableDuplicateFieldSpec } from './specs/TableDuplicateFieldSpec';
 import { TableRemoveFieldSpec } from './specs/TableRemoveFieldSpec';
+import { TableRemoveViewSpec } from './specs/TableRemoveViewSpec';
 import { TableRenameSpec } from './specs/TableRenameSpec';
-import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMetaSpec';
+import { TableRenameViewSpec } from './specs/TableRenameViewSpec';
+import { TableUpdatePropertiesSpec } from './specs/TableUpdatePropertiesSpec';
+import {
+  TableUpdateViewColumnMetaSpec,
+  type TableViewColumnMetaUpdate,
+} from './specs/TableUpdateViewColumnMetaSpec';
+import { TableUpdateViewDescriptionSpec } from './specs/TableUpdateViewDescriptionSpec';
+import { TableUpdateViewLockedSpec } from './specs/TableUpdateViewLockedSpec';
+import {
+  TableUpdateViewOptionsSpec,
+  type TableViewOptionsUpdate,
+} from './specs/TableUpdateViewOptionsSpec';
+import {
+  TableUpdateViewOrderSpec,
+  type TableViewOrderChange,
+} from './specs/TableUpdateViewOrderSpec';
+import {
+  TableUpdateViewQueryDefaultsSpec,
+  type TableViewQueryDefaultsUpdate,
+} from './specs/TableUpdateViewQueryDefaultsSpec';
+import { TableUpdateViewShareIdSpec } from './specs/TableUpdateViewShareIdSpec';
+import { TableUpdateViewShareMetaSpec } from './specs/TableUpdateViewShareMetaSpec';
+import {
+  TableUpdateViewShareStateSpec,
+  type TableNextViewShareState,
+} from './specs/TableUpdateViewShareStateSpec';
 import { TableEventGeneratingSpecVisitor } from './specs/visitors/TableEventGeneratingSpecVisitor';
 import type { Table } from './Table';
 import type { TableName } from './TableName';
+import type { TablePropertiesPatch } from './TableProperties';
+import type { View } from './views/View';
 import type { ViewId } from './views/ViewId';
+import type { ViewName } from './views/ViewName';
+import type { ViewShareMetaValue } from './views/ViewProperties';
 
 class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableMutateSpecBuilder> {
+  private foreignValidation:
+    | {
+        fieldIds: Set<string>;
+        foreignTables: ReadonlyArray<Table>;
+      }
+    | undefined;
+
   private constructor(private currentTable: Table) {
     super('and');
   }
@@ -35,7 +73,41 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return new TableMutateSpecBuilder(table);
   }
 
-  rename(tableName: TableName): TableMutateSpecBuilder {
+  rememberForeignValidation(fieldIds: Iterable<string>, foreignTables: ReadonlyArray<Table>): void {
+    if (!this.foreignValidation) {
+      this.foreignValidation = {
+        fieldIds: new Set(fieldIds),
+        foreignTables,
+      };
+      return;
+    }
+    for (const fieldId of fieldIds) {
+      this.foreignValidation.fieldIds.add(fieldId);
+    }
+    this.foreignValidation.foreignTables = foreignTables;
+  }
+
+  revalidateAppliedTable(updated: Table): Result<void, DomainError> {
+    if (!this.foreignValidation?.foreignTables.length) {
+      return ok(undefined);
+    }
+    const fields = updated
+      .getFields()
+      .filter(
+        (field) =>
+          isForeignTableRelatedField(field) &&
+          this.foreignValidation!.fieldIds.has(field.id().toString())
+      );
+    if (fields.length === 0) {
+      return ok(undefined);
+    }
+    return validateForeignTablesForFields(fields, {
+      hostTable: updated,
+      foreignTables: this.foreignValidation.foreignTables,
+    });
+  }
+
+  rename(tableName: TableName): this {
     const previousName = this.currentTable.name();
     const nextTableResult = this.currentTable.rename(tableName);
     if (nextTableResult.isErr()) {
@@ -44,6 +116,20 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     }
 
     this.addSpec(TableRenameSpec.create(previousName, tableName));
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateProperties(patch: TablePropertiesPatch): this {
+    const previousProperties = this.currentTable.properties();
+    const nextTableResult = this.currentTable.updateProperties(patch);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    const nextProperties = nextTableResult.value.properties();
+    this.addSpec(TableUpdatePropertiesSpec.create(previousProperties, nextProperties, patch));
     this.currentTable = nextTableResult.value;
     return this;
   }
@@ -59,7 +145,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
         order: number;
       };
     }
-  ): TableMutateSpecBuilder {
+  ): this {
     const nextTableResult = this.currentTable.addField(field, {
       foreignTables: options?.foreignTables,
       domainContext: options?.domainContext,
@@ -106,13 +192,222 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
+  addView(view: View): this {
+    const nextTableResult = this.currentTable.addView(view);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(TableAddViewSpec.create(view));
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  removeView(viewId: ViewId): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const nextTableResult = this.currentTable.removeView(viewId);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    this.addSpec(TableRemoveViewSpec.create(viewResult.value));
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  renameView(viewId: ViewId, nextName: ViewName): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const spec = TableRenameViewSpec.create(viewId, viewResult.value.name(), nextName);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewDescription(viewId: ViewId, nextDescription: string | undefined): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const spec = TableUpdateViewDescriptionSpec.create(
+      viewId,
+      viewResult.value.description(),
+      nextDescription
+    );
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewLocked(viewId: ViewId, nextIsLocked: boolean | undefined): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const spec = TableUpdateViewLockedSpec.create(
+      viewId,
+      viewResult.value.isLocked(),
+      nextIsLocked
+    );
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewOrder(changes: ReadonlyArray<TableViewOrderChange>): this {
+    const spec = TableUpdateViewOrderSpec.create(changes);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewColumnMeta(update: TableViewColumnMetaUpdate): this {
+    const spec = TableUpdateViewColumnMetaSpec.create(this.currentTable, [update]);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewOptions(update: TableViewOptionsUpdate): this {
+    const spec = TableUpdateViewOptionsSpec.create(update);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewShareMeta(viewId: ViewId, nextShareMeta: ViewShareMetaValue | undefined): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const spec = TableUpdateViewShareMetaSpec.create(
+      viewId,
+      viewResult.value.shareMeta(),
+      nextShareMeta
+    );
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewShareId(viewId: ViewId, nextShareId: string): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const spec = TableUpdateViewShareIdSpec.create(viewId, viewResult.value.shareId(), nextShareId);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewShareState(viewId: ViewId, nextState: TableNextViewShareState): this {
+    const viewResult = this.currentTable.getView(viewId);
+    if (viewResult.isErr()) {
+      this.recordError(viewResult.error);
+      return this;
+    }
+
+    const view = viewResult.value;
+    const spec = TableUpdateViewShareStateSpec.create(
+      viewId,
+      {
+        enableShare: view.enableShare() === true,
+        shareId: view.shareId(),
+        shareMeta: view.shareMeta(),
+      },
+      nextState
+    );
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  updateViewQueryDefaults(update: TableViewQueryDefaultsUpdate): this {
+    const spec = TableUpdateViewQueryDefaultsSpec.create([update]);
+    const nextTableResult = spec.mutate(this.currentTable);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+    this.addSpec(spec);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
   addFields(
     fields: ReadonlyArray<Field>,
     options?: {
       foreignTables?: ReadonlyArray<Table>;
       domainContext?: IDomainContext;
     }
-  ): TableMutateSpecBuilder {
+  ): this {
     if (fields.length === 0) {
       return this;
     }
@@ -164,7 +459,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     fieldId: FieldId,
     options: ReadonlyArray<SelectOption>,
     domainContext?: IDomainContext
-  ): TableMutateSpecBuilder {
+  ): this {
     if (options.length === 0) {
       return this;
     }
@@ -180,7 +475,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
-  removeField(fieldId: FieldId): TableMutateSpecBuilder {
+  removeField(fieldId: FieldId): this {
     const fieldSpecResult = Field.specs().withFieldId(fieldId).build();
     if (fieldSpecResult.isErr()) {
       this.recordError(fieldSpecResult.error);
@@ -222,7 +517,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
       targetViewId?: ViewId;
       foreignTables?: ReadonlyArray<Table>;
     }
-  ): TableMutateSpecBuilder {
+  ): this {
     const newFieldResult = sourceField.duplicate({
       newId: newFieldId,
       newName: newFieldName,
@@ -307,7 +602,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     fieldId: FieldId,
     specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     options?: { foreignTables?: ReadonlyArray<Table> }
-  ): TableMutateSpecBuilder {
+  ): this {
     if (specs.length === 0) {
       this.recordError(domainError.validation({ message: 'No changes to apply' }));
       return this;
@@ -332,6 +627,8 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
         }
       }
 
+      this.rememberForeignValidation(touchedFieldIds, options.foreignTables);
+
       const fieldsNeedingForeignValidation = this.currentTable.getFields().filter((field) => {
         if (!isForeignTableRelatedField(field)) {
           return false;
@@ -353,9 +650,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
-  applySpecs(
-    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): TableMutateSpecBuilder {
+  applySpecs(specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>): this {
     if (specs.length === 0) {
       return this;
     }
@@ -409,8 +704,14 @@ export class TableMutator {
     return new TableMutator(table);
   }
 
-  rename(tableName: TableName): TableMutator {
+  rename(tableName: TableName): this {
     this.builder.rename(tableName);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateProperties(patch: TablePropertiesPatch): this {
+    this.builder.updateProperties(patch);
     this.hasUpdates = true;
     return this;
   }
@@ -425,8 +726,80 @@ export class TableMutator {
         order: number;
       };
     }
-  ): TableMutator {
+  ): this {
     this.builder.addField(field, options);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  addView(view: View): this {
+    this.builder.addView(view);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  removeView(viewId: ViewId): this {
+    this.builder.removeView(viewId);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  renameView(viewId: ViewId, nextName: ViewName): this {
+    this.builder.renameView(viewId, nextName);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewDescription(viewId: ViewId, nextDescription: string | undefined): this {
+    this.builder.updateViewDescription(viewId, nextDescription);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewLocked(viewId: ViewId, nextIsLocked: boolean | undefined): this {
+    this.builder.updateViewLocked(viewId, nextIsLocked);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewOrder(changes: ReadonlyArray<TableViewOrderChange>): this {
+    this.builder.updateViewOrder(changes);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewColumnMeta(update: TableViewColumnMetaUpdate): this {
+    this.builder.updateViewColumnMeta(update);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewOptions(update: TableViewOptionsUpdate): this {
+    this.builder.updateViewOptions(update);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewShareMeta(viewId: ViewId, nextShareMeta: ViewShareMetaValue | undefined): this {
+    this.builder.updateViewShareMeta(viewId, nextShareMeta);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewShareId(viewId: ViewId, nextShareId: string): this {
+    this.builder.updateViewShareId(viewId, nextShareId);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewShareState(viewId: ViewId, nextState: TableNextViewShareState): this {
+    this.builder.updateViewShareState(viewId, nextState);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateViewQueryDefaults(update: TableViewQueryDefaultsUpdate): this {
+    this.builder.updateViewQueryDefaults(update);
     this.hasUpdates = true;
     return this;
   }
@@ -437,7 +810,7 @@ export class TableMutator {
       foreignTables?: ReadonlyArray<Table>;
       domainContext?: IDomainContext;
     }
-  ): TableMutator {
+  ): this {
     if (fields.length === 0) {
       return this;
     }
@@ -450,7 +823,7 @@ export class TableMutator {
     fieldId: FieldId,
     options: ReadonlyArray<SelectOption>,
     domainContext?: IDomainContext
-  ): TableMutator {
+  ): this {
     if (options.length === 0) {
       return this;
     }
@@ -459,7 +832,7 @@ export class TableMutator {
     return this;
   }
 
-  removeField(fieldId: FieldId): TableMutator {
+  removeField(fieldId: FieldId): this {
     this.builder.removeField(fieldId);
     this.hasUpdates = true;
     return this;
@@ -474,7 +847,7 @@ export class TableMutator {
       targetViewId?: ViewId;
       foreignTables?: ReadonlyArray<Table>;
     }
-  ): TableMutator {
+  ): this {
     this.builder.duplicateField(
       sourceField,
       newFieldId,
@@ -490,13 +863,13 @@ export class TableMutator {
     fieldId: FieldId,
     specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     options?: { foreignTables?: ReadonlyArray<Table> }
-  ): TableMutator {
+  ): this {
     this.builder.updateField(fieldId, specs, options);
     this.hasUpdates = true;
     return this;
   }
 
-  applySpecs(specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>): TableMutator {
+  applySpecs(specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>): this {
     if (specs.length === 0) {
       return this;
     }
@@ -513,6 +886,9 @@ export class TableMutator {
     if (specResult.isErr()) return err(specResult.error);
 
     return specResult.value.mutate(this.table).andThen((updated) => {
+      const validationResult = this.builder.revalidateAppliedTable(updated);
+      if (validationResult.isErr()) return err(validationResult.error);
+
       // Use visitor to generate events based on specs
       const eventVisitor = new TableEventGeneratingSpecVisitor(updated);
       const visitResult = specResult.value.accept(eventVisitor);

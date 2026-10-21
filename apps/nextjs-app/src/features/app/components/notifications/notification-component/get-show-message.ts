@@ -27,7 +27,7 @@ export const getShowMessage = (
     return sanitizeNotificationMessage(
       getLocalizationMessage({ i18nKey, context: { spaceName: '', ...context } }, t, 'common')
     );
-  } catch (error) {
+  } catch {
     return sanitizeNotificationMessage(message);
   }
 };

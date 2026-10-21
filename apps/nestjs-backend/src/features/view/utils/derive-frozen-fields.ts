@@ -8,7 +8,7 @@ export function adjustFrozenField(
   const frozenFieldId = originOptions?.frozenFieldId;
 
   if (!frozenFieldId) return null;
-  if (!Object.prototype.hasOwnProperty.call(columnMetaUpdate, frozenFieldId)) return null;
+  if (!Object.hasOwn(columnMetaUpdate, frozenFieldId)) return null;
 
   const frozenColumnUpdate: IGridColumn | undefined = frozenFieldId
     ? columnMetaUpdate[frozenFieldId]

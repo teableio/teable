@@ -51,7 +51,7 @@ export abstract class FieldCore implements IFieldVo {
     estimatedDirtyRecords?: number;
     startedAt?: string;
     lastDurationMs?: number;
-    lastError?: { code?: string; message: string } | null;
+    lastError?: { code?: string; message: string; context?: Record<string, unknown> } | null;
   };
 
   hasError?: boolean;
@@ -115,7 +115,8 @@ export abstract class FieldCore implements IFieldVo {
     if (this.cellValueType === CellValueType.Boolean) return false;
     if (options?.isSearchAllFields) {
       if (this.cellValueType === CellValueType.DateTime) return false;
-      if (this.cellValueType === CellValueType.Number && isNaN(Number(searchValue))) return false;
+      if (this.cellValueType === CellValueType.Number && Number.isNaN(Number(searchValue)))
+        return false;
     }
     return true;
   }

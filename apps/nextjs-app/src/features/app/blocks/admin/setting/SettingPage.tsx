@@ -179,12 +179,12 @@ export const SettingPage = (props: ISettingPageProps) => {
       </div>
 
       <div className="relative flex flex-1 flex-col overflow-hidden sm:flex-row">
-        <div className="setting-page-left-container flex-1 overflow-y-auto overflow-x-hidden sm:pr-10">
+        <div className="setting-page-left-container flex-1 overflow-y-auto overflow-x-hidden sm:pe-10">
           {/* General Settings Section */}
           <div className="pb-6">
             <h2 className="mb-4 text-lg font-medium">{t('admin.setting.generalSettings')}</h2>
             <div className="flex w-full flex-col space-y-4">
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label htmlFor="allow-sign-up">{t('admin.setting.allowSignUp')}</Label>
                   <div className="text-xs text-muted-foreground">
@@ -205,7 +205,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   disabled={isUpdatingSetting}
                 />
               )}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label htmlFor="allow-space-invitation">
                     {t('admin.setting.allowSpaceInvitation')}
@@ -223,7 +223,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   disabled={isUpdatingSetting}
                 />
               </div>
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label htmlFor="allow-space-creation">
                     {t('admin.setting.allowSpaceCreation')}
@@ -241,7 +241,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   disabled={isUpdatingSetting}
                 />
               </div>
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label htmlFor="enable-email-verification">
                     {t('admin.setting.enableEmailVerification')}
@@ -311,7 +311,7 @@ export const SettingPage = (props: ISettingPageProps) => {
           <div className="pb-6" ref={emailRef}>
             <h2 className="mb-4 text-lg font-medium">{t('email.config')}</h2>
             <div className="flex w-full flex-col space-y-4">
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label>{t('email.notify')}</Label>
                   <div className="text-xs text-muted-foreground">
@@ -341,7 +341,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
                 <div className="space-y-1">
                   <Label>{t('email.automation')}</Label>
                   <div className="text-xs text-muted-foreground">

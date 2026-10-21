@@ -12,7 +12,7 @@ const createGlobalFieldId = () => {
   return `fld${suffix}`;
 };
 
-describe('update-field: date property updates', () => {
+describe('[D01][F04][S01] update-field: date property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;

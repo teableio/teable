@@ -17,30 +17,29 @@ import type {
 import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
 
-export interface IRenderLayerProps
-  extends Pick<
-    IInteractionLayerProps,
-    | 'theme'
-    | 'width'
-    | 'height'
-    | 'columns'
-    | 'commentCountMap'
-    | 'rowControls'
-    | 'rowControlPaddingX'
-    | 'imageManager'
-    | 'spriteManager'
-    | 'scrollState'
-    | 'coordInstance'
-    | 'columnStatistics'
-    | 'groupCollection'
-    | 'rowIndexVisible'
-    | 'searchCursor'
-    | 'searchHitIndex'
-    | 'collaborators'
-    | 'columnHeaderHeight'
-    | 'isMultiSelectionEnable'
-    | 'getCellContent'
-  > {
+export interface IRenderLayerProps extends Pick<
+  IInteractionLayerProps,
+  | 'theme'
+  | 'width'
+  | 'height'
+  | 'columns'
+  | 'commentCountMap'
+  | 'rowControls'
+  | 'rowControlPaddingX'
+  | 'imageManager'
+  | 'spriteManager'
+  | 'scrollState'
+  | 'coordInstance'
+  | 'columnStatistics'
+  | 'groupCollection'
+  | 'rowIndexVisible'
+  | 'searchCursor'
+  | 'searchHitIndex'
+  | 'collaborators'
+  | 'columnHeaderHeight'
+  | 'isMultiSelectionEnable'
+  | 'getCellContent'
+> {
   isEditing?: boolean;
   isFilling?: boolean;
   isFillEnabled?: boolean;
@@ -117,7 +116,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
   const isInteracting = _isInteracting || type === RegionType.ColumnFreezeHandler;
 
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastPropsRef = useRef<IRenderLayerProps>();
+  const lastPropsRef = useRef<IRenderLayerProps>(undefined);
 
   const cacheCanvas = useMemo(() => {
     const canvas = document.createElement('canvas');

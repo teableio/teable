@@ -1,5 +1,6 @@
 import { sql } from 'kysely';
 
+import { baseRecordColumnNames } from '../../naming';
 import type {
   TableSchemaStatementBuilder,
   TableSchemaStatementCompiler,
@@ -49,18 +50,111 @@ export const buildTableIdentifier = (target: TableIdentifier) => {
 /** Compress multi-line SQL into single line for cleaner logs */
 export const compressSql = (sqlStr: string): string => sqlStr.replace(/\s+/g, ' ').trim();
 
+export const parseDbTableName = (dbTableName: string): TableIdentifier => {
+  const separatorIndex = dbTableName.indexOf('.');
+  if (separatorIndex < 0) {
+    return { schema: 'public', tableName: dbTableName };
+  }
+  return {
+    schema: dbTableName.slice(0, separatorIndex),
+    tableName: dbTableName.slice(separatorIndex + 1),
+  };
+};
+
+export const resolveTableIdentifierFromMeta = async (
+  metaDb: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0]['metaDb'],
+  targetTableMetaId: string
+): Promise<TableIdentifier | undefined> => {
+  const tableMetaExists = await sql<{ exists: boolean }>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = 'table_meta'
+    ) AS exists
+  `.execute(metaDb);
+  if (!tableMetaExists.rows[0]?.exists) {
+    return undefined;
+  }
+
+  const result = await sql<{ db_table_name: string | null }>`
+    SELECT db_table_name
+    FROM table_meta
+    WHERE id = ${targetTableMetaId}
+      AND deleted_time IS NULL
+    LIMIT 1
+  `.execute(metaDb);
+
+  const dbTableName = result.rows[0]?.db_table_name;
+  if (!dbTableName) {
+    return undefined;
+  }
+  return parseDbTableName(dbTableName);
+};
+
+const buildAddForeignKeySql = (params: {
+  sourceSchema: string;
+  sourceTableName: string;
+  constraintName: string;
+  columnName: string;
+  targetSchema: string;
+  targetTableName: string;
+  targetColumn: string;
+  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT';
+}): string =>
+  compressSql(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = ${quoteLiteral(params.targetSchema)}
+          AND table_name = ${quoteLiteral(params.targetTableName)}
+      ) THEN
+        BEGIN
+          EXECUTE format(
+            'ALTER TABLE %I.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I.%I (%I) ON DELETE ${params.onDelete}',
+            ${quoteLiteral(params.sourceSchema)},
+            ${quoteLiteral(params.sourceTableName)},
+            ${quoteLiteral(params.constraintName)},
+            ${quoteLiteral(params.columnName)},
+            ${quoteLiteral(params.targetSchema)},
+            ${quoteLiteral(params.targetTableName)},
+            ${quoteLiteral(params.targetColumn)}
+          );
+        EXCEPTION WHEN duplicate_object THEN
+          NULL;
+        END;
+      END IF;
+    END
+    $$;
+  `);
+
 /**
  * Creates a DROP COLUMN statement.
+ *
+ * Refuses system record columns (__id, __version, ...) unless explicitly allowed:
+ * a rule mistakenly constructed with a system column name would otherwise silently
+ * destroy record data when its down() runs (T6807). Only rules that genuinely own
+ * system columns (SystemColumnExistsRule) may opt in via `allowSystemColumn`.
  */
 export const dropColumnStatement = (
   target: TableIdentifier,
-  columnName: string
-): TableSchemaStatementBuilder =>
-  dataStatement(
-    sql`alter table ${buildTableIdentifier(target)} drop column if exists ${sql.ref(
+  columnName: string,
+  options?: { allowSystemColumn?: boolean }
+): TableSchemaStatementBuilder => {
+  if (!options?.allowSystemColumn && baseRecordColumnNames.includes(columnName)) {
+    throw new Error(
+      `Refusing to build DROP COLUMN for system column "${columnName}" on table "${quoteTableIdentifier(
+        target
+      )}"; pass allowSystemColumn only from a rule that owns system columns`
+    );
+  }
+  return dataStatement(
+    sql`alter table if exists ${buildTableIdentifier(target)} drop column if exists ${sql.ref(
       columnName
     )} cascade`
   );
+};
 
 /**
  * Creates a DROP TABLE statement.
@@ -136,74 +230,47 @@ export const createForeignKeyConstraintStatement = (
   targetTableMetaId?: string
 ): TableSchemaStatementBuilder => {
   const sourceSchema = sourceTable.schema ?? 'public';
-  const targetSchema = targetTable.schema ?? 'public';
-  const resolveTargetFromMeta = targetTableMetaId
-    ? `
-        IF EXISTS (
-          SELECT 1
-          FROM information_schema.tables
-          WHERE table_schema = 'public'
-            AND table_name = 'table_meta'
-        ) THEN
-          SELECT db_table_name
-          INTO resolved_target_db_table_name
-          FROM public.table_meta
-          WHERE id = ${quoteLiteral(targetTableMetaId)}
-            AND deleted_time IS NULL
-          LIMIT 1;
+  const fallbackTargetSchema = targetTable.schema ?? 'public';
+  const fallbackTargetTableName = targetTable.tableName;
+  const previewSql = buildAddForeignKeySql({
+    sourceSchema,
+    sourceTableName: sourceTable.tableName,
+    constraintName,
+    columnName,
+    targetSchema: fallbackTargetSchema,
+    targetTableName: fallbackTargetTableName,
+    targetColumn,
+    onDelete,
+  });
 
-          IF resolved_target_db_table_name IS NOT NULL AND resolved_target_db_table_name <> '' THEN
-            IF position('.' IN resolved_target_db_table_name) > 0 THEN
-              resolved_target_schema := split_part(resolved_target_db_table_name, '.', 1);
-              resolved_target_table := substring(
-                resolved_target_db_table_name
-                FROM position('.' IN resolved_target_db_table_name) + 1
-              );
-            ELSE
-              resolved_target_schema := 'public';
-              resolved_target_table := resolved_target_db_table_name;
-            END IF;
-          END IF;
-        END IF;
-      `
-    : '';
+  if (!targetTableMetaId) {
+    return dataStatement(sql.raw(previewSql));
+  }
 
-  return dataStatement(
-    sql.raw(
-      compressSql(`
-      DO $$
-      DECLARE
-        resolved_target_schema TEXT := ${quoteLiteral(targetSchema)};
-        resolved_target_table TEXT := ${quoteLiteral(targetTable.tableName)};
-        resolved_target_db_table_name TEXT;
-      BEGIN
-        ${resolveTargetFromMeta}
-
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables 
-          WHERE table_schema = resolved_target_schema
-          AND table_name = resolved_target_table
-        ) THEN
-          BEGIN
-            EXECUTE format(
-              'ALTER TABLE %I.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I.%I (%I) ON DELETE ${onDelete}',
-              ${quoteLiteral(sourceSchema)},
-              ${quoteLiteral(sourceTable.tableName)},
-              ${quoteLiteral(constraintName)},
-              ${quoteLiteral(columnName)},
-              resolved_target_schema,
-              resolved_target_table,
-              ${quoteLiteral(targetColumn)}
-            );
-          EXCEPTION WHEN duplicate_object THEN
-            NULL;
-          END;
-        END IF;
-      END
-      $$;
-    `)
-    )
-  );
+  return {
+    scope: 'data',
+    compile: (executorProvider) => sql.raw(previewSql).compile(executorProvider),
+    execute: async ({ dataDb, metaDb }) => {
+      const resolvedTarget = (await resolveTableIdentifierFromMeta(metaDb, targetTableMetaId)) ?? {
+        schema: fallbackTargetSchema,
+        tableName: fallbackTargetTableName,
+      };
+      await sql
+        .raw(
+          buildAddForeignKeySql({
+            sourceSchema,
+            sourceTableName: sourceTable.tableName,
+            constraintName,
+            columnName,
+            targetSchema: resolvedTarget.schema ?? 'public',
+            targetTableName: resolvedTarget.tableName,
+            targetColumn,
+            onDelete,
+          })
+        )
+        .execute(dataDb);
+    },
+  };
 };
 
 /**

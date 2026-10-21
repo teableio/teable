@@ -2,7 +2,13 @@ import {
   FieldCreatedRealtimeProjection,
   FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
+  TableProvisionReadyRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
+  ViewDeletedRealtimeProjection,
+  ViewRenamedRealtimeProjection,
+  ViewDescriptionUpdatedRealtimeProjection,
+  ViewLockedUpdatedRealtimeProjection,
+  ViewOrderUpdatedRealtimeProjection,
   RecordCreatedRealtimeProjection,
   RecordUpdatedRealtimeProjection,
   RecordReorderedRealtimeProjection,
@@ -52,6 +58,9 @@ export const registerV2BroadcastChannelRealtime = (
   c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(TableProvisionReadyRealtimeProjection, TableProvisionReadyRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -59,6 +68,21 @@ export const registerV2BroadcastChannelRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDeletedRealtimeProjection, ViewDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewRenamedRealtimeProjection, ViewRenamedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDescriptionUpdatedRealtimeProjection, ViewDescriptionUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewLockedUpdatedRealtimeProjection, ViewLockedUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewOrderUpdatedRealtimeProjection, ViewOrderUpdatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

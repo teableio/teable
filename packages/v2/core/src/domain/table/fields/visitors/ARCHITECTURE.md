@@ -6,6 +6,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Field visitor interfaces and default implementations.
 - Enable subtype-specific dispatch logic.
+- Button record writes validate integer `{ count }` values and persist them through
+  `SetButtonValueSpec`; they do not invoke the button-click workflow or enforce its click limit.
+  The Postgres insert and batch-update visitors serialize the same cell as JSON,
+  including an explicit JSONB cast for batch SQL literals.
 
 ## Files
 
@@ -16,9 +20,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldDeletionSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field deletion.
 - `FieldDeletionSideEffectVisitor.spec.ts` - Role: tests; Purpose: verify delete side effects for link fields.
 - `FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
+- `FieldClipboardValueVisitor.ts` - Role: visitor; Purpose: format stored v2 Field values for
+  clipboard output without delegating to legacy Field instances.
 - `FieldValueTypeVisitor.ts` - Role: visitor; Purpose: derive cell value types and multiplicity.
 - `FieldValueTypeVisitor.spec.ts` - Role: tests; Purpose: verify value type visitor behavior.
 - `IFieldVisitor.ts` - Role: visitor interface; Purpose: declare per-field visit methods.
+- `LinkForeignTableReferenceVisitor.ts` - Role: visitor; Purpose: collect foreign table ids and optional cross-base ids from link, lookup, and conditional fields (`toLinkForeignTableReference`).
+- `LinkForeignTableReferenceVisitor.spec.ts` - Role: tests; Purpose: verify foreign-table reference collection including optional BaseId.
 - `NoopFieldVisitor.ts` - Role: no-op visitor; Purpose: default empty implementation.
 - `SetFieldValueSpecFactoryVisitor.ts` - Role: visitor; Purpose: create SetValueSpec based on field type.
 

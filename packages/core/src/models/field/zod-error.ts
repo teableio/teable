@@ -190,17 +190,36 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
   }
 
   const isSelect = type === FieldType.SingleSelect || type === FieldType.MultipleSelect;
-  if (
-    isSelect &&
-    (options as ISelectFieldOptions)?.choices?.some(
-      (choice) => !isString(choice.name) || choice.name.trim() === ''
-    )
-  ) {
+  const choices = isSelect ? (options as ISelectFieldOptions | undefined)?.choices : undefined;
+  if (choices?.some((choice) => !isString(choice.name) || choice.name.trim() === '')) {
     res.push({
       path: ['options'],
       message: 'choice name is not empty when type is singleSelect or multipleSelect',
       i18nKey: 'sdk:editor.select.choicesNameRequired',
     });
+  }
+
+  if (choices) {
+    const seenNames = new Set<string>();
+    for (const choice of choices) {
+      if (!isString(choice.name)) {
+        continue;
+      }
+      const name = choice.name.trim();
+      if (!name) {
+        continue;
+      }
+      if (seenNames.has(name)) {
+        res.push({
+          path: ['options'],
+          message: `Choice name ${name} already exists`,
+          i18nKey: 'sdk:httpErrors.field.choiceNameAlreadyExists',
+          context: { name },
+        });
+        break;
+      }
+      seenNames.add(name);
+    }
   }
 
   const schema = getOptionsSchema(type);

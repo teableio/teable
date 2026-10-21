@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   HttpErrorCode,
   IdPrefix,
@@ -12,7 +12,6 @@ import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   v2CoreTokens,
   ViewOperationKind,
-  type DomainError,
   type IExecutionContext,
   type ViewOperationPayloadViewConfig,
   type ViewOperationPluginContext,
@@ -29,6 +28,7 @@ import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
+import { throwV2Error } from './v2-http-error';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 type IV2ViewCompatDb = V1TeableDatabase & {
@@ -58,14 +58,6 @@ export class V2ViewCompatService {
     private readonly batchService: BatchService,
     private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {}
-
-  private throwDomainError(error: DomainError): never {
-    throw new CustomHttpException(error.message, HttpErrorCode.VALIDATION_ERROR, {
-      domainCode: error.code,
-      domainTags: error.tags,
-      details: error.details,
-    });
-  }
 
   private mergeSetViewPropertyByOpContexts(opContexts: ISetViewPropertyOpContext[]) {
     const result: Record<string, unknown> = {};
@@ -126,12 +118,12 @@ export class V2ViewCompatService {
   ): Promise<void> {
     const preparedResult = await runner.prepare(context);
     if (preparedResult.isErr()) {
-      this.throwDomainError(preparedResult.error);
+      throwV2Error(preparedResult.error, HttpStatus.BAD_REQUEST);
     }
 
     const guardResult = await preparedResult.value.guard(executionContext);
     if (guardResult.isErr()) {
-      this.throwDomainError(guardResult.error);
+      throwV2Error(guardResult.error, HttpStatus.BAD_REQUEST);
     }
   }
 

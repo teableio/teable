@@ -93,11 +93,17 @@ export class PGliteDialect implements Dialect {
   }
 }
 
+/** PGlite-backed test database: the raw instance plus the Kysely handle. */
+export interface PGliteTestDb {
+  pglite: PGlite;
+  db: Kysely<V1TeableDatabase>;
+}
+
 /**
  * Create a Kysely instance with PGlite for integration tests.
  * Returns both the PGlite instance and the Kysely db for cleanup.
  */
-export const createPGliteDb = async () => {
+export const createPGliteDb = async (): Promise<PGliteTestDb> => {
   const pglite = new PGlite();
   await pglite.waitReady;
 

@@ -9,6 +9,7 @@ import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
 import { cn, ScrollArea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { usePinEntryMap } from '../../../hooks/usePinEntryMap';
 import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
@@ -21,6 +22,9 @@ export const PinList = (props: { className?: string }) => {
     queryKey: ReactQueryKeys.pinList(),
     queryFn: () => getPinList().then((data) => data.data),
   });
+  // warm the entry-URL map so pin clicks navigate straight to the final
+  // table/view URL (independent request — the pin list never waits on it)
+  const { data: pinEntryMap } = usePinEntryMap();
 
   const { mutate: updateOrder } = useMutation({
     mutationFn: updatePinOrder,
@@ -92,6 +96,7 @@ export const PinList = (props: { className?: string }) => {
                     <PinItem
                       className="group"
                       pin={activePin}
+                      entryUrl={pinEntryMap?.[activePin.id]}
                       right={
                         <>
                           <StarButton
@@ -115,6 +120,7 @@ export const PinList = (props: { className?: string }) => {
                         <PinItem
                           className="group"
                           pin={pin}
+                          entryUrl={pinEntryMap?.[pin.id]}
                           right={
                             <>
                               <StarButton

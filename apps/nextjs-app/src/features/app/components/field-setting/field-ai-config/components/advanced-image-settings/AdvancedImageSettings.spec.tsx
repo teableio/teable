@@ -52,39 +52,76 @@ describe('AdvancedImageSettings', () => {
     expect(screen.queryByLabelText('4K tooltip')).not.toBeInTheDocument();
   });
 
-  it('shows mapped ratio and resolution for an existing GPT Image 2 size', () => {
+  it.each(['gpt-image-2', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'])(
+    'shows mapped ratio and resolution for an existing %s size',
+    (imageModelId) => {
+      render(
+        <AdvancedImageSettings
+          open={true}
+          onOpenChange={() => undefined}
+          imageModelId={imageModelId}
+          supportsSize={true}
+          supportsAutoSize={true}
+          supportsQuality={false}
+          supportsAspectRatio={false}
+          supportsResolution={false}
+          supportsCount={false}
+          imageSizeValues={[
+            '1024x1024',
+            '1536x1024',
+            '2048x1360',
+            '3504x2336',
+            '2048x1152',
+            '3840x2160',
+          ]}
+          aspectRatioValues={[]}
+          currentSize="1536x1024"
+          currentQuality={ImageQuality.Medium}
+          currentCount={1}
+          maxCount={1}
+          onChange={() => undefined}
+        />
+      );
+
+      expect(screen.getAllByRole('combobox')).toHaveLength(2);
+      expect(screen.getByText('3:2')).toBeInTheDocument();
+      expect(screen.getByText('1K (Standard)')).toBeInTheDocument();
+      expect(screen.getByText('1536x1024')).toBeInTheDocument();
+    }
+  );
+
+  it('limits resolution and quality choices to the supplied model capabilities', async () => {
+    const user = userEvent.setup();
     render(
       <AdvancedImageSettings
         open={true}
         onOpenChange={() => undefined}
-        imageModelId="gpt-image-2"
-        supportsSize={true}
-        supportsAutoSize={true}
-        supportsQuality={false}
+        supportsSize={false}
+        supportsQuality={true}
         supportsAspectRatio={false}
-        supportsResolution={false}
+        supportsResolution={true}
         supportsCount={false}
-        imageSizeValues={[
-          '1024x1024',
-          '1536x1024',
-          '2048x1360',
-          '3504x2336',
-          '2048x1152',
-          '3840x2160',
-        ]}
+        imageSizeValues={[]}
         aspectRatioValues={[]}
-        currentSize="1536x1024"
+        resolutionValues={['1K']}
+        qualityValues={[ImageQuality.Low, ImageQuality.Medium]}
+        currentSize=""
         currentQuality={ImageQuality.Medium}
+        currentResolution="1K"
         currentCount={1}
         maxCount={1}
         onChange={() => undefined}
       />
     );
-
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByText('3:2')).toBeInTheDocument();
-    expect(screen.getByText('1K (Standard)')).toBeInTheDocument();
-    expect(screen.getByText('1536x1024')).toBeInTheDocument();
+    const [quality, resolution] = screen.getAllByRole('combobox');
+    await user.click(quality);
+    expect(screen.queryByText('table:field.aiConfig.imageQuality.high')).not.toBeInTheDocument();
+    expect(screen.getByText('table:field.aiConfig.imageQuality.low')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await user.click(resolution);
+    expect(screen.queryByText('2K (HD)')).not.toBeInTheDocument();
+    expect(screen.queryByText('4K (Ultra HD)')).not.toBeInTheDocument();
+    expect(screen.getAllByText('1K (Standard)').length).toBeGreaterThan(0);
   });
 
   it('shows the final output size below resolution for non-auto ratios', () => {
@@ -195,8 +232,8 @@ describe('AdvancedImageSettings', () => {
         supportsCount={false}
         imageSizeValues={[
           '1024x1024',
-          '1024x576',
-          '576x1024',
+          '1280x720',
+          '720x1280',
           '2880x2880',
           '2048x1152',
           '3840x2160',
@@ -233,7 +270,7 @@ describe('AdvancedImageSettings', () => {
         imageSizeValues={[
           '1024x1024',
           '1536x1024',
-          '1024x576',
+          '1280x720',
           '3504x2336',
           '2048x1152',
           '3840x2160',
@@ -291,7 +328,7 @@ describe('AdvancedImageSettings', () => {
     expect(onChange).toHaveBeenCalledWith({ size: '3504x2336' });
   });
 
-  it('preserves a legacy explicit size as ratio plus resolution selectors', () => {
+  it('falls back to Auto for a removed legacy GPT Image 2 size', () => {
     render(
       <AdvancedImageSettings
         open={true}
@@ -305,7 +342,7 @@ describe('AdvancedImageSettings', () => {
         supportsCount={false}
         imageSizeValues={['1024x1024', '1536x1024', '2048x1152', '3840x2160']}
         aspectRatioValues={[]}
-        currentSize="3840x2160"
+        currentSize="1024x576"
         currentQuality={ImageQuality.Medium}
         currentCount={1}
         maxCount={1}
@@ -313,9 +350,9 @@ describe('AdvancedImageSettings', () => {
       />
     );
 
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByText('16:9')).toBeInTheDocument();
-    expect(screen.getByText('4K (Ultra HD)')).toBeInTheDocument();
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    expect(screen.getByRole('combobox')).toHaveTextContent('Auto');
+    expect(screen.queryByText('table:field.aiConfig.label.resolution')).not.toBeInTheDocument();
   });
 
   it('keeps non-GPT image size Auto selection mapped to undefined', async () => {

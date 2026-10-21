@@ -110,7 +110,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
         description={t('space:spaceSetting.generalDescription')}
       >
         {!!space && (
-          <div className="flex h-full flex-col justify-between">
+          <div className="flex min-h-0 flex-1 flex-col justify-between">
             <div className="flex flex-col gap-y-4">
               {/* Avatar */}
               <div className="group relative size-14">
@@ -165,14 +165,14 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
                     value={spaceId}
                     readOnly
                     tabIndex={-1}
-                    className="cursor-default px-3 pr-10"
+                    className="cursor-default px-3 pe-10"
                   />
                   <CopyButton
                     variant="ghost"
                     text={spaceId}
                     size="xs"
                     iconClassName="size-4"
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    className="absolute end-1 top-1/2 -translate-y-1/2"
                   />
                 </div>
               </div>

@@ -27,6 +27,7 @@ export interface ComputedPauseScopeRow {
   readonly pausedBy: string | null;
   readonly resumeAt: string | null;
   readonly reason: string | null;
+  readonly writePolicy: 'allow_bounded' | 'block';
   readonly updatedAt: string;
   readonly updatedBy: string | null;
   readonly active: boolean;
@@ -38,6 +39,7 @@ export interface PauseComputedScopesInput {
   readonly resumeAt?: string;
   readonly reason?: string;
   readonly actor?: string;
+  readonly writePolicy?: 'allow_bounded' | 'block';
 }
 
 export interface PauseComputedScopesOutput {
@@ -45,15 +47,26 @@ export interface PauseComputedScopesOutput {
   readonly notes: ReadonlyArray<string>;
 }
 
-export interface ResumeComputedScopesInput {
-  readonly scopeType: ComputedUpdatePauseScopeType;
-  readonly scopeId: string;
-}
+export type ResumeComputedScopesInput =
+  | {
+      readonly leaseId: string;
+      readonly actor?: string;
+      readonly releaseReason?: string;
+    }
+  | {
+      readonly scopeType: ComputedUpdatePauseScopeType;
+      readonly scopeId: string;
+      readonly actor?: string;
+      readonly releaseReason?: string;
+    };
 
 export interface ResumeComputedScopesOutput {
-  readonly scopeType: ComputedUpdatePauseScopeType;
-  readonly scopeId: string;
+  readonly leaseId: string | null;
+  readonly scopeType: ComputedUpdatePauseScopeType | null;
+  readonly scopeId: string | null;
+  readonly forced: boolean;
   readonly resumed: boolean;
+  readonly remainingBlockers: ReadonlyArray<ComputedPauseScopeRow>;
   readonly notes: ReadonlyArray<string>;
 }
 

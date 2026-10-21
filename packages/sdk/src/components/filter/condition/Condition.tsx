@@ -12,7 +12,9 @@ export const Condition = (props: IConditionProps) => {
   const { index, path, value, depth } = props;
 
   return (
-    <div className="flex w-full items-start">
+    // `min-w-0` lets this shrink below the min-content width of the condition
+    // tree inside it, instead of pushing the panel wider than the drawer.
+    <div className="flex w-full min-w-0 items-start">
       {isConditionGroup(value) ? (
         <ConditionGroup
           path={[...path]}

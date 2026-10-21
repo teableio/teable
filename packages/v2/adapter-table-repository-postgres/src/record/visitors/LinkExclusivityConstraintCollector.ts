@@ -101,9 +101,7 @@ export type LinkExclusivityCollectorResult =
  * }
  * ```
  */
-export class LinkExclusivityConstraintCollector
-  implements IFieldVisitor<LinkExclusivityCollectorResult>
-{
+export class LinkExclusivityConstraintCollector implements IFieldVisitor<LinkExclusivityCollectorResult> {
   private constructor(private readonly ctx: LinkExclusivityCollectorContext) {}
 
   static create(ctx: LinkExclusivityCollectorContext): LinkExclusivityConstraintCollector {

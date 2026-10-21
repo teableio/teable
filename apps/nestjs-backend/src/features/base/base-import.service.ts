@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { Readable } from 'stream';
+import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DbFieldType,
   FieldType,
+  fieldVoSchema,
   generateAttachmentId,
   generateBaseId,
   generateBaseNodeFolderId,
@@ -16,6 +17,7 @@ import {
   generateShareId,
   generateViewId,
   getUniqName,
+  HttpErrorCode,
   pluginViewOptionSchema,
   ViewType,
 } from '@teable/core';
@@ -33,6 +35,7 @@ import {
   BaseDuplicateMode,
   CreateRecordAction,
   ImportBaseRo,
+  tableFullVoSchema,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -63,10 +66,11 @@ import * as csvParser from 'csv-parser';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
-import streamJson from 'stream-json';
-import streamValues from 'stream-json/streamers/StreamValues';
+import { parserStream } from 'stream-json';
+import { streamValues } from 'stream-json/streamers/stream-values.js';
 import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
@@ -82,6 +86,7 @@ import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
+import { auditBaseCreated } from './base-create-audit';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
 import { replaceStringByMap } from './utils';
@@ -185,7 +190,7 @@ export const formatBaseImportError = (error: unknown, fallback = 'Import failed'
 
 @Injectable()
 export class BaseImportService {
-  private logger = new Logger(BaseImportService.name);
+  private readonly logger = new Logger(BaseImportService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -237,7 +242,7 @@ export class BaseImportService {
     const base = await this.prismaService.txClient().base.create({
       data: {
         id: generateBaseId(),
-        name: name || 'Untitled Base',
+        name: name || 'Untitled Project',
         spaceId,
         order,
         icon,
@@ -309,13 +314,13 @@ export class BaseImportService {
       `.execute(db);
       const existing = existingResult.rows[0];
       if (!existing) {
-        throw new Error(`Base not found: ${baseId}`);
+        throw new Error(`Project not found: ${baseId}`);
       }
       if (updateExistingBase) {
         await sql`
           update "base"
           set
-            "name" = ${name || 'Untitled Base'},
+            "name" = ${name || 'Untitled Project'},
             "icon" = ${icon ?? null},
             "last_modified_by" = ${userId},
             "last_modified_time" = ${new Date()}
@@ -323,7 +328,7 @@ export class BaseImportService {
         `.execute(db);
         return {
           id: existing.id,
-          name: name || 'Untitled Base',
+          name: name || 'Untitled Project',
           spaceId: existing.space_id,
         };
       }
@@ -337,7 +342,7 @@ export class BaseImportService {
 
     const base = {
       id: generateBaseId(),
-      name: name || 'Untitled Base',
+      name: name || 'Untitled Project',
       icon: icon ?? null,
       spaceId,
     };
@@ -409,6 +414,10 @@ export class BaseImportService {
         }
       );
 
+    // The import routes answer over SSE or lost the controller BASE_CREATE event (EE override),
+    // so the new base is recorded here, under the `base.import` operation.
+    await auditBaseCreated(this.audit, base);
+
     onProgress?.('structure_created', base.id);
 
     onProgress?.('queuing_attachments');
@@ -449,8 +458,15 @@ export class BaseImportService {
   })
   async importBaseV2(
     importBaseRo: ImportBaseRo,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    maxRowCount?: number
   ): Promise<IImportBaseVo> {
+    // Cross-table budget of plan rows this import may still create; tables are
+    // truncated (imported rows kept) once it runs out, then reported below.
+    const rowBudget =
+      maxRowCount === undefined
+        ? undefined
+        : { remaining: maxRowCount, truncatedTables: [] as string[] };
     const {
       spaceId,
       notify: { path },
@@ -465,6 +481,7 @@ export class BaseImportService {
       path
     );
     const structure = await this.readDotTeaStructure(structureStream);
+    this.validateStructureDbIdentifiers(structure);
     onProgress?.('creating_base', structure.name);
     let container: DependencyContainer;
     try {
@@ -483,6 +500,8 @@ export class BaseImportService {
     const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const context = await this.v2ContextFactory.createContext(container);
     const base = await this.createBaseV2(db, spaceId, structure.name, structure.icon || undefined);
+    // Recorded as soon as it exists: a later failure (or the row-limit truncation below) keeps it.
+    await auditBaseCreated(this.audit, { ...base, icon: structure.icon });
 
     const dotTeaStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
@@ -531,7 +550,8 @@ export class BaseImportService {
       commandBus,
       queryBus,
       context,
-      onProgress
+      onProgress,
+      rowBudget
     );
     await this.importTableLinkFieldsV2(
       path,
@@ -544,6 +564,28 @@ export class BaseImportService {
       context,
       onProgress
     );
+
+    if (rowBudget?.truncatedTables.length) {
+      // Keep the imported base and rows (truncate-and-keep), but surface the
+      // plan limit so the caller can run the upgrade flow; details name the
+      // truncated tables so the report is explicit, not a silent partial.
+      throw new CustomHttpException(
+        `Exceed max row limit: ${maxRowCount ?? 0}. Imported data was truncated (tables: ${rowBudget.truncatedTables.join(', ')})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          domainCode: 'validation.limit.rows_per_table_max',
+          details: {
+            max: maxRowCount,
+            truncatedTables: rowBudget.truncatedTables,
+            baseId: base.id,
+          },
+          localization: {
+            i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+            context: { maxRowCount: maxRowCount ?? 0 },
+          },
+        }
+      );
+    }
 
     return {
       base,
@@ -572,7 +614,8 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    copyToExistingBase: boolean = false
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -594,7 +637,11 @@ export class BaseImportService {
     // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
     // extension hook and collect their id maps so matching base_node rows can be remapped below.
     // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
-    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+    const {
+      workflowIdMap = {},
+      appIdMap = {},
+      routineIdMap = {},
+    } = await this.restoreExtraBaseResourcesV2(
       db,
       baseId,
       structure,
@@ -609,7 +656,12 @@ export class BaseImportService {
     if (hasFolders) {
       onProgress?.('creating_folders');
     }
-    const { folderIdMap } = await this.createFoldersV2(db, baseId, structure.folders);
+    const { folderIdMap } = await this.createFoldersV2(
+      db,
+      baseId,
+      structure.folders,
+      copyToExistingBase
+    );
 
     if (hasNodes) {
       onProgress?.('restoring_base_nodes');
@@ -623,8 +675,9 @@ export class BaseImportService {
           dashboardIdMap,
           workflowIdMap,
           appIdMap,
+          routineIdMap,
         },
-        { updateExistingNodes: true }
+        { updateExistingNodes: true, copyToExistingBase }
       );
     }
 
@@ -648,14 +701,19 @@ export class BaseImportService {
     },
     _duplicateMode: BaseDuplicateMode,
     _onProgress?: BaseImportProgressCallback
-  ): Promise<{ workflowIdMap?: Record<string, string>; appIdMap?: Record<string, string> }> {
+  ): Promise<{
+    workflowIdMap?: Record<string, string>;
+    appIdMap?: Record<string, string>;
+    routineIdMap?: Record<string, string>;
+  }> {
     return {};
   }
 
   private async createFoldersV2(
     db: Kysely<unknown>,
     baseId: string,
-    folders: IBaseJson['folders']
+    folders: IBaseJson['folders'],
+    copyToExistingBase: boolean = false
   ) {
     const folderIdMap: Record<string, string> = {};
     if (!Array.isArray(folders) || folders.length === 0) {
@@ -663,12 +721,28 @@ export class BaseImportService {
     }
 
     const userId = this.cls.get('user.id');
+
+    // The target base may already own folders with the same names (e.g. saving a shared
+    // base into the same base twice), which would violate the (base_id, name) unique index.
+    const existingNames: string[] = [];
+    if (copyToExistingBase) {
+      const existingFolders = await sql<{ name: string }>`
+        select "name" from "base_node_folder" where "base_id" = ${baseId}
+      `.execute(db);
+      existingNames.push(...existingFolders.rows.map((row) => row.name));
+    }
+
     for (const folder of folders) {
       const { id, name } = folder;
+      const uniqueName = copyToExistingBase ? getUniqName(name, existingNames) : name;
+      if (copyToExistingBase) {
+        existingNames.push(uniqueName);
+      }
+
       const newFolderId = generateBaseNodeFolderId();
       await sql`
         insert into "base_node_folder" ("id", "name", "base_id", "created_by")
-        values (${newFolderId}, ${name}, ${baseId}, ${userId})
+        values (${newFolderId}, ${uniqueName}, ${baseId}, ${userId})
       `.execute(db);
       folderIdMap[id] = newFolderId;
     }
@@ -676,6 +750,7 @@ export class BaseImportService {
     return { folderIdMap };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async createBaseNodesV2(
     db: Kysely<unknown>,
     baseId: string,
@@ -686,9 +761,11 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     options?: {
       updateExistingNodes?: boolean;
+      copyToExistingBase?: boolean;
     }
   ) {
     if (!Array.isArray(nodes) || nodes.length === 0) {
@@ -702,6 +779,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
     const allNodeIdMap = nodes.reduce(
       (acc, cur) => {
@@ -717,9 +795,14 @@ export class BaseImportService {
       dashboardIdMap,
       workflowIdMap,
       appIdMap,
+      routineIdMap,
     });
     const sortedNodes = this.sortBaseNodesByParent(nodes);
     const createdResourceKeys = new Set<string>();
+
+    const rootOrderOffset = options?.copyToExistingBase
+      ? await this.getRootOrderOffsetV2(db, baseId)
+      : 0;
 
     for (const node of sortedNodes) {
       const { id, parentId, resourceId, resourceType, order } = node;
@@ -741,6 +824,8 @@ export class BaseImportService {
         continue;
       }
 
+      const effectiveOrder = newParentId ? order : order + rootOrderOffset;
+
       const existingNode = await sql<{ id: string }>`
         select "id"
         from "base_node"
@@ -755,7 +840,7 @@ export class BaseImportService {
         await sql`
           update "base_node"
           set "parent_id" = ${newParentId},
-              "order" = ${order},
+              "order" = ${effectiveOrder},
               "last_modified_by" = ${userId},
               "last_modified_time" = now()
           where "id" = ${existingNodeId}
@@ -790,13 +875,23 @@ export class BaseImportService {
           ${resourceType},
           ${baseId},
           ${userId},
-          ${order}
+          ${effectiveOrder}
         )
       `.execute(db);
       createdResourceKeys.add(resourceKey);
     }
 
     return allNodeIdMap;
+  }
+
+  // Keep copied root nodes after the target base's existing ones instead of
+  // interleaving with them by reusing the source orders.
+  private async getRootOrderOffsetV2(db: Kysely<unknown>, baseId: string): Promise<number> {
+    const maxOrderResult = await sql<{ max: number | null }>`
+      select max("order") as max from "base_node"
+      where "base_id" = ${baseId} and "parent_id" is null
+    `.execute(db);
+    return Number(maxOrderResult.rows[0]?.max ?? 0) + 1;
   }
 
   private buildBaseNodeResourceIdMap(params: {
@@ -806,8 +901,17 @@ export class BaseImportService {
     dashboardIdMap: Record<string, string>;
     workflowIdMap: Record<string, string>;
     appIdMap: Record<string, string>;
+    routineIdMap: Record<string, string>;
   }) {
-    const { nodes, folderIdMap, tableIdMap, dashboardIdMap, workflowIdMap, appIdMap } = params;
+    const {
+      nodes,
+      folderIdMap,
+      tableIdMap,
+      dashboardIdMap,
+      workflowIdMap,
+      appIdMap,
+      routineIdMap,
+    } = params;
     return nodes.reduce(
       (acc, cur) => {
         const { resourceType, resourceId } = cur;
@@ -827,6 +931,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap[resourceId];
             break;
           default:
             break;
@@ -895,7 +1002,7 @@ export class BaseImportService {
     const dashboardMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name } = plugin;
@@ -965,7 +1072,7 @@ export class BaseImportService {
     const userId = this.cls.get('user.id');
     // Panels whose table is outside the imported scope have no table mapping
     const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name, tableId } = plugin;
@@ -1431,7 +1538,8 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let importedTables = 0;
@@ -1452,7 +1560,8 @@ export class BaseImportService {
           commandBus,
           queryBus,
           context,
-          onProgress
+          onProgress,
+          rowBudget
         );
       }
     );
@@ -1471,7 +1580,8 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tableId = targetTableId;
     const tableName = table.name;
@@ -1479,7 +1589,11 @@ export class BaseImportService {
 
     const commandResult = RestoreRecordsStreamCommand.create({
       tableId,
-      records: this.createTableRestoreRecordStream(entry, config, viewIdMap),
+      records: this.applyRowBudget(
+        this.createTableRestoreRecordStream(entry, config, viewIdMap),
+        rowBudget,
+        table.name
+      ),
       batchSize: tableDataImportBatchSize,
       deferComputedUpdates: true,
       enqueueDeferredComputedUpdates: true,
@@ -1756,6 +1870,32 @@ export class BaseImportService {
       }
 
       onLinkBatchUpdated(result.value.totalUpdated);
+    }
+  }
+
+  /**
+   * Caps a record stream at the shared cross-table plan-row budget: once the
+   * budget is exhausted the source stream is closed and the table is recorded
+   * as truncated (already-yielded rows are kept — truncate-and-keep).
+   */
+  private async *applyRowBudget(
+    source: AsyncGenerator<RestoreRecordInput>,
+    rowBudget: { remaining: number; truncatedTables: string[] } | undefined,
+    tableName: string
+  ): AsyncGenerator<RestoreRecordInput> {
+    if (!rowBudget) {
+      yield* source;
+      return;
+    }
+    for await (const record of source) {
+      if (rowBudget.remaining <= 0) {
+        if (!rowBudget.truncatedTables.includes(tableName)) {
+          rowBudget.truncatedTables.push(tableName);
+        }
+        return;
+      }
+      rowBudget.remaining -= 1;
+      yield record;
     }
   }
 
@@ -2073,6 +2213,34 @@ export class BaseImportService {
     }
   }
 
+  /**
+   * `structure.json` is user-supplied, and `dbTableName` / `dbFieldName` end up
+   * as raw SQL identifiers, so they must satisfy the same rules the create
+   * routes enforce before any table or column is created from them.
+   * Teable-generated archives always contain slugified names; only a
+   * hand-edited archive is rejected here.
+   */
+  private validateStructureDbIdentifiers(structure: IBaseJson) {
+    const dbTableNameSchema = tableFullVoSchema.shape.dbTableName;
+    const dbFieldNameSchema = fieldVoSchema.shape.dbFieldName;
+    for (const table of structure.tables ?? []) {
+      if (table.dbTableName != null && !dbTableNameSchema.safeParse(table.dbTableName).success) {
+        throw new CustomHttpException(
+          `Invalid dbTableName "${table.dbTableName}" for table ${table.id}`,
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+      for (const field of table.fields ?? []) {
+        if (field.dbFieldName != null && !dbFieldNameSchema.safeParse(field.dbFieldName).success) {
+          throw new CustomHttpException(
+            `Invalid dbFieldName "${field.dbFieldName}" for field ${field.id}`,
+            HttpErrorCode.VALIDATION_ERROR
+          );
+        }
+      }
+    }
+  }
+
   private async readDotTeaStructure(zipStream: Readable): Promise<IBaseJson> {
     const zipParser = unzipper.Parse();
     zipStream.pipe(zipParser);
@@ -2084,8 +2252,8 @@ export class BaseImportService {
           return;
         }
 
-        const parser = streamJson.parser();
-        const pipeline = entry.pipe(parser).pipe(streamValues.streamValues());
+        const parser = parserStream();
+        const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
 
         pipeline
           .on('data', (data: { key: number; value: IBaseJson }) => {
@@ -2119,8 +2287,8 @@ export class BaseImportService {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         if (filePath === 'structure.json') {
-          const parser = streamJson.parser();
-          const pipeline = entry.pipe(parser).pipe(streamValues.streamValues());
+          const parser = parserStream();
+          const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
 
           let structureObject: IBaseJson | null = null;
           pipeline
@@ -2129,10 +2297,11 @@ export class BaseImportService {
             })
             .on('end', async () => {
               if (!structureObject) {
-                reject(new Error('import base structure.json resolve error'));
+                reject(new Error('import project structure.json resolve error'));
               }
 
               try {
+                this.validateStructureDbIdentifiers(structureObject!);
                 const result = await this.createBaseStructure(
                   spaceId,
                   structureObject!,
@@ -2149,7 +2318,7 @@ export class BaseImportService {
             })
             .on('error', (err: Error) => {
               parser.destroy(new Error(`resolve structure.json error: ${err.message}`));
-              reject(Error);
+              reject(new Error(`resolve structure.json error: ${err.message}`));
             });
         } else {
           entry.autodrain();
@@ -2636,6 +2805,7 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     copyToExistingBase: boolean = false,
     options?: {
@@ -2654,6 +2824,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
 
     const allNodeIdMap = nodes.reduce(
@@ -2683,6 +2854,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap?.[resourceId];
             break;
           default:
             break;
@@ -2812,7 +2986,7 @@ export class BaseImportService {
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name } = plugin;
@@ -2876,7 +3050,7 @@ export class BaseImportService {
     const prisma = this.prismaService.txClient();
     // Panels whose table is outside the imported scope have no table mapping
     const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name, tableId } = plugin;

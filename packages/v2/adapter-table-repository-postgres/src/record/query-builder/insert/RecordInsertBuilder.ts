@@ -1,16 +1,30 @@
 /* eslint-disable @typescript-eslint/no-this-alias */
-import type { Table, DomainError, LinkField, FieldId, TableId, RecordId } from '@teable/v2-core';
-import { err, FieldType, ok, RecordId as RecordIdVO } from '@teable/v2-core';
+import type {
+  Table,
+  DomainError,
+  LastModifiedTimeField,
+  LinkField,
+  FieldId,
+  TableId,
+  RecordId,
+} from '@teable/v2-core';
+import {
+  err,
+  FieldType,
+  isEmptyCellValue,
+  ok,
+  RecordId as RecordIdVO,
+  resolveTrackedFieldIds,
+} from '@teable/v2-core';
 import type { Kysely, CompiledQuery } from 'kysely';
 import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
-import { normalizeStoredLinkItems } from '../../normalizeLinkItems';
+import { dedupeLinkItemsById, normalizeStoredLinkItems } from '../../normalizeLinkItems';
 
 import { FieldInsertValueVisitor, type FieldInsertResult } from '../../visitors';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -182,8 +196,140 @@ interface LinkFieldSqlsResult {
  * });
  * ```
  */
+type InsertPlanField = ReturnType<Table['getFields']>[number];
+
+interface IInsertFieldPlanEntry {
+  readonly field: InsertPlanField;
+  readonly fieldIdStr: string;
+  readonly dbFieldName: string;
+  readonly isComputed: boolean;
+  readonly isCreatedTime: boolean;
+  readonly isLastModifiedTime: boolean;
+  /**
+   * Tracked entries the create payload can carry a value for. An empty list is
+   * not track-all on its own: a list whose entries are all computed columns is
+   * empty here as well — see `tracksNonPayloadField`.
+   */
+  readonly trackedPayloadFieldIdStrs: ReadonlyArray<string>;
+  /** Whether a tracked entry is a computed column, which the payload never fills. */
+  readonly tracksNonPayloadField: boolean;
+  readonly isCreatedBy: boolean;
+  readonly isLastModifiedBy: boolean;
+  readonly isJsonField: boolean;
+  readonly isLink: boolean;
+  readonly isAttachment: boolean;
+}
+
 export class RecordInsertBuilder {
+  // buildInsertData runs once per record in bulk inserts; everything derived
+  // only from the field definitions (type flags, dbFieldName, generated-column
+  // probe, json-ness) is invariant per table aggregate, so plan it once.
+  private readonly insertFieldPlanCache = new WeakMap<
+    object,
+    Result<ReadonlyArray<IInsertFieldPlanEntry>, DomainError>
+  >();
+
   constructor(private readonly db: Kysely<DynamicDB>) {}
+
+  private getInsertFieldPlan(
+    table: Table
+  ): Result<ReadonlyArray<IInsertFieldPlanEntry>, DomainError> {
+    const cached = this.insertFieldPlanCache.get(table);
+    if (cached) {
+      return cached;
+    }
+    const plan = safeTry<ReadonlyArray<IInsertFieldPlanEntry>, DomainError>(function* () {
+      const entries: IInsertFieldPlanEntry[] = [];
+      const trackedFieldIdsByFieldId = new Map<
+        string,
+        {
+          readonly payloadFieldIdStrs: ReadonlyArray<string>;
+          readonly tracksNonPayloadField: boolean;
+        }
+      >();
+      for (const field of table.getFields((candidate): candidate is LastModifiedTimeField =>
+        candidate.type().equals(FieldType.lastModifiedTime())
+      )) {
+        const payloadFieldIdStrs: string[] = [];
+        let tracksNonPayloadField = false;
+        for (const trackedFieldId of resolveTrackedFieldIds(table, field)) {
+          const trackedField = table.getField((candidate) => candidate.id().equals(trackedFieldId));
+          // resolveTrackedFieldIds only returns ids that resolve on the table.
+          if (trackedField.isOk() && !trackedField.value.computed().toBoolean()) {
+            payloadFieldIdStrs.push(trackedFieldId.toString());
+          } else {
+            tracksNonPayloadField = true;
+          }
+        }
+        trackedFieldIdsByFieldId.set(field.id().toString(), {
+          payloadFieldIdStrs,
+          tracksNonPayloadField,
+        });
+      }
+
+      for (const field of table.getFields()) {
+        const isCreatedTime = field.type().equals(FieldType.createdTime());
+        const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
+        const isCreatedBy = field.type().equals(FieldType.createdBy());
+        const isLastModifiedBy = field.type().equals(FieldType.lastModifiedBy());
+        const isAutoNumber = field.type().equals(FieldType.autoNumber());
+        const isSystemComputedField =
+          isCreatedTime || isLastModifiedTime || isCreatedBy || isLastModifiedBy || isAutoNumber;
+        const isComputed = field.computed().toBoolean();
+
+        if (isComputed && !isSystemComputedField) {
+          continue;
+        }
+        if (isComputed) {
+          // PostgreSQL rejects explicit values for GENERATED ALWAYS columns
+          // (legacy tables may still use generated storage).
+          const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
+          if (persistedAsGenerated) {
+            continue;
+          }
+        }
+
+        const dbFieldNameResult = field.dbFieldName();
+        if (dbFieldNameResult.isErr()) {
+          continue;
+        }
+        const dbFieldNameValueResult = dbFieldNameResult.value.value();
+        if (dbFieldNameValueResult.isErr()) {
+          continue;
+        }
+        const dbFieldName = dbFieldNameValueResult.value;
+
+        let isJsonField = false;
+        const dbFieldTypeResult = field.dbFieldType();
+        if (dbFieldTypeResult.isOk()) {
+          const dbFieldTypeValueResult = dbFieldTypeResult.value.value();
+          if (dbFieldTypeValueResult.isOk()) {
+            isJsonField = dbFieldTypeValueResult.value.toLowerCase().includes('json');
+          }
+        }
+
+        const trackedFieldEntry = trackedFieldIdsByFieldId.get(field.id().toString());
+        entries.push({
+          field,
+          fieldIdStr: field.id().toString(),
+          dbFieldName,
+          isComputed,
+          isCreatedTime,
+          isLastModifiedTime,
+          trackedPayloadFieldIdStrs: trackedFieldEntry?.payloadFieldIdStrs ?? [],
+          tracksNonPayloadField: trackedFieldEntry?.tracksNonPayloadField ?? false,
+          isCreatedBy,
+          isLastModifiedBy,
+          isJsonField,
+          isLink: field.type().equals(FieldType.link()),
+          isAttachment: field.type().equals(FieldType.attachment()),
+        });
+      }
+      return ok(entries);
+    });
+    this.insertFieldPlanCache.set(table, plan);
+    return plan;
+  }
 
   /**
    * Build INSERT data for a record (raw values for batch operations).
@@ -195,7 +341,7 @@ export class RecordInsertBuilder {
     context: RecordInsertBuilderContext;
   }): Result<RecordInsertDataResult, DomainError> {
     const { table, fieldValues, context } = params;
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<RecordInsertDataResult, DomainError>(function* () {
       const createdTime = context.createdTime ?? context.now;
@@ -225,115 +371,69 @@ export class RecordInsertBuilder {
       >();
       const userFieldColumns: UserFieldColumn[] = [];
 
-      // Map field values to database columns
-      const fields = table.getFields();
+      // Map field values to database columns (field-invariant work is planned
+      // once per table aggregate — see getInsertFieldPlan).
+      const planEntries = yield* builder.getInsertFieldPlan(table);
 
-      for (const field of fields) {
-        const fieldIdStr = field.id().toString();
+      for (const entry of planEntries) {
+        const { field, fieldIdStr, dbFieldName } = entry;
         const rawValue = fieldValues.get(fieldIdStr) ?? null;
 
-        const isCreatedTime = field.type().equals(FieldType.createdTime());
-        const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
-        const isCreatedBy = field.type().equals(FieldType.createdBy());
-        const isLastModifiedBy = field.type().equals(FieldType.lastModifiedBy());
-        const isAutoNumber = field.type().equals(FieldType.autoNumber());
-        const isSystemComputedField =
-          isCreatedTime || isLastModifiedTime || isCreatedBy || isLastModifiedBy || isAutoNumber;
-
-        if (field.computed().toBoolean()) {
-          if (!isSystemComputedField) {
-            continue;
-          }
-
+        if (entry.isComputed) {
           // CreatedBy and LastModifiedBy fields store user snapshot JSON.
           // Build it once from execution context to avoid per-row user subqueries in batch INSERT.
-          // Skip when the field is persisted as a GENERATED ALWAYS column — PostgreSQL rejects
-          // explicit values for those columns (legacy tables may still use generated storage).
-          if (isCreatedBy || isLastModifiedBy) {
-            const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
-            if (persistedAsGenerated) {
-              continue;
-            }
-
-            const dbFieldNameResult = field.dbFieldName();
-            if (dbFieldNameResult.isErr()) {
-              continue;
-            }
-            const dbFieldNameValueResult = dbFieldNameResult.value.value();
-            if (dbFieldNameValueResult.isErr()) {
-              continue;
-            }
-            const dbFieldName = dbFieldNameValueResult.value;
-            const systemColumn = isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
+          if (entry.isCreatedBy || entry.isLastModifiedBy) {
+            const systemColumn = entry.isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
             userFieldColumns.push({ dbFieldName, systemColumn });
-            const userId = isCreatedBy ? createdBy : lastModifiedBy;
+            const userId = entry.isCreatedBy ? createdBy : lastModifiedBy;
             values[dbFieldName] =
               userId == null
                 ? null
                 : buildUserFieldJsonValue({
                     userId,
-                    userName: isCreatedBy
-                      ? context.createdByName ?? context.actorName ?? createdBy
-                      : context.lastModifiedByName ?? context.actorName ?? userId,
-                    userEmail: isCreatedBy
-                      ? context.createdByEmail ?? context.actorEmail
-                      : context.lastModifiedByEmail ?? context.actorEmail,
+                    userName: entry.isCreatedBy
+                      ? (context.createdByName ?? context.actorName ?? createdBy)
+                      : (context.lastModifiedByName ?? context.actorName ?? userId),
+                    userEmail: entry.isCreatedBy
+                      ? (context.createdByEmail ?? context.actorEmail)
+                      : (context.lastModifiedByEmail ?? context.actorEmail),
                   });
             continue;
           }
 
-          const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
-          if (persistedAsGenerated) {
-            continue;
+          let fallbackValue: unknown = null;
+          if (entry.isCreatedTime) {
+            fallbackValue = createdTime;
+          } else if (entry.isLastModifiedTime) {
+            // A restricted tracking list records a change of its own fields, and a
+            // creation that leaves every one of them empty recorded no change:
+            // stamping the creation time there makes "never filled" and "filled,
+            // then cleared" indistinguishable to every reader (T7808). An empty or
+            // unresolvable list is track-all and still initializes.
+            //
+            // A tracking list that names a computed column cannot be judged from
+            // the payload: system columns are assigned by this INSERT, and a
+            // formula/rollup/lookup is evaluated after it. Those configurations
+            // keep the creation stamp they have always had, rather than a stamp
+            // that no later write can fill; only a payload-only list is narrowed
+            // here.
+            const tracksEveryField =
+              entry.trackedPayloadFieldIdStrs.length === 0 && !entry.tracksNonPayloadField;
+            const trackedFieldFilled = entry.trackedPayloadFieldIdStrs.some(
+              (trackedFieldId) => !isEmptyCellValue(fieldValues.get(trackedFieldId))
+            );
+            fallbackValue =
+              tracksEveryField || entry.tracksNonPayloadField || trackedFieldFilled
+                ? lastModifiedTime
+                : null;
           }
-
-          const dbFieldNameResult = field.dbFieldName();
-          if (dbFieldNameResult.isErr()) {
-            continue;
-          }
-          const dbFieldNameValueResult = dbFieldNameResult.value.value();
-          if (dbFieldNameValueResult.isErr()) {
-            continue;
-          }
-          const dbFieldName = dbFieldNameValueResult.value;
-
-          const fallbackValue = isCreatedTime
-            ? createdTime
-            : isLastModifiedTime
-              ? lastModifiedTime
-              : isCreatedBy
-                ? createdBy
-                : isLastModifiedBy
-                  ? lastModifiedBy
-                  : null;
           const resolvedValue = rawValue ?? fallbackValue;
-          const dbFieldTypeResult = field.dbFieldType();
-          let dbFieldTypeValue: string | null = null;
-          if (dbFieldTypeResult.isOk()) {
-            const dbFieldTypeValueResult = dbFieldTypeResult.value.value();
-            if (dbFieldTypeValueResult.isOk()) {
-              dbFieldTypeValue = dbFieldTypeValueResult.value;
-            }
-          }
-          const isJsonField = dbFieldTypeValue
-            ? dbFieldTypeValue.toLowerCase().includes('json')
-            : false;
           values[dbFieldName] =
-            isJsonField && resolvedValue !== null && resolvedValue !== undefined
+            entry.isJsonField && resolvedValue !== null && resolvedValue !== undefined
               ? JSON.stringify(resolvedValue)
               : resolvedValue;
           continue;
         }
-
-        const dbFieldNameResult = field.dbFieldName();
-        if (dbFieldNameResult.isErr()) {
-          continue;
-        }
-        const dbFieldNameValueResult = dbFieldNameResult.value.value();
-        if (dbFieldNameValueResult.isErr()) {
-          continue;
-        }
-        const dbFieldName = dbFieldNameValueResult.value;
 
         // Use visitor to get column values
         const insertVisitor = FieldInsertValueVisitor.create(rawValue, {
@@ -347,11 +447,7 @@ export class RecordInsertBuilder {
           Object.assign(values, columnValues);
 
           // For link fields, generate additional SQLs for junction tables / FK updates
-          if (
-            field.type().equals(FieldType.link()) &&
-            rawValue !== null &&
-            rawValue !== undefined
-          ) {
+          if (entry.isLink && rawValue !== null && rawValue !== undefined) {
             const linkField = field as LinkField;
             const linkResult = yield* builder.buildLinkFieldSqls(
               linkField,
@@ -376,7 +472,7 @@ export class RecordInsertBuilder {
               extraSeedRecordsMap.set(tableIdStr, entry);
             }
 
-            const normalizedLinkItems = normalizeStoredLinkItems(rawValue);
+            const normalizedLinkItems = dedupeLinkItemsById(normalizeStoredLinkItems(rawValue));
             const hasMissingTitles =
               context.fillLinkTitles && normalizedLinkItems.some((item) => item.id && !item.title);
             if (hasMissingTitles) {
@@ -394,7 +490,7 @@ export class RecordInsertBuilder {
             }
           }
 
-          if (field.type().equals(FieldType.attachment())) {
+          if (entry.isAttachment) {
             const insertQuery = buildAttachmentTableInsertQuery(builder.db, {
               actorId: context.actorId,
               tableId: table.id().toString(),
@@ -446,7 +542,7 @@ export class RecordInsertBuilder {
     context: RecordInsertBuilderContext;
   }): Result<RecordInsertSqlResult, DomainError> {
     const { table, tableName, fieldValues, context } = params;
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<RecordInsertSqlResult, DomainError>(function* () {
       const { values, additionalStatements, linkedRecordLocks } = yield* builder.buildInsertData({
@@ -491,7 +587,7 @@ export class RecordInsertBuilder {
     rawValue: unknown,
     recordId: string
   ): Result<LinkFieldSqlsResult, DomainError> {
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<LinkFieldSqlsResult, DomainError>(function* () {
       const statements: CompiledSqlStatement[] = [];
@@ -499,10 +595,11 @@ export class RecordInsertBuilder {
       const extraSeedRecords: InsertExtraSeedGroup[] = [];
       let exclusivityConstraint: InsertExclusivityConstraint | undefined;
 
-      // Parse link items
-      const linkItems = Array.isArray(rawValue)
-        ? (rawValue as Array<{ id: string }>)
-        : [rawValue as { id: string }];
+      // Parse link items (duplicates collapsed: one junction row per linked record
+      // and a stable __order that matches the stored cell value)
+      const linkItems = dedupeLinkItemsById(
+        Array.isArray(rawValue) ? (rawValue as Array<{ id: string }>) : [rawValue as { id: string }]
+      );
 
       if (linkItems.length === 0) {
         return ok({ statements, linkedRecordLocks, extraSeedRecords });
@@ -681,8 +778,7 @@ export class RecordInsertBuilder {
       setValues[dbFieldName] = sql`jsonb_build_object(
         'id', ${sql.ref(systemColumn)},
         'title', ${sql.ref(systemColumn)},
-        'email', NULL::text,
-        'avatarUrl', '/api/attachments/read/public/avatar/'::text || ${sql.ref(systemColumn)}
+        'email', NULL::text
       )`;
     }
 
@@ -711,6 +807,5 @@ function buildUserFieldJsonValue(params: {
     id: params.userId,
     title: params.userName ?? params.userId,
     email: params.userEmail ?? null,
-    avatarUrl: buildUserAvatarUrl(params.userId),
   });
 }

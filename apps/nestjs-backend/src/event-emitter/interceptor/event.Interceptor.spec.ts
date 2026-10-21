@@ -103,4 +103,63 @@ describe('EventMiddleware', () => {
       })
     );
   });
+
+  it('builds a folder event for the /node/folder routes', () => {
+    const folder = { id: 'bnfFolder0000001', name: 'Reports' };
+    const created = run({
+      declaredEvent: Events.BASE_FOLDER_CREATE,
+      params: { baseId },
+      resolveData: folder,
+    });
+    const deleted = run({
+      declaredEvent: Events.BASE_FOLDER_DELETE,
+      params: { baseId, folderId: folder.id },
+      resolveData: undefined,
+    });
+
+    expect(created).toHaveBeenCalledWith(
+      Events.BASE_FOLDER_CREATE,
+      expect.objectContaining({
+        name: Events.BASE_FOLDER_CREATE,
+        payload: { baseId, folder },
+      })
+    );
+    expect(deleted).toHaveBeenCalledWith(
+      Events.BASE_FOLDER_DELETE,
+      expect.objectContaining({
+        name: Events.BASE_FOLDER_DELETE,
+        payload: { baseId, folderId: folder.id },
+      })
+    );
+  });
+
+  it('carries the `:id` of the dashboard route as dashboardId', () => {
+    const emitAsync = run({
+      declaredEvent: Events.DASHBOARD_DELETE,
+      params: { baseId, id: 'dshDashboard0001' },
+      resolveData: undefined,
+    });
+
+    expect(emitAsync).toHaveBeenCalledWith(
+      Events.DASHBOARD_DELETE,
+      expect.objectContaining({
+        payload: expect.objectContaining({ baseId, dashboardId: 'dshDashboard0001' }),
+      })
+    );
+  });
+
+  it('keeps the app id from the route when an app update resolves without it', () => {
+    const emitAsync = run({
+      declaredEvent: Events.APP_UPDATE,
+      params: { baseId, appId: 'appTestApp000001' },
+      resolveData: { version: 3 },
+    });
+
+    expect(emitAsync).toHaveBeenCalledWith(
+      Events.APP_UPDATE,
+      expect.objectContaining({
+        payload: { baseId, app: { id: 'appTestApp000001', version: 3 } },
+      })
+    );
+  });
 });

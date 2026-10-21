@@ -7,7 +7,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
@@ -30,12 +29,29 @@ export interface IListTableRecordsPaginationDto {
   limit: number;
   /** Whether there are more records after this page */
   hasMore: boolean;
+  /** Opaque keyset cursor for the next page when the current order supports one */
+  nextCursor?: string;
 }
 
 export interface IListTableRecordsResponseDataDto {
   records: ITableRecordDto[];
   /** Pagination metadata */
   pagination: IListTableRecordsPaginationDto;
+  /** Ordered leaf group buckets, included only when explicitly requested. */
+  groups?: IListTableRecordsGroupDto[];
+  /** Search match indexes, included only when explicitly requested. */
+  searchMatches?: IListTableRecordsSearchMatchDto[];
+}
+
+export interface IListTableRecordsGroupDto {
+  fields: Record<string, unknown>;
+  count: number;
+}
+
+export interface IListTableRecordsSearchMatchDto {
+  index: number;
+  fieldId: string;
+  recordId: string;
 }
 
 export type IListTableRecordsResponseDto = IApiResponseDto<IListTableRecordsResponseDataDto>;
@@ -52,18 +68,32 @@ export const listTableRecordsPaginationSchema = z.object({
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
   hasMore: z.boolean(),
+  nextCursor: z.string().min(1).optional(),
+});
+
+export const listTableRecordsGroupSchema = z.object({
+  fields: z.record(z.string(), z.unknown()),
+  count: z.number().int().nonnegative(),
+});
+
+export const listTableRecordsSearchMatchSchema = z.object({
+  index: z.number().int().positive(),
+  fieldId: z.string().min(1),
+  recordId: z.string().min(1),
 });
 
 export const listTableRecordsResponseDataSchema = z.object({
   records: z.array(tableRecordDtoSchema),
   pagination: listTableRecordsPaginationSchema,
+  groups: z.array(listTableRecordsGroupSchema).optional(),
+  searchMatches: z.array(listTableRecordsSearchMatchSchema).optional(),
 });
 
 export const listTableRecordsOkResponseSchema = apiOkResponseDtoSchema(
   listTableRecordsResponseDataSchema
 );
 
-export const listTableRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as listTableRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapListTableRecordsResultToDto = (
   result: ListTableRecordsResult
@@ -74,7 +104,20 @@ export const mapListTableRecordsResultToDto = (
       total: result.total,
       offset: result.offset,
       limit: result.limit,
-      hasMore: result.offset + records.length < result.total,
+      hasMore: result.hasMore ?? result.offset + records.length < result.total,
+      ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
     },
+    ...(result.groups
+      ? { groups: result.groups.map(({ fields, count }) => ({ fields: { ...fields }, count })) }
+      : {}),
+    ...(result.searchMatches
+      ? {
+          searchMatches: result.searchMatches.map(({ index, fieldId, recordId }) => ({
+            index,
+            fieldId: fieldId.toString(),
+            recordId: recordId.toString(),
+          })),
+        }
+      : {}),
   }));
 };

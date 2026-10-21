@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName, hasPermission, Role } from '@teable/core';
 import { Plus } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import {
   createBase,
   PinType,
@@ -13,6 +12,7 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { cn, ScrollArea } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Image from 'next/image';
@@ -28,6 +28,7 @@ import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { BaseList } from './BaseList';
 import { DataDbBadge } from './DataDbBadge';
@@ -43,6 +44,7 @@ export const SpaceInnerPage: React.FC = () => {
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -160,7 +162,7 @@ export const SpaceInnerPage: React.FC = () => {
   };
 
   const renderOrganization = () => {
-    if (!isCloud && space && space.organization) {
+    if (!isCloud && space?.organization) {
       return <div className="text-sm text-gray-500">{space.organization.name}</div>;
     }
     return null;
@@ -169,6 +171,9 @@ export const SpaceInnerPage: React.FC = () => {
   useEffect(() => {
     const { subscribeLevel, host, settingTab } = router.query;
     const isOwner = space?.role === Role.Owner;
+
+    // `?subscribeLevel=` opens purchase tabs: ignored inside the native mobile WebView.
+    if (subscribeLevel && !upgradeCtaEnabled) return;
 
     if (subscribeLevel && host === 'self-hosted') {
       openSetting(true, PersonalSettingTab.License);
@@ -195,19 +200,19 @@ export const SpaceInnerPage: React.FC = () => {
       router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.query, isCloud, space?.role]);
+  }, [router.query, isCloud, space?.role, upgradeCtaEnabled]);
 
   return (
     space && (
       <div ref={ref} className={cn('flex h-full min-w-0 flex-1 flex-col py-6 sm:min-w-[760px]')}>
         <div
           className={cn(
-            'flex shrink-0 px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
+            'flex shrink-0 px-5 sm:px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
           )}
         >
           {isMobile ? (
             <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <div className="flex items-center justify-start gap-2 text-left">
+              <div className="flex w-full items-center justify-start gap-2 text-start">
                 <SpaceRenaming
                   spaceName={spaceName!}
                   isRenaming={renaming}
@@ -266,7 +271,7 @@ export const SpaceInnerPage: React.FC = () => {
                       ? '/images/layout/empty-base-dark.png'
                       : '/images/layout/empty-base-light.png'
                   }
-                  alt="No bases available"
+                  alt="No projects available"
                   width={240}
                   height={240}
                 />
@@ -287,8 +292,11 @@ export const SpaceInnerPage: React.FC = () => {
           </div>
 
           <div className="hidden w-[200px] min-w-[200px] flex-col sm:flex">
-            <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
-              <div className="text-left">
+            <ScrollArea
+              key={spaceId}
+              className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+            >
+              <div className="text-start">
                 <Collaborators spaceId={spaceId} space={space} />
               </div>
             </ScrollArea>

@@ -107,6 +107,12 @@ describe('v2 conditional user field reference matrix (e2e)', () => {
         on conflict (id) do nothing
       `.execute(ctx.testContainer.db);
 
+      await sql`
+        insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+        values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+
       const foreignNameFieldId = createFieldId();
       const foreignUserFieldId = createFieldId();
       const foreignAmountFieldId = createFieldId();

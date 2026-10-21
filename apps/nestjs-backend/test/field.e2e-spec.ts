@@ -17,6 +17,7 @@ import {
   NumberFormattingType,
   Relationship,
   SingleLineTextFieldCore,
+  SingleNumberDisplayType,
   TimeFormatting,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -126,6 +127,64 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(fields).toHaveLength(4);
     });
 
+    it('appends a v2-created field after legacy fields missing view metadata', async () => {
+      await withForceV2All(async () => {
+        const table = await createTable(baseId, {
+          name: 'sparse-view-field-order',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            { name: 'Legacy A', type: FieldType.SingleLineText },
+            { name: 'Legacy B', type: FieldType.SingleLineText },
+          ],
+        });
+        try {
+          const viewId = table.views[0].id;
+          const prisma = app.get(PrismaService);
+          await prisma.view.update({
+            where: { id: viewId },
+            data: {
+              columnMeta: JSON.stringify({
+                [table.fields[0].id]: { order: 0 },
+              }),
+            },
+          });
+
+          const createdField = await createField(table.id, {
+            name: 'Added Number',
+            type: FieldType.Number,
+            viewId,
+            options: {
+              formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+              showAs: {
+                type: SingleNumberDisplayType.Ring,
+                color: Colors.TealBright,
+                showValue: true,
+                maxValue: 100,
+              },
+            },
+          });
+          const fields = await getFields(table.id, viewId);
+          const view = await prisma.view.findUniqueOrThrow({ where: { id: viewId } });
+          const columnMeta = JSON.parse(view.columnMeta ?? '{}') as Record<
+            string,
+            { order?: number }
+          >;
+
+          expect(fields.map((field) => field.name)).toEqual([
+            'Title',
+            'Legacy A',
+            'Legacy B',
+            'Added Number',
+          ]);
+          expect(columnMeta[table.fields[1].id]?.order).toBe(1);
+          expect(columnMeta[table.fields[2].id]?.order).toBe(2);
+          expect(columnMeta[createdField.id]?.order).toBe(3);
+        } finally {
+          await permanentDeleteTable(baseId, table.id);
+        }
+      });
+    });
+
     it('creates Date field with custom formatting and timezone without cast errors', async () => {
       // Create a few records to ensure computed orchestrator runs updateFromSelect
       await createRecords(table1.id, { records: [{ fields: {} }, { fields: {} }, { fields: {} }] });
@@ -179,6 +238,45 @@ describe('OpenAPI FieldController (e2e)', () => {
           );
         } finally {
           await permanentDeleteTable(baseId, linkedTable.id);
+        }
+      });
+    });
+    it('updates a formula expression through PATCH in the v2 route', async () => {
+      await withForceV2All(async () => {
+        const table = await createTable(baseId, { name: 'patch-formula-expression' });
+        try {
+          const numberField = await createField(table.id, {
+            name: 'Amount',
+            type: FieldType.Number,
+          });
+          const formulaField = await createField(table.id, {
+            name: 'Double',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${numberField.id}} * 2`,
+              formatting: { type: NumberFormattingType.Decimal, precision: 0 },
+              showAs: {
+                type: SingleNumberDisplayType.Ring,
+                color: Colors.Blue,
+                showValue: true,
+                maxValue: 100,
+              },
+              timeZone: 'Asia/Shanghai',
+            },
+          });
+
+          const expression = `"x"&{${numberField.id}}`;
+          await updateField(table.id, formulaField.id, {
+            options: { expression },
+          });
+          const updatedField = await getField(table.id, formulaField.id);
+
+          expect(updatedField.options).toMatchObject({ expression, timeZone: 'Asia/Shanghai' });
+          expect(updatedField.cellValueType).toBe('string');
+          expect(updatedField.options).not.toHaveProperty('formatting');
+          expect(updatedField.options).not.toHaveProperty('showAs');
+        } finally {
+          await permanentDeleteTable(baseId, table.id);
         }
       });
     });
@@ -349,7 +447,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         const rollupField = await createField(table1.id, {
           type: FieldType.Rollup,
           options: {
-            expression: 'sum({values})',
+            expression: 'countall({values})',
           },
           lookupOptions: {
             foreignTableId: table2.id,
@@ -360,7 +458,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
         expect(rollupField.name).toEqual(`${table2.fields[0].name} Rollup (from ${table2.name})`);
         expect(rollupField.options).toEqual({
-          expression: 'sum({values})',
+          expression: 'countall({values})',
           formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         });
       });
@@ -696,69 +794,97 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     it('should create fail for a not null validation field with all field types', async () => {
-      await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.LongText, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.Number, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.Date, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.User, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
-
-      await createFieldWithNotNull(FieldType.Rating, undefined, 400);
-
-      await createFieldWithNotNull(
-        FieldType.Formula,
-        {
-          expression: '1 + 1',
-        },
-        400
-      );
-
-      await createFieldWithNotNull(
-        FieldType.Link,
-        {
-          foreignTableId: table2.id,
-          relationship: Relationship.ManyOne,
-        },
-        400
-      );
-
-      const linkField = await createField(table1.id, {
-        type: FieldType.Link,
-        options: {
-          foreignTableId: table2.id,
-          relationship: Relationship.ManyOne,
-        } as ILinkFieldOptionsRo,
+      // v1 rejects notNull on create for every field type. v2 deliberately
+      // supports it for the non-computed types listed in
+      // v2-core FieldValidation.notNullValidationFieldTypes (singleLineText,
+      // longText, number, singleSelect, multipleSelect, user, date, rating,
+      // attachment, link): the schema layer backfills defaults and applies the
+      // NOT NULL constraint physically (DefaultValueBackfillRule +
+      // NotNullConstraintRule). Computed/unsupported types still 400.
+      // Use a dedicated empty table: v2 rejects notNull creation when existing
+      // records contain empty values (required_existing_values), and the shared
+      // table1's record state depends on test order.
+      const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+      const notNullCreatableStatus = isForceV2 ? 201 : 400;
+      const emptyTable = await createTable(baseId, {
+        name: 'not-null-validation-empty',
+        records: [],
       });
 
-      const rollupFieldRo: IFieldRo = {
-        type: FieldType.Rollup,
-        options: {
-          expression: 'SUM({values})',
-        },
-        lookupOptions: {
-          foreignTableId: table2.id,
-          lookupFieldId: table2.fields[0].id,
-          linkFieldId: linkField.id,
-        } as ILookupOptionsRo,
-        notNull: true,
-      };
+      try {
+        const createNotNullField = (
+          type: FieldType,
+          options?: IFieldRo['options'],
+          expectStatus = 201
+        ): Promise<IFieldVo> =>
+          createField(emptyTable.id, { type, notNull: true, options } as IFieldRo, expectStatus);
 
-      await createField(table1.id, rollupFieldRo, 400);
+        await createNotNullField(FieldType.SingleLineText, undefined, notNullCreatableStatus);
 
-      await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+        await createNotNullField(FieldType.LongText, undefined, notNullCreatableStatus);
 
-      await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+        await createNotNullField(FieldType.Number, undefined, notNullCreatableStatus);
 
-      await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
+        await createNotNullField(FieldType.Date, undefined, notNullCreatableStatus);
+
+        await createNotNullField(FieldType.User, undefined, notNullCreatableStatus);
+
+        await createNotNullField(FieldType.Checkbox, undefined, 400);
+
+        await createNotNullField(FieldType.SingleSelect, undefined, notNullCreatableStatus);
+
+        await createNotNullField(FieldType.MultipleSelect, undefined, notNullCreatableStatus);
+
+        await createNotNullField(FieldType.Rating, undefined, notNullCreatableStatus);
+
+        await createNotNullField(
+          FieldType.Formula,
+          {
+            expression: '1 + 1',
+          },
+          400
+        );
+
+        await createNotNullField(
+          FieldType.Link,
+          {
+            foreignTableId: table2.id,
+            relationship: Relationship.ManyOne,
+          },
+          notNullCreatableStatus
+        );
+
+        const linkField = await createField(emptyTable.id, {
+          type: FieldType.Link,
+          options: {
+            foreignTableId: table2.id,
+            relationship: Relationship.ManyOne,
+          } as ILinkFieldOptionsRo,
+        });
+
+        const rollupFieldRo: IFieldRo = {
+          type: FieldType.Rollup,
+          options: {
+            expression: 'SUM({values})',
+          },
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+          } as ILookupOptionsRo,
+          notNull: true,
+        };
+
+        await createField(emptyTable.id, rollupFieldRo, 400);
+
+        await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+
+        await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+
+        await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
+      } finally {
+        await permanentDeleteTable(baseId, emptyTable.id);
+      }
     });
   });
 

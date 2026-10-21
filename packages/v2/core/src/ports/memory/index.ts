@@ -5,3 +5,4 @@ export * from './MemoryEventBus';
 export * from './MemoryQueryBus';
 export * from './MemoryTableRepository';
 export * from './MemoryUndoRedoStore';
+export * from './EventBusDomainWriteTransaction';

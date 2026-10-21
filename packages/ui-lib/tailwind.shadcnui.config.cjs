@@ -51,7 +51,10 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      // The small steps follow --radius, so a layout that sets it rounds them alike; xl and up
+      // keep Tailwind's fixed values. At the default 0.5rem, DEFAULT equals Tailwind's 0.25rem.
       borderRadius: {
+        DEFAULT: 'calc(var(--radius) - 0.25rem)',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
@@ -65,10 +68,27 @@ module.exports = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: 0 },
         },
+        // Scroll-area thumb on a scroll timeline: the track is the scrollbar's content box
+        // (a size container), and 100% is the thumb's own length.
+        'scroll-thumb-x': {
+          from: { transform: 'none' },
+          to: { transform: 'translateX(calc(100cqw - 100%))' },
+        },
+        'scroll-thumb-x-rtl': {
+          from: { transform: 'none' },
+          to: { transform: 'translateX(calc(100% - 100cqw))' },
+        },
+        'scroll-thumb-y': {
+          from: { transform: 'none' },
+          to: { transform: 'translateY(calc(100cqh - 100%))' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'scroll-thumb-x': 'scroll-thumb-x auto linear both',
+        'scroll-thumb-x-rtl': 'scroll-thumb-x-rtl auto linear both',
+        'scroll-thumb-y': 'scroll-thumb-y auto linear both',
       },
     },
   },

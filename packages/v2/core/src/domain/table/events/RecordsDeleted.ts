@@ -5,6 +5,14 @@ import type { RecordId } from '../records/RecordId';
 import type { TableId } from '../TableId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 
+export const RECORD_REMOVAL_REASON = {
+  Deleted: 'deleted',
+  Archived: 'archived',
+} as const;
+
+export type IRecordRemovalReason =
+  (typeof RECORD_REMOVAL_REASON)[keyof typeof RECORD_REMOVAL_REASON];
+
 /**
  * Snapshot of a deleted record for undo/redo support.
  * Contains all necessary data to recreate the record.
@@ -41,7 +49,8 @@ export class RecordsDeleted extends AbstractTableUpdatedEvent {
     baseId: BaseId,
     readonly recordIds: ReadonlyArray<RecordId>,
     readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
-    readonly orchestration?: IRecordsDeletedOrchestration
+    readonly orchestration?: IRecordsDeletedOrchestration,
+    readonly removalReason?: IRecordRemovalReason
   ) {
     super(tableId, baseId);
   }
@@ -52,13 +61,15 @@ export class RecordsDeleted extends AbstractTableUpdatedEvent {
     recordIds: ReadonlyArray<RecordId>;
     recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
     orchestration?: IRecordsDeletedOrchestration;
+    removalReason?: IRecordRemovalReason;
   }): RecordsDeleted {
     return new RecordsDeleted(
       params.tableId,
       params.baseId,
       params.recordIds,
       params.recordSnapshots,
-      params.orchestration
+      params.orchestration,
+      params.removalReason
     );
   }
 }

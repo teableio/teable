@@ -113,6 +113,60 @@ describe('PostgresSchemaOperationRepository (pg)', () => {
     });
   });
 
+  it('does not claim stale pending CSV imports that are not automatically repairable', async () => {
+    const repository = new PostgresSchemaOperationRepository(db);
+    const now = new Date();
+    const staleRunningBefore = new Date(now.getTime() + 60_000);
+    await repository.upsert(context(), {
+      type: 'table.import',
+      status: 'pending',
+      phase: 'metadata_pending',
+      target: {
+        resourceType: 'table',
+        resourceId: 'tblCsvPending000001',
+        tableId: 'tblCsvPending000001',
+      },
+      idempotencyKey: 'claim-csv:table:tblCsvPending000001',
+      payload: { source: 'csv', durableSource: false, tableId: 'tblCsvPending000001' },
+      nextRunAt: now,
+    });
+    await repository.upsert(context(), {
+      type: 'table.import',
+      status: 'pending',
+      phase: 'metadata_pending',
+      target: {
+        resourceType: 'table',
+        resourceId: 'tblDotTeaPending0001',
+        tableId: 'tblDotTeaPending0001',
+      },
+      idempotencyKey: 'claim-dottea:table:tblDotTeaPending0001',
+      payload: { source: 'dottea', tableId: 'tblDotTeaPending0001' },
+      nextRunAt: now,
+    });
+
+    const claimed = await repository.claimNextRunnable(context(), {
+      lockedBy: 'worker-csv',
+      now,
+      staleRunningBefore,
+      types: ['table.import'],
+    });
+
+    expect(claimed._unsafeUnwrap()).toMatchObject({
+      idempotencyKey: 'claim-dottea:table:tblDotTeaPending0001',
+      status: 'running',
+    });
+
+    const leftover = await repository.list(context(), {
+      types: ['table.import'],
+      tableIds: ['tblCsvPending000001'],
+      limit: 1,
+    });
+    expect(leftover._unsafeUnwrap().items[0]).toMatchObject({
+      idempotencyKey: 'claim-csv:table:tblCsvPending000001',
+      status: 'pending',
+    });
+  });
+
   it('lists operations and supports manual retry and mark-dead controls', async () => {
     const repository = new PostgresSchemaOperationRepository(db);
     const now = new Date('2026-04-28T02:00:00.000Z');

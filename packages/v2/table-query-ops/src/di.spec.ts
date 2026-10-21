@@ -3,7 +3,10 @@ import { container } from '@teable/v2-di';
 import { describe, expect, it } from 'vitest';
 
 import { registerV2TableOps } from './di';
-import { NoopTableSearchVectorSchemaMaintenanceScheduler } from './ports';
+import {
+  NoopTableQueryObservationPublisher,
+  NoopTableSearchVectorSchemaMaintenanceScheduler,
+} from './ports';
 import { TableSearchVectorSchemaMaintenanceProjection } from './searchVectorSchemaMaintenance';
 import { v2TableOpsTokens } from './tokens';
 
@@ -21,9 +24,12 @@ describe('registerV2TableOps', () => {
 
     expect(child.isRegistered(v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler)).toBe(true);
     expect(child.isRegistered(TableSearchVectorSchemaMaintenanceProjection)).toBe(true);
+    expect(child.isRegistered(v2TableOpsTokens.observationPublisher)).toBe(true);
 
     const scheduler = child.resolve(v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler);
     expect(scheduler).toBeInstanceOf(NoopTableSearchVectorSchemaMaintenanceScheduler);
+    const publisher = child.resolve(v2TableOpsTokens.observationPublisher);
+    expect(publisher).toBeInstanceOf(NoopTableQueryObservationPublisher);
 
     expect(() => child.resolve(TableSearchVectorSchemaMaintenanceProjection)).not.toThrow();
   });

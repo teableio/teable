@@ -44,7 +44,7 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
             {hasResetPermission && (
               <Button
                 size="sm"
-                className="mr-8"
+                className="me-8"
                 variant="outline"
                 onClick={() => setConfirmVisible(true)}
               >

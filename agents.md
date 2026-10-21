@@ -1,6 +1,8 @@
 # Teable v2 agent guide
 
-DDD/domain-model guidance has moved to the skill `teable-ddd-domain-model` in `.codex/skills/teable-ddd-domain-model`. Use that skill for any v2/core domain, specification, or aggregate changes.
+DDD/domain-model skill: `teable-ddd-domain-model` in `.claude/skills`, `.codex/skills`, and `.opencode/skills`. Use it for any v2/core domain, command, port, import/host integration, or field that core "does not interpret".
+
+v2-core is the Table bounded context (table, field, view, record, formula). Do not leak host folder / base-node / billing into `@teable/v2-core` as command fields or Noop ports, even as opaque ids. Nest attaches after `commandBus.execute` (the table is already ready). See `packages/v2/core/src/ARCHITECTURE.md`.
 
 ## Git hygiene
 

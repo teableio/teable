@@ -1,5 +1,6 @@
 import {
   BaseId,
+  DateTimeFormatting,
   DbFieldName,
   FieldId,
   FieldName,
@@ -33,7 +34,7 @@ import { Pool } from 'pg';
 import { afterAll, describe, expect, test } from 'vitest';
 
 import type { RecordConditionWhere } from './TableRecordConditionWhereVisitor';
-import { TableRecordConditionWhereVisitor } from './TableRecordConditionWhereVisitor';
+import { DateUtil, TableRecordConditionWhereVisitor } from './TableRecordConditionWhereVisitor';
 
 type FieldKey =
   | 'singleLineText'
@@ -43,6 +44,7 @@ type FieldKey =
   | 'rating'
   | 'checkbox'
   | 'date'
+  | 'dateTime'
   | 'singleSelect'
   | 'multipleSelect'
   | 'attachment'
@@ -390,6 +392,18 @@ const buildFixture = (): { fields: Record<FieldKey, Field> } => {
   builder.field().date().withName(FieldName.create('Due Date')._unsafeUnwrap()).done();
   builder
     .field()
+    .date()
+    .withName(FieldName.create('Due At')._unsafeUnwrap())
+    .withFormatting(
+      DateTimeFormatting.create({
+        date: 'YYYY-MM-DD',
+        time: 'HH:mm',
+        timeZone: 'utc',
+      })._unsafeUnwrap()
+    )
+    .done();
+  builder
+    .field()
     .singleSelect()
     .withName(FieldName.create('Status')._unsafeUnwrap())
     .withOptions(selectOptions)
@@ -448,6 +462,7 @@ const buildFixture = (): { fields: Record<FieldKey, Field> } => {
     rating: table.getField((field) => field.name().toString() === 'Rating')._unsafeUnwrap(),
     checkbox: table.getField((field) => field.name().toString() === 'Done')._unsafeUnwrap(),
     date: table.getField((field) => field.name().toString() === 'Due Date')._unsafeUnwrap(),
+    dateTime: table.getField((field) => field.name().toString() === 'Due At')._unsafeUnwrap(),
     singleSelect: table.getField((field) => field.name().toString() === 'Status')._unsafeUnwrap(),
     multipleSelect: table.getField((field) => field.name().toString() === 'Tags')._unsafeUnwrap(),
     attachment: table.getField((field) => field.name().toString() === 'Files')._unsafeUnwrap(),
@@ -471,6 +486,7 @@ const buildFixture = (): { fields: Record<FieldKey, Field> } => {
     rating: 'col_rating',
     checkbox: 'col_done',
     date: 'col_due_date',
+    dateTime: 'col_due_at',
     singleSelect: 'col_status',
     multipleSelect: 'col_tags',
     attachment: 'col_files',
@@ -559,5 +575,34 @@ describe('TableRecordConditionWhereVisitor', () => {
 
     expect(compiled.sql).toContain('"t"."col_due_date" < "t"."col_due_date"');
     expect(compiled.parameters).toEqual([]);
+  });
+
+  test('preserves dateRange time bounds for fields with time formatting', () => {
+    const field = fixture.fields.dateTime;
+    const value = RecordConditionDateValue.create({
+      mode: 'dateRange',
+      exactDate: '2025-12-15T09:00:00.000Z',
+      exactDateEnd: '2025-12-15T17:00:00.000Z',
+      timeZone: 'utc',
+    })._unsafeUnwrap();
+    const spec = field.spec().create({ operator: 'is', value })._unsafeUnwrap();
+    const visitor = new TableRecordConditionWhereVisitor();
+
+    expect(spec.accept(visitor).isOk()).toBe(true);
+    const compiled = compileCondition(db, visitor.where()._unsafeUnwrap());
+    expect(compiled.parameters).toEqual(['2025-12-15T09:00:00.000Z', '2025-12-15T17:00:00.000Z']);
+  });
+});
+
+describe('DateUtil', () => {
+  test('restores the IANA zone when an offset crosses into daylight saving time', () => {
+    const dateUtil = new DateUtil('Europe/London');
+    const winter = dateUtil.date('2026-03-15T12:00:00.000Z');
+
+    const summer = dateUtil.offset('month', 1, winter);
+    expect(summer.utcOffset()).toBe(60);
+    expect(summer.format('HH:mm')).toBe('12:00');
+    expect(summer.startOf('month').toISOString()).toBe('2026-03-31T23:00:00.000Z');
+    expect(summer.endOf('month').toISOString()).toBe('2026-04-30T22:59:59.999Z');
   });
 });

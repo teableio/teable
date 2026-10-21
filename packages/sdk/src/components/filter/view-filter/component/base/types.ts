@@ -27,10 +27,14 @@ interface IBaseSelect<V, O = IOption<V>> {
   modal?: boolean;
   defaultLabel?: React.ReactNode;
   groupHeading?: string;
+  /** Heading used when this select renders as a stacked drawer. */
+  drawerTitle?: string;
 }
 
-interface IBaseMultipleSelect<V, O = IOption<V>>
-  extends Omit<IBaseSelect<V, O>, 'onSelect' | 'value'> {
+interface IBaseMultipleSelect<V, O = IOption<V>> extends Omit<
+  IBaseSelect<V, O>,
+  'onSelect' | 'value'
+> {
   value: V[] | null;
   onSelect: (value: V[]) => void;
 }

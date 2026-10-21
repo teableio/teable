@@ -1,5 +1,6 @@
 export { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 export type { FormulaSqlPgTranslatorOptions, FieldSqlResolver } from './FormulaSqlPgTranslator';
+export type { FormulaExpressionNode } from './FormulaExpressionGraph';
 export { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 export { buildFieldSqlMetadata, type FieldSqlMetadata } from './FieldSqlCoercionVisitor';
 export {
@@ -13,7 +14,7 @@ export {
   stringifyJsonArray,
   stringifyJsonArrayWithStrategy,
 } from './PgSqlHelpers';
-export { makeExpr, guardValueSql } from './SqlExpression';
+export { makeExpr, guardValueSql, guardFormulaValueSql } from './SqlExpression';
 export type { SqlExpr, SqlValueType, SqlStorageKind } from './SqlExpression';
 export {
   formatDatetimeStringSql,
@@ -25,3 +26,28 @@ export {
 export type { IPgTypeValidationStrategy, PgValidationType } from './PgTypeValidationStrategy';
 export { Pg16TypeValidationStrategy, PgLegacyTypeValidationStrategy } from './strategies';
 export { formulaSqlPgTokens } from './tokens';
+
+export { analyzeDeterministicScalarFormula } from './DeterministicScalarFormula';
+export type { DeterministicScalarFormula } from './DeterministicScalarFormula';
+export {
+  FormulaCompileBudget,
+  sqlText,
+  createFormulaCompileBudgetPolicy,
+  defaultFormulaCompileBudgetPolicy,
+  defaultFormulaCompileBudgetLimits,
+  FormulaCompileBudgetViolationError,
+  isFormulaCompileBudgetError,
+  checkFormulaSqlBudget,
+  assertFormulaCompileBudgetOptions,
+} from './FormulaCompileBudget';
+export type {
+  FormulaBudgetMetric,
+  FormulaBudgetViolation,
+  FormulaCompileBudgetPolicy,
+  FormulaCompileBudgetOptions,
+} from './FormulaCompileBudget';
+export {
+  defaultFormulaCompileBudgetConfig,
+  resolveFormulaCompileBudget,
+  type FormulaCompileBudgetConfig,
+} from './FormulaCompileBudgetConfig';

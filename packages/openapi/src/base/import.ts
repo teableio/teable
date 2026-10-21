@@ -1,8 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import type { HttpErrorCode, ILocalization } from '@teable/core';
+import { HttpError } from '@teable/core';
 import { notifyVoSchema } from '../attachment';
 import { axios } from '../axios';
 import { CREATE_SOURCE_HEADER, CREATE_SOURCE_IMPORT } from '../types';
 import { registerRoute, urlBuilder } from '../utils';
+import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
 
@@ -49,13 +52,23 @@ export type ImportBaseProgressCallback = (
 export type IImportBaseSSEEvent =
   | IImportBaseProgressEvent
   | { type: 'done'; data: IImportBaseVo }
-  | { type: 'error'; message: string };
+  | {
+      type: 'error';
+      message: string;
+      // Structured error payload so callers can localize the message and react
+      // to the error kind (e.g. open the upgrade modal on a plan limit).
+      code?: HttpErrorCode;
+      status?: number;
+      localization?: ILocalization;
+      details?: Record<string, unknown>;
+    };
 
 export const ImportBaseRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_BASE,
-  description: 'import a base',
-  summary: 'import a base',
+  title: 'Import project',
+  description: 'Import a project into the target space.',
+  summary: 'import a project',
   request: {
     body: {
       content: {
@@ -76,8 +89,9 @@ export const ImportBaseRoute: RouteConfig = registerRoute({
 export const ImportBaseStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_BASE_STREAM,
-  description: 'import a base with SSE progress stream',
-  summary: 'import a base with SSE progress events',
+  title: 'Import project with progress',
+  description: 'Import a project and receive progress updates through server-sent events.',
+  summary: 'import a project with SSE progress events',
   request: {
     body: {
       content: {
@@ -132,7 +146,17 @@ const handleSSEEvent = (
     case 'done':
       return event.data;
     case 'error':
-      throw new Error(event.message.trim() || 'Import base failed');
+      throw new HttpError(
+        {
+          message: event.message.trim() || 'Import project failed',
+          ...(event.code ? { code: event.code } : {}),
+          data: {
+            ...(event.localization ? { localization: event.localization } : {}),
+            ...event.details,
+          },
+        },
+        event.status ?? 500
+      );
   }
 };
 
@@ -215,7 +239,7 @@ export const importBaseStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Import base failed: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, 'Import base failed');
   }
 
   onV2Change?.(response.headers.get('x-teable-v2') === 'true');
@@ -227,7 +251,7 @@ export const importBaseStream = async (
 
   const result = await readSSEStream(reader, onProgress);
   if (!result) {
-    throw new Error('Import base stream ended without result');
+    throw new Error('Import project stream ended without result');
   }
 
   return { data: result };

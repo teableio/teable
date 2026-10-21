@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
-describe('create-field: button v1 parity', () => {
+describe('[B05][F20] create-field: button v1 parity', () => {
   let ctx: SharedTestContext;
   let nameCounter = 0;
 

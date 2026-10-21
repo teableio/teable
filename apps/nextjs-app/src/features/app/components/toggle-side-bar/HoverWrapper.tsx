@@ -34,7 +34,7 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
       {
         <div
           className={cn(
-            'fixed left-0 flex transition-[z-index] will-change-auto',
+            'fixed start-0 flex transition-[z-index] will-change-auto',
             hover ? 'z-30 w-full' : 'w-auto z-0'
           )}
           style={{
@@ -44,9 +44,9 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
         >
           <div
             className={cn(
-              'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto',
+              'transition-[width] overflow-hidden drop-shadow-2xl border-e will-change-auto',
               {
-                'border-r-0': !isVisible,
+                'border-e-0': !isVisible,
               }
             )}
             style={{

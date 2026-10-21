@@ -27,6 +27,8 @@ import {
 } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
+import { serializeUserCellValue } from '../serializeUserCellValue';
+
 /**
  * Visitor that transforms cell values to their database storage format.
  *
@@ -56,14 +58,13 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
     }
 
     const options = field.selectOptions();
-    const byId = options.find((opt) => opt.id().toString() === rawValue);
-    if (byId) {
-      return byId.name().toString();
-    }
-
     const byName = options.find((opt) => opt.name().toString() === rawValue);
     if (byName) {
       return byName.name().toString();
+    }
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
     }
 
     return rawValue;
@@ -85,14 +86,10 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
       if (typeof item !== 'string') {
         return item;
       }
-      const name = nameById.get(item);
-      if (name) {
-        return name;
-      }
       if (validNames.has(item)) {
         return item;
       }
-      return item;
+      return nameById.get(item) ?? item;
     });
   }
 
@@ -153,11 +150,7 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
   }
 
   visitUserField(_field: UserField): Result<unknown, DomainError> {
-    // Users are stored as JSONB
-    if (this.rawValue === null || this.rawValue === undefined) {
-      return ok(null);
-    }
-    return ok(JSON.stringify(this.rawValue));
+    return ok(serializeUserCellValue(this.rawValue));
   }
 
   visitLinkField(_field: LinkField): Result<unknown, DomainError> {

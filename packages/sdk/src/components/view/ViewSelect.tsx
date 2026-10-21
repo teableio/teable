@@ -38,7 +38,7 @@ export const ViewSelect = (props: ViewSelectProps) => {
     return (
       <div className="flex items-center justify-start">
         <div className="shrink-0">{Icon && <Icon className="size-4" />}</div>
-        <div className="truncate pl-2">{label}</div>
+        <div className="truncate ps-2">{label}</div>
       </div>
     );
   };

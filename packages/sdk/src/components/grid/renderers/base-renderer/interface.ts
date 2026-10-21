@@ -117,6 +117,8 @@ export type IChartBarProps = Omit<IChartLineProps, 'hoverAmount'>;
 export interface ITextInfo {
   text: string;
   width: number;
+  // Offset of this line in the source text
+  start: number;
 }
 
 export interface IAvatarProps extends IRectangle {

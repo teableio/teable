@@ -34,8 +34,16 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('TableRestored');
   }
 
+  static tableProvisionReady(): DomainEventName {
+    return new DomainEventName('TableProvisionReady');
+  }
+
   static tableRenamed(): DomainEventName {
     return new DomainEventName('TableRenamed');
+  }
+
+  static tablePropertiesUpdated(): DomainEventName {
+    return new DomainEventName('TablePropertiesUpdated');
   }
 
   static fieldCreated(): DomainEventName {
@@ -58,6 +66,66 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('ViewColumnMetaUpdated');
   }
 
+  static viewCreated(): DomainEventName {
+    return new DomainEventName('ViewCreated');
+  }
+
+  static viewDeleted(): DomainEventName {
+    return new DomainEventName('ViewDeleted');
+  }
+
+  static viewRenamed(): DomainEventName {
+    return new DomainEventName('ViewRenamed');
+  }
+
+  static viewDescriptionUpdated(): DomainEventName {
+    return new DomainEventName('ViewDescriptionUpdated');
+  }
+
+  static viewFilterUpdated(): DomainEventName {
+    return new DomainEventName('ViewFilterUpdated');
+  }
+
+  static viewGroupUpdated(): DomainEventName {
+    return new DomainEventName('ViewGroupUpdated');
+  }
+
+  static viewOptionsUpdated(): DomainEventName {
+    return new DomainEventName('ViewOptionsUpdated');
+  }
+
+  static viewShareMetaUpdated(): DomainEventName {
+    return new DomainEventName('ViewShareMetaUpdated');
+  }
+
+  static viewShareIdRefreshed(): DomainEventName {
+    return new DomainEventName('ViewShareIdRefreshed');
+  }
+
+  static viewShareEnabled(): DomainEventName {
+    return new DomainEventName('ViewShareEnabled');
+  }
+
+  static viewShareDisabled(): DomainEventName {
+    return new DomainEventName('ViewShareDisabled');
+  }
+
+  static viewSortUpdated(): DomainEventName {
+    return new DomainEventName('ViewSortUpdated');
+  }
+
+  static viewManualSortApplied(): DomainEventName {
+    return new DomainEventName('ViewManualSortApplied');
+  }
+
+  static viewLockedUpdated(): DomainEventName {
+    return new DomainEventName('ViewLockedUpdated');
+  }
+
+  static viewOrderUpdated(): DomainEventName {
+    return new DomainEventName('ViewOrderUpdated');
+  }
+
   static baseCreated(): DomainEventName {
     return new DomainEventName('BaseCreated');
   }
@@ -72,6 +140,10 @@ export class DomainEventName extends ValueObject {
 
   static recordUpdated(): DomainEventName {
     return new DomainEventName('RecordUpdated');
+  }
+
+  static buttonClicked(): DomainEventName {
+    return new DomainEventName('ButtonClicked');
   }
 
   static recordsBatchUpdated(): DomainEventName {

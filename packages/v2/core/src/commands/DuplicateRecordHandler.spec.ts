@@ -24,6 +24,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -332,7 +333,11 @@ const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
 const createFakeRecordMutationSpecResolverService = () =>
   ({
     needsResolution: () => ok(false),
-    resolveAndReplace: async (_context: IExecutionContext, spec: ICellValueSpec) => ok(spec),
+    resolveAndReplace: async (
+      _context: IExecutionContext,
+      _tableId: TableId,
+      spec: ICellValueSpec
+    ) => ok(spec),
   }) as unknown as RecordMutationSpecResolverService;
 
 class FakeUnitOfWork implements IUnitOfWork {
@@ -429,9 +434,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -479,9 +483,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner([plugin]),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = DuplicateRecordCommand.create({
@@ -524,9 +527,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -595,9 +597,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner([plugin]),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = DuplicateRecordCommand.create({
@@ -643,9 +644,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -676,9 +676,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -712,9 +711,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -758,9 +756,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -801,9 +798,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -843,9 +839,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -889,9 +884,8 @@ describe('DuplicateRecordHandler', () => {
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = DuplicateRecordCommand.create({

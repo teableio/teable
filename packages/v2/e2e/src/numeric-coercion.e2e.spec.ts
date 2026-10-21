@@ -736,7 +736,7 @@ describe('v2 numeric coercion (e2e)', () => {
       expect(pendingResult?.fields[formulaFieldId]).toBe('pending');
     });
 
-    it('compares checkbox values against zero', async () => {
+    it('treats an unchecked checkbox as empty when comparing against zero', async () => {
       const table = await ctx.createTable({
         baseId: ctx.baseId,
         name: 'checkbox_zero_test',
@@ -780,7 +780,7 @@ describe('v2 numeric coercion (e2e)', () => {
         [checkboxFieldId]: true,
       });
 
-      // Create record with checkbox = false
+      // An unchecked checkbox is normalized to an empty cell.
       const inactiveRecord = await ctx.createRecord(table.id, {
         Name: 'Inactive User',
         [checkboxFieldId]: false,
@@ -795,8 +795,8 @@ describe('v2 numeric coercion (e2e)', () => {
       // checkbox true (=1) should NOT compare equal to 0, returning 'active'
       expect(activeResult?.fields[formulaFieldId]).toBe('active');
 
-      // checkbox false (=0) should compare equal to 0, returning 'inactive'
-      expect(inactiveResult?.fields[formulaFieldId]).toBe('inactive');
+      // v1 contract: unchecked is stored as null, and null = 0 is false, so 'active'
+      expect(inactiveResult?.fields[formulaFieldId]).toBe('active');
     });
   });
 });

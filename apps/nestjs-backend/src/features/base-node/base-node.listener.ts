@@ -26,6 +26,11 @@ import type {
 } from '../../event-emitter/events/dashboard/dashboard.event';
 import { Events } from '../../event-emitter/events/event.enum';
 import type {
+  RoutineCreateEvent,
+  RoutineDeleteEvent,
+  RoutineUpdateEvent,
+} from '../../event-emitter/events/routine/routine.event';
+import type {
   WorkflowCreateEvent,
   WorkflowDeleteEvent,
   WorkflowUpdateEvent,
@@ -42,7 +47,8 @@ type IResourceCreateEvent =
   | TableCreateEvent
   | WorkflowCreateEvent
   | DashboardCreateEvent
-  | AppCreateEvent;
+  | AppCreateEvent
+  | RoutineCreateEvent;
 
 type IResourceDeleteEvent =
   | BaseDeleteEvent
@@ -50,14 +56,16 @@ type IResourceDeleteEvent =
   | TableDeleteEvent
   | WorkflowDeleteEvent
   | DashboardDeleteEvent
-  | AppDeleteEvent;
+  | AppDeleteEvent
+  | RoutineDeleteEvent;
 
 type IResourceUpdateEvent =
   | BaseFolderUpdateEvent
   | TableUpdateEvent
   | WorkflowUpdateEvent
   | DashboardUpdateEvent
-  | AppUpdateEvent;
+  | AppUpdateEvent
+  | RoutineUpdateEvent;
 
 @Injectable()
 export class BaseNodeListener {
@@ -79,6 +87,7 @@ export class BaseNodeListener {
   @OnEvent(Events.DASHBOARD_CREATE, { async: true })
   @OnEvent(Events.WORKFLOW_CREATE, { async: true })
   @OnEvent(Events.APP_CREATE, { async: true })
+  @OnEvent(Events.ROUTINE_CREATE, { async: true })
   async onResourceCreate(event: IResourceCreateEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -140,6 +149,12 @@ export class BaseNodeListener {
         resourceId = event.payload.app.id;
         name = event.payload.app.name;
         break;
+      case Events.ROUTINE_CREATE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routine.id;
+        name = event.payload.routine.name;
+        break;
     }
     return {
       baseId,
@@ -156,6 +171,7 @@ export class BaseNodeListener {
   @OnEvent(Events.DASHBOARD_UPDATE, { async: true })
   @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
   @OnEvent(Events.APP_UPDATE, { async: true })
+  @OnEvent(Events.ROUTINE_UPDATE, { async: true })
   async onResourceUpdate(event: IResourceUpdateEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -210,6 +226,12 @@ export class BaseNodeListener {
         resourceId = event.payload.folder.id;
         name = event.payload.folder.name;
         break;
+      case Events.ROUTINE_UPDATE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routine.id;
+        name = event.payload.routine.name;
+        break;
     }
     return {
       baseId,
@@ -220,12 +242,31 @@ export class BaseNodeListener {
     };
   }
 
+  // The share-base copy path writes base_node rows with raw SQL and emits none of the
+  // per-resource events above, so the cached node list of an existing target base would
+  // stay stale and the saved nodes stay invisible until an unrelated change flushes it.
+  @OnEvent(Events.BASE_SHARE_COPY_COMPLETE, { async: true })
+  async onBaseShareCopyComplete(payload: { baseId: string }) {
+    const baseId = payload?.baseId;
+    if (!baseId) {
+      this.logger.error('Invalid base share copy complete event', payload);
+      return;
+    }
+
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'flush',
+      });
+    });
+  }
+
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.BASE_FOLDER_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
   @OnEvent(Events.DASHBOARD_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
+  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   async onResourceDelete(event: IResourceDeleteEvent) {
     const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
     if (ignoreBaseNodeListener) {
@@ -286,6 +327,11 @@ export class BaseNodeListener {
         baseId = event.payload.baseId;
         resourceType = BaseNodeResourceType.Folder;
         resourceId = event.payload.folderId;
+        break;
+      case Events.ROUTINE_DELETE:
+        baseId = event.payload.baseId;
+        resourceType = BaseNodeResourceType.Routine;
+        resourceId = event.payload.routineId;
         break;
     }
     return {

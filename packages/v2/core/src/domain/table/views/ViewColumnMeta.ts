@@ -7,7 +7,7 @@ import { ValueObject } from '../../shared/ValueObject';
 import type { Field } from '../fields/Field';
 import type { FieldId } from '../fields/FieldId';
 import { FieldFormVisibilityVisitor } from '../fields/visitors/FieldFormVisibilityVisitor';
-import type { ViewType } from './ViewType';
+import { ViewType } from './ViewType';
 
 export type ViewColumnMetaEntry = {
   order?: number | null;
@@ -20,6 +20,86 @@ export type ViewColumnMetaEntry = {
 };
 
 export type ViewColumnMetaValue = Record<string, ViewColumnMetaEntry>;
+
+export type ViewColumnMetaPatch = {
+  readonly fieldId: FieldId;
+  readonly columnMeta: ViewColumnMetaEntry;
+};
+
+export type ViewColumnMetaChange = {
+  readonly fieldId: FieldId;
+  readonly previousColumnMeta?: ViewColumnMetaEntry;
+  readonly nextColumnMeta: ViewColumnMetaEntry;
+};
+
+export const getDefaultViewColumnOrderByFieldId = (
+  fields: ReadonlyArray<Field>,
+  primaryFieldId: FieldId
+): ReadonlyMap<string, number> => {
+  const fieldIds = fields.map((field) => field.id());
+  const primaryIndex = fieldIds.findIndex((fieldId) => fieldId.equals(primaryFieldId));
+  const orderedFieldIds =
+    primaryIndex === -1
+      ? fieldIds
+      : [fieldIds[primaryIndex]!, ...fieldIds.filter((fieldId) => !fieldId.equals(primaryFieldId))];
+
+  return new Map(orderedFieldIds.map((fieldId, index) => [fieldId.toString(), index]));
+};
+
+/**
+ * Gallery cards are titled with the primary field, so a gallery `visible: false`
+ * on that column leaves the view with an unrenderable card grid. Payload builders
+ * (`updateViewColumnMeta`, `applyViewSnapshot`, creation, duplication, field undo)
+ * normalize the entry before persisting it; read and rehydrate paths keep the
+ * stored value so historical configurations stay loadable.
+ */
+export const keepPrimaryFieldVisible = (
+  viewType: ViewType,
+  entry: ViewColumnMetaEntry
+): ViewColumnMetaEntry =>
+  viewType.equals(ViewType.gallery()) && entry.visible === false
+    ? { ...entry, visible: true }
+    : entry;
+
+/**
+ * Column-map form of {@link keepPrimaryFieldVisible}. Returns the input map
+ * untouched when the primary entry is absent or already visible.
+ */
+export const keepPrimaryColumnVisible = (
+  viewType: ViewType,
+  primaryFieldId: FieldId,
+  columnMeta: ViewColumnMetaValue
+): ViewColumnMetaValue => {
+  const key = primaryFieldId.toString();
+  const entry = columnMeta[key];
+  if (!entry) return columnMeta;
+  const nextEntry = keepPrimaryFieldVisible(viewType, entry);
+  return nextEntry === entry ? columnMeta : { ...columnMeta, [key]: nextEntry };
+};
+
+/**
+ * Diffs two metadata maps for the fields the caller owns. Shared by every update
+ * builder so reported changes match what the aggregate and repository persist.
+ */
+export const diffColumnMetaChanges = (
+  fieldIdByValue: ReadonlyMap<string, FieldId>,
+  previous: ViewColumnMetaValue,
+  next: ViewColumnMetaValue
+): ReadonlyArray<ViewColumnMetaChange> => {
+  const changes: ViewColumnMetaChange[] = [];
+  for (const fieldId of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+    const typedFieldId = fieldIdByValue.get(fieldId);
+    if (!typedFieldId || JSON.stringify(previous[fieldId]) === JSON.stringify(next[fieldId])) {
+      continue;
+    }
+    changes.push({
+      fieldId: typedFieldId,
+      ...(previous[fieldId] !== undefined ? { previousColumnMeta: previous[fieldId] } : {}),
+      nextColumnMeta: next[fieldId] ?? {},
+    });
+  }
+  return changes;
+};
 
 const viewColumnMetaEntrySchema: z.ZodType<ViewColumnMetaEntry> = z.looseObject({
   order: z.number().nullable().optional(),
@@ -34,6 +114,39 @@ const viewColumnMetaSchema: z.ZodType<ViewColumnMetaValue> = z.record(
   z.string(),
   viewColumnMetaEntrySchema
 );
+
+const invalidViewColumnMeta = () =>
+  err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+
+const parseViewColumnMetaEntry = (entry: unknown): Result<ViewColumnMetaEntry, DomainError> => {
+  if (entry == null || typeof entry !== 'object' || Array.isArray(entry)) {
+    return invalidViewColumnMeta();
+  }
+  const source = entry as Record<string, unknown>;
+  if (source.order !== undefined && source.order !== null && typeof source.order !== 'number') {
+    return invalidViewColumnMeta();
+  }
+  if (source.visible !== undefined && typeof source.visible !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (source.hidden !== undefined && typeof source.hidden !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (source.width !== undefined && typeof source.width !== 'number') {
+    return invalidViewColumnMeta();
+  }
+  if (source.required !== undefined && typeof source.required !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (
+    source.statisticFunc !== undefined &&
+    source.statisticFunc !== null &&
+    typeof source.statisticFunc !== 'string'
+  ) {
+    return invalidViewColumnMeta();
+  }
+  return ok({ ...source });
+};
 
 export class ViewColumnMeta extends ValueObject {
   private constructor(private readonly value: ViewColumnMetaValue) {
@@ -53,15 +166,18 @@ export class ViewColumnMeta extends ValueObject {
   }
 
   static rehydrate(raw: unknown): Result<ViewColumnMeta, DomainError> {
-    const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success)
-      return err(
-        domainError.validation({
-          message: 'Invalid ViewColumnMeta',
-          details: z.formatError(parsed.error),
-        })
-      );
-    return ok(new ViewColumnMeta(parsed.data));
+    if (raw == null) return ok(new ViewColumnMeta({}));
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+    }
+
+    const cloned: ViewColumnMetaValue = {};
+    for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
+      const parsed = parseViewColumnMetaEntry(entry);
+      if (parsed.isErr()) return err(parsed.error);
+      cloned[key] = parsed.value;
+    }
+    return ok(new ViewColumnMeta(cloned));
   }
 
   static empty(): ViewColumnMeta {
@@ -73,11 +189,14 @@ export class ViewColumnMeta extends ValueObject {
     fields: ReadonlyArray<Field>;
     primaryFieldId: FieldId;
   }): Result<ViewColumnMeta, DomainError> {
-    const orderedFieldIds = ViewColumnMeta.orderFieldIds(params.fields, params.primaryFieldId);
+    const defaultOrderByFieldId = getDefaultViewColumnOrderByFieldId(
+      params.fields,
+      params.primaryFieldId
+    );
     const columnMeta: ViewColumnMetaValue = {};
 
-    orderedFieldIds.forEach((fieldId, index) => {
-      columnMeta[fieldId.toString()] = { order: index };
+    defaultOrderByFieldId.forEach((order, fieldId) => {
+      columnMeta[fieldId] = { order };
     });
 
     const viewType = params.viewType.toString();
@@ -106,6 +225,16 @@ export class ViewColumnMeta extends ValueObject {
     return ViewColumnMeta.create(columnMeta);
   }
 
+  /**
+   * Returns this metadata with the primary column visible for gallery views. Every
+   * payload builder passes through here, so no producer can persist a gallery whose
+   * cards would render without a title.
+   */
+  withPrimaryFieldVisible(viewType: ViewType, primaryFieldId: FieldId): ViewColumnMeta {
+    const next = keepPrimaryColumnVisible(viewType, primaryFieldId, this.value);
+    return next === this.value ? this : new ViewColumnMeta(next);
+  }
+
   equals(other: ViewColumnMeta): boolean {
     return ViewColumnMeta.isSameValue(this.value, other.value);
   }
@@ -114,18 +243,43 @@ export class ViewColumnMeta extends ValueObject {
     return ViewColumnMeta.cloneValue(this.value);
   }
 
-  private static orderFieldIds(
-    fields: ReadonlyArray<Field>,
-    primaryFieldId: FieldId
-  ): ReadonlyArray<FieldId> {
-    const fieldIds = fields.map((field) => field.id());
-    const primaryIndex = fieldIds.findIndex((fieldId) => fieldId.equals(primaryFieldId));
-    if (primaryIndex === -1) return fieldIds;
+  applyPatches(
+    patches: ReadonlyArray<ViewColumnMetaPatch>
+  ): Result<
+    { columnMeta: ViewColumnMeta; changes: ReadonlyArray<ViewColumnMetaChange> },
+    DomainError
+  > {
+    const original = ViewColumnMeta.cloneValue(this.value);
+    const next = ViewColumnMeta.cloneValue(this.value);
+    const patchedFieldIds = new Map<string, FieldId>();
 
-    return [
-      fieldIds[primaryIndex],
-      ...fieldIds.filter((fieldId) => !fieldId.equals(primaryFieldId)),
-    ];
+    for (const patch of patches) {
+      const key = patch.fieldId.toString();
+      patchedFieldIds.set(key, patch.fieldId);
+      next[key] = {
+        ...next[key],
+        ...patch.columnMeta,
+      };
+    }
+
+    const changes: ViewColumnMetaChange[] = [];
+    for (const [key, fieldId] of patchedFieldIds) {
+      const previousColumnMeta = original[key] ? { ...original[key] } : undefined;
+      const nextColumnMeta = { ...next[key] };
+      if (previousColumnMeta && ViewColumnMeta.isSameEntry(previousColumnMeta, nextColumnMeta)) {
+        continue;
+      }
+      changes.push({
+        fieldId,
+        ...(previousColumnMeta ? { previousColumnMeta } : {}),
+        nextColumnMeta,
+      });
+    }
+
+    return ViewColumnMeta.create(next).map((columnMeta) => ({
+      columnMeta,
+      changes,
+    }));
   }
 
   private static cloneValue(value: ViewColumnMetaValue): ViewColumnMetaValue {
@@ -156,7 +310,7 @@ export class ViewColumnMeta extends ValueObject {
     if (leftKeys.length !== rightKeys.length) return false;
 
     for (const key of leftKeys) {
-      if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+      if (!Object.hasOwn(right, key)) return false;
       const leftValue = left[key];
       const rightValue = right[key];
       if (!Object.is(leftValue, rightValue)) return false;

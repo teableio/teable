@@ -50,9 +50,9 @@ describe('FormulaSqlPgTranslator edge cases', () => {
       expect(result).toContain('#ERROR:DIV0');
     });
 
-    it('should treat blank VALUE input as zero', async () => {
+    it('should treat blank VALUE input as null (v1 parity, T6520)', async () => {
       const result = await executeFormulaAsText(testTable, 'ValueBlank');
-      expect(result).toBe('0');
+      expect(result).toBeNull();
     });
   });
 

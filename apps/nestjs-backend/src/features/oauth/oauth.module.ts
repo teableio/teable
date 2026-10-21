@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { authConfig, type IAuthConfig } from '../../configs/auth.config';
 import { DistributedLockModule } from '../../distributed-lock';
 import { AccessTokenModule } from '../access-token/access-token.module';
+import { UserModule } from '../user/user.module';
 import { OAuthAppInitService } from './oauth-app-init.service';
+import { OAuthDeviceService } from './oauth-device.service';
+import { OAuthRegistrationService } from './oauth-registration.service';
 import { OAuthServerController } from './oauth-server.controller';
 import { OAuthServerService } from './oauth-server.service';
 import { OAuthTxStore } from './oauth-tx-store';
@@ -18,19 +19,13 @@ import { OAuthPkceClientStrategy } from './strategies/oauth2-pkce-client.strateg
   imports: [
     AccessTokenModule,
     DistributedLockModule,
+    UserModule,
     PassportModule.register({ session: true }),
-    JwtModule.registerAsync({
-      useFactory: (config: IAuthConfig) => ({
-        secret: config.jwt.secret,
-        signOptions: {
-          expiresIn: config.jwt.expiresIn,
-        },
-      }),
-      inject: [authConfig.KEY],
-    }),
   ],
   controllers: [OAuthController, OAuthServerController],
   providers: [
+    OAuthDeviceService,
+    OAuthRegistrationService,
     OAuthServerService,
     OAuthService,
     OAuthAppInitService,

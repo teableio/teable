@@ -14,8 +14,8 @@ import { useEffect, useState } from 'react';
 import {
   getFormatStringForLanguage,
   localFormatStrings,
-  systemTimeZone,
-} from '@/features/app/components/field-setting/formatting/DatetimeFormatting';
+} from '@/features/app/components/field-setting/formatting/date-format-strings';
+import { systemTimeZone } from '@/features/app/components/field-setting/formatting/DatetimeFormatting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useCalendar } from '../hooks';
 

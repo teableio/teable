@@ -7,6 +7,7 @@ import { ClsService } from 'nestjs-cls';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { IClsStore } from '../types/cls';
+import { APP_RUNTIME_REVISION_HEADER, appRuntimeRevisionAttributes } from './app-runtime-revision';
 import { applyTraceResponseHeaders } from './trace-response-headers';
 import { USER_CONTEXT_SERVICE, IUserContextService } from './user-context.interface';
 
@@ -29,6 +30,9 @@ export class RouteTracingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
+    // NestInstrumentation is disabled (see tracing.ts), so this is the request's SERVER
+    // span. While it was enabled the active span was Nest's controller-handler span, and
+    // stamping that one gave every request a second, nearly identical always-exported span.
     const span = trace.getActiveSpan();
 
     if (span) {
@@ -56,8 +60,16 @@ export class RouteTracingInterceptor implements NestInterceptor {
         'teable.user.id': userId || 'anonymous',
         'teable.user.is_api': origin?.byApi || false,
         'teable.user.is_app': !!appId,
+        // First-party client (`X-Teable-Client`, e.g. mobile/0.1.0); empty for browsers.
+        'teable.client': origin?.client || '',
         'teable.app.id': appId || '',
       });
+      if (appId) {
+        const revision = appRuntimeRevisionAttributes(
+          request.headers?.[APP_RUNTIME_REVISION_HEADER]
+        );
+        if (revision) span.setAttributes(revision);
+      }
 
       const spanName = `${httpMethod} ${route}`;
       span.updateName(spanName);

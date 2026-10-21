@@ -3,62 +3,197 @@ import {
   type ILogger,
   isDomainError,
   v2CoreTokens,
+  TableQueryTraceAttributes,
   type DomainError,
+  type FieldOrderBy,
   FieldType,
+  type Field,
   type IExecutionContext,
   type IRecordReadQuerySource,
   type IRecordSearchAccessPathResolution,
   type ITableRecordQueryRepository,
+  type ITableRecordCountQueryRepository,
+  type ITableRecordCountOptions,
+  type ITableRecordAggregationQueryRepository,
+  type ITableRecordAggregationOptions,
+  type ITableRecordCalendarQueryRepository,
+  type ITableRecordCollaboratorQueryRepository,
+  type TableRecordAggregation,
+  type TableRecordAggregationGroup,
+  type TableRecordAggregationValue,
+  type TableRecordCalendarDailyCollection,
+  type TableRecordCalendarDailyCollectionEntry,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
   type ITableRecordQueryResult,
+  type ITableRecordSearchMatch,
   type ITableRecordQueryStreamOptions,
-  type RecordId,
   type ISpecification,
   type ITableRecordConditionSpecVisitor,
   type Table,
   type TableRecordReadModel,
   type TableRecord,
+  type ViewCollaboratorField,
+  viewCollaboratorFieldIsMultiple,
   type TableRecordQueryMode,
+  FieldId,
+  RecordId,
   type ITableRecordStreamPagination,
   type ITableRecordStreamPaginationStrategy,
+  type LastModifiedByField,
   OffsetPagination,
   PageLimit,
   PageOffset,
-  buildUserAvatarUrl,
   isFieldOrderBy,
   isSystemColumnOrderBy,
+  getUnitOfWorkTransaction,
+  type TableRecordOrderBy,
   createSearchTraceAttributes,
   createTableQueryTraceAttributes,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { CompiledQuery, sql } from 'kysely';
-import type { Expression, Kysely, SqlBool } from 'kysely';
+import type { Expression, Kysely, QueryResult, RawBuilder, SqlBool } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { extractUndefinedColumnError } from '../../shared/errors';
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-import { FieldOutputColumnVisitor } from '../query-builder';
-import type {
-  TableRecordQueryBuilderManager,
-  FieldOutputColumn,
-  DynamicDB,
+import {
+  applyStoredFieldOrderByClause,
+  buildStoredFieldValueExpression,
+  buildStoredFieldOrderByClauses,
+  FieldOutputColumnVisitor,
+  type DynamicDB,
+  type FieldOutputColumn,
+  type StoredFieldOrderByClause,
+  type ITableRecordQueryBuilder,
+  type TableRecordQueryBuilderManager,
 } from '../query-builder';
+import { buildDateLikeGroupExpression } from '../query-builder/dateLikeOrderBy';
+import { maskValueExpression } from '../query-builder/maskValueExpression';
+import {
+  buildUserGroupIdentityExpr,
+  buildUserJsonObjectFromSnapshotExpr,
+  resolveUserGroupIdentityMultiplicity,
+} from '../query-builder/userSnapshotSql';
+import { buildFieldMaskSqlMap } from './buildFieldMaskSql';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
+import {
+  buildCursorToken,
+  buildValueSeekPredicate,
+  CURSOR_ORDER_BY_ERROR,
+  CURSOR_STALE_ERROR,
+  cursorValueAlias,
+  getLastAutoNumberCursor,
+  isAutoNumberOnlyCursorOrderBy,
+  isRawColumnCursorField,
+  orderByHasAutoNumberAsc,
+  parseCursorToken,
+  resolveCursorValues,
+  type CursorSeekKey,
+} from './listRecordsCursor';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import {
+  buildRecordSearchFieldMatches,
   buildRecordSearchWhereClause,
   buildRecordSearchWherePlan,
+  type RecordSearchFieldMatch,
+  type RecordSearchWherePlan,
 } from './RecordSearchWhereBuilder';
+import {
+  buildTableRecordAggregationExpression,
+  normalizeTableRecordAggregationValue,
+} from './TableRecordAggregationSql';
 
 const RECORD_ID_COLUMN = '__id';
 const RECORD_VERSION_COLUMN = '__version';
 const TABLE_ALIAS = 't';
+const GROUP_RESULT_ALIAS = 'g';
 const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
-const LEGACY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 const TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY = Symbol.for('teable.v2.tableOps.sqlDiagnostics');
+
+// Single policy for which group expressions get identity-normalized: plain
+// user fields and lookups whose presentation type is user. Returns null for
+// every other field type. Lookup-of-user cells persist write-time snapshots,
+// so grouping by the raw JSON would split one collaborator per email/avatar.
+const userGroupIdentityExprForField = (
+  field: Field,
+  columnRef: RawBuilder<unknown>
+): Result<RawBuilder<unknown> | null, DomainError> => {
+  const multiplicity = resolveUserGroupIdentityMultiplicity(field);
+  if (multiplicity.isErr()) return err(multiplicity.error);
+  if (multiplicity.value == null) return ok(null);
+  return ok(buildUserGroupIdentityExpr(columnRef, multiplicity.value));
+};
+
+const buildGroupFieldValueExpression = (
+  field: Field,
+  column: string
+): Result<
+  { expression: RawBuilder<unknown>; usesValueExpressionForOrder: boolean },
+  DomainError
+> => {
+  const storedValue = buildStoredFieldValueExpression(field, TABLE_ALIAS, column);
+  if (storedValue.isErr()) {
+    return err(storedValue.error);
+  }
+  if (storedValue.value.usesErrorFallback) {
+    return ok({
+      expression: storedValue.value.expression,
+      usesValueExpressionForOrder: true,
+    });
+  }
+
+  const dateGroupExpression = buildDateLikeGroupExpression(field, TABLE_ALIAS, column);
+  if (dateGroupExpression) {
+    return ok({
+      expression: dateGroupExpression,
+      usesValueExpressionForOrder: true,
+    });
+  }
+
+  const columnRef = sql.ref(`${TABLE_ALIAS}.${column}`);
+  // createdBy / lastModifiedBy group by the full snapshot object; identity
+  // drift across snapshot generations there is folded by the presentation
+  // walk (buildGroupQueryExtra) instead of being normalized in SQL
+  if (field.type().equals(FieldType.createdBy())) {
+    return ok({
+      expression: buildUserJsonObjectFromSnapshotExpr(
+        columnRef,
+        sql.ref(`${TABLE_ALIAS}.__created_by`)
+      ),
+      usesValueExpressionForOrder: true,
+    });
+  }
+  if (
+    field.type().equals(FieldType.lastModifiedBy()) &&
+    (field as LastModifiedByField).isTrackAll()
+  ) {
+    return ok({
+      expression: buildUserJsonObjectFromSnapshotExpr(
+        columnRef,
+        sql.ref(`${TABLE_ALIAS}.__last_modified_by`)
+      ),
+      usesValueExpressionForOrder: true,
+    });
+  }
+  const userIdentity = userGroupIdentityExprForField(field, columnRef);
+  if (userIdentity.isErr()) return err(userIdentity.error);
+  if (userIdentity.value) {
+    return ok({
+      expression: userIdentity.value,
+      usesValueExpressionForOrder: true,
+    });
+  }
+  return ok({
+    expression: storedValue.value.expression,
+    usesValueExpressionForOrder: false,
+  });
+};
 
 type OrderColumnExistsCacheEntry = {
   exists: boolean;
@@ -77,33 +212,20 @@ type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
 
 const createRecordSearchAccessPathResolution = (
   options: ITableRecordQueryOptions | undefined,
-  used: IRecordSearchAccessPathResolution['used']
+  plan: RecordSearchWherePlan
 ): IRecordSearchAccessPathResolution | undefined => {
   if (!options?.search) return undefined;
-  const requested = options.searchAccessPath?.kind ?? 'default';
-  const generatedTextFallbackReason =
-    requested === 'generated_text' &&
-    options.searchAccessPath?.kind === 'generated_text' &&
-    options.searchAccessPath.provider === 'pg_trgm' &&
-    Array.from(options.search.search.value).length < 3
-      ? ('generated_text_probe_too_short' as const)
-      : ('generated_text_unavailable' as const);
   return {
-    requested,
-    used,
-    ...(requested === 'generated_text' && used === 'default'
-      ? { fallbackReason: generatedTextFallbackReason }
-      : {}),
-    ...(requested === 'generated_tsvector' && used === 'default'
-      ? { fallbackReason: 'generated_tsvector_unavailable' as const }
-      : {}),
+    requested: options.searchAccessPath?.kind ?? 'default',
+    used: plan.usedAccessPath,
+    ...(plan.fallbackReason ? { fallbackReason: plan.fallbackReason } : {}),
   };
 };
 
 const createRepositoryFindTraceAttributes = (
   table: Table,
   options: ITableRecordQueryOptions | undefined,
-  source: 'repository.record_find' | 'repository.record_count',
+  source: 'repository.record_find' | 'repository.record_count' | 'repository.record_aggregate',
   resolution?: IRecordSearchAccessPathResolution
 ) => {
   const search = options?.search?.search;
@@ -131,10 +253,15 @@ const createRepositoryFindTraceAttributes = (
   return {
     ...createTableQueryTraceAttributes({
       tableId: table.id().toString(),
-      queryKind: search ? 'search' : 'record_list',
+      queryKind: search
+        ? 'search'
+        : source === 'repository.record_aggregate'
+          ? 'aggregation'
+          : 'record_list',
       querySource: source,
       hasSort: Boolean(options?.orderBy?.length),
-      includeTotal: options?.includeTotal !== false,
+      includeTotal:
+        source === 'repository.record_aggregate' ? undefined : options?.includeTotal === true,
     }),
     ...createSearchTraceAttributes({
       searchValue: search?.value,
@@ -165,8 +292,41 @@ const createRepositoryFindTraceAttributes = (
   };
 };
 
+/**
+ * T7339: `ITableRecordCountOptions` carries no `includeTotal` option - a standalone count
+ * *is* the request for a total. Reporting the find-only option here claimed the opposite of
+ * what these spans do. The companion count inside `find()` keeps reporting the option that
+ * gated it, because that count only runs when the find asked for a total.
+ */
+const createCountTraceAttributes = (
+  table: Table,
+  options: ITableRecordQueryOptions | undefined,
+  resolution?: IRecordSearchAccessPathResolution
+) => ({
+  ...createRepositoryFindTraceAttributes(table, options, 'repository.record_count', resolution),
+  [TableQueryTraceAttributes.QUERY_INCLUDE_TOTAL]: true,
+});
+
+/**
+ * Statement budget for the data-reading statements this repository runs: record
+ * pages (offset and cursor, including the stream batches), single records,
+ * counts, aggregations, grouped reads and the calendar/search helper queries.
+ * `statementBudgetMs` must be positive to have an effect; 0 or undefined keeps
+ * the previous unbudgeted behaviour.
+ */
+export interface IRecordQueryRepositoryConfig {
+  readonly statementBudgetMs?: number;
+}
+
 @injectable()
-export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepository {
+export class PostgresTableRecordQueryRepository
+  implements
+    ITableRecordQueryRepository,
+    ITableRecordCountQueryRepository,
+    ITableRecordAggregationQueryRepository,
+    ITableRecordCalendarQueryRepository,
+    ITableRecordCollaboratorQueryRepository
+{
   private readonly orderColumnExistsCache = new Map<string, OrderColumnExistsCacheEntry>();
   private readonly defaultStreamPaginationStrategy = new OffsetStreamPaginationStrategy();
   private readonly streamPaginationStrategies: ReadonlyArray<ITableRecordStreamPaginationStrategy> =
@@ -178,8 +338,522 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2RecordRepositoryPostgresTokens.recordQueryConfig)
+    private readonly recordQueryConfig: IRecordQueryRepositoryConfig = { statementBudgetMs: 0 }
   ) {}
+
+  /**
+   * Runs a data-reading statement under the configured statement budget.
+   *
+   * `statement_timeout` is transaction-local, so a budget needs a transaction of
+   * its own; inside an ambient unit-of-work transaction the caller already owns
+   * the budget and nesting one here would be wrong. The setting is never a
+   * session `SET`, so it stays correct behind a transaction pooler.
+   *
+   * Metadata probes (`information_schema`) and DDL intentionally stay outside:
+   * they cannot run away, and they are already bounded by their own budgets.
+   */
+  private async executeQueryWithBudget<R>(
+    context: IExecutionContext,
+    db: Kysely<DynamicDB>,
+    compiled: CompiledQuery<R>
+  ): Promise<QueryResult<R>> {
+    const budgetMs = this.recordQueryConfig.statementBudgetMs ?? 0;
+    if (budgetMs <= 0 || getUnitOfWorkTransaction(context, 'data')) {
+      return db.executeQuery(compiled);
+    }
+
+    return db.transaction().execute(async (trx) => {
+      await sql`select set_config('statement_timeout', ${String(budgetMs)}, true)`.execute(trx);
+      return trx.executeQuery(compiled);
+    });
+  }
+
+  async findDistinctUserIds(
+    context: IExecutionContext,
+    table: Table,
+    field: ViewCollaboratorField,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ): Promise<Result<ReadonlyArray<string>, DomainError>> {
+    const span = context.tracer?.startSpan('teable.repository.record.find_distinct_user_ids', {
+      tableId: table.id().toString(),
+      fieldId: field.id().toString(),
+    });
+
+    try {
+      const queryBuilderResult = await this.queryBuilderManager.createBuilder(context, table, {
+        mode: 'stored',
+      });
+      if (queryBuilderResult.isErr()) return err(queryBuilderResult.error);
+      const queryBuilder = queryBuilderResult.value;
+      queryBuilder.select([field.id()]);
+      if (spec) queryBuilder.where(spec);
+      const scopedQueryResult = queryBuilder.build();
+      if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
+
+      const columnAliasResult = new FieldOutputColumnVisitor().getColumnAlias(field);
+      if (columnAliasResult.isErr()) return err(columnAliasResult.error);
+      const scopeAlias = 'record_collaborator_scope';
+      const column = sql.ref(`a.${columnAliasResult.value}`);
+      const userIdExpression = viewCollaboratorFieldIsMultiple(field)
+        ? sql<string>`jsonb_array_elements(COALESCE(${column}::jsonb, '[]'::jsonb))->>'id'`
+        : sql<string>`${column}::jsonb->>'id'`;
+      const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+      const query = dynamicDb
+        .with(scopeAlias, () => scopedQueryResult.value)
+        .selectFrom(`${scopeAlias} as a`)
+        .select(userIdExpression.as('user_id'))
+        .distinct();
+      const compiled = query.compile();
+      this.recordSqlDiagnostic(context, 'record_find_distinct_user_ids', compiled);
+      const rows = await this.executeQueryWithBudget<{ user_id: string | null }>(
+        context,
+        dynamicDb,
+        compiled
+      );
+      return ok(rows.rows.flatMap((row) => (row.user_id ? [row.user_id] : [])));
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: 'Failed to query distinct user IDs',
+          details: { error: (error as Error)?.message ?? String(error) },
+        })
+      );
+    } finally {
+      span?.end();
+    }
+  }
+
+  async aggregate(
+    context: IExecutionContext,
+    table: Table,
+    aggregation: TableRecordAggregation,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordAggregationOptions
+  ): Promise<Result<ReadonlyArray<TableRecordAggregationValue>, DomainError>> {
+    if (!aggregation.fields.length) return ok([]);
+
+    const span = context.tracer?.startSpan('teable.repository.record.aggregate', {
+      tableId: table.id().toString(),
+      fieldCount: aggregation.fields.length,
+      groupDepth: aggregation.groupBy.length,
+    });
+
+    try {
+      const queryBuilderResult = await this.queryBuilderManager.createBuilder(context, table, {
+        // Aggregation follows the same persisted-value contract as ListTableRecordsHandler.
+        mode: 'stored',
+      });
+      if (queryBuilderResult.isErr()) return err(queryBuilderResult.error);
+      const queryBuilder = queryBuilderResult.value;
+      const fieldMaskSqlResult = buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
+      if (fieldMaskSqlResult.isErr()) return err(fieldMaskSqlResult.error);
+      const fieldMaskSqlMap = fieldMaskSqlResult.value;
+      queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
+      const searchFieldsResult = options?.search
+        ? options.search.search.resolveFields(table, {
+            visibleFieldIds: options.search.visibleFieldIds,
+          })
+        : ok([]);
+      if (searchFieldsResult.isErr()) return err(searchFieldsResult.error);
+      const projection = [
+        ...new Map(
+          [
+            ...aggregation.fields.map(({ fieldId }) => fieldId),
+            ...aggregation.groupBy.map(({ fieldId }) => fieldId),
+            ...searchFieldsResult.value.map((field) => field.id()),
+          ].map((fieldId) => [fieldId.toString(), fieldId])
+        ).values(),
+      ];
+      queryBuilder.select(projection);
+      if (spec) queryBuilder.where(spec);
+      const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
+        tableAlias: TABLE_ALIAS,
+        searchAccessPath: options?.searchAccessPath,
+        fieldMaskSqlMap,
+      });
+      if (searchWherePlan.isErr()) return err(searchWherePlan.error);
+      const searchAccessPath = createRecordSearchAccessPathResolution(
+        options,
+        searchWherePlan.value
+      );
+      span?.setAttributes(
+        createRepositoryFindTraceAttributes(
+          table,
+          options,
+          'repository.record_aggregate',
+          searchAccessPath
+        )
+      );
+      if (searchWherePlan.value.condition !== null) {
+        queryBuilder.whereExpression(searchWherePlan.value.condition);
+      }
+      if (!options?.recordIdsOrder?.length && (options?.orderBy?.length || options?.pagination)) {
+        const dbTableNameResult = table.dbTableName();
+        if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+        const tableNameResult = dbTableNameResult.value.value();
+        if (tableNameResult.isErr()) return err(tableNameResult.error);
+        const [schemaName, tableNameOnly] = tableNameResult.value.split('.');
+        const dynamicDbForOrder = this.db as unknown as Kysely<DynamicDB>;
+        if (options.orderBy?.length) {
+          await this.applyQueryOrderBy(
+            queryBuilder,
+            options.orderBy,
+            dynamicDbForOrder,
+            schemaName,
+            tableNameOnly
+          );
+        } else {
+          queryBuilder.orderBy('__auto_number', 'asc');
+        }
+      }
+      if (options?.pagination) {
+        queryBuilder.limit(options.pagination.limit().toNumber());
+        queryBuilder.offset(options.pagination.offset().toNumber());
+      }
+      const scopedQueryResult = queryBuilder.build();
+      if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
+      let scopedQuery = scopedQueryResult.value;
+      if (options?.recordIdsOrder?.length) {
+        const orderedIds = options.recordIdsOrder.map((recordId) => recordId.toString());
+        scopedQuery = scopedQuery.orderBy(
+          sql`array_position(${orderedIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
+        );
+      }
+
+      const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+      const fieldColumns = new Map<string, string>();
+      const fieldsById = new Map<string, Field>();
+      for (const fieldId of projection) {
+        const fieldResult = table.getField((field) => field.id().equals(fieldId));
+        if (fieldResult.isErr()) return err(fieldResult.error);
+        const aliasResult = new FieldOutputColumnVisitor().getColumnAlias(fieldResult.value);
+        if (aliasResult.isErr()) return err(aliasResult.error);
+        fieldColumns.set(fieldId.toString(), aliasResult.value);
+        fieldsById.set(fieldId.toString(), fieldResult.value);
+      }
+
+      if (fieldMaskSqlMap?.size) {
+        const maskAliases = new Map<string, string>();
+        for (const [fieldId, maskSql] of fieldMaskSqlMap) {
+          if (!fieldColumns.has(fieldId)) continue;
+          const alias = `__aggregation_mask_${maskAliases.size}`;
+          maskAliases.set(fieldId, alias);
+          scopedQuery = scopedQuery.select(sql`${maskSql}`.as(alias));
+        }
+        // Evaluate masks against the source row, then aggregate only masked
+        // values. Mask dependency columns never escape the inner query.
+        scopedQuery = dynamicDb.selectFrom(scopedQuery.as('a')).select(
+          [...fieldColumns].map(([fieldId, column]) => {
+            const value = sql.ref(`a.${column}`);
+            const maskAlias = maskAliases.get(fieldId);
+            return (
+              maskAlias
+                ? maskValueExpression(sql<SqlBool>`${sql.ref(`a.${maskAlias}`)}`, value)
+                : value
+            ).as(column);
+          })
+        );
+      }
+
+      const values: TableRecordAggregationValue[] = [];
+      const levels: ReadonlyArray<ReadonlyArray<TableRecordAggregationGroup>> = [
+        [],
+        ...aggregation.groupBy.map((_, index) => aggregation.groupBy.slice(0, index + 1)),
+      ];
+
+      for (const groupFields of levels) {
+        const scopeAlias = 'record_aggregation_scope';
+        const aggregateAliases = aggregation.fields.map((_, index) => `__aggregation_${index}`);
+        const groupAliases = groupFields.map((_, index) => `__group_${index}`);
+        let aggregateQuery = dynamicDb
+          .with(scopeAlias, () => scopedQuery)
+          .selectFrom(`${scopeAlias} as a`)
+          .select(
+            aggregation.fields.map((aggregationField, index) => {
+              const field = fieldsById.get(aggregationField.fieldId.toString())!;
+              const columnName = fieldColumns.get(aggregationField.fieldId.toString())!;
+              return buildTableRecordAggregationExpression(
+                field,
+                columnName,
+                aggregationField.statisticFunc
+              ).as(aggregateAliases[index]!);
+            })
+          );
+
+        for (const [index, group] of groupFields.entries()) {
+          const field = fieldsById.get(group.fieldId.toString())!;
+          const columnName = fieldColumns.get(group.fieldId.toString())!;
+          const column = sql.ref(`a.${columnName}`);
+          // Same local-time trunc as list grouping (`buildGroupFieldValueExpression`).
+          // Raw timestamps split a YYYY-MM / YYYY-MM-DD header into many group
+          // ids, so the grid cannot match column statistics onto group points.
+          const dateGroupExpression = buildDateLikeGroupExpression(field, 'a', columnName);
+          const userIdentity = userGroupIdentityExprForField(field, column);
+          if (userIdentity.isErr()) return err(userIdentity.error);
+          const groupExpression = userIdentity.value ?? dateGroupExpression ?? column;
+          aggregateQuery = aggregateQuery
+            .select(groupExpression.as(groupAliases[index]!))
+            .groupBy(groupExpression);
+          const orderByClauses = buildStoredFieldOrderByClauses(
+            field,
+            columnName,
+            group.order,
+            'a',
+            {
+              columnExpression: groupExpression,
+              groupIdentityCollation: true,
+            }
+          );
+          if (orderByClauses.isErr()) return err(orderByClauses.error);
+          for (const clause of orderByClauses.value) {
+            aggregateQuery = applyStoredFieldOrderByClause(aggregateQuery, clause);
+          }
+        }
+        if (groupFields.length) {
+          aggregateQuery = aggregateQuery.limit(options?.maxGroupPoints ?? 5_000);
+        }
+
+        const compiled = aggregateQuery.compile();
+        this.recordSqlDiagnostic(context, 'record_aggregate', compiled);
+        const rows = await this.executeQueryWithBudget<Record<string, unknown>>(
+          context,
+          dynamicDb,
+          compiled
+        );
+        for (const row of rows.rows) {
+          const groupValues = groupAliases.map((alias) => normalizeStoredGroupValue(row[alias]));
+          aggregation.fields.forEach((aggregationField, index) => {
+            values.push({
+              fieldId: aggregationField.fieldId,
+              statisticFunc: aggregationField.statisticFunc,
+              value: normalizeTableRecordAggregationValue(
+                row[aggregateAliases[index]!],
+                aggregationField.statisticFunc
+              ),
+              ...(groupValues.length ? { groupValues } : {}),
+            });
+          });
+        }
+      }
+
+      return ok(values);
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to aggregate table records', error));
+    } finally {
+      span?.end();
+    }
+  }
+
+  async calendarDailyCollection(
+    context: IExecutionContext,
+    table: Table,
+    calendar: TableRecordCalendarDailyCollection,
+    range: {
+      readonly startDate: string;
+      readonly endDate: string;
+    },
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: Parameters<ITableRecordCalendarQueryRepository['calendarDailyCollection']>[5]
+  ): Promise<Result<ReadonlyArray<TableRecordCalendarDailyCollectionEntry>, DomainError>> {
+    const span = context.tracer?.startSpan('teable.repository.record.calendar_daily_collection', {
+      tableId: table.id().toString(),
+      startFieldId: calendar.startFieldId.toString(),
+      endFieldId: calendar.endFieldId.toString(),
+    });
+
+    try {
+      const tableNameResult = table.dbTableName().andThen((name) => name.value());
+      if (tableNameResult.isErr()) return err(tableNameResult.error);
+      const whereClause = spec ? buildRecordWhereClause(spec, { tableAlias: 'a' }) : ok(null);
+      if (whereClause.isErr()) return err(whereClause.error);
+      const fieldMaskSqlMap = buildFieldMaskSqlMap(options?.fieldMasks, 'a');
+      if (fieldMaskSqlMap.isErr()) return err(fieldMaskSqlMap.error);
+
+      const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
+        tableAlias: 'a',
+        searchAccessPath: options?.searchAccessPath,
+        fieldMaskSqlMap: fieldMaskSqlMap.value,
+      });
+      if (searchWherePlan.isErr()) return err(searchWherePlan.error);
+
+      const startFieldResult = table.getField((field) => field.id().equals(calendar.startFieldId));
+      if (startFieldResult.isErr()) return err(startFieldResult.error);
+      const endFieldResult = table.getField((field) => field.id().equals(calendar.endFieldId));
+      if (endFieldResult.isErr()) return err(endFieldResult.error);
+      const startColumnResult = startFieldResult.value
+        .dbFieldName()
+        .andThen((name) => name.value());
+      if (startColumnResult.isErr()) return err(startColumnResult.error);
+      const endColumnResult = endFieldResult.value.dbFieldName().andThen((name) => name.value());
+      if (endColumnResult.isErr()) return err(endColumnResult.error);
+      const startValue = buildStoredFieldValueExpression(
+        startFieldResult.value,
+        'a',
+        startColumnResult.value
+      );
+      if (startValue.isErr()) return err(startValue.error);
+      const endValue = buildStoredFieldValueExpression(
+        endFieldResult.value,
+        'a',
+        endColumnResult.value
+      );
+      if (endValue.isErr()) return err(endValue.error);
+      const startMask = fieldMaskSqlMap.value?.get(calendar.startFieldId.toString());
+      const endMask = fieldMaskSqlMap.value?.get(calendar.endFieldId.toString());
+
+      const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+      const timeZone = calendar.timeZone.toString();
+      const startColumn = startMask
+        ? maskValueExpression(startMask, startValue.value.expression)
+        : startValue.value.expression;
+      const endColumn = endMask
+        ? maskValueExpression(endMask, endValue.value.expression)
+        : endValue.value.expression;
+      const dateSeries = sql<{ date: Date }>`(
+        SELECT date::date AS date
+        FROM generate_series(
+          (${range.startDate}::timestamptz AT TIME ZONE ${timeZone})::date,
+          (${range.endDate}::timestamptz AT TIME ZONE ${timeZone})::date,
+          '1 day'::interval
+        ) AS date
+      )`.as('dates');
+
+      let query = dynamicDb
+        .selectFrom(`${tableNameResult.value} as a`)
+        .innerJoin(dateSeries, (join) => join.onTrue())
+        .select([
+          sql<string>`to_char(${sql.ref('dates.date')}, 'YYYY-MM-DD')`.as('date'),
+          sql<string>`count(*)`.as('count'),
+          sql<ReadonlyArray<string>>`(
+            array_agg(${sql.ref(`a.${RECORD_ID_COLUMN}`)} ORDER BY ${startColumn})
+          )[1:10]`.as('record_ids'),
+        ])
+        .where(
+          sql<SqlBool>`
+            (${startColumn}::timestamptz AT TIME ZONE ${timeZone})::date
+              <= (${range.endDate}::timestamptz AT TIME ZONE ${timeZone})::date
+            AND (
+              COALESCE(${endColumn}::timestamptz, ${startColumn}::timestamptz)
+                AT TIME ZONE ${timeZone}
+            )::date >= (${range.startDate}::timestamptz AT TIME ZONE ${timeZone})::date
+            AND (${startColumn}::timestamptz AT TIME ZONE ${timeZone})::date
+              <= ${sql.ref('dates.date')}
+            AND (
+              COALESCE(${endColumn}::timestamptz, ${startColumn}::timestamptz)
+                AT TIME ZONE ${timeZone}
+            )::date >= ${sql.ref('dates.date')}
+          `
+        )
+        .groupBy(sql.ref('dates.date'))
+        .orderBy(sql.ref('dates.date'), 'asc');
+      if (whereClause.value !== null) {
+        query = query.where(whereClause.value);
+      }
+      if (searchWherePlan.value.condition !== null) {
+        query = query.where(searchWherePlan.value.condition);
+      }
+
+      const compiled = query.compile();
+      this.recordSqlDiagnostic(context, 'record_calendar_daily_collection', compiled);
+      const rows = await this.executeQueryWithBudget<{
+        date: string;
+        count: string;
+        record_ids: ReadonlyArray<string>;
+      }>(context, dynamicDb, compiled);
+      const entries: TableRecordCalendarDailyCollectionEntry[] = [];
+      for (const row of rows.rows) {
+        const recordIdsResult = row.record_ids.map((recordId) => RecordId.create(recordId));
+        const firstError = recordIdsResult.find((result) => result.isErr());
+        if (firstError?.isErr()) return err(firstError.error);
+        entries.push({
+          date: row.date,
+          count: Number(row.count),
+          recordIds: recordIdsResult.map((result) => result._unsafeUnwrap()),
+        });
+      }
+      return ok(entries);
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to query calendar daily collection', error));
+    } finally {
+      span?.end();
+    }
+  }
+
+  async count(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    const findOptions = options as ITableRecordQueryOptions | undefined;
+    const span = context.tracer?.startSpan(
+      'teable.repository.record.count',
+      createCountTraceAttributes(table, findOptions)
+    );
+
+    try {
+      return await safeTry<number, DomainError>(
+        async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(findOptions);
+          const dbTableName = yield* table.dbTableName();
+          const tableName = yield* dbTableName.value();
+          const sourceTableName = readQuerySource?.tableName ?? tableName;
+          const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+          const whereClause = spec
+            ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
+            : ok(null);
+          if (whereClause.isErr()) {
+            return err(whereClause.error);
+          }
+          const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
+          const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
+            tableAlias: TABLE_ALIAS,
+            searchAccessPath: options?.searchAccessPath,
+            fieldMaskSqlMap,
+          });
+          if (searchWherePlan.isErr()) {
+            return err(searchWherePlan.error);
+          }
+          const searchAccessPath = createRecordSearchAccessPathResolution(
+            findOptions,
+            searchWherePlan.value
+          );
+          const countCompiled = this.withRecordReadQuerySource(
+            dynamicDb
+              .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+              .select(sql<string>`count(*)`.as('count'))
+              .$if(whereClause.value !== null, (qb) =>
+                qb.where(whereClause.value as Expression<SqlBool>)
+              )
+              .$if(searchWherePlan.value.condition !== null, (qb) =>
+                qb.where(searchWherePlan.value.condition as Expression<SqlBool>)
+              )
+              .compile(),
+            readQuerySource
+          );
+          this.recordSqlDiagnostic(context, 'record_count', countCompiled);
+          const countDbSpan = context.tracer?.startSpan(
+            'teable.table.query.db.count',
+            createCountTraceAttributes(table, findOptions, searchAccessPath)
+          );
+          const countResult = await (
+            countDbSpan && context.tracer
+              ? context.tracer.withSpan(countDbSpan, () =>
+                  this.executeQueryWithBudget<{ count: string }>(context, dynamicDb, countCompiled)
+                )
+              : this.executeQueryWithBudget<{ count: string }>(context, dynamicDb, countCompiled)
+          ).finally(() => countDbSpan?.end());
+          return ok(Number.parseInt(countResult.rows[0]?.count ?? '0', 10));
+        }.bind(this)
+      );
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to count table records', error));
+    } finally {
+      span?.end();
+    }
+  }
 
   async find(
     context: IExecutionContext,
@@ -196,15 +870,39 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
+          if (options?.recordIndexId !== undefined) {
+            const recordId = options.recordIndexId;
+            const indexes = yield* await this.loadViewIndexes(
+              context,
+              table,
+              spec,
+              options,
+              [recordId],
+              options.search
+            );
+            const index = indexes.get(recordId);
+            return ok({ records: [], total: 0, recordIndex: index == null ? null : index - 1 });
+          }
           const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
             sourceTableName: readQuerySource?.tableName,
           });
+          const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
+          queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
 
           if (options?.projectionFieldIds !== undefined) {
             queryBuilder.select(options.projectionFieldIds);
+          }
+          // Ids-only reads keep filter/search/order semantics but select just
+          // the record id column; incompatible extras (search matches, group
+          // metadata, order columns) are skipped below.
+          if (options?.idsOnly) {
+            queryBuilder.idsOnly?.();
+          }
+          if (options?.valuesOnly) {
+            queryBuilder.valuesOnly?.();
           }
 
           const dbTableName = yield* table.dbTableName();
@@ -217,43 +915,83 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const explicitRecordIdsOrder = options?.recordIdsOrder;
           if (!explicitRecordIdsOrder?.length) {
             if (orderBy && orderBy.length > 0) {
-              for (const sort of orderBy) {
-                if (isFieldOrderBy(sort)) {
-                  // Order by user-defined field
-                  queryBuilder.orderBy(sort.fieldId, sort.direction);
-                } else if (isSystemColumnOrderBy(sort)) {
-                  // Order by system column
-                  const column = sort.column;
-                  // Check if it's a view row order column that might not exist
-                  if (column.startsWith('__row_')) {
-                    // Check if the view row order column exists
-                    const columnExists = await this.getOrderColumnExists(
-                      dynamicDb,
-                      schemaName,
-                      tableNameOnly,
-                      column
-                    );
-
-                    if (columnExists) {
-                      queryBuilder.orderBy(column as '__auto_number', sort.direction);
-                    } else {
-                      // Fall back to auto_number if view row order column doesn't exist
-                      queryBuilder.orderBy('__auto_number', 'asc');
-                    }
-                  } else {
-                    // Standard system column (e.g., __auto_number, __created_time)
-                    queryBuilder.orderBy(column as '__auto_number', sort.direction);
-                  }
-                }
-              }
-            } else {
+              await this.applyQueryOrderBy(
+                queryBuilder,
+                orderBy,
+                dynamicDb,
+                schemaName,
+                tableNameOnly
+              );
+            } else if (!options?.valuesOnly) {
               // Default ordering by auto_number
               queryBuilder.orderBy('__auto_number', 'asc');
             }
           }
 
-          // Apply pagination if provided
-          if (options?.pagination) {
+          // Apply pagination if provided. Cursor pages must not use OFFSET.
+          const cursorSeekPlan = yield* await this.resolveCursorSeekPlan(
+            table,
+            orderBy,
+            dynamicDb,
+            schemaName,
+            tableNameOnly,
+            fieldMaskSqlMap
+          );
+          if (options?.cursor) {
+            if (cursorSeekPlan === null) {
+              return err(
+                domainError.validation({
+                  message: CURSOR_ORDER_BY_ERROR,
+                })
+              );
+            }
+            const parsedCursor = parseCursorToken(options.cursor);
+            if (parsedCursor == null) {
+              return err(
+                domainError.validation({
+                  message: 'Invalid list records cursor',
+                })
+              );
+            }
+            if (options.pagination) {
+              queryBuilder.limit(options.pagination.limit().toNumber());
+            }
+            if (cursorSeekPlan === 'auto-number') {
+              if (parsedCursor.kind !== 'auto-number') {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
+              queryBuilder.whereExpression(
+                sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor.autoNumber}` as Expression<SqlBool>
+              );
+            } else {
+              if (parsedCursor.kind !== 'values') {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
+              const cursorValues = resolveCursorValues(cursorSeekPlan, parsedCursor.entries);
+              if (!cursorValues) {
+                return err(
+                  domainError.validation({
+                    message: CURSOR_STALE_ERROR,
+                  })
+                );
+              }
+              queryBuilder.whereExpression(
+                buildValueSeekPredicate(
+                  TABLE_ALIAS,
+                  cursorSeekPlan,
+                  cursorValues
+                ) as Expression<SqlBool>
+              );
+            }
+          } else if (options?.pagination) {
             queryBuilder.limit(options.pagination.limit().toNumber());
             queryBuilder.offset(options.pagination.offset().toNumber());
           }
@@ -276,15 +1014,30 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
             tableAlias: TABLE_ALIAS,
             searchAccessPath: options?.searchAccessPath,
+            fieldMaskSqlMap,
           });
           if (searchWherePlan.isErr()) {
             searchWhereSpan?.end();
             return err(searchWherePlan.error);
           }
+          if (searchWherePlan.value.condition !== null) {
+            queryBuilder.whereExpression(searchWherePlan.value.condition);
+          }
           const searchAccessPath = createRecordSearchAccessPathResolution(
             options,
-            searchWherePlan.value.usedAccessPath
+            searchWherePlan.value
           );
+          const searchFieldMatches =
+            options?.includeSearchFieldMatches && !options.idsOnly
+              ? yield* buildRecordSearchFieldMatches(
+                  table,
+                  options.searchFieldMatchesSearch ?? options.search,
+                  {
+                    tableAlias: TABLE_ALIAS,
+                    fieldMaskSqlMap,
+                  }
+                )
+              : [];
           const actualSearchAttributes = createRepositoryFindTraceAttributes(
             table,
             options,
@@ -297,7 +1050,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           // Query order columns if requested
           let orderColumns: string[] = [];
-          if (options?.includeOrders) {
+          if (options?.includeOrders && !options.idsOnly) {
             // Query for order columns
             const orderColumnsResult = await sql<{ column_name: string }>`
               SELECT column_name
@@ -318,14 +1071,22 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
               sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
             );
           }
-          if (searchWherePlan.value.condition !== null) {
-            builtQuery = builtQuery.where(searchWherePlan.value.condition);
-          }
 
           // Add order columns to the query if requested
           if (orderColumns.length > 0) {
             for (const col of orderColumns) {
               builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+            }
+          }
+
+          // Cursor pages carry the value of every order key forward, so a paginated row
+          // query projects each one under a stable alias — independent of the field
+          // projection and of whether the caller asked for order columns.
+          if (Array.isArray(cursorSeekPlan) && options?.pagination && !options?.idsOnly) {
+            for (const [index, key] of cursorSeekPlan.entries()) {
+              builtQuery = builtQuery.select(
+                sql.ref(`${TABLE_ALIAS}.${key.column}`).as(cursorValueAlias(index))
+              );
             }
           }
 
@@ -336,13 +1097,69 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           this.recordSqlDiagnostic(context, 'record_find', compiled);
 
           // Collect field column mappings (respect projection when provided)
-          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
-            table,
-            options?.projectionFieldIds
-          );
+          const fieldColumns = options?.idsOnly
+            ? []
+            : yield* new FieldOutputColumnVisitor().collect(table, options?.projectionFieldIds);
+          const groupFieldColumns = options?.groupBy?.length
+            ? yield* new FieldOutputColumnVisitor().collect(
+                table,
+                options.groupBy.map((item) => item.fieldId)
+              )
+            : [];
+          const groupFields: Array<
+            FieldOrderBy & {
+              column: string;
+              isUserField: boolean;
+              valueExpression: RawBuilder<unknown>;
+              orderByClauses: ReadonlyArray<StoredFieldOrderByClause>;
+            }
+          > = [];
+          for (const item of options?.groupBy ?? []) {
+            const column = groupFieldColumns.find((candidate) =>
+              candidate.fieldId.equals(item.fieldId)
+            )?.columnAlias;
+            if (!column) {
+              return err(
+                domainError.notFound({
+                  message: `Group field column not found: ${item.fieldId.toString()}`,
+                })
+              );
+            }
+            const field = yield* table.getField((candidate) => candidate.id().equals(item.fieldId));
+            const { expression: rawValueExpression } = yield* buildGroupFieldValueExpression(
+              field,
+              column
+            );
+            const maskSql = fieldMaskSqlMap?.get(item.fieldId.toString());
+            const valueExpression = maskSql
+              ? maskValueExpression(maskSql, rawValueExpression)
+              : rawValueExpression;
+            // Refer to the selected group alias in ORDER BY. Repeating a
+            // parameterized CASE expression allocates different $n bindings;
+            // PostgreSQL then no longer recognizes it as the GROUP BY key.
+            const orderByClauses = yield* buildStoredFieldOrderByClauses(
+              field,
+              column,
+              item.direction,
+              TABLE_ALIAS,
+              {
+                columnExpression: sql.ref(`${GROUP_RESULT_ALIAS}.${item.fieldId.toString()}`),
+                groupIdentityCollation: true,
+              }
+            );
+            groupFields.push({
+              ...item,
+              column,
+              isUserField: isUserCellField(field),
+              valueExpression,
+              orderByClauses,
+            });
+          }
 
           try {
-            const shouldQueryTotal = options?.includeTotal !== false;
+            // Group queries return the full scoped row count through a window
+            // aggregate, so only ungrouped reads need a standalone count query.
+            const shouldQueryTotal = groupFields.length === 0 && options?.includeTotal === true;
             const recordsDbSpan = context.tracer?.startSpan(
               'teable.table.query.db.records',
               createRepositoryFindTraceAttributes(
@@ -355,9 +1172,13 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             const rowsPromise = (
               recordsDbSpan && context.tracer
                 ? context.tracer.withSpan(recordsDbSpan, () =>
-                    dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                    this.executeQueryWithBudget<Record<string, unknown>>(
+                      context,
+                      dynamicDb,
+                      compiled
+                    )
                   )
-                : dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                : this.executeQueryWithBudget<Record<string, unknown>>(context, dynamicDb, compiled)
             )
               .then((result) => result.rows)
               .finally(() => recordsDbSpan?.end());
@@ -393,23 +1214,160 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             const countPromise = countCompiled
               ? (countDbSpan && context.tracer
                   ? context.tracer.withSpan(countDbSpan, () =>
-                      dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                      this.executeQueryWithBudget<{ count: string }>(
+                        context,
+                        dynamicDb,
+                        countCompiled
+                      )
                     )
-                  : dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                  : this.executeQueryWithBudget<{ count: string }>(
+                      context,
+                      dynamicDb,
+                      countCompiled
+                    )
                 )
                   .then((result) => result.rows[0] ?? { count: '0' })
                   .finally(() => countDbSpan?.end())
               : Promise.resolve<{ count: string }>({ count: '0' });
 
-            const [rows, countResult] = await Promise.all([rowsPromise, countPromise]);
+            let groupCompiled: CompiledQuery<Record<string, unknown>> | undefined;
+            if (groupFields.length) {
+              const groupedRows = dynamicDb
+                .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+                .select(
+                  groupFields.map((item) =>
+                    sql`${item.valueExpression}`.as(item.fieldId.toString())
+                  )
+                )
+                .select(sql<string>`count(*)`.as('__count'))
+                .select(sql<string>`sum(count(*)) over ()`.as('__total'))
+                .$if(whereClause.value !== null, (qb) =>
+                  qb.where(whereClause.value as Expression<SqlBool>)
+                )
+                .$if(searchWherePlan.value.condition !== null, (qb) =>
+                  qb.where(searchWherePlan.value.condition as Expression<SqlBool>)
+                )
+                // GROUP BY SELECT ordinals so parameterized mask CASE
+                // expressions are compiled once in the inner select list.
+                .groupBy(groupFields.map((_, index) => sql.raw(String(index + 1))));
+              let groupQuery = dynamicDb.selectFrom(groupedRows.as(GROUP_RESULT_ALIAS)).selectAll();
+
+              for (const item of groupFields) {
+                for (const clause of item.orderByClauses) {
+                  groupQuery = applyStoredFieldOrderByClause(groupQuery, clause);
+                }
+              }
+              if (options?.groupLimit) {
+                groupQuery = groupQuery.limit(options.groupLimit);
+              }
+              groupCompiled = this.withRecordReadQuerySource(groupQuery.compile(), readQuerySource);
+              this.recordSqlDiagnostic(context, 'record_group', groupCompiled);
+            }
+            const groupsPromise = groupCompiled
+              ? this.executeQueryWithBudget<Record<string, unknown>>(
+                  context,
+                  dynamicDb,
+                  groupCompiled
+                ).then((result) => ({
+                  groups: result.rows.map((row) => {
+                    const fields: Record<string, unknown> = {};
+                    for (const item of groupFields) {
+                      fields[item.fieldId.toString()] = item.isUserField
+                        ? normalizeStoredUserAvatarUrls(row[item.fieldId.toString()])
+                        : row[item.fieldId.toString()];
+                    }
+                    return {
+                      fields,
+                      count: Number(row.__count),
+                    };
+                  }),
+                  total: Number(result.rows[0]?.__total ?? 0),
+                }))
+              : Promise.resolve(undefined);
+
+            const [rows, countResult, groupResult] = await Promise.all([
+              rowsPromise,
+              countPromise,
+              groupsPromise,
+            ]);
 
             const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
-            const total = shouldQueryTotal ? parseInt(countResult.count, 10) : records.length;
+            const groups = groupResult?.groups;
+            const total = groupResult
+              ? groupResult.total
+              : shouldQueryTotal
+                ? Number.parseInt(countResult.count, 10)
+                : records.length;
+            const pageRecordIds = options?.includeSearchFieldMatches
+              ? rows.map((row) => String(row[RECORD_ID_COLUMN]))
+              : [];
+            const shouldLoadMatchFlags =
+              options?.includeSearchFieldMatches &&
+              searchFieldMatches.length > 0 &&
+              rows.length > 0;
+            const matchFlagsDbSpan = shouldLoadMatchFlags
+              ? context.tracer?.startSpan('teable.table.query.db.search_match', {
+                  ...actualSearchAttributes,
+                })
+              : undefined;
+            const matchFlagsPromise = shouldLoadMatchFlags
+              ? (matchFlagsDbSpan && context.tracer
+                  ? context.tracer.withSpan(matchFlagsDbSpan, () =>
+                      this.loadSearchFieldMatchFlags(
+                        context,
+                        options,
+                        sourceTableName,
+                        pageRecordIds,
+                        searchFieldMatches
+                      )
+                    )
+                  : this.loadSearchFieldMatchFlags(
+                      context,
+                      options,
+                      sourceTableName,
+                      pageRecordIds,
+                      searchFieldMatches
+                    )
+                ).finally(() => matchFlagsDbSpan?.end())
+              : Promise.resolve(ok<ReadonlyArray<Record<string, unknown>>, DomainError>([]));
+            const [viewIndexByRecordId, searchMatchRows] = await Promise.all([
+              options?.includeSearchFieldMatches && options.searchIndexMode === 'view'
+                ? this.loadViewIndexes(context, table, spec, options, pageRecordIds)
+                : Promise.resolve(ok(undefined)),
+              matchFlagsPromise,
+            ]);
+            if (viewIndexByRecordId.isErr()) return err(viewIndexByRecordId.error);
+            if (searchMatchRows.isErr()) return err(searchMatchRows.error);
+            const matchFlagsByRecordId = new Map(
+              searchMatchRows.value.map((row) => [String(row[RECORD_ID_COLUMN]), row] as const)
+            );
+            const searchMatches = options?.includeSearchFieldMatches
+              ? yield* this.mapSearchMatches(
+                  rows,
+                  searchFieldMatches,
+                  options.pagination?.offset().toNumber() ?? 0,
+                  options.searchIndexMode ?? 'matched',
+                  viewIndexByRecordId.value,
+                  matchFlagsByRecordId
+                )
+              : undefined;
 
+            const pageLimit = options?.pagination?.limit().toNumber();
+            const pageIsFull = pageLimit != null && records.length === pageLimit;
+            const nextCursor =
+              pageIsFull && cursorSeekPlan !== null
+                ? cursorSeekPlan === 'auto-number'
+                  ? getLastAutoNumberCursor(records)
+                  : buildCursorToken(cursorSeekPlan, rows[rows.length - 1])
+                : undefined;
             return ok({
               records,
               total,
+              ...(groups ? { groups } : {}),
               ...(searchAccessPath ? { searchAccessPath } : {}),
+              ...(searchMatches ? { searchMatches } : {}),
+              ...(pageLimit != null ? { hasMore: pageIsFull } : {}),
+              ...(nextCursor ? { nextCursor } : {}),
             });
           } catch (error) {
             span?.recordError(describeError(error));
@@ -428,6 +1386,177 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     } finally {
       span?.end();
     }
+  }
+
+  private mapSearchMatches(
+    rows: ReadonlyArray<Record<string, unknown>>,
+    fieldMatches: ReadonlyArray<RecordSearchFieldMatch>,
+    offset: number,
+    mode: 'matched' | 'view',
+    viewIndexByRecordId?: ReadonlyMap<string, number>,
+    matchFlagsByRecordId?: ReadonlyMap<string, Record<string, unknown>>
+  ): Result<ReadonlyArray<ITableRecordSearchMatch>, DomainError> {
+    return safeTry(function* () {
+      const result: ITableRecordSearchMatch[] = [];
+      for (const [rowOffset, row] of rows.entries()) {
+        const rawRecordId = String(row[RECORD_ID_COLUMN]);
+        const recordId = yield* RecordId.create(rawRecordId);
+        const index =
+          mode === 'view' ? viewIndexByRecordId?.get(rawRecordId) : offset + rowOffset + 1;
+        if (index == null) {
+          return err(
+            domainError.notFound({
+              code: 'record.index_not_found',
+              message: `Record index not found: ${rawRecordId}`,
+            })
+          );
+        }
+
+        const flagRow = matchFlagsByRecordId?.get(rawRecordId);
+        if (!flagRow) continue;
+        for (const [fieldOffset, match] of fieldMatches.entries()) {
+          if (flagRow[`__search_match_${fieldOffset}`] !== true) continue;
+          result.push({
+            index,
+            fieldId: yield* FieldId.create(match.field.id().toString()),
+            recordId,
+          });
+        }
+      }
+      return ok(result);
+    });
+  }
+
+  private async loadSearchFieldMatchFlags(
+    context: IExecutionContext,
+    options: ITableRecordQueryOptions | undefined,
+    sourceTableName: string,
+    recordIds: ReadonlyArray<string>,
+    fieldMatches: ReadonlyArray<RecordSearchFieldMatch>
+  ): Promise<Result<ReadonlyArray<Record<string, unknown>>, DomainError>> {
+    if (!recordIds.length || fieldMatches.length === 0) return ok([]);
+
+    try {
+      const readQuerySource = this.getRecordReadQuerySource(options);
+      const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+      let query = dynamicDb
+        .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+        .select(sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`).as(RECORD_ID_COLUMN));
+      for (const [index, match] of fieldMatches.entries()) {
+        query = query.select(
+          sql<boolean>`CASE WHEN ${match.condition} THEN true ELSE false END`.as(
+            `__search_match_${index}`
+          )
+        );
+      }
+      // One array bind parameter keeps the plan shape stable across page sizes
+      // (an IN list re-plans per distinct member count).
+      const compiled = this.withRecordReadQuerySource(
+        query
+          .where(
+            sql<SqlBool>`${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)} = ANY(${[...recordIds]}::text[])`
+          )
+          .compile(),
+        readQuerySource
+      );
+      this.recordSqlDiagnostic(context, 'record_search_field_matches', compiled);
+      const rows = await this.executeQueryWithBudget<Record<string, unknown>>(
+        context,
+        dynamicDb,
+        compiled
+      );
+      return ok(rows.rows);
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to load search field matches', error));
+    }
+  }
+
+  private async loadViewIndexes(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryOptions,
+    recordIds: ReadonlyArray<string>,
+    search?: ITableRecordQueryOptions['search']
+  ): Promise<Result<ReadonlyMap<string, number>, DomainError>> {
+    if (!recordIds.length) return ok(new Map());
+
+    return safeTry(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const readQuerySource = this.getRecordReadQuerySource(options);
+        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+          // Row numbers are storage order. Link tables otherwise resolve to
+          // computed mode, which has no idsOnly and would evaluate every
+          // lookup/link for all ~160k rows (T7058).
+          mode: 'stored',
+          sourceTableName: readQuerySource?.tableName,
+        });
+        queryBuilder.idsOnly?.();
+        const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options.fieldMasks, TABLE_ALIAS);
+        queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
+        const explicitRecordIdsOrder = options.recordIdsOrder;
+        if (!explicitRecordIdsOrder?.length) {
+          if (options.orderBy?.length) {
+            const dbTableName = yield* table.dbTableName();
+            const fullTableName = yield* dbTableName.value();
+            const [schemaName, tableName] = fullTableName.split('.');
+            const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+            await this.applyQueryOrderBy(
+              queryBuilder,
+              options.orderBy,
+              dynamicDb,
+              schemaName,
+              tableName
+            );
+          } else {
+            queryBuilder.orderBy('__auto_number', 'asc');
+          }
+        }
+        if (spec) queryBuilder.where(spec);
+        const searchWherePlan = yield* buildRecordSearchWherePlan(table, search, {
+          tableAlias: TABLE_ALIAS,
+          searchAccessPath: options.searchAccessPath,
+          fieldMaskSqlMap,
+        });
+        if (searchWherePlan.condition !== null) {
+          queryBuilder.whereExpression(searchWherePlan.condition);
+        }
+
+        let viewRows = yield* queryBuilder.build();
+        if (explicitRecordIdsOrder?.length) {
+          const orderedIds = explicitRecordIdsOrder.map((recordId) => recordId.toString());
+          viewRows = viewRows.orderBy(
+            sql`array_position(${orderedIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
+          );
+        }
+
+        const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+        const indexedRows = dynamicDb
+          .selectFrom(viewRows.as('view_rows'))
+          .select(sql.ref(`view_rows.${RECORD_ID_COLUMN}`).as(RECORD_ID_COLUMN))
+          .select(sql<number>`row_number() over ()`.as('__row_index'))
+          .as('indexed_rows');
+        const compiled = this.withRecordReadQuerySource(
+          dynamicDb
+            .selectFrom(indexedRows)
+            .select([
+              sql.ref(`indexed_rows.${RECORD_ID_COLUMN}`).as(RECORD_ID_COLUMN),
+              sql.ref('indexed_rows.__row_index').as('__row_index'),
+            ])
+            .where(sql.ref(`indexed_rows.${RECORD_ID_COLUMN}`), 'in', recordIds)
+            .compile(),
+          readQuerySource
+        );
+        this.recordSqlDiagnostic(context, 'record_search_view_index', compiled);
+        const rows = await this.executeQueryWithBudget<{
+          __id: string;
+          __row_index: string | number;
+        }>(context, dynamicDb, compiled);
+        return ok(
+          new Map(rows.rows.map((row) => [String(row[RECORD_ID_COLUMN]), Number(row.__row_index)]))
+        );
+      }.bind(this)
+    );
   }
 
   async findOne(
@@ -490,8 +1619,13 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
 
           try {
-            const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
-              .rows;
+            const rows = (
+              await this.executeQueryWithBudget(
+                context,
+                this.db as unknown as Kysely<DynamicDB>,
+                compiled
+              )
+            ).rows;
 
             if (rows.length === 0) {
               return err(
@@ -622,6 +1756,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       mode: options?.mode,
       pagination,
       orderBy: options?.orderBy,
+      includeOrders: options?.includeOrders,
       includeTotal: false,
       projectionFieldIds: options?.projectionFieldIds,
       search: options?.search,
@@ -651,10 +1786,10 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           sourceTableName: this.getRecordReadQuerySource(options)?.tableName,
         });
 
-        if (!isCursorOrderBySupported(options?.orderBy)) {
+        if (!isAutoNumberOnlyCursorOrderBy(options?.orderBy)) {
           return err(
             domainError.validation({
-              message: 'Cursor pagination only supports orderBy __auto_number asc',
+              message: CURSOR_ORDER_BY_ERROR,
             })
           );
         }
@@ -670,7 +1805,6 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           queryBuilder.where(spec);
         }
 
-        let builtQuery = yield* queryBuilder.build();
         const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
           tableAlias: TABLE_ALIAS,
           searchAccessPath: options?.searchAccessPath,
@@ -679,20 +1813,24 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           return err(searchWhereClause.error);
         }
         if (searchWhereClause.value !== null) {
-          builtQuery = builtQuery.where(searchWhereClause.value);
+          queryBuilder.whereExpression(searchWhereClause.value);
         }
 
         const parsedCursor = parseCursorToken(cursor);
-        if (cursor != null && parsedCursor == null) {
+        const streamCursor =
+          parsedCursor?.kind === 'auto-number' ? parsedCursor.autoNumber : undefined;
+        if (cursor != null && streamCursor == null) {
           this.logger.warn('findStream: invalid cursor token, fallback to stream start', {
             cursor,
           });
         }
-        if (parsedCursor != null) {
-          builtQuery = builtQuery.where(
-            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+        if (streamCursor != null) {
+          queryBuilder.whereExpression(
+            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${streamCursor}` as Expression<SqlBool>
           );
         }
+
+        const builtQuery = yield* queryBuilder.build();
 
         const compiled = this.withRecordReadQuerySource(
           builtQuery.compile(),
@@ -709,8 +1847,13 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
         );
 
         try {
-          const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
-            .rows;
+          const rows = (
+            await this.executeQueryWithBudget(
+              context,
+              this.db as unknown as Kysely<DynamicDB>,
+              compiled
+            )
+          ).rows;
           const records = mapRowsToReadModels(fieldColumns, rows, []);
           return ok(records);
         } catch (error) {
@@ -727,6 +1870,142 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       this.streamPaginationStrategies.find((strategy) => strategy.accepts(pagination)) ??
       this.defaultStreamPaginationStrategy
     );
+  }
+
+  /**
+   * `null` cannot seek. `'auto-number'` uses `__auto_number > n`.
+   * Otherwise compare the same stored order keys against the values the cursor carries.
+   */
+  private async resolveCursorSeekPlan(
+    table: Table,
+    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
+    dynamicDb: Kysely<DynamicDB>,
+    schemaName: string,
+    tableNameOnly: string,
+    fieldMaskSqlMap: ReadonlyMap<string, unknown> | undefined
+  ): Promise<Result<'auto-number' | CursorSeekKey[] | null, DomainError>> {
+    if (isAutoNumberOnlyCursorOrderBy(orderBy)) {
+      return ok('auto-number');
+    }
+    if (!orderByHasAutoNumberAsc(orderBy) || !orderBy?.length) {
+      return ok(null);
+    }
+
+    const keys: CursorSeekKey[] = [];
+    for (const sort of orderBy) {
+      if (isFieldOrderBy(sort)) {
+        // A masked field is ordered by its mask expression rather than by its column, so
+        // a token carrying the column value could not express a position in that order.
+        if (fieldMaskSqlMap?.has(sort.fieldId.toString())) {
+          return ok(null);
+        }
+        const fieldResult = table.getField((field) => field.id().equals(sort.fieldId));
+        if (fieldResult.isErr()) {
+          return err(fieldResult.error);
+        }
+        const field = fieldResult.value;
+        if (!isRawColumnCursorField(field)) {
+          return ok(null);
+        }
+        const columnResult = field.dbFieldName().andThen((name) => name.value());
+        if (columnResult.isErr()) {
+          return err(columnResult.error);
+        }
+        keys.push({
+          column: columnResult.value,
+          direction: sort.direction,
+          matchV1Nulls: true,
+        });
+        continue;
+      }
+      if (!isSystemColumnOrderBy(sort)) {
+        return ok(null);
+      }
+      if (sort.column === '__auto_number') {
+        if (sort.direction !== 'asc') {
+          return ok(null);
+        }
+        keys.push({
+          column: '__auto_number',
+          direction: 'asc',
+          matchV1Nulls: false,
+        });
+        continue;
+      }
+      if (!sort.column.startsWith('__row_')) {
+        return ok(null);
+      }
+      const columnExists = await this.getOrderColumnExists(
+        dynamicDb,
+        schemaName,
+        tableNameOnly,
+        sort.column
+      );
+      if (!columnExists) {
+        continue;
+      }
+      keys.push({
+        column: sort.column,
+        direction: sort.direction,
+        matchV1Nulls: true,
+      });
+    }
+
+    if (keys.length === 0) {
+      return ok(null);
+    }
+    const onlyAutoNumber = keys.length === 1 && keys[0]?.matchV1Nulls === false;
+    if (onlyAutoNumber) {
+      return ok('auto-number');
+    }
+    return ok(keys);
+  }
+
+  /**
+   * Apply list/view order keys. Missing `__row_*` columns fall back to
+   * `__auto_number` only when that tie-breaker is not already in the list —
+   * `mergeOrderBy` always appends it, and a second copy blocked btree scans.
+   */
+  private async applyQueryOrderBy(
+    queryBuilder: ITableRecordQueryBuilder,
+    orderBy: ReadonlyArray<TableRecordOrderBy>,
+    dynamicDb: Kysely<DynamicDB>,
+    schemaName: string,
+    tableNameOnly: string
+  ): Promise<void> {
+    const hasLaterAutoNumber = (fromIndex: number) =>
+      orderBy
+        .slice(fromIndex + 1)
+        .some((item) => isSystemColumnOrderBy(item) && item.column === '__auto_number');
+
+    for (let index = 0; index < orderBy.length; index += 1) {
+      const sort = orderBy[index];
+      if (isFieldOrderBy(sort)) {
+        queryBuilder.orderBy(sort.fieldId, sort.direction, {
+          groupIdentityCollation: sort.groupIdentityCollation,
+        });
+        continue;
+      }
+      if (!isSystemColumnOrderBy(sort)) {
+        continue;
+      }
+      const column = sort.column;
+      if (column.startsWith('__row_')) {
+        const columnExists = await this.getOrderColumnExists(
+          dynamicDb,
+          schemaName,
+          tableNameOnly,
+          column
+        );
+        if (columnExists) {
+          queryBuilder.orderBy(column as '__auto_number', sort.direction);
+        } else if (!hasLaterAutoNumber(index)) {
+          queryBuilder.orderBy('__auto_number', 'asc');
+        }
+        continue;
+      }
+      queryBuilder.orderBy(column as '__auto_number', sort.direction);
+    }
   }
 
   private async getOrderColumnExists(
@@ -814,7 +2093,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       });
       return compiled;
     }
-    const escapedName = cteName.replace(/"/g, '""');
+    const escapedName = cteName.replaceAll('"', '""');
     const sqlWithCte = `with "${escapedName}" as (${source.cteSql}) ${compiled.sql}`;
     return CompiledQuery.raw(sqlWithCte, Array.from(compiled.parameters)) as CompiledQuery<O>;
   }
@@ -906,44 +2185,11 @@ const mapRowsToReadModels = (
   });
 };
 
-const normalizeStoredUserAvatarUrls = (value: unknown): unknown => {
-  if (typeof value === 'string') {
-    if (!value.includes(LEGACY_AVATAR_PREFIX)) {
-      return value;
-    }
-
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      const normalized = normalizeStoredUserAvatarUrls(parsed);
-      return normalized === parsed ? value : normalized;
-    } catch {
-      return value;
-    }
+const normalizeStoredGroupValue = (value: unknown): unknown => {
+  if (value instanceof Date) {
+    return value.toISOString();
   }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeStoredUserAvatarUrls(item));
-  }
-
-  if (!value || typeof value !== 'object') {
-    return value;
-  }
-
-  const item = value as Record<string, unknown>;
-  const id = item.id;
-  if (typeof id !== 'string' || id.length === 0) {
-    return value;
-  }
-
-  const avatarUrl = item.avatarUrl;
-  if (typeof avatarUrl === 'string' && !avatarUrl.startsWith(LEGACY_AVATAR_PREFIX)) {
-    return value;
-  }
-
-  return {
-    ...item,
-    avatarUrl: buildUserAvatarUrl(id),
-  };
+  return value;
 };
 
 const describeError = (error: unknown): string => {
@@ -985,55 +2231,35 @@ const extractDatabaseErrorDetails = (
   if (typeof candidate.constraint === 'string') {
     details.constraint = candidate.constraint;
   }
+  const undefinedColumn = extractUndefinedColumnError(error);
+  if (undefinedColumn) Object.assign(details, undefinedColumn);
 
   return Object.keys(details).length > 0 ? details : undefined;
 };
 
+/**
+ * `57014` means the server cancelled a statement that outran its budget: the
+ * database did not answer in time, which is infrastructure - not a defect in the
+ * generated SQL (`db.undefined_column`) and not an unclassified failure.
+ */
 const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError => {
   const details = extractDatabaseErrorDetails(error);
   const pgCode = details?.pgCode;
+  const message = `${prefix}: ${describeError(error)}`;
+
+  if (pgCode === '57014') {
+    return domainError.infrastructure({
+      code: 'db.statement_timeout',
+      ...(details ? { details } : {}),
+      message,
+    });
+  }
 
   return domainError.unexpected({
     ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
     ...(details ? { details } : {}),
-    message: `${prefix}: ${describeError(error)}`,
+    message,
   });
-};
-
-const parseCursorToken = (cursor: string | undefined): number | undefined => {
-  if (!cursor) {
-    return undefined;
-  }
-  const parsed = Number(cursor);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return undefined;
-  }
-  return Math.floor(parsed);
-};
-
-const getLastAutoNumberCursor = (
-  records: ReadonlyArray<TableRecordReadModel>
-): string | undefined => {
-  const lastRecord = records[records.length - 1];
-  if (
-    !lastRecord ||
-    typeof lastRecord.autoNumber !== 'number' ||
-    !Number.isFinite(lastRecord.autoNumber)
-  ) {
-    return undefined;
-  }
-  return String(Math.floor(lastRecord.autoNumber));
-};
-
-const isCursorOrderBySupported = (orderBy: ITableRecordQueryStreamOptions['orderBy']): boolean => {
-  if (!orderBy?.length) {
-    return true;
-  }
-
-  return orderBy.every(
-    (sort) =>
-      isSystemColumnOrderBy(sort) && sort.column === '__auto_number' && sort.direction === 'asc'
-  );
 };
 
 const resolveQueryMode = (

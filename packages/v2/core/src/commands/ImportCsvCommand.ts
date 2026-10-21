@@ -6,6 +6,7 @@ import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableName } from '../domain/table/TableName';
 import type { CsvSource } from '../ports/CsvParser';
+import type { IImportProgress } from '../ports/import/IImportSource';
 
 /**
  * Base schema for CSV import (common fields)
@@ -69,8 +70,23 @@ export class ImportCsvCommand {
     readonly batchSize: number,
     readonly maxRowCount: number | undefined,
     readonly useFirstRowAsHeader: boolean,
-    readonly columns: ReadonlyArray<ImportCsvColumn> | undefined
+    readonly columns: ReadonlyArray<ImportCsvColumn> | undefined,
+    readonly onProgress?: (progress: IImportProgress) => void
   ) {}
+
+  withOnProgress(onProgress?: (progress: IImportProgress) => void): ImportCsvCommand {
+    return new ImportCsvCommand(
+      this.baseId,
+      this.csvSource,
+      this.tableName,
+      this.importData,
+      this.batchSize,
+      this.maxRowCount,
+      this.useFirstRowAsHeader,
+      this.columns,
+      onProgress
+    );
+  }
 
   /**
    * 从 HTTP API 输入创建

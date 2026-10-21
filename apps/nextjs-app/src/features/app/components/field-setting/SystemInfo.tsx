@@ -10,20 +10,18 @@ export const DbFieldName: React.FC<{
 }> = ({ field, updateFieldProps }) => {
   const { t } = useTranslation(['table']);
   return (
-    <>
-      <div className="mt-2 flex flex-col space-y-2">
-        <p className="text-sm font-medium">{t('table:field.editor.dbFieldName')}</p>
-        <Input
-          placeholder={t('table:field.editor.dbFieldName')}
-          type="text"
-          size="lg"
-          value={field['dbFieldName'] || ''}
-          data-1p-ignore="true"
-          autoComplete="off"
-          onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
-        />
-      </div>
-    </>
+    <div className="mt-2 flex flex-col space-y-2">
+      <p className="text-sm font-medium">{t('table:field.editor.dbFieldName')}</p>
+      <Input
+        placeholder={t('table:field.editor.dbFieldName')}
+        type="text"
+        size="lg"
+        value={field['dbFieldName'] || ''}
+        data-1p-ignore="true"
+        autoComplete="off"
+        onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
+      />
+    </div>
   );
 };
 
@@ -39,7 +37,7 @@ const FieldInfoList: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => (
       { label: 'isPending', value: field.isPending ? 'true' : 'false' },
     ].map(({ label, value }) => (
       <p key={label} className="h-4 text-xs ">
-        <span className="mr-1 select-none text-muted-foreground">{label}: </span>
+        <span className="me-1 select-none text-muted-foreground">{label}: </span>
         {value}
       </p>
     ))}
@@ -79,7 +77,7 @@ export const SystemInfo: React.FC<{
 
   if (!show) {
     return (
-      <div className="absolute right-0 top-[2px] cursor-pointer">
+      <div className="absolute end-0 top-[2px] cursor-pointer">
         <ToggleButton show={show} setShow={setShow} />
       </div>
     );

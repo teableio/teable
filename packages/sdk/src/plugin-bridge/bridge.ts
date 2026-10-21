@@ -9,7 +9,7 @@ type IListenerRecord = {
 };
 
 export class PluginBridge implements IBridgeListener {
-  private connection: Connection<IParentBridgeMethods>;
+  private readonly connection: Connection<IParentBridgeMethods>;
   private bridge?: AsyncMethodReturns<IParentBridgeMethods>;
 
   private listeners: Partial<IListenerRecord> = {};

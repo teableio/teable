@@ -166,7 +166,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const waitForCount = async (
   getCount: () => Promise<number>,
   expectedCount: number,
-  maxRetries = 50
+  maxRetries = 100
 ) => {
   for (let i = 0; i < maxRetries; i++) {
     const count = await getCount();

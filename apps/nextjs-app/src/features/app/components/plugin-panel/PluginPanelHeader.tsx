@@ -88,7 +88,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
       <Input
         ref={renameRef}
         size="sm"
-        className={cn('absolute left-0 right-0', {
+        className={cn('absolute start-0 end-0', {
           hidden: rename === null,
         })}
         value={rename ?? ''}
@@ -126,7 +126,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
                   setTimeout(() => renameRef.current?.focus(), 200);
                 }}
               >
-                <Edit className="mr-1.5" />
+                <Edit className="me-1.5" />
                 {t('common:actions.rename')}
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -136,7 +136,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
                   }
                 }}
               >
-                <Copy className="mr-1.5" />
+                <Copy className="me-1.5" />
                 {t('common:actions.duplicate')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />

@@ -23,17 +23,14 @@ import { UpdateNumberFormattingSpec } from '../UpdateNumberFormattingSpec';
 import { UpdateSingleSelectOptionsSpec } from '../UpdateSingleSelectOptionsSpec';
 
 // Minimal spy visitor that tracks which visit methods are called
-class SpyVisitor
-  implements
-    Pick<
-      ITableSpecVisitor,
-      | 'visit'
-      | 'visitUpdateFormulaExpression'
-      | 'visitUpdateNumberFormatting'
-      | 'visitUpdateSingleSelectOptions'
-      | 'visitUpdateDateFormatting'
-    >
-{
+class SpyVisitor implements Pick<
+  ITableSpecVisitor,
+  | 'visit'
+  | 'visitUpdateFormulaExpression'
+  | 'visitUpdateNumberFormatting'
+  | 'visitUpdateSingleSelectOptions'
+  | 'visitUpdateDateFormatting'
+> {
   readonly calls: string[] = [];
 
   visit(_: ISpecification<unknown, ITableSpecVisitor>) {
@@ -155,7 +152,7 @@ describe('Field update specs', () => {
       );
 
       const result = spec.mutate(table);
-      result._unsafeUnwrapErr();
+      expect(result.isErr()).toBe(true);
     });
 
     it('errors when field is wrong type', () => {
@@ -329,7 +326,7 @@ describe('Field update specs', () => {
 
       const spec = UpdateSingleSelectOptionsSpec.create(fieldId, dbFieldName, [], []);
       const result = spec.mutate(table);
-      result._unsafeUnwrapErr();
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts visitor', () => {

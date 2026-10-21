@@ -1,5 +1,7 @@
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AggregationOpenApiController } from '../aggregation/open-api/aggregation-open-api.controller';
+import { ShareController } from '../share/share.controller';
 import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
 describe('SpaceDataDbMigrationGuardService', () => {
@@ -84,6 +86,29 @@ describe('SpaceDataDbMigrationGuardService', () => {
     const service = new SpaceDataDbMigrationGuardService(prismaService as never);
 
     await expect(service.assertSpaceWritable('spcxxx')).resolves.toBeUndefined();
+  });
+
+  it('degrades expensive search reads while a migration is active', async () => {
+    prismaService.tableMeta.findUnique.mockResolvedValue({
+      baseId: 'bsexxx',
+      base: { spaceId: 'spcxxx' },
+    });
+    prismaService.spaceDataDbMigrationJob.findFirst.mockResolvedValue({
+      id: 'sdmjxxx',
+      state: 'copying',
+    });
+    const service = new SpaceDataDbMigrationGuardService(prismaService as never);
+
+    await expect(
+      service.assertTableRecordSearchReadable('tblxxx', { search: ['needle'] })
+    ).rejects.toMatchObject({
+      code: HttpErrorCode.TOO_MANY_REQUESTS,
+      data: expect.objectContaining({
+        errorCode: 'SPACE_DATA_DB_MIGRATING',
+        migrationJobId: 'sdmjxxx',
+      }),
+    });
+    await expect(service.assertTableRecordSearchReadable('tblxxx', {})).resolves.toBeUndefined();
   });
 
   it('allows record writes during the online copy phase while schema writes stay blocked', async () => {
@@ -295,5 +320,77 @@ describe('SpaceDataDbMigrationGuardService', () => {
         moveJobId: 'bdmjxxx',
       }),
     });
+  });
+
+  it('guards every expensive aggregation and shared-view search entrypoint', async () => {
+    const migrationError = new Error('search degraded');
+    const searchGuard = {
+      assertTableRecordSearchReadable: vi.fn().mockRejectedValue(migrationError),
+    };
+    const aggregationController = new AggregationOpenApiController(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      searchGuard as never
+    );
+    const shareController = new ShareController(
+      {} as never,
+      {} as never,
+      {} as never,
+      searchGuard as never
+    );
+    const query = { search: ['needle'] } as never;
+    const shareRequest = { shareInfo: { tableId: 'tblxxx' } };
+
+    await expect(aggregationController.getSearchCount('tblxxx', query)).rejects.toBe(
+      migrationError
+    );
+    await expect(aggregationController.getSearchIndex('tblxxx', query)).rejects.toBe(
+      migrationError
+    );
+    await expect(shareController.getSearchCount(shareRequest, query)).rejects.toBe(migrationError);
+    await expect(shareController.getSearchIndex(shareRequest, query)).rejects.toBe(migrationError);
+    await expect(shareController.getRecordDocIds(shareRequest, query)).rejects.toBe(migrationError);
+    expect(searchGuard.assertTableRecordSearchReadable).toHaveBeenCalledTimes(5);
+  });
+
+  it('rejects writes when the space data database is marked read_only', async () => {
+    const dataDbHealthService = {
+      getHealthStateForSpace: vi.fn().mockResolvedValue('read_only'),
+    };
+    const service = new SpaceDataDbMigrationGuardService(
+      prismaService as never,
+      dataDbHealthService as never
+    );
+
+    await expect(service.assertSpaceRecordWritable('spcxxx')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(dataDbHealthService.getHealthStateForSpace).toHaveBeenCalledWith('spcxxx');
+    // Fail-fast means the migration lookup never runs.
+    expect(prismaService.spaceDataDbMigrationJob.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('lets writes flow for degraded or unreachable health states', async () => {
+    prismaService.spaceDataDbMigrationJob.findFirst.mockResolvedValue(null);
+    for (const state of ['healthy', 'degraded', 'unreachable', 'untracked']) {
+      const dataDbHealthService = {
+        getHealthStateForSpace: vi.fn().mockResolvedValue(state),
+      };
+      const service = new SpaceDataDbMigrationGuardService(
+        prismaService as never,
+        dataDbHealthService as never
+      );
+      await expect(service.assertSpaceRecordWritable('spcxxx')).resolves.toBeUndefined();
+    }
+  });
+
+  it('skips the health check when the health service is absent', async () => {
+    prismaService.spaceDataDbMigrationJob.findFirst.mockResolvedValue(null);
+    const service = new SpaceDataDbMigrationGuardService(prismaService as never);
+
+    await expect(service.assertSpaceRecordWritable('spcxxx')).resolves.toBeUndefined();
   });
 });

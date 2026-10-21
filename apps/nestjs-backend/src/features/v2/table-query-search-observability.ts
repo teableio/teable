@@ -71,10 +71,13 @@ const requestDuration = tableQueryMeter.createHistogram('teable.table_query.dura
   unit: 'ms',
 });
 
-const dbParentDuration = tableQueryMeter.createHistogram('teable.table_query.db_parent.duration.ms', {
-  description: 'Parent application span duration for table-query database work',
-  unit: 'ms',
-});
+const dbParentDuration = tableQueryMeter.createHistogram(
+  'teable.table_query.db_parent.duration.ms',
+  {
+    description: 'Parent application span duration for table-query database work',
+    unit: 'ms',
+  }
+);
 
 const validationDuration = tableQueryMeter.createHistogram(
   'teable.table_query.search.validation.duration.ms',

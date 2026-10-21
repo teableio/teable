@@ -1,4 +1,4 @@
-import { Trash } from '@teable/icons';
+import { MessageSquareDot, Trash } from '@teable/icons';
 import { deleteRecord, duplicateRecord } from '@teable/openapi';
 import { useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -17,6 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useAddToChat } from '../../hooks/useAddToChat';
 import { useEventMenuStore } from '../hooks';
 
 export interface IMenuItemProps<T> {
@@ -31,9 +32,10 @@ export interface IMenuItemProps<T> {
 enum MenuItemType {
   Delete = 'Delete',
   Duplicate = 'Duplicate',
+  AddToChat = 'AddToChat',
 }
 
-const iconClassName = 'mr-2 h-4 w-4 shrink-0';
+const iconClassName = 'me-2 h-4 w-4 shrink-0';
 
 export const EventMenu = () => {
   const { eventMenu, closeEventMenu } = useEventMenuStore();
@@ -42,6 +44,7 @@ export const EventMenu = () => {
   const view = useView();
   const viewId = view?.id;
   const recordMenuRef = useRef<HTMLDivElement>(null);
+  const { chatEnabled, addToChat } = useAddToChat();
 
   const { eventId } = eventMenu ?? {};
 
@@ -75,6 +78,13 @@ export const EventMenu = () => {
             anchorId: eventId,
           });
         },
+      },
+      {
+        type: MenuItemType.AddToChat,
+        name: t('table:menu.addToChat'),
+        icon: <MessageSquareDot className={iconClassName} />,
+        hidden: !chatEnabled,
+        onClick: () => addToChat(eventId),
       },
     ],
     [

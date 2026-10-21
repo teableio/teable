@@ -21,6 +21,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe command layer scope.
+- `computed-outbox/` - Role: outbox maintenance commands; Purpose: pause, recover, discard, concurrency.
 - `CommandHandler.ts` - Role: handler interface + registry; Purpose: let the command bus resolve handlers.
 - `CreateTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs and build TableBuilder inputs.
 - `CreateTableHandler.ts` - Role: command handler; Purpose: build aggregate and persist/publish.
@@ -41,22 +42,44 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DuplicateRecordsStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streamed range-based record duplication inputs and batch sizing.
 - `DuplicateRecordsStreamHandler.ts` - Role: command handler; Purpose: expose bulk row duplication as an async progress stream.
 - `DeleteFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deleting a field.
-- `DeleteFieldHandler.ts` - Role: command handler; Purpose: remove field metadata/schema and publish events.
+- `DeleteFieldHandler.ts` - Role: command handler; Purpose: remove field metadata/schema and publish
+  events for dependent View column/query cleanup; capture dependency snapshots for both direct and
+  symmetric Link deletions so undo restores propagated error states.
+- `DeleteFieldsHandler.ts` - Role: command handler; Purpose: batch-remove field metadata/schema with
+  the same dependent cleanup and deduplicated direct/symmetric dependency snapshots.
+- `DeleteViewCommand.ts` - Role: command DTO + schema; Purpose: validate Table-owned View deletion.
+- `DeleteViewHandler.ts` - Role: command handler; Purpose: lock and load Table aggregate roots, persist
+  View removal and cross-Table Link filter cleanup, then publish events after commit.
 - `FieldValidation.ts` - Role: helper; Purpose: decide notNull/unique support by field type.
 - `DeleteTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deletion.
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
 - `DuplicateTableCommand.ts` - Role: command DTO + schema; Purpose: validate table duplication inputs.
 - `DuplicateTableHandler.ts` - Role: command handler; Purpose: duplicate table structure/records via
   aggregate remapping and existing repositories.
-- `ImportCsvCommand.ts` - Role: command DTO + schema; Purpose: validate CSV import inputs.
-- `ImportCsvHandler.ts` - Role: command handler; Purpose: import CSV and create records.
+- `buildPhysicalTableDuplicatePlan.ts` - Role: physical row-copy plan; Purpose: remap durable
+  field/view columns while clearing modification history. The Postgres executor omits generated
+  target columns so auto numbers restart consecutively and creation times use the copy time;
+  modification time/by remain empty until an edit, including field-specific tracking.
+  Before the copy commits, the executor synchronously recalculates consumers of these reset
+  system fields, including transitive formulas, without treating the copy as an edit.
+- `ImportCsvCommand.ts` - Role: command DTO + schema; Purpose: validate CSV import inputs (table/source/columns only; no host folderId).
+- `ImportCsvHandler.ts` - Role: command handler; Purpose: parse CSV then create table/records via ImportTabularTableService.
+- `ImportExcelCommand.ts` - Role: command DTO + schema; Purpose: validate Excel create-table import inputs (no host folderId).
+- `ImportExcelHandler.ts` - Role: command handler; Purpose: parse Excel then create table/records via ImportTabularTableService.
 - `ImportDotTeaStructureCommand.ts` - Role: command DTO + schema; Purpose: validate dottea structure imports.
 - `ImportDotTeaStructureHandler.ts` - Role: command handler; Purpose: import dottea structure tables.
 - `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.
 - `RenameTableHandler.ts` - Role: command handler; Purpose: persist table rename and publish events.
+- `UpdateViewSortCommand.ts` - Role: command DTO + schema; Purpose: validate the public View sort
+  contract for a Table-owned View.
+- `UpdateViewSortHandler.ts` - Role: command handler; Purpose: orchestrate Table aggregate mutation,
+  View operation policy, persistence, events, and undo/redo for sort updates.
+- `ApplyViewManualSortCommand.ts` - Role: command DTO; Purpose: validate View manual-sort inputs.
+- `ApplyViewManualSortHandler.ts` - Role: command handler; Purpose: prepare aggregate-declared
+  row-order storage, persist View state, materialize record order, and append View history.
 - `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.
 - `UpdateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for updating a record.
-- `UpdateRecordHandler.ts` - Role: command handler; Purpose: update record, persist, publish.
+- `UpdateRecordHandler.ts` - Role: command handler; Purpose: update record, persist, publish. A field-only request containing exclusively known computed fields returns the unchanged record after write-scope checks, without persistence, events, or undo history; unknown fields still fail validation.
 
 ## Examples
 

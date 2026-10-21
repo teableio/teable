@@ -5,32 +5,40 @@
     "affectedTableSuffix": "({{count}} campo(s))",
     "convertAndDuplicate": "Convertir y duplicar"
   },
+  "trash": {
+    "forceRemove": "Forzar eliminación del espacio",
+    "forceRemoveTitle": "¿Forzar la eliminación de «{{name}}»?",
+    "forceRemoveLabel": "Entiendo los riesgos y elijo forzar la eliminación.",
+    "forceRemoveWarning": "La eliminación forzada elimina permanentemente los metadatos del espacio y los recursos gestionados por {{brandName}} sin conectarse a la base de datos externa. Los datos físicos pueden permanecer en la base de datos externa y debes eliminarlos por tu cuenta. Esta acción no se puede deshacer.",
+    "forceRemoveSuccess": "Espacio eliminado de forma forzada"
+  },
   "initialSpaceName": "Espacio de {{name}}",
   "action": {
-    "createBase": "Crear una base",
+    "createBase": "Crear un proyecto",
     "createSpace": "Crear un espacio",
     "invite": "Invitar",
     "startFromScratch": "Empezar desde cero"
   },
   "allSpaces": "Todos los espacios",
-  "emptySpaceTitle": "No hay bases en este espacio",
-  "spaceIsEmpty": "Crea tu primera base para comenzar",
+  "emptySpaceTitle": "No hay proyectos en este espacio",
+  "spaceIsEmpty": "Crea tu primer proyecto para comenzar",
   "baseModal": {
     "copy": "Copiar",
     "duplicate": "Duplicar \"{{baseName}}\"",
-    "createBaseFromTemplate": "Crear base desde plantilla",
+    "createBaseFromTemplate": "Crear proyecto desde plantilla",
     "duplicateRecords": "Duplicar registros",
     "duplicateRecordsTip": "Tu historial de revisiones y colaboradores no será duplicado.",
     "toSpace": "Al espacio",
     "copyToSpace": "Copiar al espacio",
-    "duplicateBase": "Duplicar base",
-    "missTargetTip": "Por favor, selecciona un espacio para duplicar la base.",
-    "copying": "Duplicando base, esto puede tomar un momento...",
+    "duplicateBase": "Duplicar proyecto",
+    "missTargetTip": "Por favor, selecciona un espacio para duplicar el proyecto.",
+    "copying": "Duplicando proyecto, esto puede tomar un momento...",
     "howToCreate": "¿Cómo quieres empezar?",
     "fromScratch": "Desde cero",
     "fromTemplate": "Desde plantilla",
     "moveBaseToAnotherSpace": "Mover {{baseName}} a otro espacio",
-    "chooseSpace": "Seleccionar espacio"
+    "chooseSpace": "Seleccionar espacio",
+    "duplicateBaseSucceedAndJump": "Listo, haz clic para ir"
   },
   "spaceSetting": {
     "title": "Configuración del espacio",
@@ -38,32 +46,44 @@
     "collaborators": "Colaboradores",
     "generalDescription": "Cambia la configuración de tu espacio actual aquí",
     "spaceName": "Nombre del Espacio",
-    "spaceId": "ID del Espacio"
+    "spaceId": "ID del Espacio",
+    "importBase": "Importar"
   },
+  "collaborators": "Colaboradores",
+  "more": "Más",
   "pin": {
     "add": "Agregar a fijados",
     "remove": "Quitar de fijados",
     "pin": "Fijar",
-    "empty": "Tus bases y espacios fijados aparecerán aquí"
+    "empty": "Tus proyectos y espacios fijados aparecerán aquí"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "No tienes permiso para crear una base"
+    "noPermissionToCreateBase": "No tienes permiso para crear un proyecto"
   },
   "tip": {
     "delete": "¿Estás seguro de que quieres eliminar <0/>?",
     "exportTips2": "Puedes importar el archivo .tea en espacio -> más -> importar",
-    "exportTips3": "Los campos de relación entre bases se convertirán en texto de una sola línea.",
+    "exportTips3": "Los campos de relación entre proyectos se convertirán en texto de una sola línea.",
     "exportIncludeDataLabel": "Incluir registros",
     "exportIncludeDataDescription": "Exportar solo estructura y configuración al desactivar",
     "exportTitle": "Exportar",
-    "exportDescription": "Exportar la base de datos actual a un archivo .tea, lo cual puede tardar un tiempo.",
+    "exportDescription": "Exportar el proyecto actual a un archivo .tea, lo cual puede tardar un tiempo.",
     "exportStartButton": "Iniciar exportación",
     "exportSlowTip": "El volumen de datos es grande. La exportación puede tardar un rato. Puede salir temporalmente.",
     "exportReadyDescription": "Por favor descargue el archivo .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Movimiento exitoso",
     "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}",
     "moveBaseCrossSpaceTitle": "Aviso",
-    "moveBaseCrossSpaceDataLossWarning": "Las referencias entre espacios no son compatibles. Los campos relacionados se convertirán en campos de texto. Esta acción no se puede deshacer."
+    "moveBaseCrossSpaceDataLossWarning": "Las referencias entre espacios no son compatibles. Los campos relacionados se convertirán en campos de texto. Esta acción no se puede deshacer.",
+    "moveBaseCrossDataDbTitle": "Traslado entre bases de datos",
+    "moveBaseCrossDataDbWarning": "Los espacios de origen y destino usan bases de datos distintas. Este traslado copiará los datos del proyecto a la base de datos de destino y puede tardar un rato. Las escrituras en este proyecto se pausan durante la transferencia.",
+    "moveBaseProgressTitle": "Trasladando el proyecto…",
+    "moveBaseProgressPhase": "Etapa: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}} %",
+    "moveBaseFailedTitle": "El traslado falló",
+    "moveBaseFailedDescription": "Etapa {{phase}}: {{error}}",
+    "moveBaseRetry": "Reintentar",
+    "moveBaseCancel": "Cancelar"
   },
   "deleteSpaceModal": {
     "title": "Eliminar espacio",
@@ -71,11 +91,13 @@
     "blockedDesc": "Este espacio tiene una suscripción activa. Por favor, cancela la suscripción antes de eliminar el espacio."
   },
   "sharedBase": {
-    "title": "Bases compartidas",
-    "description": "Todas las bases a las que me invitaron a unirme",
-    "empty": "Aún no hay bases compartidas"
+    "title": "Proyectos compartidos",
+    "description": "Todos los proyectos a los que me invitaron a unirme",
+    "empty": "Aún no hay proyectos compartidos"
   },
-  "integration": {},
+  "quickSearch": {
+    "placeholder": "Buscar proyectos o recursos"
+  },
   "aiSetting": {
     "title": "Configuración de IA",
     "description": "Administra la configuración de IA de tu espacio",
@@ -86,9 +108,17 @@
     "baseImportTips": "Haz clic o arrastra y suelta el archivo .tea en esta área para subirlo",
     "confirm": "Confirmar y continuar",
     "phase": {
+      "importingV2": "Importando",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Creando proyecto: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "Preparando la estructura de la tabla: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "Validando las relaciones entre tablas",
+      "tableStructureCommitting": "Guardando la estructura de la tabla",
+      "tableStructureDone": "Estructura de la tabla guardada: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "Estructura de la tabla",
+      "tableStructureTablesProgress": "{{count}}/{{total}} tablas preparadas",
+      "tableStructureTablesDone": "{{count}}/{{total}} tablas guardadas",
       "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
       "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
       "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
@@ -100,16 +130,51 @@
       "creatingWorkflows": "Creating workflows",
       "creatingApps": "Creating apps",
       "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "Restaurando la jerarquía de carpetas",
       "queuingAttachments": "Queuing attachment uploads",
       "uploadingAppFiles": "Uploading app files",
       "queuingDataImport": "Queuing data import",
+      "importingTableData": "Importando los datos de las tablas",
+      "restoringLinkRelations": "Restaurando los datos de registros vinculados",
+      "tableDataStarted": "Importando registros: {{tableName}}",
+      "tableDataProgress": "Importando registros: {{tableName}}",
+      "tableDataDone": "Importación de registros completada: {{tableName}}",
+      "linkFieldsData": "Datos de registros vinculados",
+      "linkFieldsProgress": "Restaurando los datos de registros vinculados",
+      "linkFieldsDone": "Datos de registros vinculados restaurados",
+      "tableDataRowsProgress": "{{count}} filas importadas",
+      "tableDataRowsDone": "{{count}} filas importadas",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} filas procesadas",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} filas procesadas",
+      "tableDataBatch": "lote {{batch}}",
+      "tableDataBatchRows": "{{count}} filas en este lote",
+      "tableDataEmpty": "No hay datos de tabla para importar",
       "done": "Import completed",
       "clickToView": "Haga clic para ver"
     }
   },
+  "export": {
+    "phase": {
+      "preparing": "Preparando la exportación",
+      "exportingArchive": "Creando el archivo de exportación",
+      "exportingStructure": "Exportando la estructura",
+      "exportingAttachments": "Exportando los adjuntos",
+      "exportingAttachmentMetadata": "Exportando los metadatos de los adjuntos",
+      "exportingTableData": "Exportando registros",
+      "tableDataStarted": "Exportando registros: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Exportando registros: {{tableName}}",
+      "tableDataDone": "Exportación de registros completada: {{tableName}}",
+      "exportingExtraFiles": "Exportando archivos adicionales",
+      "exportingAppFiles": "Exportando los archivos de la app",
+      "uploadingArchive": "Subiendo el archivo de exportación",
+      "generatingDownloadUrl": "Generando el enlace de descarga",
+      "rowsProgress": "{{count}} filas exportadas",
+      "done": "Exportación completada"
+    }
+  },
   "template": {
     "title": "Plantilla",
-    "description": "Crea una nueva base rápidamente desde una plantilla",
+    "description": "Crea un nuevo proyecto rápidamente desde una plantilla",
     "noTemplatesAvailable": "No hay plantillas disponibles",
     "noTemplatesDescription": "No hay nada aquí en este momento"
   },
@@ -118,24 +183,26 @@
   },
   "noBases": {
     "title": "¡Hola {{userName}}!",
-    "description": "Comencemos a gestionar tu trabajo con tu primera base."
+    "description": "Comencemos a gestionar tu trabajo con tu primer proyecto."
   },
   "noSpaces": {
     "title": "¡Hola {{userName}}!",
     "description": "Crea tu primer espacio para comenzar tu viaje de colaboración de datos."
   },
   "baseList": {
-    "allBases": "Todas las bases",
+    "allBases": "Todos los proyectos",
     "creator": "Creador",
     "createdTime": "Creado",
     "lastOpened": "Abierto por última vez",
     "enter": "Entrar",
     "noTables": "Sin tablas",
-    "empty": "No hay bases aún"
+    "empty": "No hay proyectos aún",
+    "recent": "Recientes",
+    "manual": "Orden manual"
   },
   "publishBase": {
     "title": "Publicar en el centro de plantillas",
-    "description": "¡Publica la base en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
+    "description": "¡Publica el proyecto en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
     "infoTitle": "Información básica",
     "form": {
       "title": "Título",
@@ -154,9 +221,9 @@
     "previewTips": "Deja que el mundo vea tu trabajo",
     "update": "Actualizar",
     "unPublish": "Despublicar",
-    "unPublishSuccess": "¡Base despublicada con éxito!",
+    "unPublishSuccess": "¡Proyecto despublicado con éxito!",
     "unPublishConfirmTitle": "Confirmar despublicación",
-    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar esta base? Ya no será visible en el centro de plantillas.",
+    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar este proyecto? Ya no será visible en el centro de plantillas.",
     "uploadCover": "Clic para subir imagen de portada",
     "changeCover": "Clic para cambiar portada",
     "uploading": "Subiendo imagen...",
@@ -182,14 +249,78 @@
       "publish": "Publicar",
       "published": "Publicada",
       "publishing": "Publicando...",
+      "notPublished": "No publicada",
       "publishFailed": "Error al publicar",
       "publishFailedTip1": "Verifique si la app de origen se puede publicar correctamente",
       "publishFailedTip2": "Intente volver a publicar esta plantilla",
-      "notPublished": "No publicada",
       "ignoreAndContinue": "Ignorar y continuar",
       "goToFix": "Ir a corregir",
       "redeploy": "Redesplegar",
       "unnamedApp": "Aplicación sin nombre"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "Base de datos de datos",
+      "description": "Elige dónde almacena este espacio los esquemas y registros de los proyectos.",
+      "defaultHint": "Recomendado para la mayoría de los espacios.",
+      "byodbOption": "Usar mi base de datos PostgreSQL",
+      "byodbHint": "Inicializa este espacio en un esquema interno de Teable dentro de tu base de datos gestionada por ti.",
+      "urlLabel": "URL de conexión de PostgreSQL",
+      "sslHint": "Usa los mismos parámetros SSL que requiere tu servidor PostgreSQL. La contraseña no se vuelve a mostrar después de la prueba.",
+      "testConnection": "Probar conexión",
+      "testing": "Probando...",
+      "retestRequired": "Vuelve a probar después de cambiar la URL.",
+      "databaseLabel": "Base de datos",
+      "databasePlaceholder": "Selecciona una base de datos",
+      "databaseHint": "Elige la base de datos PostgreSQL para este espacio y vuelve a probar la conexión.",
+      "preflightPassed": "Comprobaciones de conexión superadas",
+      "preflightFailed": "Las comprobaciones de conexión fallaron",
+      "missingCapabilities": "Faltan privilegios",
+      "testFailed": "No se pudo probar la conexión a la base de datos.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "La URL de conexión de PostgreSQL no es válida."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Los hosts de base de datos en redes privadas están bloqueados de forma predeterminada.",
+          "remediation": "Establece TEABLE_SSRF_PROTECTION_DISABLED=true solo en despliegues autoalojados de confianza."
+        },
+        "CONNECTION_FAILED": {
+          "message": "No se pudo conectar a la base de datos.",
+          "remediation": "Comprueba el host, el puerto, el nombre de la base de datos, el usuario, la contraseña y los parámetros SSL."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "El host de la base de datos se resolvió a una dirección IPv6, pero este despliegue de Teable no puede acceder a redes IPv6.",
+          "remediation": "Usa un endpoint de base de datos o un pooler accesible por IPv4, o habilita la red saliente IPv6 en este despliegue de Teable."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Las comprobaciones de privilegios de la base de datos fallaron."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "La cuenta carece de los privilegios DDL necesarios para inicializar una base de datos de Teable.",
+          "remediation": "Concede privilegios para crear esquemas, tablas, funciones y disparadores."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "El esquema interno de Teable ya contiene objetos que no gestiona Teable.",
+          "remediation": "Usa una base de datos sin un esquema interno en conflicto, o elimina los objetos desconocidos de ese esquema."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "Esta base de datos contiene objetos de datos de Teable incompletos o incompatibles.",
+          "remediation": "Usa una base de datos vacía o un flujo compatible de migración/adopción de base de datos de Teable."
+        }
+      }
+    },
+    "fields": {
+      "host": "Host",
+      "database": "Base de datos",
+      "internalSchema": "Esquema interno",
+      "version": "Versión",
+      "classification": "Clasificación"
+    },
+    "badge": {
+      "label": "Dedicada",
+      "tooltip": "Este espacio se aloja en una base de datos dedicada, aislada de otros espacios"
     }
   },
   "airtableImport": {
@@ -202,7 +333,7 @@
     "import": "Iniciar importación",
     "done": "Importación completada",
     "failed": "Error en la importación",
-    "openBase": "Abrir base",
+    "openBase": "Abrir proyecto",
     "issuesSummary": "Se ajustaron {{count}} elementos durante la importación:",
     "issuesMore": "+{{count}} más",
     "issue": {
@@ -214,7 +345,7 @@
     },
     "phase": {
       "fetchingSchema": "Leyendo la estructura de la base de Airtable",
-      "creatingBase": "Creando base: {{detail}}",
+      "creatingBase": "Creando proyecto: {{detail}}",
       "creatingTable": "Creando tabla: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Creando campos de vínculo",
       "fillingLinks": "{{tableName}} (vínculos)",
@@ -244,13 +375,48 @@
       "disableReminder": "Listo: ya puedes desactivar el enlace compartido en Airtable."
     }
   },
+  "googleSheetImport": {
+    "title": "Importar desde Google Sheets",
+    "close": "Cerrar",
+    "pickSpreadsheet": "Elige la hoja de cálculo a importar",
+    "openPicker": "Selecciona una hoja de cálculo de Google Drive",
+    "changeSpreadsheet": "Cambiar",
+    "analyzing": "Leyendo la hoja de cálculo…",
+    "pickTabs": "Elige las pestañas a importar",
+    "gridSize": "{{rows}} filas × {{columns}} columnas",
+    "optionRecords": "Importar registros",
+    "import": "Iniciar importación",
+    "done": "Importación completada",
+    "failed": "Error en la importación",
+    "openBase": "Abrir proyecto",
+    "issuesSummary": "Se ajustaron {{count}} elementos durante la importación:",
+    "issuesMore": "+{{count}} más",
+    "recordsImported": "{{tableName}}: {{count}} registros importados",
+    "partialImported": "{{count}} tablas se importaron por completo antes del error y se han conservado",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} valores descartados ({{reason}})",
+      "sheetSkipped": "Pestaña \"{{sheetName}}\" omitida: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: {{count}} columnas que superan el límite de columnas no se importaron"
+    },
+    "phase": {
+      "fetchingSchema": "Leyendo la estructura de la hoja de cálculo",
+      "creatingBase": "Creando proyecto: {{detail}}",
+      "creatingTable": "Creando tabla: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "Comprobando la conexión con Google…",
+    "connectWithGoogle": "Conectar cuenta de Google",
+    "waitingOAuth": "Completa la autorización en la ventana emergente…",
+    "connectedAs": "Conectado: {{account}}",
+    "integrationRequired": "La integración con Google Sheets no está configurada en esta instancia. Pide a un administrador que la configure."
+  },
   "createBaseDialog": {
     "title": "¿Cómo quieres empezar?"
   },
   "importBaseDialog": {
-    "title": "Importar base",
+    "title": "Importar proyecto",
     "fromFile": "Importar desde archivo",
-    "fromFileDesc": "Sube un archivo de base de datos .tea",
-    "fromAirtableDesc": "Conecta tu cuenta de Airtable"
+    "fromFileDesc": "Sube un archivo de proyecto .tea",
+    "fromAirtableDesc": "Conecta tu cuenta de Airtable",
+    "fromGoogleSheetDesc": "Elige una hoja de cálculo de tu Google Drive"
   }
 }

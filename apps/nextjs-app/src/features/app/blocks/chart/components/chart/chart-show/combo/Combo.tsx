@@ -83,7 +83,7 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
     })[] = [];
     config.yAxis?.forEach((yAxisItem) => {
       const position = yAxisItem.display.position === 'auto' ? 'left' : yAxisItem.display.position;
-      if (chartYAxis.find((axis) => axis.position === position)) {
+      if (chartYAxis.some((axis) => axis.position === position)) {
         return;
       }
       chartYAxis.push({

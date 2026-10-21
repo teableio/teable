@@ -1,4 +1,5 @@
-import { domainError, type DomainError, type FieldId } from '@teable/v2-core';
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
+import { domainError, type DomainError } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -8,7 +9,9 @@ import type { FieldDependencyEdge } from '../../record/computed/FieldDependencyG
  * Detects circular dependencies in a field dependency graph using topological sorting.
  *
  * @param edges - The field dependency edges to check
- * @returns Ok(void) if no cycle detected, Err(DomainError) if cycle found
+ * @returns Ok(void) if no cycle detected, otherwise a localized validation error.
+ * The English message retains the cycle path for diagnostics; the UI uses the
+ * localization key so internal field IDs are not displayed in the error toast.
  *
  * @example
  * ```typescript
@@ -107,6 +110,7 @@ export function detectCircularDependency(
     return err(
       domainError.validation({
         message: `Circular dependency detected in fields${cyclePath ? `: ${cyclePath}` : ` (${cycleNodes.length} fields involved)`}`,
+        localization: { i18nKey: sdkErrorI18nKeys.field.cycleDetectedCreateFieldGeneric },
       })
     );
   }

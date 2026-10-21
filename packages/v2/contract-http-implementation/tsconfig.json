@@ -21,6 +21,7 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-contract-http": ["../contract-http/src"],
+      "@teable/v2-data-query": ["../data-query/src"],
       "@teable/v2-container-node": ["../container-node/src"],
       "@teable/v2-container-node-test": ["../container-node-test/src"],
       "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
@@ -39,6 +40,7 @@
     "**/.*/",
     "./dist",
     "./coverage",
+    "../data-query/src/**/*.spec.ts",
     "../core/src/**/*.spec.ts",
     "../core/src/**/*.test.ts",
     "../core/src/**/__tests__/**",
@@ -57,6 +59,7 @@
   "include": [
     "src",
     "../contract-http/src",
+    "../data-query/src",
     "../container-node/src",
     "../container-node-test/src",
     "../adapter-table-repository-postgres/src",

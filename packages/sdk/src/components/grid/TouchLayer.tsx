@@ -28,24 +28,23 @@ import { CellRegionType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { getColumnStatisticData, inRange } from './utils';
 
-export interface ITouchLayerProps
-  extends Omit<
-    IGridProps,
-    | 'style'
-    | 'rowCount'
-    | 'rowHeight'
-    | 'smoothScrollX'
-    | 'smoothScrollY'
-    | 'freezeColumnCount'
-    | 'onCopy'
-    | 'onPaste'
-    | 'onRowOrdered'
-    | 'onColumnResize'
-    | 'onColumnOrdered'
-    | 'onColumnHeaderDblClick'
-    | 'onColumnHeaderMenuClick'
-    | 'onVisibleRegionChanged'
-  > {
+export interface ITouchLayerProps extends Omit<
+  IGridProps,
+  | 'style'
+  | 'rowCount'
+  | 'rowHeight'
+  | 'smoothScrollX'
+  | 'smoothScrollY'
+  | 'freezeColumnCount'
+  | 'onCopy'
+  | 'onPaste'
+  | 'onRowOrdered'
+  | 'onColumnResize'
+  | 'onColumnOrdered'
+  | 'onColumnHeaderDblClick'
+  | 'onColumnHeaderMenuClick'
+  | 'onVisibleRegionChanged'
+> {
   theme: IGridTheme;
   width: number;
   height: number;

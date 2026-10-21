@@ -25,11 +25,17 @@ import {
   buildBeforeImageRecordsFromStepChanges,
   mergeBeforeImageRecords,
 } from '../ComputedBeforeImageFromChanges';
+import { collectContinuationFieldIds } from '../ComputedContinuationFields';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
+  ExecutePreparedStepsResult,
   PreparedDirtyState,
   StepChangeData,
+} from '../ComputedFieldUpdater';
+import {
+  canInsertEdgeChangeTargets,
+  collapseRecordChangesByRecordId,
 } from '../ComputedFieldUpdater';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
@@ -44,8 +50,19 @@ import {
   toRunLogContext,
   toRunSpanAttributes,
 } from '../ComputedUpdateRun';
+import {
+  defaultComputedUpdateRuntimeConfig,
+  type ComputedUpdateRuntimeConfig,
+} from '../ComputedUpdateRuntimeConfig';
+import { withInlineComputedStatementTimeout } from '../ComputedUpdateTransactionSettings';
+import { recordIdsChangedForFields } from '../ComputedValueGatedPropagation';
 import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
-import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+import { buildSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
+import type { EnqueueOrMergeOutcome, IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+
+import type { IComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
+import { noopComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
+import { pushAll } from '../pushAll';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import type {
   IUpdateStrategy,
@@ -115,6 +132,16 @@ const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
 
+const wholeTableAsyncReason = (
+  plan: ComputedUpdatePlan
+): 'seed_all_table' | 'all_target_records' | undefined => {
+  if ((plan.seedAllTableIds?.length ?? 0) > 0) return 'seed_all_table';
+  if (plan.edges.some((edge) => edge.propagationMode === 'allTargetRecords')) {
+    return 'all_target_records';
+  }
+  return undefined;
+};
+
 /**
  * Production-recommended config: external worker handles all async tasks.
  */
@@ -161,11 +188,97 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
     private readonly planner: ComputedUpdatePlanner,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus
+    private readonly eventBus: IEventBus,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
 
   private dispatchTimer: ReturnType<typeof setTimeout> | null = null;
   private dispatchInFlight = false;
+
+  private async enqueuePlan(
+    task: ReturnType<typeof buildOutboxTaskInput>,
+    context: IExecutionContext,
+    runLogger: ILogger,
+    details: {
+      pendingSteps: number;
+      asyncStepCount: number;
+      reason?: string;
+    }
+  ): Promise<Result<EnqueueOrMergeOutcome, DomainError>> {
+    const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+    if (enqueueResult.isErr()) {
+      runLogger.warn('computed:outbox:enqueue_failed', {
+        error: enqueueResult.error.message,
+        planHash: task.planHash,
+        ...(details.reason ? { reason: details.reason } : {}),
+      });
+      return err(enqueueResult.error);
+    }
+
+    runLogger.info('computed:run:queued', {
+      taskId: enqueueResult.value.taskId,
+      pendingSteps: details.pendingSteps,
+      asyncStepCount: details.asyncStepCount,
+      ...(details.reason ? { reason: details.reason } : {}),
+    });
+    this.scheduleDispatch(context);
+    return enqueueResult;
+  }
+
+  /**
+   * Lock-miss requeue: persist the original seeds so the worker replans after
+   * commit. A frozen computed plan loses insert source fields under one-level
+   * clamp (T7018 host lookup/formula stays stale).
+   */
+  private async enqueueSeedOnLockMiss(
+    plan: ComputedUpdatePlan,
+    context: IExecutionContext,
+    runLogger: ILogger,
+    details: {
+      pendingSteps: number;
+      asyncStepCount: number;
+      reason: string;
+      runId: string;
+      orchestration?: IBatchMutationOrchestration;
+    }
+  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    const task = buildSeedTaskInput({
+      baseId: plan.baseId,
+      seedTableId: plan.seedTableId,
+      seedRecordIds: plan.seedRecordIds,
+      extraSeedRecords: plan.extraSeedRecords,
+      beforeImageRecords: plan.beforeImageRecords,
+      changedFieldIds: collectSeedTaskChangedFieldIds(plan),
+      changeType: plan.changeType,
+      impact: collectSeedTaskImpact(plan),
+      cyclePolicy: plan.cyclePolicy,
+      hasher: this.hasher,
+      runId: details.runId,
+      orchestration: details.orchestration,
+    });
+    const enqueueResult = await this.outbox.enqueueSeedTask(task, context);
+    if (enqueueResult.isErr()) {
+      runLogger.warn('computed:outbox:enqueue_failed', {
+        error: enqueueResult.error.message,
+        planHash: task.planHash,
+        reason: details.reason,
+      });
+      return err(enqueueResult.error);
+    }
+
+    runLogger.info('computed:run:queued', {
+      taskId: enqueueResult.value.taskId,
+      pendingSteps: details.pendingSteps,
+      asyncStepCount: details.asyncStepCount,
+      reason: details.reason,
+      taskType: 'seed',
+    });
+    this.scheduleDispatch(context);
+    return enqueueResult;
+  }
 
   async execute(
     updater: ComputedFieldUpdater,
@@ -173,12 +286,58 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     context: IExecutionContext,
     options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
+    const rootSpan = context.tracer?.startSpan('teable.computed.hybrid.execute', {
+      'computed.baseId': plan.baseId.toString(),
+      'computed.seedTableId': plan.seedTableId.toString(),
+      'computed.changeType': plan.changeType,
+      'computed.dispatchMode': this.config.dispatchMode,
+      'computed.syncPolicy': this.config.syncPolicy,
+      'computed.planStepCount': plan.steps.length,
+      'computed.seedRecordCount': plan.seedRecordIds.length,
+    });
+
+    try {
+      return await withInlineComputedStatementTimeout(context, this.runtimeConfig, async () => {
+        if (rootSpan && context.tracer) {
+          return context.tracer.withSpan(rootSpan, () =>
+            this.executeInner(updater, plan, context, options, rootSpan)
+          );
+        }
+        return this.executeInner(updater, plan, context, options, rootSpan);
+      });
+    } finally {
+      rootSpan?.end();
+    }
+  }
+
+  private async executeInner(
+    updater: ComputedFieldUpdater,
+    plan: ComputedUpdatePlan,
+    context: IExecutionContext,
+    options: UpdateStrategyExecuteOptions | undefined,
+    rootSpan: ReturnType<NonNullable<IExecutionContext['tracer']>['startSpan']> | undefined
+  ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
+    // Edge-only plans (delete/orphan propagation: edges but no steps) are real
+    // executable work, and seed-all tables are real seed input — neither may be
+    // dropped as a no-op here or the propagation never reaches the fixed lower
+    // layers.
     if (
-      plan.steps.length === 0 ||
-      (plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0)
+      (plan.steps.length === 0 && plan.edges.length === 0) ||
+      (plan.seedRecordIds.length === 0 &&
+        plan.extraSeedRecords.length === 0 &&
+        (plan.seedAllTableIds ?? []).length === 0)
     ) {
       return ok(undefined);
     }
+
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: plan.seedTableId.toString(),
+        baseId: plan.baseId.toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return err(admitted.error);
 
     let currentPlan = plan;
     let completedSteps = 0;
@@ -195,12 +354,93 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     // Without this, computed fields in the dependency chain would be updated multiple times
     // because collectStepFieldIds passes them as changedFieldIds to the next stage.
     const updatedFieldIds = new Set<string>();
+    const sourceFieldIds = collectPlanSourceFieldIds(plan);
 
     // Accumulate sync changes from all stages
     const allSyncChangesByStep: StepChangeData[] = [];
 
-    while (currentPlan.steps.length > 0) {
-      const prepared = await updater.prepareDirtyState(currentPlan, context);
+    while (currentPlan.steps.length > 0 || currentPlan.edges.length > 0) {
+      // Whole-table seeding/propagation is expensive before the first UPDATE is
+      // even built. Defer before prepareDirtyState so a tiny seed cannot expand
+      // an unbounded dirty set inside the user transaction.
+      const asyncReason = wholeTableAsyncReason(currentPlan);
+      if (asyncReason) {
+        const runLogger = this.logger.child(toRunLogContext(baseRun));
+        const affectedFieldIds = collectStepFieldIds(currentPlan).map((id) => id.toString());
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          ...(affectedFieldIds.length > 0 ? { affectedFieldIds } : {}),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          sourceFieldIds,
+          orchestration: options?.orchestration,
+        });
+        const enqueueResult = await this.enqueuePlan(task, context, runLogger, {
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: asyncReason,
+        });
+        if (enqueueResult.isErr()) return err(enqueueResult.error);
+
+        rootSpan?.setAttributes({
+          'computed.syncStepCount': 0,
+          'computed.asyncStepCount': currentPlan.steps.length,
+          'computed.syncMaxLevel': -1,
+          'computed.asyncReason': asyncReason,
+        });
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
+      // Take seed/write locks before dirty propagation. Propagating first and
+      // then missing dirty-target locks discards the temp dirty set with no
+      // remaining work in this transaction (T7018).
+      const seedTableId = currentPlan.seedTableId.toString();
+      const plannedWriteTableIds = [
+        ...currentPlan.steps.map((step) => step.tableId.toString()),
+        ...currentPlan.extraSeedRecords.map((group) => group.tableId.toString()),
+        ...currentPlan.edges.map((edge) => edge.toTableId.toString()),
+      ];
+      const waitForSmallHostWrite =
+        currentPlan.changeType === 'insert' &&
+        (currentPlan.seedAllTableIds?.length ?? 0) === 0 &&
+        currentPlan.seedRecordIds.length > 0 &&
+        currentPlan.seedRecordIds.length <= 16 &&
+        plannedWriteTableIds.length > 0 &&
+        plannedWriteTableIds.every((tableId) => tableId === seedTableId);
+      const lockRun = createComputedUpdateRun({
+        runId,
+        originRunIds,
+        totalSteps,
+        completedStepsBefore: completedSteps,
+        phase: 'full',
+      });
+      const lockResult = await updater.acquireLocks(currentPlan, context, {
+        logContext: toRunLogContext(lockRun),
+        wait: waitForSmallHostWrite,
+      });
+
+      const runLogger = this.logger.child(toRunLogContext(lockRun));
+      if (lockResult.isErr()) {
+        if (!isComputedUpdateLockUnavailable(lockResult.error)) return err(lockResult.error);
+
+        const enqueueResult = await this.enqueueSeedOnLockMiss(currentPlan, context, runLogger, {
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'lock_unavailable',
+          runId,
+          orchestration: options?.orchestration,
+        });
+        if (enqueueResult.isErr()) return err(enqueueResult.error);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
+
+      const prepared = await updater.prepareDirtyState(currentPlan, context, {
+        deferValueGatedEdges: true,
+      });
       if (prepared.isErr()) return err(prepared.error);
 
       const { syncSteps, asyncSteps, syncMaxLevel } = splitStepsByPolicy(
@@ -208,6 +448,12 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         prepared.value,
         this.config
       );
+
+      rootSpan?.setAttributes({
+        'computed.syncStepCount': syncSteps.length,
+        'computed.asyncStepCount': asyncSteps.length,
+        'computed.syncMaxLevel': syncMaxLevel,
+      });
 
       const phase = asyncSteps.length === 0 ? 'full' : 'sync';
       const run = createComputedUpdateRun({
@@ -217,48 +463,6 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         completedStepsBefore: completedSteps,
         phase,
       });
-      const lockResult = await updater.acquireLocks(currentPlan, context, {
-        logContext: toRunLogContext(run),
-        wait: false,
-      });
-
-      const runLogger = this.logger.child(toRunLogContext(run));
-      if (lockResult.isErr()) {
-        if (!isComputedUpdateLockUnavailable(lockResult.error)) return err(lockResult.error);
-
-        const task = buildOutboxTaskInput({
-          plan: currentPlan,
-          dirtyStats: prepared.value.dirtyStats,
-          syncMaxLevel: -1,
-          hasher: this.hasher,
-          runId,
-          originRunIds: [...originRunIds],
-          runTotalSteps: totalSteps,
-          runCompletedStepsBefore: completedSteps,
-          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
-          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
-          orchestration: options?.orchestration,
-        });
-        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
-        if (enqueueResult.isErr()) {
-          runLogger.warn('computed:outbox:enqueue_failed', {
-            error: enqueueResult.error.message,
-            planHash: task.planHash,
-            reason: 'lock_unavailable',
-          });
-          return err(enqueueResult.error);
-        }
-
-        runLogger.info('computed:run:queued', {
-          taskId: enqueueResult.value.taskId,
-          pendingSteps: currentPlan.steps.length,
-          asyncStepCount: currentPlan.steps.length,
-          reason: 'lock_unavailable',
-        });
-
-        this.scheduleDispatch(context);
-        return ok({ changesByStep: allSyncChangesByStep });
-      }
 
       runLogger.info('computed:run:start', {
         baseId: currentPlan.baseId.toString(),
@@ -307,9 +511,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
             })
           : undefined;
 
-      const syncWork = async () =>
+      const syncWork = async (): Promise<Result<ExecutePreparedStepsResult, DomainError>> =>
         syncSteps.length === 0
-          ? ok({ changesByStep: [] })
+          ? ok({ changesByStep: [], traceInfos: [] })
           : updater.executePreparedSteps(
               currentPlan,
               context,
@@ -332,42 +536,24 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         // worker recomputes against the latest committed source values.
         if (!isComputedUpdateLockUnavailable(syncResult.error)) return err(syncResult.error);
 
-        const task = buildOutboxTaskInput({
-          plan: currentPlan,
-          dirtyStats: prepared.value.dirtyStats,
-          syncMaxLevel: -1,
-          hasher: this.hasher,
-          runId,
-          originRunIds: [...originRunIds],
-          runTotalSteps: totalSteps,
-          runCompletedStepsBefore: completedSteps,
-          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
-          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
-          orchestration: options?.orchestration,
-        });
-        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
-        if (enqueueResult.isErr()) {
-          runLogger.warn('computed:outbox:enqueue_failed', {
-            error: enqueueResult.error.message,
-            planHash: task.planHash,
-            reason: 'dirty_target_lock_unavailable',
-          });
-          return err(enqueueResult.error);
-        }
-
-        runLogger.info('computed:run:queued', {
-          taskId: enqueueResult.value.taskId,
+        const enqueueResult = await this.enqueueSeedOnLockMiss(currentPlan, context, runLogger, {
           pendingSteps: currentPlan.steps.length,
           asyncStepCount: currentPlan.steps.length,
           reason: 'dirty_target_lock_unavailable',
+          runId,
+          orchestration: options?.orchestration,
         });
-
-        this.scheduleDispatch(context);
+        if (enqueueResult.isErr()) return err(enqueueResult.error);
         return ok({ changesByStep: allSyncChangesByStep });
       }
-
       // Accumulate sync changes from this stage
-      allSyncChangesByStep.push(...syncResult.value.changesByStep);
+      pushAll(allSyncChangesByStep, syncResult.value.changesByStep);
+      if (syncResult.value.dirtyBudget?.status === 'exceeded') {
+        return ok({
+          changesByStep: allSyncChangesByStep,
+          dirtyBudget: syncResult.value.dirtyBudget,
+        });
+      }
 
       // Publish events for computed updates
       const events = buildComputedUpdateEvents(
@@ -419,10 +605,81 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           asyncStepCount: asyncSteps.length,
         });
 
-        const asyncPlan: ComputedUpdatePlan = {
+        const gated = prepared.value.valueGatedEdges ?? [];
+        let asyncPlan: ComputedUpdatePlan = {
           ...currentPlan,
           steps: asyncSteps,
         };
+
+        if (currentPlan.changeType === 'insert' && syncSteps.length > 0) {
+          // Decide inert insert edges while the synchronous sources are still in
+          // the plan. The remainder consumes those changes, not a fresh insert.
+          const insertFieldIds = new Set(stageFieldIds.map((id) => id.toString()));
+          asyncPlan = {
+            ...asyncPlan,
+            changeType: 'update',
+            edges: currentPlan.edges.filter((edge) =>
+              canInsertEdgeChangeTargets(currentPlan, edge, insertFieldIds)
+            ),
+            // Initial insert extras are lock-only, not changed source rows.
+            extraSeedRecords: currentPlan.seedAllTableIds?.length
+              ? currentPlan.extraSeedRecords
+              : [],
+          };
+        }
+
+        if (gated.length > 0) {
+          const executedSyncFieldIds = new Set(
+            syncSteps.flatMap((step) => step.fieldIds.map((fieldId) => fieldId.toString()))
+          );
+          const gatedSourcesExecuted = (edge: (typeof gated)[number]): boolean =>
+            (edge.propagationSourceFieldIds ?? []).every((fieldId) =>
+              executedSyncFieldIds.has(fieldId.toString())
+            );
+          const gatedTargetFieldIds = new Set<string>();
+          const gatedKeys = new Set(
+            gated.map(
+              (edge) =>
+                `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`
+            )
+          );
+          for (const edge of gated) {
+            gatedTargetFieldIds.add(edge.toFieldId.toString());
+            for (const fieldId of edge.propagationTargetFieldIds ?? []) {
+              gatedTargetFieldIds.add(fieldId.toString());
+            }
+          }
+          const asyncOnlyGatedTargets = asyncSteps.every((step) =>
+            step.fieldIds.every((fieldId) => gatedTargetFieldIds.has(fieldId.toString()))
+          );
+          const restrictedEdges = asyncPlan.edges.map((edge) => {
+            const key = `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`;
+            if (!gatedKeys.has(key) || !gatedSourcesExecuted(edge)) return edge;
+            const ids = recordIdsChangedForFields(
+              syncResult.value.changesByStep,
+              new Set((edge.propagationSourceFieldIds ?? []).map((id) => id.toString()))
+            );
+            return { ...edge, restrictDirtySourceRecordIds: ids };
+          });
+          const anyGatedChange = restrictedEdges.some(
+            (edge) =>
+              (edge.restrictDirtySourceRecordIds?.length ?? 0) > 0 &&
+              gatedKeys.has(
+                `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`
+              )
+          );
+          if (
+            !anyGatedChange &&
+            asyncOnlyGatedTargets &&
+            gated.every((edge) => gatedSourcesExecuted(edge))
+          ) {
+            return ok({ changesByStep: allSyncChangesByStep });
+          }
+          asyncPlan = {
+            ...asyncPlan,
+            edges: restrictedEdges,
+          };
+        }
 
         const task = buildOutboxTaskInput({
           plan: asyncPlan,
@@ -435,17 +692,15 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           runCompletedStepsBefore: completedSteps,
           affectedFieldIds: stageFieldIds.map((id) => id.toString()),
           affectedTableIds: stageTableIds.map((id) => id.toString()),
+          sourceFieldIds,
           orchestration: options?.orchestration,
         });
 
-        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
-        if (enqueueResult.isErr()) {
-          runLogger.warn('computed:outbox:enqueue_failed', {
-            error: enqueueResult.error.message,
-            planHash: task.planHash,
-          });
-          return err(enqueueResult.error);
-        }
+        const enqueueResult = await this.enqueuePlan(task, context, runLogger, {
+          pendingSteps: asyncSteps.length,
+          asyncStepCount: asyncSteps.length,
+        });
+        if (enqueueResult.isErr()) return err(enqueueResult.error);
 
         runLogger.debug('computed:outbox:enqueued', {
           taskId: enqueueResult.value.taskId,
@@ -453,13 +708,6 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           asyncStepCount: asyncSteps.length,
         });
 
-        runLogger.info('computed:run:queued', {
-          taskId: enqueueResult.value.taskId,
-          pendingSteps: asyncSteps.length,
-          asyncStepCount: asyncSteps.length,
-        });
-
-        this.scheduleDispatch(context);
         // Return sync portion changes even when async steps are queued
         return ok({ changesByStep: allSyncChangesByStep });
       }
@@ -469,7 +717,10 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         pendingSteps: 0,
       });
 
-      const nextSeedFieldIds = collectStepFieldIds(currentPlan);
+      const nextSeedFieldIds = collectContinuationFieldIds(
+        currentPlan,
+        syncResult.value.changesByStep
+      );
       const tableIds = collectStepTableIds(currentPlan);
       const seedGroupsResult = await updater.collectDirtySeedGroups(context, tableIds);
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
@@ -499,7 +750,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         }))
         .filter((step) => step.fieldIds.length > 0);
 
-      if (filteredSteps.length === 0) break;
+      if (filteredSteps.length === 0 && nextPlanResult.value.edges.length === 0) break;
 
       currentPlan = { ...nextPlanResult.value, steps: filteredSteps };
       totalSteps += currentPlan.steps.length;
@@ -511,6 +762,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   scheduleDispatch(context: IExecutionContext): void {
     // 'external' mode: no inline dispatch; BullMQ owns asynchronous delivery.
     if (this.config.dispatchMode === 'external') {
+      context.tracer?.getActiveSpan()?.setAttributes({
+        'computed.dispatchMode': 'external',
+        'computed.dispatchSkipped': true,
+        'computed.dispatchSkipReason': 'external_mode',
+      });
       this.logger.debug('computed:outbox:dispatch_skipped', {
         reason: 'external_mode',
         message: 'Task enqueued, waiting for an external wake-up',
@@ -584,7 +840,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     prepared: PreparedDirtyState,
     changesByStep: ReadonlyArray<StepChangeData>
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
-    if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
+    // NOTE: no plan.edges shortcut here — see ComputedUpdateWorker.planNextStage:
+    // an edge-less stage's changes may still have cross-record downstream work.
+
     if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
 
     const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
@@ -649,6 +907,56 @@ const collectStepTableIds = (plan: ComputedUpdatePlan): TableId[] => {
   return [...ids.values()];
 };
 
+/** User mutation that started this run. Schema-wide; leftover slices keep it. */
+const collectPlanSourceFieldIds = (plan: ComputedUpdatePlan): string[] => {
+  if (plan.changedFieldIds?.length) {
+    return [...new Set(plan.changedFieldIds.map((fieldId) => fieldId.toString()))];
+  }
+  const computed = new Set<string>();
+  for (const step of plan.steps) {
+    for (const fieldId of step.fieldIds) computed.add(fieldId.toString());
+  }
+  const sources = new Set<string>();
+  for (const edge of plan.edges) {
+    const from = edge.fromFieldId.toString();
+    if (!computed.has(from)) sources.add(from);
+  }
+  return [...sources];
+};
+
+const collectSeedTaskChangedFieldIds = (plan: ComputedUpdatePlan): FieldId[] => {
+  const seen = new Set<string>();
+  const ids: FieldId[] = [];
+  const add = (fieldId: FieldId) => {
+    const key = fieldId.toString();
+    if (seen.has(key)) return;
+    seen.add(key);
+    ids.push(fieldId);
+  };
+  if (plan.changedFieldIds) {
+    for (const fieldId of plan.changedFieldIds) add(fieldId);
+  }
+  for (const fieldId of collectStepFieldIds(plan)) add(fieldId);
+  for (const edge of plan.edges) add(edge.fromFieldId);
+  return ids;
+};
+
+const collectSeedTaskImpact = (
+  plan: ComputedUpdatePlan
+): { valueFieldIds: FieldId[]; linkFieldIds: FieldId[] } => {
+  const valueFieldIds = collectSeedTaskChangedFieldIds(plan);
+  const seen = new Set<string>();
+  const linkFieldIds: FieldId[] = [];
+  for (const edge of plan.edges) {
+    if (!edge.linkFieldId) continue;
+    const key = edge.linkFieldId.toString();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    linkFieldIds.push(edge.linkFieldId);
+  }
+  return { valueFieldIds, linkFieldIds };
+};
+
 const splitStepsByPolicy = (
   plan: ComputedUpdatePlan,
   prepared: PreparedDirtyState,
@@ -668,6 +976,37 @@ const splitStepsByPolicy = (
 
   if (config.syncPolicy === 'seedTableOnly') {
     const seedSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    // Only defer return paths that consume a scheduled foreign computation.
+    // An unrelated inverse-link update must not delay a local lookup.
+    const seedFieldLevels = new Map<string, number>();
+    const foreignFieldIds = new Set<string>();
+    for (const step of plan.steps) {
+      const isSeedStep = step.tableId.toString() === seedTableId;
+      for (const fieldId of step.fieldIds) {
+        if (isSeedStep) {
+          seedFieldLevels.set(fieldId.toString(), step.level);
+        } else {
+          foreignFieldIds.add(fieldId.toString());
+        }
+      }
+    }
+    let firstDeferredSeedLevel = Infinity;
+    for (const edge of plan.edges) {
+      if (
+        edge.fromTableId.toString() === seedTableId ||
+        edge.toTableId.toString() !== seedTableId
+      ) {
+        continue;
+      }
+      const sourceFieldIds = edge.propagationSourceFieldIds ?? [edge.fromFieldId];
+      if (!sourceFieldIds.some((fieldId) => foreignFieldIds.has(fieldId.toString()))) continue;
+      for (const fieldId of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
+        firstDeferredSeedLevel = Math.min(
+          firstDeferredSeedLevel,
+          seedFieldLevels.get(fieldId.toString()) ?? Infinity
+        );
+      }
+    }
     const dirtyCountByTable = new Map(
       prepared.dirtyStats.map((stat) => [stat.tableId, stat.recordCount])
     );
@@ -677,6 +1016,7 @@ const splitStepsByPolicy = (
     let cumulativeDirty = 0;
 
     for (const level of seedLevels) {
+      if (level >= firstDeferredSeedLevel) break;
       const levelSteps = seedSteps.filter((step) => step.level === level);
       const tableIds = new Set(levelSteps.map((step) => step.tableId.toString()));
       let levelTotal = 0;
@@ -712,6 +1052,9 @@ const splitStepsByPolicy = (
   const dirtyCountByTable = new Map(
     prepared.dirtyStats.map((stat) => [stat.tableId, stat.recordCount])
   );
+  const gatedTargetTableIds = new Set(
+    (prepared.valueGatedEdges ?? []).map((edge) => edge.toTableId.toString())
+  );
 
   let syncMaxLevel = seedTableMaxLevel;
   let cumulativeDirty = 0;
@@ -728,11 +1071,17 @@ const splitStepsByPolicy = (
     const tableIds = new Set(levelSteps.map((step) => step.tableId.toString()));
     let levelTotal = 0;
     let levelMax = 0;
+    let unknownGatedVolume = false;
     for (const tableId of tableIds) {
       const count = dirtyCountByTable.get(tableId) ?? 0;
+      if (gatedTargetTableIds.has(tableId)) {
+        unknownGatedVolume = true;
+        break;
+      }
       levelTotal += count;
       levelMax = Math.max(levelMax, count);
     }
+    if (unknownGatedVolume) break;
 
     cumulativeDirty += levelTotal;
 
@@ -774,18 +1123,17 @@ const buildComputedUpdateEvents = (
     const tableIdResult = CoreTableId.create(tableIdStr);
     if (tableIdResult.isErr()) continue;
 
-    // Convert recordChanges to RecordUpdateDTO format
-    // Use actual oldVersion from computed update (version before update)
-    const updates = recordChanges.map((change) => ({
+    const updates = collapseRecordChangesByRecordId(recordChanges).map((change) => ({
       recordId: change.recordId,
       oldVersion: change.oldVersion,
-      newVersion: change.oldVersion + 1,
+      newVersion: change.newVersion ?? change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
         oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));
+    if (updates.length === 0) continue;
 
     events.push(
       RecordsBatchUpdated.create({

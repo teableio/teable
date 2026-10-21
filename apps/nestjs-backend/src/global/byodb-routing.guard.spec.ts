@@ -10,7 +10,6 @@ const tableScopedDataPlaneFiles = [
   'src/features/base/base-query/base-query.service.ts',
   'src/features/base/base.service.ts',
   'src/features/base/base-export.service.ts',
-  'src/features/base/db-connection.service.ts',
   'src/features/base-sql-executor/base-sql-executor.service.ts',
   'src/features/calculation/batch.service.ts',
   'src/features/calculation/field-calculation.service.ts',

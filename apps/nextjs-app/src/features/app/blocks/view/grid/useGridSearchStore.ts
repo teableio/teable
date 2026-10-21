@@ -29,8 +29,8 @@ const notifyFieldsChange = (fields: IFieldInstance[] | null) => {
 };
 
 interface IGridRefState {
-  gridRef: React.RefObject<IGridRef> | null;
-  setGridRef: (ref: React.RefObject<IGridRef>) => void;
+  gridRef: React.RefObject<IGridRef | null> | null;
+  setGridRef: (ref: React.RefObject<IGridRef | null>) => void;
   searchCursor: [number, number] | null;
   setSearchCursor: (cell: [number, number] | null) => void;
   highlightedFieldId: string | null;
@@ -45,6 +45,8 @@ interface IGridRefState {
   setHighlightedTableId: (tableId: string | null) => void;
   highlightedViewId: string | null;
   setHighlightedViewId: (viewId: string | null) => void;
+  mountedGrid: { tableId: string; viewId: string } | null;
+  setMountedGrid: (grid: { tableId: string; viewId: string } | null) => void;
 }
 
 export const useGridSearchStore = create<IGridRefState>((set) => ({
@@ -55,6 +57,7 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
   fields: null,
   highlightedTableId: null,
   highlightedViewId: null,
+  mountedGrid: null,
   resetSearchHandler: noop,
   setResetSearchHandler: (fn: () => void) => {
     set((state) => {
@@ -64,7 +67,7 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
       };
     });
   },
-  setGridRef: (ref: React.RefObject<IGridRef>) => {
+  setGridRef: (ref: React.RefObject<IGridRef | null>) => {
     set((state) => {
       return {
         ...state,
@@ -123,5 +126,11 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
         highlightedViewId: viewId,
       };
     });
+  },
+  setMountedGrid: (grid) => {
+    set((state) => ({
+      ...state,
+      mountedGrid: grid,
+    }));
   },
 }));

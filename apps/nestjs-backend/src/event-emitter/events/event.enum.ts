@@ -3,6 +3,7 @@ export enum Events {
   SPACE_CREATE = 'space.create',
   SPACE_DELETE = 'space.delete',
   SPACE_UPDATE = 'space.update',
+  SPACE_SIGNUP_CREATE = 'space.signup.create',
 
   BASE_CREATE = 'base.create',
   BASE_DELETE = 'base.delete',
@@ -35,6 +36,7 @@ export enum Events {
 
   OPERATION_RECORDS_CREATE = 'operation.records.create',
   OPERATION_RECORDS_DELETE = 'operation.records.delete',
+  OPERATION_RECORDS_ARCHIVE = 'operation.records.archive',
   OPERATION_RECORDS_UPDATE = 'operation.records.update',
   OPERATION_RECORDS_ORDER_UPDATE = 'operation.records.order.update',
   OPERATION_FIELDS_CREATE = 'operation.fields.create',
@@ -57,6 +59,8 @@ export enum Events {
   USER_SIGNUP = 'user.signup',
   USER_RENAME = 'user.rename',
   USER_SIGNOUT = 'user.signout',
+  // A signed-in device was signed out by its owner or an instance admin.
+  USER_SESSION_REVOKE = 'user.session.revoke',
   USER_DELETE = 'user.delete',
 
   // USER_PASSWORD_RESET = 'user.password.reset',
@@ -69,12 +73,14 @@ export enum Events {
   COLLABORATOR_UPDATE = 'collaborator.update',
   COLLABORATOR_INVITED = 'collaborator.invited',
 
-  // Base-scope collaborator audit actions (parallel to the generic COLLABORATOR_*
-  // business events above, which are kept for internal pub/sub). Future space-level
-  // audit can mirror this with SPACE_COLLABORATOR_*.
+  // Scoped collaborator audit actions (parallel to the generic COLLABORATOR_*
+  // business events above, which are kept for internal pub/sub).
   BASE_COLLABORATOR_CREATE = 'base.collaborator.create',
   BASE_COLLABORATOR_DELETE = 'base.collaborator.delete',
   BASE_COLLABORATOR_UPDATE = 'base.collaborator.update',
+  SPACE_COLLABORATOR_CREATE = 'space.collaborator.create',
+  SPACE_COLLABORATOR_DELETE = 'space.collaborator.delete',
+  SPACE_COLLABORATOR_UPDATE = 'space.collaborator.update',
 
   // Base/Node share lifecycle (covers both node-scoped and base-wide shares;
   // payload.type distinguishes 'node' | 'base').
@@ -100,6 +106,10 @@ export enum Events {
   APP_CREATE = 'app.create',
   APP_DELETE = 'app.delete',
   APP_UPDATE = 'app.update',
+
+  ROUTINE_CREATE = 'agent.routine.create',
+  ROUTINE_DELETE = 'agent.routine.delete',
+  ROUTINE_UPDATE = 'agent.routine.update',
 
   CROP_IMAGE = 'crop.image',
   CROP_IMAGE_COMPLETE = 'crop.image.complete',
@@ -139,11 +149,17 @@ export enum Events {
   // Invitation funnel
   INVITATION_EMAIL_SEND = 'invitation.email.send',
   INVITATION_LINK_CREATE = 'invitation.link.create',
+  INVITATION_LINK_UPDATE = 'invitation.link.update',
+  INVITATION_LINK_DELETE = 'invitation.link.delete',
   INVITATION_ACCEPT = 'invitation.accept',
 
   // Access token lifecycle
   ACCESS_TOKEN_CREATE = 'access-token.create',
   ACCESS_TOKEN_DELETE = 'access-token.delete',
+  // User granted an OAuth client access (consent decision or silent re-grant
+  // within the authorized window). Fired from the single oAuthAppAuthorized
+  // upsert choke point, so both the consent-screen and trusted-client paths emit.
+  OAUTH_APP_AUTHORIZE = 'oauth-app.authorize',
 
   // Table export
   TABLE_EXPORT = 'table.export',

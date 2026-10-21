@@ -1,14 +1,20 @@
 import { isIP } from 'node:net';
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import { AFFILIATE_COOKIE_NAME, AFFILIATE_VIA_MAX_LENGTH } from '@teable/core';
+import {
+  AFFILIATE_COOKIE_NAME,
+  AFFILIATE_VIA_MAX_LENGTH,
+  normalizeCountryCode,
+  parseMarketingAdConsent,
+  parseSignupAttributionCookies,
+} from '@teable/core';
 import { X_CANARY_HEADER } from '@teable/openapi';
+import { runWithPostgresQueryCancellation } from '@teable/v2-adapter-db-postgres-pg';
 import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
-
-const automationRobotUserId = 'automationRobot';
+import { formatClientHeader } from '../utils/client-header';
 
 // Trusted proxies may append the client PORT to X-Forwarded-For entries (e.g. AWS ALB
 // with client-port preservation emits `12.34.56.78:8080` / `[2001:db8::1]:8080`, and
@@ -28,12 +34,27 @@ const maxOriginPathLength = 512;
 const requestPath = (req: Request): string =>
   (req.originalUrl ?? req.url ?? '').split('?')[0].slice(0, maxOriginPathLength);
 
+// Visitor country from the CDN geo header; undefined when unknown.
+const requestCountry = (req: Request): string | undefined => {
+  const header = req.headers['cf-ipcountry'];
+  return normalizeCountryCode(Array.isArray(header) ? header[0] : header);
+};
+
 const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
   task
 ) => {
-  const handle = setTimeout(() => void task(), 0);
+  const handle = setTimeout(
+    () =>
+      void runWithPostgresQueryCancellation(undefined, async () => {
+        await task();
+      }),
+    0
+  );
   handle.unref?.();
 };
+
+const backgroundTaskLogger = new Logger('V2BackgroundTaskScheduler');
+const maxConcurrentBackgroundTasks = 4;
 
 const createAfterResponseScheduler = (
   cls: ClsService<IClsStore>,
@@ -42,23 +63,53 @@ const createAfterResponseScheduler = (
   const pendingTasks: Array<() => Promise<void> | void> = [];
   let responseFinished = res.writableEnded || res.destroyed;
   let flushScheduled = false;
+  let activeTasks = 0;
 
-  const scheduleFlush = () => {
-    if (flushScheduled) {
+  async function runTask(task: () => Promise<void> | void) {
+    activeTasks += 1;
+    try {
+      await runWithPostgresQueryCancellation(undefined, async () => {
+        await task();
+      });
+    } catch (error) {
+      backgroundTaskLogger.error(
+        `V2 background task failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
+      );
+    } finally {
+      activeTasks -= 1;
+      scheduleFlush();
+    }
+  }
+
+  function scheduleFlush() {
+    if (
+      flushScheduled ||
+      !responseFinished ||
+      pendingTasks.length === 0 ||
+      activeTasks >= maxConcurrentBackgroundTasks
+    ) {
       return;
     }
+
     flushScheduled = true;
     const handle = setTimeout(() => {
       flushScheduled = false;
-      const tasks = pendingTasks.splice(0);
-      for (const task of tasks) {
-        void task();
+      while (activeTasks < maxConcurrentBackgroundTasks) {
+        const task = pendingTasks.shift();
+        if (!task) {
+          break;
+        }
+        void runTask(task);
       }
     }, 0);
     handle.unref?.();
-  };
+  }
 
   const markResponseFinished = () => {
+    if (responseFinished) {
+      return;
+    }
     responseFinished = true;
     scheduleFlush();
   };
@@ -68,15 +119,15 @@ const createAfterResponseScheduler = (
 
   return (task) => {
     const store = cls.get();
+    const backgroundStore = store ? { ...store } : undefined;
+    if (backgroundStore) delete backgroundStore.interactiveQueryAbort;
     pendingTasks.push(() => {
-      if (store) {
-        return cls.runWith(store, task);
+      if (backgroundStore) {
+        return cls.runWith(backgroundStore, task);
       }
       return task();
     });
-    if (responseFinished) {
-      scheduleFlush();
-    }
+    scheduleFlush();
   };
 };
 
@@ -88,6 +139,7 @@ export class RequestInfoMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const userAgent = req.headers['user-agent'] || '';
+    const client = formatClientHeader(req.headers['x-teable-client']);
     const referer = req.headers.referer || '';
     const authHeader = req.headers.authorization || '';
     const byApi = authHeader.toLowerCase().startsWith('bearer ');
@@ -97,6 +149,9 @@ export class RequestInfoMiddleware implements NestMiddleware {
     // "user manually did X" from "AI did X on behalf of user" / "automation robot did X".
     // Orthogonal to byApi — AI uses cookie auth, automation uses PAT, but both are
     // distinct from a vanilla UI or external-script request.
+    // The headers are client-controlled, so they only ever classify the request; the
+    // acting identity always comes from authentication (the robot identity is set
+    // in-process by the automation runner, never from a header).
     const via: IClsStore['origin']['via'] =
       req.headers['x-automation-internal'] === 'true'
         ? 'automation'
@@ -124,19 +179,33 @@ export class RequestInfoMiddleware implements NestMiddleware {
       // (/table/:tableId/...) isn't available — the concrete path is more useful anyway.
       path: requestPath(req),
       ...(via ? { via } : {}),
+      ...(client ? { client } : {}),
     });
 
-    // Automation runs under a dedicated robot identity (no real user is "logged in").
-    // AI is a tool the real user invokes — keep their identity intact.
-    if (via === 'automation') {
-      this.cls.set('user.id', automationRobotUserId);
-    }
+    const cookies = cookie.parse(req.headers.cookie ?? '');
 
     // Affiliate attribution (?via= cookie) — see IClsStore.affiliateVia.
-    const affiliateVia = cookie.parse(req.headers.cookie ?? '')[AFFILIATE_COOKIE_NAME];
+    const affiliateVia = cookies[AFFILIATE_COOKIE_NAME];
     if (affiliateVia) {
       this.cls.set('affiliateVia', affiliateVia.slice(0, AFFILIATE_VIA_MAX_LENGTH));
     }
+
+    // Signup attribution: first-touch utm/click-id cookie (planted by the
+    // Next proxy) + Meta pixel cookies. Parsing is defensive by contract —
+    // consumed only at account creation (user.service withAttribution).
+    const signupAttribution = parseSignupAttributionCookies(cookies);
+    if (signupAttribution) {
+      this.cls.set('signupAttribution', signupAttribution);
+    }
+
+    // Banner ad consent (parent-domain cookie) — see IClsStore.marketingAdConsent.
+    const marketingAdConsent = parseMarketingAdConsent(cookies);
+    if (marketingAdConsent) {
+      this.cls.set('marketingAdConsent', marketingAdConsent);
+    }
+
+    // CDN geo country — see IClsStore.requestCountry.
+    this.cls.set('requestCountry', requestCountry(req));
 
     // Canary header for canary release override
     const canaryHeader = req.headers[X_CANARY_HEADER];

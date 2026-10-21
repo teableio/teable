@@ -1,3 +1,4 @@
+import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
 import type {
   TableId,
   BaseId,
@@ -23,6 +24,7 @@ import {
   TableByIdSpec,
   domainError,
   isDomainError,
+  listTablesInTransactionScope,
   resolveLatestTableInTransactionScope,
   scheduleTableUpdateDeferredTask,
   v2CoreTokens,
@@ -30,6 +32,13 @@ import {
   RecordsBatchUpdated,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import {
+  formulaSqlPgTokens,
+  Pg16TypeValidationStrategy,
+  type IPgTypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
+  type FormulaCompileBudgetConfig,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
 import type {
@@ -44,14 +53,22 @@ import type { Result } from 'neverthrow';
 
 import type { ComputedUpdatePlanner } from '../../record/computed/ComputedUpdatePlanner';
 import type { FieldDependencyGraph } from '../../record/computed/FieldDependencyGraph';
+import type { IComputedUpdateOutbox } from '../../record/computed/outbox/IComputedUpdateOutbox';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
+import type { DynamicDB } from '../../record/query-builder';
 import {
   executeCompiledQueries,
   executeTableSchemaStatements,
   resolvePostgresDbOrTx,
 } from '../../shared/db';
 import {
+  ensureRowOrderColumnOnline,
+  hasOpenDataTransaction,
+  rowOrderIndexName,
+} from '../../shared/ensureRowOrderColumnOnline';
+import {
   createSchemaNotNullViolationError,
+  createSchemaUniqueViolationError,
   isNotNullViolation,
   isUniqueViolation,
 } from '../../shared/errors';
@@ -60,6 +77,7 @@ import {
   ensureUndoCaptureInfrastructure,
   invalidateUndoCaptureTableCache,
 } from '../../shared/undoCapture';
+import { FormulaAdmissionService } from '../admission/FormulaAdmissionService';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
@@ -98,6 +116,7 @@ type ComputedFieldCascadeService = {
       selfBackfillFieldIds: ReadonlyArray<FieldId>;
       valueChangedFieldIds: ReadonlyArray<FieldId>;
       deferredBackfillFieldIds?: ReadonlyArray<FieldId>;
+      preserveStoredFieldIds?: ReadonlyArray<FieldId>;
       hasDbStorageTypeChange?: boolean;
     }
   ): Promise<Result<void, DomainError>>;
@@ -107,6 +126,8 @@ type FieldValueChangeSet = {
   selfBackfillFieldIds: ReadonlyArray<FieldId>;
   valueChangedFieldIds: ReadonlyArray<FieldId>;
   deferredBackfillFieldIds: ReadonlyArray<FieldId>;
+  preserveStoredFieldIds: ReadonlyArray<FieldId>;
+  removedFieldIds: ReadonlyArray<FieldId>;
   hasDbStorageTypeChange: boolean;
 };
 
@@ -126,6 +147,15 @@ const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainEr
   return ok(undefined);
 };
 
+const noopComputedUpdateOutbox: Pick<
+  IComputedUpdateOutbox,
+  'discardBySeedTable' | 'discardFieldBackfills'
+> = {
+  discardBySeedTable: async () => ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] }),
+  discardFieldBackfills: async () =>
+    ok({ discardedTaskIds: [], trimmedTaskIds: [], discardedDeadLetterTaskIds: [] }),
+};
+
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
@@ -142,8 +172,21 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     @inject(v2RecordRepositoryPostgresTokens.computedDependencyGraph)
     private readonly fieldDependencyGraph: FieldDependencyGraph,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(formulaSqlPgTokens.typeValidationStrategy)
+    private readonly typeValidationStrategy: IPgTypeValidationStrategy = new Pg16TypeValidationStrategy(),
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
+    private readonly computedUpdateOutbox: Pick<
+      IComputedUpdateOutbox,
+      'discardBySeedTable' | 'discardFieldBackfills'
+    > = noopComputedUpdateOutbox,
+    @inject(formulaSqlPgTokens.compileBudget)
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
   ) {}
+
+  private get formulaAdmission(): FormulaAdmissionService {
+    return new FormulaAdmissionService(this.typeValidationStrategy, this.formulaCompileBudget);
+  }
 
   private resolveMetaDb(
     context: IExecutionContext
@@ -167,7 +210,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   ): Promise<
     Result<ReadonlyMap<string, { schema: string | null; tableName: string }>, DomainError>
   > {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyMap<string, { schema: string | null; tableName: string }>, DomainError>(
       async function* () {
         const locations = new Map(yield* buildTableLocationsById([table]));
@@ -237,7 +280,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>,
     options?: Pick<TableSchemaInsertManyOptions, 'optimizeForEmptyTables'>
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
       const metaDb = repository.resolveMetaDb(context) as Kysely<V1TeableDatabase>;
@@ -302,7 +345,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
 
@@ -350,7 +393,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     knownTables: ReadonlyArray<Table> = [table],
     options?: Pick<TableSchemaInsertManyOptions, 'optimizeForEmptyTables'>
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
 
@@ -401,7 +444,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table
         .dbTableName()
@@ -443,7 +486,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       DomainError
     >
   > {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<
       {
         schema: string | null;
@@ -550,6 +593,15 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const admission = this.formulaAdmission.admitNew(table);
+    if (admission.isErr()) return err(admission.error);
+    return this.insertAdmittedTableSchema(context, table);
+  }
+
+  private async insertAdmittedTableSchema(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
     const result = await this.insertTableSchema(context, table);
     if (result.isErr()) {
       return err(result.error);
@@ -585,6 +637,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>,
     options?: TableSchemaInsertManyOptions
   ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      const admission = this.formulaAdmission.admitNew(table);
+      if (admission.isErr()) return err(admission.error);
+    }
     const knownTables = options?.knownTables ?? tables;
     const fieldStatementGroups: Array<{
       table: Table;
@@ -655,14 +711,45 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     return this.ensureInsertedWithKnownTables(context, table, [table]);
   }
 
+  @TraceSpan()
+  async ensurePhysicalTable(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return await safeTry<void, DomainError>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
+      const introspector = new PostgresSchemaIntrospector(db);
+      const exists = yield* await introspector.tableExists(schema, tableName);
+      if (exists) {
+        return ok(undefined);
+      }
+      yield* repository.formulaAdmission.admitRoots(
+        table,
+        new Set(),
+        new Set(table.fieldIds().map((id) => id.toString()))
+      );
+      yield* await repository.insertAdmittedTableSchema(context, table);
+      return ok(undefined);
+    });
+  }
+
   private async ensureInsertedWithKnownTables(
     context: IExecutionContext,
     table: Table,
     knownTables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
+      yield* repository.formulaAdmission.admitRoots(
+        table,
+        new Set(),
+        new Set(table.fieldIds().map((id) => id.toString()))
+      );
 
       const { schema, tableName } = yield* table
         .dbTableName()
@@ -672,7 +759,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const exists = yield* await introspector.tableExists(schema, tableName);
 
       if (!exists) {
-        yield* await repository.insert(context, table);
+        yield* await repository.insertAdmittedTableSchema(context, table);
         return ok(undefined);
       }
 
@@ -699,15 +786,66 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     return ok(undefined);
   }
 
+  /**
+   * T7541: create grid-view row-order columns on the non-transactional data
+   * handle before TableUpdateFlow / ViewManualSortService open the request
+   * transaction. Never resolve the caller's transaction here.
+   */
+  async prepareViewRowOrderStorage(
+    context: IExecutionContext,
+    table: Table,
+    viewIds: ReadonlyArray<string>
+  ): Promise<Result<void, DomainError>> {
+    const skipConcurrentIndex = hasOpenDataTransaction(
+      this.db as unknown as Kysely<DynamicDB>,
+      context
+    );
+    const repository = this;
+    return safeTry<void, DomainError>(async function* () {
+      const seen = new Set<string>();
+      const ids = viewIds.filter((viewId) => {
+        if (!viewId || seen.has(viewId)) return false;
+        seen.add(viewId);
+        return true;
+      });
+      if (ids.length === 0) return ok(undefined);
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const qualifiedName = schema ? `${schema}.${tableName}` : tableName;
+      const nonTxDb = repository.db as unknown as Kysely<DynamicDB>;
+      try {
+        for (const viewId of ids) {
+          await ensureRowOrderColumnOnline(
+            nonTxDb,
+            qualifiedName,
+            viewId,
+            rowOrderIndexName(qualifiedName, viewId),
+            { skipConcurrentIndex }
+          );
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to prepare view row-order storage: ${describeError(error)}`,
+          })
+        );
+      }
+      return ok(undefined);
+    });
+  }
+
   @TraceSpan()
   async update(
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<Table, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
+      yield* repository.formulaAdmission.admitUpdate(table, mutateSpec);
 
       const { schema, tableName } = yield* table
         .dbTableName()
@@ -731,6 +869,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
             recordUpdates.push(update);
           },
         },
+        typeValidationStrategy: repository.typeValidationStrategy,
       });
       yield* mutateSpec.accept(visitor);
       const statements = yield* visitor.where();
@@ -748,21 +887,21 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           });
         } catch (error) {
           if (isUniqueViolation(error)) {
-            return err(
-              domainError.validation({
-                message: 'Cannot complete update: unique constraint violated',
-                code: 'validation.field.unique',
-              })
-            );
+            return err(createSchemaUniqueViolationError(error, tableName, table.getFields()));
           }
 
           if (isNotNullViolation(error)) {
-            return err(createSchemaNotNullViolationError(error, table.getFields(), context.$t));
+            return err(createSchemaNotNullViolationError(error, table.getFields()));
           }
 
+          const pgCode = pgErrorCode(error);
           return err(
             domainError.infrastructure({
+              // 42703 (undefined_column) means the physical schema is behind the
+              // metadata, which the idempotent schema operation repair recreates.
+              ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
               message: `Failed to update table schema: ${describeError(error)}`,
+              ...(pgCode ? { details: { pgCode } } : {}),
             })
           );
         }
@@ -821,6 +960,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           selfBackfillFieldIds: valueChanges.selfBackfillFieldIds,
           valueChangedFieldIds: valueChanges.valueChangedFieldIds,
           deferredBackfillFieldIds: valueChanges.deferredBackfillFieldIds,
+          preserveStoredFieldIds: valueChanges.preserveStoredFieldIds,
           hasDbStorageTypeChange: valueChanges.hasDbStorageTypeChange,
         });
       }
@@ -843,6 +983,23 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       yield* await repository.recordPostPersistActionTriggers(context, nextTable, valueChanges);
       yield* await repository.scheduleDeferredBackfillAfterUpdate(context, nextTable, valueChanges);
 
+      // Removed fields take their physical columns with them, so any queued or
+      // running backfill chunk that still targets them can only fail on the
+      // missing column. Discard that work in the same transaction as the drop,
+      // as late as possible so the scan also sees chunks committed while this
+      // update ran (a chunk finishing concurrently enqueues its continuation
+      // from its own transaction).
+      if (valueChanges.removedFieldIds.length > 0) {
+        yield* await repository.computedUpdateOutbox.discardFieldBackfills(
+          {
+            baseId: table.baseId().toString(),
+            seedTableId: table.id().toString(),
+            fieldIds: valueChanges.removedFieldIds.map((fieldId) => fieldId.toString()),
+          },
+          context
+        );
+      }
+
       return ok(nextTable);
     });
   }
@@ -858,6 +1015,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       selfBackfillFieldIds: valueChangeVisitor.selfBackfillFields(),
       valueChangedFieldIds: valueChangeVisitor.valueChangedFields(),
       deferredBackfillFieldIds: valueChangeVisitor.deferredBackfillFields(),
+      preserveStoredFieldIds: valueChangeVisitor.preservedStoredFields(),
+      removedFieldIds: valueChangeVisitor.removedFields(),
       hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
     });
   }
@@ -921,7 +1080,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     table: Table,
     valueChanges: FieldValueChangeSet
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       const changedFieldIds = dedupeFieldIds([
         ...valueChanges.selfBackfillFieldIds,
@@ -959,6 +1118,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
       addActionTriggerTarget(table.id(), changedFieldIds, table.baseId());
 
+      const scopedTablesById = new Map(
+        listTablesInTransactionScope(context).map((scopedTable) => [
+          scopedTable.id().toString(),
+          scopedTable,
+        ])
+      );
+      scopedTablesById.set(table.id().toString(), table);
+
       const planResult = yield* await repository.computedUpdatePlanner.plan(
         {
           table,
@@ -967,11 +1134,21 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           changeType: 'update',
           cyclePolicy: 'skip',
         },
-        context
+        context,
+        {
+          tableProvisionStates: ['ready', 'deleting'],
+          scopedPendingTableIds: [...scopedTablesById.values()].map((scopedTable) =>
+            scopedTable.id()
+          ),
+        }
       );
 
       for (const step of planResult.steps) {
-        addActionTriggerTarget(step.tableId, step.fieldIds);
+        addActionTriggerTarget(
+          step.tableId,
+          step.fieldIds,
+          scopedTablesById.get(step.tableId.toString())?.baseId()
+        );
       }
 
       for (const target of actionTriggerTargets.values()) {
@@ -1033,7 +1210,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     table: Table,
     valueChanges: FieldValueChangeSet
   ): Promise<Result<void, DomainError>> {
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       yield* await repository.cascadeService.cascade(context, {
         table,
@@ -1056,7 +1233,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       return ok(undefined);
     }
 
-    const repository = this;
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table
         .dbTableName()
@@ -1074,6 +1251,18 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           })
         );
       }
+
+      // Pending computed tasks seeded from this table can only fail ("Table not
+      // found") once the drop commits, and dead letters replayed after it die
+      // the same way; discard both in the same transaction.
+      // Soft deletes keep their tasks: a restore makes them replayable.
+      yield* await repository.computedUpdateOutbox.discardBySeedTable(
+        {
+          baseId: table.baseId().toString(),
+          seedTableId: table.id().toString(),
+        },
+        context
+      );
 
       return ok(undefined);
     });

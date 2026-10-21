@@ -16,6 +16,8 @@ describe('relaxOAuthPopupCoop', () => {
     '/api/auth/github/callback',
     '/api/auth/google',
     '/api/auth/google/callback',
+    '/api/auth/apple',
+    '/api/auth/apple/callback',
     '/api/auth/oidc',
     '/api/auth/oidc/callback',
     '/api/auth/authentication/prv123',
@@ -23,6 +25,7 @@ describe('relaxOAuthPopupCoop', () => {
     '/api/app-auth/teable/callback',
     '/api/app-auth/google/callback',
     '/auth/login',
+    '/auth/signup',
     '/oauth/decision',
   ])('relaxes COOP on %s', (path) => {
     const { res, next } = run(path);
@@ -40,6 +43,7 @@ describe('relaxOAuthPopupCoop', () => {
     '/api/app-auth/teable/authorize-url',
     '/api/base/base123/record',
     '/auth/login-history',
+    '/auth/signup-history',
     '/space',
   ])('leaves %s untouched', (path) => {
     const { res, next } = run(path);

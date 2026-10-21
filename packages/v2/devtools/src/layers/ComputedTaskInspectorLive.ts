@@ -1,15 +1,15 @@
-import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import {
   RunComputedTaskByIdCommand,
+  type ComputedUpdateOutboxConfig,
   type RunComputedTaskByIdResult,
   v2RecordRepositoryPostgresTokens,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely, SelectQueryBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { CliError } from '../errors/CliError';
-import { Database } from '../services/Database';
 import {
   ComputedTaskInspector,
   type CliTable,
@@ -30,6 +30,7 @@ import {
   type TaskEdgeModeRow,
   type TaskTargetRow,
 } from '../services/ComputedTaskInspector';
+import { Database } from '../services/Database';
 
 type RawTaskRow = {
   id: string;
@@ -48,7 +49,7 @@ type RawTaskRow = {
   lastError: string | null;
   steps: unknown;
   edges: unknown;
-  dirtyStats: unknown | null;
+  dirtyStats: unknown;
 };
 
 type EdgeDto = {
@@ -88,7 +89,7 @@ const ensurePositive = (value: number | undefined, fallback: number, field: stri
 const ensureStatuses = (
   statuses: ReadonlyArray<ComputedTaskStatus> | undefined
 ): ReadonlyArray<ComputedTaskStatus> => {
-  const resolved = statuses && statuses.length ? statuses : (['pending', 'processing'] as const);
+  const resolved = statuses?.length ? statuses : (['pending', 'processing'] as const);
   if ((resolved as ReadonlyArray<string>).includes('done')) {
     throw new CliError({
       message:
@@ -106,7 +107,7 @@ const ensureStatuses = (
 const normalizeTableMatch = (
   tableIds: ReadonlyArray<string> | undefined,
   tableMatch: ComputedTaskTableMatch | undefined
-): ComputedTaskTableMatch | undefined => (tableIds?.length ? tableMatch ?? 'any' : undefined);
+): ComputedTaskTableMatch | undefined => (tableIds?.length ? (tableMatch ?? 'any') : undefined);
 
 const toIso = (value: Date | null | undefined): string => (value ? value.toISOString() : '');
 
@@ -511,12 +512,14 @@ const fetchTableNames = async (
 
 const nextReplayTaskId = async (
   db: Kysely<V1TeableDatabase>,
+  workerLane: string,
   baseIds?: ReadonlyArray<string>
 ): Promise<string | undefined> => {
   let query = db
     .selectFrom('computed_update_outbox as o')
     .select('o.id as id')
     .where('o.status', 'in', ['pending', 'processing'])
+    .where('o.worker_lane', '=', workerLane)
     .orderBy('o.next_run_at', 'asc')
     .orderBy('o.updated_at', 'asc')
     .orderBy('o.id', 'asc')
@@ -531,6 +534,7 @@ const nextReplayTaskId = async (
 
 const fetchRemainingByBase = async (
   db: Kysely<V1TeableDatabase>,
+  workerLane: string,
   baseIds?: ReadonlyArray<string>
 ) => {
   let query = db
@@ -542,6 +546,7 @@ const fetchRemainingByBase = async (
       sql<number>`count(*)`.as('remaining'),
     ])
     .where('o.status', 'in', ['pending', 'processing'])
+    .where('o.worker_lane', '=', workerLane)
     .groupBy(['o.base_id', 'b.name'])
     .orderBy(sql<number>`count(*)`, 'desc')
     .orderBy('o.base_id', 'asc');
@@ -569,6 +574,9 @@ export const ComputedTaskInspectorLive = Layer.effect(
     const internalCommandBus = container.resolve(
       v2CoreTokens.internalCommandBus
     ) as IInternalCommandBus;
+    const { workerLane } = container.resolve<ComputedUpdateOutboxConfig>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
+    );
 
     return {
       getQueueSummary: (
@@ -762,7 +770,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
                 .map(([targetTableId, edgeCount]) => ({
                   targetTableId,
                   targetTableName:
-                    targetTableId === '-' ? '-' : tableNames.get(targetTableId) ?? targetTableId,
+                    targetTableId === '-' ? '-' : (tableNames.get(targetTableId) ?? targetTableId),
                   edgeCount,
                 }))
                 .sort(
@@ -810,6 +818,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
                   .selectFrom('computed_update_outbox as o')
                   .select(sql<number>`count(*)`.as('count'))
                   .where('o.status', 'in', ['pending', 'processing'])
+                  .where('o.worker_lane', '=', workerLane)
                   .$if(Boolean(input.baseIds?.length), (qb) =>
                     qb.where('o.base_id', 'in', input.baseIds ?? [])
                   )
@@ -821,10 +830,8 @@ export const ComputedTaskInspectorLive = Layer.effect(
             const start = Date.now();
             const context = createContext();
 
-            while (true) {
-              if (limit !== null && processed >= limit) break;
-
-              const taskId = await nextReplayTaskId(db, input.baseIds);
+            while (limit === null || processed < limit) {
+              const taskId = await nextReplayTaskId(db, workerLane, input.baseIds);
               if (!taskId) break;
 
               const commandResult = RunComputedTaskByIdCommand.create({
@@ -851,7 +858,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
               }
             }
 
-            const remainingRows = await fetchRemainingByBase(db, input.baseIds);
+            const remainingRows = await fetchRemainingByBase(db, workerLane, input.baseIds);
             const finalRemaining = remainingRows.reduce(
               (sum, row) => sum + Number(row.remaining ?? 0),
               0

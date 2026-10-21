@@ -69,6 +69,9 @@ undo/redo, and real-time collaboration; attachments preview, batch editing,
 import/export, search, validation, charts, plugins, SQL query — and millions
 of rows without breaking a sweat.
 
+Grid views can group button fields by click count. Unclicked or reset buttons
+remain in the empty group; each stored count has its own group header.
+
 More features land all the time — see the <a target="_blank" href="https://help.teable.ai/en/changelog">Changelog</a>.
 
 ## Deploy

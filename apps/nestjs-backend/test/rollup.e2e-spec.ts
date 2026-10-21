@@ -32,6 +32,20 @@ import {
   getRecord,
 } from './utils/init-app';
 
+const withForceV2All = async <T>(callback: () => Promise<T>) => {
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  process.env.FORCE_V2_ALL = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  }
+};
+
 // All kind of field type (except link)
 const defaultFields: IFieldRo[] = [
   {
@@ -326,6 +340,52 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
     const hostAfterClear = await getRecord(table1.id, table1.records[0].id);
     expect(hostAfterClear.fields[rollupField.id]).toEqual(30);
+  });
+
+  it('keeps OR-filtered rollups inside each one-many link scope (T7004)', async () => {
+    const statusField = getFieldByType(table2.fields, FieldType.SingleSelect);
+    const numberField = getFieldByType(table2.fields, FieldType.Number);
+    const linkField = getFieldByType(table1.fields, FieldType.Link) as LinkFieldCore;
+
+    const rollupField = await createField(table1.id, {
+      name: 'OR-filtered linked total T7004',
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 0,
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: linkField.id,
+        lookupFieldId: numberField.id,
+        filter: {
+          conjunction: 'or',
+          filterSet: [
+            { fieldId: statusField.id, operator: 'is', value: 'todo' },
+            { fieldId: statusField.id, operator: 'is', value: 'doing' },
+          ],
+        },
+      } as ILookupOptionsRo,
+    });
+
+    await updateRecordField(table2.id, table2.records[0].id, numberField.id, 10);
+    await updateRecordField(table2.id, table2.records[0].id, statusField.id, 'todo');
+    await updateRecordField(table2.id, table2.records[1].id, numberField.id, 20);
+    await updateRecordField(table2.id, table2.records[1].id, statusField.id, 'doing');
+    await updateRecordField(table2.id, table2.records[2].id, numberField.id, 30);
+    await updateRecordField(table2.id, table2.records[2].id, statusField.id, 'done');
+    await updateRecordField(table1.id, table1.records[0].id, linkField.id, [
+      { id: table2.records[0].id },
+    ]);
+
+    const linkedHost = await getRecord(table1.id, table1.records[0].id);
+    const unlinkedHost = await getRecord(table1.id, table1.records[1].id);
+
+    expect(linkedHost.fields[rollupField.id]).toEqual(10);
+    expect(unlinkedHost.fields[rollupField.id]).toEqual(0);
   });
 
   it('should update rollupField by remove a linkRecord from cell', async () => {
@@ -819,8 +879,6 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
   describe('rollup expression coverage', () => {
     const baseId = globalThis.testConfig.baseId;
-    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
-
     const setupRollupFixtures = async () => {
       const foreign = await createTable(baseId, {
         name: 'RollupExpr_Foreign',
@@ -877,7 +935,9 @@ describe('OpenAPI Rollup field (e2e)', () => {
       { expression: 'average({values})', lookupFieldKey: 'amountId', expected: 15 },
       { expression: 'max({values})', lookupFieldKey: 'amountId', expected: 20 },
       { expression: 'min({values})', lookupFieldKey: 'amountId', expected: 10 },
-      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: isForceV2 ? false : true },
+      // Unchecked checkboxes are stored as null on both write paths, so
+      // and({values}) over [true, null] ignores the null and stays true.
+      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'or({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'xor({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'array_join({values})', lookupFieldKey: 'labelId', expected: 'Alpha, Beta' },
@@ -919,12 +979,24 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
           if (Array.isArray(expected)) {
             expect(Array.isArray(value)).toBe(true);
-            const sortedExpected = [...expected].sort();
-            const sortedValue = [...(value as unknown[])].sort();
+            const sortedExpected = [...expected].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
+            const sortedValue = [...(value as unknown[])].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
             expect(sortedValue).toEqual(sortedExpected);
           } else if (typeof expected === 'string') {
             if (expected.includes(', ')) {
-              expect((value as string).split(', ').sort()).toEqual(expected.split(', ').sort());
+              expect(
+                (value as string)
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              ).toEqual(
+                expected
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              );
             } else {
               expect(value).toEqual(expected);
             }
@@ -963,9 +1035,17 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const arrayUniqueRollup = await rollupFrom(table1, textField.id, 'array_unique({values})');
 
     let record = await getRecord(table1.id, table1.records[1].id);
-    const joinedValues = (record.fields[arrayJoinRollup.id] as string).split(', ').sort();
-    expect(joinedValues).toEqual(['Alpha', 'Alpha', 'Beta'].sort());
-    const uniqueValues = [...(record.fields[arrayUniqueRollup.id] as string[])].sort();
+    const joinedValues = (record.fields[arrayJoinRollup.id] as string)
+      .split(', ')
+      .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
+    expect(joinedValues).toEqual(
+      ['Alpha', 'Alpha', 'Beta'].sort(
+        (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+      )
+    );
+    const uniqueValues = [...(record.fields[arrayUniqueRollup.id] as string[])].sort(
+      (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+    );
     expect(uniqueValues).toEqual(['Alpha', 'Beta']);
 
     // Update values to include blanks and verify compact removes empty entries
@@ -1257,7 +1337,9 @@ describe('OpenAPI Rollup field (e2e)', () => {
             const normalized = part.trim();
             const withBracket = normalized.endsWith(']') ? normalized : `${normalized}]`;
             const parsed = tryParse(withBracket);
-            return parsed ?? [normalized.replace(/^\[|"|'|\]$/g, '')];
+            return (
+              parsed ?? [normalized.replace(/^\[/, '').replace(/\]$/, '').replace(/["']/g, '')]
+            );
           });
           return parts.flat();
         }
@@ -1372,6 +1454,81 @@ describe('OpenAPI Rollup field (e2e)', () => {
         await permanentDeleteTable(baseId, host.id);
         await permanentDeleteTable(baseId, foreign.id);
       }
+    });
+
+    it.each([
+      {
+        name: 'number + and',
+        foreignFields: [{ name: 'Amount', type: FieldType.Number }],
+        lookupName: 'Amount',
+        expression: 'and({values})',
+      },
+      {
+        name: 'checkbox + sum',
+        foreignFields: [{ name: 'Flag', type: FieldType.Checkbox }],
+        lookupName: 'Flag',
+        expression: 'sum({values})',
+      },
+      {
+        name: 'button + countall',
+        foreignFields: [
+          {
+            name: 'Action',
+            type: FieldType.Button,
+            options: { label: 'Run', color: Colors.Teal },
+          },
+        ],
+        lookupName: 'Action',
+        expression: 'countall({values})',
+      },
+    ])('rejects incompatible rollup create via API: $name', async (testCase) => {
+      await withForceV2All(async () => {
+        const foreign = await createTable(baseId, {
+          name: `RollupRejectForeign ${testCase.name}`,
+          fields: testCase.foreignFields as IFieldRo[],
+        });
+        const host = await createTable(baseId, {
+          name: `RollupRejectHost ${testCase.name}`,
+          fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+        });
+        const lookupFieldId = foreign.fields.find(
+          (field) => field.name === testCase.lookupName
+        )!.id;
+
+        try {
+          const linkField = await createField(host.id, {
+            name: 'Children',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.OneMany,
+              foreignTableId: foreign.id,
+            },
+          } as IFieldRo);
+
+          await createField(
+            host.id,
+            {
+              name: 'Illegal Rollup',
+              type: FieldType.Rollup,
+              options: {
+                expression: testCase.expression,
+              },
+              lookupOptions: {
+                foreignTableId: foreign.id,
+                linkFieldId: linkField.id,
+                lookupFieldId,
+              } as ILookupOptionsRo,
+            } as IFieldRo,
+            400
+          );
+
+          const fields = await getFields(host.id);
+          expect(fields.find((field) => field.name === 'Illegal Rollup')).toBeUndefined();
+        } finally {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      });
     });
   });
 

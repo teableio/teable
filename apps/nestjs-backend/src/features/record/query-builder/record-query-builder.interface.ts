@@ -50,6 +50,11 @@ export interface ICreateRecordQueryBuilderOptions {
    */
   preferRawFieldReferences?: boolean;
   /**
+   * Controls unsupported field-reference predicates for internal affected-set or
+   * computed-evaluation queries. User-issued queries must keep the default 'throw'.
+   */
+  unsupportedFieldReferenceBehavior?: 'throw' | 'match-all';
+  /**
    * When true, lookup-like computed fields use their persisted DB columns
    * instead of expanding link/conditional CTEs. Intended for read paths where
    * persisted computed values are the query source of truth.
@@ -94,6 +99,11 @@ export interface ICreateRecordAggregateBuilderOptions {
   groupBy?: IGroup;
   /** Optional current user ID */
   currentUserId?: string;
+  /**
+   * Controls unsupported field-reference predicates for internal queries.
+   * User-issued aggregations must keep the default 'throw'.
+   */
+  unsupportedFieldReferenceBehavior?: 'throw' | 'match-all';
   /** Optional projection to minimize CTE/select */
   projection?: string[];
   /**
@@ -170,6 +180,17 @@ export interface IRecordQueryFilterContext {
   selectionMap: IReadonlyRecordSelectionMap;
   fieldReferenceSelectionMap?: Map<string, string>;
   fieldReferenceFieldMap?: Map<string, FieldCore>;
+  /**
+   * How to compile a filter item whose field-reference comparison the SQL layer
+   * does not support (e.g. 'contains' against another field):
+   * - 'throw' (default): reject the whole query — correct for user-issued
+   *   queries, which must not silently change meaning;
+   * - 'match-all': compile the item as TRUE and log a warning — for machinery
+   *   deriving AFFECTED sets (computed dependency collection), where the
+   *   conservative direction is to include more rows, and where throwing would
+   *   otherwise fail unrelated record WRITES on the host table.
+   */
+  unsupportedFieldReferenceBehavior?: 'throw' | 'match-all';
 }
 
 export interface IRecordQuerySortContext {

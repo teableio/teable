@@ -63,7 +63,7 @@ export const TemplatePreview = (props: {
         </div>
       )}
       {!hidePreviewButton && (
-        <div className="absolute bottom-3 right-3">
+        <div className="absolute bottom-3 end-3">
           <Button variant="outline" size="xs" onClick={() => window.open(url, '_blank')}>
             <ArrowUpRight className="size-4" />
             {t('common:settings.templateAdmin.actions.preview')}

@@ -1,10 +1,12 @@
 import { Body, Controller, Delete, Get, Post, Put, Query } from '@nestjs/common';
-import type { IGetPinListVo } from '@teable/openapi';
+import type { IPinEntryMapVo, IGetPinListVo } from '@teable/openapi';
 import {
   AddPinRo,
   DeletePinRo,
   addPinRoSchema,
   deletePinRoSchema,
+  IGetPinListRo,
+  getPinListRoSchema,
   UpdatePinOrderRo,
   updatePinOrderRoSchema,
 } from '@teable/openapi';
@@ -26,8 +28,15 @@ export class PinController {
   }
 
   @Get('list')
-  async getList(): Promise<IGetPinListVo> {
-    return this.pinService.getList();
+  async getList(
+    @Query(new ZodValidationPipe(getPinListRoSchema)) query: IGetPinListRo
+  ): Promise<IGetPinListVo> {
+    return this.pinService.getList(query);
+  }
+
+  @Get('entry-map')
+  async getEntryMap(): Promise<IPinEntryMapVo> {
+    return this.pinService.getEntryMap();
   }
 
   @Put('order')

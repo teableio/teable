@@ -18,7 +18,8 @@ export type UpdateBaseCollaborateRo = z.infer<typeof updateBaseCollaborateRoSche
 export const UpdateBaseCollaborateRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE_COLLABORATE,
-  description: 'Update a base collaborator',
+  title: 'Update project collaborator',
+  description: "Update a collaborator's role in a project.",
   request: {
     params: z.object({
       invitationId: z.string(),

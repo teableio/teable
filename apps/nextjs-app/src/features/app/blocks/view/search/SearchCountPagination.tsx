@@ -104,8 +104,10 @@ export const SearchCountPagination = forwardRef<
       orderBy: viewOrderBy,
       search: searchQuery,
       groupBy: view.group,
-      filter: view.filter,
       ...personalViewCommonQuery,
+      // personalViewCommonQuery.filter is often undefined and would otherwise
+      // wipe the shared view filter while ignoreViewQuery is true
+      filter: personalViewCommonQuery?.filter ?? view.filter,
     };
 
     const searchFn = shareView
@@ -123,7 +125,7 @@ export const SearchCountPagination = forwardRef<
     }
 
     const nextCursor =
-      result.data?.length ?? 0 >= PaginationBuffer ? skipLength + PaginationBuffer : null;
+      (result.data?.length ?? 0 >= PaginationBuffer) ? skipLength + PaginationBuffer : null;
 
     return {
       data: result.data || [],

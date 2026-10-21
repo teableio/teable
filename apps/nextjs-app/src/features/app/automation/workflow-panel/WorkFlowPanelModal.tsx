@@ -40,15 +40,11 @@ const AlertCloseWorkflowDialog = forwardRef<AlertCloseDialogRef, AlertCloseDialo
     const [open, setOpen] = useState(false);
     const { t } = useTranslation(tableConfig.i18nNamespaces);
 
-    useImperativeHandle(
-      ref,
-      () => {
-        return {
-          open: () => setOpen(true),
-        };
-      },
-      []
-    );
+    useImperativeHandle(ref, () => {
+      return {
+        open: () => setOpen(true),
+      };
+    }, []);
     return (
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogTrigger asChild></AlertDialogTrigger>

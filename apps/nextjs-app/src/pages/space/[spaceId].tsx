@@ -1,7 +1,6 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
 import { Role } from '@teable/core';
 import { ReactQueryKeys } from '@teable/sdk';
-import { uniq } from 'lodash';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SpaceInnerPage } from '@/features/app/blocks/space';
@@ -63,13 +62,13 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       await Promise.all([
         queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, {
+          queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId as string, {
             skip: 0,
-            take: 50,
+            take: 30,
             orderBy: 'asc',
-            includeBase: true,
           }),
-          queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1], queryKey[2]),
+          queryFn: ({ queryKey }) =>
+            ssrApi.getSpaceUniqueCollaboratorList(queryKey[1], queryKey[2]),
         }),
 
         queryClient.fetchQuery({
@@ -92,10 +91,9 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       return {
         props: {
-          ...(await getTranslationsProps(
-            context,
-            uniq([...spaceConfig.i18nNamespaces, ...settingConfig.i18nNamespaces])
-          )),
+          ...(await getTranslationsProps(context, [
+            ...new Set([...spaceConfig.i18nNamespaces, ...settingConfig.i18nNamespaces]),
+          ])),
           dehydratedState: dehydrate(queryClient),
         },
       };

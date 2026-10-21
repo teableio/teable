@@ -39,7 +39,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
         <div className="flex h-6 shrink-0 items-center">
           <Icon className="size-4 shrink-0" />
         </div>
-        <h3 className="ml-1">{name}</h3>
+        <h3 className="ms-1">{name}</h3>
       </div>
 
       {description && (
@@ -55,7 +55,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
 
       {isError && <div className="mt-1 text-xs text-red-500">{t('required')}</div>}
 
-      {required && <span className="absolute left-[-10px] top-5 text-red-500">*</span>}
+      {required && <span className="absolute start-[-10px] top-5 text-red-500">*</span>}
     </div>
   );
 };

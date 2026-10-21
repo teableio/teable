@@ -87,13 +87,13 @@ export const BaseTrashPage = () => {
     },
   });
 
-  const allRows = useMemo(
-    () => (data ? data.pages.flatMap((d) => d) : []) as ITrashItemVo[],
-    [data]
-  );
+  const allRows = useMemo(() => (data ? data.pages.flat() : []) as ITrashItemVo[], [data]);
 
   const canReset =
-    permission?.['table|delete'] && permission?.['app|delete'] && permission?.['automation|delete'];
+    permission?.['table|delete'] &&
+    permission?.['app|delete'] &&
+    permission?.['automation|delete'] &&
+    permission?.['routine|delete'];
 
   const canRestore = useCallback(
     (resourceType: string) => {
@@ -104,6 +104,8 @@ export const BaseTrashPage = () => {
           return permission?.['app|create'];
         case TrashType.Workflow:
           return permission?.['automation|create'];
+        case TrashType.Routine:
+          return permission?.['routine|create'];
         default:
           return false;
       }
@@ -147,12 +149,14 @@ export const BaseTrashPage = () => {
                 return t('common:noun.app');
               case TrashType.Workflow:
                 return t('common:noun.automation');
+              case TrashType.Routine:
+                return t('common:noun.routine');
               default:
                 return '';
             }
           };
 
-          return <div className="text-wrap pr-2 text-sm">{resourceName()}</div>;
+          return <div className="text-wrap pe-2 text-sm">{resourceName()}</div>;
         },
       },
       {
@@ -243,7 +247,7 @@ export const BaseTrashPage = () => {
           <div className="flex flex-col items-start gap-2">
             <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
             {!isCommunity && retentionDays > 0 && (
-              <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+              <p className="shrink-0 grow-0 text-start text-sm text-zinc-500">
                 {t('common:trash.baseDescription', { retentionDays })}
               </p>
             )}

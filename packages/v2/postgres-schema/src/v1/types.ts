@@ -12,6 +12,10 @@ export interface V1UserTable {
   id: string;
   name: string;
   email: string | null;
+  avatar: string | null;
+  is_system: boolean | null;
+  phone: string | null;
+  deleted_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
   // password: string;
   // created_time: ColumnType<Date, Date | undefined, never>;
   // last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
@@ -50,6 +54,7 @@ export interface V1CollaboratorTable {
   resource_id: string;
   principal_id: string;
   principal_type: string;
+  created_time: ColumnType<Date, Date | undefined, never>;
 }
 
 export interface V1TableMetaTable {
@@ -60,6 +65,7 @@ export interface V1TableMetaTable {
   icon: string | null;
   db_table_name: string;
   db_view_name: string | null;
+  search_index: ColumnType<unknown, unknown, unknown>;
   provision_state: V1ProvisionStateColumn;
   version: number;
   order: number;
@@ -127,6 +133,43 @@ export interface V1ViewTable {
   last_modified_by: string | null;
 }
 
+export interface V1CommentTable {
+  id: string;
+  table_id: string;
+  record_id: string;
+  quote_Id: string | null;
+  content: string | null;
+  reaction: string | null;
+  deleted_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  created_time: ColumnType<Date, Date | undefined, never>;
+  created_by: string;
+  last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+}
+
+export interface V1PluginTable {
+  id: string;
+  name: string;
+  logo: string;
+  url: string | null;
+  status: string;
+  positions: string;
+  created_by: string;
+}
+
+export interface V1PluginInstallTable {
+  id: string;
+  plugin_id: string;
+  base_id: string;
+  name: string;
+  position_id: string;
+  position: string;
+  storage: string | null;
+  created_time: ColumnType<Date, Date | undefined, never>;
+  created_by: string;
+  last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  last_modified_by: string | null;
+}
+
 export interface V1ReferenceTable {
   id: string;
   from_field_id: string;
@@ -144,8 +187,8 @@ export interface V1SchemaOperationTable {
   base_id: string | null;
   table_id: string | null;
   idempotency_key: string;
-  payload: unknown | null;
-  result: unknown | null;
+  payload: unknown;
+  result: unknown;
   attempts: number;
   max_attempts: number;
   next_run_at: ColumnType<Date, Date | undefined, Date | undefined>;
@@ -161,8 +204,9 @@ export interface V1SchemaOperationTable {
 export interface V1ComputedUpdateOutboxTable {
   id: string;
   base_id: string;
+  worker_lane: ColumnType<string, string | undefined, string | undefined>;
   seed_table_id: string;
-  seed_record_ids: unknown | null;
+  seed_record_ids: unknown;
   change_type: string;
   steps: unknown;
   edges: unknown;
@@ -175,7 +219,7 @@ export interface V1ComputedUpdateOutboxTable {
   last_error: string | null;
   estimated_complexity: number;
   plan_hash: string;
-  dirty_stats: unknown | null;
+  dirty_stats: unknown;
   run_id: string;
   origin_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   run_total_steps: number;
@@ -183,6 +227,9 @@ export interface V1ComputedUpdateOutboxTable {
   affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   sync_max_level: number | null;
+  source_changed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  stage_depth: ColumnType<number, number | undefined, number | undefined>;
+  predecessor_task_id: string | null;
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
 }
@@ -194,11 +241,37 @@ export interface V1ComputedUpdateOutboxSeedTable {
   record_id: string;
 }
 
+/**
+ * Durable per-stage state for budget-staged computed updates, keyed by the
+ * continuation chain's root task id (its scope): the processed-target exclusion
+ * ledger (kind 'excluded'), the seq-ordered frontier queue (kind 'frontier'),
+ * and retired frontier sources preserved for deferred edge chunks (kind
+ * 'consumed'). Rows are written once and shared by every continuation of the
+ * chain instead of being copied between task payloads.
+ */
+export interface V1ComputedUpdateChangeFrontierTable {
+  scope_id: string;
+  kind: string;
+  table_id: string;
+  record_id: string;
+  field_id: string;
+}
+
+export interface V1ComputedUpdateStageLedgerTable {
+  scope_id: string;
+  /** 'excluded' | 'frontier' | 'consumed' */
+  kind: string;
+  table_id: string;
+  record_id: string;
+  seq: bigint | number | string;
+}
+
 export interface V1ComputedUpdateDeadLetterTable {
   id: string;
   base_id: string;
+  worker_lane: ColumnType<string, string | undefined, string | undefined>;
   seed_table_id: string;
-  seed_record_ids: unknown | null;
+  seed_record_ids: unknown;
   change_type: string;
   steps: unknown;
   edges: unknown;
@@ -211,7 +284,7 @@ export interface V1ComputedUpdateDeadLetterTable {
   last_error: string | null;
   estimated_complexity: number;
   plan_hash: string;
-  dirty_stats: unknown | null;
+  dirty_stats: unknown;
   run_id: string;
   origin_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   run_total_steps: number;
@@ -219,10 +292,48 @@ export interface V1ComputedUpdateDeadLetterTable {
   affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   sync_max_level: number | null;
-  trace_data: unknown | null;
+  source_changed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  stage_depth: ColumnType<number, number | undefined, number | undefined>;
+  predecessor_task_id: string | null;
+  trace_data: unknown;
   failed_at: ColumnType<Date, Date | undefined, Date | undefined>;
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+/**
+ * Completion ledger for computed-update outbox tasks (lineage / latency
+ * tracing). Successful tasks are hard-deleted from the outbox on markDone;
+ * this table keeps a retention-bounded trail per completed task so admins can
+ * reconstruct a run's stage chain and its source-change → converged latency.
+ * Observability only — the worker never reads it.
+ */
+export interface V1ComputedUpdateRunHistoryTable {
+  task_id: string;
+  base_id: string;
+  seed_table_id: string;
+  change_type: string;
+  run_id: string;
+  origin_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  steps: unknown;
+  edges: unknown;
+  affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  source_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  seed_record_count: ColumnType<number, number | undefined, number | undefined>;
+  stage_depth: ColumnType<number, number | undefined, number | undefined>;
+  predecessor_task_id: string | null;
+  run_total_steps: ColumnType<number, number | undefined, number | undefined>;
+  run_completed_steps_before: ColumnType<number, number | undefined, number | undefined>;
+  sync_max_level: number | null;
+  estimated_complexity: ColumnType<number, number | undefined, number | undefined>;
+  attempts: ColumnType<number, number | undefined, number | undefined>;
+  outcome: string;
+  source_changed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  enqueued_at: ColumnType<Date, Date, Date | undefined>;
+  started_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  completed_at: ColumnType<Date, Date, Date | undefined>;
+  duration_ms: ColumnType<number, number | undefined, number | undefined>;
 }
 
 export interface V1TaskTable {
@@ -239,7 +350,7 @@ export interface V1TaskTable {
 export interface V1TaskRunTable {
   id: string;
   task_id: string;
-  base_id: string | null;
+  base_id: string;
   status: string;
   snapshot: string;
   depends_on_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
@@ -247,7 +358,7 @@ export interface V1TaskRunTable {
   log: string | null;
   error_msg: string | null;
   started_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
-  created_time: ColumnType<Date, Date | undefined, never>;
+  created_time: ColumnType<Date, Date | string | undefined, never>;
   last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
 }
 
@@ -285,8 +396,8 @@ export interface V1ComputedFieldActivityTable {
   started_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
   last_completed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
   last_duration_ms: number | null;
-  last_error: unknown | null;
-  extensions: unknown | null;
+  last_error: unknown;
+  extensions: unknown;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
@@ -319,23 +430,106 @@ export interface V1ComputedTaskFieldRefTable {
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
+export interface V1SpaceDataDbBindingTable {
+  id: string;
+  space_id: string;
+  data_db_connection_id: string | null;
+  mode: string;
+  state: string;
+}
+
+export interface V1DomainEventOutboxTable {
+  id: string;
+  base_id: string;
+  table_id: string | null;
+  message_name: string;
+  schema_version: number;
+  aggregate_id: string | null;
+  payload: unknown;
+  payload_bytes: number;
+  catalog_generation: number;
+  required_consumers: unknown;
+  binding_id: string | null;
+  storage_epoch: number | null;
+  unpublished: boolean;
+  settled: string | null;
+  settled_at: ColumnType<Date | null, Date | undefined, Date | undefined>;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+export interface V1DomainEventDeliveryTable {
+  id: string;
+  event_id: string;
+  consumer_id: string;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  lease_token: string | null;
+  lease_expires_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  next_attempt_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  last_error: string | null;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+export interface V1DomainEventInboxTable {
+  consumer_id: string;
+  event_id: string;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
 export interface V1TeableDatabase {
   users: V1UserTable;
   space: V1SpaceTable;
   base: V1BaseTable;
+  space_data_db_binding: V1SpaceDataDbBindingTable;
   collaborator: V1CollaboratorTable;
   table_meta: V1TableMetaTable;
   field: V1FieldTable;
   view: V1ViewTable;
+  comment: V1CommentTable;
+  plugin: V1PluginTable;
+  plugin_install: V1PluginInstallTable;
   reference: V1ReferenceTable;
   schema_operation: V1SchemaOperationTable;
   computed_update_outbox: V1ComputedUpdateOutboxTable;
   computed_update_outbox_seed: V1ComputedUpdateOutboxSeedTable;
+  computed_update_stage_ledger: V1ComputedUpdateStageLedgerTable;
+  computed_update_change_frontier: V1ComputedUpdateChangeFrontierTable;
   computed_update_dead_letter: V1ComputedUpdateDeadLetterTable;
+  computed_update_run_history: V1ComputedUpdateRunHistoryTable;
   computed_field_activity: V1ComputedFieldActivityTable;
   computed_table_activity: V1ComputedTableActivityTable;
   computed_task_field_ref: V1ComputedTaskFieldRefTable;
+  domain_event_outbox: V1DomainEventOutboxTable;
+  domain_event_delivery: V1DomainEventDeliveryTable;
+  domain_event_inbox: V1DomainEventInboxTable;
+  computed_reliability_issue: V1ComputedReliabilityIssueTable;
+  computed_reliability_scope: V1ComputedReliabilityScopeTable;
   task: V1TaskTable;
   task_run: V1TaskRunTable;
   task_reference: V1TaskReferenceTable;
+}
+
+export interface V1ComputedReliabilityIssueTable {
+  failure_kind: string | null;
+  failure_phase: string | null;
+  error_code: string | null;
+  id: string;
+  task_id: string;
+  base_id: string;
+  source_table_id: string;
+  error: string;
+  status: ColumnType<string, string | undefined, string>;
+  scope_complete: ColumnType<boolean, boolean | undefined, boolean>;
+  occurrences: ColumnType<number, number | undefined, number>;
+  first_seen_at: ColumnType<Date, Date | undefined, Date>;
+  last_seen_at: ColumnType<Date, Date | undefined, Date>;
+  closed_at: Date | null;
+  confirmed_by: string | null;
+  confirmation_reason: string | null;
+}
+export interface V1ComputedReliabilityScopeTable {
+  issue_id: string;
+  table_id: string;
+  field_id: string;
 }

@@ -62,7 +62,7 @@ export const UploadProgressPanel = () => {
   return (
     <div
       ref={containerRef}
-      className={cn('absolute bottom-5 right-5 z-50 w-[340px]', 'transition-opacity duration-200')}
+      className={cn('absolute bottom-5 end-5 z-50 w-[340px]', 'transition-opacity duration-200')}
     >
       <div className="overflow-hidden rounded-lg border bg-popover shadow-md">
         <UploadProgressBubble

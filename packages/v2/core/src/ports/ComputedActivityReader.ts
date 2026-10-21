@@ -1,8 +1,9 @@
 import type { Result } from 'neverthrow';
+import type { ComputeReliability } from '../domain/computed/ComputeReliability';
 
-import type { DomainError } from '../domain/shared/DomainError';
 import type { FieldComputeMetaDto } from '../domain/computed/FieldComputeMeta';
 import type { TableComputeMetaDto } from '../domain/computed/TableComputeMeta';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
 
 export type ComputeActivityAnomaly = {
@@ -12,19 +13,45 @@ export type ComputeActivityAnomaly = {
   estimatedComplexity?: number;
 };
 
+export type ComputeActivityPauseBlocker = {
+  id: string;
+  scopeType: 'space' | 'base' | 'table';
+  scopeId: string;
+  pausedAt: string;
+  pausedBy: string | null;
+  resumeAt: string | null;
+  reason: string | null;
+};
+
+export type ComputeActivityPauseDiagnostics = {
+  effective: boolean;
+  blockers: ComputeActivityPauseBlocker[];
+  queuedTaskCount: number;
+  oldestQueuedAt: string | null;
+};
+
 export type TableComputeActivitySnapshot = {
+  /** Internal scheduler signal; never serialized by the public mapper. */
+  reconciliationPerformed?: boolean;
+  /** SQL summary already uses the requested readable field scope. Never serialize this marker. */
+  reliabilityIsAccessScoped?: boolean;
+  observedAt?: string;
+  observationState?: 'available' | 'syncing' | 'unavailable';
   tableId: string;
   baseId: string;
   table: TableComputeMetaDto | null;
   fields: FieldComputeMetaDto[];
   diagnostics: {
+    reliability?: ComputeReliability;
     computeMode: 'server';
+    executionState: 'running' | 'paused';
     activeFieldCount: number;
     queuedFieldCount: number;
     calculatingFieldCount: number;
     failedFieldCount: number;
     highComplexityFieldCount: number;
     anomalies: ComputeActivityAnomaly[];
+    pause: ComputeActivityPauseDiagnostics;
   };
 };
 
@@ -34,7 +61,17 @@ export type TableComputeActivitySnapshot = {
 export interface IComputedActivityReader {
   getByTableId(
     context: IExecutionContext | undefined,
-    tableId: string
+    tableId: string,
+    baseId?: string,
+    options?: {
+      budgetMs?: number;
+      readableFieldIds?: readonly string[];
+      includePauseDiagnostics?: boolean;
+      /** Budgeted reads skip drift reconcile and reliability SQL unless true. */
+      heal?: boolean;
+      /** Skip field activity rows when only the table invalidation token is needed. */
+      includeFields?: boolean;
+    }
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>>;
 }
 

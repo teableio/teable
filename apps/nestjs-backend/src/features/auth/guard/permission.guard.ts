@@ -1,7 +1,14 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix, isAnonymous, type Action } from '@teable/core';
+import {
+  ANONYMOUS_USER_ID,
+  HttpErrorCode,
+  IdPrefix,
+  isAnonymous,
+  isRobot,
+  type Action,
+} from '@teable/core';
 import cookie from 'cookie';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
@@ -72,42 +79,17 @@ export class PermissionGuard {
     }
   }
 
-  /**
-   * Space creation permissions are more specific and only pertain to users,
-   * but tokens can be disallowed from being created.
-   */
-  private async permissionCreateSpace() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('space|create');
+  // User-level rights (space creation, cross-tenant listing, user integrations):
+  // any signed-in user holds them, tokens only with the matching scope, and robot
+  // identities never, since their authority is confined to tempAuthBaseId.
+  private async userLevelPermission(action: Action) {
+    if (isRobot(this.cls.get('user.id'))) {
+      return false;
     }
-    return true;
-  }
-
-  private async permissionBaseReadAll() {
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
       const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('base|read_all');
-    }
-    return true;
-  }
-
-  private async permissionSpaceRead() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('space|read');
-    }
-    return true;
-  }
-
-  private async permissionUserIntegrations() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('user|integrations');
+      return scopes.includes(action);
     }
     return true;
   }
@@ -159,7 +141,7 @@ export class PermissionGuard {
     const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     if (!resourceId) {
       throw new CustomHttpException(
-        `Base share permission check ID does not exist`,
+        `Project share permission check ID does not exist`,
         this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -173,7 +155,7 @@ export class PermissionGuard {
       context.getClass(),
     ]);
     if (!permissions?.length) {
-      throw new ForbiddenException('Base share permissions are required');
+      throw new ForbiddenException('Project share permissions are required');
     }
     const ownPermissions = await this.permissionService.validBaseSharePermissions(
       shareId,
@@ -318,6 +300,91 @@ export class PermissionGuard {
     return true;
   }
 
+  /**
+   * Enforce personal-access-token restrictions for guards that took over
+   * permission checking from this global guard via @DisabledPermission (the EE
+   * authority-matrix guards). A token's scope + resource access are a hard
+   * upper bound: role- or matrix-derived permissions may only narrow the
+   * effective set, never widen it past what the token was granted. This mirrors
+   * the intersection this guard applies in getPermissions()/validPermissions(),
+   * and the token handling already present in AuthorityBaseGuard.
+   *
+   * @param ownPermissions the permission set the caller resolved from the
+   *   user's role or the authority matrix (the ceiling before the token).
+   * @returns
+   *   - `{ handled: false }` — the request is not token-authenticated; the
+   *     caller keeps its own decision and manages cls.permissions itself.
+   *   - `{ handled: true, authorized }` — token-authenticated; the caller must
+   *     return `authorized`. cls.permissions is set to `ownPermissions ∩ token
+   *     scope`. Throws when a required permission is outside the token scope, or
+   *     when getPermissionsByAccessToken rejects the resource as outside the
+   *     token's spaceIds/baseIds.
+   */
+  protected async narrowPermissionsByAccessToken(
+    context: ExecutionContext,
+    resourceId: string,
+    ownPermissions: Action[],
+    requiredPermissions: Action[] | undefined
+  ): Promise<{ handled: boolean; authorized?: boolean }> {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) {
+      return { handled: false };
+    }
+    // Token-authenticated endpoint that declares no @Permissions: allowed only
+    // when explicitly opted in via @TokenAccess, matching permissionCheck().
+    if (!requiredPermissions?.length) {
+      return {
+        handled: true,
+        authorized: this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
+          context.getHandler(),
+          context.getClass(),
+        ]),
+      };
+    }
+    // getPermissionsByAccessToken throws when resourceId is outside the token's
+    // spaceIds/baseIds — this is what enforces the token's resource access range
+    // on routes where the global guard was disabled.
+    const tokenScopes = (await this.permissionService.getPermissionsByAccessToken(
+      resourceId,
+      accessTokenId
+    )) as Action[];
+    const narrowed = ownPermissions.filter((permission) => tokenScopes.includes(permission));
+    this.cls.set('permissions', narrowed);
+    const notAllowed = requiredPermissions.find((permission) => !narrowed.includes(permission));
+    if (notAllowed) {
+      throw new CustomHttpException(
+        `Not allowed to perform ${notAllowed}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+    return { handled: true, authorized: true };
+  }
+
+  /**
+   * Boolean convenience over narrowPermissionsByAccessToken for callers whose
+   * own decision is already "allow": returns the token verdict when a token is
+   * present, and true (keep the caller's allow) otherwise.
+   */
+  protected async allowUnlessAccessTokenNarrows(
+    context: ExecutionContext,
+    resourceId: string,
+    ownPermissions: Action[],
+    requiredPermissions: Action[] | undefined
+  ): Promise<boolean> {
+    const decision = await this.narrowPermissionsByAccessToken(
+      context,
+      resourceId,
+      ownPermissions,
+      requiredPermissions
+    );
+    return decision.handled ? !!decision.authorized : true;
+  }
+
   protected async permissionCheck(context: ExecutionContext) {
     const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
       context.getHandler(),
@@ -367,17 +434,21 @@ export class PermissionGuard {
       return this.instancePermissionChecker('instance|read');
     }
     if (permissions?.includes('space|create')) {
-      return await this.permissionCreateSpace();
+      return await this.userLevelPermission('space|create');
     }
     if (permissions?.includes('base|read_all')) {
-      return await this.permissionBaseReadAll();
+      return await this.userLevelPermission('base|read_all');
     }
     if (!resourceId && permissions?.includes('space|read')) {
-      return await this.permissionSpaceRead();
+      return await this.userLevelPermission('space|read');
     }
 
     if (permissions?.includes('user|integrations')) {
-      return await this.permissionUserIntegrations();
+      return await this.userLevelPermission('user|integrations');
+    }
+
+    if (permissions?.includes('user|notifications_send')) {
+      return await this.userLevelPermission('user|notifications_send');
     }
 
     // resource permission check

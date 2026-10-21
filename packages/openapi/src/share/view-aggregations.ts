@@ -1,7 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { viewVoSchema } from '@teable/core';
 import type { IAggregationVo } from '../aggregation';
-import { aggregationRoSchema } from '../aggregation';
+import { aggregationRoSchema, aggregationVoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -32,7 +31,7 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
       description: 'Returns aggregations list of share view.',
       content: {
         'application/json': {
-          schema: z.array(viewVoSchema),
+          schema: aggregationVoSchema,
         },
       },
     },
@@ -42,9 +41,11 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
 
 export const getShareViewAggregations = async (
   shareId: string,
-  query?: IShareViewAggregationsRo
+  query?: IShareViewAggregationsRo,
+  options?: { signal?: AbortSignal }
 ) => {
   return axios.get<IAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }), {
+    signal: options?.signal,
     params: {
       ...query,
       filter: JSON.stringify(query?.filter),

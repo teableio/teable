@@ -6,6 +6,8 @@ export enum NotificationTypeEnum {
   ExportBase = 'exportBase',
   AdminNotice = 'adminNotice',
   CollaboratorInvite = 'collaboratorInvite',
+  // sent by a third-party OAuth app to the user who authorized it; links out to the app
+  OAuthApp = 'oauthApp',
 }
 
 export enum NotificationStatesEnum {

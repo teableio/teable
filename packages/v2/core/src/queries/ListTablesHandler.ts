@@ -31,7 +31,7 @@ export class ListTablesHandler implements IQueryHandler<ListTablesQuery, ListTab
     context: IExecutionContext,
     query: ListTablesQuery
   ): Promise<Result<ListTablesResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ListTablesResult, DomainError>(async function* () {
       const specBuilder = TableAggregate.specs(query.baseId);
       if (query.nameQuery) {

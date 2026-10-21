@@ -22,9 +22,10 @@ export class ReplayFieldTypeConversionResult {
 
 @CommandHandler(ReplayFieldTypeConversionCommand)
 @injectable()
-export class ReplayFieldTypeConversionHandler
-  implements ICommandHandler<ReplayFieldTypeConversionCommand, ReplayFieldTypeConversionResult>
-{
+export class ReplayFieldTypeConversionHandler implements ICommandHandler<
+  ReplayFieldTypeConversionCommand,
+  ReplayFieldTypeConversionResult
+> {
   constructor(
     @inject(v2CoreTokens.fieldUndoRedoReplayService)
     private readonly fieldUndoRedoReplayService: FieldUndoRedoReplayService
@@ -41,7 +42,7 @@ export class ReplayFieldTypeConversionHandler
     context: ExecutionContextPort.IExecutionContext,
     command: ReplayFieldTypeConversionCommand
   ): Promise<Result<ReplayFieldTypeConversionResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReplayFieldTypeConversionResult, DomainError>(async function* () {
       const table = yield* await handler.fieldUndoRedoReplayService.replay(context, {
         baseId: command.baseId.toString(),

@@ -92,11 +92,18 @@ export class TableRecord extends Entity<RecordId> {
    * single or multi-valued.
    */
   displayName(table: Table): Result<string | null, DomainError> {
+    return this.displayValue(table, table.primaryFieldId());
+  }
+
+  /**
+   * Resolve a field value to its public display text using the owning Table's Field definition.
+   */
+  displayValue(table: Table, fieldId: FieldId): Result<string | null, DomainError> {
     if (!this.tableIdValue.equals(table.id())) {
       return err(
         domainError.invariant({
           code: 'record.table_mismatch',
-          message: 'Cannot resolve display name with a different table',
+          message: 'Cannot resolve display value with a different table',
           details: {
             recordTableId: this.tableIdValue.toString(),
             tableId: table.id().toString(),
@@ -105,18 +112,20 @@ export class TableRecord extends Entity<RecordId> {
       );
     }
 
-    return table.primaryField().andThen((field) =>
-      field.isMultipleCellValue().map((multiplicity) => {
-        const primaryValue = this.fieldsValue.get(field.id())?.toValue();
+    return table
+      .getField((field) => field.id().equals(fieldId))
+      .andThen((field) =>
+        field.isMultipleCellValue().map((multiplicity) => {
+          const value = this.fieldsValue.get(field.id())?.toValue();
 
-        if (multiplicity.isMultiple()) {
-          const displayValues = normalizeCellDisplayValues(primaryValue);
-          return displayValues.length > 0 ? displayValues.join(', ') : null;
-        }
+          if (multiplicity.isMultiple()) {
+            const displayValues = normalizeCellDisplayValues(value);
+            return displayValues.length > 0 ? displayValues.join(', ') : null;
+          }
 
-        return normalizeCellDisplayValue(primaryValue);
-      })
-    );
+          return normalizeCellDisplayValue(value);
+        })
+      );
   }
 
   /**

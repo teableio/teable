@@ -22,7 +22,7 @@ export const RowCounter = (props: IRowCounterProps) => {
   return (
     <div
       className={cn(
-        'flex items-center h-6 pl-2 ml-1 text-xs bg-violet-200 dark:bg-zinc-600 rounded',
+        'flex items-center h-6 ps-2 ms-1 text-xs bg-violet-200 dark:bg-zinc-600 rounded',
         className
       )}
     >
@@ -30,7 +30,7 @@ export const RowCounter = (props: IRowCounterProps) => {
       <Button
         variant={'ghost'}
         size={'xs'}
-        className="ml-[2px] h-full rounded-l-none p-[2px] hover:bg-violet-300 dark:hover:bg-zinc-500"
+        className="ms-[2px] h-full rounded-s-none p-[2px] hover:bg-violet-300 dark:hover:bg-zinc-500"
         onClick={onClick}
       >
         <Icon className="size-3" />

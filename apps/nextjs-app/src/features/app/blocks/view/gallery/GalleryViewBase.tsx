@@ -138,7 +138,7 @@ export const GalleryViewBase = () => {
             {virtualizer.getVirtualItems().map((virtualRow) => (
               <div
                 key={virtualRow.index}
-                className="absolute left-0 top-0 flex w-full gap-x-4 pb-4"
+                className="absolute start-0 top-0 flex w-full gap-x-4 pb-4"
                 style={{
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,

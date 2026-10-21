@@ -26,7 +26,7 @@ export const ExpandRecordWrap: FC<
   return (
     <Sheet modal={true} open={visible} onOpenChange={onClose}>
       <SheetContent
-        className="h-5/6 overflow-hidden rounded-t-lg p-0"
+        className="h-[92dvh] overflow-hidden rounded-t-lg p-0"
         side="bottom"
         closeable={false}
         ref={sheetRef}

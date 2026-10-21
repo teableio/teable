@@ -23,6 +23,7 @@ import {
   mergeBeforeImageRecordDtos,
   mergeComputedRealtimeOrchestration,
 } from './ComputedUpdateOutboxPayload';
+import type { SeedOutboxItem } from './IComputedUpdateOutbox';
 
 /**
  * Impact hint for seed tasks - describes which fields changed.
@@ -58,6 +59,13 @@ export type ComputedUpdateSeedPayload = {
 export type ComputedUpdateSeedTaskInput = ComputedUpdateSeedPayload & {
   runId: string;
   planHash: string;
+  /**
+   * Earliest source-mutation time this seed traces back to. Only set when a
+   * seed task is re-enqueued (chunk splits) so the lineage clock keeps the
+   * original mutation time; fresh enqueues omit it and the outbox stamps
+   * `now` at insert.
+   */
+  sourceChangedAt?: Date;
 };
 
 /**
@@ -317,6 +325,43 @@ export const buildSeedTaskInput = (params: {
   };
 };
 
+/** The same seed chunk contract is used by worker splitting and bounded claim hydration. */
+export const buildSeedTaskChunk = (
+  task: SeedOutboxItem,
+  chunk: Pick<ComputedUpdateSeedPayload, 'seedRecordIds' | 'extraSeedRecords'>,
+  chunkIndex: number,
+  chunkCount: number
+): ComputedUpdateSeedTaskInput => {
+  let beforeImageRecords: ComputedBeforeImageRecordDto[] = [];
+  if (task.beforeImageRecords?.length && chunk.seedRecordIds.length) {
+    const recordIds = new Set(chunk.seedRecordIds);
+    beforeImageRecords = task.beforeImageRecords.filter((record) => recordIds.has(record.recordId));
+  }
+  return {
+    taskType: 'seed',
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords,
+    changedFieldIds: task.changedFieldIds,
+    changeType: task.changeType,
+    impact: task.impact,
+    cyclePolicy: task.cyclePolicy,
+    orchestration: task.orchestration
+      ? {
+          ...task.orchestration,
+          totalChunkCount: Math.max(task.orchestration.totalChunkCount, chunkCount),
+          chunkIndex,
+          scope: 'chunk',
+        }
+      : undefined,
+    runId: task.runId,
+    sourceChangedAt: task.sourceChangedAt ?? undefined,
+    planHash: `${task.planHash}:chunk:${chunkIndex + 1}/${chunkCount}`,
+  };
+};
+
 /**
  * Check if a payload is a seed task.
  */
@@ -391,7 +436,7 @@ export const mergeSeedPayloads = (
   const mergedCyclePolicy =
     existing.cyclePolicy === 'skip' || incoming.cyclePolicy === 'skip'
       ? 'skip'
-      : existing.cyclePolicy ?? incoming.cyclePolicy;
+      : (existing.cyclePolicy ?? incoming.cyclePolicy);
 
   return {
     taskType: 'seed',

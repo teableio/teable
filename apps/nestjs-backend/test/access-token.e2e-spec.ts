@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { Action } from '@teable/core';
 import { Role } from '@teable/core';
 import type {
   CreateAccessTokenRo,
@@ -21,6 +20,7 @@ import {
   GET_TABLE_LIST,
   urlBuilder,
   GET_RECORDS_URL,
+  GET_RECORD_HISTORY_URL,
   EMAIL_SPACE_INVITATION,
   CREATE_SPACE,
   CREATE_BASE,
@@ -216,6 +216,70 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         },
       });
       expect(res.status).toEqual(200);
+    });
+
+    it('get record history requires table_record_history|read permission', async () => {
+      const { data: recordUpdateTokenData } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'record update token',
+        scopes: ['record|update'],
+      });
+      // EE keeps record|update on this route for its authority matrix, so the
+      // token that may read carries both scopes.
+      const { data: historyReadTokenData } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'record history read token',
+        scopes: ['record|update', 'table_record_history|read'],
+      });
+      const url = urlBuilder(GET_RECORD_HISTORY_URL, {
+        tableId: table.id,
+        recordId: table.records[0].id,
+      });
+
+      // A write scope must not unlock the history of a single record
+      const error = await getError(() =>
+        axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${recordUpdateTokenData.token}`,
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
+
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${historyReadTokenData.token}`,
+        },
+      });
+      expect(res.status).toEqual(200);
+    });
+
+    it('get compute activity has table|read permission', async () => {
+      const res = await axios.get('/v2/tables/getComputeActivity', {
+        params: { baseId, tableId: table.id },
+        headers: {
+          Authorization: `Bearer ${tableReadToken}`,
+        },
+      });
+
+      expect(res.status).toEqual(200);
+      expect(res.data).toMatchObject({
+        ok: true,
+        data: { baseId, tableId: table.id },
+      });
+    });
+
+    it('get compute activity rejects a token without table|read permission', async () => {
+      const error = await getError(() =>
+        axios.get('/v2/tables/getComputeActivity', {
+          params: { baseId, tableId: table.id },
+          headers: {
+            Authorization: `Bearer ${recordReadToken}`,
+          },
+        })
+      );
+
+      expect(error?.status).toEqual(403);
     });
 
     it('get table list has not table|read permission', async () => {

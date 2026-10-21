@@ -1,13 +1,27 @@
-import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
-import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
+import type {
+  IAttachmentCellValue,
+  IButtonFieldCellValue,
+  INumberShowAs,
+  ISingleLineTextShowAs,
+} from '@teable/core';
+import {
+  CellValueType,
+  ColorUtils,
+  FieldType,
+  getTextActionType,
+  validateDateFieldValueLoose,
+} from '@teable/core';
+import { useTheme } from '@teable/ui-lib';
 import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { findUrls } from '../../../utils/find-urls';
+import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
-import { getFileCover, isSystemFileIcon } from '../../editor';
+import { openUrl } from '../../../utils/url';
+import { getFieldIconString, getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
@@ -61,13 +75,15 @@ const useGenerateGroupCellFn = () => {
         const { id: fieldId, type, isMultipleCellValue: isMultiple, cellValueType } = field;
         const emptyStr = '(Empty)';
 
-        const validateCellValue =
-          field.cellValueType === CellValueType.DateTime
-            ? validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue)
-            : field.validateCellValue(_cellValue);
-        const cellValue = (
-          validateCellValue.success ? validateCellValue.data : undefined
-        ) as unknown;
+        // Same transitional-shape handling as the grid cell path (T6459).
+        // Date fields keep the loose validator used for group headers.
+        let cellValue: unknown;
+        if (field.cellValueType === CellValueType.DateTime) {
+          const validated = validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue);
+          cellValue = validated.success ? validated.data : undefined;
+        } else {
+          cellValue = normalizeCellValueForDisplay(field, _cellValue);
+        }
 
         if (cellValue == null) {
           return {
@@ -78,10 +94,20 @@ const useGenerateGroupCellFn = () => {
         }
 
         switch (type) {
+          case FieldType.Button: {
+            const { count } = cellValue as IButtonFieldCellValue;
+            return {
+              type: CellType.Number,
+              data: count,
+              displayData: String(count),
+              contentAlign: 'left',
+            };
+          }
           case FieldType.SingleLineText: {
-            const { showAs } = field.options;
+            const { showAs } = field.options ?? {};
+            const actionType = getTextActionType(showAs);
 
-            if (showAs != null) {
+            if (actionType) {
               return {
                 type: CellType.Link,
                 data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
@@ -89,10 +115,13 @@ const useGenerateGroupCellFn = () => {
               };
             }
 
+            const displayData = field.cellValue2String(cellValue);
             return {
               type: CellType.Text,
               data: (cellValue as string) || emptyStr,
-              displayData: field.cellValue2String(cellValue),
+              displayData,
+              links: findUrls(displayData),
+              onLinkClick: openUrl,
             };
           }
           case FieldType.LongText: {
@@ -155,9 +184,11 @@ const useGenerateGroupCellFn = () => {
             }
 
             if (cellValueType === CellValueType.String) {
-              const showAs = field.options.showAs as ISingleLineTextShowAs;
+              const actionType = getTextActionType(
+                field.options.showAs as ISingleLineTextShowAs | undefined
+              );
 
-              if (showAs != null) {
+              if (actionType) {
                 return {
                   type: CellType.Link,
                   data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
@@ -165,10 +196,13 @@ const useGenerateGroupCellFn = () => {
                 };
               }
 
+              const displayData = field.cellValue2String(cellValue);
               return {
                 type: CellType.Text,
                 data: (cellValue as string) || emptyStr,
-                displayData: field.cellValue2String(cellValue),
+                displayData,
+                links: findUrls(displayData),
+                onLinkClick: openUrl,
               };
             }
 
@@ -229,10 +263,12 @@ const useGenerateGroupCellFn = () => {
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl, width, height }) => {
-              const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
+              const theme = resolvedTheme as 'light' | 'dark';
+              const url = getFileCover(mimetype, presignedUrl, theme);
               return {
                 id,
-                url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
+                url: isSystemFileIcon(mimetype) ? url : (smThumbnailUrl ?? url),
+                fallbackUrl: getFieldIconString(mimetype, theme),
                 width,
                 height,
               };
@@ -309,7 +345,9 @@ export const useGridGroupCollection = () => {
 
     return group
       .map(({ fieldId }) => fields.find((f) => f.id === fieldId))
-      .filter(Boolean) as IFieldInstance[];
+      .filter(
+        (field): field is IFieldInstance => field != null && field.canReadFieldRecord !== false
+      );
   }, [fields, group]);
 
   const generateGroupCellFn = useGenerateGroupCellFn();

@@ -13,7 +13,7 @@ export const PaddingEditor = (props: {
   return (
     <div className="flex flex-col gap-2 p-0.5">
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.top')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.top')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -21,16 +21,16 @@ export const PaddingEditor = (props: {
           value={padding?.top || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              top: isNaN(number) ? undefined : number,
+              top: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.right')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.right')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -38,16 +38,16 @@ export const PaddingEditor = (props: {
           value={padding?.right || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              right: isNaN(number) ? undefined : number,
+              right: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.bottom')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.bottom')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -55,16 +55,16 @@ export const PaddingEditor = (props: {
           value={padding?.bottom || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              bottom: isNaN(number) ? undefined : number,
+              bottom: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.left')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.left')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -72,10 +72,10 @@ export const PaddingEditor = (props: {
           value={padding?.left || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              left: isNaN(number) ? undefined : number,
+              left: Number.isNaN(number) ? undefined : number,
             });
           }}
         />

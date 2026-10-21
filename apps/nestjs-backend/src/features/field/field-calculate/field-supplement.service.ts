@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -14,6 +14,7 @@ import {
   extractFieldIdsFromFilter,
   FieldAIActionType,
   FieldType,
+  fieldVoSchema,
   generateChoiceId,
   generateFieldId,
   getAiConfigSchema,
@@ -23,9 +24,10 @@ import {
   getRandomString,
   getShowAsSchema,
   getUniqName,
-  isMultiValueLink,
   isConditionalLookupOptions,
   isLinkLookupOptions,
+  isMultiValueLink,
+  isRollupFunctionSupportedForCellValueType,
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
   NumberFieldCore,
@@ -57,10 +59,10 @@ import type {
   IConditionalLookupOptions,
   INumberFieldOptions,
 } from '@teable/core';
-import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { Knex } from 'knex';
-import { uniq, keyBy, mergeWith } from 'lodash';
+import { keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -81,6 +83,7 @@ import {
 } from '../../base/cross-space-detection.util';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
+import { CrossBaseLinkAccessService } from '../../record/cross-base-link-access.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -97,6 +100,9 @@ type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
 @Injectable()
 export class FieldSupplementService {
   private readonly logger = new Logger(FieldSupplementService.name);
+
+  @Inject(CrossBaseLinkAccessService)
+  private readonly crossBaseLinkAccess!: CrossBaseLinkAccessService;
 
   constructor(
     private readonly fieldService: FieldService,
@@ -196,8 +202,9 @@ export class FieldSupplementService {
   }
 
   // Single guard at the public entry points: any new cross-space link / lookup /
-  // rollup / conditionalLookup / conditionalRollup is rejected. On update, keep
-  // legacy cross-space refs working as long as the foreignTableId is unchanged.
+  // rollup / conditionalLookup / conditionalRollup is rejected, and a new one
+  // across bases needs read access to the foreign table. On update, keep legacy
+  // refs working as long as the foreignTableId is unchanged.
   private async assertNoNewCrossSpaceField(
     tableId: string,
     newField: IFieldVo,
@@ -206,7 +213,25 @@ export class FieldSupplementService {
     const newFt = this.getForeignTableId(newField);
     if (!newFt) return;
     if (oldField && this.getForeignTableId(oldField) === newFt) return;
-    await this.assertSameSpaceLinkTarget(tableId, newFt);
+    await this.assertNewForeignTableAllowed(tableId, newFt);
+  }
+
+  /**
+   * A field about to reference `foreignTableId` for the first time: same space,
+   * and readable by the caller when it is in another base (GHSA-p8x2-vpf5-3f6x).
+   */
+  async assertNewForeignTableAllowed(tableId: string, foreignTableId: string): Promise<void> {
+    await this.assertSameSpaceLinkTarget(tableId, foreignTableId);
+    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
+  }
+
+  /**
+   * Reading a foreign table's records through a host field (e.g. a link field's
+   * filter-link options) is, across bases, not covered by the caller's role on
+   * the host base; require read access to the foreign table, as a write would.
+   */
+  async assertForeignTableReadable(tableId: string, foreignTableId: string): Promise<void> {
+    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
   }
 
   private getForeignKeyFieldName(fieldId: string | undefined) {
@@ -735,7 +760,7 @@ export class FieldSupplementService {
     // Request options may still carry formatting/showAs overrides. Source structural
     // options (e.g. select choices) must win over stale request options (T6332/T6208).
     const mirroredSourceOptions = config?.stripSourceFormulaExecutableOptions
-      ? stripLookupFormulaExecutableOptions(safeSourceOptions) ?? {}
+      ? (stripLookupFormulaExecutableOptions(safeSourceOptions) ?? {})
       : (safeSourceOptions as Record<string, unknown>);
 
     const sourceFormatting =
@@ -836,7 +861,7 @@ export class FieldSupplementService {
     const mergedLookupOptions =
       newLookupOptions && oldLookupOptions
         ? { ...oldLookupOptions, ...newLookupOptions }
-        : newLookupOptions ?? oldLookupOptions;
+        : (newLookupOptions ?? oldLookupOptions);
 
     return this.prepareLookupField(tableId, {
       ...oldFieldVo,
@@ -1011,6 +1036,32 @@ export class FieldSupplementService {
         }
       );
     }
+    if (lookupField.type === FieldType.Button) {
+      throw new CustomHttpException(
+        'Button fields cannot be used as a rollup source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
+    if (
+      options.expression &&
+      !isRollupFunctionSupportedForCellValueType(options.expression, lookupField.cellValueType)
+    ) {
+      throw new CustomHttpException(
+        `Parse rollup expression ${options.expression} error: incompatible with lookup field type`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
 
     let valueType;
     try {
@@ -1058,7 +1109,7 @@ export class FieldSupplementService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async prepareConditionalRollupField(tableId: string, field: IFieldRo) {
     const rawOptions = field.options as IConditionalRollupFieldOptions | undefined;
-    const options = { ...(rawOptions || {}) } as IConditionalRollupFieldOptions | undefined;
+    const options = { ...rawOptions } as IConditionalRollupFieldOptions | undefined;
     if (!options) {
       throw new CustomHttpException(
         'Conditional rollup field options are required',
@@ -1071,7 +1122,7 @@ export class FieldSupplementService {
       );
     }
 
-    if (!options.sort || options.sort.fieldId == null) {
+    if (options.sort?.fieldId == null) {
       delete options.sort;
     }
     if (options.limit == null) {
@@ -1139,6 +1190,33 @@ export class FieldSupplementService {
     const expression =
       options.expression ??
       ConditionalRollupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
+
+    if (lookupField.type === FieldType.Button) {
+      throw new CustomHttpException(
+        'Button fields cannot be used as a rollup source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
+    if (
+      expression &&
+      !isRollupFunctionSupportedForCellValueType(expression, lookupField.cellValueType)
+    ) {
+      throw new CustomHttpException(
+        `Parse rollup expression ${expression} error: incompatible with lookup field type`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
 
     if (!ConditionalRollupFieldCore.supportsOrdering(expression)) {
       delete options.sort;
@@ -1318,6 +1396,7 @@ export class FieldSupplementService {
         filter: conditionalLookup.filter,
         sort: conditionalLookup.sort,
         limit: conditionalLookup.limit,
+        isUnique: conditionalLookup.isUnique,
       },
       isMultipleCellValue: true,
       isComputed: true,
@@ -1397,7 +1476,7 @@ export class FieldSupplementService {
 
     // Handle empty options object - use default if options is null/undefined OR empty object without formatting
     const numberOptions = options as INumberFieldOptions | undefined;
-    const needsDefault = !numberOptions || !numberOptions.formatting;
+    const needsDefault = !numberOptions?.formatting;
     const finalOptions = needsDefault
       ? { ...NumberFieldCore.defaultOptions(), ...numberOptions }
       : numberOptions;
@@ -1426,19 +1505,22 @@ export class FieldSupplementService {
   private prepareSelectOptions(options: ISelectFieldOptionsRo, isMultiple: boolean) {
     const optionsRo = (options ?? SelectFieldCore.defaultOptions()) as ISelectFieldOptionsRo;
     const nameSet = new Set<string>();
+    const normalizedNames = new Set<string>();
     const choices = optionsRo.choices.map((choice) => {
-      if (nameSet.has(choice.name)) {
+      const normalizedName = choice.name.trim();
+      if (normalizedNames.has(normalizedName)) {
         throw new CustomHttpException(
-          `choice name ${choice.name} is already exists`,
+          `choice name ${normalizedName} is already exists`,
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
               i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
-              context: { name: choice.name },
+              context: { name: normalizedName },
             },
           }
         );
       }
+      normalizedNames.add(normalizedName);
       nameSet.add(choice.name);
       return {
         name: choice.name,
@@ -1595,7 +1677,7 @@ export class FieldSupplementService {
     const { name } = field;
     const options = {
       ...LastModifiedTimeFieldCore.defaultOptions(),
-      ...(field.options ?? {}),
+      ...field.options,
     };
 
     return {
@@ -1859,6 +1941,20 @@ export class FieldSupplementService {
   }
 
   /**
+   * A caller-supplied `dbFieldName` becomes a raw SQL identifier downstream, so
+   * it must satisfy the field schema even when the request did not pass through
+   * the HTTP validation pipe (base import, duplication).
+   */
+  private assertValidDbFieldName(dbFieldName: string) {
+    if (!fieldVoSchema.shape.dbFieldName.safeParse(dbFieldName).success) {
+      throw new CustomHttpException(
+        `Invalid db field name: ${dbFieldName}`,
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+  }
+
+  /**
    * prepare properties for computed field to make sure it's valid
    * this method do not do any db update
    */
@@ -1878,6 +1974,7 @@ export class FieldSupplementService {
       (await this.fieldService.generateDbFieldName(tableId, fieldName, routingOptions));
 
     if (fieldRo.dbFieldName) {
+      this.assertValidDbFieldName(fieldRo.dbFieldName);
       const existField = await this.prismaService.txClient().field.findFirst({
         where: { tableId, dbFieldName: fieldRo.dbFieldName, deletedTime: null },
         select: { id: true },
@@ -1981,6 +2078,7 @@ export class FieldSupplementService {
     const fieldRoDbFieldNames = fieldRos
       .map((field) => field.dbFieldName)
       .filter((name) => name !== undefined && name !== null) as string[];
+    fieldRoDbFieldNames.forEach((name) => this.assertValidDbFieldName(name));
 
     if (fieldRoDbFieldNames.length) {
       const existedField = await this.prismaService.txClient().field.findFirst({
@@ -2401,7 +2499,7 @@ export class FieldSupplementService {
       }
     }
 
-    fieldIds = uniq(fieldIds);
+    fieldIds = [...new Set(fieldIds)];
     fieldIds.forEach((fromFieldId) => {
       graphItems.push({ fromFieldId, toFieldId });
     });

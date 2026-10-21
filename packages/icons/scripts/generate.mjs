@@ -1,4 +1,5 @@
-import path from 'path';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { transform } from '@svgr/core';
 import axios from 'axios';
 import chalk from 'chalk';
@@ -124,8 +125,6 @@ const transformReactComponent = (svgList) => {
           ],
           // Generate JSX
           '@svgr/plugin-jsx',
-          // Format the result using Prettier
-          '@svgr/plugin-prettier',
         ],
       },
       { componentName }
@@ -163,6 +162,8 @@ const generate = async () => {
   transformReactComponent(svgsData);
   console.log(chalk.yellowBright('-> Writing exports components'));
   genIndexContent();
+  console.log(chalk.yellowBright('-> Formatting'));
+  execFileSync('oxfmt', [componentsDir, 'src/index.ts'], { stdio: 'inherit' });
   console.log(chalk.greenBright('-> All done! ✅'));
 };
 

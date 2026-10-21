@@ -2,6 +2,9 @@
 import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
+import { resolveCipherEntries } from './secrets/resolve-cipher-entries';
+import { resolveSecret } from './secrets/resolve-secret';
+import { SECRET_SPECS } from './secrets/secret-specs';
 
 const getCookieSecure = (value: string | undefined) => {
   if (!value) {
@@ -13,17 +16,49 @@ const getCookieSecure = (value: string | undefined) => {
   return value === 'true';
 };
 
+/**
+ * The Sign in with Apple `.p8` key is multi-line PEM. Env files usually carry it
+ * either with `\n` escapes or base64-encoded on a single line; accept all three.
+ */
+export const normalizePemPrivateKey = (value: string | undefined) => {
+  const raw = value?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const unescaped = raw.replaceAll('\\n', '\n');
+  if (unescaped.includes('-----BEGIN')) {
+    return unescaped;
+  }
+  return Buffer.from(unescaped, 'base64').toString('utf8');
+};
+
+/** `BACKEND_APPLE_CLIENT` is `<Services ID>:<Team ID>:<Key ID>`; the shape is enforced by env validation. */
+export const parseAppleClient = (value: string | undefined) => {
+  const [clientID, teamID, keyID] = (value ?? '').split(':').map((part) => part.trim());
+  return {
+    clientID: clientID || undefined,
+    teamID: teamID || undefined,
+    keyID: keyID || undefined,
+  };
+};
+
+// Secret resolution and policy live in ./secrets (secret-specs.ts is the
+// single source of truth; secrets-policy.ts enforces production policy).
 export const authConfig = registerAs('auth', () => ({
   jwt: {
-    secret:
-      process.env.BACKEND_JWT_SECRET ?? process.env.SECRET_KEY ?? '533Cr3tK3yF0rH4sh1nGJ4W773k3n$',
+    secret: resolveSecret(SECRET_SPECS.jwtSecret),
+    // Verify-only fallback for PLANNED rotations of BACKEND_JWT_SECRET:
+    // TeableJwtService signs with `secret` and verifies against both. A leaked
+    // secret must be hard-cut (never listed here) — see features/auth/jwt.
+    oldSecret: process.env.BACKEND_JWT_SECRET_OLD,
     expiresIn: process.env.BACKEND_JWT_EXPIRES_IN ?? '20d',
   },
   session: {
-    secret:
-      process.env.BACKEND_SESSION_SECRET ??
-      process.env.SECRET_KEY ??
-      'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
+    secret: resolveSecret(SECRET_SPECS.sessionSecret),
+    // Verify-only fallback accepted while rotating BACKEND_SESSION_SECRET.
+    // express-session validates a signed cookie against every secret in the
+    // array (first entry signs new cookies), so existing sessions survive.
+    oldSecret: process.env.BACKEND_SESSION_SECRET_OLD,
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
     cookie: {
       secure: getCookieSecure(process.env.BACKEND_SESSION_COOKIE_SECURE),
@@ -32,9 +67,14 @@ export const authConfig = registerAs('auth', () => ({
   accessToken: {
     prefix: 'teable',
     encryption: {
-      algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
-      key: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx9',
-      iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
+      // Tokens are in users' hands and can never be re-encrypted: after a
+      // rotation the previous pair stays pinned in *_OLD until every token
+      // issued under it is expired or revoked.
+      entries: resolveCipherEntries({
+        algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
+        keySpec: SECRET_SPECS.accessTokenEncryptionKey,
+        ivSpec: SECRET_SPECS.accessTokenEncryptionIv,
+      }),
     },
   },
   resetPasswordEmailExpiresIn:
@@ -45,6 +85,13 @@ export const authConfig = registerAs('auth', () => ({
     process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
     process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ??
     '30m',
+  signinVerificationExpiresIn:
+    process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
+    process.env.BACKEND_SIGNIN_VERIFICATION_EXPIRES_IN ??
+    '10m',
+  // Wrong guesses allowed per email one-time code (sign-in, sign-up,
+  // change-email) before it is discarded.
+  signinVerificationMaxAttempts: Number(process.env.BACKEND_SIGNIN_VERIFICATION_MAX_ATTEMPTS ?? 5),
   socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
   // Same switch that gates LocalAuthModule registration in auth.module.ts
   passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true',
@@ -58,6 +105,14 @@ export const authConfig = registerAs('auth', () => ({
     clientSecret: process.env.BACKEND_GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.BACKEND_GOOGLE_CALLBACK_URL,
   },
+  apple: {
+    // Sign in with Apple, web flow. The Services ID (not the app bundle id) is the OAuth
+    // client id; Team ID and Key ID belong to the .p8 key in BACKEND_APPLE_PRIVATE_KEY.
+    // The callback is `${PUBLIC_ORIGIN}/api/auth/apple/callback` (see AppleStrategy),
+    // registered with Apple as a Return URL of the Services ID.
+    ...parseAppleClient(process.env.BACKEND_APPLE_CLIENT),
+    privateKey: normalizePemPrivateKey(process.env.BACKEND_APPLE_PRIVATE_KEY),
+  },
   oidc: {
     issuer: process.env.BACKEND_OIDC_ISSUER,
     authorizationURL: process.env.BACKEND_OIDC_AUTHORIZATION_URL,
@@ -68,13 +123,23 @@ export const authConfig = registerAs('auth', () => ({
     callbackURL: process.env.BACKEND_OIDC_CALLBACK_URL,
     other: process.env.BACKEND_OIDC_OTHER ? JSON.parse(process.env.BACKEND_OIDC_OTHER) : {},
   },
+  mobileAuth: {
+    // URL schemes the mobile sign-in may hand a code to (`teable://auth/callback`). The
+    // official app registers `teable`; a fork with its own scheme lists it here.
+    redirectSchemes: (process.env.MOBILE_AUTH_REDIRECT_SCHEMES ?? 'teable')
+      .split(',')
+      .map((scheme) => scheme.trim().toLowerCase())
+      .filter(Boolean),
+    codeExpiresInSeconds: 5 * 60,
+    webSessionCodeExpiresInSeconds: 2 * 60,
+  },
+  // Password sign-in lockout: `maxLoginAttempts` wrong passwords for one email
+  // within the window lock further wrong guesses out for `accountLockoutMinutes`.
+  // On by default; SIGNIN_ACCOUNT_LOCKOUT_ENABLED=false turns it off.
   signin: {
-    maxLoginAttempts: process.env.SIGNIN_MAX_LOGIN_ATTEMPTS
-      ? Number(process.env.SIGNIN_MAX_LOGIN_ATTEMPTS)
-      : undefined,
-    accountLockoutMinutes: process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES
-      ? Number(process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES)
-      : undefined,
+    lockoutEnabled: process.env.SIGNIN_ACCOUNT_LOCKOUT_ENABLED?.toLowerCase() !== 'false',
+    maxLoginAttempts: Number(process.env.SIGNIN_MAX_LOGIN_ATTEMPTS ?? 5),
+    accountLockoutMinutes: Number(process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES ?? 15),
   },
 }));
 

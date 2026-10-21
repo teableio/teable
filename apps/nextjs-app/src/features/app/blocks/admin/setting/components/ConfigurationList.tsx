@@ -131,7 +131,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
               <button
                 type="button"
                 className={cn(
-                  'flex w-full items-start gap-2 rounded-md p-2 text-left transition-colors hover:bg-muted/40',
+                  'flex w-full items-start gap-2 rounded-md p-2 text-start transition-colors hover:bg-muted/40',
                   item.isComplete && 'opacity-80'
                 )}
                 onClick={() => {

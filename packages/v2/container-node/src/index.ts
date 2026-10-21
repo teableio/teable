@@ -1,6 +1,7 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
+  V2PgTableSchemaCoordination,
   PostgresUnitOfWork,
   registerV2PostgresDataDb,
   registerV2PostgresMetaDb,
@@ -10,30 +11,58 @@ import {
   v2PostgresDbTokens,
   type IV2PostgresDbDependencies,
 } from '@teable/v2-adapter-db-postgres-pg';
+
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import {
   SpaceCreditTableRowLimitPolicy,
   registerV2PostgresStateAdapter,
 } from '@teable/v2-adapter-repository-postgres';
-import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-query-ops-postgres';
+import {
+  registerV2TableOpsPostgresAdapter,
+  registerV2TableSearchAccessPathPostgresAdapter,
+  type RegisterV2TableOpsPostgresAdapterOptions,
+  type TableQueryObservationDatabase,
+} from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   createTypeValidationStrategy,
+  DomainEventOutboxWorker,
+  NodeImportEventSpoolFactory,
   registerV2TableRepositoryPostgresAdapter,
+  ValidationInboxDurableProjection,
+  v2RecordRepositoryPostgresTokens,
   type IV2TableRepositoryPostgresConfig,
+  FormulaSourceBudgetCommandBusMiddleware,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   AsyncMemoryEventBus,
+  DomainWriteTransaction,
+  FieldCreated,
+  FieldUpdated,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopLogger,
+  NoopProjectionMessageJournal,
   NoopRealtimeEngine,
   NoopTracer,
+  ProjectionMessageCodecRegistry,
+  RecordCreated,
+  RecordReordered,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  RecordUpdated,
+  SameTxProjectionDispatcher,
+  TableCreated,
+  TargetedLegacyEventDispatcher,
+  compileDurableSubscriptionCatalog,
+  recordProjectionCodecs,
   registerV2CoreServices,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
   type ICommandBusMiddleware,
+  type IComputedOutboxAdmin,
   type IHasher,
   type IQueryBusMiddleware,
   type ILogger,
@@ -72,6 +101,11 @@ export interface IV2NodePgContainerOptions {
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /**
+   * Statement budget for record count/aggregate statements, in ms. Falls back to
+   * `V2_RECORD_QUERY_STATEMENT_BUDGET_MS`; 0 or unset keeps them unbudgeted.
+   */
+  recordQueryStatementBudgetMs?: number;
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
@@ -80,9 +114,41 @@ export interface IV2NodePgContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
-  tableQueryOps?: RegisterV2TableOpsOptions & {
-    ensureSchema?: boolean;
-  };
+  formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
+  computedOutboxAdmin?: IComputedOutboxAdmin;
+  domainEventWakeupPublisher?: IV2TableRepositoryPostgresConfig['domainEventWakeupPublisher'];
+  /**
+   * Enable the delete-undo purge guard. Only turn this on when the hosting app
+   * writes record_trash markers for v2 deletes (postgres adapter inside the
+   * delete transaction); standalone memory containers have no trash sink, and
+   * with the guard on every delete-undo would silently restore nothing.
+   */
+  undoRedoRestorePurgeGuard?: boolean;
+  /**
+   * Table-scoped schema coordination for record writes versus field deletion.
+   * A dedicated pool is opened from the meta DSN unless `false` disables it.
+   */
+  schemaCoordination?:
+    | {
+        /** Session application name while a coordination lease is held. */
+        applicationName?: string;
+      }
+    | false;
+  tableQueryOps?: RegisterV2TableOpsOptions &
+    Pick<
+      RegisterV2TableOpsPostgresAdapterOptions<unknown, unknown, TableQueryObservationDatabase>,
+      | 'ensureObservationSchema'
+      | 'observationBatch'
+      | 'observationBuffer'
+      | 'observationDb'
+      | 'observationDisabled'
+      | 'observationPublisher'
+      | 'observationReader'
+      | 'observationSink'
+      | 'observationWriterId'
+    > & {
+      ensureSchema?: boolean;
+    };
 }
 
 const createEventHandlerLogger = (
@@ -105,10 +171,14 @@ const canShareMetaAndDataDb = (
   dataSchema: string | undefined
 ) => metaConnectionString === dataConnectionString && !dataSchema;
 
-export const registerV2NodePgDependencies = async (
-  c: DependencyContainer = container,
+const registerPostgresDatabases = async (
+  c: DependencyContainer,
   options: IV2NodePgContainerOptions
-): Promise<DependencyContainer> => {
+): Promise<{
+  readonly metaDb: IV2PostgresStateAdapterConfig['db'];
+  readonly dataDb: IV2PostgresStateAdapterConfig['db'];
+  readonly metaConnectionString: string;
+}> => {
   const metaConnectionString =
     options.metaConnectionString ??
     options.connectionString ??
@@ -150,8 +220,74 @@ export const registerV2NodePgDependencies = async (
       pg: { connectionString: metaConnectionString },
     });
   }
-  const metaDb = c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
-  const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
+
+  return {
+    metaDb: c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'],
+    dataDb: c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'],
+    metaConnectionString,
+  };
+};
+
+const registerTableQueryOpsDependencies = async (
+  c: DependencyContainer,
+  tableQueryOps: IV2NodePgContainerOptions['tableQueryOps'],
+  metaDb: IV2PostgresStateAdapterConfig['db'],
+  dataDb: IV2PostgresStateAdapterConfig['db'],
+  ensureSchema: boolean | undefined
+): Promise<void> => {
+  // Always register core table-ops DI. Importing @teable/v2-table-query-ops already
+  // puts TableSearchVectorSchemaMaintenanceProjection into the global event registry
+  // via @ProjectionHandler; without these registrations every Field* event fails DI.
+  registerV2TableOps(c, tableQueryOps);
+  if (!tableQueryOps) {
+    registerV2TableSearchAccessPathPostgresAdapter(c, { metaDb, dataDb });
+    return;
+  }
+
+  await registerV2TableOpsPostgresAdapter(c, {
+    metaDb,
+    dataDb,
+    observationDb: tableQueryOps.observationDb,
+    observationDisabled: tableQueryOps.observationDisabled,
+    observationPublisher: tableQueryOps.observationPublisher,
+    observationReader: tableQueryOps.observationReader,
+    observationSink: tableQueryOps.observationSink,
+    observationWriterId: tableQueryOps.observationWriterId,
+    observationBuffer: tableQueryOps.observationBuffer,
+    observationBatch: tableQueryOps.observationBatch,
+    ensureObservationSchema: tableQueryOps.ensureObservationSchema,
+    ensureSchema: tableQueryOps.ensureSchema ?? ensureSchema,
+  });
+  decorateV2TableRecordQueryRepositoryWithTableOps(c);
+};
+
+const registerSchemaCoordination = (
+  c: DependencyContainer,
+  options: IV2NodePgContainerOptions,
+  metaConnectionString: string
+): void => {
+  if (options.schemaCoordination === false) {
+    return;
+  }
+  const coordinationOptions = options.schemaCoordination;
+  c.registerInstance(
+    v2CoreTokens.tableSchemaCoordination,
+    new V2PgTableSchemaCoordination({
+      connectionString: metaConnectionString,
+      ...(coordinationOptions?.applicationName !== undefined
+        ? { applicationName: coordinationOptions.applicationName }
+        : {}),
+    })
+  );
+};
+
+export const registerV2NodePgDependencies = async (
+  c: DependencyContainer = container,
+  options: IV2NodePgContainerOptions
+): Promise<DependencyContainer> => {
+  const { metaDb, dataDb, metaConnectionString } = await registerPostgresDatabases(c, options);
+
+  registerSchemaCoordination(c, options, metaConnectionString);
 
   const tableDataSafetyLimits = mergeTableDataSafetyLimits(
     resolveTableDataSafetyLimitsFromEnv(),
@@ -176,8 +312,16 @@ export const registerV2NodePgDependencies = async (
     db: dataDb,
     metaDb,
     computedUpdate: options.computedUpdate,
+    formulaCompileBudget: options.formulaCompileBudget,
     typeValidationStrategy,
     tableDataSafetyLimits,
+    domainEventWakeupPublisher: options.domainEventWakeupPublisher,
+    recordQuery: {
+      statementBudgetMs:
+        options.recordQueryStatementBudgetMs ??
+        parsePositiveInteger(process.env.V2_RECORD_QUERY_STATEMENT_BUDGET_MS) ??
+        0,
+    },
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -188,6 +332,7 @@ export const registerV2NodePgDependencies = async (
   c.registerInstance(v2CoreTokens.logger, logger);
 
   const commandBusMiddlewares = [
+    new FormulaSourceBudgetCommandBusMiddleware(options.formulaCompileBudget),
     new TableDataSafetyLimitCommandBusMiddleware(
       new StaticTableDataSafetyLimitPlugin(tableDataSafetyLimits)
     ),
@@ -211,6 +356,55 @@ export const registerV2NodePgDependencies = async (
         });
       },
     })
+  );
+
+  const catalogResult = compileDurableSubscriptionCatalog([
+    RecordCreated,
+    RecordsBatchCreated,
+    RecordUpdated,
+    RecordsBatchUpdated,
+    RecordsDeleted,
+    RecordReordered,
+    TableCreated,
+    FieldCreated,
+    FieldUpdated,
+  ]);
+  if (catalogResult.isErr()) {
+    throw new Error(catalogResult.error.message);
+  }
+  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  if (codecResult.isErr()) {
+    throw new Error(codecResult.error.message);
+  }
+  c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
+    c.registerInstance(v2CoreTokens.projectionMessageJournal, new NoopProjectionMessageJournal());
+  }
+  c.registerInstance(
+    v2CoreTokens.domainWriteTransaction,
+    new DomainWriteTransaction(
+      c.resolve(v2CoreTokens.unitOfWork),
+      codecResult.value,
+      catalogResult.value,
+      c.resolve(v2CoreTokens.projectionMessageJournal),
+      new TargetedLegacyEventDispatcher(c, logger),
+      new SameTxProjectionDispatcher(c),
+      logger,
+      undefined,
+      c.resolve(v2CoreTokens.eventBus),
+      new NodeImportEventSpoolFactory()
+    )
+  );
+  const validationConsumer = new ValidationInboxDurableProjection(dataDb, options.dataSchema);
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
+    new DomainEventOutboxWorker(
+      dataDb,
+      new Map([[validationConsumer.consumerId, validationConsumer]]),
+      codecResult.value,
+      logger,
+      options.dataSchema
+    )
   );
 
   if (options.tracer) {
@@ -251,24 +445,29 @@ export const registerV2NodePgDependencies = async (
   }
   c.registerInstance(v2CoreTokens.tableDataSafetyLimits, tableDataSafetyLimits);
 
+  // The delete-undo purge guard is opt-in: pre-register before the core
+  // defaults so registerV2CoreServices keeps the caller's choice.
+  c.registerInstance(v2CoreTokens.undoRedoReplayConfig, {
+    restorePurgeGuard: Boolean(options.undoRedoRestorePurgeGuard),
+  });
+
+  if (options.computedOutboxAdmin) {
+    c.registerInstance(v2CoreTokens.computedOutboxAdmin, options.computedOutboxAdmin);
+  }
+
   // Register core services (uses defaults unless already registered)
   registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
 
   // Register command explain module
   registerCommandExplainModule(c);
 
-  // Always register core table-ops DI. Importing @teable/v2-table-query-ops already
-  // puts TableSearchVectorSchemaMaintenanceProjection into the global event registry
-  // via @ProjectionHandler; without these registrations every Field* event fails DI.
-  registerV2TableOps(c, options.tableQueryOps);
-  if (options.tableQueryOps) {
-    await registerV2TableOpsPostgresAdapter(c, {
-      metaDb,
-      dataDb,
-      ensureSchema: options.tableQueryOps.ensureSchema ?? options.ensureSchema,
-    });
-    decorateV2TableRecordQueryRepositoryWithTableOps(c);
-  }
+  await registerTableQueryOpsDependencies(
+    c,
+    options.tableQueryOps,
+    metaDb,
+    dataDb,
+    options.ensureSchema
+  );
 
   return c;
 };
@@ -342,4 +541,15 @@ export const createV2NodePgContainer = async (
   const c = container.createChildContainer();
   await registerV2NodePgDependencies(c, options);
   return c;
+};
+
+/** Destroy the dedicated schema coordination pool before the host closes its DBs. */
+export const disposeV2NodePgContainer = async (c: DependencyContainer): Promise<void> => {
+  if (!c.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
+    return;
+  }
+  const coordination = c.resolve<{ destroy?: () => Promise<void> }>(
+    v2CoreTokens.tableSchemaCoordination
+  );
+  await coordination.destroy?.();
 };

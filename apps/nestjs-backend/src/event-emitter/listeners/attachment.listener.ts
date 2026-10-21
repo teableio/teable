@@ -30,7 +30,14 @@ export class AttachmentListener {
   async recordDeleteListener(listenerEvent: RecordDeleteEvent) {
     const {
       payload: { tableId, recordId },
+      context,
     } = listenerEvent;
+    // Archived records keep their reference rows: the archive snapshot still references
+    // the files and they keep counting toward attachment usage. The archive flow manages
+    // these rows on restore / permanent delete.
+    if (context.recordRemovalReason === 'archived') {
+      return;
+    }
     await this.attachmentsTableService.deleteRecords(
       tableId,
       Array.isArray(recordId) ? recordId : [recordId]

@@ -6,6 +6,11 @@ const normalizeTimeZone = (timeZone: string) =>
 
 const timeZoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
+const DATE_COMPONENT_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?(?:[zZ]|[+-]\d{2}:\d{2})?$/;
+
+const CANONICAL_ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
 const getTimeZoneFormatter = (timeZone: string): Intl.DateTimeFormat => {
   const normalizedTimeZone = normalizeTimeZone(timeZone);
   const cachedFormatter = timeZoneFormatterCache.get(normalizedTimeZone);
@@ -19,7 +24,7 @@ const getTimeZoneFormatter = (timeZone: string): Intl.DateTimeFormat => {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   });
   timeZoneFormatterCache.set(normalizedTimeZone, formatter);
   return formatter;
@@ -30,8 +35,9 @@ const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
   const parts = formatter.formatToParts(date);
   const values: Record<string, number> = {};
   for (const part of parts) {
-    if (part.type === 'literal') continue;
-    values[part.type] = Number(part.value);
+    if (part.type !== 'literal') {
+      values[part.type] = Number(part.value);
+    }
   }
 
   const utcTime = Date.UTC(
@@ -45,56 +51,180 @@ const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
   return (utcTime - date.getTime()) / 60000;
 };
 
+type DateComponents = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+const parseDateComponents = (value: string): DateComponents | undefined => {
+  const match = value.match(DATE_COMPONENT_PATTERN);
+  if (!match) return undefined;
+
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4] ?? 0),
+    minute: Number(match[5] ?? 0),
+    second: Number(match[6] ?? 0),
+    millisecond: Number((match[7] ?? '0').padEnd(3, '0')),
+  };
+};
+
+const isExactUtcDate = (date: Date, components: DateComponents): boolean =>
+  !Number.isNaN(date.getTime()) &&
+  date.getUTCFullYear() === components.year &&
+  date.getUTCMonth() === components.month - 1 &&
+  date.getUTCDate() === components.day &&
+  date.getUTCHours() === components.hour &&
+  date.getUTCMinutes() === components.minute &&
+  date.getUTCSeconds() === components.second &&
+  date.getUTCMilliseconds() === components.millisecond;
+
+const isValidCalendarComponents = (components: DateComponents): boolean => {
+  // Validate the local/wall-clock components themselves. Date.UTC and Date.parse both
+  // roll invalid day/time values (2026-02-30 → 2026-03-02), so callers must reject before
+  // converting timezones or offsets.
+  const probe = new Date(
+    Date.UTC(
+      components.year,
+      components.month - 1,
+      components.day,
+      components.hour,
+      components.minute,
+      components.second,
+      components.millisecond
+    )
+  );
+  return isExactUtcDate(probe, components);
+};
+type FieldFormatParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+const matchFieldFormat = (value: string, format: string): Record<string, string> | undefined => {
+  let valueIndex = 0;
+  let formatIndex = 0;
+  const parts: Record<string, string> = {};
+
+  while (formatIndex < format.length) {
+    const token = /^(?:YYYY|MM|DD|HH|hh|mm|A|M|D)/.exec(format.slice(formatIndex))?.[0];
+    if (token) {
+      const rest = value.slice(valueIndex);
+      const matched =
+        token === 'A'
+          ? /^(?:AM|PM)/i.exec(rest)
+          : token === 'YYYY'
+            ? /^(\d{4})/.exec(rest)
+            : token === 'M' || token === 'D'
+              ? /^(\d{1,2})/.exec(rest)
+              : /^(\d{2})/.exec(rest);
+      if (!matched) return undefined;
+      parts[token] = matched[0];
+      valueIndex += matched[0].length;
+      formatIndex += token.length;
+      continue;
+    }
+
+    if (value[valueIndex] !== format[formatIndex]) return undefined;
+    valueIndex += 1;
+    formatIndex += 1;
+  }
+
+  return valueIndex === value.length ? parts : undefined;
+};
+
+const parseFieldFormatting = (
+  value: string,
+  field: DateField
+): FieldFormatParts | null | undefined => {
+  const formatting = field.formatting();
+  const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
+  const timeFormat = hasTime && formatting.time() !== 'None' ? formatting.time() : null;
+  const format = timeFormat ? `${formatting.date()} ${timeFormat}` : formatting.date();
+  const parts = matchFieldFormat(value, format);
+  if (!parts?.YYYY) return undefined;
+
+  let hour = Number(parts.HH ?? parts.hh ?? 0);
+  if (parts.A) {
+    const meridian = parts.A.toUpperCase();
+    if (hour < 1 || hour > 12) return null;
+    if (meridian === 'AM') hour = hour === 12 ? 0 : hour;
+    if (meridian === 'PM') hour = hour === 12 ? 12 : hour + 12;
+  }
+
+  return {
+    year: Number(parts.YYYY),
+    month: Number(parts.MM ?? parts.M ?? 1),
+    day: Number(parts.DD ?? parts.D ?? 1),
+    hour,
+    minute: Number(parts.mm ?? 0),
+    second: 0,
+    millisecond: 0,
+  };
+};
+
 const parseDateStringWithTimeZone = (value: string, timeZone: string): string | undefined => {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
 
-  const hasTimeZoneSuffix = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
+  const components = parseDateComponents(trimmed);
+  if (!components) {
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+
+  if (!isValidCalendarComponents(components)) {
+    return undefined;
+  }
+
+  const hasTimeZoneSuffix = /(?:z|[+-]\d{2}:\d{2})$/i.test(trimmed);
   if (hasTimeZoneSuffix) {
     const parsed = new Date(trimmed);
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
   }
 
-  const match = trimmed.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/
+  const utcBase = new Date(
+    Date.UTC(
+      components.year,
+      components.month - 1,
+      components.day,
+      components.hour,
+      components.minute,
+      components.second,
+      components.millisecond
+    )
   );
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const hour = Number(match[4] ?? 0);
-    const minute = Number(match[5] ?? 0);
-    const second = Number(match[6] ?? 0);
-    const millisecond = Number((match[7] ?? '0').padEnd(3, '0'));
-    const utcBase = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
-    const normalizedTimeZone = normalizeTimeZone(timeZone);
-    if (normalizedTimeZone === 'UTC') return utcBase.toISOString();
 
-    const offsetMinutes = getTimeZoneOffsetMinutes(utcBase, normalizedTimeZone);
-    const adjusted = new Date(utcBase.getTime() - offsetMinutes * 60000);
-    return adjusted.toISOString();
-  }
+  const normalizedTimeZone = normalizeTimeZone(timeZone);
+  if (normalizedTimeZone === 'UTC') return utcBase.toISOString();
 
-  const parsed = new Date(trimmed);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString();
-  }
-
-  return undefined;
+  const offsetMinutes = getTimeZoneOffsetMinutes(utcBase, normalizedTimeZone);
+  const adjusted = new Date(utcBase.getTime() - offsetMinutes * 60000);
+  return adjusted.toISOString();
 };
 
 export const parseDateValue = (field: DateField, value: unknown): string | null | undefined => {
   if (value == null) return null;
 
   if (value instanceof Date) {
-    return isNaN(value.getTime()) ? undefined : value.toISOString();
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
   }
 
   if (typeof value === 'number') {
     const parsed = new Date(value);
-    return isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
   }
 
   if (typeof value !== 'string') return undefined;
@@ -106,6 +236,34 @@ export const parseDateValue = (field: DateField, value: unknown): string | null 
     return new Date().toISOString();
   }
 
+  // Fast path for values already in the canonical form this parser emits.
+  // Round-trip equality rejects rolled-over invalid dates (2026-02-30 → March).
+  if (CANONICAL_ISO_UTC_PATTERN.test(trimmed)) {
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString() === trimmed) {
+      return trimmed;
+    }
+  }
+
   const timeZone = field.formatting().timeZone().toString();
+  const fieldFormatted = parseFieldFormatting(trimmed, field);
+  if (fieldFormatted === null) return undefined;
+  if (fieldFormatted) {
+    if (!isValidCalendarComponents(fieldFormatted)) return undefined;
+    const canonical = [
+      String(fieldFormatted.year).padStart(4, '0'),
+      '-',
+      String(fieldFormatted.month).padStart(2, '0'),
+      '-',
+      String(fieldFormatted.day).padStart(2, '0'),
+      'T',
+      String(fieldFormatted.hour).padStart(2, '0'),
+      ':',
+      String(fieldFormatted.minute).padStart(2, '0'),
+      ':',
+      String(fieldFormatted.second).padStart(2, '0'),
+    ].join('');
+    return parseDateStringWithTimeZone(canonical, timeZone);
+  }
   return parseDateStringWithTimeZone(trimmed, timeZone);
 };

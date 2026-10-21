@@ -29,7 +29,7 @@ export const DownloadProgressToast = ({ progress, onCancel }: IDownloadProgressT
           variant="ghost"
           size="icon"
           onClick={onCancel}
-          className="-mr-1 -mt-1 size-6 shrink-0 text-muted-foreground hover:text-foreground"
+          className="-me-1 -mt-1 size-6 shrink-0 text-muted-foreground hover:text-foreground"
         >
           <X className="size-4" />
         </Button>

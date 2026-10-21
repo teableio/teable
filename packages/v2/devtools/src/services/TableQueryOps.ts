@@ -65,7 +65,7 @@ export interface TableQueryOpsAnalyzeSearchAccessPathsInput extends TableQueryOp
 }
 
 export interface TableQueryOpsExecuteSearchAccessPathInput extends TableQueryOpsScopeInput {
-  readonly mode?: 'create' | 'rebuild';
+  readonly mode?: 'create' | 'rebuild' | 'drop';
   readonly fieldIds?: readonly string[];
   readonly provider?: TableQueryOpsSearchAccessPathProvider;
   readonly sampleSearch?: string;
@@ -76,8 +76,7 @@ export interface TableQueryOpsExecuteSearchAccessPathInput extends TableQueryOps
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsValidateSearchAccessPathTempTableInput
-  extends TableQueryOpsScopeInput {
+export interface TableQueryOpsValidateSearchAccessPathTempTableInput extends TableQueryOpsScopeInput {
   readonly connection?: string;
   readonly fieldIds?: readonly string[];
   readonly provider?: TableQueryOpsSearchAccessPathProvider;
@@ -90,27 +89,26 @@ export interface TableQueryOpsValidateSearchAccessPathTempTableInput
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsSearchAccessPathTempTableValidationScope
-  extends Omit<TableQueryOpsValidateSearchAccessPathTempTableInput, 'sampleSearches'> {
+export interface TableQueryOpsSearchAccessPathTempTableValidationScope extends Omit<
+  TableQueryOpsValidateSearchAccessPathTempTableInput,
+  'sampleSearches'
+> {
   readonly sampleSearchCount: number;
   readonly sampleSearchLengthBuckets: readonly ('none' | 'short' | 'medium' | 'long')[];
 }
 
 /** @deprecated Use TableQueryOpsAnalyzeSearchAccessPathsInput. */
-export interface TableQueryOpsAnalyzeSearchVectorsInput
-  extends TableQueryOpsAnalyzeSearchAccessPathsInput {
+export interface TableQueryOpsAnalyzeSearchVectorsInput extends TableQueryOpsAnalyzeSearchAccessPathsInput {
   readonly languageConfig?: string;
 }
 
 /** @deprecated Use TableQueryOpsExecuteSearchAccessPathInput. */
-export interface TableQueryOpsExecuteSearchVectorInput
-  extends TableQueryOpsExecuteSearchAccessPathInput {
+export interface TableQueryOpsExecuteSearchVectorInput extends TableQueryOpsExecuteSearchAccessPathInput {
   readonly languageConfig?: string;
 }
 
 /** @deprecated Use TableQueryOpsValidateSearchAccessPathTempTableInput. */
-export interface TableQueryOpsValidateSearchVectorTempTableInput
-  extends TableQueryOpsValidateSearchAccessPathTempTableInput {
+export interface TableQueryOpsValidateSearchVectorTempTableInput extends TableQueryOpsValidateSearchAccessPathTempTableInput {
   readonly languageConfig?: string;
 }
 
@@ -185,7 +183,7 @@ export interface TableQueryOpsIndexPlanSummary {
   readonly reasonCodes: readonly string[];
   readonly candidateIndexes: readonly TableQueryOpsIndexCandidateSummary[];
   readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
-  readonly physicalStats: { readonly estimatedRows: number };
+  readonly physicalStats: { readonly estimatedRows: number | null };
   readonly indexState: string;
   readonly existingIndexStructures: readonly string[];
   readonly candidateIndexStructures: readonly string[];
@@ -384,7 +382,7 @@ export interface TableQueryOpsQueryRiskReportSummary {
   readonly riskScore: number;
   readonly reasonCodes: readonly string[];
   readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
-  readonly physicalStats: { readonly estimatedRows: number };
+  readonly physicalStats: { readonly estimatedRows: number | null };
   readonly indexInventory: {
     readonly state: string;
     readonly existingIndexStructures: readonly string[];
@@ -789,7 +787,7 @@ export type TableQueryOpsAnalyzeSearchVectorsResult = TableQueryOpsAnalyzeSearch
 export interface TableQueryOpsExecuteSearchAccessPathResult {
   readonly scope: TableQueryOpsExecuteSearchAccessPathInput;
   readonly dryRun: boolean;
-  readonly action: 'dry_run' | 'executed' | 'failed';
+  readonly action: 'dry_run' | 'executed' | 'dropped' | 'failed';
   readonly result?: unknown;
   readonly error?: string;
 }
@@ -836,23 +834,25 @@ export interface TableQueryOpsSearchAccessPathTempTableValidationResult {
   readonly samples: readonly {
     readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
     readonly probeSource: TableQueryOpsSearchProbeSource;
+    // Record ids are customer data: durable output carries a deterministic
+    // set hash + counts instead of the raw id arrays.
     readonly legacyIlikePath: {
       readonly durationMs: number;
       readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
-      readonly recordIds: readonly string[];
+      readonly recordIdSetHash: string;
     };
     readonly optimizedGeneratedTextPath: {
       readonly durationMs: number;
       readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
-      readonly recordIds: readonly string[];
+      readonly recordIdSetHash: string;
     };
     readonly exactResultMatch: boolean;
-    readonly missingFromOptimized: readonly string[];
-    readonly unexpectedFromOptimized: readonly string[];
+    readonly missingFromOptimizedCount: number;
+    readonly unexpectedFromOptimizedCount: number;
     readonly totalDeltaFromLegacy: number;
     readonly durationDeltaPctFromLegacy: number;
     readonly planEvidence: {
@@ -949,6 +949,10 @@ export class TableQueryOps extends Context.Tag('TableQueryOps')<
     readonly executeSearchAccessPath: (
       input: TableQueryOpsExecuteSearchAccessPathInput
     ) => Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError>;
+    readonly refreshSearchAccessPath: (input: {
+      readonly tableId: string;
+      readonly dataConnection?: string;
+    }) => Effect.Effect<{ tableId: string; published: boolean }, CliError>;
     readonly validateSearchAccessPathTempTable: (
       input: TableQueryOpsValidateSearchAccessPathTempTableInput
     ) => Effect.Effect<TableQueryOpsSearchAccessPathTempTableValidationResult, CliError>;

@@ -1,12 +1,13 @@
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
-import { Skeleton, cn } from '@teable/ui-lib';
+import { ChevronLeft, ChevronRight } from '@teable/icons';
+import { Button, Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../hooks';
 import {
   useFields,
-  useIsTouchDevice,
+  useIsMobile,
   useRecord,
   useViewId,
   useViews,
@@ -22,6 +23,8 @@ import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
 import { RecordHistory } from './RecordHistory';
 import { ExpandRecordModel } from './type';
+
+const skeletonRows = [72, 96, 64, 88, 76, 104];
 
 interface IExpandRecordProps {
   recordId: string;
@@ -42,6 +45,7 @@ interface IExpandRecordProps {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  onAddToChat?: () => void;
   buttonClickStatusHook?: IButtonClickStatusHook;
   onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }
@@ -66,6 +70,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    onAddToChat,
     buttonClickStatusHook,
     onAttachmentDownload,
   } = props;
@@ -93,9 +98,10 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     (state) => state.hiddenFieldsVisible
   );
   const record = useRecord(recordId, serverData, {
+    hydrate: true,
     withHidden: hiddenFieldsVisible && hiddenFields.length > 0,
   });
-  const isTouchDevice = useIsTouchDevice();
+  const isMobile = useIsMobile();
   const { t } = useTranslation();
   const tablePermission = useTablePermission();
   const canUpdateRecord = tablePermission['record|update'];
@@ -112,11 +118,11 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   );
 
   const nextRecordIndex = useMemo(() => {
-    return recordIds?.length ? recordIds.findIndex((id) => recordId === id) + 1 : -1;
+    return recordIds?.length ? recordIds.indexOf(recordId) + 1 : -1;
   }, [recordId, recordIds]);
 
   const prevRecordIndex = useMemo(() => {
-    return recordIds?.length ? recordIds.findIndex((id) => recordId === id) - 1 : -1;
+    return recordIds?.length ? recordIds.indexOf(recordId) - 1 : -1;
   }, [recordId, recordIds]);
 
   const onChange = useCallback(
@@ -149,9 +155,15 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const disabledPrev = prevRecordIndex < 0;
   const disabledNext = !recordIds?.length || nextRecordIndex >= recordIds.length;
 
+  // There is no room for the side-by-side layout on mobile, so the comment panel takes over the
+  // whole body instead of squeezing the record detail next to the fixed-width comment column.
+  const commentPanelFullWidth = Boolean(
+    isMobile && commentVisible && baseId && tableId && recordId
+  );
+
   return (
     <ExpandRecordWrap
-      model={isTouchDevice ? ExpandRecordModel.Drawer : model ?? ExpandRecordModel.Modal}
+      model={isMobile ? ExpandRecordModel.Drawer : (model ?? ExpandRecordModel.Modal)}
       visible={visible}
       onClose={onClose}
       className={cn({ 'max-w-5xl': commentVisible })}
@@ -174,6 +186,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             onCommentToggle={onCommentToggle}
             onDuplicate={onDuplicate}
             onDelete={onDelete}
+            onAddToChat={onAddToChat}
             recordId={recordId}
             tableId={tableId}
           />
@@ -185,35 +198,103 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             </div>
           ) : (
             <div className="relative flex w-full flex-1 justify-between overflow-y-auto">
-              {fields.length > 0 ? (
-                <div className="size-full overflow-auto px-14 py-9">
-                  <RecordEditor
-                    record={record}
-                    fields={fields}
-                    hiddenFields={hiddenFields}
-                    onChange={onChange}
-                    readonly={fieldCellReadonly}
-                    buttonClickStatusHook={buttonClickStatusHook}
-                    onAttachmentDownload={onAttachmentDownload}
-                  />
+              {!commentPanelFullWidth && (
+                <div
+                  className={cn('size-full overflow-auto', isMobile ? 'px-6 py-6' : 'px-14 py-9')}
+                >
+                  {record && fields.length > 0 ? (
+                    <RecordEditor
+                      record={record}
+                      fields={fields}
+                      hiddenFields={hiddenFields}
+                      onChange={onChange}
+                      readonly={fieldCellReadonly}
+                      buttonClickStatusHook={buttonClickStatusHook}
+                      onAttachmentDownload={onAttachmentDownload}
+                    />
+                  ) : (
+                    <div className="mx-auto max-w-3xl" aria-busy="true">
+                      <div className="space-y-6">
+                        {skeletonRows.map((labelWidth) => (
+                          <div
+                            key={labelWidth}
+                            className={cn(
+                              'relative',
+                              isMobile ? 'space-y-2' : 'flex space-x-4 rtl:space-x-reverse'
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                'flex w-36 items-top space-x-1 rtl:space-x-reverse',
+                                isMobile ? 'w-full' : 'pt-1'
+                              )}
+                            >
+                              <div className="flex size-5 items-center">
+                                <Skeleton className="size-4 rounded-sm" />
+                              </div>
+                              <div className="flex h-5 min-w-0 items-center text-sm">
+                                <Skeleton
+                                  className="h-4 rounded-sm"
+                                  style={{ width: labelWidth }}
+                                />
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1 p-0.5">
+                              <Skeleton className="h-8 w-full rounded-sm" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <Skeleton className="h-10 w-full rounded" />
               )}
 
               {commentVisible && baseId && tableId && recordId && (
-                <div className="w-[320px] shrink-0">
+                <div
+                  className={cn('shrink-0', {
+                    'w-full': commentPanelFullWidth,
+                    'w-[320px]': !commentPanelFullWidth,
+                  })}
+                >
                   <CommentPanel
                     tableId={tableId}
                     recordId={recordId}
                     baseId={baseId}
                     commentId={commentId}
+                    className={cn({
+                      // the drawer sits at bottom-0 under viewport-fit=cover, and the mobile
+                      // footer that used to carry this inset is hidden in this state
+                      'border-s-0 pb-[env(safe-area-inset-bottom)]': commentPanelFullWidth,
+                    })}
                   />
                 </div>
               )}
             </div>
           )}
         </div>
+        {isMobile && !commentPanelFullWidth && (!disabledPrev || !disabledNext) && (
+          <div className="flex shrink-0 items-center gap-4 border-t bg-background px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <Button
+              variant="outline"
+              className="min-w-0 flex-1 rounded-md"
+              onClick={onPrevInner}
+              disabled={disabledPrev}
+            >
+              <ChevronLeft className="size-4 shrink-0" />
+              <span className="truncate">{t('expandRecord.previousRecord')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="min-w-0 flex-1 rounded-md"
+              onClick={onNextInner}
+              disabled={disabledNext}
+            >
+              <span className="truncate">{t('expandRecord.nextRecord')}</span>
+              <ChevronRight className="size-4 shrink-0" />
+            </Button>
+          </div>
+        )}
       </div>
     </ExpandRecordWrap>
   );

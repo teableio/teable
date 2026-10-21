@@ -94,4 +94,107 @@ describe('v2 listRecords unary filter operators (e2e)', () => {
     expect(records).toHaveLength(1);
     expect(records[0]?.fields?.[statusFieldId] ?? null).toBeNull();
   });
+
+  /**
+   * Cells cleared with "" (text) or [] (multi-value) are stored as null
+   * (T6520), so unary emptiness filters must treat them as empty.
+   * v1 reference: record-filter-query.e2e-spec isEmpty/isNotEmpty cases.
+   */
+  it('treats cells cleared with "" and [] as empty', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'V2 Unary Filter Cleared Cells',
+      fields: [
+        { name: 'Name', type: 'singleLineText', isPrimary: true },
+        { name: 'Text', type: 'singleLineText' },
+        { name: 'Tags', type: 'multipleSelect', options: ['A'] },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const textFieldId = table.fields.find((f) => f.name === 'Text')?.id ?? '';
+    const tagsFieldId = table.fields.find((f) => f.name === 'Tags')?.id ?? '';
+
+    const filled = await ctx.createRecord(table.id, {
+      [nameFieldId]: 'filled',
+      [textFieldId]: 'value',
+      [tagsFieldId]: ['A'],
+    });
+    const cleared = await ctx.createRecord(table.id, {
+      [nameFieldId]: 'cleared',
+      [textFieldId]: 'temp',
+      [tagsFieldId]: ['A'],
+    });
+    const untouched = await ctx.createRecord(table.id, { [nameFieldId]: 'untouched' });
+
+    await ctx.updateRecord(table.id, cleared.id, { [textFieldId]: '', [tagsFieldId]: [] });
+
+    const listWithFilter = async (filter: unknown) => {
+      const params = new URLSearchParams({
+        tableId: table.id,
+        fieldKeyType: FieldKeyType.Id,
+        filter: JSON.stringify(filter),
+      });
+      const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'content-type': 'application/json' },
+      });
+      const rawBody = await response.json();
+      expect(response.status).toBe(200);
+      const parsed = listTableRecordsOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) throw new Error('listRecords failed');
+      return parsed.data.data.records;
+    };
+
+    const emptyText = await listWithFilter({ fieldId: textFieldId, operator: 'isEmpty' });
+    expect(emptyText.map((r) => r.id).sort()).toEqual([cleared.id, untouched.id].sort());
+
+    const notEmptyText = await listWithFilter({ fieldId: textFieldId, operator: 'isNotEmpty' });
+    expect(notEmptyText.map((r) => r.id)).toEqual([filled.id]);
+
+    const emptyTags = await listWithFilter({ fieldId: tagsFieldId, operator: 'isEmpty' });
+    expect(emptyTags.map((r) => r.id).sort()).toEqual([cleared.id, untouched.id].sort());
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:92 — listRecords with a projection
+   * returns only the projected field in each record's fields map.
+   */
+  it('returns only projected fields when projection is provided', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'V2 ListRecords Projection',
+      fields: [
+        { name: 'Name', type: 'singleLineText', isPrimary: true },
+        { name: 'Count', type: 'number' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const countFieldId = table.fields.find((f) => f.name === 'Count')?.id ?? '';
+
+    await ctx.createRecord(table.id, { [nameFieldId]: 'text', [countFieldId]: 1 });
+
+    const params = new URLSearchParams({
+      tableId: table.id,
+      fieldKeyType: FieldKeyType.Id,
+      projection: JSON.stringify([nameFieldId]),
+    });
+    const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.status).toBe(200);
+    const rawBody = await response.json();
+    const parsed = listTableRecordsOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success || !parsed.data.ok) return;
+
+    const records = parsed.data.data.records;
+    expect(records.length).toBeGreaterThan(0);
+    expect(Object.keys(records[0]?.fields ?? {})).toEqual([nameFieldId]);
+    expect(records[0]?.fields[nameFieldId]).toBe('text');
+  });
 });

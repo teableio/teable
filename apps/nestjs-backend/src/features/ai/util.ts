@@ -1,3 +1,5 @@
+import { promises as dns } from 'node:dns';
+import { isIP } from 'node:net';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
@@ -10,11 +12,182 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createTogetherAI } from '@ai-sdk/togetherai';
 import { createXai } from '@ai-sdk/xai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import type { IAIConfig, Task } from '@teable/openapi';
+import { HttpErrorCode } from '@teable/core';
+import type { IAIConfig, LLMProvider, Task } from '@teable/openapi';
 import { isMiniMaxMessagesEndpoint, LLMProviderType } from '@teable/openapi';
+import {
+  createSsrfSafeFetch,
+  createTrustedUrlPredicate,
+  isBlockedAddress,
+  isCloudMetadataAddress,
+  normalizeOrigins,
+  type ISsrfSafeFetchFn,
+} from '@teable/v2-utils';
 import { get } from 'lodash';
 import { createOllama } from 'ollama-ai-provider-v2';
+import { CustomHttpException } from '../../custom.exception';
 import { TASK_MODEL_MAP } from './constant';
+
+// Same switch `@teable/v2-utils` honours (it is not exported from its index).
+const isSsrfProtectionDisabled = () => process.env.TEABLE_SSRF_PROTECTION_DISABLED === 'true';
+
+// Same source as BaseConfig.isCloud; read per call so late env setup is honoured.
+const isCloudEdition = () => process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD';
+
+/**
+ * Who configured a provider decides how far its `baseUrl` may reach:
+ * - the instance admin's own providers and AI gateway are operator
+ *   configuration, trusted the way `TEABLE_SSRF_TRUSTED_ORIGINS` is (a LAN
+ *   model on self-hosted, a VPC-internal gateway on cloud);
+ * - a space integration is tenant input (GHSA-jvm6-86c5-f8j8): on cloud it may
+ *   only reach public peers; on self-hosted the private network too — the
+ *   tenants share the operator's network — but never the cloud-metadata
+ *   addresses.
+ * The instance origins come from a resolver the AI module registers at
+ * startup, memoized briefly so a request does not read settings every time.
+ */
+type IInstanceAiOriginsResolver = () => Promise<readonly (string | null | undefined)[]>;
+
+const INSTANCE_AI_ORIGINS_TTL_MS = 30_000;
+let resolveInstanceAiOrigins: IInstanceAiOriginsResolver = async () => [];
+let instanceAiOriginsMemo: { at: number; origins: Promise<ReadonlySet<string>> } | undefined;
+
+export const setInstanceAiProviderOriginsResolver = (resolver: IInstanceAiOriginsResolver) => {
+  resolveInstanceAiOrigins = resolver;
+  instanceAiOriginsMemo = undefined;
+};
+
+const getInstanceAiOrigins = (): Promise<ReadonlySet<string>> => {
+  const now = Date.now();
+  if (!instanceAiOriginsMemo || now - instanceAiOriginsMemo.at > INSTANCE_AI_ORIGINS_TTL_MS) {
+    const origins = resolveInstanceAiOrigins()
+      .then((urls) => new Set(normalizeOrigins(urls.map((url) => url ?? undefined))))
+      .catch(() => new Set<string>());
+    instanceAiOriginsMemo = { at: now, origins };
+  }
+  return instanceAiOriginsMemo.origins;
+};
+
+const isInstanceAiProviderUrl = async (url: string): Promise<boolean> => {
+  try {
+    return (await getInstanceAiOrigins()).has(new URL(url).origin);
+  } catch {
+    return false;
+  }
+};
+
+let guardedFetch: { cloud: boolean; fetch: ISsrfSafeFetchFn } | undefined;
+
+const getGuardedFetch = (): ISsrfSafeFetchFn => {
+  const cloud = isCloudEdition();
+  if (guardedFetch?.cloud !== cloud) {
+    guardedFetch = { cloud, fetch: createSsrfSafeFetch({ allowPrivateNetwork: !cloud }) };
+  }
+  return guardedFetch.fetch;
+};
+
+/**
+ * Fetch for every request to a configured AI provider. Instance-configured
+ * origins go out as they are; anything else (a space integration) goes through
+ * the SSRF-guarded undici dispatcher, which re-checks the peer address on every
+ * hop and re-reads `TEABLE_SSRF_TRUSTED_ORIGINS` / `PUBLIC_ORIGIN` per dispatch.
+ * `Request` inputs are reduced to their URL — the AI SDKs only pass strings.
+ */
+export const aiProviderFetch: typeof fetch = async (input, init) => {
+  if (isSsrfProtectionDisabled()) {
+    return fetch(input, init);
+  }
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (await isInstanceAiProviderUrl(url)) {
+    return fetch(input, init);
+  }
+  return getGuardedFetch()(url, init as Parameters<ISsrfSafeFetchFn>[1]);
+};
+
+let instanceAdminFetch: ISsrfSafeFetchFn | undefined;
+
+/**
+ * For the instance admin's own routes (testing a provider before saving it,
+ * batch tests, gateway and transcription key checks): operator input, not
+ * tenant input, so the private network stays reachable (a LAN model, a
+ * VPC-internal gateway) on every edition. The cloud-metadata addresses do not:
+ * these routes hand the upstream's answer back in their error messages, which
+ * would make them a way to read instance credentials.
+ */
+export const instanceAdminProviderFetch: typeof fetch = (input, init) => {
+  if (isSsrfProtectionDisabled()) {
+    return fetch(input, init);
+  }
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  instanceAdminFetch ??= createSsrfSafeFetch({ allowPrivateNetwork: true });
+  return instanceAdminFetch(url, init as Parameters<ISsrfSafeFetchFn>[1]);
+};
+
+/**
+ * Wraps a provider factory so its requests go through `aiProviderFetch`
+ * unless the caller supplies its own `fetch`.
+ */
+const withProviderFetch =
+  <TOptions extends { fetch?: typeof fetch }, TProvider>(
+    factory: (options: TOptions) => TProvider
+  ) =>
+  (options?: TOptions): TProvider =>
+    factory({ fetch: aiProviderFetch, ...options } as TOptions);
+
+/**
+ * Defence in depth for a space integration's `llmProviders[].baseUrl`: the
+ * guarded fetch already refuses a disallowed peer at connect time, but only as
+ * an opaque upstream error mid-request. Checking the URL when it is saved or
+ * tested surfaces an actionable message instead. Same trust model as the
+ * fetch; an unresolvable host fails closed.
+ */
+export const isAiProviderBaseUrlBlocked = async (baseUrl: string): Promise<boolean> => {
+  if (isSsrfProtectionDisabled()) {
+    return false;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    return true;
+  }
+  if (createTrustedUrlPredicate()(parsed.href) || (await isInstanceAiProviderUrl(parsed.href))) {
+    return false;
+  }
+  const isRejected = isCloudEdition() ? isBlockedAddress : isCloudMetadataAddress;
+  const hostname =
+    parsed.hostname.startsWith('[') && parsed.hostname.endsWith(']')
+      ? parsed.hostname.slice(1, -1)
+      : parsed.hostname;
+  if (isIP(hostname)) {
+    return isRejected(hostname);
+  }
+  try {
+    const addresses = await dns.lookup(hostname, { all: true });
+    return addresses.length === 0 || addresses.some(({ address }) => isRejected(address));
+  } catch {
+    return true;
+  }
+};
+
+export const assertAiProviderBaseUrlsAllowed = async (
+  providers: readonly Pick<LLMProvider, 'baseUrl'>[]
+): Promise<void> => {
+  for (const { baseUrl } of providers) {
+    if (baseUrl && (await isAiProviderBaseUrlBlocked(baseUrl))) {
+      throw new CustomHttpException(
+        `AI provider base URL ${baseUrl} points to a private or unresolvable network address`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerBaseUrlBlocked',
+            context: { baseUrl },
+          },
+        }
+      );
+    }
+  }
+};
 
 /**
  * Fix non-standard OpenAI compatible API streaming response.
@@ -27,8 +200,8 @@ const fixStreamText = (text: string): string => {
   // comma followed by role (if last field)
 
   return text
-    .replace(/"role":"",/g, '') // role followed by comma
-    .replace(/,"role":""/g, '');
+    .replaceAll('"role":"",', '') // role followed by comma
+    .replaceAll(',"role":""', '');
 };
 
 /**
@@ -36,9 +209,9 @@ const fixStreamText = (text: string): string => {
  * Some API proxies return invalid format like `role: ""` instead of `role: "assistant"`.
  * This wrapper transforms the streaming response to fix such issues.
  */
-const createFixingFetch = (): typeof fetch => {
+const createFixingFetch = (baseFetch: typeof fetch = aiProviderFetch): typeof fetch => {
   return async (input, init) => {
-    const response = await fetch(input, init);
+    const response = await baseFetch(input, init);
 
     // Only transform if there's a body (streaming responses)
     if (!response.body) {
@@ -83,37 +256,38 @@ const createOpenAICompatibleWrapper = (
 ): ReturnType<typeof createOpenAICompatible> => {
   return createOpenAICompatible({
     ...options,
-    // Use custom fetch to fix non-standard responses
-    fetch: createFixingFetch(),
+    // Use custom fetch to fix non-standard responses, on top of the caller's
+    // transport when it brings one (instance admin routes).
+    fetch: createFixingFetch(options?.fetch),
   });
 };
 
-const createMiniMax = (options: Parameters<typeof createOpenAICompatible>[0]) => {
-  if (isMiniMaxMessagesEndpoint(options.baseURL)) {
-    return createAnthropic(options);
-  }
-  return createOpenAICompatible(options);
-};
-
+// Every factory takes `fetch`; keep it that way when adding providers so the
+// SSRF guard stays on the only path to a workspace-configured `baseUrl`.
 export const modelProviders = {
-  [LLMProviderType.OPENAI]: createOpenAI,
-  [LLMProviderType.ANTHROPIC]: createAnthropic,
-  [LLMProviderType.GOOGLE]: createGoogleGenerativeAI,
-  [LLMProviderType.AZURE]: createAzure,
-  [LLMProviderType.COHERE]: createCohere,
-  [LLMProviderType.MISTRAL]: createMistral,
-  [LLMProviderType.DEEPSEEK]: createDeepSeek,
-  [LLMProviderType.MINIMAX]: createMiniMax,
-  [LLMProviderType.QWEN]: createOpenAICompatible,
-  [LLMProviderType.ZHIPU]: createOpenAICompatible,
-  [LLMProviderType.LINGYIWANWU]: createOpenAICompatible,
-  [LLMProviderType.XAI]: createXai,
-  [LLMProviderType.TOGETHERAI]: createTogetherAI,
-  [LLMProviderType.OLLAMA]: createOllama,
-  [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
-  [LLMProviderType.OPENROUTER]: createOpenRouter,
+  [LLMProviderType.OPENAI]: withProviderFetch(createOpenAI),
+  [LLMProviderType.ANTHROPIC]: withProviderFetch(createAnthropic),
+  [LLMProviderType.GOOGLE]: withProviderFetch(createGoogleGenerativeAI),
+  [LLMProviderType.AZURE]: withProviderFetch(createAzure),
+  [LLMProviderType.COHERE]: withProviderFetch(createCohere),
+  [LLMProviderType.MISTRAL]: withProviderFetch(createMistral),
+  [LLMProviderType.DEEPSEEK]: withProviderFetch(createDeepSeek),
+  [LLMProviderType.MINIMAX]: withProviderFetch((options) =>
+    isMiniMaxMessagesEndpoint(options.baseURL)
+      ? createAnthropic(options)
+      : createOpenAICompatible(options)
+  ),
+  [LLMProviderType.QWEN]: withProviderFetch(createOpenAICompatible),
+  [LLMProviderType.ZHIPU]: withProviderFetch(createOpenAICompatible),
+  [LLMProviderType.LINGYIWANWU]: withProviderFetch(createOpenAICompatible),
+  [LLMProviderType.XAI]: withProviderFetch(createXai),
+  [LLMProviderType.TOGETHERAI]: withProviderFetch(createTogetherAI),
+  [LLMProviderType.OLLAMA]: withProviderFetch(createOllama),
+  [LLMProviderType.AMAZONBEDROCK]: withProviderFetch(createAmazonBedrock),
+  [LLMProviderType.OPENROUTER]: withProviderFetch(createOpenRouter),
   [LLMProviderType.OPENAI_COMPATIBLE]: createOpenAICompatibleWrapper,
-  // AI_GATEWAY is handled separately in ai.service.ts using createGateway from 'ai'
+  // AI_GATEWAY is handled separately in ai.service.ts using createGateway from 'ai';
+  // every createGateway call site must pass `fetch: aiProviderFetch` too.
 } as const;
 
 export const getAdaptedProviderOptions = (

@@ -1,10 +1,10 @@
 import { Colors, FieldType } from '@teable/core';
 import type { IButtonFieldOptions } from '@teable/core';
 import { Plus } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import { getSelectColorPairs } from '@teable/sdk';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import {
   Button,
   Input,
@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
@@ -194,7 +194,7 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
           }}
         >
           {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
-          <span className="flex-1 text-left">
+          <span className="flex-1 text-start">
             {workflow?.name || t('table:field.default.button.customAutomation')}
           </span>
         </Button>
@@ -202,7 +202,7 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
         <UnavailableInPlanTips>
           <Button className="flex items-center " variant="outline">
             <PlusIcon className="size-4" />
-            <span className="flex-1 text-left">
+            <span className="flex-1 text-start">
               {workflow?.name || t('table:field.default.button.customAutomation')}
             </span>
           </Button>
@@ -223,6 +223,15 @@ export const ButtonOptions = (props: {
   const { resolvedTheme } = useTheme();
   const bgColor = getSelectColorPairs(options?.color ?? Colors.Teal, resolvedTheme).backgroundColor;
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
+  const [maxCountInput, setMaxCountInput] = useState(String(options?.maxCount ?? ''));
+  const lastMaxCount = useRef(options?.maxCount);
+
+  useEffect(() => {
+    if (Object.is(lastMaxCount.current, options?.maxCount)) return;
+    lastMaxCount.current = options?.maxCount;
+    setMaxCountInput(String(options?.maxCount ?? ''));
+    setLimitClickCount((options?.maxCount ?? 0) > 0);
+  }, [options?.maxCount]);
 
   return (
     <div className="form-control space-y-4 border-t pt-4">
@@ -268,7 +277,9 @@ export const ButtonOptions = (props: {
                 checked={limitClickCount}
                 onCheckedChange={(checked) => {
                   setLimitClickCount(checked);
-                  onChange?.({ ...options, maxCount: checked ? 1 : 0 });
+                  setMaxCountInput(checked ? '1' : '');
+                  lastMaxCount.current = checked ? 1 : null;
+                  onChange?.({ ...options, maxCount: checked ? 1 : null, resetCount: false });
                 }}
               />
               <Label className="text-sm font-normal">
@@ -295,10 +306,15 @@ export const ButtonOptions = (props: {
                 </Label>
                 <Input
                   type="number"
-                  value={options?.maxCount}
-                  onChange={(e) =>
-                    onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
-                  }
+                  min={1}
+                  step={1}
+                  value={maxCountInput}
+                  onChange={(e) => {
+                    setMaxCountInput(e.target.value);
+                    const maxCount = Number(e.target.value);
+                    lastMaxCount.current = maxCount;
+                    onChange?.({ ...options, maxCount });
+                  }}
                 />
               </div>
             )}

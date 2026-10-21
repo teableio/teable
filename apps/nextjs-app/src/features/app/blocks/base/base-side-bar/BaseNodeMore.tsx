@@ -14,13 +14,11 @@ import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistor
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { useConfirm } from '@teable/ui-lib/base/dialog/confirm-modal';
 import {
   Button,
   cn,
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DropdownMenu,
@@ -43,23 +41,34 @@ import {
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import {
   AppWindowMacIcon,
+  Archive,
   CopyPlus,
   FileInputIcon,
+  FolderInput,
   Info,
   Pen,
+  Pin,
+  PinOff,
   ShieldCheck,
   Trash,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
+import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { tableConfig } from '@/features/i18n/table.config';
-import { LoginAppWarning } from '../../../components/LoginAppWarning';
+import { TableArchiveDialog } from '@overridable/TableArchiveDialog';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { TableImport } from '../../import-table';
+import {
+  markTableDeletedLocally,
+  unmarkTableDeletedLocally,
+} from '../../table/hooks/stale-table-fallback';
 import { useTableHref } from '../../table-list/useTableHref';
 import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
@@ -69,6 +78,7 @@ import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
 import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
+import { MoveNodeToBaseDialog } from './MoveNodeToBaseDialog';
 import { NodeShareDialog } from './NodeShareDialog';
 
 const useNode = (resourceId: string) => {
@@ -85,11 +95,13 @@ const ListMenuItem = ({
   label,
   onClick,
   destructive,
+  disabled,
 }: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
   destructive?: boolean;
+  disabled?: boolean;
 }) => (
   <Button
     variant="ghost"
@@ -98,6 +110,7 @@ const ListMenuItem = ({
       destructive && 'text-destructive'
     )}
     onClick={onClick}
+    disabled={disabled}
   >
     {icon}
     <span>{label}</span>
@@ -120,7 +133,12 @@ interface IBaseNodeMoreProps {
   contentAlign?: 'start' | 'end';
 
   onRename?: () => void;
-  onDelete?: (permanent: boolean, confirm?: boolean) => Promise<void>;
+  /**
+   * Opens the node's description. The table page passes it where its title block — the
+   * description's usual home — is hidden (the native mobile app), so the menu is the way in.
+   */
+  onDescription?: () => void;
+  onDelete?: (permanent: boolean) => Promise<void>;
   onDuplicate?: (ro?: IDuplicateBaseNodeRo) => Promise<void>;
 
   // Success callbacks for customizing behavior after operations
@@ -128,6 +146,17 @@ interface IBaseNodeMoreProps {
   onDeleteSuccess?: (nodeId: string) => void;
   onDuplicateSuccess?: (node: IBaseNodeVo) => void;
   onUpdateSuccess?: (node: IBaseNodeVo) => void;
+
+  extraActions?: Array<{
+    id: string;
+    label: string;
+    Icon: ComponentType<{ className?: string }>;
+    onClick: () => void;
+    disabled?: boolean;
+  }>;
+
+  /** Pin / Unpin, placed after Rename; a host that pins from the menu passes it. */
+  pin?: { pinned: boolean; onToggle: () => void };
 }
 
 interface ITableOperationProps extends IBaseNodeMoreProps {
@@ -141,8 +170,39 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   canPermanentDelete?: boolean;
   canDuplicate?: boolean;
   canShare?: boolean;
-  nodeTypeLabel?: string; // Node type label (Dashboard/Workflow/App)
+  /** defaults to whatever allows removing the node from this project */
+  canMoveToBase?: boolean;
+  nodeTypeLabel: string;
 }
+
+/** Whether any of a menu group's entries shows. */
+const anyOf = (...entries: unknown[]) => entries.some(Boolean);
+
+/** The line between two menu groups, drawn only when both show something. */
+const GroupSeparator = ({ above, below }: { above: boolean; below: boolean }) =>
+  above && below ? <DropdownMenuSeparator /> : null;
+
+/** The menu's Pin / Unpin entry, as a dropdown item or, on mobile, a list row. */
+const PinItem = ({
+  pin,
+  list,
+}: {
+  pin: NonNullable<IBaseNodeMoreProps['pin']>;
+  list?: boolean;
+}) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const Icon = pin.pinned ? PinOff : Pin;
+  const label = pin.pinned ? t('table:aiChat.unpin') : t('table:aiChat.pin');
+  if (list) {
+    return <ListMenuItem icon={<Icon className="size-4" />} label={label} onClick={pin.onToggle} />;
+  }
+  return (
+    <DropdownMenuItem onClick={pin.onToggle}>
+      <Icon className="me-2 size-4" />
+      {label}
+    </DropdownMenuItem>
+  );
+};
 
 const CommonOperation = (props: ICommonOperationProps) => {
   const {
@@ -160,17 +220,24 @@ const CommonOperation = (props: ICommonOperationProps) => {
     canPermanentDelete = false,
     canDuplicate = false,
     canShare = false,
+    canMoveToBase: canMoveToBaseProp,
     nodeTypeLabel,
+    extraActions = [],
+    pin,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const [duplicateSetting, setDuplicateSetting] = useState(false);
+  const [deletePermanent, setDeletePermanent] = useState<boolean | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
+  const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const node = useNode(resourceId);
   const nodeName = node?.resourceMeta?.name;
   const shareNodeId = canShare && node ? node.id : undefined;
+  const canMoveToBase = Boolean(node) && (canMoveToBaseProp ?? (canDelete || canPermanentDelete));
 
   const defaultName = useMemo(
     () => `${nodeName ?? nodeTypeLabel} ${t('space:baseModal.copy')}`,
@@ -185,6 +252,20 @@ const CommonOperation = (props: ICommonOperationProps) => {
   const handleDuplicateClick = useCallback(() => {
     setDuplicateSetting(true);
   }, []);
+
+  const handleDelete = async () => {
+    if (deletePermanent == null || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete?.(deletePermanent);
+      setDeletePermanent(null);
+    } catch {
+      // The underlying mutation reports the error globally; keep the dialog open for retry.
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const duplicateDialog = duplicateSetting && canDuplicate && (
     <ConfirmDialog
@@ -216,7 +297,30 @@ const CommonOperation = (props: ICommonOperationProps) => {
     />
   );
 
-  if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate && !canShare && !node) {
+  const deleteDialog = deletePermanent != null && (
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && setDeletePermanent(null)}
+      title={`${t('common:actions.delete')} ${nodeTypeLabel.toLowerCase()}`}
+      description={t('common:actions.deleteTip', { name: nodeName })}
+      cancelText={t('common:actions.cancel')}
+      confirmText={deletePermanent ? t('common:actions.delete') : t('common:trash.addToTrash')}
+      confirmLoading={isDeleting}
+      confirmDisabled={isDeleting}
+      confirmButtonVariant={deletePermanent ? 'destructive' : 'default'}
+      onCancel={() => setDeletePermanent(null)}
+      onConfirm={handleDelete}
+    />
+  );
+
+  // The menu's groups: edit, info, then delete on its own.
+  const hasEditGroup = anyOf(canRename, pin, canDuplicate);
+  const hasInfoGroup = anyOf(shareNodeId, node);
+  const hasDeleteGroup = anyOf(canPermanentDelete, canDelete);
+  const hasVisibleCommonActions = anyOf(hasEditGroup, hasInfoGroup, hasDeleteGroup);
+  const hasCommonActions = hasVisibleCommonActions || canShare;
+
+  if (!hasCommonActions && !extraActions.length) {
     return null;
   }
 
@@ -224,6 +328,15 @@ const CommonOperation = (props: ICommonOperationProps) => {
   if (variant === 'list') {
     return (
       <>
+        {extraActions.map(({ id, label, Icon, onClick, disabled }) => (
+          <ListMenuItem
+            key={id}
+            icon={<Icon className="size-4" />}
+            label={label}
+            onClick={onClick}
+            disabled={disabled}
+          />
+        ))}
         {canRename && (
           <ListMenuItem
             icon={<Pen className="size-4" />}
@@ -231,6 +344,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={() => onRename?.()}
           />
         )}
+        {pin && <PinItem pin={pin} list />}
         {canDuplicate && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -252,11 +366,18 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
+        {canMoveToBase && (
+          <ListMenuItem
+            icon={<FolderInput className="size-4" />}
+            label={t('table:baseNode.moveToBase.menu')}
+            onClick={() => setMoveToBaseOpen(true)}
+          />
+        )}
         {canPermanentDelete && (
           <ListMenuItem
             icon={<Trash className="size-4" />}
             label={t('common:actions.permanentDelete')}
-            onClick={() => onDelete?.(true)}
+            onClick={() => setDeletePermanent(true)}
             destructive
           />
         )}
@@ -264,10 +385,11 @@ const CommonOperation = (props: ICommonOperationProps) => {
           <ListMenuItem
             icon={<Trash className="size-4" />}
             label={t('common:actions.delete')}
-            onClick={() => onDelete?.(false)}
+            onClick={() => setDeletePermanent(false)}
           />
         )}
         {duplicateDialog}
+        {deleteDialog}
         {shareNodeId && (
           <NodeShareDialog
             open={shareDialogOpen}
@@ -280,6 +402,13 @@ const CommonOperation = (props: ICommonOperationProps) => {
             node={node}
             open={nodeInfoDialogOpen}
             onOpenChange={setNodeInfoDialogOpen}
+          />
+        )}
+        {node && canMoveToBase && (
+          <MoveNodeToBaseDialog
+            node={node}
+            open={moveToBaseOpen}
+            onOpenChange={setMoveToBaseOpen}
           />
         )}
       </>
@@ -297,51 +426,68 @@ const CommonOperation = (props: ICommonOperationProps) => {
           onClick={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
+          {extraActions.map(({ id, label, Icon, onClick, disabled }) => (
+            <DropdownMenuItem key={id} onClick={onClick} disabled={disabled}>
+              <Icon className="me-2 size-4" />
+              {label}
+            </DropdownMenuItem>
+          ))}
+          {extraActions.length > 0 && hasVisibleCommonActions && <DropdownMenuSeparator />}
           {canRename && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pen className="mr-2 size-4" />
+              <Pen className="me-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
+          {pin && <PinItem pin={pin} />}
           {canDuplicate && (
             <DropdownMenuItem onClick={handleDuplicateClick}>
-              <CopyPlus className="mr-2 size-4" />
+              <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
+          <GroupSeparator above={hasEditGroup} below={hasInfoGroup} />
           {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
-              <Share2 className="mr-2 size-4" />
+              <Share2 className="me-2 size-4" />
               {t('common:template.non.share')}
             </DropdownMenuItem>
           )}
           {node && (
             <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
-              <Info className="mr-2 size-4" />
+              <Info className="me-2 size-4" />
               {t('table:baseNode.info.menu')}
             </DropdownMenuItem>
           )}
+          {canMoveToBase && (
+            <DropdownMenuItem onClick={() => setMoveToBaseOpen(true)}>
+              <FolderInput className="me-2 size-4" />
+              {t('table:baseNode.moveToBase.menu')}
+            </DropdownMenuItem>
+          )}
+          <GroupSeparator above={anyOf(hasEditGroup, hasInfoGroup)} below={hasDeleteGroup} />
           {canPermanentDelete && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => onDelete?.(true)}
+              onClick={() => setDeletePermanent(true)}
             >
-              <Trash className="mr-2 size-4" />
+              <Trash className="me-2 size-4" />
               {t('common:actions.permanentDelete')}
             </DropdownMenuItem>
           )}
           {canDelete && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => onDelete?.(false)}
+              onClick={() => setDeletePermanent(false)}
             >
-              <Trash className="mr-2 size-4" />
+              <Trash className="me-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
       {duplicateDialog}
+      {deleteDialog}
       {shareNodeId && (
         <NodeShareDialog
           open={shareDialogOpen}
@@ -355,6 +501,9 @@ const CommonOperation = (props: ICommonOperationProps) => {
           open={nodeInfoDialogOpen}
           onOpenChange={setNodeInfoDialogOpen}
         />
+      )}
+      {node && canMoveToBase && (
+        <MoveNodeToBaseDialog node={node} open={moveToBaseOpen} onOpenChange={setMoveToBaseOpen} />
       )}
     </>
   );
@@ -405,6 +554,28 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
+export const RoutineOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useBasePermission();
+  const canRename = Boolean(permission?.['routine|update']);
+  const canDelete = Boolean(permission?.['routine|delete']);
+  const canPermanentDelete = false;
+  const canDuplicate = Boolean(permission?.['routine|create']);
+  const canShare = Boolean(permission?.['base|update']);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.routine')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+      canShare={canShare}
+    />
+  );
+};
+
 export const AppOperation = (props: IBaseNodeMoreProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permission = useBasePermission();
@@ -430,6 +601,7 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
 
 export const FolderOperation = (props: IBaseNodeMoreProps) => {
   const { resourceId } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { treeItems } = useBaseNodeContext();
   const node = useMemo(
     () => Object.values(treeItems).find((n) => n.resourceId === resourceId),
@@ -441,15 +613,18 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   const canPermanentDelete = !node?.children?.length && Boolean(permission?.['base|update']);
   const canDuplicate = false;
   const canShare = Boolean(permission?.['base|update']);
+  const canMoveToBase = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
       {...props}
+      nodeTypeLabel={t('common:noun.folder')}
       canRename={canRename}
       canDelete={canDelete}
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
       canShare={canShare}
+      canMoveToBase={canMoveToBase}
     />
   );
 };
@@ -460,12 +635,14 @@ export const TableOperation = (props: ITableOperationProps) => {
     open,
     setOpen,
     onRename,
+    onDescription,
     children,
     onDelete,
     onDuplicate,
     onRecordClick,
     variant = 'dropdown',
     contentAlign = 'end',
+    pin,
   } = props;
 
   const baseId = useBaseId() as string;
@@ -475,6 +652,14 @@ export const TableOperation = (props: ITableOperationProps) => {
   const basePermission = useBasePermission();
   const canTableRecordHistoryRead = basePermission?.['table_record_history|read'];
   const canTableTrashRead = basePermission?.['table|trash_read'];
+  const baseUsage = useBaseUsage();
+  const {
+    archiveUnlocked,
+    badge: archiveUpgradeBadge,
+    needsUpgrade: archiveNeedsUpgrade,
+    handleUpgradeClick: onArchiveUpgradeClick,
+  } = useArchiveUpsell(baseUsage);
+  const canTableArchiveRead = Boolean(basePermission?.['table|archive_read'] && archiveUnlocked);
   const node = useNode(resourceId);
   const nodeId = node?.id ?? '';
   const loginApps = useMemo(() => {
@@ -487,12 +672,15 @@ export const TableOperation = (props: ITableOperationProps) => {
   const [apiDialogOpen, setApiDialogOpen] = useState(false);
   const [tableHistoryDialogOpen, setTableHistoryDialogOpen] = useState(false);
   const [tableTrashDialogOpen, setTableTrashDialogOpen] = useState(false);
+  const [tableArchiveDialogOpen, setTableArchiveDialogOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
+  const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const tableName = table?.name ?? node?.resourceMeta?.name ?? resourceId;
@@ -519,16 +707,30 @@ export const TableOperation = (props: ITableOperationProps) => {
         basePermission,
         canTableRecordHistoryRead,
         canTableTrashRead,
+        canTableArchiveRead,
       }),
-    [basePermission, canTableRecordHistoryRead, canTableTrashRead, node, table]
+    [basePermission, canTableRecordHistoryRead, canTableTrashRead, canTableArchiveRead, node, table]
   );
   const shareNodeId = menuPermission.shareTable && node ? node.id : undefined;
 
   const deleteTable = async (permanent: boolean) => {
-    if (!resourceId) return;
-    await onDelete?.(permanent, false);
-    setDeleteConfirm(false);
-    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
+    if (!resourceId || isDeleting) return;
+
+    setIsDeleting(true);
+    // Before the request, not after: the realtime deletion op can reach this
+    // window ahead of the HTTP response, and stale-table recovery must know
+    // the deletion is ours (see stale-table-fallback).
+    markTableDeletedLocally(resourceId);
+    try {
+      await onDelete?.(permanent);
+      setDeleteConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
+    } catch {
+      // The underlying mutation reports the error globally; keep the dialog open for retry.
+      unmarkTableDeletedLocally(resourceId);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Cross-space preview that drives the inline warning. We resolve this
@@ -596,6 +798,9 @@ export const TableOperation = (props: ITableOperationProps) => {
   // Dialogs - shared between both variants
   const dialogs = (
     <>
+      {node && menuPermission.deleteTable && (
+        <MoveNodeToBaseDialog node={node} open={moveToBaseOpen} onOpenChange={setMoveToBaseOpen} />
+      )}
       {importVisible && (
         <TableImport
           open={importVisible}
@@ -606,29 +811,14 @@ export const TableOperation = (props: ITableOperationProps) => {
       )}
 
       {deleteConfirm && (
-        <ConfirmDialog
+        <TableDeleteConfirmDialog
           open={deleteConfirm}
+          tableId={resourceId}
+          tableName={tableName}
+          isDeleting={isDeleting}
+          loginApps={loginApps}
           onOpenChange={setDeleteConfirm}
-          title={t('table:table.deleteConfirm', { tableName })}
-          content={
-            <>
-              <div className="space-y-2 text-sm">
-                <p>{t('table:table.deleteTip1')}</p>
-                <p>{t('common:trash.description')}</p>
-                {loginApps && loginApps.length > 0 && (
-                  <LoginAppWarning message={t('table:table.loginDeleteWarning')} apps={loginApps} />
-                )}
-              </div>
-              <DialogFooter>
-                <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
-                  {t('common:actions.cancel')}
-                </Button>
-                <Button size={'sm'} onClick={() => deleteTable(false)}>
-                  {t('common:trash.addToTrash')}
-                </Button>
-              </DialogFooter>
-            </>
-          }
+          onConfirm={() => deleteTable(false)}
         />
       )}
 
@@ -719,8 +909,16 @@ export const TableOperation = (props: ITableOperationProps) => {
         />
       )}
 
+      {menuPermission.tableArchive && !archiveNeedsUpgrade && (
+        <TableArchiveDialog
+          open={tableArchiveDialogOpen}
+          onOpenChange={setTableArchiveDialogOpen}
+          tableId={resourceId}
+        />
+      )}
+
       {apiDialogOpen && (
-        <APIDialog open={apiDialogOpen} setOpen={setApiDialogOpen}>
+        <APIDialog tableId={resourceId} open={apiDialogOpen} setOpen={setApiDialogOpen}>
           <span className="hidden text-sm">API</span>
         </APIDialog>
       )}
@@ -746,6 +944,21 @@ export const TableOperation = (props: ITableOperationProps) => {
   if (variant === 'list') {
     return (
       <>
+        {onDescription && (
+          <ListMenuItem
+            icon={<Info className="size-4" />}
+            label={t('common:resourceDescription.nodeDescription')}
+            onClick={() => onDescription()}
+          />
+        )}
+        {menuPermission.updateTable && (
+          <ListMenuItem
+            icon={<Pen className="size-4" />}
+            label={t('table:table.rename')}
+            onClick={() => onRename?.()}
+          />
+        )}
+        {pin && <PinItem pin={pin} list />}
         {menuPermission.duplicateTable && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -797,7 +1010,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                 className="h-auto w-full justify-start gap-3 rounded-none border-b p-3"
               >
                 <History className="size-4" />
-                <span>{t('table:table.tableRecordHistory')}</span>
+                <span>{t('sdk:noun.recordHistory')}</span>
               </Button>
             </SheetTrigger>
             <SheetContent
@@ -820,7 +1033,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                 className="h-auto w-full justify-start gap-3 rounded-none border-b p-3"
               >
                 <Trash className="size-4" />
-                <span>{t('table:tableTrash.title')}</span>
+                <span>{t('common:noun.trash')}</span>
               </Button>
             </SheetTrigger>
             <SheetContent
@@ -849,6 +1062,13 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
+        {node && menuPermission.deleteTable && (
+          <ListMenuItem
+            icon={<FolderInput className="size-4" />}
+            label={t('table:baseNode.moveToBase.menu')}
+            onClick={() => setMoveToBaseOpen(true)}
+          />
+        )}
         {menuPermission.deleteTable && (
           <ListMenuItem
             icon={<Trash className="size-4" />}
@@ -862,6 +1082,24 @@ export const TableOperation = (props: ITableOperationProps) => {
     );
   }
 
+  // The menu's groups: edit, data, info, then delete on its own.
+  const hasEditGroup = anyOf(
+    onDescription,
+    menuPermission.updateTable,
+    pin,
+    menuPermission.duplicateTable
+  );
+  const hasDataGroup = anyOf(
+    menuPermission.exportTable,
+    menuPermission.importTable,
+    menuPermission.apiTable,
+    menuPermission.tableRecordHistory,
+    menuPermission.tableTrash,
+    menuPermission.tableArchive,
+    loginApps?.length
+  );
+  const hasInfoGroup = anyOf(shareNodeId, node);
+
   // Dropdown variant for desktop
   return (
     <>
@@ -873,12 +1111,19 @@ export const TableOperation = (props: ITableOperationProps) => {
           onClick={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
+          {onDescription && (
+            <DropdownMenuItem onClick={() => onDescription()}>
+              <Info className="me-2 size-4" />
+              {t('common:resourceDescription.nodeDescription')}
+            </DropdownMenuItem>
+          )}
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pen className="mr-2 size-4" />
+              <Pen className="me-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
+          {pin && <PinItem pin={pin} />}
           {menuPermission.duplicateTable && (
             <DropdownMenuItem
               disabled={isPreviewing}
@@ -887,23 +1132,22 @@ export const TableOperation = (props: ITableOperationProps) => {
                 void handleDuplicateClick();
               }}
             >
-              <CopyPlus className="mr-2 size-4" />
+              <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
-          {(menuPermission.updateTable || menuPermission.duplicateTable) &&
-            menuPermission.exportTable && <DropdownMenuSeparator />}
+          <GroupSeparator above={hasEditGroup} below={hasDataGroup} />
 
           {menuPermission.exportTable && (
             <DropdownMenuItem onClick={() => trigger?.()}>
-              <Download className="mr-2 size-4" />
+              <Download className="me-2 size-4" />
               {t('table:import.menu.downAsCsv')}
             </DropdownMenuItem>
           )}
           {menuPermission.importTable && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <FileInputIcon className="mr-2 size-4" />
+                <FileInputIcon className="me-2 size-4" />
                 <span>{t('table:import.menu.importData')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -914,7 +1158,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.CSV);
                     }}
                   >
-                    <FileCsv className="mr-2 size-4" />
+                    <FileCsv className="me-2 size-4" />
                     <span>{t('table:import.menu.csvFile')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -923,7 +1167,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.EXCEL);
                     }}
                   >
-                    <FileExcel className="mr-2 size-4" />
+                    <FileExcel className="me-2 size-4" />
                     <span>{t('table:import.menu.excelFile')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
@@ -933,15 +1177,17 @@ export const TableOperation = (props: ITableOperationProps) => {
 
           {menuPermission.apiTable && (
             <DropdownMenuItem onClick={() => setApiDialogOpen(true)}>
-              <Code2 className="mr-2 size-4" />
+              <Code2 className="me-2 size-4" />
               API
             </DropdownMenuItem>
           )}
 
-          {(menuPermission.tableRecordHistory || menuPermission.tableTrash) && (
+          {(menuPermission.tableRecordHistory ||
+            menuPermission.tableTrash ||
+            menuPermission.tableArchive) && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <History className="mr-2 size-4" />
+                <History className="me-2 size-4" />
                 <span>{t('sdk:noun.history')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -952,8 +1198,8 @@ export const TableOperation = (props: ITableOperationProps) => {
                         setTableHistoryDialogOpen(true);
                       }}
                     >
-                      <History className="mr-1 size-4" />
-                      {t('table:table.tableRecordHistory')}
+                      <History className="me-1 size-4" />
+                      {t('sdk:noun.recordHistory')}
                     </DropdownMenuItem>
                   )}
                   {menuPermission.tableTrash && (
@@ -962,8 +1208,27 @@ export const TableOperation = (props: ITableOperationProps) => {
                         setTableTrashDialogOpen(true);
                       }}
                     >
-                      <Trash className="mr-1 size-4" />
-                      {t('table:tableTrash.title')}
+                      <Trash className="me-1 size-4" />
+                      {t('common:noun.trash')}
+                    </DropdownMenuItem>
+                  )}
+                  {menuPermission.tableArchive && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (archiveNeedsUpgrade) {
+                          onArchiveUpgradeClick();
+                          return;
+                        }
+                        setTableArchiveDialogOpen(true);
+                      }}
+                    >
+                      <Archive className="me-1 size-4" />
+                      {t('table:tableArchive.menuTitle')}
+                      {archiveUpgradeBadge && (
+                        <span className="pointer-events-none ms-auto flex items-center ps-2">
+                          {archiveUpgradeBadge}
+                        </span>
+                      )}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuSubContent>
@@ -974,7 +1239,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           {loginApps && loginApps.length > 0 && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <ShieldCheck className="mr-2 size-4" />
+                <ShieldCheck className="me-2 size-4" />
                 <span>{t('table:table.linkedApps')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -984,7 +1249,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                       key={app.id}
                       onClick={() => router.push(`/base/${baseId}/app/${app.id}`)}
                     >
-                      <AppWindowMacIcon className="mr-2 size-4 shrink-0" />
+                      <AppWindowMacIcon className="me-2 size-4 shrink-0" />
                       <span className="truncate">{app.name || app.id}</span>
                     </DropdownMenuItem>
                   ))}
@@ -993,26 +1258,37 @@ export const TableOperation = (props: ITableOperationProps) => {
             </DropdownMenuSub>
           )}
 
+          <GroupSeparator above={anyOf(hasEditGroup, hasDataGroup)} below={hasInfoGroup} />
           {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
-              <Share2 className="mr-2 size-4" />
+              <Share2 className="me-2 size-4" />
               {t('common:template.non.share')}
             </DropdownMenuItem>
           )}
 
           {node && (
             <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
-              <Info className="mr-2 size-4" />
+              <Info className="me-2 size-4" />
               {t('table:baseNode.info.menu')}
             </DropdownMenuItem>
           )}
 
+          {node && menuPermission.deleteTable && (
+            <DropdownMenuItem onClick={() => setMoveToBaseOpen(true)}>
+              <FolderInput className="me-2 size-4" />
+              {t('table:baseNode.moveToBase.menu')}
+            </DropdownMenuItem>
+          )}
+          <GroupSeparator
+            above={anyOf(hasEditGroup, hasDataGroup, hasInfoGroup)}
+            below={Boolean(menuPermission.deleteTable)}
+          />
           {menuPermission.deleteTable && (
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onClick={() => setDeleteConfirm(true)}
             >
-              <Trash className="mr-2 size-4" />
+              <Trash className="me-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}
@@ -1041,8 +1317,6 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
     onUpdateSuccess: onUpdateSuccessProp,
     ...rest
   } = props;
-  const { confirm: comfirmModal } = useConfirm();
-  const { t } = useTranslation('common');
   const router = useRouter();
   const { treeItems } = useBaseNodeContext();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
@@ -1057,6 +1331,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -1137,9 +1413,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         return;
       }
 
+      // replace, not push: the deleted node's URL must not stay in history
+      // as the next Back target.
       const adjacentNode = findAdjacentNonFolderNode(treeItems, nodeId);
       if (!adjacentNode) {
-        router.push(`/base/${baseId}`, undefined, { shallow: true });
+        router.replace(`/base/${baseId}`, undefined, { shallow: true });
         return;
       }
 
@@ -1148,7 +1426,7 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         const viewId = tableViewIdsMap[adjResourceId];
         const url = tableHrefMap[adjResourceId];
         if (url) {
-          router.push({ pathname: url }, undefined, {
+          router.replace({ pathname: url }, undefined, {
             shallow: Boolean(viewId),
           });
           return;
@@ -1163,7 +1441,7 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       if (url) {
         // A table URL without a view id needs getServerSideProps to resolve
         // the view, so it must not be a shallow navigation.
-        router.push(url, undefined, {
+        router.replace(url, undefined, {
           shallow: adjResourceType !== BaseNodeResourceType.Table,
         });
       }
@@ -1181,6 +1459,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         case BaseNodeResourceType.Workflow:
           queryClient.invalidateQueries({
             queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
+          });
+          break;
+        case BaseNodeResourceType.Routine:
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.routineItem(baseId, resourceId),
           });
           break;
         case BaseNodeResourceType.App:
@@ -1204,31 +1487,10 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
     resourceId,
     onDelete:
       onDelete ??
-      (async (permanent: boolean, confirm: boolean = true) => {
+      (async (permanent: boolean) => {
         const node = getNode(treeItems, resourceId);
         if (!node) return;
-        const nodeName = node.resourceMeta?.name;
-        const titleMap = {
-          [BaseNodeResourceType.Folder]: t('noun.folder'),
-          [BaseNodeResourceType.Table]: t('noun.table'),
-          [BaseNodeResourceType.Dashboard]: t('noun.dashboard'),
-          [BaseNodeResourceType.Workflow]: t('noun.automation'),
-          [BaseNodeResourceType.App]: t('noun.app'),
-        };
-        const result = !confirm
-          ? true
-          : await comfirmModal({
-              title: `${t('actions.delete')} ${titleMap[resourceType]?.toLowerCase()}`,
-              description: t('actions.deleteTip', {
-                name: nodeName,
-              }),
-              confirmText: permanent ? t('actions.delete') : t('trash.addToTrash'),
-              cancelText: t('actions.cancel'),
-              confirmButtonVariant: permanent ? 'destructive' : 'default',
-            });
-        if (result) {
-          await curdHooks.deleteNode(node.id, permanent);
-        }
+        await curdHooks.deleteNode(node.id, permanent);
       }),
     onDuplicate:
       onDuplicate ??
@@ -1250,6 +1512,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
     case BaseNodeResourceType.Workflow:
       return <WorkflowOperation {...mergedProps}>{children}</WorkflowOperation>;
+    case BaseNodeResourceType.Routine:
+      return <RoutineOperation {...mergedProps}>{children}</RoutineOperation>;
     case BaseNodeResourceType.App:
       return <AppOperation {...mergedProps}>{children}</AppOperation>;
     case BaseNodeResourceType.Folder:

@@ -1,6 +1,7 @@
 import { BaseNodeResourceType } from '@teable/openapi';
+import type { IBaseNodeVo } from '@teable/openapi';
 import { vi } from 'vitest';
-import { findAdjacentNonFolderNode, ROOT_ID } from './helper';
+import { filterAutoHiddenFolders, findAdjacentNonFolderNode, ROOT_ID } from './helper';
 import type { TreeItemData } from './useBaseNode';
 
 /**
@@ -560,5 +561,62 @@ describe('findAdjacentNonFolderNode', () => {
       const result = findAdjacentNonFolderNode(treeItems, 'table1');
       expect(result?.id).toBe('table2');
     });
+  });
+});
+describe('filterAutoHiddenFolders', () => {
+  const node = (
+    id: string,
+    resourceType: BaseNodeResourceType,
+    childIds: string[] = [],
+    parentId: string | null = null
+  ): IBaseNodeVo =>
+    ({
+      id,
+      resourceType,
+      resourceId: id,
+      resourceMeta: { name: id },
+      order: 0,
+      parentId,
+      children: childIds.map((childId, index) => ({ id: childId, order: index })),
+    }) as unknown as IBaseNodeVo;
+
+  it('should keep a folder that still holds a readable table', () => {
+    const nodes = [
+      node('folder', BaseNodeResourceType.Folder, ['table']),
+      node('table', BaseNodeResourceType.Table, [], 'folder'),
+    ];
+
+    expect(filterAutoHiddenFolders(nodes).map((n) => n.id)).toEqual(['folder', 'table']);
+  });
+
+  it('should hide a folder whose only child was filtered out by the server', () => {
+    const nodes = [node('folder', BaseNodeResourceType.Folder, ['hidden'])];
+
+    expect(filterAutoHiddenFolders(nodes)).toEqual([]);
+  });
+
+  it('should hide a folder that only nests other empty folders', () => {
+    const nodes = [
+      node('outer', BaseNodeResourceType.Folder, ['inner']),
+      node('inner', BaseNodeResourceType.Folder, [], 'outer'),
+    ];
+
+    expect(filterAutoHiddenFolders(nodes)).toEqual([]);
+  });
+
+  it('should keep a folder holding a readable table one level down', () => {
+    const nodes = [
+      node('outer', BaseNodeResourceType.Folder, ['inner']),
+      node('inner', BaseNodeResourceType.Folder, ['table'], 'outer'),
+      node('table', BaseNodeResourceType.Table, [], 'inner'),
+    ];
+
+    expect(filterAutoHiddenFolders(nodes).map((n) => n.id)).toEqual(['outer', 'inner', 'table']);
+  });
+
+  it('should never hide non-folder nodes', () => {
+    const nodes = [node('dashboard', BaseNodeResourceType.Dashboard)];
+
+    expect(filterAutoHiddenFolders(nodes).map((n) => n.id)).toEqual(['dashboard']);
   });
 });

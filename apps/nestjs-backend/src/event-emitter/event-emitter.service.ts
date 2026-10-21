@@ -61,7 +61,7 @@ export class EventEmitterService {
     },
   };
 
-  private getPropertyCategoryForType = {
+  private readonly getPropertyCategoryForType = {
     [IdPrefix.Table]: 'table',
     [IdPrefix.View]: 'view',
     [IdPrefix.Field]: 'field',
@@ -73,11 +73,11 @@ export class EventEmitterService {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
-  emit<T extends unknown | unknown[]>(event: string, data: T): boolean {
+  emit<T>(event: string, data: T): boolean {
     return this.eventEmitter.emit(event, data);
   }
 
-  emitAsync<T extends unknown | unknown[]>(event: string, data: T): Promise<boolean[]> {
+  emitAsync<T>(event: string, data: T): Promise<boolean[]> {
     return this.eventEmitter.emitAsync(event, data);
   }
 
@@ -211,6 +211,7 @@ export class EventEmitterService {
   private createExtendPlainContext(docId: string, id: string) {
     const user = this.cls.get('user');
     const entry = this.cls.get('entry');
+    const recordRemovalReason = this.cls.get('recordRemovalReason');
     return {
       baseId: docId,
       tableId: id.startsWith(IdPrefix.Table) ? id : docId,
@@ -220,6 +221,7 @@ export class EventEmitterService {
       context: {
         user,
         entry,
+        recordRemovalReason,
       },
     };
   }

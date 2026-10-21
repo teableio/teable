@@ -19,6 +19,9 @@ import {
   ICreateBaseNodeRo,
   IDuplicateBaseNodeRo,
   IMoveBaseNodeRo,
+  moveBaseNodeCheckRoSchema,
+  IMoveBaseNodeCheckRo,
+  type IMoveBaseNodeCheckVo,
   updateBaseNodeRoSchema,
   IUpdateBaseNodeRo,
   type IBaseNodeTreeVo,
@@ -42,6 +45,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import { BaseNodeMoveService } from './base-node-move.service';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeAction } from './types';
@@ -56,28 +60,40 @@ export class BaseNodeController {
 
   constructor(
     private readonly baseNodeService: BaseNodeService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly baseNodeMoveService: BaseNodeMoveService
   ) {}
 
   @Get('list')
   @Permissions('base|read')
   async getList(@Param('baseId') baseId: string): Promise<IBaseNodeVo[]> {
-    const permissionContext = await this.getPermissionContext(baseId);
-    const nodeList = await this.baseNodeService.getList(baseId);
-    const allowedNodeIds = this.getAllowedNodeIds(nodeList, permissionContext.shareNodeId);
-    return nodeList.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds));
+    return this.getVisibleNodes(baseId, await this.baseNodeService.getList(baseId));
   }
 
   @Get('tree')
   @Permissions('base|read')
   async getTree(@Param('baseId') baseId: string): Promise<IBaseNodeTreeVo> {
-    const permissionContext = await this.getPermissionContext(baseId);
     const tree = await this.baseNodeService.getTree(baseId);
-    const allowedNodeIds = this.getAllowedNodeIds(tree.nodes, permissionContext.shareNodeId);
-    return {
-      ...tree,
-      nodes: tree.nodes.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds)),
-    };
+    return { ...tree, nodes: await this.getVisibleNodes(baseId, tree.nodes) };
+  }
+
+  private async getVisibleNodes(baseId: string, nodes: IBaseNodeVo[]): Promise<IBaseNodeVo[]> {
+    const permissionContext = await this.getPermissionContext(baseId);
+    const allowedNodeIds = this.getAllowedNodeIds(nodes, permissionContext.shareNodeId);
+    return this.pruneDanglingReferences(
+      nodes.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds))
+    );
+  }
+
+  /** Must stay pure: the node list comes from a cache shared by every caller of this base. */
+  private pruneDanglingReferences(nodes: IBaseNodeVo[]): IBaseNodeVo[] {
+    const visibleNodeIds = new Set(nodes.map((node) => node.id));
+    return nodes.map((node) => ({
+      ...node,
+      parentId: node.parentId && visibleNodeIds.has(node.parentId) ? node.parentId : null,
+      parent: node.parent && visibleNodeIds.has(node.parent.id) ? node.parent : null,
+      children: node.children?.filter((child) => visibleNodeIds.has(child.id)),
+    }));
   }
 
   private filterNode(
@@ -190,7 +206,21 @@ export class BaseNodeController {
     @Param('nodeId') nodeId: string,
     @Body(new ZodValidationPipe(moveBaseNodeRoSchema)) ro: IMoveBaseNodeRo
   ): Promise<IBaseNodeVo> {
+    if (ro.targetBaseId && ro.targetBaseId !== baseId) {
+      const movedNodeId = await this.baseNodeMoveService.move(baseId, nodeId, ro);
+      return this.baseNodeService.getNodeVo(ro.targetBaseId, movedNodeId);
+    }
     return this.baseNodeService.move(baseId, nodeId, ro);
+  }
+
+  @Post(':nodeId/move-check')
+  @Permissions('base|update')
+  async moveCheck(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string,
+    @Body(new ZodValidationPipe(moveBaseNodeCheckRoSchema)) ro: IMoveBaseNodeCheckRo
+  ): Promise<IMoveBaseNodeCheckVo> {
+    return this.baseNodeMoveService.check(baseId, nodeId, ro.targetBaseId, ro.additionalNodeIds);
   }
 
   @Delete(':nodeId')

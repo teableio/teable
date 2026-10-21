@@ -1,5 +1,6 @@
 import { Table2 } from '@teable/icons';
 import { PinType } from '@teable/openapi';
+import { useContentDir } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
@@ -29,6 +30,7 @@ export const TableListItem: React.FC<IProps> = ({
   href,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const contentDir = useContentDir();
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -74,7 +76,9 @@ export const TableListItem: React.FC<IProps> = ({
           <div onClick={(e) => e.stopPropagation()}>
             <EmojiPicker
               className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
+              icon={table.icon}
               onChange={(icon: string) => table.updateIcon(icon)}
+              onRemove={() => table.updateIcon(null)}
               disabled={!table.permission?.['table|update']}
             >
               {table.icon ? (
@@ -85,6 +89,7 @@ export const TableListItem: React.FC<IProps> = ({
             </EmojiPicker>
           </div>
           <p
+            dir={contentDir}
             className="grow truncate"
             onDoubleClick={() => {
               table.permission?.['table|update'] && setIsEditing(true);
@@ -113,7 +118,7 @@ export const TableListItem: React.FC<IProps> = ({
           type="text"
           placeholder="name"
           defaultValue={table.name}
-          className="rounded-none absolute left-0 top-0 size-full cursor-text px-4"
+          className="absolute start-0 top-0 size-full cursor-text rounded-none px-4"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               if (e.currentTarget.value && e.currentTarget.value !== table.name) {

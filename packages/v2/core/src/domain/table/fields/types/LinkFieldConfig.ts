@@ -414,7 +414,14 @@ export class LinkFieldConfig extends ValueObject {
     if (relationship === 'oneMany') {
       return this.selfKeyNameString().map((name) => `${name}_order`);
     }
-    return this.foreignKeyNameString().map((name) => `${name}_order`);
+    // The non-hosting manyOne/oneOne side resolves its FK key to '__id' (the
+    // referenced record id); its physical order column accompanies the hosting
+    // side's FK column, which is this side's selfKeyName ("__id_order" never exists).
+    return this.foreignKeyNameString().andThen((foreignKeyName) =>
+      foreignKeyName === '__id'
+        ? this.selfKeyNameString().map((selfKeyName) => `${selfKeyName}_order`)
+        : ok(`${foreignKeyName}_order`)
+    );
   }
 
   toDto(): Result<LinkFieldConfigValue, DomainError> {

@@ -15,8 +15,9 @@ export const FileInput = (props: { onChange?: (files: File[]) => void; disabled?
 
   return (
     <Button
-      variant={'ghost'}
-      className="m-1 gap-2 font-normal"
+      variant={'outline'}
+      size="sm"
+      className="gap-2 font-normal"
       onClick={() => fileInput.current?.click()}
       disabled={disabled}
     >

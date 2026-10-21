@@ -33,7 +33,6 @@ import { DateDefaultValue } from '../domain/table/fields/types/DateDefaultValue'
 import { DateField } from '../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor, fieldColorValues } from '../domain/table/fields/types/FieldColor';
-import { FieldCondition } from '../domain/table/fields/types/FieldCondition';
 import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
@@ -71,9 +70,13 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserField } from '../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
+import { FieldDefaultValueVisitor } from '../domain/table/fields/visitors/FieldDefaultValueVisitor';
 import { FieldOptionsDtoVisitor } from '../domain/table/fields/visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
-import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  toLinkForeignTableReference,
+  type LinkForeignTableReference,
+} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { ForeignTable } from '../domain/table/ForeignTable';
 import {
   UpdateButtonColorSpec,
@@ -103,7 +106,6 @@ import {
   UpdateRatingIconSpec,
   UpdateRatingMaxSpec,
   UpdateRollupConfigSpec,
-  UpdateRollupExpressionSpec,
   UpdateRollupFormattingSpec,
   UpdateRollupShowAsSpec,
   UpdateRollupTimeZoneSpec,
@@ -116,6 +118,7 @@ import {
   UpdateUserMultiplicitySpec,
   UpdateUserNotificationSpec,
 } from '../domain/table/specs/field-updates';
+import { adoptPreviousSelectOptionIds } from '../domain/table/specs/field-updates/reconcileSelectDefaultAfterOptionRewrite';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldConstraintsSpec } from '../domain/table/specs/TableUpdateFieldConstraintsSpec';
@@ -124,10 +127,19 @@ import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpda
 import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
+import {
+  TableUpdateViewColumnMetaSpec,
+  type TableViewColumnMetaUpdate,
+} from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
-import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getDomainContext } from '../ports/ExecutionContext';
+import {
+  getFormulaSourceBudget,
+  getDomainContext,
+  type IExecutionContext,
+} from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { validateFieldAiConfig } from '../schemas/field';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
 // ============ Helper functions ============
@@ -226,6 +238,14 @@ const fieldIdArrayEquals = (a: ReadonlyArray<FieldId>, b: ReadonlyArray<FieldId>
 
 type FieldUpdateMode = 'partial' | 'full';
 
+const selectChoiceOmitsId = (choice: unknown): boolean => {
+  if (typeof choice === 'string') return true;
+  if (!choice || typeof choice !== 'object' || Array.isArray(choice)) return false;
+  if (!('id' in choice)) return true;
+  const id = choice.id;
+  return id == null || id === '';
+};
+
 const parseSelectOptionWithFallback = (
   choice: unknown,
   index: number
@@ -248,6 +268,134 @@ const parseSelectOptionWithFallback = (
   }
 
   return SelectOption.create(choice);
+};
+
+const defaultTableMapper = new DefaultTableMapper();
+
+const hasMeaningfulDefaultValue = (value: unknown): boolean =>
+  value !== undefined &&
+  value !== null &&
+  value !== '' &&
+  (!Array.isArray(value) || value.length > 0);
+
+const fieldRequiresFormInput = (field: Field): Result<boolean, DomainError> => {
+  if (!field.notNull().toBoolean()) return ok(false);
+  const defaultValue = field.accept(FieldDefaultValueVisitor.create());
+  if (defaultValue.isErr()) return err(defaultValue.error);
+  return ok(!hasMeaningfulDefaultValue(defaultValue.value));
+};
+
+const revealHiddenFormFieldSpec = (
+  table: Table,
+  fieldId: FieldId
+): Result<TableUpdateViewColumnMetaSpec | undefined, DomainError> => {
+  const updates: TableViewColumnMetaUpdate[] = [];
+  for (const view of table.views()) {
+    if (view.type().toString() !== 'form') continue;
+    const columnMeta = view.columnMeta();
+    if (columnMeta.isErr()) return err(columnMeta.error);
+    const patched = columnMeta.value.applyPatches([{ fieldId, columnMeta: { visible: true } }]);
+    if (patched.isErr()) return err(patched.error);
+    if (patched.value.changes.length === 0) continue;
+    updates.push({
+      viewId: view.id(),
+      fieldId,
+      columnMeta: patched.value.columnMeta,
+      changes: patched.value.changes,
+    });
+  }
+  if (updates.length === 0) return ok(undefined);
+  return ok(TableUpdateViewColumnMetaSpec.create(table, updates));
+};
+
+const detachReplacementField = (field: Field, table: Table): Result<Field, DomainError> => {
+  const copied = field.withName({
+    newId: field.id(),
+    newName: field.name(),
+    baseId: table.baseId(),
+    tableId: table.id(),
+  });
+  if (copied.isErr()) return err(copied.error);
+  const copy = copied.value;
+  const notNull = copy.setNotNull(field.notNull());
+  if (notNull.isErr()) return err(notNull.error);
+  const unique = copy.setUnique(field.unique());
+  if (unique.isErr()) return err(unique.error);
+  const dbFieldName = field.dbFieldName();
+  if (dbFieldName.isOk()) {
+    const setDbFieldName = copy.setDbFieldName(dbFieldName.value);
+    if (setDbFieldName.isErr()) return err(setDbFieldName.error);
+  }
+  return ok(copy);
+};
+
+const previewSpecs = (
+  specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+  table: Table
+): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> => {
+  const detached: ISpecification<Table, ITableSpecVisitor>[] = [];
+  for (const spec of specs) {
+    if (!(spec instanceof TableUpdateFieldTypeSpec)) {
+      detached.push(spec);
+      continue;
+    }
+    const replacement = detachReplacementField(spec.newField(), table);
+    if (replacement.isErr()) return err(replacement.error);
+    detached.push(TableUpdateFieldTypeSpec.create(spec.oldField(), replacement.value));
+  }
+  return ok(detached);
+};
+
+const formRequiredVisibilitySpec = (
+  currentField: Field,
+  specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+  hostTable: Table | undefined,
+  foreignTables: ReadonlyArray<Table> | undefined
+): Result<TableUpdateViewColumnMetaSpec | undefined, DomainError> => {
+  if (!hostTable || specs.length === 0) return ok(undefined);
+
+  const currentProtected = fieldRequiresFormInput(currentField);
+  if (currentProtected.isErr()) return err(currentProtected.error);
+  if (currentProtected.value) return ok(undefined);
+
+  const conversion = specs.find(
+    (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+  );
+  const constraints = specs.find(
+    (spec): spec is TableUpdateFieldConstraintsSpec =>
+      spec instanceof TableUpdateFieldConstraintsSpec
+  );
+  // A lookup retarget cannot be applied until its link matches the new foreign
+  // table. Only fields that will be persisted as required need that preview.
+  const persistedNotNull = constraints
+    ? constraints.nextNotNull().toBoolean()
+    : conversion
+      ? conversion.newField().notNull().toBoolean()
+      : currentField.notNull().toBoolean();
+  if (!persistedNotNull) return ok(undefined);
+
+  // Specs mutate the table they are applied to. Preview them on a clone so the
+  // visibility decision sees constraints and defaults after every spec, including
+  // a notNull change that follows a link retarget or a select default cleared by
+  // option deletion.
+  // Apply a detached copy of any type-conversion field. The real spec keeps that
+  // instance for persistence, and a later constraints spec would otherwise call
+  // setNotNull on it during this preview.
+  const specsForPreview = previewSpecs(specs, hostTable);
+  if (specsForPreview.isErr()) return err(specsForPreview.error);
+  const preview = hostTable.clone(defaultTableMapper).andThen((cloned) =>
+    cloned.updateFieldWithSpecs(currentField.id(), specsForPreview.value, {
+      ...(foreignTables?.length ? { foreignTables } : {}),
+    })
+  );
+  if (preview.isErr()) return err(preview.error);
+
+  const previewField = preview.value.updatedField;
+  const nextDefault = previewField.accept(FieldDefaultValueVisitor.create());
+  if (nextDefault.isErr()) return err(nextDefault.error);
+  if (hasMeaningfulDefaultValue(nextDefault.value)) return ok(undefined);
+
+  return revealHiddenFormFieldSpec(hostTable, currentField.id());
 };
 
 // Helper to build constraints spec
@@ -574,6 +722,7 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly formattingValue: NumberFormatting | undefined,
     private readonly showAsValue: NumberShowAs | undefined,
+    private readonly shouldClearShowAs: boolean,
     private readonly defaultValueValue: NumberDefaultValue | undefined,
     private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -590,11 +739,12 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateNumberFieldSpec, DomainError> {
+    const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, NumberFormatting.create).andThen((formatting) =>
-        optional(input.options?.showAs, NumberShowAs.create).andThen((showAs) =>
+        clearable(input.options?.showAs, hasShowAs, NumberShowAs.create).andThen((showAsResult) =>
           clearable(
             input.options?.defaultValue,
             hasDefaultValue,
@@ -606,7 +756,8 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
                   new UpdateNumberFieldSpec(
                     name,
                     formatting,
-                    showAs,
+                    showAsResult.value,
+                    showAsResult.shouldClear,
                     defaultValueResult.value,
                     defaultValueResult.shouldClear,
                     notNull,
@@ -654,6 +805,11 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
         specs.push(
           UpdateNumberShowAsSpec.create(currentField.id(), currentShowAs, this.showAsValue)
         );
+      }
+    } else if (this.shouldClearShowAs) {
+      const currentShowAs = currentField.showAs();
+      if (currentShowAs !== undefined) {
+        specs.push(UpdateNumberShowAsSpec.create(currentField.id(), currentShowAs, undefined));
       }
     }
 
@@ -1182,9 +1338,16 @@ class UpdateLastModifiedTimeFieldSpec implements IUpdateTableFieldSpec {
         name: nextName,
         formatting: nextFormatting,
         trackedFieldIds: nextTrackedFieldIds,
-        meta: currentField.meta(),
+        // Only carry the stored meta across when tracking is untouched. Narrowing
+        // trackedFieldIds has to flip the physical column from GENERATED to a
+        // plain stored column, and reusing the previous meta (which still says
+        // persistedAsGeneratedColumn) would leave the generated column in place
+        // so every write kept stamping the value regardless of the tracking list.
+        meta: trackedChanged ? undefined : currentField.meta(),
       });
       if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+      const descriptionResult = updatedFieldResult.value.setDescription(currentField.description());
+      if (descriptionResult.isErr()) return err(descriptionResult.error);
       specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedFieldResult.value));
     }
 
@@ -1290,9 +1453,13 @@ class UpdateLastModifiedByFieldSpec implements IUpdateTableFieldSpec {
         id: currentField.id(),
         name: nextName,
         trackedFieldIds: nextTrackedFieldIds,
-        meta: currentField.meta(),
+        // See UpdateLastModifiedTimeFieldSpec: trackedFieldIds decides whether the
+        // column is GENERATED, so the stale meta must not be reused here.
+        meta: undefined,
       });
       if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+      const descriptionResult = updatedFieldResult.value.setDescription(currentField.description());
+      if (descriptionResult.isErr()) return err(descriptionResult.error);
       specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedFieldResult.value));
     }
 
@@ -1362,7 +1529,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     private readonly innerOptionsValue: Record<string, unknown> | undefined,
     private readonly innerCellValueTypeValue: string | undefined,
     private readonly innerIsMultipleCellValueValue: boolean | undefined,
-    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined,
+    private readonly isUniqueValue: boolean | undefined,
+    private readonly executionContextValue: IExecutionContext | undefined
   ) {}
 
   static create(
@@ -1374,12 +1543,17 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     },
     context?: {
       foreignTables?: ReadonlyArray<Table>;
+      executionContext?: IExecutionContext;
     }
   ): Result<UpdateConditionalLookupFieldSpec, DomainError> {
     const optionsRaw =
       input.options && typeof input.options === 'object' && !Array.isArray(input.options)
         ? (input.options as Record<string, unknown>)
         : undefined;
+
+    if (optionsRaw?.isUnique !== undefined && typeof optionsRaw.isUnique !== 'boolean') {
+      return err(domainError.validation({ message: 'Lookup isUnique must be a boolean' }));
+    }
 
     const parseConditionalLookupOptions = (): Result<
       ConditionalLookupOptions | undefined,
@@ -1411,8 +1585,12 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
             };
 
       return ConditionalLookupOptions.create({
+        ...(typeof optionsRaw.baseId === 'string' && optionsRaw.baseId
+          ? { baseId: optionsRaw.baseId }
+          : {}),
         foreignTableId: optionsRaw.foreignTableId,
         lookupFieldId: optionsRaw.lookupFieldId,
+        isUnique: optionsRaw.isUnique,
         condition: normalizedCondition,
       }).map((value) => value);
     };
@@ -1427,12 +1605,14 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       }
 
       const reservedKeys = new Set([
+        'baseId',
         'foreignTableId',
         'lookupFieldId',
         'condition',
         'filter',
         'sort',
         'limit',
+        'isUnique',
         'innerType',
       ]);
       const entries = Object.entries(optionsRaw).filter(([key]) => !reservedKeys.has(key));
@@ -1452,7 +1632,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
             parseInnerOptions(),
             typeof input.cellValueType === 'string' ? input.cellValueType : undefined,
             typeof input.isMultipleCellValue === 'boolean' ? input.isMultipleCellValue : undefined,
-            context?.foreignTables
+            context?.foreignTables,
+            typeof optionsRaw?.isUnique === 'boolean' ? optionsRaw.isUnique : undefined,
+            context?.executionContext
           )
       )
     );
@@ -1468,9 +1650,16 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
     const nextName = this.nameValue ?? currentField.name();
     const currentOptions = currentField.conditionalLookupOptions();
-    const nextOptions = this.optionsValue ?? currentOptions;
-    const conditionChanged =
-      this.optionsValue !== undefined && !this.optionsValue.equals(currentOptions);
+    const nextOptionsResult =
+      this.isUniqueValue === undefined
+        ? ok(this.optionsValue ?? currentOptions)
+        : ConditionalLookupOptions.create({
+            ...(this.optionsValue ?? currentOptions).toDto(),
+            isUnique: this.isUniqueValue,
+          });
+    if (nextOptionsResult.isErr()) return err(nextOptionsResult.error);
+    const nextOptions = nextOptionsResult.value;
+    const conditionChanged = !nextOptions.equals(currentOptions);
     const innerChanged = this.innerTypeValue !== undefined || this.innerOptionsValue !== undefined;
 
     if (this.nameValue && !this.nameValue.equals(currentField.name())) {
@@ -1507,7 +1696,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     if (this.optionsValue) {
-      return ok([{ foreignTableId: this.optionsValue.foreignTableId() }]);
+      return ok([
+        toLinkForeignTableReference(this.optionsValue.foreignTableId(), this.optionsValue.baseId()),
+      ]);
     }
     return ok([]);
   }
@@ -1563,7 +1754,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
     if (hasInnerOptionsUpdate) {
       return {
-        ...(currentPatch ?? {}),
+        ...currentPatch,
         ...this.innerOptionsValue,
       };
     }
@@ -1639,7 +1830,10 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
     const parseResult = parseTableFieldSpec(
       parseFieldInput as Parameters<typeof parseTableFieldSpec>[0],
-      { isPrimary: false }
+      {
+        isPrimary: false,
+        executionContext: this.executionContextValue,
+      }
     );
     if (parseResult.isErr()) {
       return err(parseResult.error);
@@ -1699,7 +1893,10 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       return [{ id: field.id(), valueType: valueTypeResult.value }];
     });
 
-    return FormulaExpression.create(expressionRaw).andThen((expression) =>
+    return FormulaExpression.create(
+      expressionRaw,
+      getFormulaSourceBudget(this.executionContextValue)
+    ).andThen((expression) =>
       expression.getParsedValueType(fieldValueTypes).map((resultType) => ({
         cellValueType: resultType.cellValueType.toString(),
         isMultipleCellValue: resultType.isMultipleCellValue.toBoolean(),
@@ -1784,11 +1981,11 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
     const currentTimeZone = currentField.timeZone();
     const currentFormatting = currentField.formatting();
     const currentShowAs = currentField.showAs();
-    let nextConfig = this.configValue ?? currentConfig;
+    const nextConfig = this.configValue ?? currentConfig;
     const nextExpression = this.expressionValue ?? currentExpression;
     const nextTimeZone = this.timeZoneValue ?? currentTimeZone;
     let nextFormatting = this.formattingValue ?? currentFormatting;
-    const nextShowAs = this.shouldClearShowAs ? undefined : this.showAsValue ?? currentShowAs;
+    const nextShowAs = this.shouldClearShowAs ? undefined : (this.showAsValue ?? currentShowAs);
 
     // Resolve the valuesType from the foreign table's lookup field when available.
     // This is necessary because the current field's cellValueType is the *result* of
@@ -1797,39 +1994,7 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
     // for the new expression (e.g. max(DateTime) should be DateTime, not max(Number)=Number).
     const valuesTypeResult = this.resolveValuesType(currentField, nextConfig);
 
-    // When expression changes to single-value aggregation, clear sort/limit from condition
-    if (this.expressionValue !== undefined && !this.expressionValue.equals(currentExpression)) {
-      if (valuesTypeResult.isOk()) {
-        const parsedTypeResult = nextExpression.getParsedValueType(valuesTypeResult.value);
-        if (parsedTypeResult.isOk()) {
-          const willBeSingleValue = !parsedTypeResult.value.isMultipleCellValue.toBoolean();
-          const condition = nextConfig.condition();
-
-          if (willBeSingleValue && (condition.hasSort() || condition.hasLimit())) {
-            // Clear sort and limit from condition
-            const conditionDto = condition.toDto();
-            const clearedConditionResult = FieldCondition.create({
-              ...conditionDto,
-              sort: undefined,
-              limit: undefined,
-            });
-            if (clearedConditionResult.isErr()) return err(clearedConditionResult.error);
-
-            const clearedConfigResult = ConditionalRollupConfig.create({
-              foreignTableId: nextConfig.foreignTableId().toString(),
-              lookupFieldId: nextConfig.lookupFieldId().toString(),
-              condition: clearedConditionResult.value.toDto(),
-            });
-            if (clearedConfigResult.isErr()) return err(clearedConfigResult.error);
-            nextConfig = clearedConfigResult.value;
-          }
-        }
-      }
-    }
-
-    const configChanged =
-      (this.configValue !== undefined && !this.configValue.equals(currentConfig)) ||
-      !nextConfig.equals(currentConfig);
+    const configChanged = !nextConfig.equals(currentConfig);
     const expressionChanged =
       this.expressionValue !== undefined && !this.expressionValue.equals(currentExpression);
     const timeZoneChanged =
@@ -1939,7 +2104,9 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     if (this.configValue) {
-      return ok([{ foreignTableId: this.configValue.foreignTableId() }]);
+      return ok([
+        toLinkForeignTableReference(this.configValue.foreignTableId(), this.configValue.baseId()),
+      ]);
     }
     return ok([]);
   }
@@ -1956,7 +2123,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly omittedChoiceIdIndexes: ReadonlySet<number>
   ) {}
 
   static create(
@@ -1977,12 +2145,14 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) => {
+      const omittedChoiceIdIndexes = new Set<number>();
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
         return sequence(
-          (input.options.choices as unknown[]).map((choice, index) =>
-            parseSelectOptionWithFallback(choice, index)
-          )
+          (input.options.choices as unknown[]).map((choice, index) => {
+            if (selectChoiceOmitsId(choice)) omittedChoiceIdIndexes.add(index);
+            return parseSelectOptionWithFallback(choice, index);
+          })
         );
       };
 
@@ -2002,7 +2172,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
                         preventAutoNewOptions,
                         notNull,
                         unique,
-                        getDomainContext(options?.executionContext)
+                        getDomainContext(options?.executionContext),
+                        omittedChoiceIdIndexes
                       )
                   )
                 )
@@ -2031,6 +2202,21 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
+    // Resolve the requested default change once so the option rewrite and the
+    // default write agree on it. When both arrive in one payload they are
+    // emitted as a single spec, because a rename plus a re-point is only
+    // coherent as a pair: validating them separately would see a dangling
+    // default on either side.
+    const currentDefault = currentField.defaultValue();
+    const nextDefault = this.defaultValueValue !== undefined ? this.defaultValueValue : undefined;
+    const clearsDefault = this.defaultValueValue === undefined && this.shouldClearDefaultValue;
+    const defaultChanged =
+      (nextDefault !== undefined && (!currentDefault || !nextDefault.equals(currentDefault))) ||
+      (clearsDefault && currentDefault !== undefined);
+    const defaultValueChange = defaultChanged
+      ? { next: clearsDefault ? undefined : nextDefault }
+      : undefined;
+
     if (this.optionsValue !== undefined) {
       const currentOptions = currentField.selectOptions();
       specs.push(
@@ -2038,30 +2224,25 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue,
-          this.domainContextValue
+          adoptPreviousSelectOptionIds(
+            currentOptions,
+            this.optionsValue,
+            this.omittedChoiceIdIndexes
+          ),
+          this.domainContextValue,
+          defaultValueChange
         )
       );
     }
 
-    if (this.defaultValueValue !== undefined) {
-      const currentDefault = currentField.defaultValue();
-      if (!currentDefault || !this.defaultValueValue.equals(currentDefault)) {
-        specs.push(
-          UpdateSingleSelectDefaultValueSpec.create(
-            currentField.id(),
-            currentDefault,
-            this.defaultValueValue
-          )
-        );
-      }
-    } else if (this.shouldClearDefaultValue) {
-      const currentDefault = currentField.defaultValue();
-      if (currentDefault !== undefined) {
-        specs.push(
-          UpdateSingleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
-        );
-      }
+    if (this.optionsValue === undefined && defaultChanged) {
+      specs.push(
+        UpdateSingleSelectDefaultValueSpec.create(
+          currentField.id(),
+          currentDefault,
+          clearsDefault ? undefined : nextDefault
+        )
+      );
     }
 
     if (this.preventAutoNewOptionsValue !== undefined) {
@@ -2107,7 +2288,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly omittedChoiceIdIndexes: ReadonlySet<number>
   ) {}
 
   static create(
@@ -2128,12 +2310,14 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) => {
+      const omittedChoiceIdIndexes = new Set<number>();
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
         return sequence(
-          (input.options.choices as unknown[]).map((choice, index) =>
-            parseSelectOptionWithFallback(choice, index)
-          )
+          (input.options.choices as unknown[]).map((choice, index) => {
+            if (selectChoiceOmitsId(choice)) omittedChoiceIdIndexes.add(index);
+            return parseSelectOptionWithFallback(choice, index);
+          })
         );
       };
 
@@ -2153,7 +2337,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
                         preventAutoNewOptions,
                         notNull,
                         unique,
-                        getDomainContext(options?.executionContext)
+                        getDomainContext(options?.executionContext),
+                        omittedChoiceIdIndexes
                       )
                   )
                 )
@@ -2182,6 +2367,18 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
+    // See UpdateSingleSelectFieldSpec: resolve the default change once so an
+    // option rewrite and a default re-point agree on it.
+    const currentDefault = currentField.defaultValue();
+    const nextDefault = this.defaultValueValue !== undefined ? this.defaultValueValue : undefined;
+    const clearsDefault = this.defaultValueValue === undefined && this.shouldClearDefaultValue;
+    const defaultChanged =
+      (nextDefault !== undefined && (!currentDefault || !nextDefault.equals(currentDefault))) ||
+      (clearsDefault && currentDefault !== undefined);
+    const defaultValueChange = defaultChanged
+      ? { next: clearsDefault ? undefined : nextDefault }
+      : undefined;
+
     if (this.optionsValue !== undefined) {
       const currentOptions = currentField.selectOptions();
       specs.push(
@@ -2189,30 +2386,25 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue,
-          this.domainContextValue
+          adoptPreviousSelectOptionIds(
+            currentOptions,
+            this.optionsValue,
+            this.omittedChoiceIdIndexes
+          ),
+          this.domainContextValue,
+          defaultValueChange
         )
       );
     }
 
-    if (this.defaultValueValue !== undefined) {
-      const currentDefault = currentField.defaultValue();
-      if (!currentDefault || !this.defaultValueValue.equals(currentDefault)) {
-        specs.push(
-          UpdateMultipleSelectDefaultValueSpec.create(
-            currentField.id(),
-            currentDefault,
-            this.defaultValueValue
-          )
-        );
-      }
-    } else if (this.shouldClearDefaultValue) {
-      const currentDefault = currentField.defaultValue();
-      if (currentDefault !== undefined) {
-        specs.push(
-          UpdateMultipleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
-        );
-      }
+    if (this.optionsValue === undefined && defaultChanged) {
+      specs.push(
+        UpdateMultipleSelectDefaultValueSpec.create(
+          currentField.id(),
+          currentDefault,
+          clearsDefault ? undefined : nextDefault
+        )
+      );
     }
 
     if (this.preventAutoNewOptionsValue !== undefined) {
@@ -2259,18 +2451,37 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
     private readonly shouldClearShowAs: boolean
   ) {}
 
-  static create(input: {
-    name?: string;
-    options?: {
-      expression?: string;
-      timeZone?: string;
-      formatting?: unknown;
-      showAs?: unknown;
-    };
-  }): Result<UpdateFormulaFieldSpec, DomainError> {
+  static create(
+    input: {
+      name?: string;
+      options?: {
+        expression?: string;
+        timeZone?: string;
+        formatting?: unknown;
+        showAs?: unknown;
+      };
+    },
+    options?: { currentField: Field; executionContext?: IExecutionContext }
+  ): Result<UpdateFormulaFieldSpec, DomainError> {
+    const current =
+      options?.currentField instanceof FormulaField ? options.currentField : undefined;
+    const timeZoneChanged =
+      input.options?.timeZone !== undefined &&
+      input.options.timeZone !== (current?.timeZone()?.toString() ?? 'utc');
+    if (current && timeZoneChanged) {
+      const source = FormulaExpression.create(
+        input.options?.expression ?? current.expression().toString(),
+        getFormulaSourceBudget(options?.executionContext)
+      );
+      if (source.isErr()) return err(source.error);
+    }
     const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.options?.expression, FormulaExpression.create).andThen((expression) =>
+      optional(input.options?.expression, (raw) =>
+        current && !timeZoneChanged && raw === current.expression().toString()
+          ? ok(current.expression())
+          : FormulaExpression.create(raw, getFormulaSourceBudget(options?.executionContext))
+      ).andThen((expression) =>
         optional(input.options?.timeZone, TimeZone.create).andThen((timeZone) =>
           parseFormulaFormatting(input.options?.formatting).andThen((formatting) =>
             clearable(input.options?.showAs, hasShowAs, parseRequiredFormulaShowAs).map(
@@ -2330,18 +2541,6 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
           UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, this.timeZoneValue)
         );
       }
-    } else {
-      const currentTimeZone = currentField.timeZone();
-      const touchedFormulaOptions =
-        this.expressionValue !== undefined ||
-        this.formattingValue !== undefined ||
-        this.showAsValue !== undefined ||
-        this.shouldClearShowAs;
-      if (!currentTimeZone && touchedFormulaOptions) {
-        specs.push(
-          UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, TimeZone.default())
-        );
-      }
     }
 
     if (this.formattingValue !== undefined) {
@@ -2393,19 +2592,23 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
     private readonly timeZoneValue: TimeZone | undefined,
     private readonly formattingValue: FormulaFormatting | undefined,
     private readonly showAsValue: FormulaShowAs | undefined,
-    private readonly shouldClearShowAs: boolean
+    private readonly shouldClearShowAs: boolean,
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
   ) {}
 
-  static create(input: {
-    name?: string;
-    config?: unknown;
-    options?: {
-      expression?: string;
-      timeZone?: string;
-      formatting?: unknown;
-      showAs?: unknown;
-    };
-  }): Result<UpdateRollupFieldSpec, DomainError> {
+  static create(
+    input: {
+      name?: string;
+      config?: unknown;
+      options?: {
+        expression?: string;
+        timeZone?: string;
+        formatting?: unknown;
+        showAs?: unknown;
+      };
+    },
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<UpdateRollupFieldSpec, DomainError> {
     const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.config, RollupFieldConfig.create).andThen((config) =>
@@ -2421,7 +2624,8 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
                     timeZone,
                     formatting,
                     showAsResult.value,
-                    showAsResult.shouldClear
+                    showAsResult.shouldClear,
+                    options?.foreignTables
                   )
               )
             )
@@ -2446,26 +2650,60 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
-    if (this.configValue !== undefined) {
-      const currentConfig = currentField.config();
-      if (!this.configValue.equals(currentConfig)) {
-        specs.push(
-          UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue)
-        );
+    const nextConfig = this.configValue ?? currentField.config();
+    const nextExpression = this.expressionValue ?? currentField.expression();
+    const configChanged = !nextConfig.equals(currentField.config());
+    const expressionChanged = !nextExpression.equals(currentField.expression());
+
+    if (expressionChanged) {
+      const foreignTable = this.foreignTablesValue?.find((table) =>
+        table.id().equals(nextConfig.foreignTableId())
+      );
+      if (!foreignTable) {
+        return err(domainError.invariant({ message: 'RollupField foreign table not loaded' }));
       }
+      const valuesField = ForeignTable.from(foreignTable).fieldById(nextConfig.lookupFieldId());
+      if (valuesField.isErr()) return err(valuesField.error);
+      const valuesType = valuesField.value.accept(new FieldValueTypeVisitor());
+      if (valuesType.isErr()) return err(valuesType.error);
+      const resultType = nextExpression.getParsedValueType(valuesType.value);
+      if (resultType.isErr()) return err(resultType.error);
+      const currentCellValueType = currentField.cellValueType();
+      const resultTypeChanged =
+        currentCellValueType.isErr() ||
+        !currentCellValueType.value.equals(resultType.value.cellValueType);
+      const nextFormatting =
+        this.formattingValue ??
+        (resultTypeChanged
+          ? RollupField.defaultFormatting(resultType.value.cellValueType)
+          : currentField.formatting());
+
+      // Validate the final expression and display options together, rather than
+      // validating new numeric formatting against the previous string result type.
+      const updatedFieldResult = RollupField.create({
+        id: currentField.id(),
+        name: this.nameValue ?? currentField.name(),
+        config: nextConfig,
+        expression: nextExpression,
+        valuesField: valuesField.value,
+        timeZone: this.timeZoneValue ?? currentField.timeZone(),
+        formatting: nextFormatting,
+        showAs: this.shouldClearShowAs ? undefined : (this.showAsValue ?? currentField.showAs()),
+      });
+      if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+      const updatedField = updatedFieldResult.value;
+      const descriptionResult = updatedField.setDescription(currentField.description());
+      if (descriptionResult.isErr()) return err(descriptionResult.error);
+      const aiConfigResult = updatedField.setAiConfig(currentField.aiConfig());
+      if (aiConfigResult.isErr()) return err(aiConfigResult.error);
+      specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedField));
+      return ok(specs);
     }
 
-    if (this.expressionValue !== undefined) {
-      const currentExpression = currentField.expression();
-      if (!this.expressionValue.equals(currentExpression)) {
-        specs.push(
-          UpdateRollupExpressionSpec.create(
-            currentField.id(),
-            currentExpression,
-            this.expressionValue
-          )
-        );
-      }
+    if (configChanged) {
+      specs.push(
+        UpdateRollupConfigSpec.create(currentField.id(), currentField.config(), nextConfig)
+      );
     }
 
     if (this.timeZoneValue !== undefined) {
@@ -2555,7 +2793,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
       if (isFullUpdate) {
         const clearableKeys = ['filterByViewId', 'visibleFieldIds', 'filter'] as const;
         for (const key of clearableKeys) {
-          if (!Object.prototype.hasOwnProperty.call(input.options, key)) {
+          if (!Object.hasOwn(input.options, key)) {
             patch[key] = undefined;
           }
         }
@@ -2672,10 +2910,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         mergedConfig[key] = value;
       }
 
-      const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
-        this.configPatchValue,
-        'lookupFieldId'
-      );
+      const hasLookupFieldIdPatch = Object.hasOwn(this.configPatchValue, 'lookupFieldId');
       const requestedForeignTableId =
         typeof mergedConfig.foreignTableId === 'string' ? mergedConfig.foreignTableId : undefined;
       const isForeignTableChanging =
@@ -2855,6 +3090,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
           filter?: unknown;
           sort?: unknown;
           limit?: number;
+          isUnique?: boolean;
         }
       | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -2875,6 +3111,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         filter?: unknown;
         sort?: unknown;
         limit?: number;
+        isUnique?: boolean;
         showAs?: unknown;
       };
       innerOptions?: Readonly<Record<string, unknown>>;
@@ -2893,10 +3130,8 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       !Array.isArray(input.innerOptions)
         ? (input.innerOptions as Readonly<Record<string, unknown>>)
         : undefined;
-    const hasOptionsShowAs =
-      input.options !== undefined && Object.prototype.hasOwnProperty.call(input.options, 'showAs');
-    const hasInnerShowAs =
-      innerOptions !== undefined && Object.prototype.hasOwnProperty.call(innerOptions, 'showAs');
+    const hasOptionsShowAs = input.options !== undefined && Object.hasOwn(input.options, 'showAs');
+    const hasInnerShowAs = innerOptions !== undefined && Object.hasOwn(innerOptions, 'showAs');
     const shouldClearShowAs =
       (hasOptionsShowAs && input.options?.showAs === null) ||
       (hasInnerShowAs && innerOptions?.showAs === null) ||
@@ -2904,22 +3139,25 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     return optional(input.name, FieldName.create).andThen((name) => {
       const optionsPatch = input.options
         ? {
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'linkFieldId')
+            ...(Object.hasOwn(input.options, 'linkFieldId')
               ? { linkFieldId: input.options.linkFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'foreignTableId')
+            ...(Object.hasOwn(input.options, 'foreignTableId')
               ? { foreignTableId: input.options.foreignTableId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'lookupFieldId')
+            ...(Object.hasOwn(input.options, 'lookupFieldId')
               ? { lookupFieldId: input.options.lookupFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'isUnique') || isFullUpdate
+              ? { isUnique: input.options.isUnique }
+              : {}),
+            ...(Object.hasOwn(input.options, 'filter') || isFullUpdate
               ? { filter: input.options.filter }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'sort') || isFullUpdate
               ? { sort: input.options.sort }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'limit') || isFullUpdate
               ? { limit: input.options.limit }
               : {}),
           }
@@ -2966,10 +3204,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         mergedOptionsDto[key] = value;
       }
 
-      const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
-        this.lookupOptionsPatchValue,
-        'lookupFieldId'
-      );
+      const hasLookupFieldIdPatch = Object.hasOwn(this.lookupOptionsPatchValue, 'lookupFieldId');
       const requestedForeignTableId =
         typeof mergedOptionsDto.foreignTableId === 'string'
           ? mergedOptionsDto.foreignTableId
@@ -3044,11 +3279,11 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       nextPatch = this.isFullUpdate
         ? { ...this.innerOptionsValue }
         : {
-            ...(currentPatch ?? {}),
+            ...currentPatch,
             ...this.innerOptionsValue,
           };
     } else if (this.shouldClearShowAs) {
-      nextPatch = { ...(currentPatch ?? {}) };
+      nextPatch = { ...currentPatch };
     } else {
       return undefined;
     }
@@ -3074,7 +3309,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       options !== null &&
       typeof options === 'object' &&
       !Array.isArray(options) &&
-      Object.prototype.hasOwnProperty.call(options, 'showAs')
+      Object.hasOwn(options, 'showAs')
     );
   }
 
@@ -3235,7 +3470,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly labelValue: ButtonLabel | undefined,
     private readonly colorValue: FieldColor | undefined,
-    private readonly maxCountValue: ButtonMaxCount | undefined,
+    private readonly maxCountClearable: ClearableResult<ButtonMaxCount | undefined>,
     private readonly resetCountValue: ButtonResetCount | undefined,
     private readonly workflowClearable: ClearableResult<ButtonWorkflow | undefined>,
     private readonly confirmClearable: ClearableResult<ButtonConfirm | undefined>,
@@ -3259,25 +3494,37 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
     const workflowWasProvided =
       input.options != null &&
       typeof input.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(input.options, 'workflow');
+      Object.hasOwn(input.options, 'workflow');
 
     const confirmWasProvided =
       input.options != null &&
       typeof input.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(input.options, 'confirm');
+      Object.hasOwn(input.options, 'confirm');
+
+    // The click limit is optional and the button is unlimited without it, so
+    // `null` has to clear it. Parsing it as a plain optional made the limit
+    // impossible to remove, unlike `workflow`/`confirm` next to it.
+    const maxCountWasProvided =
+      input.options != null &&
+      typeof input.options === 'object' &&
+      Object.hasOwn(input.options, 'maxCount');
 
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.label, ButtonLabel.create).andThen((label) =>
         optional(input.options?.color, FieldColor.create).andThen((color) =>
-          optional(input.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-            optional(input.options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
-              clearable(
-                input.options?.workflow,
-                workflowWasProvided,
-                ButtonWorkflow.create
-              ).andThen((workflowResult) =>
-                clearable(input.options?.confirm, confirmWasProvided, ButtonConfirm.create).andThen(
-                  (confirmResult) =>
+          clearable(input.options?.maxCount, maxCountWasProvided, ButtonMaxCount.create).andThen(
+            (maxCountResult) =>
+              optional(input.options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
+                clearable(
+                  input.options?.workflow,
+                  workflowWasProvided,
+                  ButtonWorkflow.create
+                ).andThen((workflowResult) =>
+                  clearable(
+                    input.options?.confirm,
+                    confirmWasProvided,
+                    ButtonConfirm.create
+                  ).andThen((confirmResult) =>
                     optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
                       optional(input.unique, FieldUnique.create).map(
                         (unique) =>
@@ -3285,7 +3532,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
                             name,
                             label,
                             color,
-                            maxCount,
+                            maxCountResult,
                             resetCount,
                             workflowResult,
                             confirmResult,
@@ -3294,9 +3541,9 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
                           )
                       )
                     )
+                  )
                 )
               )
-            )
           )
         )
       )
@@ -3332,13 +3579,15 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       }
     }
 
-    if (this.maxCountValue !== undefined) {
-      const currentMaxCount = currentField.maxCount();
-      if (!currentMaxCount || !this.maxCountValue.equals(currentMaxCount)) {
-        specs.push(
-          UpdateButtonMaxCountSpec.create(currentField.id(), currentMaxCount, this.maxCountValue)
-        );
-      }
+    const currentMaxCount = currentField.maxCount();
+    const nextMaxCount = this.maxCountClearable.shouldClear
+      ? undefined
+      : this.maxCountClearable.value;
+    const maxCountChanged = this.maxCountClearable.shouldClear
+      ? currentMaxCount !== undefined
+      : nextMaxCount !== undefined && (!currentMaxCount || !nextMaxCount.equals(currentMaxCount));
+    if (maxCountChanged) {
+      specs.push(UpdateButtonMaxCountSpec.create(currentField.id(), currentMaxCount, nextMaxCount));
     }
 
     if (this.resetCountValue !== undefined) {
@@ -3372,11 +3621,11 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
           currentWorkflow,
           this.workflowClearable.shouldClear
             ? undefined
-            : this.workflowClearable.value ?? currentWorkflow,
+            : (this.workflowClearable.value ?? currentWorkflow),
           currentConfirm,
           this.confirmClearable.shouldClear
             ? undefined
-            : this.confirmClearable.value ?? currentConfirm
+            : (this.confirmClearable.value ?? currentConfirm)
         )
       );
     }
@@ -3435,6 +3684,21 @@ export const parseUpdateFieldSpec = (
   }
 ): Result<IUpdateTableFieldSpec, DomainError> => {
   const fieldType = currentField.type().toString();
+
+  const maxCount =
+    input.options && typeof input.options === 'object' && 'maxCount' in input.options
+      ? input.options.maxCount
+      : undefined;
+  const replayMode = options?.executionContext?.undoRedo?.mode;
+  if (
+    (input.type || fieldType) === 'button' &&
+    replayMode !== 'undo' &&
+    replayMode !== 'redo' &&
+    maxCount != null &&
+    (typeof maxCount !== 'number' || !Number.isSafeInteger(maxCount) || maxCount <= 0)
+  ) {
+    return err(domainError.validation({ message: 'Button maxCount must be a positive integer' }));
+  }
 
   // Check if type is changing (type conversion)
   if (input.type && input.type !== fieldType) {
@@ -3506,10 +3770,15 @@ export const parseUpdateFieldSpec = (
       )
     )
     .with('formula', () =>
-      UpdateFormulaFieldSpec.create(input as Parameters<typeof UpdateFormulaFieldSpec.create>[0])
+      UpdateFormulaFieldSpec.create(input as Parameters<typeof UpdateFormulaFieldSpec.create>[0], {
+        currentField,
+        executionContext: options?.executionContext,
+      })
     )
     .with('rollup', () =>
-      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0])
+      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0], {
+        foreignTables: options?.foreignTables,
+      })
     )
     .with('link', () =>
       UpdateLinkFieldSpec.create(input as Parameters<typeof UpdateLinkFieldSpec.create>[0], {
@@ -3529,6 +3798,7 @@ export const parseUpdateFieldSpec = (
         input as Parameters<typeof UpdateConditionalLookupFieldSpec.create>[0],
         {
           foreignTables: options?.foreignTables,
+          executionContext: options?.executionContext,
         }
       )
     )
@@ -3622,13 +3892,35 @@ export const buildUpdateFieldSpecs = (
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'aiConfig')) {
+  const aiConfigFieldType = input.type ?? currentField.type().toString();
+
+  // A derived lookup (`lookup`, `conditionalLookup`) exposes the referenced field's aiConfig:
+  // the field DTO mapper merges the inner field's config onto it, so a GET -> PATCH round-trip
+  // (rename, or retargeting the lookup target) sends that aiConfig straight back. It is not this
+  // field's own config — the mapper re-derives it from the lookup target on every persist — so
+  // validating it against the v2-only type name rejected the whole update with
+  // "Field type <type> does not support aiConfig" and storing it would be overwritten on the next
+  // persist anyway. Accept and ignore it for those types (T7916); converting a lookup away to a
+  // regular type still validates and stores an aiConfig against the converted type, and an
+  // explicit null stays a clear request (it is not a derived echo).
+  const aiConfigIsDerivedFromLookupTarget =
+    aiConfigFieldType === 'lookup' || aiConfigFieldType === 'conditionalLookup';
+
+  if (
+    Object.hasOwn(input, 'aiConfig') &&
+    (!aiConfigIsDerivedFromLookupTarget || input.aiConfig == null)
+  ) {
+    // v1 parity (T6520): aiConfig must match the (possibly converted) field type.
+    const aiConfigValidation = validateFieldAiConfig(aiConfigFieldType, input.aiConfig);
+    if (!aiConfigValidation.valid) {
+      return err(domainError.validation({ message: aiConfigValidation.message }));
+    }
     specs.push(
       TableUpdateFieldAiConfigSpec.create(currentField.id(), null, input.aiConfig ?? null)
     );
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'description')) {
+  if (Object.hasOwn(input, 'description')) {
     const nextDescription = input.description ?? null;
     if (currentField.description() !== nextDescription) {
       specs.push(
@@ -3640,6 +3932,15 @@ export const buildUpdateFieldSpecs = (
       );
     }
   }
+
+  const formVisibility = formRequiredVisibilitySpec(
+    currentField,
+    specs,
+    options?.hostTable,
+    options?.foreignTables
+  );
+  if (formVisibility.isErr()) return err(formVisibility.error);
+  if (formVisibility.value) specs.push(formVisibility.value);
 
   return ok(specs);
 };
@@ -3683,8 +3984,8 @@ const parseTypeConversion = (
     type: input.type,
     id: currentField.id().toString(),
     name: fieldName,
-    description: Object.prototype.hasOwnProperty.call(input, 'description')
-      ? input.description ?? null
+    description: Object.hasOwn(input, 'description')
+      ? (input.description ?? null)
       : currentField.description(),
     options: input.options,
     config: input.config,
@@ -3701,7 +4002,7 @@ const parseTypeConversion = (
       ...(input.options as Record<string, unknown>),
     };
 
-    const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
+    const hasLookupFieldIdPatch = Object.hasOwn(
       input.options as Record<string, unknown>,
       'lookupFieldId'
     );
@@ -3750,7 +4051,7 @@ const parseTypeConversion = (
 
     const mergedOptions = {
       ...(currentOptionsResult.value as Record<string, unknown>),
-      ...((input.options as Record<string, unknown> | undefined) ?? {}),
+      ...(input.options as Record<string, unknown> | undefined),
     };
 
     createFieldInput.options = normalizeSelectTypeConversionOptions(input.type, mergedOptions);

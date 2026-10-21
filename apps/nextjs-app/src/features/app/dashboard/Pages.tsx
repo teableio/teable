@@ -43,7 +43,7 @@ export function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="ml-4 mt-4">
+      <div className="ms-4 mt-4">
         <Spin />
       </div>
     );
@@ -73,7 +73,7 @@ export function DashboardPage() {
                 <X className="size-4" />
               </Button>
             </div>
-            <div className="pl-7">
+            <div className="ps-7">
               <p className="text-xs text-zinc-900 dark:text-zinc-100">
                 {t('dashboard:deprecation.description')}
               </p>

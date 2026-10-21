@@ -17,9 +17,10 @@ export type DeleteByRangeStreamResult = AsyncIterable<DeleteByRangeStreamEvent>;
 
 @CommandHandler(DeleteByRangeStreamCommand)
 @injectable()
-export class DeleteByRangeStreamHandler
-  implements ICommandHandler<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>
-{
+export class DeleteByRangeStreamHandler implements ICommandHandler<
+  DeleteByRangeStreamCommand,
+  DeleteByRangeStreamResult
+> {
   constructor(
     @inject(v2CoreTokens.deleteByRangeApplicationService)
     private readonly deleteByRangeApplicationService: DeleteByRangeApplicationService

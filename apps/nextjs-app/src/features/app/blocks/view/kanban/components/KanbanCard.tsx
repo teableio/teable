@@ -1,7 +1,16 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { DraggableProvided } from '@hello-pangea/dnd';
-import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
-import { ArrowDown, ArrowUp, History, Link, Maximize2, MessageSquare } from '@teable/icons';
+import type { IAttachmentCellValue } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import {
+  ArrowDown,
+  ArrowUp,
+  History,
+  Link,
+  Maximize2,
+  MessageSquare,
+  MessageSquareDot,
+} from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -20,6 +29,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CardCarousel } from '../../gallery/components';
+import { useAddToChat } from '../../hooks/useAddToChat';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
@@ -50,8 +60,10 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     setExpandRecordId,
   } = useKanban() as Required<IKanbanContext>;
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
+  const { chatEnabled, addToChat } = useAddToChat();
 
-  const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
+  const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
+    permission;
   const { id: fieldId } = stackField;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
@@ -152,12 +164,13 @@ export const KanbanCard = (props: IKanbanCardProps) => {
               });
               const cellValue = card.getCellValue(fieldId);
 
-              if (cellValue == null) return null;
+              // Buttons have a label before their first click creates a cell value.
+              if (cellValue == null && (type !== FieldType.Button || isLookup)) return null;
 
               return (
                 <div key={fieldId}>
                   {!isFieldNameHidden && (
-                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground">
+                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground rtl:space-x-reverse">
                       <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>
@@ -202,10 +215,17 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             {t('sdk:expandRecord.viewRecordHistory')}
           </ContextMenuItem>
         )}
-        {cardCommentCreatable && (
+        {cardCommentReadable && (
           <ContextMenuItem onClick={onAddRecordComment}>
             <MessageSquare className="size-4" />
-            {t('sdk:expandRecord.addRecordComment')}
+            {/* read-only collaborators open the thread, they just can't add to it */}
+            {cardCommentCreatable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title')}
+          </ContextMenuItem>
+        )}
+        {chatEnabled && (
+          <ContextMenuItem onClick={() => addToChat(card.id)}>
+            <MessageSquareDot className="size-4" />
+            {t('table:menu.addToChat')}
           </ContextMenuItem>
         )}
         {cardDeletable && !card.undeletable && (

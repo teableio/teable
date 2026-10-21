@@ -24,6 +24,133 @@ describe('FieldFormatter', () => {
     });
   });
 
+  it.each([
+    {
+      name: 'number',
+      field: {
+        type: FieldType.Number,
+        cellValueType: CellValueType.Number,
+        dbFieldName: 'Amount',
+      },
+    },
+    {
+      name: 'rating',
+      field: {
+        type: FieldType.Rating,
+        cellValueType: CellValueType.Number,
+        dbFieldName: 'Score',
+      },
+    },
+    {
+      name: 'single select',
+      field: {
+        type: FieldType.SingleSelect,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Status',
+      },
+    },
+    {
+      name: 'attachment',
+      field: {
+        type: FieldType.Attachment,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Files',
+        isMultipleCellValue: true,
+        isStructuredCellValue: true,
+      },
+    },
+    {
+      name: 'lookup attachment',
+      field: {
+        type: FieldType.Attachment,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Lookup_Files',
+        isLookup: true,
+        isMultipleCellValue: true,
+        isStructuredCellValue: true,
+      },
+    },
+    {
+      name: 'user',
+      field: {
+        type: FieldType.User,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Owner',
+        isStructuredCellValue: true,
+      },
+    },
+    {
+      name: 'link',
+      field: {
+        type: FieldType.Link,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Related',
+        isStructuredCellValue: true,
+      },
+    },
+    {
+      name: 'number formula',
+      field: {
+        type: FieldType.Formula,
+        cellValueType: CellValueType.Number,
+        dbFieldName: 'Amount_Formula',
+      },
+    },
+  ])('does not build a trigram index for $name', ({ field }) => {
+    expect(
+      FieldFormatter.getIndexSpec({
+        isMultipleCellValue: false,
+        isStructuredCellValue: false,
+        options: {},
+        ...field,
+      } as IFieldInstance)
+    ).toBeNull();
+  });
+
+  it('still builds a trigram index for single line text', () => {
+    expect(
+      FieldFormatter.getIndexSpec({
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Title',
+        isMultipleCellValue: false,
+        isStructuredCellValue: false,
+      } as IFieldInstance)
+    ).toEqual({
+      kind: 'trgm',
+      expression: '"Title"',
+    });
+  });
+
+  it('still builds a trigram index for string formulas', () => {
+    expect(
+      FieldFormatter.getIndexSpec({
+        type: FieldType.Formula,
+        cellValueType: CellValueType.String,
+        dbFieldName: 'Title_Formula',
+        isMultipleCellValue: false,
+        isStructuredCellValue: false,
+      } as IFieldInstance)
+    ).toEqual({
+      kind: 'trgm',
+      expression: '"Title_Formula"',
+    });
+  });
+
+  it('keeps ILIKE expressions for rejected types without indexing them', () => {
+    const field = {
+      type: FieldType.Number,
+      cellValueType: CellValueType.Number,
+      dbFieldName: 'Amount',
+      isMultipleCellValue: false,
+      isStructuredCellValue: false,
+      options: { formatting: { precision: 2 } },
+    } as IFieldInstance;
+
+    expect(FieldFormatter.getSearchableExpression(field)).toBe('ROUND("Amount"::numeric, 2)::text');
+    expect(FieldFormatter.getIndexSpec(field)).toBeNull();
+  });
+
   it('creates a btree index sql for single datetime fields', () => {
     const builder = new IndexBuilderPostgres();
     const field = {

@@ -75,9 +75,9 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     <Table className="relative scroll-smooth">
       <TableHeader>
         <TableRow>
-          <TableHead className="shrink-0">{t('table:import.title.primitiveFields')}</TableHead>
+          <TableHead className="shrink-0 ps-4">{t('table:import.title.primitiveFields')}</TableHead>
           <TableHead></TableHead>
-          <TableHead>{t('table:import.title.importFields')}</TableHead>
+          <TableHead className="ps-4">{t('table:import.title.importFields')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody className="w-96 overflow-hidden">
@@ -91,10 +91,10 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
 
           return (
             <TableRow key={index} className="items-center overflow-hidden">
-              <TableCell className="w-48 truncate">
+              <TableCell className="w-48 truncate ps-4">
                 <div className="flex w-48 items-center truncate">
                   <Icon className="size-4 shrink-0" />
-                  <div className="flex-1 truncate pl-2">
+                  <div className="flex-1 truncate ps-2">
                     <div className="truncate">{column.name}</div>
                     <span className="truncate text-gray-500">
                       {index === 0 ? t('table:import.title.primaryField') : null}
@@ -110,7 +110,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableCell className="w-full max-w-[480px]">
+                    <TableCell className="w-full max-w-[480px] ps-4">
                       <FieldSelector
                         value={value}
                         options={options}

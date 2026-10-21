@@ -5,17 +5,20 @@ import type {
   IImportOptionRo,
   IAnalyzeRo,
   IImportSheetItem,
-  SUPPORTEDTYPE,
   IAnalyzeVo,
   IImportOption,
   INotifyVo,
+  IImportStreamProgressEvent,
+  IImportSheetSummary,
+  ITableFullVo,
 } from '@teable/openapi';
 import {
   importTypeMap,
   analyzeFile,
-  importTableFromFile,
-  inplaceImportTableFromFile,
+  importTableFromFileStream,
+  inplaceImportTableFromFileStream,
   BaseNodeResourceType,
+  SUPPORTEDTYPE,
 } from '@teable/openapi';
 import { useBase, LocalStorageKeys } from '@teable/sdk';
 import {
@@ -29,6 +32,7 @@ import {
   TabsList,
   TabsTrigger,
   Spin,
+  Progress,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -39,23 +43,41 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Checkbox,
+  cn,
+  DialogTitle,
 } from '@teable/ui-lib';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLocalStorage } from 'react-use';
 import { getNodeUrl } from '../base/base-node/hooks';
 import { FieldConfigPanel, InplaceFieldConfigPanel } from './field-config-panel';
 import { UploadPanel } from './upload-panel';
 import { UrlPanel } from './UrlPanel';
 
-interface ITableImportProps {
+export type ITableImportAiSource = { type: 'file'; file: File } | { type: 'url'; url: string };
+
+type IAnalyzeImportSource = IAnalyzeRo & { sourceType: ITableImportAiSource['type'] };
+
+export interface ITableImportAiGuideProps {
+  source: ITableImportAiSource;
+  onCloseImport: () => void;
+  onContinueManual: () => void;
+  onPreparingChange: (isPreparing: boolean) => void;
+}
+
+export type TableImportAiGuideStatus = 'loading' | 'enabled' | 'disabled';
+
+export interface ITableImportProps {
   open?: boolean;
   tableId?: string;
+  folderId?: string;
   children?: React.ReactElement;
   fileType: SUPPORTEDTYPE;
   onOpenChange?: (open: boolean) => void;
+  aiImportGuideStatus?: TableImportAiGuideStatus;
+  renderAiImportGuide?: (props: ITableImportAiGuideProps) => React.ReactNode;
 }
 
 export type ITableImportOptions = IImportOption & {
@@ -64,17 +86,246 @@ export type ITableImportOptions = IImportOption & {
 
 enum Step {
   UPLOAD = 'upload',
+  GUIDE = 'guide',
   CONFIG = 'config',
+  RESULT = 'result',
 }
+
+const getDialogTitleKey = (step: Step, tableId: string | undefined, fileType: SUPPORTEDTYPE) => {
+  if ((step === Step.GUIDE || step === Step.CONFIG) && !tableId) {
+    return 'table:import.title.createTable' as const;
+  }
+  if (fileType === SUPPORTEDTYPE.EXCEL) {
+    return 'table:import.title.importFromExcel' as const;
+  }
+  return 'table:import.title.importFromCsv' as const;
+};
+
+const getTabsContentClassName = (step: Step, tableId?: string) =>
+  cn(
+    'min-h-0 flex-1 flex-col data-[state=active]:flex data-[state=inactive]:hidden',
+    step === Step.CONFIG && !tableId ? 'overflow-hidden' : 'overflow-y-auto',
+    step !== Step.UPLOAD && 'mt-0'
+  );
+
+const getDialogLayout = (step: Step, tableId: string | undefined) => {
+  const isInplaceConfig = step === Step.CONFIG && Boolean(tableId);
+  const hasFixedHeight = step === Step.CONFIG && !tableId;
+
+  return {
+    dialogClassName: cn(
+      'z-50 grid min-h-0 w-[calc(100%_-_2rem)] max-w-[800px] overflow-hidden rounded-lg',
+      isInplaceConfig ? 'grid-rows-[minmax(0,1fr)_auto]' : 'grid-rows-[auto_minmax(0,1fr)_auto]',
+      hasFixedHeight ? 'h-[min(80vh,720px)] max-h-[calc(100vh-2rem)]' : 'max-h-[calc(100vh-2rem)]'
+    ),
+    contentRowClassName: isInplaceConfig ? 'row-start-1' : 'row-start-2',
+    footerRowClassName: isInplaceConfig ? 'row-start-2' : 'row-start-3',
+  };
+};
+
+type IImportResult = {
+  tableId: string;
+  viewId?: string;
+  sheets?: IImportSheetSummary[];
+};
+
+const ImportProgressPanel = ({ progress }: { progress: IImportStreamProgressEvent | null }) => {
+  const { t } = useTranslation(['table']);
+  const progressPercent =
+    progress && progress.totalCount > 0
+      ? Math.min(100, Math.round((progress.processedCount / progress.totalCount) * 100))
+      : 0;
+  let progressLabel = t('table:import.tips.importing');
+  if (progress && progress.totalCount > 0) {
+    progressLabel = t('table:import.tips.importingRows', {
+      processed: progress.processedCount.toLocaleString(),
+      total: progress.totalCount.toLocaleString(),
+    });
+  } else if (progress && (progress.phase === 'preparing' || progress.phase === 'parsing')) {
+    progressLabel = t('table:import.tips.preparingImport');
+  } else if (progress) {
+    progressLabel = t('table:import.tips.importingRowsUnknown', {
+      processed: progress.processedCount.toLocaleString(),
+    });
+  }
+
+  return (
+    <div className="mb-3 w-full space-y-1.5">
+      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+        <span>{progressLabel}</span>
+        {progress && progress.totalCount > 0 && (
+          <span className="tabular-nums">{progressPercent}%</span>
+        )}
+      </div>
+      {progress && progress.sheetCount > 1 && progress.sheetName && (
+        <div className="text-xs text-muted-foreground">
+          {t('table:import.tips.importingSheet', {
+            current: String(progress.sheetIndex + 1),
+            total: String(progress.sheetCount),
+            name: progress.sheetName,
+          })}
+        </div>
+      )}
+      <Progress value={progress?.totalCount ? progressPercent : undefined} />
+    </div>
+  );
+};
+
+const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
+  const { t } = useTranslation(['table']);
+  const hasIssue = sheets.some((sheet) => sheet.truncated || Boolean(sheet.error));
+
+  return (
+    <div className="row-start-2 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-1">
+      <div>
+        <h3 className="text-base font-medium">
+          {hasIssue
+            ? t('table:import.tips.importFinishedPartial')
+            : t('table:import.tips.importFinished')}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('table:import.tips.importSummaryHint')}
+        </p>
+      </div>
+      <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pe-1">
+        {sheets.map((sheet) => {
+          const isError = Boolean(sheet.error);
+          const isTruncated = Boolean(sheet.truncated) && !isError;
+          return (
+            <li
+              key={sheet.name}
+              className={`rounded-md border px-3 py-2 text-sm ${
+                isError
+                  ? 'border-destructive/40 bg-destructive/5'
+                  : isTruncated
+                    ? 'border-amber-500/40 bg-amber-500/5'
+                    : 'border-border'
+              }`}
+            >
+              <div className="break-all font-medium">{sheet.name}</div>
+              <div
+                className={`mt-0.5 ${
+                  isError
+                    ? 'text-destructive'
+                    : isTruncated
+                      ? 'text-amber-700 dark:text-amber-400'
+                      : 'text-muted-foreground'
+                }`}
+              >
+                {isError
+                  ? t('table:import.tips.importSheetFailed', { error: sheet.error ?? '' })
+                  : isTruncated
+                    ? t('table:import.tips.importSheetTruncated', {
+                        rowCount: sheet.importedCount,
+                      })
+                    : t('table:import.tips.importSheetImported', {
+                        rowCount: sheet.importedCount,
+                      })}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+};
+
+interface IImportConfigContentProps {
+  step: Step;
+  tableId?: string;
+  workSheets: IImportOptionRo['worksheets'];
+  insertConfig: IInplaceImportOptionRo['insertConfig'];
+  errorMessage: string;
+  aiImportSource: ITableImportAiSource | null;
+  aiImportGuideStatus: TableImportAiGuideStatus;
+  renderAiImportGuide?: ITableImportProps['renderAiImportGuide'];
+  onCloseAiImport: () => void;
+  onContinueManual: () => void;
+  onBackToGuide: () => void;
+  onPreparingChange: (isPreparing: boolean) => void;
+  onFieldChange: (value: IImportOptionRo['worksheets']) => void;
+  onInplaceFieldChange: (value: IInplaceImportOptionRo['insertConfig']) => void;
+}
+
+const ImportConfigContent = ({
+  step,
+  tableId,
+  workSheets,
+  insertConfig,
+  errorMessage,
+  aiImportSource,
+  aiImportGuideStatus,
+  renderAiImportGuide,
+  onCloseAiImport,
+  onContinueManual,
+  onBackToGuide,
+  onPreparingChange,
+  onFieldChange,
+  onInplaceFieldChange,
+}: IImportConfigContentProps) => {
+  if (step !== Step.GUIDE && step !== Step.CONFIG) return null;
+
+  if (tableId) {
+    return (
+      <InplaceFieldConfigPanel
+        tableId={tableId}
+        workSheets={workSheets}
+        insertConfig={insertConfig}
+        errorMessage={errorMessage}
+        onChange={onInplaceFieldChange}
+      />
+    );
+  }
+
+  return (
+    <>
+      {step === Step.GUIDE && aiImportGuideStatus === 'loading' && (
+        <div className="flex min-h-[360px] flex-1 items-center justify-center sm:min-h-[400px]">
+          <Spin className="size-5" />
+        </div>
+      )}
+      {step === Step.GUIDE &&
+        aiImportGuideStatus === 'enabled' &&
+        aiImportSource &&
+        renderAiImportGuide?.({
+          source: aiImportSource,
+          onCloseImport: onCloseAiImport,
+          onContinueManual,
+          onPreparingChange,
+        })}
+      <FieldConfigPanel
+        className={step === Step.CONFIG ? undefined : 'hidden'}
+        workSheets={workSheets}
+        errorMessage={errorMessage}
+        onBack={
+          aiImportGuideStatus === 'enabled' && renderAiImportGuide ? onBackToGuide : undefined
+        }
+        onChange={onFieldChange}
+      />
+    </>
+  );
+};
 
 export const TableImport = (props: ITableImportProps) => {
   const base = useBase();
   const router = useRouter();
   const { t } = useTranslation(['table']);
   const [step, setStep] = useState(Step.UPLOAD);
-  const { children, open, onOpenChange, fileType, tableId } = props;
+  const {
+    children,
+    open,
+    onOpenChange,
+    fileType,
+    tableId,
+    folderId,
+    aiImportGuideStatus,
+    renderAiImportGuide,
+  } = props;
+  const resolvedAiImportGuideStatus =
+    aiImportGuideStatus ?? (renderAiImportGuide ? 'enabled' : 'disabled');
   const [errorMessage, setErrorMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
   const primitiveWorkSheets = useRef<IAnalyzeVo['worksheets']>({});
   const [workSheets, setWorkSheets] = useState<IImportOptionRo['worksheets']>({});
@@ -85,32 +336,92 @@ export const TableImport = (props: ITableImportProps) => {
   });
   const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.ImportAlert, true);
   const [shouldTips, setShouldTips] = useState(false);
+  const [importProgress, setImportProgress] = useState<IImportStreamProgressEvent | null>(null);
+  const [importResult, setImportResult] = useState<IImportResult | null>(null);
+  const [isAiImportPreparing, setIsAiImportPreparing] = useState(false);
+  const aiImportSource: ITableImportAiSource | null = file
+    ? { type: 'file', file }
+    : sourceUrl
+      ? { type: 'url', url: sourceUrl }
+      : null;
+
+  const navigateToImportedTable = (result: { tableId: string; viewId?: string }) => {
+    const url = getNodeUrl({
+      baseId: base.id,
+      resourceType: BaseNodeResourceType.Table,
+      resourceId: result.tableId,
+      viewId: result.viewId,
+    });
+    if (url) {
+      router.push(url, undefined, { shallow: true });
+    }
+  };
+
+  const closeDialog = (nextOpen: boolean, result?: IImportResult | null) => {
+    if (!nextOpen) {
+      const target = result ?? importResult;
+      if (target?.tableId) {
+        navigateToImportedTable(target);
+      }
+      setStep(Step.UPLOAD);
+      setFile(null);
+      setSourceUrl(null);
+      setFileInfo({} as IAnalyzeRo);
+      setWorkSheets({});
+      setInsertConfig({
+        excludeFirstRow: true,
+        sourceWorkSheetKey: '',
+        sourceColumnMap: {},
+      });
+      primitiveWorkSheets.current = {};
+      setErrorMessage('');
+      setShouldTips(false);
+      setImportResult(null);
+      setImportProgress(null);
+      setIsAiImportPreparing(false);
+    }
+    onOpenChange?.(nextOpen);
+  };
 
   const { mutateAsync: importNewTableFn, isPending: isLoading } = useMutation({
     mutationFn: async ({ baseId, importRo }: { baseId: string; importRo: IImportOptionRo }) => {
-      return (await importTableFromFile(baseId, importRo)).data;
-    },
-    onSuccess: (data) => {
-      const { defaultViewId: viewId, id: tableId } = data[0];
-      onOpenChange?.(false);
-      const url = getNodeUrl({
-        baseId: base.id,
-        resourceType: BaseNodeResourceType.Table,
-        resourceId: tableId,
-        viewId,
-      });
-      if (url) {
-        router.push(url, undefined, { shallow: true });
+      setImportProgress(null);
+      const result = await importTableFromFileStream(
+        baseId,
+        { ...importRo, folderId },
+        {
+          onProgress: setImportProgress,
+        }
+      );
+      const tables = result.done.data.tables as ITableFullVo[] | undefined;
+      if (!tables?.length) {
+        throw new Error('Import stream ended without tables');
       }
+      return {
+        tableId: tables[0].id,
+        viewId: tables[0].defaultViewId,
+        sheets: result.done.data.sheets,
+      };
+    },
+    onSuccess: ({ tableId, viewId, sheets }) => {
+      if (sheets?.length) {
+        setImportResult({ tableId, viewId, sheets });
+        setStep(Step.RESULT);
+        return;
+      }
+      closeDialog(false, { tableId, viewId });
     },
   });
 
   const { mutateAsync: inplaceImportFn, isPending: inplaceLoading } = useMutation({
-    mutationFn: (args: Parameters<typeof inplaceImportTableFromFile>) => {
-      return inplaceImportTableFromFile(...args);
+    mutationFn: (args: Parameters<typeof inplaceImportTableFromFileStream>) => {
+      setImportProgress(null);
+      return inplaceImportTableFromFileStream(args[0], args[1], args[2], {
+        onProgress: setImportProgress,
+      });
     },
     onSuccess: () => {
-      onOpenChange?.(false);
+      closeDialog(false);
       const { tableId: routerTableId } = router.query;
       routerTableId !== tableId && router.push(`/base/${base.id}/table/${tableId}`);
     },
@@ -131,6 +442,8 @@ export const TableImport = (props: ITableImportProps) => {
         }
       }
 
+      // errors (e.g. 402 plan limits) are surfaced by the global mutation
+      // error handler; swallow the rejection to avoid an unhandled promise
       importNewTableFn({
         baseId: base.id,
         importRo: {
@@ -139,7 +452,7 @@ export const TableImport = (props: ITableImportProps) => {
           notification: true,
           tz: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
         },
-      });
+      }).catch(() => undefined);
     };
 
     const inplaceImportTable = () => {
@@ -154,6 +467,8 @@ export const TableImport = (props: ITableImportProps) => {
           Object.entries(sourceColumnMap).filter(([, value]) => value !== null)
         ),
       };
+      // errors are surfaced by the global mutation error handler; swallow the
+      // rejection to avoid an unhandled promise
       inplaceImportFn([
         base.id,
         tableId as string,
@@ -162,16 +477,19 @@ export const TableImport = (props: ITableImportProps) => {
           insertConfig: preInsertConfig,
           notification: true,
         },
-      ]);
+      ]).catch(() => undefined);
     };
 
     tableId ? inplaceImportTable() : importNewTable();
   };
 
-  const { mutateAsync: analyzeByUrl, isPending: analyzeLoading } = useMutation({
-    mutationFn: analyzeFile,
+  const { mutateAsync: analyzeImportSource, isPending: analyzeLoading } = useMutation({
+    mutationFn: (params: IAnalyzeImportSource) =>
+      analyzeFile({ attachmentUrl: params.attachmentUrl, fileType: params.fileType }),
     onSuccess: (data, params) => {
-      const { attachmentUrl, fileType } = params;
+      const { attachmentUrl, fileType, sourceType } = params;
+      if (sourceType === 'url') setFile(null);
+      setSourceUrl(sourceType === 'url' ? attachmentUrl : null);
       setFileInfo({
         attachmentUrl,
         fileType,
@@ -193,24 +511,37 @@ export const TableImport = (props: ITableImportProps) => {
       setInsertConfig({ ...insertConfig, ['sourceWorkSheetKey']: Object.keys(worksheets)[0] });
       setWorkSheets(workSheetsWithIndex);
       primitiveWorkSheets.current = worksheets;
-      setStep(Step.CONFIG);
+      const hasAiImportSource = sourceType === 'url' || Boolean(file);
+      const shouldShowAiGuide =
+        !tableId &&
+        hasAiImportSource &&
+        renderAiImportGuide &&
+        resolvedAiImportGuideStatus !== 'disabled';
+      setStep(shouldShowAiGuide ? Step.GUIDE : Step.CONFIG);
     },
   });
+
+  const analyzeByUrl = useCallback(
+    (params: IAnalyzeRo) => analyzeImportSource({ ...params, sourceType: 'url' }),
+    [analyzeImportSource]
+  );
 
   const fileFinishedHandler = useCallback(
     async (result: INotifyVo) => {
       const { presignedUrl } = result;
 
-      await analyzeByUrl({
+      await analyzeImportSource({
         attachmentUrl: presignedUrl,
         fileType,
+        sourceType: 'file',
       });
     },
-    [analyzeByUrl, fileType]
+    [analyzeImportSource, fileType]
   );
 
   const fileCloseHandler = useCallback(() => {
     setFile(null);
+    setSourceUrl(null);
   }, []);
 
   const fileChangeHandler = useCallback(
@@ -229,6 +560,7 @@ export const TableImport = (props: ITableImportProps) => {
         return;
       }
 
+      setSourceUrl(null);
       setFile(file);
     },
     [fileType, t]
@@ -242,29 +574,61 @@ export const TableImport = (props: ITableImportProps) => {
     setInsertConfig(value);
   };
 
+  const isImporting = tableId ? inplaceLoading : isLoading;
+  const closeAiImport = () => {
+    closeDialog(false);
+  };
+
+  useEffect(() => {
+    if (step === Step.GUIDE && resolvedAiImportGuideStatus === 'disabled' && !isAiImportPreparing) {
+      setStep(Step.CONFIG);
+    }
+  }, [isAiImportPreparing, resolvedAiImportGuideStatus, step]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && isAiImportPreparing) return;
+    closeDialog(nextOpen);
+  };
+
+  const dialogTitle = t(getDialogTitleKey(step, tableId, fileType));
+  const showDialogTitle = step === Step.UPLOAD || (!tableId && step !== Step.RESULT);
+  const { dialogClassName, contentRowClassName, footerRowClassName } = getDialogLayout(
+    step,
+    tableId
+  );
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={(open) => onOpenChange?.(open)}>
-        {children && <DialogTrigger>{children}</DialogTrigger>}
-        {open && (
-          <DialogContent
-            className="z-50 flex max-h-[80%] max-w-[800px] flex-col overflow-hidden"
-            overlayStyle={{
-              pointerEvents: 'none',
-            }}
-            onPointerDownOutside={(e) => e.preventDefault()}
-            onInteractOutside={(e) => e.preventDefault()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Tabs defaultValue="localFile" className="flex-1 overflow-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {children && <DialogTrigger>{children}</DialogTrigger>}
+      {open && (
+        <DialogContent
+          className={dialogClassName}
+          closeable={!isAiImportPreparing}
+          overlayStyle={{
+            pointerEvents: 'none',
+          }}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogTitle className={showDialogTitle ? undefined : 'sr-only'}>
+            {dialogTitle}
+          </DialogTitle>
+          {step === Step.RESULT && importResult?.sheets ? (
+            <ImportSummaryPanel sheets={importResult.sheets} />
+          ) : (
+            <Tabs
+              defaultValue="localFile"
+              className={cn('flex h-full min-h-0 flex-col overflow-hidden', contentRowClassName)}
+            >
               {step === Step.UPLOAD && (
-                <TabsList>
+                <TabsList className="self-start">
                   <TabsTrigger value="localFile">{t('table:import.title.localFile')}</TabsTrigger>
                   <TabsTrigger value="url">{t('table:import.title.linkUrl')}</TabsTrigger>
                 </TabsList>
               )}
 
-              <TabsContent value="localFile">
+              <TabsContent value="localFile" className={getTabsContentClassName(step, tableId)}>
                 {step === Step.UPLOAD && (
                   <UploadPanel
                     fileType={fileType}
@@ -275,25 +639,24 @@ export const TableImport = (props: ITableImportProps) => {
                     onFinished={fileFinishedHandler}
                   />
                 )}
-                {step === Step.CONFIG &&
-                  (tableId ? (
-                    <InplaceFieldConfigPanel
-                      tableId={tableId}
-                      workSheets={workSheets}
-                      insertConfig={insertConfig}
-                      errorMessage={errorMessage}
-                      onChange={inplaceFieldChangeHandler}
-                    ></InplaceFieldConfigPanel>
-                  ) : (
-                    <FieldConfigPanel
-                      tableId={tableId}
-                      workSheets={workSheets}
-                      errorMessage={errorMessage}
-                      onChange={fieldChangeHandler}
-                    ></FieldConfigPanel>
-                  ))}
+                <ImportConfigContent
+                  step={step}
+                  tableId={tableId}
+                  workSheets={workSheets}
+                  insertConfig={insertConfig}
+                  errorMessage={errorMessage}
+                  aiImportSource={aiImportSource}
+                  aiImportGuideStatus={resolvedAiImportGuideStatus}
+                  renderAiImportGuide={renderAiImportGuide}
+                  onCloseAiImport={closeAiImport}
+                  onContinueManual={() => setStep(Step.CONFIG)}
+                  onBackToGuide={() => setStep(Step.GUIDE)}
+                  onPreparingChange={setIsAiImportPreparing}
+                  onFieldChange={fieldChangeHandler}
+                  onInplaceFieldChange={inplaceFieldChangeHandler}
+                />
               </TabsContent>
-              <TabsContent value="url">
+              <TabsContent value="url" className={getTabsContentClassName(step, tableId)}>
                 {step === Step.UPLOAD && (
                   <UrlPanel
                     analyzeFn={analyzeByUrl}
@@ -301,99 +664,110 @@ export const TableImport = (props: ITableImportProps) => {
                     fileType={fileType}
                   ></UrlPanel>
                 )}
-                {step === Step.CONFIG &&
-                  (tableId ? (
-                    <InplaceFieldConfigPanel
-                      tableId={tableId}
-                      workSheets={workSheets}
-                      insertConfig={insertConfig}
-                      errorMessage={errorMessage}
-                      onChange={inplaceFieldChangeHandler}
-                    ></InplaceFieldConfigPanel>
-                  ) : (
-                    <FieldConfigPanel
-                      tableId={tableId}
-                      workSheets={workSheets}
-                      errorMessage={errorMessage}
-                      onChange={fieldChangeHandler}
-                    ></FieldConfigPanel>
-                  ))}
+                <ImportConfigContent
+                  step={step}
+                  tableId={tableId}
+                  workSheets={workSheets}
+                  insertConfig={insertConfig}
+                  errorMessage={errorMessage}
+                  aiImportSource={aiImportSource}
+                  aiImportGuideStatus={resolvedAiImportGuideStatus}
+                  renderAiImportGuide={renderAiImportGuide}
+                  onCloseAiImport={closeAiImport}
+                  onContinueManual={() => setStep(Step.CONFIG)}
+                  onBackToGuide={() => setStep(Step.GUIDE)}
+                  onPreparingChange={setIsAiImportPreparing}
+                  onFieldChange={fieldChangeHandler}
+                  onInplaceFieldChange={inplaceFieldChangeHandler}
+                />
               </TabsContent>
             </Tabs>
-            {step === Step.CONFIG && (
-              <DialogFooter>
-                <footer className="mt-1 flex items-center justify-end">
-                  <Button size="sm" variant="secondary" onClick={() => onOpenChange?.(false)}>
-                    {t('table:import.menu.cancel')}
-                  </Button>
-                  <AlertDialog>
-                    {shouldAlert ? (
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          className="ml-1"
-                          disabled={tableId ? inplaceLoading : isLoading}
-                        >
-                          {(tableId ? inplaceLoading : isLoading) && (
-                            <Spin className="mr-1 size-4" />
-                          )}
-                          {t('table:import.title.import')}
-                        </Button>
-                      </AlertDialogTrigger>
-                    ) : (
-                      <Button
-                        size="sm"
-                        className="ml-1"
-                        onClick={() => importTable()}
-                        disabled={tableId ? inplaceLoading : isLoading}
-                      >
-                        {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
+          )}
+          {step === Step.RESULT && (
+            <DialogFooter className="row-start-3 min-h-8">
+              <Button size="sm" onClick={() => closeDialog(false)}>
+                {t('table:import.tips.importDone')}
+              </Button>
+            </DialogFooter>
+          )}
+          {step === Step.CONFIG && (
+            <DialogFooter
+              className={cn(
+                'min-h-8 flex-col items-stretch sm:flex-col sm:items-stretch',
+                footerRowClassName
+              )}
+            >
+              {isImporting && <ImportProgressPanel progress={importProgress} />}
+              <footer className="mt-1 flex items-center justify-end">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isImporting}
+                  onClick={() => closeDialog(false)}
+                >
+                  {t('table:import.menu.cancel')}
+                </Button>
+                <AlertDialog>
+                  {shouldAlert ? (
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" className="ms-1" disabled={isImporting}>
+                        {isImporting && <Spin className="me-1 size-4" />}
                         {t('table:import.title.import')}
                       </Button>
-                    )}
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {t('table:import.tips.importAlert')}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <div className="flex items-center">
-                        <Checkbox
-                          id="noTips"
-                          checked={shouldTips}
-                          onCheckedChange={(res: boolean) => {
-                            setShouldTips(res);
-                          }}
-                        />
-                        <label
-                          htmlFor="noTips"
-                          className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {t('table:import.tips.noTips')}
-                        </label>
-                      </div>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            importTable();
-                            if (shouldTips) {
-                              setShouldAlert(false);
-                            }
-                          }}
-                        >
-                          {t('table:import.title.confirm')}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </footer>
-              </DialogFooter>
-            )}
-          </DialogContent>
-        )}
-      </Dialog>
-    </>
+                    </AlertDialogTrigger>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="ms-1"
+                      onClick={() => importTable()}
+                      disabled={isImporting}
+                    >
+                      {isImporting && <Spin className="me-1 size-4" />}
+                      {t('table:import.title.import')}
+                    </Button>
+                  )}
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('table:import.tips.importAlert')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex items-center">
+                      <Checkbox
+                        id="noTips"
+                        checked={shouldTips}
+                        onCheckedChange={(res: boolean) => {
+                          setShouldTips(res);
+                        }}
+                      />
+                      <label
+                        htmlFor="noTips"
+                        className="ps-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {t('table:import.tips.noTips')}
+                      </label>
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          importTable();
+                          if (shouldTips) {
+                            setShouldAlert(false);
+                          }
+                        }}
+                      >
+                        {t('table:import.title.confirm')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </footer>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      )}
+    </Dialog>
   );
 };

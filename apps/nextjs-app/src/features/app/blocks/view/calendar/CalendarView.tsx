@@ -13,7 +13,9 @@ export const CalendarView = () => {
       <RecordProvider>
         <CalendarToolBar />
         <CalendarProvider>
-          <div className="w-full grow overflow-hidden">{isHydrated && <CalendarViewBase />}</div>
+          <div className="w-full grow overflow-hidden bg-background">
+            {isHydrated && <CalendarViewBase />}
+          </div>
         </CalendarProvider>
       </RecordProvider>
     </SearchProvider>

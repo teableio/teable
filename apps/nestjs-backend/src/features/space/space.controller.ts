@@ -12,26 +12,27 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { HttpErrorCode, Role } from '@teable/core';
-import type {
-  ICreateSpaceVo,
-  IUpdateSpaceVo,
-  IGetSpaceVo,
-  IDataDbConnectionSummaryVo,
-  IDataDbMigrationJobStatusVo,
-  IDataDbPreflightVo,
-  EmailInvitationVo,
-  ListSpaceInvitationLinkVo,
-  CreateSpaceInvitationLinkVo,
-  UpdateSpaceInvitationLinkVo,
-  ListSpaceCollaboratorVo,
-  IGetBaseAllVo,
-  ITestLLMVo,
-  ISpaceSearchVo,
-} from '@teable/openapi';
+import { HttpErrorCode } from '@teable/core';
 import {
+  type IBaseEntryMapVo,
+  type ICreateSpaceVo,
+  type IUpdateSpaceVo,
+  type IGetSpaceVo,
+  type IDataDbConnectionSummaryVo,
+  type IDataDbMigrationJobStatusVo,
+  type IDataDbPreflightVo,
+  type EmailInvitationVo,
+  type ListSpaceInvitationLinkVo,
+  type CreateSpaceInvitationLinkVo,
+  type UpdateSpaceInvitationLinkVo,
+  type ListSpaceCollaboratorVo,
+  type IGetBaseAllVo,
+  type ITestLLMVo,
+  type ISpaceSearchVo,
   createSpaceRoSchema,
   ICreateSpaceRo,
+  getBaseEntryMapRoSchema,
+  IGetBaseEntryMapRo,
   dataDbPreflightRoSchema,
   IDataDbPreflightRo,
   type ISpaceDataDbSummaryQuery,
@@ -51,6 +52,9 @@ import {
   DeleteSpaceCollaboratorRo,
   listSpaceCollaboratorRoSchema,
   ListSpaceCollaboratorRo,
+  listSpaceUniqueCollaboratorRoSchema,
+  ListSpaceUniqueCollaboratorRo,
+  type ListSpaceUniqueCollaboratorVo,
   addSpaceCollaboratorRoSchema,
   AddSpaceCollaboratorRo,
   createIntegrationRoSchema,
@@ -61,6 +65,8 @@ import {
   ITestLLMRo,
   spaceSearchRoSchema,
   ISpaceSearchRo,
+  getBaseListQuerySchema,
+  type IGetBaseListQuery,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
@@ -69,8 +75,10 @@ import { Events } from '../../event-emitter/events';
 import { avatarUploadInterceptorOptions } from '../../utils/avatar';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { BasePersonalOrderService } from '../base/base-personal-order.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
+import { LastVisitService } from '../user/last-visit/last-visit.service';
 import { DataDbBindingService } from './data-db-binding.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
 import {
@@ -96,7 +104,9 @@ export class SpaceController {
     protected readonly dataDbPreflightService: DataDbPreflightService,
     protected readonly dataDbBindingService: DataDbBindingService,
     protected readonly cls: ClsService,
-    protected readonly spaceDataDbMigrationService: SpaceDataDbMigrationService
+    protected readonly spaceDataDbMigrationService: SpaceDataDbMigrationService,
+    protected readonly lastVisitService: LastVisitService,
+    protected readonly basePersonalOrderService: BasePersonalOrderService
   ) {}
 
   @Post('data-db/preflight')
@@ -161,19 +171,11 @@ export class SpaceController {
   @Permissions('space|update')
   @Patch(':spaceId/data-db')
   async updateSpaceDataDb(
-    @Param('spaceId') spaceId: string,
+    @Param('spaceId') _spaceId: string,
     @Body(new ZodValidationPipe(dataDbPreflightRoSchema))
-    dataDbPreflightRo: IDataDbPreflightRo
+    _dataDbPreflightRo: IDataDbPreflightRo
   ): Promise<IDataDbConnectionSummaryVo> {
-    if (dataDbPreflightRo.targetMode === migrateSpaceTargetMode) {
-      rejectSpaceDataDbMigrationFromSpaceApi();
-    }
-    await this.dataDbBindingService.updateBindingForSpace(
-      spaceId,
-      this.cls.get('user.id') ?? '',
-      dataDbPreflightRo
-    );
-    return await this.dataDbPreflightService.getSummary(spaceId);
+    return rejectSpaceDataDbMigrationFromSpaceApi();
   }
 
   @Permissions('space|update')
@@ -273,8 +275,34 @@ export class SpaceController {
 
   @Permissions('base|read')
   @Get(':spaceId/base')
-  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseAllVo> {
-    return await this.spaceService.getBaseListBySpaceId(spaceId);
+  async getBaseList(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(getBaseListQuerySchema)) query: IGetBaseListQuery
+  ): Promise<IGetBaseAllVo> {
+    const bases = await this.spaceService.getBaseListBySpaceId(spaceId);
+    // The same arrangement `GET /base/access/all` applies, through the same service — a
+    // screen showing one space should not have to download every space to get its order.
+    return query.orderBy === 'personal'
+      ? await this.basePersonalOrderService.sortForUser(bases)
+      : bases;
+  }
+
+  @Permissions('base|read')
+  @Get(':spaceId/base-entry-map')
+  async getBaseEntryMap(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(getBaseEntryMapRoSchema.pick({ take: true })))
+    query: Pick<IGetBaseEntryMapRo, 'take'>
+  ): Promise<IBaseEntryMapVo> {
+    // Reuse the permission-checked base list of this space, then resolve the
+    // entry URL of the first `take` bases from the user's own visit history
+    const baseList = await this.spaceService.getBaseListBySpaceId(spaceId);
+    const capped = query.take ? baseList.slice(0, query.take) : baseList;
+    const userId = this.cls.get('user.id');
+    return this.lastVisitService.getBaseEntryMap(
+      userId,
+      capped.map((base) => base.id)
+    );
   }
 
   @Permissions('space|read')
@@ -335,6 +363,16 @@ export class SpaceController {
     };
   }
 
+  @Permissions('space|read')
+  @Get(':spaceId/collaborators/unique')
+  async listUniqueCollaborator(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(listSpaceUniqueCollaboratorRoSchema))
+    options: ListSpaceUniqueCollaboratorRo
+  ): Promise<ListSpaceUniqueCollaboratorVo> {
+    return this.collaboratorService.getUniqueListBySpace(spaceId, options);
+  }
+
   @Patch(':spaceId/collaborators')
   @Permissions('space|read')
   async updateCollaborator(
@@ -342,23 +380,7 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
     updateSpaceCollaborateRo: UpdateSpaceCollaborateRo
   ): Promise<void> {
-    if (
-      updateSpaceCollaborateRo.role !== Role.Owner &&
-      (await this.collaboratorService.isUniqueOwnerUser(
-        spaceId,
-        updateSpaceCollaborateRo.principalId
-      ))
-    ) {
-      throw new CustomHttpException(
-        'Cannot change the role of the only owner of the space',
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.space.cannotChangeOnlyOwnerRole',
-          },
-        }
-      );
-    }
+    // The service refuses demoting the only owner, under the space's collaborator lock.
     await this.collaboratorService.updateCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
@@ -373,25 +395,23 @@ export class SpaceController {
     @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
     deleteSpaceCollaboratorRo: DeleteSpaceCollaboratorRo
   ): Promise<void> {
-    if (
-      await this.collaboratorService.isUniqueOwnerUser(
-        spaceId,
-        deleteSpaceCollaboratorRo.principalId
-      )
-    ) {
-      throw new CustomHttpException(
-        'Cannot delete the only owner of the space',
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.space.cannotDeleteOnlyOwner',
-          },
-        }
-      );
-    }
+    // The service refuses removing the only owner, under the space's collaborator lock.
     await this.collaboratorService.deleteCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
+      ...deleteSpaceCollaboratorRo,
+    });
+  }
+
+  @Delete(':spaceId/collaborators/base')
+  @Permissions('space|read')
+  async deleteBaseCollaborators(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
+    deleteSpaceCollaboratorRo: DeleteSpaceCollaboratorRo
+  ): Promise<void> {
+    await this.collaboratorService.deleteBaseCollaboratorsBySpace({
+      spaceId,
       ...deleteSpaceCollaboratorRo,
     });
   }

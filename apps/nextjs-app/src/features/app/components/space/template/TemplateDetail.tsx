@@ -8,15 +8,16 @@ import {
 } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
-import { useIsMobile } from '@teable/sdk/hooks';
+import { useIsMobile, useContentDir } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Badge, Button, cn, useToast } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight, ChevronLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { useSpaceId } from './hooks/use-space-id';
+import { TemplateHostContext } from './host-context';
 import { RecommendTemplate } from './RecommendTemplate';
 import { TemplatePreview } from './TemplatePreview';
 import { TemplatePreviewSheet } from './TemplatePreviewSheet';
@@ -27,6 +28,7 @@ interface ITemplateDetailProps {
   onTemplateClick?: (templateId: string) => void;
 }
 export const TemplateDetail = (props: ITemplateDetailProps) => {
+  const contentDir = useContentDir();
   const { templateId, onBackToTemplateList, onTemplateClick } = props;
   const { t } = useTranslation(['common']);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -38,6 +40,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   });
 
   const templateDetail = _templateDetail?.id === templateId ? _templateDetail : undefined;
+  const host = useContext(TemplateHostContext);
+  const useOptions = templateDetail ? host.useOptions?.(templateDetail) : undefined;
+  const detailExtra = templateDetail ? host.renderDetailExtra?.(templateDetail) : null;
 
   const { name, description, categoryId, markdownDescription, cover } = templateDetail || {};
 
@@ -60,12 +65,19 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
       createBaseFromTemplate({
         spaceId: spaceId as string,
         templateId,
-        withRecords: true,
+        withRecords: useOptions?.withRecords ?? true,
         baseId: routerBaseId,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     onSuccess: (res) => {
       const { id: baseId, defaultUrl } = res.data;
+
+      // The host may own the landing (EE: a solution goes to its setup flow first)
+      const hostUrl = useOptions?.redirect?.(res.data);
+      if (hostUrl) {
+        router.push(hostUrl);
+        return;
+      }
 
       // If defaultUrl is provided, navigate to it directly
       if (defaultUrl) {
@@ -119,7 +131,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   if (isMobile) {
     return (
       <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
-        <div className="flex items-center gap-2 px-6 py-3 pr-9">
+        <div className="flex items-center gap-2 px-6 py-3 pe-9">
           {onBackToTemplateList && (
             <Button
               className="h-auto p-0 font-normal"
@@ -136,6 +148,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             <div className="flex flex-wrap gap-2">
               {categoryNames.map((categoryName) => (
                 <Badge
+                  dir={contentDir}
                   key={categoryName}
                   variant="secondary"
                   className="text-xs font-normal text-muted-foreground"
@@ -176,6 +189,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               />
             </div>
           )}
+          {detailExtra}
           <div className="flex flex-col gap-1 pb-2">
             {markdownDescription && (
               <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
@@ -192,7 +206,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   return (
     <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
-      <div className="flex gap-3 border-b px-6 py-4 pr-12">
+      <div className="flex gap-3 border-b px-6 py-4 pe-12">
         <div className="flex flex-1 flex-col gap-1 overflow-hidden">
           <div className="flex items-center gap-3">
             {onBackToTemplateList && (
@@ -220,9 +234,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           </div>
           <p
             className={cn(
-              'overflow-hidden text-wrap break-words pl-9 text-sm font-normal text-muted-foreground',
+              'overflow-hidden text-wrap break-words ps-9 text-sm font-normal text-muted-foreground',
               {
-                'pl-0': !onBackToTemplateList,
+                'ps-0': !onBackToTemplateList,
               }
             )}
           >
@@ -245,6 +259,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         className="flex flex-1 flex-col gap-8 overflow-y-auto bg-muted px-10 py-6"
       >
         <TemplatePreview detail={templateDetail} />
+        {detailExtra}
         {markdownDescription && (
           <div className="flex flex-col gap-1 pb-2">
             <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>

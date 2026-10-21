@@ -22,13 +22,19 @@ const reasonOption = Options.text('reason').pipe(
 );
 
 const resumeAtOption = Options.text('resume-at').pipe(
-  Options.withDescription('Optional ISO-8601 time to auto-expire the pause'),
-  Options.optional
+  Options.withDescription('Required ISO-8601 time to auto-expire the pause (maximum 2 hours)')
 );
 
 const actorOption = Options.text('actor').pipe(
   Options.withDefault('devtools-computed-pause'),
   Options.withDescription('Actor tag recorded on the pause scope row')
+);
+
+const writePolicyOption = Options.text('write-policy').pipe(
+  Options.withDefault('allow_bounded'),
+  Options.withDescription(
+    'allow_bounded keeps writes available until the backlog watermark; block fails computed-producing writes with COMPUTE_PAUSED_WRITE_BLOCKED'
+  )
 );
 
 type ScopeSelection = {
@@ -76,20 +82,24 @@ const handler = (args: {
   readonly baseId: Option.Option<string>;
   readonly tableId: Option.Option<string>;
   readonly reason: Option.Option<string>;
-  readonly resumeAt: Option.Option<string>;
+  readonly resumeAt: string;
   readonly actor: string;
+  readonly writePolicy: string;
 }) =>
   Effect.gen(function* () {
     const computedTaskControl = yield* ComputedTaskControl;
     const output = yield* Output;
+    const writePolicy =
+      args.writePolicy === 'block' ? ('block' as const) : ('allow_bounded' as const);
     const rawInput = {
       connection: optionToUndefined(args.connection),
       spaceId: optionToUndefined(args.spaceId),
       baseId: optionToUndefined(args.baseId),
       tableId: optionToUndefined(args.tableId),
       reason: optionToUndefined(args.reason),
-      resumeAt: optionToUndefined(args.resumeAt),
+      resumeAt: args.resumeAt,
       actor: args.actor,
+      writePolicy,
     };
 
     const scope = yield* resolveScope(args);
@@ -99,6 +109,7 @@ const handler = (args: {
       reason: rawInput.reason,
       resumeAt: rawInput.resumeAt,
       actor: rawInput.actor,
+      writePolicy,
     };
 
     const result = yield* computedTaskControl.pauseScope(input);
@@ -113,8 +124,9 @@ const handler = (args: {
           baseId: optionToUndefined(args.baseId),
           tableId: optionToUndefined(args.tableId),
           reason: optionToUndefined(args.reason),
-          resumeAt: optionToUndefined(args.resumeAt),
+          resumeAt: args.resumeAt,
           actor: args.actor,
+          writePolicy: args.writePolicy === 'block' ? 'block' : 'allow_bounded',
         };
         yield* output.error('computed.pause', rawInput, error);
         return yield* Effect.fail(error);
@@ -132,10 +144,11 @@ export const computedPause = Command.make(
     reason: reasonOption,
     resumeAt: resumeAtOption,
     actor: actorOption,
+    writePolicy: writePolicyOption,
   },
   handler
 ).pipe(
   Command.withDescription(
-    'Pause computed task claims for a space, base, or table scope until resumed or until --resume-at'
+    'Pause computed task claims for a bounded period; --resume-at is required and limited to 2 hours'
   )
 );

@@ -1,0 +1,92 @@
+{
+  "notBaseId": "חסר baseId",
+  "notPositionId": "חסר positionId",
+  "notPluginInstallId": "חסר pluginInstallId",
+  "initBridge": "אתחול הגשר...",
+  "actions": {
+    "cancel": "ביטול",
+    "save": "שמירה"
+  },
+  "queryTitle": "הגדרות שאילתת הנתונים",
+  "notSupport": "לא נתמך",
+  "chart": {
+    "bar": "עמודות",
+    "line": "קו",
+    "pie": "עוגה",
+    "area": "שטח",
+    "table": "טבלה"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "בחירת סוג תרשים",
+      "label": "סוג תרשים"
+    },
+    "pie": {
+      "dimension": "ממד",
+      "measure": "מדד",
+      "showTotal": "הצגת סה״כ"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "ציר X"
+      },
+      "yAxis": {
+        "label": "ציר Y",
+        "position": "מיקום ציר Y"
+      },
+      "xDisplay": {
+        "label": "תצוגת X"
+      },
+      "yDisplay": {
+        "label": "תצוגת Y"
+      },
+      "addXAxis": "הוספת פילוח סדרות",
+      "addYAxis": "הוספת סדרה נוספת",
+      "stack": "ערימה",
+      "position": {
+        "auto": "אוטומטי",
+        "left": "שמאל",
+        "right": "ימין"
+      },
+      "goalLine": {
+        "label": "קו יעד"
+      },
+      "range": {
+        "label": "טווח",
+        "min": "מינימום",
+        "max": "מקסימום"
+      },
+      "lineStyle": {
+        "label": "סגנון קו",
+        "normal": "רגיל",
+        "linear": "לינארי",
+        "step": "מדרגות"
+      },
+      "displayType": "סוג תצוגה"
+    },
+    "typeError": "טופס: סוג תרשים שאינו נתמך",
+    "updateQuery": "עדכון",
+    "queryError": "שגיאה בשאילתה",
+    "querySuccess": "השאילתה הוגדרה",
+    "decimal": "ספרות עשרוניות",
+    "prefix": "קידומת",
+    "suffix": "סיומת",
+    "showLabel": "הצגת תוויות ערכים בתרשים",
+    "showLegend": "הצגת מקרא",
+    "value": "ערך",
+    "label": "תווית",
+    "padding": {
+      "label": "ריווח פנימי",
+      "top": "עליון",
+      "right": "ימני",
+      "bottom": "תחתון",
+      "left": "שמאלי"
+    },
+    "tableConfig": "הגדרות הטבלה",
+    "width": "רוחב"
+  },
+  "reloadQuery": "טעינת השאילתה מחדש",
+  "noStorage": "יש להגדיר תחילה את תוסף התרשים",
+  "noPermission": "אין הרשאת גישה",
+  "goConfig": "מעבר להגדרות"
+}

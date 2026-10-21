@@ -12,6 +12,7 @@ import {
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
+  updateRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import { NoopLogger } from '@teable/v2-core';
@@ -26,6 +27,7 @@ import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
+import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
 type ShareDbRuntime = {
   backend: ShareDb;
@@ -202,7 +204,7 @@ const drainOutbox = async (testContainer: IV2NodeTestContainer, rounds = 6): Pro
   }
 };
 
-describe('v2 computed record events and realtime projection (e2e)', () => {
+describe('[C14][S19] v2 computed record events and realtime projection (e2e)', () => {
   let server: Server | undefined;
   let shareDbRuntime: ShareDbRuntime | undefined;
   let shareDbUrl: string;
@@ -212,9 +214,13 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
   let baseId: string;
 
   const registerRealtime = (container: DependencyContainer, runtime: ShareDbRuntime): void => {
-    registerV2ShareDbRealtime(container, {
-      publisher: new ShareDbBackendPublisher(runtime.backend, logger),
-    });
+    registerV2ShareDbRealtime(
+      container,
+      createShareDbRealtimeConfig(
+        runtime.backend,
+        new ShareDbBackendPublisher(runtime.backend, logger)
+      )
+    );
   };
 
   const createTable = async (payload: ICreateTableCommandInput) => {
@@ -433,6 +439,14 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
           on conflict (id) do nothing
         `.execute(testContainer.db);
 
+        await sql`
+          insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+          values
+            ('col' || ${aliceCell.id}, 'base', ${baseId}, ${aliceCell.id}, 'user'),
+            ('col' || ${bobCell.id}, 'base', ${baseId}, ${bobCell.id}, 'user')
+          on conflict (id) do nothing
+        `.execute(testContainer.db);
+
         const foreignPrimaryFieldId = createFieldId();
         const foreignUserFieldId = createFieldId();
         const foreignTable = await createTable({
@@ -492,6 +506,8 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
           [linkFieldId]: { id: foreignRecord.id },
         });
         await drainOutbox(testContainer);
+        const sourceSnapshot = await getRecordSnapshot(foreignTable.id, foreignRecord.id);
+        expect(sourceSnapshot.fields[foreignUserFieldId]).toEqual([aliceCell]);
 
         return {
           hostTableId: hostTable.id,
@@ -503,6 +519,8 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
             await updateRecord(foreignTable.id, foreignRecord.id, {
               [foreignUserFieldId]: [aliceCell, bobCell],
             });
+            const sourceSnapshot = await getRecordSnapshot(foreignTable.id, foreignRecord.id);
+            expect(sourceSnapshot.fields[foreignUserFieldId]).toEqual([aliceCell, bobCell]);
           },
         };
       },
@@ -756,6 +774,9 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
     server = await new Promise<Server>((resolve) => {
       const s = app.listen(0, '127.0.0.1', () => resolve(s));
     });
+    // Outbox drains run CPU-heavy work between requests; keep the connection open until
+    // close() so fetch never reuses a socket the idle timeout is closing (see globalTestContext.ts).
+    server.keepAliveTimeout = 0;
 
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
@@ -770,6 +791,128 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
     }
     await stopShareDbRuntime(shareDbRuntime);
   });
+
+  it.each(['manyOne', 'oneOne'] as const)(
+    'publishes SQL-filled %s link titles for filter updates',
+    async (relationship) => {
+      const foreignTitleId = createFieldId();
+      const foreignBodyId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: `Filter Link Target ${relationship}`,
+        fields: [
+          { type: 'singleLineText', id: foreignTitleId, name: 'Title', isPrimary: true },
+          { type: 'longText', id: foreignBodyId, name: 'Body' },
+        ],
+      });
+      const foreignRecord = await createRecord(foreignTable.id, {
+        [foreignTitleId]: 'Target title',
+        [foreignBodyId]: 'Target body',
+      });
+      const nameFieldId = createFieldId();
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: `Filter Link Source ${relationship}`,
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Related target',
+            options: {
+              relationship,
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignTitleId,
+              isOneWay: false,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'Target body',
+            options: {
+              linkFieldId,
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignBodyId,
+            },
+          },
+        ],
+      });
+      const selected = await createRecord(hostTable.id, { [nameFieldId]: 'Selected' });
+      const untouched = await createRecord(hostTable.id, { [nameFieldId]: 'Untouched' });
+      await drainOutbox(testContainer);
+
+      const socket = new WebSocket(shareDbUrl);
+      const connection = new Connection(socket as Socket);
+      const doc: Doc<RecordSnapshot> = connection.get(`rec_${hostTable.id}`, selected.id);
+      const linkUpdates: unknown[] = [];
+      try {
+        await new Promise<void>((resolve, reject) => {
+          doc.subscribe((error) => (error ? reject(error) : resolve()));
+        });
+        doc.on('op', (ops: ReadonlyArray<{ p: ReadonlyArray<string | number>; oi?: unknown }>) => {
+          for (const op of ops) {
+            if (op.p.length === 2 && op.p[0] === 'fields' && op.p[1] === linkFieldId) {
+              linkUpdates.push(op.oi);
+            }
+          }
+        });
+        const updateByFilter = async (value: unknown) => {
+          const response = await fetch(`${baseUrl}/tables/updateRecords`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              tableId: hostTable.id,
+              fields: { [linkFieldId]: value },
+              filter: { fieldId: nameFieldId, operator: 'is', value: 'Selected' },
+              typecast: true,
+            }),
+          });
+          expect(response.status).toBe(200);
+          const result = updateRecordsOkResponseSchema.parse(await response.json());
+          if (!result.ok) throw new Error('Filter update failed');
+          return result.data;
+        };
+
+        const linked = await updateByFilter({ id: foreignRecord.id });
+        expect(linked.updatedCount).toBe(1);
+        await drainOutbox(testContainer);
+        const expectedLink = { id: foreignRecord.id, title: 'Target title' };
+        const records = await listRecords(hostTable.id);
+        expect(records.find((record) => record.id === selected.id)?.fields).toMatchObject({
+          [linkFieldId]: expectedLink,
+          [lookupFieldId]: ['Target body'],
+        });
+        expect(
+          records.find((record) => record.id === untouched.id)?.fields[linkFieldId] ?? null
+        ).toBeNull();
+        await expect.poll(() => linkUpdates[0]).toEqual(expectedLink);
+        await expect
+          .poll(() => doc.data.fields)
+          .toMatchObject({
+            [linkFieldId]: expectedLink,
+            [lookupFieldId]: ['Target body'],
+          });
+
+        // A titled stored value and the same id-only input are the same mutation.
+        expect((await updateByFilter({ id: foreignRecord.id })).updatedCount).toBe(0);
+        expect((await updateByFilter(null)).updatedCount).toBe(1);
+        await drainOutbox(testContainer);
+        await expect.poll(() => linkUpdates.at(-1)).toBeNull();
+        await expect.poll(() => doc.data.fields[linkFieldId]).toBeNull();
+        const clearedRecords = await listRecords(hostTable.id);
+        expect(
+          clearedRecords.find((record) => record.id === selected.id)?.fields[linkFieldId] ?? null
+        ).toBeNull();
+      } finally {
+        doc.destroy();
+        connection.close();
+        socket.close();
+      }
+    }
+  );
 
   for (const testCase of cases) {
     it(`emits computed record updates and projects ${testCase.label} changes`, async () => {

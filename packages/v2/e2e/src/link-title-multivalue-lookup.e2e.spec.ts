@@ -2,7 +2,7 @@
 import { describe, beforeAll, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 link field title with multi-value lookup (e2e)', () => {
+describe('[F11] v2 link field title with multi-value lookup (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 
@@ -14,77 +14,6 @@ describe('v2 link field title with multi-value lookup (e2e)', () => {
 
   beforeAll(async () => {
     ctx = await getSharedTestContext();
-  });
-
-  it('should include title when link lookupField is multi-value formula', async () => {
-    const textFieldId = createFieldId();
-    const multiSelectFieldId = createFieldId();
-
-    // Create Table1 first (simple table with text field)
-    const table1 = await ctx.createTable({
-      baseId: ctx.baseId,
-      name: 'Table1',
-      fields: [
-        {
-          type: 'singleLineText',
-          id: textFieldId,
-          name: 'text',
-        },
-      ],
-    });
-
-    // Create records in Table1
-    await ctx.createRecord(table1.id, { [textFieldId]: 'table1_1' });
-    await ctx.createRecord(table1.id, { [textFieldId]: 'table1_2' });
-    await ctx.createRecord(table1.id, { [textFieldId]: 'table1_3' });
-
-    // Create Table2 with multi-select field
-    const table2MultiSelectFieldId = createFieldId();
-    const table2 = await ctx.createTable({
-      baseId: ctx.baseId,
-      name: 'Table2',
-      fields: [
-        {
-          type: 'singleLineText',
-          id: createFieldId(),
-          name: 'text',
-        },
-        {
-          type: 'multipleSelect',
-          id: table2MultiSelectFieldId,
-          name: 'multiSelect',
-          options: {
-            choices: [
-              { name: 'A', color: 'blue' },
-              { name: 'B', color: 'red' },
-              { name: 'C', color: 'green' },
-            ],
-          },
-        },
-      ],
-    });
-
-    // Create records in Table2 with multi-select values
-    await ctx.createRecord(table2.id, {
-      [table2MultiSelectFieldId]: ['A'],
-    });
-    await ctx.createRecord(table2.id, {
-      [table2MultiSelectFieldId]: ['B', 'C'],
-    });
-
-    await ctx.drainOutbox();
-
-    // TODO: Convert Table2's primary field (text field) to a formula field
-    // that references the multi-select field
-    // This is blocked because we don't have a convertField API in v2 yet
-    // For now, this test documents the issue but cannot fully reproduce it
-
-    // The expected behavior after conversion would be:
-    // - Table2's primary field shows "A" for rec1, "B, C" for rec2
-    // - When Table1 links to Table2, the title should be "A" or "B, C"
-
-    // For now, we'll skip the actual test since we can't convert fields
-    // But we document what SHOULD happen
   });
 
   it('should include title when link lookupField is single-value field (baseline)', async () => {
@@ -167,5 +96,90 @@ describe('v2 link field title with multi-value lookup (e2e)', () => {
         title: 'table2_1', // CRITICAL: symmetric link should also have title
       },
     ]);
+  });
+
+  it('should include a multi-value formula title and refresh it when source values change', async () => {
+    const multiSelectFieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+    const hostTitleFieldId = createFieldId();
+    const linkFieldId = createFieldId();
+
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'MultiValueTitleForeign',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'multipleSelect',
+          id: multiSelectFieldId,
+          name: 'Tags',
+          options: { choices: [{ name: 'Granite' }, { name: 'Basalt' }, { name: 'Quartz' }] },
+        },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Tag Label',
+          options: { expression: `{${multiSelectFieldId}}` },
+        },
+      ],
+      records: [{ fields: { Name: 'Rock', [multiSelectFieldId]: ['Granite', 'Basalt'] } }],
+    });
+
+    const foreignRecord = (await ctx.listRecords(foreign.id))[0];
+    if (!foreignRecord) throw new Error('Missing foreign record');
+
+    // The link display field must stay multi-value, otherwise this case would
+    // silently stop covering the multi-value formula title path.
+    const displayField = (await ctx.getTableById(foreign.id)).fields.find(
+      (field) => field.id === formulaFieldId
+    );
+    expect(displayField?.isMultipleCellValue).toBe(true);
+
+    const host = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'MultiValueTitleHost',
+      fields: [
+        { type: 'singleLineText', id: hostTitleFieldId, name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Rocks',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreign.id,
+            lookupFieldId: formulaFieldId,
+          },
+        },
+      ],
+    });
+
+    const hostRecord = await ctx.createRecord(host.id, {
+      [hostTitleFieldId]: 'Host',
+      [linkFieldId]: { id: foreignRecord.id },
+    });
+    await ctx.drainOutbox();
+
+    const readLinkTitle = async () => {
+      const records = await ctx.listRecords(host.id);
+      const record = records.find((item) => item.id === hostRecord.id);
+      const value = record?.fields[linkFieldId] as { id: string; title?: string } | undefined;
+      return value;
+    };
+
+    const linkValue = await readLinkTitle();
+    expect(linkValue).toMatchObject({ id: foreignRecord.id });
+    const initialTitle = linkValue?.title ?? '';
+    expect(initialTitle).toContain('Granite');
+    expect(initialTitle).toContain('Basalt');
+
+    // Changing the source values must refresh the stored link title.
+    await ctx.updateRecord(foreign.id, foreignRecord.id, {
+      [multiSelectFieldId]: ['Basalt', 'Quartz'],
+    });
+    await ctx.drainOutbox();
+
+    const refreshedTitle = (await readLinkTitle())?.title ?? '';
+    expect(refreshedTitle).toContain('Quartz');
+    expect(refreshedTitle).not.toContain('Granite');
   });
 });

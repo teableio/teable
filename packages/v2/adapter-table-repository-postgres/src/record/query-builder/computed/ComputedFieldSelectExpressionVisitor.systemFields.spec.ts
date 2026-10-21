@@ -3,12 +3,15 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
+  GeneratedColumnMeta,
   LinkFieldConfig,
   LookupField,
   LookupOptions,
   Table,
   TableId,
   TableName,
+  TableUpdateFieldTypeSpec,
+  createLastModifiedTimeField,
 } from '@teable/v2-core';
 import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import {
@@ -123,6 +126,31 @@ describe('ComputedTableRecordQueryBuilder with system scalar fields', () => {
     expect(sql).toContain('"t"."__auto_number" as "col_auto_number"');
     expect(sql).toContain('"t"."__created_time" as "col_created_time"');
     expect(sql).toContain('"t"."__last_modified_time" as "col_last_modified_time"');
+  });
+
+  it('reads and sorts stored track-all time from its physical column', () => {
+    const db = createTestDb();
+    const table = createTableWithSystemFields();
+    const oldField = table.getFields(
+      (field) => field.id().toString() === LAST_MODIFIED_TIME_FIELD_ID
+    )[0];
+    const stored = createLastModifiedTimeField({
+      id: oldField.id(),
+      name: oldField.name(),
+      trackedFieldIds: [],
+      meta: GeneratedColumnMeta.rehydrate({ persistedAsGeneratedColumn: false })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const updated = TableUpdateFieldTypeSpec.create(oldField, stored).mutate(table)._unsafeUnwrap();
+    const sql = compileQuery(
+      db,
+      new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+        .from(updated)
+        .select([stored.id()])
+        .orderBy(stored.id(), 'desc')
+    );
+    expect(sql).toContain('"t"."col_last_modified_time" as "col_last_modified_time"');
+    expect(sql).toContain('order by "t"."col_last_modified_time" desc');
+    expect(sql).not.toContain('__last_modified_time');
   });
 
   it('reads lookup autoNumber from the foreign __auto_number column', () => {

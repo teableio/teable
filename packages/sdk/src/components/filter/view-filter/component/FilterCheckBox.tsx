@@ -12,7 +12,7 @@ const FilterCheckbox = (props: IFilterCheckboxProps) => {
   return (
     <div
       className={cn(
-        'flex h-8 items-center justify-center space-x-2 rounded border shadow-sm border-input',
+        'flex h-8 items-center justify-center space-x-2 rounded border shadow-sm border-input rtl:space-x-reverse',
         className
       )}
     >

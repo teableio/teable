@@ -9,11 +9,13 @@ import { v2PostgresStateAdapterConfigSchema } from '../config';
 import { ensureV1MetaSchema } from '../db/schema';
 import { PostgresBaseRepository } from '../repositories/PostgresBaseRepository';
 import { PostgresSchemaOperationRepository } from '../repositories/PostgresSchemaOperationRepository';
+import { PostgresTableCommentQueryRepository } from '../repositories/PostgresTableCommentQueryRepository';
 import { PostgresTableRepository } from '../repositories/PostgresTableRepository';
 import {
   PostgresTableRowLimitPlugin,
   StaticTableRowLimitPolicy,
 } from '../repositories/PostgresTableRowLimitPlugin';
+import { PostgresViewPluginRepository } from '../repositories/PostgresViewPluginRepository';
 import { v2PostgresStateTokens } from './tokens';
 
 export const registerV2PostgresStateAdapter = async (
@@ -43,6 +45,12 @@ export const registerV2PostgresStateAdapter = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.tableRepository, PostgresTableRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.viewPluginRepository, PostgresViewPluginRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableCommentQueryRepository, PostgresTableCommentQueryRepository, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.schemaOperationRepository, PostgresSchemaOperationRepository, {

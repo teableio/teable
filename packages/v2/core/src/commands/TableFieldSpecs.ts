@@ -76,13 +76,16 @@ import { TimeZone } from '../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
-import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  toLinkForeignTableReference,
+  type LinkForeignTableReference,
+} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getDomainContext } from '../ports/ExecutionContext';
-import { trackedFieldIdsSchema } from '../schemas/field';
+import { getFormulaSourceBudget, getDomainContext } from '../ports/ExecutionContext';
+import { trackedFieldIdsSchema, validateFieldAiConfig } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
   checkFieldNotNullValidationEnabled,
@@ -97,7 +100,7 @@ const getUniqName = (name: string, existNames: ReadonlyArray<string>): string =>
   let num = 2;
 
   if (Number.isNaN(Number(name))) {
-    const match = name.match(/^(.*)(\b\d+)$/);
+    const match = /^(.*)(\b\d+)$/.exec(name);
     if (match) {
       baseName = match[1]?.trim() ?? name;
       num = Number.parseInt(match[2] ?? `${num}`, 10);
@@ -452,7 +455,7 @@ class CreateTableFieldWithDescriptionSpec implements ICreateTableFieldSpec {
 class CreateTableFieldWithAiConfigSpec implements ICreateTableFieldSpec {
   constructor(
     private readonly spec: ICreateTableFieldSpec,
-    private readonly aiConfig: unknown | null | undefined,
+    private readonly aiConfig: unknown,
     private readonly fieldName: string
   ) {}
 
@@ -562,7 +565,7 @@ const withFieldDescription = (
 
 const withFieldAiConfig = (
   spec: ICreateTableFieldSpec,
-  aiConfig: unknown | null | undefined,
+  aiConfig: unknown,
   fieldName: string
 ): ICreateTableFieldSpec => {
   return new CreateTableFieldWithAiConfigSpec(spec, aiConfig, fieldName);
@@ -596,9 +599,11 @@ export const collectForeignTableReferences = (
   specs: ReadonlyArray<ICreateTableFieldSpec>
 ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> => {
   return specs
-    .reduce<
-      Result<ReadonlyArray<LinkForeignTableReference>, DomainError>
-    >((acc, spec) => acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])), ok([]))
+    .reduce<Result<ReadonlyArray<LinkForeignTableReference>, DomainError>>(
+      (acc, spec) =>
+        acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])),
+      ok([])
+    )
     .map((refs) => uniqueForeignTableReferences(refs));
 };
 
@@ -668,7 +673,7 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateSingleLineTextFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -740,7 +745,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateLongTextFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -817,7 +822,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateNumberFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -894,7 +899,7 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateRatingFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -973,7 +978,7 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateFormulaFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1061,7 +1066,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateRollupFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1198,7 +1203,7 @@ class CreateLinkFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  private withPrimary(isPrimary: boolean): CreateLinkFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1214,6 +1219,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     private readonly filter: unknown,
     private readonly sort: unknown,
     private readonly limit: number | undefined,
+    private readonly isUnique: boolean | undefined,
     private readonly innerOptionsPatch: Readonly<Record<string, unknown>> | undefined,
     private readonly legacyMultiplicityDerivation: boolean,
     private readonly isMultipleCellValue: boolean | undefined,
@@ -1232,6 +1238,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       filter?: unknown;
       sort?: unknown;
       limit?: number;
+      isUnique?: boolean;
       innerOptionsPatch?: Readonly<Record<string, unknown>>;
       legacyMultiplicityDerivation?: boolean;
       isMultipleCellValue?: boolean;
@@ -1248,6 +1255,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       options.filter,
       options.sort,
       options.limit,
+      options.isUnique,
       options.innerOptionsPatch,
       options.legacyMultiplicityDerivation === true,
       options.isMultipleCellValue,
@@ -1275,6 +1283,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
         filter: this.filter,
         sort: this.sort,
         limit: this.limit,
+        isUnique: this.isUnique,
       }).andThen((lookupOptions) =>
         createLookupFieldPending({
           id,
@@ -1332,7 +1341,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     return this.isPrimary;
   }
 
-  private withPrimary(isPrimary: boolean): CreateLookupFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1411,16 +1420,12 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
   }
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    return ok([
-      {
-        foreignTableId: this.config.foreignTableId(),
-      },
-    ]);
+    return ok([toLinkForeignTableReference(this.config.foreignTableId(), this.config.baseId())]);
   }
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateConditionalRollupFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1476,15 +1481,16 @@ class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
-      {
-        foreignTableId: this.conditionalLookupOptions.foreignTableId(),
-      },
+      toLinkForeignTableReference(
+        this.conditionalLookupOptions.foreignTableId(),
+        this.conditionalLookupOptions.baseId()
+      ),
     ]);
   }
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateConditionalLookupFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1569,7 +1575,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateSingleSelectFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1654,7 +1660,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateMultipleSelectFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1721,7 +1727,7 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateCheckboxFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1776,7 +1782,7 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateAttachmentFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1848,7 +1854,7 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateDateFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1897,7 +1903,7 @@ class CreateCreatedTimeFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateCreatedTimeFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1956,7 +1962,7 @@ class CreateLastModifiedTimeFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateLastModifiedTimeFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2033,7 +2039,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateUserFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2072,7 +2078,7 @@ class CreateCreatedByFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateCreatedByFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2121,7 +2127,7 @@ class CreateLastModifiedByFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateLastModifiedByFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2160,7 +2166,7 @@ class CreateAutoNumberFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateAutoNumberFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2252,7 +2258,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
 
   private isPrimary = false;
 
-  private withPrimary(isPrimary: boolean): CreateButtonFieldSpec {
+  private withPrimary(isPrimary: boolean): this {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2455,10 +2461,29 @@ export const parseTableFieldSpec = (
     isPrimary: boolean;
     executionContext?: IExecutionContext;
     bypassSelectFieldOptionLimit?: boolean;
+    aiConfigMode?: 'strict' | 'trustedRehydrate';
     hostTable?: Table;
     foreignTables?: ReadonlyArray<Table>;
   }
 ): Result<ICreateTableFieldSpec, DomainError> => {
+  // v1 parity (T6520): aiConfig is validated against the field type — e.g. an
+  // attachment field carrying a text-style aiConfig is rejected instead of
+  // being stored as an opaque value.
+  if (options.aiConfigMode !== 'trustedRehydrate') {
+    const aiConfigValidation = validateFieldAiConfig(field.type, field.aiConfig);
+    if (!aiConfigValidation.valid) {
+      return err(domainError.validation({ message: aiConfigValidation.message }));
+    }
+  }
+
+  const replayMode = options.executionContext?.undoRedo?.mode;
+  if (field.type === 'button' && replayMode !== 'undo' && replayMode !== 'redo') {
+    const maxCount = field.options?.maxCount;
+    if (maxCount != null && (!Number.isSafeInteger(maxCount) || maxCount <= 0)) {
+      return err(domainError.validation({ message: 'Button maxCount must be a positive integer' }));
+    }
+  }
+
   return optional(field.id, FieldId.create).andThen((id) =>
     FieldName.create(field.name).andThen((name) =>
       resolveFieldValidation(field).andThen((validation) =>
@@ -2524,7 +2549,10 @@ export const parseTableFieldSpec = (
             );
           })
           .with({ type: 'formula' }, (field) =>
-            FormulaExpression.create(field.options.expression).andThen((expression) =>
+            FormulaExpression.create(
+              field.options.expression,
+              getFormulaSourceBudget(options.executionContext)
+            ).andThen((expression) =>
               parseFieldResultType({
                 cellValueType: (field as { cellValueType?: string }).cellValueType,
                 isMultipleCellValue: (field as { isMultipleCellValue?: boolean })
@@ -2600,6 +2628,7 @@ export const parseTableFieldSpec = (
                 filter: field.options.filter,
                 sort: field.options.sort,
                 limit: field.options.limit,
+                isUnique: field.options.isUnique,
                 innerOptionsPatch:
                   field.innerOptions &&
                   typeof field.innerOptions === 'object' &&

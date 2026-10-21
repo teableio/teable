@@ -7,11 +7,11 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useMeasure } from 'react-use';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
-
-const TOP_BANNER_HEIGHT = '28px';
+import { TopBannerId, useTopBannerSlot } from '@/features/app/hooks/useTopBannerSlot';
 
 export const LicenseExpiryBanner = () => {
   const { t } = useTranslation('common');
@@ -50,44 +50,45 @@ export const LicenseExpiryBanner = () => {
     },
   });
 
-  useEffect(() => {
-    if (!showBanner) return;
-    document.documentElement.style.setProperty('--teable-top-banner-height', TOP_BANNER_HEIGHT);
-    document.body.dataset.teableTopBanner = 'visible';
-    return () => {
-      document.documentElement.style.removeProperty('--teable-top-banner-height');
-      delete document.body.dataset.teableTopBanner;
-    };
-  }, [showBanner]);
+  const [bannerRef, { height }] = useMeasure<HTMLDivElement>();
+
+  const { offset } = useTopBannerSlot({
+    id: TopBannerId.LicenseExpiry,
+    height,
+    visible: showBanner,
+  });
 
   if (!showBanner || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 bg-amber-50 px-4 py-1.5 text-xs text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-      <AlertTriangle className="size-3.5 shrink-0" />
-      <span>
-        {showAutoFetchFailed
-          ? t('billing.licenseAutoFetchFailed', { days: graceDaysRemaining })
-          : t('billing.licenseExpiredGracePeriodDays', { days: graceDaysRemaining })}
-      </span>
-      {showAutoFetchFailed ? (
-        <Button
-          size="xs"
-          variant="outline"
-          className="h-5 text-xs"
-          disabled={isRetryingAutoFetch}
-          onClick={() => retryAutoFetch()}
-        >
-          {isRetryingAutoFetch && <Loader2 className="mr-1 size-3 animate-spin" />}
-          {t('actions.retry')}
-        </Button>
-      ) : (
-        <Link href="/admin/license">
-          <Button size="xs" variant="outline" className="h-5 text-xs">
-            {t('actions.update')}
+    // useMeasure reports the content box, so the padded row sits inside this wrapper.
+    <div ref={bannerRef} style={{ top: offset }} className="fixed inset-x-0 z-50">
+      <div className="flex items-center justify-center gap-2 bg-amber-50 px-4 py-1.5 text-xs text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+        <AlertTriangle className="size-3.5 shrink-0" />
+        <span>
+          {showAutoFetchFailed
+            ? t('billing.licenseAutoFetchFailed', { days: graceDaysRemaining })
+            : t('billing.licenseExpiredGracePeriodDays', { days: graceDaysRemaining })}
+        </span>
+        {showAutoFetchFailed ? (
+          <Button
+            size="xs"
+            variant="outline"
+            className="h-5 text-xs"
+            disabled={isRetryingAutoFetch}
+            onClick={() => retryAutoFetch()}
+          >
+            {isRetryingAutoFetch && <Loader2 className="me-1 size-3 animate-spin" />}
+            {t('actions.retry')}
           </Button>
-        </Link>
-      )}
+        ) : (
+          <Link href="/admin/license">
+            <Button size="xs" variant="outline" className="h-5 text-xs">
+              {t('actions.update')}
+            </Button>
+          </Link>
+        )}
+      </div>
     </div>,
     document.body
   );

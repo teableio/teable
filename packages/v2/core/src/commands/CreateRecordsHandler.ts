@@ -25,14 +25,13 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { BatchRecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
@@ -63,9 +62,10 @@ export class CreateRecordsResult {
 
 @CommandHandler(CreateRecordsCommand)
 @injectable()
-export class CreateRecordsHandler
-  implements ICommandHandler<CreateRecordsCommand, CreateRecordsResult>
-{
+export class CreateRecordsHandler implements ICommandHandler<
+  CreateRecordsCommand,
+  CreateRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -83,14 +83,14 @@ export class CreateRecordsHandler
     private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
+    @inject(v2CoreTokens.recordOrderCalculator)
+    private readonly recordOrderCalculator?: IRecordOrderCalculator
   ) {}
 
   @TraceSpan()
@@ -98,18 +98,21 @@ export class CreateRecordsHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateRecordsCommand
   ): Promise<Result<CreateRecordsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateRecordsResult, DomainError>(async function* () {
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       // Resolve field keys to field IDs if using name or dbFieldName
+      const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(
+        table,
+        command.fieldKeyType
+      );
       const resolvedRecordsFieldValues: RecordFieldValues[] = [];
       for (const recordFieldValues of command.recordsFieldValues) {
-        const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeys(
-          table,
-          Object.fromEntries(recordFieldValues),
-          command.fieldKeyType
+        const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeysWithContext(
+          fieldKeyResolutionContext,
+          Object.fromEntries(recordFieldValues)
         );
         resolvedRecordsFieldValues.push(new Map(Object.entries(resolvedFields)));
       }
@@ -123,6 +126,7 @@ export class CreateRecordsHandler
           typecast: command.typecast,
           order: command.order,
           recordCount: resolvedRecordsFieldValues.length,
+          isolateRowOverflow: true,
         },
         isTransactionBound: false,
       });
@@ -151,6 +155,7 @@ export class CreateRecordsHandler
         mutateSpecs,
       } = yield* tableForCreate.createRecords(resolvedRecordsFieldValues, {
         typecast: command.typecast,
+        source: command.source,
       });
 
       // 3. Resolve values that require external lookups (user/link)
@@ -164,6 +169,7 @@ export class CreateRecordsHandler
           if (needsResolution) {
             const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
               context,
+              tableForCreate.id(),
               mutateSpec
             );
             // Re-apply the resolved spec to get the correct record values
@@ -185,17 +191,22 @@ export class CreateRecordsHandler
         }
       }
 
+      if (command.order && handler.recordOrderCalculator) {
+        yield* await handler.recordOrderCalculator.calculateOrders(
+          context,
+          tableForCreate,
+          command.order.viewId,
+          command.order.anchorId,
+          command.order.position,
+          records.length
+        );
+      }
+
       // 4. Persist all records within a transaction
-      const mutationResult = yield* await handler.unitOfWork.withTransaction(
+      const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
-          return safeTry<
-            {
-              mutation: BatchRecordMutationResult;
-              tableEvents: ReadonlyArray<IDomainEvent>;
-            },
-            DomainError
-          >(async function* () {
+          return safeTry(async function* () {
             const batchMutation = buildOperationBatchMutation(context.requestId, records.length);
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
@@ -225,24 +236,44 @@ export class CreateRecordsHandler
                 ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
               }
             );
-            return ok({ mutation, tableEvents });
+            const decoratedChangedFieldsByRecord =
+              yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+                tableForCreate,
+                mutation.changedFieldsByRecord
+              );
+            const events = aggregateRecordCreatedEvents({
+              events: tableForCreate.pullDomainEvents(),
+              mutationResult: mutation,
+              decoratedChangedFieldsByRecord,
+              orchestration: batchMutation,
+            });
+            const mergedEvents = [...tableEvents, ...events];
+            if (mergedEvents.length === 0) {
+              return ok(
+                domainWrite.unchanged({
+                  mutation,
+                  tableEvents,
+                  events,
+                })
+              );
+            }
+            return ok(
+              domainWrite.changed(
+                {
+                  mutation,
+                  tableEvents,
+                  events,
+                },
+                mergedEvents as [IDomainEvent, ...IDomainEvent[]],
+                { tables: [tableForCreate] }
+              )
+            );
           });
         }
       );
 
-      // 5. Pull events from Table aggregate root and aggregate RecordCreated events
-      const decoratedChangedFieldsByRecord =
-        yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
-          tableForCreate,
-          mutationResult.mutation.changedFieldsByRecord
-        );
-      const events = aggregateRecordCreatedEvents({
-        events: tableForCreate.pullDomainEvents(),
-        mutationResult: mutationResult.mutation,
-        decoratedChangedFieldsByRecord,
-        orchestration: buildOperationBatchMutation(context.requestId, records.length),
-      });
-
+      const mutationResult = committed.value;
+      const mergedEvents = committed.events;
       const storedSnapshots = yield* requireStoredRecordSnapshots(
         {
           operation: 'create',
@@ -251,8 +282,6 @@ export class CreateRecordsHandler
         },
         mutationResult.mutation.recordSnapshots
       );
-      const mergedEvents = [...mutationResult.tableEvents, ...events];
-      yield* await handler.eventBus.publishMany(context, mergedEvents);
 
       yield* await handler.undoRedoStackService.appendRecordCreate(
         toUndoRedoStackAppendContext(context),

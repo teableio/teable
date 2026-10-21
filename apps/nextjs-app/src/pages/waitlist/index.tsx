@@ -7,9 +7,7 @@ import { authConfig } from '@/features/i18n/auth.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import withEnv from '@/lib/withEnv';
 
-type Props = {
-  /** Add props here */
-};
+type Props = {/** Add props here */};
 
 export default function WaitlistRoute(
   _props: InferGetServerSidePropsType<typeof getServerSideProps>

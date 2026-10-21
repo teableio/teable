@@ -6,7 +6,6 @@ import {
   PopoverContent,
   PopoverTrigger,
   Switch,
-  cn,
   Tabs,
   TabsList,
   TabsTrigger,

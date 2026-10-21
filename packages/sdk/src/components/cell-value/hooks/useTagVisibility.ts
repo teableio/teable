@@ -24,11 +24,11 @@ export const useTagsVisibility = <T extends string | { id: string; title?: strin
 
       tags.forEach((tag, index) => {
         const tempSpan = document.createElement('span');
-        tempSpan.innerText = isString(tag) ? tag : tag.title ?? 'Unnamed record';
+        tempSpan.innerText = isString(tag) ? tag : (tag.title ?? 'Unnamed record');
         tempSpan.className = className;
         container.appendChild(tempSpan);
         const tagWidth = tempSpan.offsetWidth;
-        container.removeChild(tempSpan);
+        tempSpan.remove();
 
         if (index === 0 && tagWidth > maxWidth - plusTagWidth) {
           visible.push(tag);

@@ -7,6 +7,7 @@ import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaU
 import type { IEventDispatchScope, IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
+import type { RealtimeChange } from '../../ports/RealtimeChange';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import * as TableRepositoryPort from '../../ports/TableRepository';
@@ -18,8 +19,11 @@ import {
   scheduleRealtimeProjection,
   type RealtimeProjectionScope,
 } from './scheduleRealtimeProjection';
+import {
+  toStandaloneViewRealtimeSnapshot,
+  withPersistedViewAuditChanges,
+} from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 const canUseColumnMetaSnapshot = (
@@ -33,7 +37,12 @@ const canUseColumnMetaSnapshot = (
 
   const fieldId = event.fieldId.toString();
   const fieldInSnapshot = Boolean(view.columnMeta[fieldId]);
-  return event.fieldInColumnMeta ? fieldInSnapshot : !fieldInSnapshot;
+  const fieldStateMatches = event.fieldInColumnMeta ? fieldInSnapshot : !fieldInSnapshot;
+  if (!fieldStateMatches) return false;
+  if (event.optionsChange) {
+    return JSON.stringify(view.options) === JSON.stringify(event.optionsChange.nextOptions);
+  }
+  return true;
 };
 
 const reserveViewColumnMetaRealtimeProjection = (
@@ -53,9 +62,7 @@ const reserveViewColumnMetaRealtimeProjection = (
 
 @ProjectionHandler(ViewColumnMetaUpdated)
 @injectable()
-export class ViewColumnMetaUpdatedRealtimeProjection
-  implements IEventHandler<ViewColumnMetaUpdated>
-{
+export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<ViewColumnMetaUpdated> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
@@ -101,40 +108,39 @@ export class ViewColumnMetaUpdatedRealtimeProjection
 
             const viewDto = snapshot.views[viewIndex];
 
-            const collection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
-            const docId = yield* RealtimeDocId.fromParts(
-              collection,
-              event.tableId.toString()
-            ).safeUnwrap();
-
-            // Ensure table document exists first (for tables created before realtime was enabled)
-            yield* (await realtimeEngine.ensure(context, docId, snapshot)).safeUnwrap();
-
-            // Keep the table snapshot in sync for table-level consumers.
-            yield* (
-              await realtimeEngine.applyChange(context, docId, {
-                type: 'set',
-                path: ['views', viewIndex, 'columnMeta'],
-                value: viewDto.columnMeta,
-              })
-            ).safeUnwrap();
-
             // Keep the standalone view document in sync for ShareDB/SDK view subscriptions.
             const viewCollection = `${viewCollectionPrefix}_${event.tableId.toString()}`;
             const viewDocId = yield* RealtimeDocId.fromParts(
               viewCollection,
               event.viewId.toString()
             ).safeUnwrap();
-            yield* (await realtimeEngine.ensure(context, viewDocId, viewDto)).safeUnwrap();
+            yield* (
+              await realtimeEngine.ensure(
+                context,
+                viewDocId,
+                toStandaloneViewRealtimeSnapshot(viewDto),
+                { expectExisting: true }
+              )
+            ).safeUnwrap();
 
-            return realtimeEngine.applyChange(
-              context,
-              viewDocId,
+            const viewChanges: RealtimeChange[] = [
               {
                 type: 'set',
                 path: ['columnMeta'],
                 value: viewDto.columnMeta,
               },
+            ];
+            if (event.optionsChange) {
+              viewChanges.push({
+                type: 'set',
+                path: ['options'],
+                value: viewDto.options,
+              });
+            }
+            return realtimeEngine.applyChange(
+              context,
+              viewDocId,
+              withPersistedViewAuditChanges(viewDto, viewChanges),
               {
                 version: event.oldVersion,
               }

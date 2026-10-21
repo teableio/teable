@@ -8,8 +8,8 @@ import {
   isNotExactly,
   CellValueType,
   exactFormatDate,
+  buttonFieldCelValueSchema,
 } from '@teable/core';
-import { fromZonedTime } from 'date-fns-tz';
 import type { IFieldInstance } from '../features/field/model/factory';
 
 const SPECIAL_OPERATOR_FIELD_TYPE_SET = new Set([
@@ -57,6 +57,8 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     value = !value || null;
   } else if (value == null) {
     operator = isNotEmpty.value;
+  } else if (type === FieldType.Button) {
+    value = buttonFieldCelValueSchema.parse(value).count;
   } else if (
     type === FieldType.Date ||
     (type === FieldType.Formula && cellValueType === CellValueType.DateTime)
@@ -64,7 +66,9 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     const timeZone =
       (options?.formatting as IDatetimeFormatting)?.timeZone ??
       Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const dateStr = fromZonedTime(value as string, timeZone).toISOString();
+    // Group keys are already absolute instants (ISO with offset); re-zoning them
+    // would shift by the server process timezone and exclude the wrong day.
+    const dateStr = new Date(value as string).toISOString();
     value = {
       exactDate: dateStr,
       mode: exactFormatDate.value,

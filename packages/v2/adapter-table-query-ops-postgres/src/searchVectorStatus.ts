@@ -1,8 +1,8 @@
-import type { IExecutionContext } from '@teable/v2-core';
-import type {
-  TableSearchVectorStatus,
-  TableSearchVectorStatusReader,
-  TableSearchVectorStatusState,
+import { FieldId, type IExecutionContext, type IRecordSearchAccessPath } from '@teable/v2-core';
+import {
+  type TableSearchVectorStatus,
+  type TableSearchVectorStatusReader,
+  type TableSearchVectorStatusState,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -35,6 +35,84 @@ const disabledStatus = (tableId: string): TableSearchVectorStatus => ({
   configured: false,
   coveredFieldCount: 0,
 });
+
+export type SearchAccessPathConfigRow = {
+  readonly generatedColumnName: string;
+  readonly semantics?: string;
+  readonly accessPath?: string;
+  readonly provider?: string;
+  readonly languageConfig?: string | null;
+  readonly fieldIds: unknown;
+  readonly searchScope: string;
+  readonly status: string;
+};
+
+const parseFieldIds = (raw: unknown): readonly FieldId[] => {
+  const parsed =
+    typeof raw === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(raw) as unknown;
+          } catch {
+            return undefined;
+          }
+        })()
+      : raw;
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed.flatMap((value) => {
+    const fieldIdResult = FieldId.create(value);
+    return fieldIdResult.isOk() ? [fieldIdResult.value] : [];
+  });
+};
+
+export const toRecordSearchAccessPathFromConfig = (
+  row: SearchAccessPathConfigRow | undefined
+): IRecordSearchAccessPath | undefined => {
+  if (!row) {
+    return undefined;
+  }
+
+  if (!knownStates.has(row.status as TableSearchVectorStatusState)) {
+    return undefined;
+  }
+
+  const searchScope =
+    row.searchScope === 'all_fields' || row.searchScope === 'selected_fields'
+      ? row.searchScope
+      : undefined;
+  const coveredFieldIds = parseFieldIds(row.fieldIds);
+  if (!row.generatedColumnName || !searchScope || coveredFieldIds.length === 0) {
+    return undefined;
+  }
+
+  if (
+    row.semantics === 'substring' &&
+    row.accessPath === 'generated_text' &&
+    (row.provider === 'pg_trgm' || row.provider === 'pg_bigm')
+  ) {
+    return {
+      kind: 'generated_text',
+      generatedColumnName: row.generatedColumnName,
+      provider: row.provider,
+      searchScope,
+      coveredFieldIds,
+    };
+  }
+
+  if (row.status !== 'ready' || !row.languageConfig) return undefined;
+
+  return {
+    kind: 'generated_tsvector',
+    generatedColumnName: row.generatedColumnName,
+    languageConfig: row.languageConfig,
+    searchScope,
+    coveredFieldIds,
+  };
+};
 
 export class PostgresTableSearchVectorStatusReader implements TableSearchVectorStatusReader {
   constructor(private readonly metaDb: Kysely<UnknownPostgresDatabase>) {}

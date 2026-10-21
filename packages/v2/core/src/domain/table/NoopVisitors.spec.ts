@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { FieldName } from './fields/FieldName';
@@ -81,7 +81,7 @@ describe('Noop visitors', () => {
 
     const visitor = new NoopFieldVisitor();
     const results = table.getFields().map((field) => field.accept(visitor));
-    results.forEach((result) => result._unsafeUnwrap());
+    expect(results.every((result) => result.isOk())).toBe(true);
   });
 
   it('accepts all view visitors', () => {
@@ -89,6 +89,6 @@ describe('Noop visitors', () => {
 
     const visitor = new NoopViewVisitor();
     const results = table.views().map((view) => view.accept(visitor));
-    results.forEach((result) => result._unsafeUnwrap());
+    expect(results.every((result) => result.isOk())).toBe(true);
   });
 });

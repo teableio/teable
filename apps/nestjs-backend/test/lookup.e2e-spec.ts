@@ -17,6 +17,7 @@ import type {
 } from '@teable/core';
 import {
   CellFormat,
+  CellValueType,
   Colors,
   FieldKeyType,
   FieldType,
@@ -447,6 +448,55 @@ describe('OpenAPI Lookup field (e2e)', () => {
         await deleteField(table1.id, fieldId);
         await updateTableFields(table1);
       }
+    });
+
+    it('T6901 rematerializes lookup type when convertField retargets select to number', async () => {
+      const linkField = getFieldByType(table1.fields, FieldType.Link) as LinkFieldCore;
+      const statusField = getFieldByType(table2.fields, FieldType.SingleSelect);
+      const numberField = getFieldByType(table2.fields, FieldType.Number);
+
+      const lookupField = await createField(table1.id, {
+        name: 'T6901 convert lookup',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: statusField.id,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+      await updateTableFields(table1);
+
+      await updateRecordByApi(table2.id, table2.records[0].id, numberField.id, 222);
+
+      const converted = await convertField(table1.id, lookupField.id, {
+        name: lookupField.name,
+        type: FieldType.Number,
+        isLookup: true,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 0,
+          },
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: numberField.id,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      expect(converted.type).toBe(FieldType.Number);
+      expect(converted.isLookup).toBe(true);
+      expect(converted.cellValueType).toBe(CellValueType.Number);
+      expect((converted.lookupOptions as ILookupOptionsRo).lookupFieldId).toBe(numberField.id);
+
+      const record = await getRecord(table1.id, table1.records[0].id);
+      const value = record.fields[lookupField.id];
+      expect(value === 222 || (Array.isArray(value) && value[0] === 222)).toBe(true);
+
+      await deleteField(table1.id, lookupField.id);
+      await updateTableFields(table1);
     });
 
     it('should update many - one lookupField by replace a linkRecord from cell', async () => {

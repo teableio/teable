@@ -4,6 +4,7 @@ import {
   CreateRecordCommand,
   DeleteFieldCommand,
   DuplicateFieldCommand,
+  FieldId,
   type DuplicateFieldResult,
   type ICommandBus,
   RedoCommand,
@@ -326,5 +327,133 @@ describe('v2 field undo/redo (e2e)', () => {
     ).toBe(true);
     duplicatedRecord = (await ctx.listRecords(tableId)).find((item) => item.id === record.id);
     expect(duplicatedRecord?.fields[duplicatedFieldId]).toBe(8);
+  });
+
+  it('restores conditional rollup values after undoing a deleted source field', async () => {
+    const sourceNameFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const sourcePriceFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const hostNameFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const linkFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const lookupFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const conditionalRollupFieldId = FieldId.generate()._unsafeUnwrap().toString();
+    const sourceTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo Conditional Rollup Source',
+      fields: [
+        { type: 'singleLineText', id: sourceNameFieldId, name: 'Name', isPrimary: true },
+        {
+          type: 'number',
+          id: sourcePriceFieldId,
+          name: 'Price',
+          options: { formatting: { type: 'decimal', precision: 0 } },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const sourceRecords = await ctx.createRecords(sourceTable.id, [
+      { fields: { [sourceNameFieldId]: 'Item A', [sourcePriceFieldId]: 10 } },
+      { fields: { [sourceNameFieldId]: 'Item B', [sourcePriceFieldId]: 20 } },
+      { fields: { [sourceNameFieldId]: 'Item C', [sourcePriceFieldId]: 30 } },
+    ]);
+    const hostTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo Conditional Rollup Host',
+      fields: [
+        { type: 'singleLineText', id: hostNameFieldId, name: 'Order', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Product',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceNameFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTable.id,
+      field: {
+        type: 'lookup',
+        id: lookupFieldId,
+        name: 'Price Lookup',
+        options: {
+          foreignTableId: sourceTable.id,
+          linkFieldId,
+          lookupFieldId: sourcePriceFieldId,
+        },
+      },
+    });
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTable.id,
+      field: {
+        type: 'conditionalRollup',
+        id: conditionalRollupFieldId,
+        name: 'Price Total',
+        options: { expression: 'sum({values})' },
+        config: {
+          foreignTableId: sourceTable.id,
+          lookupFieldId: sourcePriceFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: sourcePriceFieldId, operator: 'isGreater', value: 0 }],
+            },
+          },
+        },
+      },
+    });
+    const records = await ctx.createRecords(hostTable.id, [
+      {
+        fields: {
+          [hostNameFieldId]: 'Order 1',
+          [linkFieldId]: [{ id: sourceRecords[0]!.id }],
+        },
+      },
+      { fields: { [hostNameFieldId]: 'Order 2' } },
+      { fields: { [hostNameFieldId]: 'Order 3' } },
+    ]);
+    const record = records[0]!;
+    await ctx.drainOutbox();
+    const settledBeforeDelete = (await ctx.listRecords(hostTable.id)).find(
+      (item) => item.id === record.id
+    );
+    expect(settledBeforeDelete?.fields[lookupFieldId]).toEqual([10]);
+    expect(settledBeforeDelete?.fields[conditionalRollupFieldId]).toBe(60);
+
+    const context = buildContext('e2e-undo-conditional-rollup');
+    const deleteCommand = DeleteFieldCommand.create({
+      baseId: ctx.baseId,
+      tableId: sourceTable.id,
+      fieldId: sourcePriceFieldId,
+    })._unsafeUnwrap();
+    const undoCommand = UndoCommand.create({
+      tableId: sourceTable.id,
+      windowId: 'e2e-undo-conditional-rollup',
+    })._unsafeUnwrap();
+    (await commandBus.execute(context, deleteCommand))._unsafeUnwrap();
+    await ctx.drainOutbox();
+    const deletedHost = (await ctx.getTableById(hostTable.id)).fields;
+    expect(deletedHost.find((field) => field.id === lookupFieldId)?.hasError).toBe(true);
+    expect(deletedHost.find((field) => field.id === conditionalRollupFieldId)?.hasError).toBe(true);
+
+    (await commandBus.execute(context, undoCommand))._unsafeUnwrap();
+    await ctx.drainOutbox();
+    const restoredSource = await ctx.listRecords(sourceTable.id);
+    expect(restoredSource.map((item) => item.fields[sourcePriceFieldId])).toEqual([10, 20, 30]);
+    const restoredHostFields = (await ctx.getTableById(hostTable.id)).fields;
+    expect(restoredHostFields.find((field) => field.id === lookupFieldId)?.hasError).toBeFalsy();
+    expect(
+      restoredHostFields.find((field) => field.id === conditionalRollupFieldId)?.hasError
+    ).toBeFalsy();
+    const restoredHost = (await ctx.listRecords(hostTable.id)).find(
+      (item) => item.id === record.id
+    );
+    expect(restoredHost?.fields[lookupFieldId]).toEqual([10]);
+    expect(restoredHost?.fields[conditionalRollupFieldId]).toBe(60);
   });
 });

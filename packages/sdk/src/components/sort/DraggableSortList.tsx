@@ -3,6 +3,7 @@ import { DraggableHandle, Trash } from '@teable/icons';
 import { Button, cn, DndKitContext, Droppable, Draggable } from '@teable/ui-lib';
 import type { DraggableAttributes, SyntheticListenerMap, DragEndEvent } from '@teable/ui-lib';
 import { useIsHydrated } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 import { SortItem } from './SortItem';
 import type { ISortItemProps } from './SortItem';
 
@@ -14,6 +15,7 @@ interface IDraggbleProps {
 }
 
 interface IDraggableSortProps {
+  fields: IFieldInstance[];
   sorts: NonNullable<ISort>['sortObjs'];
   selectedFields: string[];
   onChange: (sorts: NonNullable<ISort>['sortObjs']) => void;
@@ -22,6 +24,7 @@ interface IDraggableSortProps {
 function DraggableItem(props: IDraggbleProps & ISortItemProps) {
   const {
     value,
+    fields,
     index,
     onSelect,
     deleteHandler,
@@ -33,7 +36,13 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
 
   return (
     <>
-      <SortItem value={value} index={index} onSelect={onSelect} selectedFields={selectedFields} />
+      <SortItem
+        fields={fields}
+        value={value}
+        index={index}
+        onSelect={onSelect}
+        selectedFields={selectedFields}
+      />
 
       <Button
         variant="ghost"
@@ -45,7 +54,9 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
       </Button>
 
       <div
-        className={cn('pl-2', displayDragHandler ? null : 'hidden')}
+        // `touch-none` stops the drawer body from scrolling under the finger
+        // while a row is being dragged.
+        className={cn('ps-2 touch-none', displayDragHandler ? null : 'hidden')}
         {...attributes}
         {...listeners}
       >
@@ -55,8 +66,8 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
   );
 }
 
-function DraggableSortList(props: IDraggableSortProps) {
-  const { sorts, onChange, selectedFields } = props;
+function DraggableSortList(props: Readonly<IDraggableSortProps>) {
+  const { fields, sorts, onChange, selectedFields } = props;
   const isHydrated = useIsHydrated();
 
   const deleteHandler = (index: number) => {
@@ -97,6 +108,7 @@ function DraggableSortList(props: IDraggableSortProps) {
                   className={cn('flex items-center flex-nowrap', isDragging ? 'opacity-50' : null)}
                 >
                   <DraggableItem
+                    fields={fields}
                     value={sort}
                     index={index}
                     key={sort.fieldId}

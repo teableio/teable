@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import fs from 'fs';
+import fs from 'node:fs';
+import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { generateAttachmentId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';

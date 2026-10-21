@@ -51,7 +51,7 @@ export const AddEventButton = (props: IAddEventButtonProps) => {
       variant="secondary"
       className={cn(
         ADD_EVENT_BUTTON_CLASS_NAME,
-        'invisible absolute left-[2px] top-[2px] z-10 size-5 rounded-sm p-0'
+        'invisible absolute start-[2px] top-[2px] z-10 size-5 rounded-sm p-0'
       )}
       onClick={onClick}
     >

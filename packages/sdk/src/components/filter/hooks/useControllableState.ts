@@ -2,8 +2,8 @@ import * as React from 'react';
 import { useCallbackRef } from './useCallbackRef';
 
 type UseControllableStateParams<T> = {
-  prop?: T | undefined;
-  defaultProp?: T | undefined;
+  prop?: T;
+  defaultProp?: T;
   onChange?: (state: T) => void;
 };
 

@@ -50,6 +50,30 @@ export const getImageModelTagsFromAbility = (
   return nextTags.length ? nextTags : undefined;
 };
 
+// image/pdf ability may be a boolean or a {url, base64} detail object; the object counts
+// as supported only when at least one transfer variant is true
+const abilityInputSupported = (value: boolean | IAbilityDetail | undefined): boolean => {
+  if (typeof value === 'object' && value !== null) {
+    return Boolean(value.url || value.base64);
+  }
+  return Boolean(value);
+};
+
+export const getChatModelTagsFromAbility = (
+  ability: IModelAbility | undefined
+): GatewayModelTag[] | undefined => {
+  if (!ability) return undefined;
+
+  const tags: GatewayModelTag[] = [];
+  if (abilityInputSupported(ability.image)) tags.push(VISION_TAG);
+  if (abilityInputSupported(ability.pdf)) tags.push('file-input');
+  if (ability.toolCall) tags.push('tool-use');
+  if (ability.reasoning) tags.push('reasoning');
+  if (ability.imageGeneration) tags.push(IMAGE_GENERATION_TAG);
+
+  return tags.length ? tags : undefined;
+};
+
 // chatModelAbilitySchema is same as modelAbilitySchema, for backward compatibility
 export const chatModelAbilitySchema = modelAbilitySchema;
 

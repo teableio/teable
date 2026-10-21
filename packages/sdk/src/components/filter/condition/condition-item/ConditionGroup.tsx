@@ -14,6 +14,7 @@ import {
 } from '@teable/ui-lib';
 import React from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
+import { useInDrawer } from '../../../adaptive-panel';
 import { useCrud, useDepth } from '../../hooks';
 import type {
   IComponentWithChildren,
@@ -23,9 +24,7 @@ import type {
 import { ConjunctionSelect } from '../ConjunctionSelect';
 
 interface IConditionGroupProps
-  extends IComponentWithChildren,
-    Pick<IBaseFilterComponentProps, 'path'>,
-    IBaseConditionProps {
+  extends IComponentWithChildren, Pick<IBaseFilterComponentProps, 'path'>, IBaseConditionProps {
   conjunction: IConjunction;
 }
 
@@ -34,6 +33,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
   const maxDepth = useDepth();
   const { onDelete, createCondition, onChange } = useCrud();
   const { t } = useTranslation();
+  const inDrawer = useInDrawer();
 
   const onChangeConjunctionHandler = (val: IConjunction | null) => {
     if (val) {
@@ -44,17 +44,34 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
   return (
     <div
       className={cn(
-        'flex flex-1 flex-col rounded-lg border border-input px-3 py-2 gap-1.5',
+        'flex min-w-0 flex-1 flex-col rounded-lg border border-input px-3 py-2 gap-1.5',
+        // Each nesting level eats horizontal room; `min-w-0` keeps the card
+        // shrinkable. Drawer padding is tighter to buy back 8px per level.
+        inDrawer && 'px-2',
         depth === 1 && 'bg-muted dark:bg-white/5',
         depth === 2 && 'bg-card dark:bg-white/5'
       )}
     >
-      <div className="flex items-center">
-        <ConjunctionSelect value={conjunction} onSelect={onChangeConjunctionHandler} />
-        <div className="ml-auto flex">
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger>
-              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
+      <div className={cn('flex min-w-0 items-center', inDrawer && 'gap-1')}>
+        <ConjunctionSelect
+          value={conjunction}
+          onSelect={onChangeConjunctionHandler}
+          // Row container: shrinking here is horizontal, which is what keeps
+          // the add/delete buttons on screen when the label is long. Field
+          // setting sheets are ~400px and are not InDrawer (T7084).
+          className="min-w-0 shrink"
+        />
+        <div className="ms-auto flex shrink-0">
+          {/* Must match the surrounding layer: a non-modal menu inside a
+              modal drawer dismisses the wrong DismissableLayer. */}
+          <DropdownMenu modal={inDrawer}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground"
+                data-testid="filter-group-add"
+              >
                 <Plus className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -65,7 +82,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
                   createCondition([...path, 'children'], 'item');
                 }}
               >
-                <Plus className="mr-2 size-4" />
+                <Plus className="me-2 size-4" />
                 {t('filter.addCondition')}
               </DropdownMenuItem>
               <TooltipProvider>
@@ -79,7 +96,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
                           createCondition([...path, 'children'], 'group');
                         }}
                       >
-                        <ListPlus className="mr-2 size-4" />
+                        <ListPlus className="me-2 size-4" />
                         {t('filter.addConditionGroup')}
                       </DropdownMenuItem>
                     </div>
@@ -107,7 +124,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
         </div>
       </div>
       {React.Children.count(children) > 0 && (
-        <div className="mb-1 flex flex-col gap-2">{children}</div>
+        <div className="mb-1 flex flex-col gap-3">{children}</div>
       )}
     </div>
   );

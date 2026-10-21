@@ -1,11 +1,15 @@
 import type { IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
+import type { IRecordRemovalReason } from '@teable/v2-core';
 import type { IDeleteRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import type { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
+
+export type { IRecordRemovalReason };
 
 export interface IDeleteRecordsPayload {
   operationId: string;
@@ -13,13 +17,16 @@ export interface IDeleteRecordsPayload {
   tableId: string;
   userId: string;
   records: (IRecord & { version?: number; order?: Record<string, number> })[];
+  // 'archived' removals persist their own snapshot before deleting; trash sinks skip them.
+  removalReason?: IRecordRemovalReason;
 }
 
 export class DeleteRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly thresholdConfig: IThresholdConfig,
-    private readonly dataDbClientManager: DataDbClientManager
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly recordRemovalTombstoneService: RecordRemovalTombstoneService
   ) {}
 
   private async dataPrismaForTable(tableId: string): Promise<DataPrismaService> {
@@ -75,29 +82,40 @@ export class DeleteRecordsOperation {
       where: { id: operationId },
     });
 
-    if (operationId && Number(count) === 0) return operation;
-
-    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: result.records,
-    });
-
-    if (operationId) {
-      const recordIds = result.records.map((record) => record.id);
-
-      await this.dataPrismaTransactionForTable(params.tableId, async (prisma) => {
-        await prisma.tableTrash.delete({
-          where: { id: operationId },
-        });
-        await prisma.recordTrash.deleteMany({
-          where: {
-            tableId: params.tableId,
-            recordId: { in: recordIds },
-          },
-        });
+    // A trash entry that has already been purged cannot be restored any more.
+    const purged = Boolean(operationId) && Number(count) === 0;
+    if (!purged) {
+      await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
+        fieldKeyType: FieldKeyType.Id,
+        records: result.records,
       });
-    }
 
+      if (operationId) {
+        const recordIds = result.records.map((record) => record.id);
+
+        await this.dataPrismaTransactionForTable(params.tableId, async (prisma) => {
+          await prisma.tableTrash.delete({
+            where: { id: operationId },
+          });
+          await prisma.recordTrash.deleteMany({
+            where: {
+              tableId: params.tableId,
+              recordId: { in: recordIds },
+              reason: 'deleted',
+            },
+          });
+        });
+
+        // Cold-copy suppression: a trash row already uploaded to a cold part (flush
+        // overlap window) outlives the deleteMany above and would resurface in
+        // merged reads once the buffer drains.
+        await this.recordRemovalTombstoneService.markRestored(
+          await this.dataPrismaExecutorForTable(params.tableId),
+          params.tableId,
+          recordIds
+        );
+      }
+    }
     return operation;
   }
 

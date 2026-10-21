@@ -1,4 +1,4 @@
-import type { ReadStream } from 'fs';
+import type { ReadStream } from 'node:fs';
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';

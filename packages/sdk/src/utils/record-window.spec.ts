@@ -3,8 +3,9 @@ import { computeNextWindowQuery, INITIAL_LOAD_PAGE_SIZE, LOAD_PAGE_SIZE } from '
 
 describe('computeNextWindowQuery', () => {
   it('keeps the initial window while a normal viewport rests at the top', () => {
-    // 1080p/1440p viewports (~28-40 rows) fit inside the initial 100-row window
-    for (const height of [20, 28, 40]) {
+    // 1080p/1440p viewports (~28-40 rows) fit inside the initial 64-row
+    // window's covered range (take minus the 1/3 prefetch margin ≈ 42 rows)
+    for (const height of [20, 28, 40, 42]) {
       expect(
         computeNextWindowQuery({ skip: 0, take: INITIAL_LOAD_PAGE_SIZE }, 0, height)
       ).toBeNull();
@@ -12,8 +13,9 @@ describe('computeNextWindowQuery', () => {
   });
 
   it('upgrades to a full window when the viewport is taller than the initial one', () => {
-    // 4K / zoomed-out viewports exceed the initial window without any scroll
-    for (const height of [70, 95, 99]) {
+    // 4K / zoomed-out viewports exceed the initial window without any
+    // scroll; the upgrade fetch is async and never blocks the seeded paint
+    for (const height of [43, 70, 95]) {
       expect(computeNextWindowQuery({ skip: 0, take: INITIAL_LOAD_PAGE_SIZE }, 0, height)).toEqual({
         skip: 0,
         take: LOAD_PAGE_SIZE,

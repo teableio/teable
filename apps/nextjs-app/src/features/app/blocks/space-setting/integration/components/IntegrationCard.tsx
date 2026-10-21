@@ -32,7 +32,7 @@ export const IntegrationCard = (props: IIntegrationCardProps) => {
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between border-b p-4">
         <CardTitle className="text-lg">{title}</CardTitle>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 rtl:space-x-reverse">
           <Switch checked={enable} onCheckedChange={onCheckedChange} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -46,7 +46,7 @@ export const IntegrationCard = (props: IIntegrationCardProps) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="min-w-[200px]">
               <DropdownMenuItem className="text-destructive" onClick={onDelete}>
-                <Trash2 className="mr-2 size-4 shrink-0" />
+                <Trash2 className="me-2 size-4 shrink-0" />
                 <p className="truncate">{t('actions.delete')}</p>
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -165,7 +165,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
               key={member.id}
               className="flex items-center gap-1.5 rounded-full border p-1 text-[13px]"
             >
-              <Building2 className="ml-2 size-4" />
+              <Building2 className="ms-2 size-4" />
               {member.data.name}
               <Button
                 className="h-6"

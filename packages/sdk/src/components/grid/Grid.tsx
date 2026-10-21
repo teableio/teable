@@ -644,7 +644,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           if (sl !== scrollLeft) {
             const scrollBuffer =
               deltaLeft < 0 ? -cellScrollBuffer : deltaRight > 0 ? cellScrollBuffer : 0;
-            scrollTo(sl + scrollBuffer, undefined);
+            scrollTo(sl + scrollBuffer);
           }
         }
 
@@ -670,7 +670,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { rowInitSize } = coordInstance;
 
   return (
-    <div className="size-full" style={style} ref={ref}>
+    // The grid keeps a left-to-right frame even under an RTL UI: column order,
+    // freeze offsets and the horizontal scroller's `scrollLeft` are all
+    // left-anchored, and RTL `scrollLeft` semantics differ per browser.
+    // Mirroring the column order is a separate, much larger change; cell text
+    // still follows its own content direction on the canvas.
+    <div dir="ltr" className="size-full" style={style} ref={ref}>
       <div
         data-t-grid-container
         ref={containerRef}
@@ -801,6 +806,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         smoothScrollY={smoothScrollY}
         scrollBarVisible={scrollBarVisible}
         containerRef={containerRef}
+        rootRef={ref}
         scrollState={scrollState}
         scrollEnable={scrollEnable}
         getLinearRow={getLinearRow}

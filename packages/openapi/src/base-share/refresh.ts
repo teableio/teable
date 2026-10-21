@@ -9,7 +9,8 @@ export const REFRESH_BASE_SHARE = '/base/{baseId}/share/{shareId}/refresh';
 export const RefreshBaseShareRoute: RouteConfig = registerRoute({
   method: 'post',
   path: REFRESH_BASE_SHARE,
-  description: 'Refresh/regenerate a base share link ID',
+  title: 'Refresh project share link',
+  description: 'Generate a new ID for a project share link.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -18,7 +19,7 @@ export const RefreshBaseShareRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the refreshed base share',
+      description: 'Returns the refreshed project share',
       content: {
         'application/json': {
           schema: baseShareVoSchema,

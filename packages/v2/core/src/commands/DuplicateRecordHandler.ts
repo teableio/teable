@@ -18,17 +18,16 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { RecordWriteFieldValues } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
-import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
 
@@ -52,9 +51,10 @@ export class DuplicateRecordResult {
 
 @CommandHandler(DuplicateRecordCommand)
 @injectable()
-export class DuplicateRecordHandler
-  implements ICommandHandler<DuplicateRecordCommand, DuplicateRecordResult>
-{
+export class DuplicateRecordHandler implements ICommandHandler<
+  DuplicateRecordCommand,
+  DuplicateRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -70,12 +70,10 @@ export class DuplicateRecordHandler
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   private filterFieldValuesByCreateScope(
@@ -99,7 +97,7 @@ export class DuplicateRecordHandler
     context: ExecutionContextPort.IExecutionContext,
     command: DuplicateRecordCommand
   ): Promise<Result<DuplicateRecordResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateRecordResult, DomainError>(async function* () {
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
@@ -120,8 +118,8 @@ export class DuplicateRecordHandler
       const fields = table.getFields();
 
       for (const field of fields) {
-        // Skip computed fields - they will be recalculated
-        if (field.computed().toBoolean()) {
+        // Recalculate computed fields and start button click state fresh on the copy.
+        if (field.computed().toBoolean() || field.type().equals(FieldType.button())) {
           continue;
         }
 
@@ -182,6 +180,7 @@ export class DuplicateRecordHandler
       // 5. Create the record (validates and applies field values internally)
       const createResult = yield* tableForCreate.createRecord(fieldValues, {
         typecast: false,
+        source: { type: 'recordDuplicate' },
       });
 
       // 6. Resolve values that require external lookups (user/link)
@@ -193,23 +192,17 @@ export class DuplicateRecordHandler
         if (needsResolution) {
           const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
             context,
+            tableForCreate.id(),
             createResult.mutateSpec
           );
           record = yield* resolvedSpec.mutate(record);
         }
       }
 
-      // 7. Persist the record within a transaction
-      const transactionResult = await handler.unitOfWork.withTransaction(
+      const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
-          return safeTry<
-            {
-              mutation: RecordMutationResult;
-              tableEvents: ReadonlyArray<IDomainEvent>;
-            },
-            DomainError
-          >(async function* () {
+          return safeTry(async function* () {
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
@@ -227,12 +220,13 @@ export class DuplicateRecordHandler
               record,
               command.order ? { order: command.order } : undefined
             );
-            return ok({ mutation, tableEvents });
+            const events = [...tableEvents, ...tableForCreate.pullDomainEvents()];
+            return ok(domainWrite.fromEvents({ mutation }, events));
           });
         }
       );
-      const persistedResult = yield* transactionResult;
-      const mutationResult = persistedResult.mutation;
+      const mutationResult = committed.value.mutation;
+      const events = committed.events;
       const recordSnapshot = yield* requireStoredRecordSnapshot(
         {
           operation: 'duplicate',
@@ -241,10 +235,6 @@ export class DuplicateRecordHandler
         },
         mutationResult.recordSnapshot
       );
-
-      // 8. Pull and publish events
-      const events = [...persistedResult.tableEvents, ...tableForCreate.pullDomainEvents()];
-      yield* await handler.eventBus.publishMany(context, events);
 
       yield* await handler.undoRedoStackService.appendRecordCreate(
         toUndoRedoStackAppendContext(context),

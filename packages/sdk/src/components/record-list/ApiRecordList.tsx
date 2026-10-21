@@ -47,7 +47,7 @@ export const ApiRecordList = (props: IApiRecordListProps) => {
       lastPage.length < pageSize ? undefined : allPage.length,
   });
 
-  const allRows = data ? data.pages.flatMap((d) => d) : [];
+  const allRows = data ? data.pages.flat() : [];
   const rowCount = hasNextPage ? allRows.length + 1 : allRows.length;
 
   return (

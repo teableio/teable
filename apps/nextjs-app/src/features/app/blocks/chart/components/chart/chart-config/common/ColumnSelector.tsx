@@ -1,3 +1,4 @@
+import { useContentDir } from '@teable/sdk/hooks';
 import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@teable/ui-lib';
 
 export const ColumnSelector = (props: {
@@ -10,6 +11,7 @@ export const ColumnSelector = (props: {
   className?: string;
 }) => {
   const { className, value, onChange, columns } = props;
+  const contentDir = useContentDir();
 
   return (
     <Select value={value} onValueChange={onChange}>
@@ -27,7 +29,7 @@ export const ColumnSelector = (props: {
       <SelectContent>
         {columns.map((column) => (
           <SelectItem key={column.column} value={column.column}>
-            {column.name}
+            <span dir={contentDir}>{column.name}</span>
           </SelectItem>
         ))}
       </SelectContent>

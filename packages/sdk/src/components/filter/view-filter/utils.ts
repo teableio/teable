@@ -2,7 +2,7 @@ import type { IFilter, IFilterItem } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../../model';
 import type { IConditionItemProperty } from '../types';
-import { EMPTY_OPERATORS, ARRAY_OPERATORS } from './constant';
+import { EMPTY_OPERATORS, ARRAY_OPERATORS, LINK_TEXT_OPERATORS } from './constant';
 import { isFilterItem } from './type-guard';
 import type { IViewFilterConditionItem, IBaseViewFilter } from './types';
 
@@ -66,11 +66,20 @@ export const baseFilter2ViewFilter = <T extends IConditionItemProperty = IViewFi
 /**
  * 1. when the operator type change to empty, the value should be null
  * 2. when the operator type change and the cellValueType changed, the value should be null
+ * 3. link `contains` / `doesNotContain` take a title string; other link operators take record ids
  */
-export const shouldResetFieldValue = (newOperator: string, oldOperator: string): boolean => {
+export const shouldResetFieldValue = (
+  newOperator: string,
+  oldOperator: string,
+  field?: { type: FieldType }
+): boolean => {
   const getOperatorType = (operator: string) => {
     if (EMPTY_OPERATORS.includes(operator)) {
       return 'empty';
+    }
+
+    if (field?.type === FieldType.Link && LINK_TEXT_OPERATORS.includes(operator)) {
+      return 'text';
     }
 
     if (ARRAY_OPERATORS.includes(operator)) {

@@ -1,8 +1,10 @@
+import { localizationSchema } from '@teable/core';
 import { axios, ensureUndoRedoWindowIdHeader } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
 import { z } from '../zod';
 import { clearRoSchema, CLEAR_URL } from './clear';
+import { createSelectionStreamError } from './stream-error';
 
 export const CLEAR_STREAM_URL = `${CLEAR_URL}-stream`;
 
@@ -38,6 +40,7 @@ export const clearSelectionStreamErrorEventSchema = z.object({
   recordIds: z.array(z.string()),
   message: z.string(),
   code: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const clearSelectionStreamEventSchema = z.union([
@@ -135,7 +138,7 @@ export const clearSelectionStream = async (
   if (!doneEvent) {
     const lastError = errors.at(-1);
     if (lastError) {
-      throw new Error(lastError.message);
+      throw createSelectionStreamError(lastError);
     }
     throw new Error('Clear selection stream ended without result');
   }

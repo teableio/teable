@@ -14,6 +14,7 @@ import type { FieldConvertingService } from '../field/field-calculate/field-conv
 import type { IFieldInstance } from '../field/model/factory';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { UserFieldDto } from '../field/model/field-dto/user-field.dto';
+import type { CrossBaseLinkAccessService } from './cross-base-link-access.service';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
 
@@ -32,6 +33,8 @@ describe('TypeCastAndValidate', () => {
   const collaboratorService = mockDeep<CollaboratorService>();
   const dataLoaderService = mockDeep<DataLoaderService>();
 
+  const crossBaseLinkAccess = { assertForeignTablesReadable: vi.fn().mockResolvedValue(undefined) };
+
   const services = {
     prismaService,
     fieldConvertingService,
@@ -39,6 +42,7 @@ describe('TypeCastAndValidate', () => {
     attachmentsStorageService,
     collaboratorService,
     dataLoaderService,
+    crossBaseLinkAccess: crossBaseLinkAccess as unknown as CrossBaseLinkAccessService,
   };
   const tableId = 'tableId';
 
@@ -112,6 +116,24 @@ describe('TypeCastAndValidate', () => {
       });
 
       await expect(typeCastAndValidate.typecastCellValuesWithField([])).rejects.toThrow();
+    });
+  });
+
+  describe('castToLink cross-base read check', () => {
+    // A structured id write (typecast=false) reaches the foreign table just like
+    // a title lookup does, so the foreign-base read check must run on every link
+    // write, not only the typecast branch.
+    it('asserts foreign-table readability even when typecast is false', async () => {
+      crossBaseLinkAccess.assertForeignTablesReadable.mockClear();
+      const field = mockDeep<IFieldInstance>({ type: FieldType.Link, isComputed: false });
+      const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId }); // typecast omitted
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockResolvedValue([]);
+
+      await (typeCastAndValidate as any).castToLink([{ id: 'rec1111111111111111' }]);
+
+      expect(crossBaseLinkAccess.assertForeignTablesReadable).toHaveBeenCalledWith(tableId, [
+        field.id,
+      ]);
     });
   });
 

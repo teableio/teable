@@ -100,7 +100,7 @@ export const PluginItem = (props: {
   return (
     <div
       className={cn('h-full', {
-        'fixed top-0 left-0 right-0 bottom-0 bg-black/20 flex items-center justify-center z-10':
+        'fixed top-0 start-0 end-0 bottom-0 bg-black/20 flex items-center justify-center z-10':
           isExpanded,
       })}
       onClick={onClose}

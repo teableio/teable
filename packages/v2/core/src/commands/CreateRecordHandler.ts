@@ -34,9 +34,10 @@ export class CreateRecordResult {
 
 @CommandHandler(CreateRecordCommand)
 @injectable()
-export class CreateRecordHandler
-  implements ICommandHandler<CreateRecordCommand, CreateRecordResult>
-{
+export class CreateRecordHandler implements ICommandHandler<
+  CreateRecordCommand,
+  CreateRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -49,7 +50,7 @@ export class CreateRecordHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateRecordCommand
   ): Promise<Result<CreateRecordResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateRecordResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
       const result = yield* await handler.recordCreationService.create(context, {

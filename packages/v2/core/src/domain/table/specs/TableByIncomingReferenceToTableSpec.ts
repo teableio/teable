@@ -8,9 +8,9 @@ import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
-export class TableByIncomingReferenceToTableSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableByIncomingReferenceToTableSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private readonly linkReferenceVisitor = new LinkForeignTableReferenceVisitor();
 
   private constructor(private readonly tableIdValue: TableId) {}

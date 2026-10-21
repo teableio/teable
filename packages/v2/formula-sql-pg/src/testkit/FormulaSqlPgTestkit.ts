@@ -54,7 +54,7 @@ type FieldSnapshotValue = {
   fieldName: string;
   fieldType: string;
   formatting?: unknown;
-  rawValue: string | null;
+  rawValue?: string | null;
   formattedValue: string | null;
   innerField?: FieldSnapshotValue | null;
 };
@@ -457,6 +457,62 @@ const createForeignTable = async (
   };
 };
 
+const buildConditionalRelationFields = (
+  includedFieldTypeSet: ReadonlySet<FieldTypeLiteral>,
+  fieldIds: Record<FieldTypeLiteral, string>,
+  foreignTable?: Table,
+  foreignNumber?: Field
+): Array<Record<string, unknown>> => {
+  const relationFields: Array<Record<string, unknown>> = [];
+  const nonEmptyCondition =
+    foreignNumber == null
+      ? undefined
+      : {
+          filter: {
+            conjunction: 'and' as const,
+            filterSet: [
+              {
+                fieldId: foreignNumber.id().toString(),
+                operator: 'isNotEmpty' as const,
+                value: null,
+              },
+            ],
+          },
+        };
+  if (includedFieldTypeSet.has('conditionalLookup')) {
+    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
+      throw new Error('Conditional lookup field requires a foreign table');
+    }
+    relationFields.push({
+      type: 'conditionalLookup',
+      id: fieldIds.conditionalLookup,
+      name: FIELD_TYPE_NAMES.conditionalLookup,
+      options: {
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignNumber.id().toString(),
+        condition: nonEmptyCondition,
+      },
+    });
+  }
+  if (includedFieldTypeSet.has('conditionalRollup')) {
+    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
+      throw new Error('Conditional rollup field requires a foreign table');
+    }
+    relationFields.push({
+      type: 'conditionalRollup',
+      id: fieldIds.conditionalRollup,
+      name: FIELD_TYPE_NAMES.conditionalRollup,
+      options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
+      config: {
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignNumber.id().toString(),
+        condition: nonEmptyCondition,
+      },
+    });
+  }
+  return relationFields;
+};
+
 const createHostTable = async (params: {
   container: IV2NodeTestContainer;
   foreignTable?: Table;
@@ -732,54 +788,9 @@ const createHostTable = async (params: {
     });
   }
 
-  const nonEmptyCondition =
-    foreignNumber == null
-      ? undefined
-      : {
-          filter: {
-            conjunction: 'and' as const,
-            filterSet: [
-              {
-                fieldId: foreignNumber.id().toString(),
-                operator: 'isNotEmpty' as const,
-                value: null,
-              },
-            ] as const,
-          },
-        };
-
-  if (includedFieldTypeSet.has('conditionalLookup')) {
-    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
-      throw new Error('Conditional lookup field requires a foreign table');
-    }
-    relationFields.push({
-      type: 'conditionalLookup',
-      id: fieldIds.conditionalLookup,
-      name: FIELD_TYPE_NAMES.conditionalLookup,
-      options: {
-        foreignTableId: foreignTable.id().toString(),
-        lookupFieldId: foreignNumber.id().toString(),
-        condition: nonEmptyCondition,
-      },
-    });
-  }
-
-  if (includedFieldTypeSet.has('conditionalRollup')) {
-    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
-      throw new Error('Conditional rollup field requires a foreign table');
-    }
-    relationFields.push({
-      type: 'conditionalRollup',
-      id: fieldIds.conditionalRollup,
-      name: FIELD_TYPE_NAMES.conditionalRollup,
-      options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
-      config: {
-        foreignTableId: foreignTable.id().toString(),
-        lookupFieldId: foreignNumber.id().toString(),
-        condition: nonEmptyCondition,
-      },
-    });
-  }
+  relationFields.push(
+    ...buildConditionalRelationFields(includedFieldTypeSet, fieldIds, foreignTable, foreignNumber)
+  );
 
   if (relationFields.length > 0) {
     const relationCommand = unwrapOrThrow(
@@ -1064,7 +1075,7 @@ export const executeFormulaAsText = async (
   const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
   const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  const rendered = testTable.translator.renderSql(sqlExpr);
+  const rendered = testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
   const tableName = resolveDbTableName(testTable.table);
 
   const result = await sql<{ value: string | null }>`
@@ -1094,7 +1105,7 @@ const buildFormattedFieldValueSql = (testTable: FormulaTestTable, field: Field):
   const expr = `CONCATENATE({${fieldId}}, "")`;
   const sqlExprResult = testTable.translator.translateExpression(expr);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  return testTable.translator.renderSql(sqlExpr);
+  return testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
 };
 
 const fetchRawFieldValueSql = (field: Field, tableAlias: string): string => {
@@ -1118,6 +1129,39 @@ const resolveLookupInnerField = (field: Field): Field | null => {
   return null;
 };
 
+const readFieldSnapshotValues = async (
+  testTable: FormulaTestTable,
+  field: Field,
+  includeValues: boolean
+): Promise<{ rawValue: string | null; formattedValue: string | null }> => {
+  const fieldType = field.type().toString();
+  const isAuditUserField = fieldType === 'createdBy' || fieldType === 'lastModifiedBy';
+  let rawValue: string | null = null;
+  let formattedValue: string | null = null;
+  if (includeValues) {
+    [rawValue, formattedValue] = await Promise.all([
+      isAuditUserField
+        ? null
+        : fetchSqlValue(testTable, fetchRawFieldValueSql(field, testTable.tableAlias)),
+      fetchSqlValue(testTable, buildFormattedFieldValueSql(testTable, field)),
+    ]);
+  }
+  switch (fieldType) {
+    case 'createdTime':
+    case 'lastModifiedTime':
+      rawValue = normalizeTemporalText(rawValue);
+      formattedValue = normalizeTemporalText(formattedValue);
+      break;
+    case 'formula':
+      rawValue = null;
+      break;
+    case 'link':
+      rawValue = normalizeLinkRawValue(rawValue);
+      break;
+  }
+  return { rawValue, formattedValue };
+};
+
 const buildFieldSnapshotValue = async (
   testTable: FormulaTestTable,
   field: Field,
@@ -1130,29 +1174,14 @@ const buildFieldSnapshotValue = async (
   nextVisited.add(fieldId);
 
   const fieldType = field.type().toString();
-  const isTemporalField = fieldType === 'createdTime' || fieldType === 'lastModifiedTime';
+  const isAuditUserField = fieldType === 'createdBy' || fieldType === 'lastModifiedBy';
   const formatting = formatFieldFormatting(field);
 
-  let normalizedRawValue: string | null = null;
-  let normalizedFormattedValue: string | null = null;
-  if (includeValues) {
-    const rawSql = fetchRawFieldValueSql(field, testTable.tableAlias);
-    const formattedSql = buildFormattedFieldValueSql(testTable, field);
-    const [rawValue, formattedValue] = await Promise.all([
-      fetchSqlValue(testTable, rawSql),
-      fetchSqlValue(testTable, formattedSql),
-    ]);
-    normalizedRawValue = isTemporalField
-      ? normalizeTemporalText(rawValue)
-      : fieldType === 'formula'
-        ? null
-        : fieldType === 'link'
-          ? normalizeLinkRawValue(rawValue)
-          : rawValue;
-    normalizedFormattedValue = isTemporalField
-      ? normalizeTemporalText(formattedValue)
-      : formattedValue;
-  }
+  const { rawValue, formattedValue } = await readFieldSnapshotValues(
+    testTable,
+    field,
+    includeValues
+  );
 
   let innerField: FieldSnapshotValue | null = null;
   const resolvedInnerField = resolveLookupInnerField(field);
@@ -1170,8 +1199,10 @@ const buildFieldSnapshotValue = async (
     fieldName: field.name().toString(),
     fieldType,
     formatting,
-    rawValue: normalizedRawValue,
-    formattedValue: normalizedFormattedValue,
+    // Audit-user JSON is a storage snapshot, not part of formula input semantics.
+    // record-http-compat.e2e.spec.ts owns the audit snapshot persistence contract.
+    ...(isAuditUserField ? {} : { rawValue }),
+    formattedValue,
   };
 
   if (
@@ -1206,7 +1237,7 @@ export const buildFormulaSnapshotContext = async (
   const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
   const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
-  const renderedSql = testTable.translator.renderSql(sqlExpr);
+  const renderedSql = testTable.translator.renderSql(sqlExpr)._unsafeUnwrap();
   const result = await fetchSqlValue(testTable, renderedSql);
 
   const refs = extractFieldRefs(formulaDefinition.expression);

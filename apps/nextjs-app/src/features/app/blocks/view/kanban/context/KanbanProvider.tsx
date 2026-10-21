@@ -16,6 +16,7 @@ import {
   useFields,
   useTableId,
   useGroupPoint,
+  useCommentPermission,
   useTablePermission,
   useFieldPermission,
   useBaseId,
@@ -43,10 +44,13 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
+  const { commentReadable, commentWritable } = useCommentPermission();
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
   const allFields = useFields({ withHidden: true, withDenied: true });
-  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
+  const visibleFieldIds = useDeepCompareMemoize(
+    fields.map(({ id }) => id).sort((a, b) => Number(a > b) - Number(a < b))
+  ) as string[];
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
@@ -77,7 +81,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     // projection is a field-id set, not a sequence: keep it order-stable so
     // downstream cache keys don't churn when fields are reordered
     const ids = coverField ? new Set([...visibleFieldIds, coverField.id]) : visibleFieldIds;
-    return [...ids].sort();
+    return [...ids].sort((a, b) => Number(a > b) - Number(a < b));
   }, [coverField, visibleFieldIds]);
 
   const recordQuery = useMemo(() => {
@@ -149,9 +153,10 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardDraggable: Boolean(
         permission['record|update'] && permission['view|update'] && stackFieldRecordEditable
       ),
-      cardCommentCreatable: Boolean(permission['record|comment']),
+      cardCommentReadable: commentReadable,
+      cardCommentCreatable: commentWritable,
     };
-  }, [permission, fieldPermission, stackFieldRecordEditable]);
+  }, [permission, fieldPermission, stackFieldRecordEditable, commentReadable, commentWritable]);
 
   const stackCollection = useMemo(() => {
     if (groupPoints == null || stackField == null) return;

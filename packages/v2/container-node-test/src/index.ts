@@ -1,30 +1,39 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve, resolve as resolvePath } from 'node:path';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  V2PgTableSchemaCoordination,
   PostgresUnitOfWork,
   registerV2PostgresDb,
   v2DataDbTokens,
   v2MetaDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
+
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   createTypeValidationStrategy,
+  DomainEventOutboxWorker,
+  NodeImportEventSpoolFactory,
   installUndoCaptureGlobals,
   registerV2TableRepositoryPostgresAdapter,
+  ValidationInboxDurableProjection,
   v2RecordRepositoryPostgresTokens,
   type IV2TableRepositoryPostgresConfig,
+  FormulaSourceBudgetCommandBusMiddleware,
   type ComputedUpdateWorker,
+  type ComputedUpdateOutboxConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   BaseId,
+  compileDurableSubscriptionCatalog,
   DefaultTableMapper,
+  DomainWriteTransaction,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -32,15 +41,30 @@ import {
   MemoryTableRepository,
   NoopRealtimeEngine,
   NoopTracer,
+  ProjectionMessageCodecRegistry,
+  RecordCreated,
+  RecordReordered,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  RecordUpdated,
+  FieldCreated,
+  FieldUpdated,
+  TableCreated,
+  recordProjectionCodecs,
   registerV2CoreServices,
+  SameTxProjectionDispatcher,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
+  TargetedLegacyEventDispatcher,
   v2CoreTokens,
-  type IHasher,
-  type ILogger,
-  type ITableRepository,
-  type LogContext,
-  type TableDataSafetyLimitConfig,
+} from '@teable/v2-core';
+import type {
+  IHasher,
+  ILogger,
+  ITableRepository,
+  LogContext,
+  TableDataSafetyLimitConfig,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -135,8 +159,24 @@ export interface IV2NodeTestContainerOptions {
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   logToConsole?: boolean;
   logLevel?: V2NodeTestContainerLogLevel;
+  /**
+   * Table-scoped schema coordination. Real Postgres containers open a
+   * dedicated pool from the resolved connection string; PGlite/memory uses the
+   * core no-op.
+   */
+  schemaCoordination?:
+    | {
+        /** Session application name while a coordination lease is held. */
+        applicationName?: string;
+      }
+    | false;
+  // Kept for call-site compatibility. Delete now writes id-only record_trash
+  // markers inside the postgres delete transaction, so the event-bus sink is
+  // no longer used.
+  trashSink?: boolean;
 }
 
 export type V2NodeTestContainerLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
@@ -303,6 +343,19 @@ export const createV2NodeTestContainer = async (
   const dataDb = c.resolve<Kysely<V1TeableDatabase>>(v2DataDbTokens.db);
   const db = dataDb;
 
+  if (!shouldUsePglite && options.schemaCoordination !== false) {
+    const coordinationOptions = options.schemaCoordination;
+    c.registerInstance(
+      v2CoreTokens.tableSchemaCoordination,
+      new V2PgTableSchemaCoordination({
+        connectionString,
+        ...(coordinationOptions?.applicationName !== undefined
+          ? { applicationName: coordinationOptions.applicationName }
+          : {}),
+      })
+    );
+  }
+
   const tableMaxRowLimit = resolveTableMaxRowLimit(
     options.tableMaxRowLimit ??
       options.maxFreeRowLimit ??
@@ -337,12 +390,14 @@ export const createV2NodeTestContainer = async (
   await time('register-table-repository-adapter', async () => {
     registerV2TableRepositoryPostgresAdapter(c, {
       db: dataDb,
+      metaDb,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
         ...options.computedUpdate,
       },
       typeValidationStrategy,
       tableDataSafetyLimits: options.tableDataSafetyLimits,
+      formulaCompileBudget: options.formulaCompileBudget,
     });
   });
 
@@ -374,17 +429,20 @@ export const createV2NodeTestContainer = async (
   }
 
   c.registerInstance(v2CoreTokens.tableDataSafetyLimits, options.tableDataSafetyLimits ?? {});
-  const commandBus = new MemoryCommandBus(
-    c,
-    options.tableDataSafetyLimits
+  const commandBus = new MemoryCommandBus(c, [
+    new FormulaSourceBudgetCommandBusMiddleware(options.formulaCompileBudget),
+    ...(options.tableDataSafetyLimits
       ? [
           new TableDataSafetyLimitCommandBusMiddleware(
             new StaticTableDataSafetyLimitPlugin(options.tableDataSafetyLimits)
           ),
         ]
-      : []
-  );
+      : []),
+  ]);
   const queryBus = new MemoryQueryBus(c);
+  // The bus choice must happen here, before the eager singletons resolved below
+  // (ComputedUpdateWorker/Outbox) capture it by constructor injection — a
+  // replace-after-build at a call site would split events across two buses.
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
@@ -392,6 +450,50 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
+  const catalogResult = compileDurableSubscriptionCatalog([
+    RecordCreated,
+    RecordsBatchCreated,
+    RecordUpdated,
+    RecordsBatchUpdated,
+    RecordsDeleted,
+    RecordReordered,
+    TableCreated,
+    FieldCreated,
+    FieldUpdated,
+  ]);
+  if (catalogResult.isErr()) {
+    throw new Error(catalogResult.error.message);
+  }
+  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  if (codecResult.isErr()) {
+    throw new Error(codecResult.error.message);
+  }
+  c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  c.registerInstance(
+    v2CoreTokens.domainWriteTransaction,
+    new DomainWriteTransaction(
+      c.resolve(v2CoreTokens.unitOfWork),
+      codecResult.value,
+      catalogResult.value,
+      c.resolve(v2CoreTokens.projectionMessageJournal),
+      new TargetedLegacyEventDispatcher(c, spyLogger),
+      new SameTxProjectionDispatcher(c),
+      spyLogger,
+      undefined,
+      c.resolve(v2CoreTokens.eventBus),
+      new NodeImportEventSpoolFactory()
+    )
+  );
+  const validationConsumer = new ValidationInboxDurableProjection(dataDb);
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
+    new DomainEventOutboxWorker(
+      dataDb,
+      new Map([[validationConsumer.consumerId, validationConsumer]]),
+      codecResult.value,
+      spyLogger
+    )
+  );
   // Register core services (uses defaults unless already registered)
   await time('register-core-services', async () => {
     registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
@@ -419,6 +521,23 @@ export const createV2NodeTestContainer = async (
       .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
       .addColumn('name', 'varchar(255)', (col) => col.notNull())
       .addColumn('email', 'varchar(255)')
+      .addColumn('phone', 'varchar(255)')
+      .addColumn('deleted_time', 'timestamptz')
+      .execute()
+  );
+
+  // Collaborator table backs the v1-parity user typecast lookup (users must be
+  // collaborators of the table's base or space to be resolvable).
+  await time('ensure-collaborator-table', async () =>
+    metaDb.schema
+      .createTable('collaborator')
+      .ifNotExists()
+      .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
+      .addColumn('resource_type', 'varchar(255)', (col) => col.notNull())
+      .addColumn('resource_id', 'varchar(255)', (col) => col.notNull())
+      .addColumn('principal_id', 'varchar(255)', (col) => col.notNull())
+      .addColumn('principal_type', 'varchar(255)', (col) => col.notNull())
+      .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .execute()
   );
 
@@ -457,6 +576,22 @@ export const createV2NodeTestContainer = async (
         })
         .execute()
     );
+
+    // User values only resolve to collaborators of the base/space (v1 parity),
+    // so the system user must be a collaborator for tests that write it.
+    await time('seed-system-collaborator', async () =>
+      metaDb
+        .insertInto('collaborator')
+        .values({
+          id: 'colsystem',
+          resource_type: 'space',
+          resource_id: spaceId,
+          principal_id: 'system',
+          principal_type: 'user',
+        })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute()
+    );
   }
 
   const tableRepository = c.isRegistered(v2CoreTokens.tableRepository)
@@ -468,6 +603,9 @@ export const createV2NodeTestContainer = async (
 
   const worker = c.resolve<ComputedUpdateWorker>(
     v2RecordRepositoryPostgresTokens.computedUpdateWorker
+  );
+  const { workerLane } = c.resolve<ComputedUpdateOutboxConfig>(
+    v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
   );
   const processOutboxOnce = async (): Promise<number> => {
     const result = await worker.runOnce({ workerId: 'test-worker', limit: 100 });
@@ -483,6 +621,7 @@ export const createV2NodeTestContainer = async (
       const rows = await dataDb
         .selectFrom('computed_update_outbox')
         .select(['run_id as runId', 'status'])
+        .where('worker_lane', '=', workerLane)
         .where((eb) =>
           eb.or([
             eb('status', '=', 'processing'),
@@ -551,6 +690,9 @@ export const createV2NodeTestContainer = async (
     processOutboxOnce,
     dispose: async () => {
       try {
+        await c
+          .resolve<{ destroy?: () => Promise<void> }>(v2CoreTokens.tableSchemaCoordination)
+          .destroy?.();
         const closers = Array.from(new Set([metaDb, dataDb]));
         await Promise.all(closers.map((db) => db.destroy()));
       } finally {

@@ -16,7 +16,7 @@ const makeCondition = (fieldId: string, value: string) => ({
   },
 });
 
-describe('update-field: conditionalLookup property updates', () => {
+describe('[D01][S01] update-field: conditionalLookup property updates', () => {
   let ctx: SharedTestContext;
   let hostTableId: string;
   let hostPrimaryFieldId: string;

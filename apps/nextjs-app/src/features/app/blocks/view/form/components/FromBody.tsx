@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
-import { generateUniqLocalKey } from '../util';
+import { generateUniqLocalKey, isProtectedField } from '../util';
 import { FormField } from './FormField';
 
 interface IFormBodyProps {
@@ -77,7 +77,11 @@ export const FormBody = (props: IFormBodyProps) => {
     resetErrors();
 
     const requiredFieldIds = visibleFields.reduce((acc, field) => {
-      if (field.notNull || columnMeta[field.id].required) acc.push(field.id);
+      // Mirror the required marker in FormField: a not-null field that carries a
+      // default value is not required here — the submission omits it and the
+      // record takes the field default (the backend fills defaults for missing
+      // fields). Only the form's own required switch keeps it mandatory.
+      if (isProtectedField(field) || columnMeta[field.id]?.required) acc.push(field.id);
       return acc;
     }, [] as string[]);
 
@@ -146,7 +150,7 @@ export const FormBody = (props: IFormBodyProps) => {
       </div>
 
       {logoUrl && (
-        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+        <div className="group absolute start-1/2 top-[104px] ms-[-40px] size-20">
           <img
             className="absolute inset-0 size-full rounded-lg object-cover shadow-sm"
             src={previewUrl(logoUrl)}

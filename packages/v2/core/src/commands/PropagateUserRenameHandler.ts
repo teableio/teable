@@ -10,9 +10,10 @@ import { PropagateUserRenameCommand } from './PropagateUserRenameCommand';
 
 @CommandHandler(PropagateUserRenameCommand)
 @injectable()
-export class PropagateUserRenameHandler
-  implements ICommandHandler<PropagateUserRenameCommand, void>
-{
+export class PropagateUserRenameHandler implements ICommandHandler<
+  PropagateUserRenameCommand,
+  void
+> {
   constructor(
     @inject(v2CoreTokens.userRenamePropagationService)
     private readonly userRenamePropagationService: IUserRenamePropagationService
@@ -25,6 +26,7 @@ export class PropagateUserRenameHandler
     return this.userRenamePropagationService.propagateUserRename(context, {
       userId: command.userId,
       name: command.name,
+      sharedDataPlane: command.sharedDataPlane,
     });
   }
 }

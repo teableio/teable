@@ -117,7 +117,7 @@ const SUPPORTED_EQUALITY_RESIDUAL_OPERATORS = new Set<string>([
 const JSON_AGG_FUNCTIONS = new Set(['array_compact', 'array_unique']);
 
 function parseRollupFunctionName(expression: string): string {
-  const match = expression.match(/^(\w+)\(\{values\}\)$/);
+  const match = /^(\w+)\(\{values\}\)$/.exec(expression);
   if (!match) {
     throw new Error(`Invalid rollup expression: ${expression}`);
   }
@@ -272,8 +272,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // Build subquery with WHERE conditions
     const sub = this.qb.client.queryBuilder().select(this.qb.client.raw('1'));
     this.dbProvider
-      .filterQuery(sub, fieldMap, filter, undefined, { selectionMap } as unknown as {
+      .filterQuery(sub, fieldMap, filter, undefined, {
+        selectionMap,
+        unsupportedFieldReferenceBehavior: 'match-all',
+      } as unknown as {
         selectionMap: Map<string, string>;
+        unsupportedFieldReferenceBehavior: 'match-all';
       })
       .appendQueryBuilder();
     return `(${sub.toQuery()})`;
@@ -712,7 +716,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 }
 
 export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
-  private logger = new Logger(FieldCteVisitor.name);
+  private readonly logger = new Logger(FieldCteVisitor.name);
 
   static generateCTENameForField(table: TableDomain, field: LinkFieldCore) {
     return `CTE_${getTableAliasFromTable(table)}_${field.id}`;
@@ -927,7 +931,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   ): void {
     const source =
       table.id === this.table.id
-        ? this.state.getOriginalMainTableSource() ?? table.dbTableName
+        ? (this.state.getOriginalMainTableSource() ?? table.dbTableName)
         : table.dbTableName;
     builder.from(`${source} as ${alias}`);
     if (table.id === this.table.id) {
@@ -1497,6 +1501,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               selectionMap,
               fieldReferenceSelectionMap,
               fieldReferenceFieldMap,
+              unsupportedFieldReferenceBehavior: 'match-all',
             })
             .appendQueryBuilder();
         }
@@ -1567,6 +1572,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
+            unsupportedFieldReferenceBehavior: 'match-all',
           })
           .appendQueryBuilder();
       }
@@ -1770,7 +1776,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             })();
       const normalizedAggregateExpression = unwrapJsonAggregateForScalar(
         this.dbProvider.driver,
-        aggregateExpressionInfo.expression,
+        field.lookupOptions?.isUnique && field.isMultipleCellValue
+          ? this.dialect.uniqueLookupArray(aggregateExpressionInfo.expression)
+          : aggregateExpressionInfo.expression,
         field,
         aggregateExpressionInfo.isJsonAggregate
       );
@@ -1819,6 +1827,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
+            unsupportedFieldReferenceBehavior: 'match-all',
           })
           .appendQueryBuilder();
       };
@@ -2189,7 +2198,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               foreignTable,
               this.state,
               joinedCtesInScope,
-              usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+              !(usesJunctionTable || relationship === Relationship.OneMany),
               foreignAliasUsed,
               linkField.id,
               blockedLinkFieldIds,
@@ -2212,7 +2221,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
                 foreignTable,
                 this.state,
                 joinedCtesInScope,
-                usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+                !(usesJunctionTable || relationship === Relationship.OneMany),
                 foreignAliasUsed,
                 linkField.id,
                 blockedLinkFieldIds,
@@ -2231,7 +2240,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
                 foreignTable,
                 this.state,
                 joinedCtesInScope,
-                usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+                !(usesJunctionTable || relationship === Relationship.OneMany),
                 foreignAliasUsed,
                 linkField.id,
                 blockedLinkFieldIds,
@@ -2606,7 +2615,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             foreignTable,
             this.state,
             joinedCtesInScope,
-            usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+            !(usesJunctionTable || relationship === Relationship.OneMany),
             foreignAliasUsed,
             linkField.id,
             blockedLinkFieldIds,
@@ -2629,7 +2638,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               foreignTable,
               this.state,
               joinedCtesInScope,
-              usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+              !(usesJunctionTable || relationship === Relationship.OneMany),
               foreignAliasUsed,
               linkField.id,
               blockedLinkFieldIds,
@@ -2648,7 +2657,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               foreignTable,
               this.state,
               joinedCtesInScope,
-              usesJunctionTable || relationship === Relationship.OneMany ? false : true,
+              !(usesJunctionTable || relationship === Relationship.OneMany),
               foreignAliasUsed,
               linkField.id,
               blockedLinkFieldIds,

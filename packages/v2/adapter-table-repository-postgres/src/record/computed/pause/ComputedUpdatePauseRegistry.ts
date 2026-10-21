@@ -9,28 +9,46 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import {
+  sql,
+  type Expression,
+  type ExpressionBuilder,
+  type ExpressionWrapper,
+  type Kysely,
+  type SqlBool,
+} from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type {
+  AdmitComputedWriteParams,
   ComputedUpdatePauseScope,
   ComputedUpdatePauseScopeType,
+  ExtendComputedUpdatePauseLeaseParams,
   IComputedUpdatePauseRegistry,
   ListComputedUpdatePauseScopesParams,
   PauseComputedUpdateScopeParams,
+  ReleaseComputedUpdatePauseLeaseParams,
   ResumeComputedUpdateScopeParams,
 } from './IComputedUpdatePauseRegistry';
 import {
   COMPUTED_UPDATE_PAUSE_SCOPE_TABLE,
+  computedPausedWriteBlockedError,
   computedUpdatePauseScopeTypes,
+  DEFAULT_COMPUTED_PAUSE_BACKLOG_WATERMARK,
+  DEFAULT_COMPUTED_PAUSE_WRITE_POLICY,
+  parseComputedUpdatePauseWritePolicy,
 } from './IComputedUpdatePauseRegistry';
 
 type DynamicDB = Record<string, Record<string, unknown>>;
 
 const PAUSE_SCOPE_ID_PREFIX = 'cup';
 const PAUSE_SCOPE_ID_BODY_LENGTH = 16;
+const COMPUTED_UPDATE_OUTBOX_TABLE = 'computed_update_outbox';
+const OUTBOX_PENDING_STATUS = 'pending';
+export const DEFAULT_COMPUTED_UPDATE_PAUSE_DURATION_MS = 30 * 60 * 1000;
+export const MAX_COMPUTED_UPDATE_PAUSE_DURATION_MS = 2 * 60 * 60 * 1000;
 
 const createPauseScopeId = (): string =>
   generatePrefixedId(PAUSE_SCOPE_ID_PREFIX, PAUSE_SCOPE_ID_BODY_LENGTH);
@@ -43,6 +61,7 @@ type PauseScopeRow = {
   paused_by: string | null;
   resume_at: Date | null;
   reason: string | null;
+  write_policy: string | null;
   updated_at: Date;
   updated_by: string | null;
 };
@@ -64,6 +83,11 @@ const isActivePauseScope = (row: PauseScopeRow, now: Date): boolean =>
 
 const validateScopeType = (scopeType: string): scopeType is ComputedUpdatePauseScopeType =>
   computedUpdatePauseScopeTypes.includes(scopeType as ComputedUpdatePauseScopeType);
+
+const readDatabaseNow = async (db: Kysely<DynamicDB>): Promise<Date> => {
+  const result = await sql<{ now: Date | string }>`select current_timestamp as "now"`.execute(db);
+  return new Date(result.rows[0]!.now);
+};
 
 @injectable()
 export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry {
@@ -96,26 +120,69 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     const metadata = await this.resolveScopeMetadata(metadataDb, params.scopeType, params.scopeId);
     if (metadata.isErr()) return err(metadata.error);
 
-    const now = new Date();
+    const now = await readDatabaseNow(db);
+    const resumeAt =
+      params.resumeAt ?? new Date(now.getTime() + DEFAULT_COMPUTED_UPDATE_PAUSE_DURATION_MS);
+    if (Number.isNaN(resumeAt.getTime()) || resumeAt.getTime() <= now.getTime()) {
+      return err(
+        domainError.validation({
+          message: 'Computed pause resumeAt must be in the future',
+          details: { resumeAt },
+        })
+      );
+    }
+    if (resumeAt.getTime() - now.getTime() > MAX_COMPUTED_UPDATE_PAUSE_DURATION_MS) {
+      return err(
+        domainError.validation({
+          message: 'Computed pause duration cannot exceed 2 hours',
+          details: {
+            resumeAt,
+            maximumDurationMs: MAX_COMPUTED_UPDATE_PAUSE_DURATION_MS,
+          },
+        })
+      );
+    }
+    // The lease id is a fencing token: taking over a scope rotates it so that a stale holder's
+    // releaseLease() no longer matches and cannot release the pause that superseded it.
+    const leaseId = createPauseScopeId();
+    const writePolicy =
+      params.writePolicy === undefined
+        ? DEFAULT_COMPUTED_PAUSE_WRITE_POLICY
+        : parseComputedUpdatePauseWritePolicy(params.writePolicy);
+    if (
+      params.writePolicy !== undefined &&
+      params.writePolicy !== 'allow_bounded' &&
+      params.writePolicy !== 'block'
+    ) {
+      return err(
+        domainError.validation({
+          message: 'Invalid computed pause writePolicy',
+          details: { writePolicy: params.writePolicy },
+        })
+      );
+    }
     await db
       .insertInto(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
       .values({
-        id: createPauseScopeId(),
+        id: leaseId,
         scope_type: params.scopeType,
         scope_id: params.scopeId,
         paused_at: now,
         paused_by: params.actor ?? null,
-        resume_at: params.resumeAt ?? null,
+        resume_at: resumeAt,
         reason: params.reason ?? null,
+        write_policy: writePolicy,
         updated_at: now,
         updated_by: params.actor ?? null,
       })
       .onConflict((oc) =>
         oc.columns(['scope_type', 'scope_id']).doUpdateSet({
+          id: leaseId,
           paused_at: now,
           paused_by: params.actor ?? null,
-          resume_at: params.resumeAt ?? null,
+          resume_at: resumeAt,
           reason: params.reason ?? null,
+          write_policy: writePolicy,
           updated_at: now,
           updated_by: params.actor ?? null,
         })
@@ -136,11 +203,25 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
       );
     }
 
+    // Move the scope's due backlog out of the hot claim scan. Claim and
+    // redrive both key on next_run_at <= now before the pause predicate, so a
+    // deferred row costs no per-poll rescan; when the lease expires the row is
+    // due again and drains without operator action. Rows enqueued during the
+    // pause stay claim-filtered by the pause predicate as before.
+    const deferredCount = await this.updateScopeTaskSchedule(
+      db,
+      metadataDb,
+      params.scopeType,
+      params.scopeId,
+      { deferUntil: resumeAt, now }
+    );
+
     this.logger.info('computed:pause_scope:paused', {
       scopeType: params.scopeType,
       scopeId: params.scopeId,
-      resumeAt: params.resumeAt ?? null,
+      resumeAt,
       actor: params.actor ?? null,
+      deferredTaskCount: deferredCount,
     });
 
     return ok(paused.value);
@@ -162,21 +243,219 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     }
 
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const resumedAt = await readDatabaseNow(db);
     const resumed = await db
-      .deleteFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .updateTable(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .set({
+        resume_at: resumedAt,
+        updated_at: resumedAt,
+        updated_by: params.actor ?? null,
+      })
       .where('scope_type', '=', params.scopeType)
       .where('scope_id', '=', params.scopeId)
+      .where((eb) =>
+        eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', sql`current_timestamp`)])
+      )
       .returning('id')
       .executeTakeFirst();
 
     if (resumed) {
+      // Pull the pause-deferred backlog back to due so the next claim round
+      // drains it instead of waiting out the original lease.
+      const restoredCount = await this.updateScopeTaskSchedule(
+        db,
+        this.resolveMetadataDb(context),
+        params.scopeType,
+        params.scopeId,
+        { restoreAt: resumedAt }
+      );
       this.logger.info('computed:pause_scope:resumed', {
         scopeType: params.scopeType,
         scopeId: params.scopeId,
+        actor: params.actor ?? null,
+        releaseReason: params.releaseReason ?? null,
+        restoredTaskCount: restoredCount,
       });
     }
 
     return ok(Boolean(resumed));
+  }
+
+  async releaseLease(
+    params: ReleaseComputedUpdatePauseLeaseParams,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>> {
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const resumedAt = await readDatabaseNow(db);
+    const released = await db
+      .updateTable(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .set({
+        resume_at: resumedAt,
+        updated_at: resumedAt,
+        updated_by: params.actor ?? null,
+      })
+      .where('id', '=', params.leaseId)
+      .where((eb) =>
+        eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', sql`current_timestamp`)])
+      )
+      .returning(['id', 'scope_type', 'scope_id'])
+      .executeTakeFirst();
+
+    if (released) {
+      const restoredCount = await this.updateScopeTaskSchedule(
+        db,
+        this.resolveMetadataDb(context),
+        released.scope_type as ComputedUpdatePauseScopeType,
+        String(released.scope_id),
+        { restoreAt: resumedAt }
+      );
+      this.logger.info('computed:pause_scope:lease_released', {
+        leaseId: params.leaseId,
+        scopeType: released.scope_type,
+        scopeId: released.scope_id,
+        actor: params.actor ?? null,
+        releaseReason: params.releaseReason ?? null,
+        restoredTaskCount: restoredCount,
+      });
+    }
+
+    return ok(Boolean(released));
+  }
+
+  async extendLease(
+    params: ExtendComputedUpdatePauseLeaseParams,
+    context?: IExecutionContext
+  ): Promise<Result<ComputedUpdatePauseScope | null, DomainError>> {
+    if (
+      !Number.isFinite(params.durationMs) ||
+      params.durationMs <= 0 ||
+      params.durationMs > MAX_COMPUTED_UPDATE_PAUSE_DURATION_MS
+    ) {
+      return err(
+        domainError.validation({
+          message: 'Computed pause extension duration must be between 1 ms and 2 hours',
+          details: {
+            durationMs: params.durationMs,
+            maximumDurationMs: MAX_COMPUTED_UPDATE_PAUSE_DURATION_MS,
+          },
+        })
+      );
+    }
+
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const metadataDb = this.resolveMetadataDb(context);
+    const now = await readDatabaseNow(db);
+    const requestedResumeAt = new Date(now.getTime() + params.durationMs);
+    const extended = (await db
+      .updateTable(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .set({
+        resume_at: sql<Date>`greatest(${sql.ref('resume_at')}, ${requestedResumeAt})`,
+        updated_at: now,
+        updated_by: params.actor ?? null,
+      })
+      .where('id', '=', params.leaseId)
+      .where('resume_at', 'is not', null)
+      .where('resume_at', '>', sql`current_timestamp`)
+      .returningAll()
+      .executeTakeFirst()) as PauseScopeRow | undefined;
+
+    if (!extended) return ok(null);
+
+    const metadata = await this.resolveScopeMetadataBatch(metadataDb, [extended]);
+    if (metadata.isErr()) return err(metadata.error);
+
+    const resumeAt = new Date(extended.resume_at!);
+    const deferredCount = await this.updateScopeTaskSchedule(
+      db,
+      metadataDb,
+      extended.scope_type,
+      extended.scope_id,
+      { deferUntil: resumeAt, now }
+    );
+    this.logger.info('computed:pause_scope:extended', {
+      leaseId: params.leaseId,
+      scopeType: extended.scope_type,
+      scopeId: extended.scope_id,
+      resumeAt,
+      actor: params.actor ?? null,
+      deferredTaskCount: deferredCount,
+    });
+
+    return ok(this.toPauseScope(extended, metadata.value, now));
+  }
+
+  /**
+   * Reschedule pending outbox tasks belonging to a scope.
+   *
+   * Defer (pause): push due rows to the lease's resumeAt so the claim probe,
+   * the claim scan, and the redrive sweep — all keyed on next_run_at <= now —
+   * skip them without re-evaluating the pause predicate every poll. Expiry of
+   * the lease makes them due again on its own.
+   *
+   * Restore (early resume/release): pull future-dated rows back to due so the
+   * backlog drains on the next claim round instead of waiting out the lease.
+   */
+  private async updateScopeTaskSchedule(
+    db: Kysely<DynamicDB>,
+    metadataDb: Kysely<DynamicDB>,
+    scopeType: ComputedUpdatePauseScopeType,
+    scopeId: string,
+    mode: { deferUntil: Date; now: Date } | { restoreAt: Date }
+  ): Promise<number> {
+    const scopeCondition = await this.buildScopeTaskCondition(metadataDb, scopeType, scopeId);
+    if (!scopeCondition) return 0;
+
+    const isDefer = 'deferUntil' in mode;
+    const scheduleAt = isDefer ? mode.deferUntil : mode.restoreAt;
+    let query = db
+      .updateTable(COMPUTED_UPDATE_OUTBOX_TABLE)
+      .set({
+        next_run_at: scheduleAt,
+        updated_at: isDefer ? mode.now : scheduleAt,
+      })
+      .where('status', '=', OUTBOX_PENDING_STATUS)
+      .where(scopeCondition);
+    query = isDefer
+      ? query.where('next_run_at', '<', scheduleAt)
+      : query.where('next_run_at', '>', scheduleAt);
+
+    const result = await query.executeTakeFirst();
+    return Number(result.numUpdatedRows ?? 0);
+  }
+
+  /**
+   * Task-matching condition mirroring the claim pause predicate: base scope
+   * matches by base id, table scope by seed or affected tables, space scope by
+   * the space's bases resolved through the metadata database.
+   */
+  private async buildScopeTaskCondition(
+    metadataDb: Kysely<DynamicDB>,
+    scopeType: ComputedUpdatePauseScopeType,
+    scopeId: string
+  ): Promise<
+    | ((
+        eb: ExpressionBuilder<DynamicDB, keyof DynamicDB>
+      ) => Expression<boolean> | ExpressionWrapper<DynamicDB, keyof DynamicDB, SqlBool>)
+    | null
+  > {
+    if (scopeType === 'base') {
+      return (eb) => eb('base_id', '=', scopeId);
+    }
+    if (scopeType === 'space') {
+      const bases = (await metadataDb
+        .selectFrom('base')
+        .select('id')
+        .where('space_id', '=', scopeId)
+        .execute()) as Array<{ id: string }>;
+      const baseIds = bases.map((row) => String(row.id));
+      if (!baseIds.length) return null;
+      return (eb) => eb('base_id', 'in', baseIds);
+    }
+    return (eb) =>
+      eb.or([
+        eb('seed_table_id', '=', scopeId),
+        sql<boolean>`${scopeId} = any(coalesce(${sql.ref('affected_table_ids')}, ARRAY[]::text[]))`,
+      ]);
   }
 
   async listScopes(
@@ -185,7 +464,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
   ): Promise<Result<ReadonlyArray<ComputedUpdatePauseScope>, DomainError>> {
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
     const metadataDb = this.resolveMetadataDb(context);
-    const now = new Date();
+    const now = await readDatabaseNow(db);
     let query = db.selectFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE).selectAll();
     const activeOnly = params?.activeOnly ?? true;
 
@@ -194,7 +473,9 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     }
 
     if (activeOnly) {
-      query = query.where((eb) => eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', now)]));
+      query = query.where((eb) =>
+        eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', sql`current_timestamp`)])
+      );
     }
 
     const rows = (await query.orderBy('scope_type', 'asc').orderBy('scope_id', 'asc').execute()) as
@@ -207,6 +488,106 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     const mapped = rows.map((row) => this.toPauseScope(row, metadata.value, now));
 
     return ok(mapped);
+  }
+
+  async admitComputedWrite(
+    params: AdmitComputedWriteParams,
+    _context?: IExecutionContext
+  ): Promise<Result<void, DomainError>> {
+    // Committed pause leases and backlog auto-release must not join the caller
+    // transaction. An already-aborted user tx would hide the original error
+    // (schema-op repair then classifies as transaction_rollback), and a rollback
+    // would undo the watermark auto-release.
+    try {
+      const db = this.db as unknown as Kysely<DynamicDB>;
+      const metadataDb = this.metaDb as unknown as Kysely<DynamicDB>;
+      const space = (await metadataDb
+        .selectFrom('base')
+        .select('space_id')
+        .where('id', '=', params.baseId)
+        .executeTakeFirst()) as { space_id: string | null } | undefined;
+      const spaceId = space?.space_id ?? null;
+
+      const rows = (await db
+        .selectFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+        .selectAll()
+        .where((eb) =>
+          eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', sql`current_timestamp`)])
+        )
+        .where((eb) => {
+          const matches = [
+            eb.and([eb('scope_type', '=', 'table'), eb('scope_id', '=', params.tableId)]),
+            eb.and([eb('scope_type', '=', 'base'), eb('scope_id', '=', params.baseId)]),
+          ];
+          if (spaceId) {
+            matches.push(eb.and([eb('scope_type', '=', 'space'), eb('scope_id', '=', spaceId)]));
+          }
+          return eb.or(matches);
+        })
+        .execute()) as PauseScopeRow[];
+
+      if (rows.length === 0) return ok(undefined);
+
+      const blocked = rows.find(
+        (row) => parseComputedUpdatePauseWritePolicy(row.write_policy) === 'block'
+      );
+      if (blocked) {
+        return err(
+          computedPausedWriteBlockedError({
+            leaseId: blocked.id,
+            scopeType: blocked.scope_type,
+            scopeId: blocked.scope_id,
+            reason: blocked.reason,
+            retryAt: blocked.resume_at ? new Date(blocked.resume_at).toISOString() : null,
+          })
+        );
+      }
+
+      const watermark = params.backlogWatermark ?? DEFAULT_COMPUTED_PAUSE_BACKLOG_WATERMARK;
+      for (const row of rows) {
+        const pending = await this.countPendingTasks(db, metadataDb, row.scope_type, row.scope_id);
+        if (pending < watermark) continue;
+
+        const released = await this.releaseLease({
+          leaseId: row.id,
+          actor: 'computed-pause-backlog-budget',
+          releaseReason: 'backlog_budget',
+        });
+        if (released.isErr()) return err(released.error);
+        this.logger.warn('computed:pause_scope:auto_released_backlog_budget', {
+          leaseId: row.id,
+          scopeType: row.scope_type,
+          scopeId: row.scope_id,
+          pending,
+          watermark,
+        });
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.unexpected({
+          message: `Computed pause write admission failed: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
+  }
+
+  private async countPendingTasks(
+    db: Kysely<DynamicDB>,
+    metadataDb: Kysely<DynamicDB>,
+    scopeType: ComputedUpdatePauseScopeType,
+    scopeId: string
+  ): Promise<number> {
+    const scopeCondition = await this.buildScopeTaskCondition(metadataDb, scopeType, scopeId);
+    if (!scopeCondition) return 0;
+    const row = (await db
+      .selectFrom(COMPUTED_UPDATE_OUTBOX_TABLE)
+      .select(sql<number>`count(*)`.as('count'))
+      .where('status', '=', OUTBOX_PENDING_STATUS)
+      .where(scopeCondition)
+      .executeTakeFirst()) as { count: number | string } | undefined;
+    return Number(row?.count ?? 0);
   }
 
   private async getScopeByKey(
@@ -380,6 +761,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
       pausedBy: row.paused_by,
       resumeAt: row.resume_at,
       reason: row.reason,
+      writePolicy: parseComputedUpdatePauseWritePolicy(row.write_policy),
       updatedAt: row.updated_at,
       updatedBy: row.updated_by,
       active: isActivePauseScope(row, now),

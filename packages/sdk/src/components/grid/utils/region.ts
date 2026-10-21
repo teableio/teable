@@ -12,23 +12,22 @@ import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
 import { getRowControlCheckboxOffsetX, getRowControlOffsetX } from './rowControl';
 
-interface ICheckRegionProps
-  extends Pick<
-    IRenderLayerProps,
-    | 'theme'
-    | 'height'
-    | 'columns'
-    | 'scrollState'
-    | 'dragState'
-    | 'selection'
-    | 'isSelecting'
-    | 'columnResizeState'
-    | 'coordInstance'
-    | 'columnStatistics'
-    | 'isMultiSelectionEnable'
-    | 'rowControlPaddingX'
-    | 'getLinearRow'
-  > {
+interface ICheckRegionProps extends Pick<
+  IRenderLayerProps,
+  | 'theme'
+  | 'height'
+  | 'columns'
+  | 'scrollState'
+  | 'dragState'
+  | 'selection'
+  | 'isSelecting'
+  | 'columnResizeState'
+  | 'coordInstance'
+  | 'columnStatistics'
+  | 'isMultiSelectionEnable'
+  | 'rowControlPaddingX'
+  | 'getLinearRow'
+> {
   rowControls: IRowControlItem[];
   position: IRegionPosition;
   isFreezing: boolean;
@@ -113,6 +112,9 @@ const checkIsActiveCell = (props: ICheckRegionProps): IRegionData | null => {
   const { scrollTop, scrollLeft } = scrollState;
   const [columnIndex, rowIndex] = activeCell;
   const linearRowIndex = real2RowIndex(rowIndex);
+  // Row not visible (e.g. all groups collapsed): no active-cell region to hit,
+  // otherwise getRowOffset falls back to 0 and the phantom region covers the column header
+  if (linearRowIndex == null) return null;
   const offsetY = coordInstance.getRowOffset(linearRowIndex) - scrollTop;
   const offsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const { width, height } = activeCellBound;

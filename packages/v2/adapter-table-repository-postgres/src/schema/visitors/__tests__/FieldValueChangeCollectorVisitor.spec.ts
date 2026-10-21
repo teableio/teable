@@ -8,7 +8,11 @@ import {
   RatingMax,
   RollupExpression,
   RollupFieldConfig,
+  FieldHasError,
+  RemoveSymmetricLinkFieldSpec,
   SelectOption,
+  TableRemoveFieldSpec,
+  TableUpdateFieldHasErrorSpec,
   TableUpdateFieldNameSpec,
   TableUpdateFieldTypeSpec,
   UpdateFormulaExpressionSpec,
@@ -23,11 +27,17 @@ import {
   UpdateUserMultiplicitySpec,
   UserMultiplicity,
   createFormulaField,
+  createLongTextField,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
 import { FieldValueChangeCollectorVisitor } from '../FieldValueChangeCollectorVisitor';
-import { createNumField, createTextField, createValidFieldId } from './helpers/fieldFactories';
+import {
+  createNumField,
+  createSingleSelField,
+  createTextField,
+  createValidFieldId,
+} from './helpers/fieldFactories';
 
 const mkFieldId = (seed: string) => FieldId.create(createValidFieldId(seed))._unsafeUnwrap();
 const mkDbFieldName = (name: string) => DbFieldName.rehydrate(name)._unsafeUnwrap();
@@ -45,6 +55,30 @@ const mkLinkConfig = (params: {
 }) => LinkFieldConfig.create(params)._unsafeUnwrap();
 
 describe('FieldValueChangeCollectorVisitor', () => {
+  describe('visitTableUpdateFieldHasError', () => {
+    it('self-backfills the field when clearing an error', () => {
+      const fieldId = mkFieldId('clearError');
+      const spec = TableUpdateFieldHasErrorSpec.clearError(fieldId, FieldHasError.error());
+      const visitor = new FieldValueChangeCollectorVisitor();
+
+      spec.accept(visitor);
+
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.selfBackfillFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+    });
+
+    it('propagates dependents when setting an error', () => {
+      const fieldId = mkFieldId('setError');
+      const spec = TableUpdateFieldHasErrorSpec.setError(fieldId, FieldHasError.ok());
+      const visitor = new FieldValueChangeCollectorVisitor();
+
+      spec.accept(visitor);
+
+      expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+  });
+
   // ============ TableUpdateFieldTypeSpec ============
 
   describe('visitTableUpdateFieldType', () => {
@@ -60,6 +94,20 @@ describe('FieldValueChangeCollectorVisitor', () => {
         newField.id().toString(),
       ]);
       expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+
+    it('should not collect valueChangedFieldIds for value-preserving singleSelect → text', () => {
+      const oldField = createSingleSelField('selPres', 'Status', 'status_col')._unsafeUnwrap();
+      const newField = createTextField('selPres', 'Status', 'status_col')._unsafeUnwrap();
+      const spec = TableUpdateFieldTypeSpec.create(oldField, newField);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(spec.isValuePreservingConversion()).toBe(true);
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.hasDbStorageTypeChange()).toBe(false);
     });
 
     it('should collect both valueChanged and selfBackfill when new field is computed', () => {
@@ -127,6 +175,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       // text -> number changes cellValueType from 'string' to 'number'
       // which means the DB column type changes from text to double precision
       expect(visitor.hasDbStorageTypeChange()).toBe(true);
+      expect(visitor.deferredBackfillFields()).toEqual([newField.id()]);
     });
 
     it('should not detect hasDbStorageTypeChange when cellValueType stays the same', () => {
@@ -139,6 +188,19 @@ describe('FieldValueChangeCollectorVisitor', () => {
 
       // text -> text, no type conversion at all
       expect(visitor.hasDbStorageTypeChange()).toBe(false);
+    });
+    it('keeps DISTINCT filtering for text-to-longText without deferring unchanged storage', () => {
+      const oldField = createTextField('textKind', 'Text', 'text_col')._unsafeUnwrap();
+      const newField = createLongTextField({
+        id: oldField.id(),
+        name: oldField.name(),
+      })._unsafeUnwrap();
+      const visitor = new FieldValueChangeCollectorVisitor();
+      TableUpdateFieldTypeSpec.create(oldField, newField).accept(visitor)._unsafeUnwrap();
+
+      expect(visitor.valueChangedFields()).toEqual([newField.id()]);
+      expect(visitor.hasDbStorageTypeChange()).toBe(false);
+      expect(visitor.deferredBackfillFields()).toEqual([]);
     });
   });
 
@@ -644,6 +706,57 @@ describe('FieldValueChangeCollectorVisitor', () => {
 
       expect(visitor.valueChangedFields()).toEqual([]);
       expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+  });
+
+  // ============ Removed fields ============
+
+  describe('visitTableRemoveField', () => {
+    it('should collect removed field ids and leave backfill sets untouched', () => {
+      const removedField = createTextField('goneA', 'Gone', 'gone_col')._unsafeUnwrap();
+      const spec = TableRemoveFieldSpec.create(removedField);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        removedField.id().toString(),
+      ]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.deferredBackfillFields()).toEqual([]);
+    });
+
+    it('should collect the symmetric link field dropped by a twoWay to oneWay conversion', () => {
+      const symmetricField = createTextField(
+        'symGone',
+        'Symmetric link',
+        'sym_gone_col'
+      )._unsafeUnwrap();
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      RemoveSymmetricLinkFieldSpec.create(symmetricField).accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        symmetricField.id().toString(),
+      ]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.valueChangedFields()).toEqual([]);
+    });
+
+    it('should deduplicate removed field ids and collect symmetric removals', () => {
+      const removedField = createTextField('goneB', 'Gone', 'gone_col_b')._unsafeUnwrap();
+      const symmetricField = createTextField('goneC', 'Gone link', 'gone_col_c')._unsafeUnwrap();
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      TableRemoveFieldSpec.create(removedField).accept(visitor);
+      TableRemoveFieldSpec.create(symmetricField).accept(visitor);
+      TableRemoveFieldSpec.create(removedField).accept(visitor);
+
+      expect(visitor.removedFields().map((id) => id.toString())).toEqual([
+        removedField.id().toString(),
+        symmetricField.id().toString(),
+      ]);
     });
   });
 

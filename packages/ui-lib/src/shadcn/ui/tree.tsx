@@ -2,7 +2,6 @@
 'use client';
 
 import type { ItemInstance } from '@headless-tree/core';
-import { ChevronDownIcon } from '@radix-ui/react-icons';
 import { Slot } from '@radix-ui/react-slot';
 import * as React from 'react';
 import { cn } from '../utils';
@@ -28,7 +27,7 @@ interface TreeProps extends React.HTMLAttributes<HTMLDivElement> {
   tree?: any;
 }
 
-function Tree({ indent = 20, tree, className, ...props }: TreeProps) {
+function Tree({ indent = 20, tree, className, ...props }: Readonly<TreeProps>) {
   const containerProps =
     tree && typeof tree.getContainerProps === 'function' ? tree.getContainerProps() : {};
   const mergedProps = { ...props, ...containerProps };
@@ -66,7 +65,7 @@ function TreeItem<T = any>({
   asChild,
   children,
   ...props
-}: Omit<TreeItemProps<T>, 'indent'>) {
+}: Readonly<Omit<TreeItemProps<T>, 'indent'>>) {
   const { indent } = useTreeContext<T>();
 
   const itemProps = typeof item.getProps === 'function' ? item.getProps() : {};
@@ -122,7 +121,7 @@ function TreeItemLabel<T = any>({
   children,
   className,
   ...props
-}: TreeItemLabelProps<T>) {
+}: Readonly<TreeItemLabelProps<T>>) {
   const { currentItem } = useTreeContext<T>();
   const item = propItem || currentItem;
 
@@ -173,7 +172,7 @@ function TreeDragLine({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     <div
       style={dragLine}
       className={cn(
-        'absolute z-30 -mt-px h-px w-[unset] bg-foreground before:absolute before:-left-[3px] before:-top-[2.5px] before:border-y-[3px] before:border-l-[3px] before:border-y-transparent before:border-l-foreground',
+        'absolute z-30 -mt-px h-px w-[unset] bg-foreground before:absolute before:-left-[3px] before:-top-[2.5px] before:border-y-[3px] before:border-s-[3px] before:border-y-transparent before:border-s-foreground',
         className
       )}
       {...props}

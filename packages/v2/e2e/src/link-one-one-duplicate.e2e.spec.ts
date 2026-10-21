@@ -18,7 +18,7 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * instead of proper 400 validation errors.
  */
 
-describe('v2 http oneOne link field duplicate constraint (e2e)', () => {
+describe('[F11][R01] v2 http oneOne link field duplicate constraint (e2e)', () => {
   let ctx: SharedTestContext;
 
   /**

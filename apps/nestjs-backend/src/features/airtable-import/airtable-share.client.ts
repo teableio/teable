@@ -1,8 +1,8 @@
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import { parser } from 'stream-json';
-import Assembler from 'stream-json/Assembler';
-import { ignore } from 'stream-json/filters/Ignore';
+import { parserStream } from 'stream-json';
+import { Assembler } from 'stream-json/assembler.js';
+import { ignore } from 'stream-json/filters/ignore.js';
 
 /**
  * Reads Airtable view configuration (filters/sorts/groups/kanban stacking) that
@@ -112,7 +112,7 @@ export class AirtableShareClient {
 
   /** appId carried by a canonical share URL, for a cheap client-side pre-check. */
   static parseBaseIdFromLink(shareLink: string): string | undefined {
-    return shareLink.match(/app[A-Za-z0-9]+/)?.[0];
+    return /app[A-Za-z0-9]+/.exec(shareLink)?.[0];
   }
 
   /**
@@ -163,8 +163,8 @@ export class AirtableShareClient {
   }
 
   private parseShareSession(html: string, cookie: string): IAirtableShareSession {
-    const requestId = html.match(/requestId: "(.*?)",/)?.[1];
-    const initRaw = html.match(/window\.initData = (.*?);\n/)?.[1];
+    const requestId = /requestId: "(.*?)",/.exec(html)?.[1];
+    const initRaw = /window\.initData = (.*?);\n/.exec(html)?.[1];
     if (!requestId || !initRaw) {
       throw new AirtableShareError(
         'The link does not look like an Airtable shared base.',
@@ -332,7 +332,7 @@ export class AirtableShareClient {
     stream: Readable,
     ignoreBranches: RegExp
   ): Promise<Record<string, unknown>> {
-    const tokens = stream.pipe(parser()).pipe(ignore({ filter: ignoreBranches }));
+    const tokens = stream.pipe(parserStream()).pipe(ignore.asStream({ filter: ignoreBranches }));
     const assembler = Assembler.connectTo(tokens);
     await finished(tokens);
     return (assembler.current ?? {}) as Record<string, unknown>;
@@ -344,14 +344,14 @@ export class AirtableShareClient {
    * "Copy link" produces and what other importers request.
    */
   private buildShareUrl(shareLink: string): string {
-    const shareId = shareLink.match(/shr[A-Za-z0-9]+/)?.[0];
+    const shareId = /shr[A-Za-z0-9]+/.exec(shareLink)?.[0];
     if (!shareId) {
       throw new AirtableShareError(
         'Enter a valid Airtable shared-base link (https://airtable.com/.../shr...).',
         'not_a_base'
       );
     }
-    const appId = shareLink.match(/app[A-Za-z0-9]+/)?.[0];
+    const appId = /app[A-Za-z0-9]+/.exec(shareLink)?.[0];
     return appId ? `${shareBaseUrl}/${appId}/${shareId}` : `${shareBaseUrl}/${shareId}`;
   }
 

@@ -62,7 +62,7 @@ const normalizeV2RollupField = (field: IFieldVo): IFieldVo => {
   }
 
   const lookupOptions = {
-    ...(asRecordObject(raw.lookupOptions) ?? {}),
+    ...asRecordObject(raw.lookupOptions),
   } as Record<string, unknown>;
 
   if (config.linkFieldId != null) lookupOptions.linkFieldId = config.linkFieldId;
@@ -91,7 +91,7 @@ const normalizeV2ConditionalRollupField = (field: IFieldVo): IFieldVo => {
 
   const condition = asRecordObject(config.condition);
   const options = {
-    ...(asRecordObject(raw.options) ?? {}),
+    ...asRecordObject(raw.options),
   } as Record<string, unknown>;
 
   if (config.foreignTableId != null) options.foreignTableId = config.foreignTableId;

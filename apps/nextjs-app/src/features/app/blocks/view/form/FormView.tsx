@@ -7,7 +7,7 @@ export const FormView = () => {
   return (
     <>
       {!isReadOnlyPreview && <FormToolBar />}
-      <div className="w-full grow overflow-hidden">
+      <div className="w-full grow overflow-hidden bg-background">
         <FormViewBase />
       </div>
     </>

@@ -95,7 +95,7 @@ export const UserOptions = (props: {
       {!isLookup && (
         <div className="space-y-4">
           <div className="flex w-full flex-col gap-2">
-            <div className="flex h-8 items-center space-x-2">
+            <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 id="field-options-is-multiple"
                 checked={Boolean(isMultiple)}
@@ -105,7 +105,7 @@ export const UserOptions = (props: {
                 {t('table:field.editor.allowMultiUsers')}
               </Label>
             </div>
-            <div className="flex h-8 items-center space-x-2">
+            <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 id="field-options-should-notify"
                 checked={Boolean(shouldNotify)}

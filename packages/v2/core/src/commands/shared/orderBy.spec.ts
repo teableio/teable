@@ -72,6 +72,13 @@ describe('orderBy helpers', () => {
     `);
   });
 
+  it('marks group-derived entries for group-identity collation, plain sorts not', () => {
+    const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
+    const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
+    expect(groupBy?.[0]?.groupIdentityCollation).toBe(true);
+    expect(sortBy?.[0]?.groupIdentityCollation).toBeUndefined();
+  });
+
   it('merges group + sort and appends view row order + auto number as tie-breakers', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();

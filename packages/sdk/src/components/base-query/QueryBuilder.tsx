@@ -184,14 +184,12 @@ const QueryBuilderContainer = forwardRef<
           const tableIds = join.map((v) => v.table).filter((v) => !!v) as string[];
           const tablesContext = await getContextWithTableIds(tableIds);
           setJoinContext(
-            tablesContext
-              .map((context, i) =>
-                context.map((v) => ({
-                  ...v,
-                  groupTableId: tableIds[i],
-                }))
-              )
-              .flat()
+            tablesContext.flatMap((context, i) =>
+              context.map((v) => ({
+                ...v,
+                groupTableId: tableIds[i],
+              }))
+            )
           );
         }
         break;
@@ -235,7 +233,6 @@ const QueryBuilderContainer = forwardRef<
   };
 
   const onQueryChange = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
-    console.log(depth, 'onQueryChange', key, value);
     collectContext(key, value);
     if (!query) {
       key === 'from' &&
@@ -262,7 +259,6 @@ const QueryBuilderContainer = forwardRef<
   }, [childContext, joinContext]);
 
   const onFromChange = async (type: string, tableId?: string) => {
-    console.log(depth, 'onFromChange', type, tableId);
     if (type === 'query') {
       onQueryChange('from', '');
       setFromType('query');
@@ -298,7 +294,7 @@ const QueryBuilderContainer = forwardRef<
     <div className={cn('relative rounded border py-4 px-2', className)}>
       {depth > 0 && (
         <Button
-          className="absolute right-1 top-1 h-auto rounded-full p-0.5 text-[13px]"
+          className="absolute end-1 top-1 h-auto rounded-full p-0.5 text-[13px]"
           size={'xs'}
           variant={'outline'}
           onClick={() => onChange(undefined)}

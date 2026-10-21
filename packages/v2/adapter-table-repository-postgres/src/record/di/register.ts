@@ -7,6 +7,7 @@ import type { Kysely } from 'kysely';
 import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
+  ComputedUpdateRuntimeConfig,
   FieldBackfillConfig,
   HybridWithOutboxStrategyConfig,
   IComputedOutboxWakeupPublisher,
@@ -16,6 +17,7 @@ import {
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
+  defaultComputedUpdateRuntimeConfig,
   defaultComputedUpdateLockConfig,
   ComputedActivityProjector,
   PostgresComputedActivityReader,
@@ -29,6 +31,7 @@ import {
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   normalizeComputedUpdateOutboxConfig,
+  resolveComputedWorkerLane,
   noopComputedOutboxWakeupPublisher,
   ComputedUpdateWorker,
   UserRenamePropagationService,
@@ -55,6 +58,7 @@ export interface IV2RecordRepositoryPostgresConfig {
     mode?: 'sync' | 'hybrid' | 'async';
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
+    runtimeConfig?: Partial<ComputedUpdateRuntimeConfig>;
     lockConfig?: Partial<ComputedUpdateLockConfig>;
     wakeupPublisher?: IComputedOutboxWakeupPublisher;
     /**
@@ -133,16 +137,22 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   };
   const outboxConfig: ComputedUpdateOutboxConfig = normalizeComputedUpdateOutboxConfig({
     ...defaultComputedUpdateOutboxConfig,
+    workerLane: resolveComputedWorkerLane(),
     ...config.computedUpdate?.outboxConfig,
   });
   const lockConfig: ComputedUpdateLockConfig = {
     ...defaultComputedUpdateLockConfig,
     ...config.computedUpdate?.lockConfig,
   };
+  const runtimeConfig: ComputedUpdateRuntimeConfig = {
+    ...defaultComputedUpdateRuntimeConfig,
+    ...config.computedUpdate?.runtimeConfig,
+  };
 
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig, runtimeConfig);
 
   const fieldBackfillConfig: FieldBackfillConfig = {
     ...defaultFieldBackfillConfig,

@@ -1,11 +1,11 @@
-import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { domainError, type DomainError } from '../../shared/DomainError';
+import { type DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
+import { Field } from '../fields/Field';
+import { FieldType } from '../fields/FieldType';
 import { LinkField } from '../fields/types/LinkField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
-import type { Field } from '../fields/Field';
 import type { Table } from '../Table';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
@@ -75,7 +75,39 @@ export class TableUpdateFieldTypeSpec<
       }
     }
 
+    // A single-value lookup of a link/user/attachment stores jsonb while its
+    // cell value type stays string. Retargeting that lookup onto a scalar
+    // field (the delete-table path converts the link to text) must alter the
+    // column before backfill, or the UPDATE assigns text into jsonb.
+    if (this.singleValueLookupJsonStorageChanged()) {
+      return true;
+    }
+
     return false;
+  }
+
+  private singleValueLookupJsonStorageChanged(): boolean {
+    if (!isLookupLike(this.oldFieldValue) || !isLookupLike(this.newFieldValue)) {
+      return false;
+    }
+
+    const oldMultiple = this.oldFieldValue.isMultipleCellValue();
+    const newMultiple = this.newFieldValue.isMultipleCellValue();
+    if (
+      oldMultiple.isErr() ||
+      newMultiple.isErr() ||
+      oldMultiple.value.toBoolean() ||
+      newMultiple.value.toBoolean()
+    ) {
+      return false;
+    }
+
+    const jsonSpec = Field.specs().isJson().build();
+    if (jsonSpec.isErr()) return false;
+    return (
+      jsonSpec.value.isSatisfiedBy(this.oldFieldValue) !==
+      jsonSpec.value.isSatisfiedBy(this.newFieldValue)
+    );
   }
 
   /**
@@ -83,6 +115,26 @@ export class TableUpdateFieldTypeSpec<
    */
   requiresDataMigration(): boolean {
     return this.isTypeConversion();
+  }
+
+  /**
+   * True when the type changes but every stored cell value is preserved
+   * verbatim: same storage column, same value domain, no clamping/pruning/
+   * parsing. Such conversions need no data migration and no record-level
+   * undo/redo snapshot — undoing the meta change alone restores the field.
+   *
+   * Deliberately a narrow whitelist. A single-select cell stores the option
+   * name as text, so converting to a text field keeps the column and every
+   * value untouched (V1 ships the same fast path in basalConvert).
+   */
+  isValuePreservingConversion(): boolean {
+    if (!this.isTypeConversion()) {
+      return false;
+    }
+
+    const oldType = this.oldFieldValue.type().toString();
+    const newType = this.newFieldValue.type().toString();
+    return oldType === 'singleSelect' && (newType === 'singleLineText' || newType === 'longText');
   }
 
   mutate(t: Table): Result<Table, DomainError> {
@@ -93,3 +145,8 @@ export class TableUpdateFieldTypeSpec<
     return v.visitTableUpdateFieldType(this).map(() => undefined);
   }
 }
+
+const isLookupLike = (field: Field): boolean => {
+  const type = field.type();
+  return type.equals(FieldType.lookup()) || type.equals(FieldType.conditionalLookup());
+};

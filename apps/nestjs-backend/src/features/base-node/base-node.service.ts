@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import { generateBaseNodeId, HttpErrorCode } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   IMoveBaseNodeRo,
   IBaseNodeVo,
@@ -19,6 +19,7 @@ import type {
   IBaseNodePresenceCreatePayload,
   IBaseNodePresenceDeletePayload,
   IBaseNodePresenceUpdatePayload,
+  IBaseNodePresenceFlushPayload,
   IBaseNodeTableResourceMeta,
   IUserInfoVo,
   V2Feature,
@@ -40,6 +41,7 @@ import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import type { IV2Decision } from '../canary/canary.service';
 import { CanaryService } from '../canary/canary.service';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -48,6 +50,7 @@ import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.servi
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
+import { buildBaseNodeUrl } from './base-node-url.helper';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
 import { buildBatchUpdateSql, presenceHandler } from './helper';
 
@@ -193,32 +196,86 @@ export class BaseNodeService {
     return this.canaryService.shouldUseV2ForBaseWithReason(base, 'createTable');
   }
 
+  /**
+   * Resolve a folder reference — its node id or its folder resource id — to
+   * the node id, asserting it exists in this base and is a folder.
+   */
+  async resolveFolderNodeId(baseId: string, folderId: string): Promise<string> {
+    const node = await this.prismaService.baseNode.findFirst({
+      where: { baseId, OR: [{ id: folderId }, { resourceId: folderId }] },
+      select: { id: true, resourceType: true },
+    });
+    if (!node) {
+      throw new CustomHttpException(`Parent ${folderId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.parentNotFound',
+        },
+      });
+    }
+    if (node.resourceType !== BaseNodeResourceType.Folder) {
+      throw new CustomHttpException(
+        `Parent ${folderId} is not a folder`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.parentIsNotFolder',
+          },
+        }
+      );
+    }
+    return node.id;
+  }
+
+  /**
+   * Place a resource created outside the base-node flow under a folder, or at
+   * root when parentId is null; callers validate the folder first. Upserts
+   * because node-list reconciliation may have already created the row.
+   */
+  async attachResourceToParent(input: {
+    baseId: string;
+    parentId: string | null;
+    resourceType: BaseNodeResourceType;
+    resourceId: string;
+  }): Promise<void> {
+    const { baseId, parentId, resourceType, resourceId } = input;
+    const userId = this.userId;
+    const placement = { order: (await this.getMaxOrder(baseId)) + 1, parentId };
+    await this.prismaService.baseNode.upsert({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- prisma composite unique key
+        baseId_resourceType_resourceId: { baseId, resourceType, resourceId },
+      },
+      create: {
+        id: generateBaseNodeId(),
+        baseId,
+        resourceType,
+        resourceId,
+        ...placement,
+        createdBy: userId,
+      },
+      update: {
+        ...placement,
+        lastModifiedBy: userId,
+      },
+    });
+    this.presenceHandler<IBaseNodePresenceFlushPayload>(baseId, (presence) => {
+      presence.submit({
+        event: 'flush',
+      });
+    });
+  }
+
   private generateDefaultUrl(
     baseId: string,
     resourceType: BaseNodeResourceType,
     resourceId: string,
     resourceMeta?: IBaseNodeResourceMeta
   ): string {
-    switch (resourceType) {
-      case BaseNodeResourceType.Table: {
-        const tableMeta = resourceMeta as IBaseNodeTableResourceMeta | undefined;
-        const viewId = tableMeta?.defaultViewId;
-        if (viewId) {
-          return `/base/${baseId}/table/${resourceId}/${viewId}`;
-        }
-        return `/base/${baseId}/table/${resourceId}`;
-      }
-      case BaseNodeResourceType.Dashboard:
-        return `/base/${baseId}/dashboard/${resourceId}`;
-      case BaseNodeResourceType.Workflow:
-        return `/base/${baseId}/automation/${resourceId}`;
-      case BaseNodeResourceType.App:
-        return `/base/${baseId}/app/${resourceId}`;
-      case BaseNodeResourceType.Folder:
-        return `/base/${baseId}`;
-      default:
-        return `/base/${baseId}`;
-    }
+    const viewId =
+      resourceType === BaseNodeResourceType.Table
+        ? (resourceMeta as IBaseNodeTableResourceMeta | undefined)?.defaultViewId
+        : undefined;
+    return buildBaseNodeUrl(baseId, resourceType, resourceId, viewId) ?? `/base/${baseId}`;
   }
 
   private async entry2vo(
@@ -241,7 +298,7 @@ export class BaseNodeService {
     const { id, type, createdBy, createdTime, lastModifiedBy, lastModifiedTime, ...resourceMeta } =
       rawResource;
     const map = userMap ?? (await this.getUserMap([createdBy, lastModifiedBy]));
-    const resolveUser = (userId?: string | null) => (userId ? map.get(userId) ?? null : null);
+    const resolveUser = (userId?: string | null) => (userId ? (map.get(userId) ?? null) : null);
     const formatDate = (value: unknown) =>
       value instanceof Date ? value.toISOString() : typeof value === 'string' ? value : null;
     const resourceMetaWithAudit = {
@@ -285,12 +342,25 @@ export class BaseNodeService {
       },
     });
 
-    return new Map(users.map((user) => [user.id, user]));
+    return new Map(
+      users.map((user) => [
+        user.id,
+        { ...user, avatar: user.avatar && getPublicFullStorageUrl(user.avatar) },
+      ])
+    );
   }
 
   protected async getTableResources(baseId: string, ids?: string[]) {
     return await this.prismaService.tableMeta.findMany({
-      where: { baseId, id: { in: ids ? ids : undefined }, deletedTime: null },
+      where: {
+        baseId,
+        id: { in: ids || undefined },
+        deletedTime: null,
+        // `deleting` is in-flight (or about to roll back to ready). Dropping
+        // the sidebar node here is permanent: base_node has no soft delete,
+        // so a failed delete cannot restore the folder or order.
+        provisionState: { in: [ProvisionState.ready, ProvisionState.deleting] },
+      },
       select: {
         id: true,
         name: true,
@@ -305,7 +375,7 @@ export class BaseNodeService {
 
   protected async getDashboardResources(baseId: string, ids?: string[]) {
     return await this.prismaService.dashboard.findMany({
-      where: { baseId, id: { in: ids ? ids : undefined } },
+      where: { baseId, id: { in: ids || undefined } },
       select: {
         id: true,
         name: true,
@@ -319,7 +389,7 @@ export class BaseNodeService {
 
   protected async getFolderResources(baseId: string, ids?: string[]) {
     return await this.prismaService.baseNodeFolder.findMany({
-      where: { baseId, id: { in: ids ? ids : undefined } },
+      where: { baseId, id: { in: ids || undefined } },
       select: {
         id: true,
         name: true,
@@ -419,7 +489,7 @@ export class BaseNodeService {
         nextOrder = (maxOrderAgg._max.order ?? 0) + 1;
       }
 
-      // Create missing
+      // Create missing; skipDuplicates absorbs concurrent reconciliations
       if (toCreate.length > 0) {
         await prisma.baseNode.createMany({
           data: toCreate.map((r) => ({
@@ -431,6 +501,7 @@ export class BaseNodeService {
             parentId: null,
             createdBy: this.userId,
           })),
+          skipDuplicates: true,
         });
       }
 
@@ -490,7 +561,7 @@ export class BaseNodeService {
         select: this.getSelect(),
       })
       .catch(() => {
-        throw new CustomHttpException(`Base node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+        throw new CustomHttpException(`Project node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.baseNode.notFound',
           },
@@ -515,15 +586,24 @@ export class BaseNodeService {
     const resourceId = resource.id;
 
     const maxOrder = await this.getMaxOrder(baseId);
-    const entry = await this.prismaService.baseNode.create({
-      data: {
+    const placement = { order: maxOrder + 1, parentId: parentId ?? null };
+    // upsert: a concurrent node-list reconciliation may already hold a root-level row
+    const entry = await this.prismaService.baseNode.upsert({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- prisma composite unique key
+        baseId_resourceType_resourceId: { baseId, resourceType, resourceId },
+      },
+      create: {
         id: generateBaseNodeId(),
         baseId,
         resourceType,
         resourceId,
-        order: maxOrder + 1,
-        parentId,
+        ...placement,
         createdBy: this.userId,
+      },
+      update: {
+        ...placement,
+        lastModifiedBy: this.userId,
       },
       select: this.getSelect(),
     });
@@ -630,16 +710,28 @@ export class BaseNodeService {
     );
     const { entry } = await this.prismaService.$tx(async (prisma) => {
       const maxOrder = await this.getMaxOrder(baseId, anchor.parentId);
-      const newNodeId = generateBaseNodeId();
-      const entry = await prisma.baseNode.create({
-        data: {
-          id: newNodeId,
+      const placement = { order: maxOrder + 1, parentId: anchor.parentId };
+      // upsert: a concurrent node-list reconciliation may already hold a root-level row
+      const entry = await prisma.baseNode.upsert({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- prisma composite unique key
+          baseId_resourceType_resourceId: {
+            baseId,
+            resourceType,
+            resourceId: resource.id,
+          },
+        },
+        create: {
+          id: generateBaseNodeId(),
           baseId,
           resourceType,
           resourceId: resource.id,
-          order: maxOrder + 1,
-          parentId: anchor.parentId,
+          ...placement,
           createdBy: this.userId,
+        },
+        update: {
+          ...placement,
+          lastModifiedBy: this.userId,
         },
         select: this.getSelect(),
       });
@@ -655,7 +747,7 @@ export class BaseNodeService {
               baseId,
               parentId: anchor.parentId,
               order: whereOrder,
-              id: { not: newNodeId },
+              id: { not: entry.id },
             },
             select: { order: true, id: true },
             orderBy: { order: align },
@@ -785,7 +877,7 @@ export class BaseNodeService {
         if (name) {
           await this.tableOpenApiService.updateName(baseId, id, name);
         }
-        if (icon) {
+        if (icon !== undefined) {
           await this.tableOpenApiService.updateIcon(baseId, id, icon);
         }
         break;
@@ -1156,7 +1248,7 @@ export class BaseNodeService {
       },
     });
     if (!entry) {
-      throw new CustomHttpException('Base node not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project node not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.baseNode.notFound',
         },

@@ -10,12 +10,17 @@ type SnapshotMessage = {
   docKey: string;
   collection: string;
   docId: string;
-  snapshot: unknown | null;
+  snapshot: unknown;
 };
 
-type BroadcastMessage = SnapshotMessage;
+type CollectionInvalidatedMessage = {
+  type: 'collectionInvalidated';
+  collection: string;
+};
 
-type DocListener = (snapshot: unknown | null) => void;
+type BroadcastMessage = SnapshotMessage | CollectionInvalidatedMessage;
+
+type DocListener = (snapshot: unknown) => void;
 type CollectionListener = (
   snapshots: ReadonlyArray<unknown>,
   removedDocIds: ReadonlyArray<string>
@@ -189,6 +194,12 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
+  invalidateCollection(collection: string): Result<void, DomainError> {
+    this.broadcast({ type: 'collectionInvalidated', collection });
+    this.notifyCollection(collection);
+    return ok(undefined);
+  }
+
   remove(docId: RealtimeDocId): Result<void, DomainError> {
     const parsed = RealtimeDocIdValue.parse(docId);
     if (parsed.isErr()) {
@@ -219,7 +230,7 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
-  getSnapshot(docKey: string): unknown | null {
+  getSnapshot(docKey: string): unknown {
     return this.docs.get(docKey)?.snapshot ?? null;
   }
 
@@ -267,6 +278,7 @@ export class BroadcastChannelRealtimeHub {
       this.logger.debug('BroadcastChannel realtime broadcast', {
         type: message.type,
         docKey: message.type === 'snapshot' ? message.docKey : undefined,
+        collection: message.collection,
       });
     } catch (error) {
       this.logger.warn('BroadcastChannel realtime broadcast failed', { error });
@@ -274,7 +286,13 @@ export class BroadcastChannelRealtimeHub {
   }
 
   private handleMessage(message: BroadcastMessage): void {
-    if (message.type !== 'snapshot') return;
+    if (message.type === 'collectionInvalidated') {
+      this.logger.debug('BroadcastChannel realtime collection invalidated', {
+        collection: message.collection,
+      });
+      this.notifyCollection(message.collection);
+      return;
+    }
     this.logger.debug('BroadcastChannel realtime message received', {
       docKey: message.docKey,
       collection: message.collection,

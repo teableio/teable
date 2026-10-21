@@ -1,4 +1,4 @@
-import http from 'http';
+import http from 'node:http';
 import type { AdaptableWebSocket } from '@an-epiphany/websocket-json-stream';
 import { WebSocketJSONStream } from '@an-epiphany/websocket-json-stream';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -8,10 +8,11 @@ import type { Request } from 'express';
 import sockjs from 'sockjs';
 import { RealtimeMetricsService } from '../share-db/metrics/realtime-metrics.service';
 import { ShareDbService } from '../share-db/share-db.service';
+import { createSockjsServerOptions } from './sockjs-options';
 
 @Injectable()
 export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
-  private logger = new Logger(DevWsGateway.name);
+  private readonly logger = new Logger(DevWsGateway.name);
   private sockjsServer: sockjs.Server | null = null;
   private httpServer: http.Server | null = null;
   private readonly activeConnections = new Set<sockjs.Connection>();
@@ -25,14 +26,8 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     const port = this.configService.get<number>('SOCKET_PORT');
 
-    // SockJS server configuration for collaborative data sync (similar to Airtable)
-    // - transports: Only websocket and xhr-streaming (xhr-polling excluded for performance)
-    // - response_limit: 1MB to handle large batch operations (table sync, bulk row updates)
-    this.sockjsServer = sockjs.createServer({
-      prefix: '/socket',
-      transports: ['websocket', 'xhr-streaming'],
-      response_limit: 2 * 1024 * 1024, // 2MB for large collaborative payloads
-      log: (severity: string, message: string) => {
+    this.sockjsServer = sockjs.createServer(
+      createSockjsServerOptions((severity: string, message: string) => {
         if (severity === 'error') {
           this.logger.error(message);
         } else if (severity === 'info') {
@@ -40,9 +35,8 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
         } else {
           this.logger.debug(message);
         }
-      },
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-    } as sockjs.ServerOptions & { transports: string[]; response_limit: number });
+      })
+    );
 
     this.sockjsServer.on('connection', this.handleConnection);
 
@@ -59,7 +53,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private handleConnection = (conn: sockjs.Connection) => {
+  private readonly handleConnection = (conn: sockjs.Connection) => {
     if (!conn) return;
 
     this.activeConnections.add(conn);
@@ -128,7 +122,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     } as unknown as Request;
   }
 
-  private handleServerError = (error: Error) => {
+  private readonly handleServerError = (error: Error) => {
     this.logger.error('HTTP server error', error?.stack);
   };
 

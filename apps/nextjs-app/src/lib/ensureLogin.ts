@@ -1,4 +1,4 @@
-import type { ParsedUrlQuery } from 'querystring';
+import type { ParsedUrlQuery } from 'node:querystring';
 import { HttpError, isAnonymous } from '@teable/core';
 import type {
   GetServerSidePropsContext,
@@ -9,6 +9,7 @@ import type {
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { providersAll } from '@/features/auth/components/SocialAuth';
 import { isValidRedirectPath } from './isValidRedirectPath';
+import { getUnauthenticatedRedirect, markReturningUser } from './returning-user-cookie';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GetServerSideProps<
@@ -19,15 +20,22 @@ type GetServerSideProps<
 
 export default function ensureLogin<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>,
-  isLoginPage?: boolean
+  isLoginPage?: boolean,
+  options?: { parallelHandler?: boolean }
 ): NextGetServerSideProps<P> {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   return async (context: GetServerSidePropsContext) => {
+    if (options?.parallelHandler && !isLoginPage) {
+      return ensureLoginParallel(handler, context);
+    }
     const req = context.req;
     let props: { [key: string]: any } = {};
     try {
       const user = await getUserMe(req?.headers.cookie);
       props['user'] = user;
+      if (!isAnonymous(user?.id)) {
+        markReturningUser(context);
+      }
       // User is logged in, redirect to home page if on login page
       if (!isAnonymous(user?.id) && isLoginPage) {
         const redirect = context.query.redirect;
@@ -58,12 +66,10 @@ export default function ensureLogin<P extends { [key: string]: any }>(
           return redirectSocialAuth(req) || handler(context);
         }
         if (error.status < 500 && error.status >= 400) {
-          // User is not logged in, redirect to login page
-          const redirect = encodeURIComponent(req?.url || '');
-          const query = redirect ? `redirect=${redirect}` : '';
+          // User is not logged in: sign-in for returning browsers, sign-up otherwise
           return {
             redirect: {
-              destination: `/auth/login?${query}`,
+              destination: getUnauthenticatedRedirect(req),
               permanent: false,
             },
           };
@@ -88,6 +94,55 @@ export default function ensureLogin<P extends { [key: string]: any }>(
       ...res,
       props: props as P,
     };
+  };
+}
+// The user lookup only gates the login redirect, so it doesn't have to block
+// the handler's own requests — those fail with 401 on their own (and withAuthSSR
+// already redirects to sign up) when the session is invalid.
+async function ensureLoginParallel<P extends { [key: string]: any }>(
+  handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>,
+  context: GetServerSidePropsContext
+): Promise<GetServerSidePropsResult<P>> {
+  const req = context.req;
+  let props: { [key: string]: any } = {};
+  const [userResult, handlerResult] = await Promise.allSettled([
+    getUserMe(req?.headers.cookie),
+    handler(context),
+  ]);
+
+  if (userResult.status === 'fulfilled') {
+    props['user'] = userResult.value;
+    if (!isAnonymous(userResult.value?.id)) {
+      markReturningUser(context);
+    }
+  } else {
+    const error = userResult.reason;
+    if (error instanceof HttpError && error.status < 500 && error.status >= 400) {
+      return {
+        redirect: {
+          destination: getUnauthenticatedRedirect(req),
+          permanent: false,
+        },
+      };
+    }
+    console.error('ensureLogin: ', error);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    props['err'] = (error as any)?.message;
+  }
+
+  if (handlerResult.status === 'rejected') {
+    throw handlerResult.reason;
+  }
+  const res = handlerResult.value;
+  if ('props' in res) {
+    props = {
+      ...(await res.props),
+      ...props,
+    };
+  }
+  return {
+    ...res,
+    props: props as P,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

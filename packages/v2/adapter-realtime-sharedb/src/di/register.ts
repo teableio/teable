@@ -5,7 +5,14 @@ import {
   FieldOptionsAddedRealtimeProjection,
   ComputedActivityRealtimeProjection,
   TableCreatedRealtimeProjection,
+  TableDeletedRealtimeProjection,
+  TableProvisionReadyRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
+  ViewDeletedRealtimeProjection,
+  ViewRenamedRealtimeProjection,
+  ViewDescriptionUpdatedRealtimeProjection,
+  ViewLockedUpdatedRealtimeProjection,
+  ViewOrderUpdatedRealtimeProjection,
   RecordCreatedRealtimeProjection,
   RecordUpdatedRealtimeProjection,
   RecordReorderedRealtimeProjection,
@@ -17,23 +24,29 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 
+import type { IComputeActivitySignalConfig } from '../ComputeActivitySignal';
+import type { IShareDbPresencePublisher } from '../ShareDbPresencePublisher';
 import type { IShareDbOpPublisher } from '../ShareDbPublisher';
 import { ShareDbRealtimeEngine } from '../ShareDbRealtimeEngine';
 import { v2ShareDbTokens } from './tokens';
 
 export interface IV2ShareDbRealtimeConfig {
   publisher: IShareDbOpPublisher;
+  presence: IShareDbPresencePublisher;
+  computeActivitySignal: IComputeActivitySignalConfig;
 }
 
 export const registerV2ShareDbRealtime = (
   c: DependencyContainer = container,
   config: IV2ShareDbRealtimeConfig
 ): DependencyContainer => {
-  if (!config.publisher) {
+  if (!config.publisher || !config.presence || !config.computeActivitySignal) {
     throw new Error('Invalid v2 ShareDB realtime config');
   }
 
   c.registerInstance(v2ShareDbTokens.publisher, config.publisher);
+  c.registerInstance(v2ShareDbTokens.presence, config.presence);
+  c.registerInstance(v2ShareDbTokens.computeActivitySignal, config.computeActivitySignal);
   c.register(v2CoreTokens.realtimeEngine, ShareDbRealtimeEngine, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -43,6 +56,12 @@ export const registerV2ShareDbRealtime = (
     throw new Error('ShareDB realtime requires tableRepository and tableMapper registrations');
   }
   c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(TableDeletedRealtimeProjection, TableDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(TableProvisionReadyRealtimeProjection, TableProvisionReadyRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {
@@ -58,6 +77,21 @@ export const registerV2ShareDbRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDeletedRealtimeProjection, ViewDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewRenamedRealtimeProjection, ViewRenamedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDescriptionUpdatedRealtimeProjection, ViewDescriptionUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewLockedUpdatedRealtimeProjection, ViewLockedUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewOrderUpdatedRealtimeProjection, ViewOrderUpdatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldOptionsAddedRealtimeProjection, FieldOptionsAddedRealtimeProjection, {

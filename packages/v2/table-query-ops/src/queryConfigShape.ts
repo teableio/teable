@@ -370,7 +370,7 @@ const toFormulaAwareOperatorFamily = (
   return 'formula_result';
 };
 
-const toOperatorFamily = (
+export const toOperatorFamily = (
   operator: string,
   isFieldReference: boolean | undefined
 ): TableQueryOperatorFamily => {

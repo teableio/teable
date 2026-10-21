@@ -71,7 +71,7 @@ export const OAuthAppList = (props: IOAuthAppListProps) => {
                   {app.description}
                 </div>
               </div>
-              <div className="absolute right-2 top-2 flex items-center gap-2">
+              <div className="absolute end-2 top-2 flex items-center gap-2">
                 <Button
                   className="h-5 p-0.5 text-destructive hover:text-destructive"
                   variant={'ghost'}

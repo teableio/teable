@@ -23,6 +23,7 @@
  * ```
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
@@ -52,20 +53,22 @@ import {
   deleteByRangeOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import type {
-  ICreateTableCommandInput,
-  ICreateFieldCommandInput,
-  ICreateTablesCommandInput,
-  IDuplicateTableCommandInput,
-  IPasteCommandInput,
-  IImportCsvCommandInput,
-  IImportRecordsCommandInput,
-  IUpdateFieldCommandInput,
-  IUpdateRecordsCommandInput,
-  RecordFilter,
-  RecordSearchInput,
+import {
+  ActorId,
+  MemoryUndoRedoStore,
+  v2CoreTokens,
+  type ICreateTableCommandInput,
+  type ICreateFieldCommandInput,
+  type ICreateTablesCommandInput,
+  type IDuplicateTableCommandInput,
+  type IImportCsvCommandInput,
+  type IImportRecordsCommandInput,
+  type IPasteCommandInput,
+  type IUpdateFieldCommandInput,
+  type IUpdateRecordsCommandInput,
+  type RecordFilter,
+  type RecordSearchInput,
 } from '@teable/v2-core';
-import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
 import { registerV2ImportServices } from '@teable/v2-import';
 import express from 'express';
 import { createE2eTestContainer, type E2eDbMode } from './createE2eTestContainer';
@@ -429,6 +432,22 @@ const initSharedContext = async (
       .execute()
   );
 
+  // User typecast resolution only matches collaborators of the table's base or
+  // space (v1 parity), so the test user must be a base collaborator.
+  await time('seed-test-user-collaborator', async () =>
+    testContainer.db
+      .insertInto('collaborator')
+      .values({
+        id: `col${TEST_USER.id}`,
+        resource_type: 'base',
+        resource_id: baseId,
+        principal_id: TEST_USER.id,
+        principal_type: 'user',
+      })
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute()
+  );
+
   // Create actorId for execution context
   const actorIdResult = ActorId.create(TEST_USER.id);
   if (actorIdResult.isErr()) {
@@ -442,11 +461,30 @@ const initSharedContext = async (
   });
 
   const app = express();
+  const selectOptionAutoCreatePolicy = new AsyncLocalStorage<boolean>();
+  app.use((req, _res, next) => {
+    const header = req.headers['x-teable-allow-select-option-auto-create'];
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (raw === 'false' || raw === 'true') {
+      selectOptionAutoCreatePolicy.run(raw === 'true', () => next());
+      return;
+    }
+    next();
+  });
   await time('register-router', async () => {
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
-        createExecutionContext: () => ({ actorId, windowId: 'e2e-window' }),
+        createExecutionContext: () => {
+          const allowSelectOptionAutoCreate = selectOptionAutoCreatePolicy.getStore();
+          return {
+            actorId,
+            windowId: 'e2e-window',
+            ...(allowSelectOptionAutoCreate === undefined
+              ? {}
+              : { config: { allowSelectOptionAutoCreate } }),
+          };
+        },
       })
     );
   });
@@ -457,6 +495,9 @@ const initSharedContext = async (
         const s = app.listen(0, '127.0.0.1', () => resolve(s));
       })
   );
+  // Specs drain outboxes between requests; never let the idle timeout close a
+  // connection fetch is about to reuse (see computedConvergence.ts).
+  server.keepAliveTimeout = 0;
   servers.set(dbMode, server);
 
   const address = server.address() as AddressInfo;
@@ -566,7 +607,7 @@ const initSharedContext = async (
     const response = await fetch(`${baseUrl}/tables/rename`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tableId, name }),
+      body: JSON.stringify({ baseId, tableId, name }),
     });
     if (!response.ok) {
       const errorText = await response.text();

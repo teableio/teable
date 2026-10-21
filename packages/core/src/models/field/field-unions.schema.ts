@@ -31,6 +31,7 @@ import {
   linkFieldOptionsSchema,
   linkFieldMetaSchema,
 } from './derivate/link-option.schema';
+import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
 import {
   numberFieldOptionsRoSchema,
   numberFieldOptionsSchema,
@@ -52,6 +53,7 @@ export const unionFieldOptions = z.union([
   checkboxFieldOptionsSchema.strict(),
   attachmentFieldOptionsSchema.strict(),
   singlelineTextFieldOptionsSchema.strict(),
+  longTextFieldOptionsSchema.strict(),
   ratingFieldOptionsSchema.strict(),
   userFieldOptionsSchema.strict(),
   createdByFieldOptionsSchema.strict(),

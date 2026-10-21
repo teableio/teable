@@ -69,7 +69,7 @@ const runPlugin = async (context: RecordWritePluginContext) => {
 };
 
 describe('TableDataSafetyLimitRecordWritePlugin', () => {
-  it('supports every record write operation except deleteMany', () => {
+  it('supports every record write operation except deleteMany and archiveMany', () => {
     const plugin = new TableDataSafetyLimitRecordWritePlugin();
 
     expect(plugin.supports(RecordWriteOperationKind.createOne)).toBe(true);
@@ -83,6 +83,7 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
     expect(plugin.supports(RecordWriteOperationKind.importAppend)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.paste)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.deleteMany)).toBe(false);
+    expect(plugin.supports(RecordWriteOperationKind.archiveMany)).toBe(false);
   });
 
   it.each([
@@ -321,6 +322,86 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.cell_value_max_bytes');
+  });
+
+  it('strips oversized cells and continues when other cells remain', async () => {
+    const otherFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const fieldValues = values([
+      [textFieldId.toString(), 'oversized'],
+      [otherFieldId.toString(), 'ok'],
+    ]);
+
+    const result = await runPlugin(
+      createContext(
+        RecordWriteOperationKind.updateOne,
+        {
+          recordId,
+          fieldValues,
+          fieldKeyType: FieldKeyType.Name,
+          typecast: false,
+        },
+        { recordValues: { maxCellValueBytes: 4, maxRecordFieldsBytes: 1_000 } }
+      )
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(fieldValues.has(textFieldId.toString())).toBe(false);
+    expect(fieldValues.get(otherFieldId.toString())).toBe('ok');
+  });
+
+  it('fails closed when a record would lose every cell to stripping', async () => {
+    const otherFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const survivingRecord = values([[otherFieldId.toString(), 'ok']]);
+    const emptiedRecord = values([[textFieldId.toString(), 'oversized']]);
+
+    const result = await runPlugin(
+      createContext(
+        RecordWriteOperationKind.createMany,
+        {
+          recordsFieldValues: [survivingRecord, emptiedRecord],
+          fieldKeyType: FieldKeyType.Name,
+          typecast: false,
+          recordCount: 2,
+        },
+        { recordValues: { maxCellValueBytes: 4, maxRecordFieldsBytes: 1_000 } }
+      )
+    );
+
+    // A cell surviving in another record must not allow this record to be
+    // persisted empty with its data silently discarded.
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.cell_value_max_bytes');
+  });
+
+  it('fails closed for paste instead of stripping its non-persisted payload maps', async () => {
+    const otherFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const pastedRecord = values([
+      [textFieldId.toString(), 'oversized'],
+      [otherFieldId.toString(), 'ok'],
+    ]);
+
+    const result = await runPlugin(
+      createContext(
+        RecordWriteOperationKind.paste,
+        {
+          editableFieldIds: [],
+          updateRecordIds: [],
+          updateRecordsFieldValues: [pastedRecord],
+          createRecordsFieldValues: [],
+          typecast: false,
+          updateRecordCount: 1,
+          createRecordCount: 0,
+          recordCount: 1,
+        },
+        { recordValues: { maxCellValueBytes: 4, maxRecordFieldsBytes: 1_000 } }
+      )
+    );
+
+    // Paste persists from its own row data, not from these payload maps, so
+    // stripping here would silently write the oversized cell anyway.
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.cell_value_max_bytes');
+    expect(pastedRecord.has(textFieldId.toString())).toBe(true);
   });
 
   it('rejects oversized serialized record field values', async () => {

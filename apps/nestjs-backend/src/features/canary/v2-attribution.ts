@@ -36,6 +36,21 @@ export const getV2Attribution = (cls?: ClsService<IClsStore>): IV2Attribution =>
   }
 };
 
+/**
+ * Controllers that try a v2 read then fall back to v1 must stamp CLS before
+ * returning. V2IndicatorInterceptor re-reads CLS after a successful handler,
+ * so leaving useV2=true would mis-tag headers, Sentry, spans, and logs as v2.
+ */
+export const markUnsupportedV2FeatureFallback = (
+  cls: Pick<ClsService<IClsStore>, 'get' | 'set'>
+): void => {
+  if (!cls.get('useV2')) {
+    return;
+  }
+  cls.set('useV2', false);
+  cls.set('v2Reason', 'unsupported_feature');
+};
+
 const getRequestAttribution = (useV2: boolean | undefined): 'v1' | 'v2' | undefined => {
   if (useV2 === true) {
     return 'v2';
@@ -64,11 +79,7 @@ const getSentryScopes = (): SentryScopeLike[] => {
   return [...new Set(scopes)];
 };
 
-const setSentryTag = (
-  scope: SentryScopeLike,
-  key: string,
-  value: string | boolean | undefined
-) => {
+const setSentryTag = (scope: SentryScopeLike, key: string, value: string | boolean | undefined) => {
   if (value == null) {
     return;
   }
@@ -121,10 +132,7 @@ export const getV2AttributionLogContext = (attribution: IV2Attribution) => {
   };
 };
 
-export const setV2AttributionHeaders = (
-  response: Response,
-  attribution: IV2Attribution
-) => {
+export const setV2AttributionHeaders = (response: Response, attribution: IV2Attribution) => {
   if (response.headersSent || response.writableEnded || response.destroyed) {
     return;
   }

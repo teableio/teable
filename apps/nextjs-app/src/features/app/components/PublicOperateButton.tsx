@@ -1,5 +1,8 @@
-import { useTheme } from '@teable/next-themes';
+import { useQuery } from '@tanstack/react-query';
+import { getTemplateDetail } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsAnonymous, useIsHydrated, useShareId, useTemplate } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -7,39 +10,20 @@ import { useTranslation } from 'next-i18next';
 import React, { useRef } from 'react';
 import { useShareAllowEdit, useShareAllowSave } from '../context/ShareContext';
 import { useIsInIframe } from '../hooks/useIsInIframe';
-import type { IShareSelectSpaceDialogRef } from './ShareSelectSpaceDialog';
-import { ShareSelectSpaceDialog } from './ShareSelectSpaceDialog';
+import { useShareBaseOperations } from './share-operation/ShareBaseOperationProvider';
 import type { ITemplateSelectSpaceDialogRef } from './TemplateSelectSpaceDialog';
 import { TemplateSelectSpaceDialog } from './TemplateSelectSpaceDialog';
 
-export const PublicOperateButton = () => {
+const ShareOperateButton = () => {
   const isAnonymous = useIsAnonymous();
-  const template = useTemplate();
-  const shareId = useShareId();
-  const isTemplate = !!template;
-  const isShare = !!shareId;
   const allowSave = useShareAllowSave();
   const allowEdit = useShareAllowEdit();
-  const { t } = useTranslation(['common', 'table']);
-  const router = useRouter();
-  const isInIframe = useIsInIframe();
-  const templateRef = useRef<ITemplateSelectSpaceDialogRef>(null);
-  const shareRef = useRef<IShareSelectSpaceDialogRef>(null);
-  const isHydrated = useIsHydrated();
-
+  const shareOperations = useShareBaseOperations();
+  const { t } = useTranslation(['common', 'table', 'auth']);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  if (isInIframe || !isHydrated) {
-    return <></>;
-  }
-
-  // For share mode with allowEdit, show login card for anonymous users
-  if (isShare && allowEdit && isAnonymous) {
-    const handleLoginClick = () => {
-      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.href)}`);
-    };
-
+  if (allowEdit && isAnonymous) {
     return (
       <div className="flex w-full flex-col items-center">
         <Image
@@ -51,54 +35,79 @@ export const PublicOperateButton = () => {
         <p className="mb-3 text-xs text-muted-foreground">
           {t('table:baseShare.editRequiresLogin')}
         </p>
-        <Button size={'sm'} className="w-full text-[13px] font-normal" onClick={handleLoginClick}>
-          {t('common:actions.login')}
+        <Button
+          size={'sm'}
+          className="w-full text-[13px] font-normal"
+          onClick={shareOperations.loginToEdit}
+        >
+          {t('auth:button.signin')}/{t('auth:button.signup')}
         </Button>
       </div>
     );
   }
 
-  // For share mode, show "Copy to my space" button if allowSave is enabled
+  if (!allowSave) {
+    return null;
+  }
+
+  return (
+    <div className="flex w-full flex-col items-center">
+      <Image
+        src="/images/savefile-light.png"
+        alt=""
+        width={120}
+        height={120}
+        className="block dark:hidden"
+      />
+      <Image
+        src="/images/savefile-dark.png"
+        alt=""
+        width={120}
+        height={120}
+        className="hidden dark:block"
+      />
+      <p className="mb-3 text-xs text-muted-foreground">{t('table:baseShare.supportSaveCopy')}</p>
+      <Button
+        size={'sm'}
+        className="w-full text-[13px] font-normal"
+        onClick={shareOperations.saveCopy}
+      >
+        {t('table:baseShare.saveToMySpace')}
+      </Button>
+    </div>
+  );
+};
+
+export const PublicOperateButton = () => {
+  const isAnonymous = useIsAnonymous();
+  const template = useTemplate();
+  const shareId = useShareId();
+  const isTemplate = !!template;
+  const isShare = !!shareId;
+  const { t } = useTranslation(['common']);
+  const router = useRouter();
+  const isInIframe = useIsInIframe();
+  const templateRef = useRef<ITemplateSelectSpaceDialogRef>(null);
+  const isHydrated = useIsHydrated();
+  // The base only carries the template's id; the host decides how a template is
+  // used from its full detail (EE: a solution is set up, not copied with rows).
+  const templateId = template?.id;
+  const {
+    data: templateDetail,
+    isError: templateError,
+    refetch: refetchTemplate,
+  } = useQuery({
+    queryKey: ReactQueryKeys.templateDetail(templateId as string),
+    queryFn: () => getTemplateDetail(templateId as string).then((res) => res.data),
+    enabled: Boolean(templateId) && !isAnonymous,
+  });
+
+  if (isInIframe || !isHydrated) {
+    return null;
+  }
+
   if (isShare) {
-    // Don't show the button if allowSave is disabled
-    if (!allowSave) {
-      return null;
-    }
-
-    const handleClick = () => {
-      if (isAnonymous) {
-        // Redirect to login first, then come back with isCopyToSpace flag
-        const url = new URL(window.location.href);
-        url.searchParams.set('isCopyToSpace', '1');
-        router.push(`/auth/login?redirect=${encodeURIComponent(url.toString())}`);
-        return;
-      }
-      shareRef.current?.setOpen(true);
-    };
-
-    return (
-      <div className="flex w-full flex-col items-center">
-        <Image
-          src="/images/savefile-light.png"
-          alt=""
-          width={120}
-          height={120}
-          className="block dark:hidden"
-        />
-        <Image
-          src="/images/savefile-dark.png"
-          alt=""
-          width={120}
-          height={120}
-          className="hidden dark:block"
-        />
-        <p className="mb-3 text-xs text-muted-foreground">{t('common:actions.supportSaveCopy')}</p>
-        <Button size={'sm'} className="w-full text-[13px] font-normal" onClick={handleClick}>
-          {t('common:actions.saveToMySpace')}
-        </Button>
-        <ShareSelectSpaceDialog ref={shareRef} />
-      </div>
-    );
+    return <ShareOperateButton />;
   }
 
   if (!isAnonymous && !isTemplate) {
@@ -127,7 +136,13 @@ export const PublicOperateButton = () => {
         {isTemplate ? t('common:actions.useTemplate') : t('common:actions.login')}
       </Button>
       {isTemplate && !isAnonymous && (
-        <TemplateSelectSpaceDialog ref={templateRef} templateId={template.id} />
+        <TemplateSelectSpaceDialog
+          ref={templateRef}
+          templateId={template.id}
+          template={templateDetail}
+          templateError={templateError}
+          onRetryTemplate={() => refetchTemplate()}
+        />
       )}
     </>
   );

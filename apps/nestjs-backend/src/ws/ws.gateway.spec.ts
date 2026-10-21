@@ -106,6 +106,10 @@ describe('WsGateway', () => {
         transports: ['websocket', 'xhr-streaming'],
         response_limit: 2 * 1024 * 1024,
         log: expect.any(Function),
+        // negotiation and compression itself are covered by sockjs-options.spec.ts
+        faye_server_options: {
+          extensions: [expect.objectContaining({ name: 'permessage-deflate' })],
+        },
       });
       expect(mockSockjsServer.on).toHaveBeenCalledWith('connection', expect.any(Function));
       expect(mockSockjsServer.installHandlers).toHaveBeenCalledWith(mockHttpServer);

@@ -1,6 +1,11 @@
 import { CellValueType, FieldType } from '../../field/constant';
 import type { IFilter } from './filter';
-import { analyzeFilterValidationIssues, filterSchema } from './filter';
+import {
+  analyzeFilterValidationIssues,
+  filterSchema,
+  stripFilterByReadableFieldIds,
+  stripInProgressFilterItems,
+} from './filter';
 
 describe('Filter Parse', () => {
   it('should parse single filter', async () => {
@@ -338,5 +343,159 @@ describe('analyzeFilterValidationIssues', () => {
 
     const errors = analyzeFilterValidationIssues(filter, fieldMetaMap);
     expect(errors).toEqual([]);
+  });
+});
+
+describe('stripFilterByReadableFieldIds', () => {
+  const readable = new Set(['fldA', 'fldB']);
+
+  it('passes the filter through when the readable set is undefined', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldC', operator: 'is', value: 'x' }],
+    };
+
+    expect(stripFilterByReadableFieldIds(filter, undefined)).toBe(filter);
+  });
+
+  it('drops conditions on unreadable fields and prunes emptied groups', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: 'fldA', operator: 'is', value: 'x' },
+        {
+          conjunction: 'or',
+          filterSet: [
+            { fieldId: 'fldC', operator: 'is', value: 'y' },
+            {
+              conjunction: 'and',
+              filterSet: [{ fieldId: 'fldC', operator: 'is', value: 'z' }],
+            },
+          ],
+        },
+        { fieldId: 'fldB', operator: 'is', value: 'w' },
+      ],
+    };
+
+    expect(stripFilterByReadableFieldIds(filter, readable)).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: 'fldA', operator: 'is', value: 'x' },
+        { fieldId: 'fldB', operator: 'is', value: 'w' },
+      ],
+    });
+  });
+
+  it('drops conditions whose value references an unreadable field', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: 'fldA',
+          operator: 'is',
+          value: { type: 'field', fieldId: 'fldC' },
+        },
+        {
+          fieldId: 'fldA',
+          operator: 'is',
+          value: { type: 'field', fieldId: 'fldB' },
+        },
+      ],
+    };
+
+    expect(stripFilterByReadableFieldIds(filter, readable)).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: 'fldA',
+          operator: 'is',
+          value: { type: 'field', fieldId: 'fldB' },
+        },
+      ],
+    });
+  });
+
+  it('returns undefined when every condition is stripped', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldC', operator: 'is', value: 'x' }],
+    };
+
+    expect(stripFilterByReadableFieldIds(filter, readable)).toBeUndefined();
+  });
+});
+
+describe('stripInProgressFilterItems', () => {
+  const textMeta = { cellValueType: CellValueType.String };
+  const boolMeta = { cellValueType: CellValueType.Boolean };
+  const fieldMetaMap = {
+    fldText: textMeta,
+    fldCheck: boolMeta,
+  };
+
+  it('drops conditions with a missing value', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: 'fldText', operator: 'is', value: null },
+        { fieldId: 'fldText', operator: 'contains', value: 'x' },
+      ],
+    };
+
+    expect(stripInProgressFilterItems(filter, fieldMetaMap)).toEqual({
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldText', operator: 'contains', value: 'x' }],
+    });
+  });
+
+  it('returns undefined when every condition is in-progress', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldText', operator: 'is', value: null }],
+    };
+
+    expect(stripInProgressFilterItems(filter, fieldMetaMap)).toBeUndefined();
+  });
+
+  it('keeps value-less operators and boolean cell null values', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: 'fldText', operator: 'isEmpty', value: null },
+        { fieldId: 'fldCheck', operator: 'is', value: null },
+      ],
+    };
+
+    expect(stripInProgressFilterItems(filter, fieldMetaMap)).toEqual(filter);
+  });
+
+  it('strips in-progress conditions inside nested sets and drops empty sets', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          conjunction: 'or',
+          filterSet: [
+            { fieldId: 'fldText', operator: 'is', value: null },
+            { fieldId: 'fldText', operator: 'isNot', value: null },
+          ],
+        } as NonNullable<IFilter>,
+        { fieldId: 'fldText', operator: 'contains', value: 'x' },
+      ],
+    };
+
+    expect(stripInProgressFilterItems(filter, fieldMetaMap)).toEqual({
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldText', operator: 'contains', value: 'x' }],
+    });
+  });
+
+  it('keeps conditions for fields missing from the meta map', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldUnknown', operator: 'is', value: null }],
+    };
+
+    expect(stripInProgressFilterItems(filter, fieldMetaMap)).toEqual(filter);
   });
 });

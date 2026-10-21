@@ -15,7 +15,7 @@ import { FormulaFieldService } from './formula-field.service';
 
 @Injectable()
 export class FieldDeletingService {
-  private logger = new Logger(FieldDeletingService.name);
+  private readonly logger = new Logger(FieldDeletingService.name);
 
   constructor(
     private readonly prismaService: PrismaService,

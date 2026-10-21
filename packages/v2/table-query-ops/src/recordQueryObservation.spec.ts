@@ -1,18 +1,28 @@
 import {
+  AndSpec,
   BaseId,
   DbFieldName,
   FieldId,
   FieldName,
+  LongTextConditionSpec,
+  RecordConditionLiteralValue,
   RecordSearch,
+  SingleLineTextConditionSpec,
   Table,
   TableId,
   TableName,
+  v2CoreTokens,
 } from '@teable/v2-core';
+import { container } from '@teable/v2-di';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TableQueryObservationWindow } from './domain';
-import { ObservedTableRecordQueryRepository } from './recordQueryObservation';
+import {
+  decorateV2TableRecordQueryRepositoryWithTableOps,
+  ObservedTableRecordQueryRepository,
+} from './recordQueryObservation';
+import { v2TableOpsTokens } from './tokens';
 
 const makeTable = () => {
   const titleId = FieldId.create('fld0000000000000001')._unsafeUnwrap();
@@ -48,13 +58,12 @@ describe('ObservedTableRecordQueryRepository', () => {
     const inner = {
       find: vi.fn().mockResolvedValue(ok({ records: [], total: 0, offset: 0, limit: 100 })),
     };
-    const sink = {
-      record: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
         observations.push(item);
-        return Promise.resolve(ok(undefined));
       }),
     };
-    const repository = new ObservedTableRecordQueryRepository(inner as never, sink);
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
 
     await repository.find({} as never, table, undefined, {
       search: {
@@ -79,5 +88,195 @@ describe('ObservedTableRecordQueryRepository', () => {
       languageConfig: 'simple',
       coveredFieldIds: [titleId.toString(), notesId.toString()].sort(),
     });
+  });
+
+  it('records filter field ids and operator families in the where shape', async () => {
+    const { table, titleId, notesId } = makeTable();
+    const observations: TableQueryObservationWindow[] = [];
+    const inner = {
+      find: vi.fn().mockResolvedValue(ok({ records: [], total: 0, offset: 0, limit: 100 })),
+    };
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    };
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
+    const spec = new AndSpec(
+      SingleLineTextConditionSpec.create(
+        table.getFields()[0]!,
+        'is',
+        RecordConditionLiteralValue.create('open')._unsafeUnwrap()
+      ),
+      LongTextConditionSpec.create(
+        table.getFields()[1]!,
+        'contains',
+        RecordConditionLiteralValue.create('urgent')._unsafeUnwrap()
+      )
+    );
+
+    await repository.find({} as never, table, spec as never, {} as never);
+
+    expect(observations[0]?.shape().snapshot()).toMatchObject({
+      queryKind: 'filter',
+      whereShape: {
+        conditionCount: 2,
+        andDepth: 1,
+        orDepth: 0,
+        fields: [
+          { fieldId: titleId.toString(), operatorFamily: 'equality' },
+          { fieldId: notesId.toString(), operatorFamily: 'text_contains' },
+        ],
+      },
+    });
+  });
+
+  // T7339: a requested access path the planner did not use must not be reported as the
+  // predicate that ran - the read reports which one it used.
+  it('records the access path the read used when the request fell back', async () => {
+    const { table, titleId } = makeTable();
+    const observations: TableQueryObservationWindow[] = [];
+    const inner = {
+      find: vi.fn().mockResolvedValue(
+        ok({
+          records: [],
+          total: 0,
+          offset: 0,
+          limit: 100,
+          searchAccessPath: {
+            requested: 'generated_text',
+            used: 'default',
+          },
+        })
+      ),
+    };
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    };
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
+
+    await repository.find({} as never, table, undefined, {
+      search: {
+        search: RecordSearch.fromTuple(['cu', titleId.toString(), true]),
+      },
+      searchAccessPath: {
+        kind: 'generated_text',
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        searchScope: 'selected_fields',
+        coveredFieldIds: [titleId],
+      },
+    });
+
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.shape().snapshot().searchShape).toMatchObject({
+      searchMode: 'ilike',
+    });
+  });
+
+  it('publishes an observation without persistence knowledge', async () => {
+    const { table } = makeTable();
+    const publish = vi.fn();
+    const repository = new ObservedTableRecordQueryRepository(
+      {
+        find: vi.fn().mockResolvedValue(ok({ records: [], total: 0, offset: 0, limit: 100 })),
+      } as never,
+      { publish }
+    );
+
+    const result = await repository.find({} as never, table);
+
+    expect(result.isOk()).toBe(true);
+    expect(publish).toHaveBeenCalledOnce();
+  });
+
+  it('forwards aggregate to the inner repository and records an aggregation observation', async () => {
+    const { table, titleId } = makeTable();
+    const observations: TableQueryObservationWindow[] = [];
+    const aggregate = vi
+      .fn()
+      .mockResolvedValue(ok([{ fieldId: titleId, statisticFunc: 'filled', value: 2 }]));
+    const inner = {
+      find: vi.fn(),
+      aggregate,
+    };
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    };
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
+    const aggregation = {
+      fields: [{ fieldId: titleId, statisticFunc: 'filled' }],
+      groupBy: [],
+    };
+
+    const result = await repository.aggregate({} as never, table, aggregation as never);
+
+    expect(aggregate).toHaveBeenCalledOnce();
+    expect(result.isOk()).toBe(true);
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.shape().snapshot()).toMatchObject({
+      queryKind: 'aggregation',
+      aggregationShape: {
+        groupFieldCount: 0,
+        metricCount: 1,
+        hasFilter: false,
+      },
+    });
+  });
+
+  it('forwards calendarDailyCollection and findDistinctUserIds to the inner repository', async () => {
+    const { table } = makeTable();
+    const calendarDailyCollection = vi.fn().mockResolvedValue(ok([]));
+    const findDistinctUserIds = vi.fn().mockResolvedValue(ok(['usr1']));
+    const repository = new ObservedTableRecordQueryRepository(
+      {
+        find: vi.fn(),
+        calendarDailyCollection,
+        findDistinctUserIds,
+      } as never,
+      { publish: vi.fn() }
+    );
+
+    await repository.calendarDailyCollection({} as never, table, {} as never, {
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+    });
+    await repository.findDistinctUserIds({} as never, table, {} as never);
+
+    expect(calendarDailyCollection).toHaveBeenCalledOnce();
+    expect(findDistinctUserIds).toHaveBeenCalledOnce();
+  });
+
+  it('keeps aggregate available after wrapping the registered repository', async () => {
+    const { table, titleId } = makeTable();
+    const child = container.createChildContainer();
+    const aggregate = vi.fn().mockResolvedValue(ok([]));
+    child.registerInstance(v2CoreTokens.tableRecordQueryRepository, {
+      find: vi.fn(),
+      findOne: vi.fn(),
+      findStream: vi.fn(),
+      aggregate,
+      calendarDailyCollection: vi.fn(),
+      findDistinctUserIds: vi.fn(),
+    });
+    child.registerInstance(v2TableOpsTokens.observationPublisher, {
+      publish: vi.fn(),
+    });
+
+    decorateV2TableRecordQueryRepositoryWithTableOps(child);
+    const wrapped = child.resolve<{ aggregate?: typeof aggregate }>(
+      v2CoreTokens.tableRecordQueryRepository
+    );
+
+    expect(typeof wrapped.aggregate).toBe('function');
+    await wrapped.aggregate?.({} as never, table, {
+      fields: [{ fieldId: titleId, statisticFunc: 'filled' }],
+      groupBy: [],
+    } as never);
+    expect(aggregate).toHaveBeenCalledOnce();
   });
 });

@@ -18,6 +18,8 @@ export const commonLocaleLoaders: Record<string, LocaleLoader> = {
   uk: () => import('@teable/common-i18n/src/locales/uk/common.json'),
   tr: () => import('@teable/common-i18n/src/locales/tr/common.json'),
   es: () => import('@teable/common-i18n/src/locales/es/common.json'),
+  ar: () => import('@teable/common-i18n/src/locales/ar/common.json'),
+  he: () => import('@teable/common-i18n/src/locales/he/common.json'),
 };
 
 export const loadCommonTranslations = async (locale: string) => {

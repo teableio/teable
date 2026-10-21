@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -10,6 +11,7 @@ import {
   type UserItem,
 } from '../../domain/table/records/specs/values/SetUserValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { buildUserAvatarUrl } from '../../ports/UserAvatarUrl';
@@ -37,9 +39,9 @@ const toUserItem = (user: UserLookupRecord): UserItem => {
 };
 
 @injectable()
-export class UserValueResolverService
-  implements ICellValueSpecResolver<SetUserValueSpec | SetUserValueByIdentifierSpec>
-{
+export class UserValueResolverService implements ICellValueSpecResolver<
+  SetUserValueSpec | SetUserValueByIdentifierSpec
+> {
   constructor(
     @inject(v2CoreTokens.userLookupService)
     private readonly userLookupService: IUserLookupService
@@ -51,9 +53,10 @@ export class UserValueResolverService
 
   async resolveSpecs(
     context: IExecutionContext,
+    tableId: TableId,
     specs: ReadonlyArray<SetUserValueSpec | SetUserValueByIdentifierSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       const resolveIdentifier = (identifier: string): Result<string, DomainError> => {
         if (identifier !== 'me') return ok(identifier);
@@ -69,6 +72,9 @@ export class UserValueResolverService
       };
 
       const strictIds = new Set<string>();
+      // Bare `{ id }` references from strict (non-typecast) writes must resolve
+      // inside the table's collaborator scope, matching v1.
+      const collaboratorScopedIds = new Set<string>();
       const identifiers = new Set<string>();
 
       for (const spec of specs) {
@@ -99,23 +105,41 @@ export class UserValueResolverService
           if (idResult.isErr()) {
             return err(idResult.error);
           }
-          strictIds.add(idResult.value);
+          if (spec.requireCollaborator) {
+            collaboratorScopedIds.add(idResult.value);
+          } else {
+            strictIds.add(idResult.value);
+          }
         }
       }
 
-      const lookupKeys = [...new Set([...strictIds, ...identifiers])];
-      const usersResult = yield* await service.userLookupService.listUsersByIdentifiers(lookupKeys);
+      // Typecast/paste structured snapshots carry a platform user id, so resolve
+      // them by primary key without collaborator scoping: a copied cell must
+      // paste the same member even when that member is not a collaborator of
+      // this table. Strict structured input and free-form text stay scoped to
+      // the table's collaborators.
+      const strictUsersResult = yield* await service.userLookupService.listUsersByIds([
+        ...strictIds,
+      ]);
+      const scopedUsersResult = yield* await service.userLookupService.listTableUsersByIdentifiers(
+        tableId.toString(),
+        [...collaboratorScopedIds, ...identifiers]
+      );
 
       const usersById = new Map<string, UserLookupRecord>();
-      const usersByEmail = new Map<string, UserLookupRecord>();
-      const usersByName = new Map<string, UserLookupRecord>();
+      const scopedUsersById = new Map<string, UserLookupRecord>();
+      const scopedUsersByEmail = new Map<string, UserLookupRecord>();
+      const scopedUsersByName = new Map<string, UserLookupRecord>();
 
-      for (const user of usersResult) {
+      for (const user of strictUsersResult) {
         usersById.set(user.id, user);
+      }
+      for (const user of scopedUsersResult) {
+        scopedUsersById.set(user.id, user);
         if (user.email) {
-          usersByEmail.set(user.email, user);
+          scopedUsersByEmail.set(user.email, user);
         }
-        usersByName.set(user.name, user);
+        scopedUsersByName.set(user.name, user);
       }
 
       const resolvedSpecs: ICellValueSpec[] = [];
@@ -133,25 +157,31 @@ export class UserValueResolverService
           }
 
           const resolvedItems: UserItem[] = [];
-          for (const identifier of spec.identifiers) {
+          // v1 parity (UserFieldCore.convertStringToCellValue -> matchUser(cellValue[0])):
+          // a single-user field only considers the first identifier, so
+          // `"unknown, Lee"` clears the cell instead of falling back to a later
+          // match. FieldToSpecVisitor already trims free-form input, but the spec
+          // type is public and can be built directly, so enforce the rule here.
+          const identifiersToResolve = spec.isMultiple
+            ? spec.identifiers
+            : spec.identifiers.slice(0, 1);
+          for (const identifier of identifiersToResolve) {
             const keyResult = resolveIdentifier(String(identifier));
             if (keyResult.isErr()) {
               return err(keyResult.error);
             }
             const key = keyResult.value;
-            const user = usersById.get(key) ?? usersByEmail.get(key) ?? usersByName.get(key);
+            const user =
+              scopedUsersById.get(key) ?? scopedUsersByEmail.get(key) ?? scopedUsersByName.get(key);
+            // v1 parity: free-form text that matches no collaborator clears
+            // the cell instead of failing the whole write.
             if (!user) {
-              return err(
-                domainError.validation({
-                  code: 'validation.field.user_not_found',
-                  message: `User(${key}) not found in table`,
-                })
-              );
+              continue;
             }
             resolvedItems.push(toUserItem(user));
           }
 
-          const resolvedValue = spec.isMultiple ? resolvedItems : resolvedItems[0] ?? null;
+          const resolvedValue = spec.isMultiple ? resolvedItems : (resolvedItems[0] ?? null);
           resolvedSpecs.push(
             new SetUserValueSpec(
               spec.fieldId,
@@ -176,19 +206,20 @@ export class UserValueResolverService
             return err(idResult.error);
           }
           const id = idResult.value;
-          const user = usersById.get(id);
+          const user = spec.requireCollaborator ? scopedUsersById.get(id) : usersById.get(id);
           if (!user) {
             return err(
               domainError.validation({
                 code: 'validation.field.user_not_found',
-                message: `User(${id}) not found in table`,
+                message: `User(${id}) not found`,
+                localization: { i18nKey: sdkErrorI18nKeys.user.notFound },
               })
             );
           }
           resolvedItems.push(toUserItem(user));
         }
 
-        const resolvedValue = normalized.isArray ? resolvedItems : resolvedItems[0] ?? null;
+        const resolvedValue = normalized.isArray ? resolvedItems : (resolvedItems[0] ?? null);
         resolvedSpecs.push(
           new SetUserValueSpec(
             spec.fieldId,

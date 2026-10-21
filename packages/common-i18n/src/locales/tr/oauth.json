@@ -2,7 +2,8 @@
   "add": "Yeni OAuth Uygulamaları",
   "title": {
     "add": "Yeni OAuth Uygulamaları",
-    "edit": "OAuth Uygulamalarını Düzenle"
+    "edit": "OAuth Uygulamalarını Düzenle",
+    "description": "Teable uygulamaları kendi adlarına hareket edebilir ve bir kullanıcının kimliğine bürünmeden işlemleri doğrudan API üzerinden gerçekleştirebilir. Daha fazla bilgi için <a>yardım belgelerimize</a> bakın."
   },
   "form": {
     "name": {
@@ -54,5 +55,24 @@
     "scopes": "Bu uygulama aşağıdaki izinlere erişebilecek:",
     "redirectDescription": "Yetkilendirme şuraya yönlendirecek",
     "authorize": "Yetkilendir"
+  },
+  "mcpDecision": {
+    "title": "Teable MCP'yi bağla",
+    "subtitle": "<b>{{name}}</b> uygulamasına Teable erişimi verin",
+    "capabilities": "<b>{{name}}</b>, Teable MCP aracılığıyla şunları yapabilecek:",
+    "ability1": "Her projedeki izinlerinize göre tabloları, alanları, görünümleri, kayıtları, otomasyonları ve uygulamaları görüntüleme ve düzenleme",
+    "ability2": "Sizin adınıza işlem yapma; işlemler bu uygulama adına kaydedilir",
+    "ability3": "Erişebildiğiniz tüm projeleri kullanma",
+    "redirectTitle": "Şuraya yönlendirileceksiniz:",
+    "trustRedirect": "Bu URL'yi tanıyorum ve güveniyorum",
+    "continue": "Devam Et"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "Daha fazla bilgi"
+  },
+  "deleteConfirm": {
+    "title": "OAuth uygulamasını sil",
+    "description": "{{name}} OAuth uygulamasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
   }
 }

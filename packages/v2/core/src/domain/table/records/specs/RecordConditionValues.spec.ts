@@ -77,6 +77,13 @@ describe('RecordConditionValues', () => {
       exactDate: '2024-01-02T00:00:00.000Z',
       timeZone: 'utc',
     })._unsafeUnwrap();
+    expect(
+      RecordConditionDateValue.create({
+        mode: 'exactDate',
+        exactDate: '2024-01-02T00:00:00Z',
+        timeZone: 'utc',
+      }).isOk()
+    ).toBe(true);
     const same = RecordConditionDateValue.create({
       mode: 'exactDate',
       exactDate: '2024-01-02T00:00:00.000Z',

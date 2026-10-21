@@ -26,6 +26,7 @@ describe('OAuthAppInitService', () => {
     logo: cliOAuthApp.logo,
     redirectUris: JSON.stringify(cliOAuthApp.redirectUris),
     scopes: JSON.stringify(cliOAuthApp.scopes),
+    allowDeviceFlow: cliOAuthApp.allowDeviceFlow,
   };
 
   afterEach(() => {

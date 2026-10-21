@@ -2,12 +2,24 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { andSpec } from '../domain/shared/specification/AndSpec';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { notSpec } from '../domain/shared/specification/NotSpec';
+import { orSpec } from '../domain/shared/specification/OrSpec';
+import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
+import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
+import { LookupField } from '../domain/table/fields/types/LookupField';
+import type { ITableReadModel } from '../domain/table/ITableReadModel';
+import {
+  conditionNullMatch,
+  conditionNullMatchForSpec,
+  type ConditionNullMatch,
+} from '../domain/table/records/specs/ConditionNullSemantics';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { RecordConditionSpecBuilder } from '../domain/table/records/specs/RecordConditionSpecBuilder';
+import type { RecordConditionOperator } from '../domain/table/records/specs/RecordConditionOperators';
+import { RecordValueConditionSpec } from '../domain/table/records/specs/RecordConditionSpec';
 import type { RecordConditionValue } from '../domain/table/records/specs/RecordConditionValues';
 import {
   RecordConditionDateValue,
@@ -16,8 +28,8 @@ import {
   RecordConditionLiteralValue,
 } from '../domain/table/records/specs/RecordConditionValues';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
+import type { RecordQueryFieldMask } from '../ports/RecordQueryPlugin';
 import {
   isRecordFilterCondition,
   isRecordFilterDateValue,
@@ -29,9 +41,14 @@ import {
   type RecordFilterValue,
 } from './RecordFilterDto';
 
+type FieldMaskMap = ReadonlyMap<
+  string,
+  ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+>;
+
 const currentUserFilterValue = 'Me';
 
-const resolveField = (table: Table, rawFieldId: string) => {
+const resolveField = (table: ITableReadModel, rawFieldId: string) => {
   return FieldId.create(rawFieldId).andThen((fieldId) =>
     table
       .getField((candidate) => candidate.id().equals(fieldId))
@@ -39,8 +56,8 @@ const resolveField = (table: Table, rawFieldId: string) => {
   );
 };
 
-const buildConditionValue = (
-  table: Table,
+export const buildRecordConditionValue = (
+  table: ITableReadModel,
   rawValue: RecordFilterValue
 ): Result<RecordConditionValue | undefined, DomainError> => {
   if (rawValue === null) return ok(undefined);
@@ -74,45 +91,197 @@ const buildConditionValue = (
   return RecordConditionLiteralValue.create(rawValue);
 };
 
-const buildSpecFromNode = (
-  table: Table,
-  node: RecordFilterNode
-): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
+/**
+ * Three-valued CASE WHEN null-when-hidden semantics, encoded as a dual polarity
+ * pair for 2-valued WHERE matching:
+ * - isTrue  ⇔ formula is definitely true  (WHERE includes row)
+ * - isFalse ⇔ formula is definitely false (WHERE includes NOT formula)
+ *
+ * Algebra (Kleene):
+ *   NOT p:     isTrue = p.isFalse, isFalse = p.isTrue
+ *   p AND q:   isTrue = p.isTrue ∧ q.isTrue, isFalse = p.isFalse ∨ q.isFalse
+ *   p OR q:    isTrue = p.isTrue ∨ q.isTrue, isFalse = p.isFalse ∧ q.isFalse
+ *
+ * Leaf NULL match (when mask M is false) comes from {@link conditionNullMatch}
+ * on the **canonical** operator/value after FieldConditionSpecBuilder:
+ * - true:    isTrue = ¬M ∨ c,  isFalse = M ∧ ¬c
+ * - false:   isTrue = M ∧ c,   isFalse = ¬M ∨ ¬c
+ * - unknown: isTrue = M ∧ c,   isFalse = M ∧ ¬c
+ */
+type FilterPolarity = {
+  readonly isTrue: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+  readonly isFalse: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+};
+
+const buildLeafPolarity = (
+  nullMatch: Exclude<ConditionNullMatch, 'dynamic'>,
+  conditionSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+  mask: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+): Result<FilterPolarity, DomainError> => {
+  return notSpec(conditionSpec).andThen((notCondition) => {
+    if (!mask) {
+      return ok({ isTrue: conditionSpec, isFalse: notCondition });
+    }
+
+    if (nullMatch === 'true') {
+      return notSpec(mask).andThen((notMask) =>
+        orSpec(notMask, conditionSpec).andThen((isTrue) =>
+          andSpec(mask, notCondition).map((isFalse) => ({ isTrue, isFalse }))
+        )
+      );
+    }
+    if (nullMatch === 'false') {
+      return andSpec(mask, conditionSpec).andThen((isTrue) =>
+        notSpec(mask).andThen((notMask) =>
+          orSpec(notMask, notCondition).map((isFalse) => ({ isTrue, isFalse }))
+        )
+      );
+    }
+    // unknown: hidden ⇒ both false.
+    return andSpec(mask, conditionSpec).andThen((isTrue) =>
+      andSpec(mask, notCondition).map((isFalse) => ({ isTrue, isFalse }))
+    );
+  });
+};
+
+/**
+ * Prefer the built condition **spec type** (CheckboxConditionSpec,
+ * ConditionalLookupConditionSpec, …) so Lookup&lt;Checkbox&gt; and special
+ * visitor dispatch stay aligned with SQL.
+ */
+const resolveCanonicalNullMatch = (
+  field: Parameters<typeof conditionNullMatch>[0],
+  conditionSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+  rawOperator: string
+): ConditionNullMatch => {
+  if (conditionSpec instanceof RecordValueConditionSpec) {
+    return conditionNullMatchForSpec(
+      conditionSpec as RecordValueConditionSpec<RecordConditionOperator>
+    );
+  }
+  return conditionNullMatch(field, rawOperator as RecordConditionOperator);
+};
+
+const andPolarities = (
+  left: FilterPolarity,
+  right: FilterPolarity
+): Result<FilterPolarity, DomainError> =>
+  andSpec(left.isTrue, right.isTrue).andThen((isTrue) =>
+    orSpec(left.isFalse, right.isFalse).map((isFalse) => ({ isTrue, isFalse }))
+  );
+
+const orPolarities = (
+  left: FilterPolarity,
+  right: FilterPolarity
+): Result<FilterPolarity, DomainError> =>
+  orSpec(left.isTrue, right.isTrue).andThen((isTrue) =>
+    andSpec(left.isFalse, right.isFalse).map((isFalse) => ({ isTrue, isFalse }))
+  );
+
+const buildPolarityFromNode = (
+  table: ITableReadModel,
+  node: RecordFilterNode,
+  fieldMasks?: FieldMaskMap
+): Result<FilterPolarity, DomainError> => {
   if (isRecordFilterCondition(node)) {
+    // RHS field-reference to a masked field would read raw values (relation oracle).
+    if (
+      fieldMasks &&
+      isRecordFilterFieldReferenceValue(node.value) &&
+      fieldMasks.has(node.value.fieldId)
+    ) {
+      return err(
+        domainError.validation({
+          message: 'Filter field reference to a conditionally masked field is not allowed',
+        })
+      );
+    }
+    // LHS masked + field-reference RHS: NULL truth is row-dependent
+    // (NULL IS DISTINCT FROM NULL = false, [] isNotExactly [] = false). Fail closed.
+    if (fieldMasks?.has(node.fieldId) && isRecordFilterFieldReferenceValue(node.value)) {
+      return err(
+        domainError.validation({
+          code: 'record.filter.masked_field_reference_lhs',
+          message:
+            'Filter comparing a conditionally masked field to another field is not allowed until mask-aware SQL CASE WHEN is available',
+        })
+      );
+    }
     return resolveField(table, node.fieldId).andThen((field) =>
-      buildConditionValue(table, node.value).andThen((value) =>
-        field.spec().create({ operator: node.operator, value })
+      buildRecordConditionValue(table, node.value).andThen((value) =>
+        field
+          .spec()
+          .create({ operator: node.operator, value })
+          .andThen((conditionSpec) => {
+            const mask = fieldMasks?.get(node.fieldId);
+            if (!mask) {
+              // No mask: polarity does not rewrite for NULL-when-hidden.
+              return buildLeafPolarity('unknown', conditionSpec, undefined);
+            }
+            const nullMatch = resolveCanonicalNullMatch(field, conditionSpec, node.operator);
+            if (nullMatch === 'dynamic') {
+              return err(
+                domainError.validation({
+                  code: 'record.filter.masked_dynamic_null',
+                  message:
+                    'Filter on a conditionally masked field has row-dependent NULL semantics and is not allowed',
+                })
+              );
+            }
+            return buildLeafPolarity(nullMatch, conditionSpec, mask);
+          })
       )
     );
   }
 
   if (isRecordFilterNot(node)) {
-    return buildSpecFromNode(table, node.not).andThen((spec) => notSpec(spec));
+    return buildPolarityFromNode(table, node.not, fieldMasks).map(({ isTrue, isFalse }) => ({
+      isTrue: isFalse,
+      isFalse: isTrue,
+    }));
   }
 
   if (isRecordFilterGroup(node)) {
-    const mode = node.conjunction === 'and' ? 'and' : 'or';
-    const builder = RecordConditionSpecBuilder.create(mode);
-    for (const item of node.items) {
-      const childResult = buildSpecFromNode(table, item);
-      if (childResult.isErr()) return err(childResult.error);
-      builder.addConditionSpec(childResult.value);
+    if (!node.items.length) {
+      return err(domainError.validation({ message: 'Filter group is empty' }));
     }
-    return builder.build();
+    let combined: FilterPolarity | undefined;
+    for (const item of node.items) {
+      const childResult = buildPolarityFromNode(table, item, fieldMasks);
+      if (childResult.isErr()) return err(childResult.error);
+      if (!combined) {
+        combined = childResult.value;
+        continue;
+      }
+      const next =
+        node.conjunction === 'and'
+          ? andPolarities(combined, childResult.value)
+          : orPolarities(combined, childResult.value);
+      if (next.isErr()) return err(next.error);
+      combined = next.value;
+    }
+    return ok(combined!);
   }
 
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
 
+const buildSpecFromNode = (
+  table: ITableReadModel,
+  node: RecordFilterNode,
+  fieldMasks?: FieldMaskMap
+): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> =>
+  buildPolarityFromNode(table, node, fieldMasks).map((polarity) => polarity.isTrue);
+
 const sanitizeNode = (
-  table: Table,
+  table: ITableReadModel,
   node: RecordFilterNode
 ): Result<RecordFilterNode | null, DomainError> => {
   if (isRecordFilterCondition(node)) {
     const fieldResult = resolveField(table, node.fieldId);
     if (fieldResult.isErr()) return ok(null);
 
-    const valueResult = buildConditionValue(table, node.value);
+    const valueResult = buildRecordConditionValue(table, node.value);
     if (valueResult.isErr()) return ok(null);
 
     const specResult = fieldResult.value.spec().create({
@@ -153,7 +322,12 @@ const sanitizeNode = (
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
 
-function isUserLikeFieldType(type: FieldType): boolean {
+function isUserLikeField(field: Field): boolean {
+  if (field instanceof LookupField || field instanceof ConditionalLookupField) {
+    const innerField = field.innerField();
+    return innerField.isOk() && isUserLikeField(innerField.value);
+  }
+  const type = field.type();
   return (
     type.equals(FieldType.user()) ||
     type.equals(FieldType.createdBy()) ||
@@ -162,7 +336,7 @@ function isUserLikeFieldType(type: FieldType): boolean {
 }
 
 export function replaceCurrentUserTagInFilter(
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined,
   actorId: string
 ): RecordFilter | null | undefined {
@@ -187,7 +361,7 @@ export function replaceCurrentUserTagInFilter(
     }
 
     const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
-    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
+    if (fieldResult.isErr() || !isUserLikeField(fieldResult.value)) {
       return node;
     }
 
@@ -208,15 +382,19 @@ export function replaceCurrentUserTagInFilter(
 }
 
 export const buildRecordConditionSpec = (
-  table: Table,
-  filter: RecordFilter
+  table: ITableReadModel,
+  filter: RecordFilter,
+  fieldMasks?: ReadonlyArray<RecordQueryFieldMask>
 ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
   if (!filter) return err(domainError.validation({ message: 'Filter is empty' }));
-  return buildSpecFromNode(table, filter);
+  const maskMap: FieldMaskMap | undefined = fieldMasks?.length
+    ? new Map(fieldMasks.map((mask) => [mask.fieldId, mask.visibleWhen]))
+    : undefined;
+  return buildSpecFromNode(table, filter, maskMap);
 };
 
 export const sanitizeRecordFilter = (
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined
 ): Result<RecordFilter | null | undefined, DomainError> => {
   if (filter === undefined || filter === null) {
@@ -227,7 +405,7 @@ export const sanitizeRecordFilter = (
 };
 
 export const buildSanitizedRecordConditionSpec = (
-  table: Table,
+  table: ITableReadModel,
   filter: RecordFilter | null | undefined
 ): Result<
   ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,

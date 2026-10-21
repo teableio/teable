@@ -13,13 +13,16 @@
     "update": "Aktualisieren",
     "create": "Erstellen",
     "delete": "Löschen",
+    "clear": "Leeren",
     "cancel": "Abbrechen",
+    "undo": "Rückgängig",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "back": "Zurück",
     "download": "Herunterladen",
     "remove": "Entfernen",
     "removeConfig": "Konfiguration entfernen",
+    "retry": "Erneut versuchen",
     "saveSucceed": "Speichern erfolgreich!",
     "submitSucceed": "Abschicken erfolgreich!",
     "editSucceed": "Bearbeiten erfolgreich!",
@@ -62,14 +65,14 @@
     "refresh": "Aktualisieren",
     "login": "Anmelden",
     "useTemplate": "Vorlage verwenden",
-    "copyToMySpace": "Copy to my space",
-    "saveToMySpace": "Save to my space",
-    "supportSaveCopy": "Support saving a copy",
+    "copyLink": "Link kopieren",
+    "openLink": "Link öffnen",
     "backToSpace": "Zurück zum Space",
-    "switchBase": "Base wechseln",
+    "switchBase": "Projekt wechseln",
+    "collapse": "Einklappen",
+    "viewDetails": "Details anzeigen",
     "getMore": "Mehr erhalten",
     "copySuccess": "Kopieren erfolgreich",
-    "openLink": "Link öffnen",
     "share": "Teilen"
   },
   "quickAction": {
@@ -90,36 +93,28 @@
     "guideTitle": "Beginnen Sie mit Ihrem Szenario",
     "watchVideo": "Video ansehen",
     "title": "Vorlage",
-    "description": "Erstellen Sie eine neue Datenbank aus einer Vorlage",
+    "description": "Erstellen Sie ein neues Projekt aus einer Vorlage",
     "browseAll": "Alle durchsuchen",
     "templateTitle": "Mit Vorlage beginnen",
     "loadMore": "Mehr laden",
     "allTemplatesLoaded": "Alle Vorlagen geladen",
     "createTemplate": "Vorlage erstellen",
     "promptBox": {
-      "placeholder": "Erstellen Sie Ihre Business-App mit Teable",
-      "start": "Starten",
-      "carouselGuides": {
-        "guide1": "Quittungen einfügen → Teable bitten, Schlüsseldaten automatisch zu extrahieren",
-        "guide2": "Erstellen Sie ein KI-CRM mit Lead- und Follow-up-Tabellen",
-        "guide3": "Kundenfeedback einfügen → Teable bitten, Erkenntnisse zu finden und Berichte zu erstellen",
-        "guide4": "Erstellen Sie einen Projekt-Tracker mit Aufgaben und Fristen",
-        "guide5": "Leads-Tabelle einfügen → Teable bitten, ein intelligentes CRM zu erstellen",
-        "guide6": "Erstellen Sie einen Content-Planer mit Beiträgen und Veröffentlichungsdaten",
-        "guide7": "Lebensläufe einfügen → Teable bitten, Kandidaten zu organisieren und vorzusortieren"
-      }
+      "start": "Starten"
     },
     "useTemplateDialog": {
       "title": "Space auswählen",
       "description": "Bitte wählen Sie einen Space für die Vorlage aus",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
-      "createSpace": "Create"
+      "createSpace": "Create",
+      "loadFailed": "Vorlagendetails konnten nicht geladen werden."
     }
   },
   "baseShare": {
     "shareTitle": "Teilen",
     "shareToWeb": "Im Web teilen",
+    "noPermissionTip": "Sie haben keine Berechtigung, die Freigabeeinstellungen zu verwalten",
     "linkHolderLabel": "Person mit dem Link",
     "linkHolderCanView": "Kann anzeigen",
     "linkHolderCanViewDesc": "Jeder mit dem Link kann die Daten anzeigen",
@@ -136,8 +131,11 @@
     "copyCode": "Code kopieren",
     "enterPassword": "Passwort eingeben",
     "passwordTitle": "Passwort festlegen",
+    "copyLinkAndPassword": "Link und Passwort kopieren",
+    "linkAndPasswordText": "{{brand}}-Link: {{url}} Passwort: {{password}}",
+    "generatePassword": "Zufälliges Passwort generieren",
     "deleteConfirmTitle": "Freigabelink löschen",
-    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf die freigegebene Base zugreifen.",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf das freigegebene Projekt zugreifen.",
     "createSuccess": "Freigabelink erstellt",
     "createFailed": "Freigabelink konnte nicht erstellt werden",
     "updateFailed": "Freigabeeinstellungen konnten nicht aktualisiert werden",
@@ -149,19 +147,19 @@
   "share": {
     "copyToSpaceDialog": {
       "title": "In Bereich kopieren",
-      "description": "Bitte wählen Sie einen Bereich aus, in den diese Basis kopiert werden soll",
-      "baseName": "Basisname",
-      "baseNamePlaceholder": "Basisname eingeben",
+      "description": "Bitte wählen Sie einen Bereich aus, in den dieses Projekt kopiert werden soll",
+      "baseName": "Projektname",
+      "baseNamePlaceholder": "Projektname eingeben",
       "selectSpace": "Bereich auswählen",
       "noSpaceDescription": "Keine verwaltbaren Bereiche. Bitte erstellen Sie einen neuen Bereich.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "copyTarget": "Copy to",
-      "createNewBase": "New base",
-      "copyToExistingBase": "Existing base",
-      "selectBase": "Select base",
-      "selectBasePlaceholder": "Select a base",
-      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Basen. Bitte wählen Sie \"Neue Basis\"."
+      "createNewBase": "Neues Projekt",
+      "copyToExistingBase": "Vorhandenes Projekt",
+      "selectBase": "Projekt auswählen",
+      "selectBasePlaceholder": "Projekt auswählen",
+      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Projekte. Bitte wählen Sie \"Neues Projekt\"."
     }
   },
   "settings": {
@@ -169,177 +167,6 @@
     "allSetting": "Space- & persönliche Einstellungen",
     "personal": {
       "title": "Persönlich"
-    },
-    "back": "Zurück zum Start",
-    "account": {
-      "title": "Mein Profil",
-      "tab": "Mein Konto",
-      "updatePhoto": "Photo aktualisieren",
-      "updateNameDesc": "Spitzname oder Vorname, je nachdem, wie du in Teable genannt werden möchtest",
-      "securityTitle": "Konto Sicherheit",
-      "email": "E-Mail",
-      "password": "Passwort",
-      "passwordDesc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
-      "changePassword": {
-        "title": "Passwort ändern",
-        "desc": "Bitte geben Sie Ihr aktuelles Passwort ein und legen Sie ein neues fest",
-        "current": "Aktuelles Passwort",
-        "new": "Neues Passwort",
-        "confirm": "Neues Passwort bestätigen"
-      },
-      "changePasswordError": {
-        "disMatch": "Ihr neues Passwort stimmt nicht überein.",
-        "equal": "Ihr neues Passwort muss sich von Ihrem aktuellen Passwort unterscheiden.",
-        "invalid": "Ihr aktuelles Passwort ist ungültig."
-      },
-      "changePasswordSuccess": {
-        "title": "🎉 Passwort erfolgreich geändert.",
-        "desc": "Sie werden in 2 Sekunden auf die Anmeldeseite weitergeleitet."
-      },
-      "manageToken": "Zugriffs-Token",
-      "addPassword": {
-        "title": "Passwort hinzufügen",
-        "desc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
-        "password": "Geben Sie Ihr Passwort ein",
-        "confirm": "Bestätigen Sie Ihr Passwort"
-      },
-      "addPasswordError": {
-        "disMatch": "Ihr Passwort stimmt nicht überein."
-      },
-      "addPasswordSuccess": {
-        "title": "🎉 Passwort erfolgreich hinzugefügt."
-      },
-      "deleteAccount": {
-        "title": "Konto löschen",
-        "desc": "Diese Aktion ist unwiderruflich. Es wird Ihr Konto und alle zugehörigen Daten dauerhaft löschen.",
-        "error": {
-          "title": "Konto kann nicht gelöscht werden",
-          "desc": "Sie müssen zuerst die folgenden Abhängigkeiten behandeln:",
-          "spacesError": "Bevor Sie Ihr Konto löschen, müssen Sie zuerst Ihre Spaces verlassen (oder löschen und dann in den Papierkorb verschieben)."
-        },
-        "confirm": {
-          "title": "Bitte geben Sie <code>DELETE</code> zur Bestätigung ein",
-          "placeholder": "DELETE"
-        },
-        "loading": "Lösche..."
-      },
-      "changeEmail": {
-        "title": "E-Mail-Adresse ändern",
-        "desc": "Bitte verifizieren Sie Ihr Passwort und bestätigen Sie Ihre neue E-Mail-Adresse",
-        "current": "Aktuelles Passwort",
-        "new": "Neue E-Mail",
-        "code": "Bestätigungscode",
-        "getCode": "Code senden",
-        "error": {
-          "invalidCode": "Der Bestätigungscode ist ungültig.",
-          "invalidPassword": "Das Passwort ist ungültig.",
-          "invalidConflict": "Die neue E-Mail-Adresse ist bereits registriert.",
-          "invalidSameEmail": "Die neue E-Mail-Adresse ist dieselbe wie die aktuelle.",
-          "sendMailRateLimit": "Bitte warten Sie {{seconds}} Sekunden, bevor Sie eine neue E-Mail senden"
-        },
-        "success": {
-          "title": "🎉 E-Mail erfolgreich geändert.",
-          "desc": "Sie werden in 2 Sekunden zur Anmeldeseite weitergeleitet.",
-          "sendSuccess": "Bestätigungscode erfolgreich gesendet."
-        }
-      }
-    },
-    "notify": {
-      "title": "Meine Benachrichtigungen",
-      "label": "Aktivität in Ihrem Space",
-      "desc": "Sie erhalten E-Mails, wenn Sie Kommentare, Erwähnungen, Seiteneinladungen, Erinnerungen, Zugriffsanfragen und Eigentumsänderungen erhalten."
-    },
-    "setting": {
-      "title": "Einstellungen",
-      "theme": "Benutzeroberflächen-Theme",
-      "themeDesc": "Wählen Sie Ihr Farbschema für die Benutzeroberfläche",
-      "dark": "Dunkel",
-      "light": "Hell",
-      "system": "System",
-      "version": "App Version",
-      "language": "Sprache",
-      "interactionMode": "Interaktionsmodus",
-      "mouseMode": "Cursor-Modus",
-      "touchMode": "Touch-Modus",
-      "systemMode": "Systemeinstellung folgen",
-      "teableSkill": "Teable-Fähigkeit"
-    },
-    "teableSkill": {
-      "intro": "Lass deinen AI Agent eine Verbindung zu deiner Base herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
-      "worksWith": "Funktioniert mit allen gängigen Agents",
-      "more": "+ mehr",
-      "copy": "Kopieren",
-      "installPromptLabel": "Skill-Installationsprompt",
-      "installCommandLabel": "Skill-Installationsbefehl",
-      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen.",
-      "step1Title": "Skill installieren",
-      "step1Description": "Kopiere diesen Prompt in deinen AI Agent. Er installiert den Teable Skill und öffnet den Browser, um die Teable CLI-Authentifizierung abzuschließen.",
-      "step3Title": "Teable-Fähigkeit ausprobieren",
-      "step3Description": "Nach der Installation des Skills kannst du diese Prompts ausprobieren.",
-      "tryPrompts": {
-        "schema": {
-          "prompt": "Erstelle eine einfache CRM-Tabelle in dieser Base.",
-          "note": "Einfache Starter-Prompts"
-        },
-        "template": {
-          "prompt": "Lade alle Rechnungen in diesem lokalen Ordner in <Belegtabelle> {Tabellen-URL einfügen} hoch und extrahiere wichtige Felder.",
-          "note": "Lokale Dateien → Teable"
-        },
-        "validate": {
-          "prompt": "Importiere neue GitHub issues in <Bug Tracker> {Tabellen-URL einfügen}.",
-          "note": "Plattformübergreifende Daten → Teable"
-        },
-        "trace": {
-          "prompt": "Prüfe <Aufgabentabelle> {Tabellen-URL einfügen} und markiere überfällige Aufgaben.",
-          "note": "Teable-Daten bereinigen oder organisieren"
-        }
-      }
-    },
-    "nav": {
-      "settings": "Einstellungen",
-      "logout": "Ausloggen",
-      "contactSupport": "Support kontaktieren"
-    },
-    "integration": {
-      "title": "Integrationen",
-      "thirdPartyIntegrations": {
-        "title": "Drittanbieter-Integrationen",
-        "description": "Sie haben {{count}} Anwendungen Zugriff auf Ihr Konto gewährt.",
-        "lastUsed": "Zuletzt verwendet am {{date}}",
-        "revoke": "Widerrufen",
-        "owner": "Im Besitz von {{user}}",
-        "revokeTitle": "Sind Sie sicher, dass Sie die Genehmigung widerrufen wollen?",
-        "revokeDesc": "{{name}} wird nicht mehr auf die Teable-API zugreifen können. Sie können diese Aktion nicht rückgängig machen.",
-        "scopeTitle": "Berechtigungen",
-        "scopeDesc": "Diese Anwendung wird die folgenden Bereiche abrufen können:"
-      },
-      "userIntegration": {
-        "title": "Verbundene Konten",
-        "description": "Verbinden Sie externe Konten, um Teable den Zugriff auf Ihre Ressourcen zu ermöglichen.",
-        "emptyDescription": "Keine verbundenen Konten",
-        "actions": {
-          "reconnect": "Erneut verbinden"
-        },
-        "slack": {
-          "user": "Slack-Benutzer",
-          "workspace": "Slack-Arbeitsbereich"
-        },
-        "email": {
-          "user": "Benutzer",
-          "email": "E-Mail"
-        },
-        "deleteTitle": "Verbundenes Konto entfernen",
-        "deleteDesc": "Möchten Sie {{name}} wirklich entfernen?",
-        "create": "Neues Konto verbinden",
-        "manage": "Verbundene Konten verwalten",
-        "searchPlaceholder": "Verbundene Konten suchen",
-        "defaultName": "{{name}} Integration",
-        "callback": {
-          "error": "Autorisierung fehlgeschlagen",
-          "title": "Autorisierung erfolgreich",
-          "desc": "Sie können dieses Fenster jetzt schließen."
-        }
-      }
     },
     "templateAdmin": {
       "title": "Vorlagenverwaltung",
@@ -353,9 +180,11 @@
         "errorCategoryName": "Kategorie existiert nicht oder wurde gelöscht",
         "needSnapshot": "Bitte erstellen Sie einen Snapshot vor der Veröffentlichung, und der Vorlagenname und die Beschreibung dürfen nicht leer sein",
         "needPublish": "Bitte veröffentlichen Sie die Vorlage, bevor Sie sie hervorheben",
-        "needBaseSource": "Bitte wählen Sie eine Base-Quelle, bevor Sie einen Snapshot erstellen",
+        "needBaseSource": "Bitte wählen Sie eine Projekt-Quelle, bevor Sie einen Snapshot erstellen",
         "forbiddenUpdateSystemTemplate": "Systemvorlagen können nicht geändert werden",
-        "addCategoryTips": "Bitte geben Sie zuerst einen Kategorienamen in das Suchfeld ein."
+        "addCategoryTips": "Bitte geben Sie zuerst einen Kategorienamen in das Suchfeld ein.",
+        "categoryNamePlaceholder": "Kategorienamen eingeben",
+        "duplicateCategoryName": "Kategoriename existiert bereits"
       },
       "category": {
         "menu": {
@@ -401,13 +230,190 @@
       "noImage": "Kein Bild",
       "baseSelectPanel": {
         "title": "Vorlagenquelle auswählen",
-        "description": "Wählen Sie eine Base als Vorlage",
+        "description": "Wählen Sie ein Projekt als Vorlage",
         "confirm": "Bestätigen",
         "search": "Suchen...",
         "cancel": "Abbrechen",
-        "selectBase": "Base auswählen",
+        "selectBase": "Projekt auswählen",
         "createTemplate": "Vorlage erstellen",
-        "abnormalBase": "Base existiert nicht oder wurde gelöscht"
+        "abnormalBase": "Projekt existiert nicht oder wurde gelöscht"
+      }
+    },
+    "back": "Zurück zum Start",
+    "account": {
+      "title": "Mein Profil",
+      "tab": "Mein Konto",
+      "updatePhoto": "Photo aktualisieren",
+      "updateNameDesc": "Spitzname oder Vorname, je nachdem, wie du in Teable genannt werden möchtest",
+      "securityTitle": "Konto Sicherheit",
+      "email": "E-Mail",
+      "password": "Passwort",
+      "passwordDesc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
+      "changePassword": {
+        "title": "Passwort ändern",
+        "desc": "Bitte geben Sie Ihr aktuelles Passwort ein und legen Sie ein neues fest",
+        "current": "Aktuelles Passwort",
+        "new": "Neues Passwort",
+        "confirm": "Neues Passwort bestätigen"
+      },
+      "changePasswordError": {
+        "disMatch": "Ihr neues Passwort stimmt nicht überein.",
+        "equal": "Ihr neues Passwort muss sich von Ihrem aktuellen Passwort unterscheiden.",
+        "invalid": "Ihr aktuelles Passwort ist ungültig."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Passwort erfolgreich geändert.",
+        "desc": "Sie werden in 2 Sekunden auf die Anmeldeseite weitergeleitet."
+      },
+      "manageToken": "Zugriffs-Token",
+      "addPassword": {
+        "title": "Passwort hinzufügen",
+        "desc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
+        "password": "Geben Sie Ihr Passwort ein",
+        "confirm": "Bestätigen Sie Ihr Passwort"
+      },
+      "addPasswordError": {
+        "disMatch": "Ihr Passwort stimmt nicht überein."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Passwort erfolgreich hinzugefügt."
+      },
+      "changeEmail": {
+        "title": "E-Mail-Adresse ändern",
+        "desc": "Bitte verifizieren Sie Ihr Passwort und bestätigen Sie Ihre neue E-Mail-Adresse",
+        "current": "Aktuelles Passwort",
+        "new": "Neue E-Mail",
+        "code": "Bestätigungscode",
+        "getCode": "Code senden",
+        "error": {
+          "invalidCode": "Der Bestätigungscode ist ungültig.",
+          "invalidPassword": "Das Passwort ist ungültig.",
+          "invalidConflict": "Die neue E-Mail-Adresse ist bereits registriert.",
+          "invalidSameEmail": "Die neue E-Mail-Adresse ist dieselbe wie die aktuelle.",
+          "sendMailRateLimit": "Bitte warten Sie {{seconds}} Sekunden, bevor Sie eine neue E-Mail senden"
+        },
+        "success": {
+          "title": "🎉 E-Mail erfolgreich geändert.",
+          "desc": "Sie werden in 2 Sekunden zur Anmeldeseite weitergeleitet.",
+          "sendSuccess": "Bestätigungscode erfolgreich gesendet."
+        }
+      },
+      "deleteAccount": {
+        "title": "Konto löschen",
+        "desc": "Dieser Vorgang ist endgültig. Ihr Konto kann nach dem Löschen nicht wiederhergestellt werden.",
+        "spaces": {
+          "title": "Spaces, deren alleiniger Eigentümer Sie sind",
+          "body": "Diese Spaces werden beim Löschen Ihres Kontos in den Papierkorb verschoben. Um einen zu behalten, übertragen Sie ihn vorher an ein anderes Mitglied.",
+          "loading": "Spaces, deren alleiniger Eigentümer Sie sind, werden geprüft …",
+          "blockedHint": "Als „Nicht löschbar“ markierte Spaces haben noch ein aktives Abonnement. Klären Sie diese, bevor Sie Ihr Konto löschen.",
+          "willTransfer": "Wird übertragen",
+          "notDeletable": "Nicht löschbar",
+          "cancelSubscription": "Abo verwalten",
+          "transferTo": "An Mitglied übertragen (optional)",
+          "transferToSubscribed": "An Mitglied übertragen (inkl. Abo)"
+        },
+        "confirm": {
+          "title": "Geben Sie zur Bestätigung <code>DELETE</code> ein",
+          "placeholder": "DELETE"
+        },
+        "loading": "Wird gelöscht …"
+      }
+    },
+    "notify": {
+      "title": "Meine Benachrichtigungen",
+      "label": "Aktivität in Ihrem Space",
+      "desc": "Sie erhalten E-Mails, wenn Sie Kommentare, Erwähnungen, Seiteneinladungen, Erinnerungen, Zugriffsanfragen und Eigentumsänderungen erhalten."
+    },
+    "setting": {
+      "title": "Einstellungen",
+      "theme": "Benutzeroberflächen-Theme",
+      "themeDesc": "Wählen Sie Ihr Farbschema für die Benutzeroberfläche",
+      "dark": "Dunkel",
+      "light": "Hell",
+      "system": "System",
+      "version": "App Version",
+      "infraVersion": "Infra-Version",
+      "language": "Sprache",
+      "interactionMode": "Interaktionsmodus",
+      "mouseMode": "Cursor-Modus",
+      "touchMode": "Touch-Modus",
+      "systemMode": "Systemeinstellung folgen",
+      "buySelfHostedLicense": "Self-Hosted-Lizenz kaufen",
+      "teableSkill": "Teable-Fähigkeit"
+    },
+    "teableSkill": {
+      "intro": "Lass deinen AI Agent eine Verbindung zu deinem Projekt herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
+      "worksWith": "Funktioniert mit allen gängigen Agents",
+      "more": "+ mehr",
+      "copy": "Kopieren",
+      "installPromptLabel": "Skill-Installationsprompt",
+      "installCommandLabel": "Skill-Installationsbefehl",
+      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen. Meine Teable-Instanz ist {{origin}}; authentifiziere dich mit `teable auth login --endpoint {{origin}}`.",
+      "step1Title": "Skill installieren",
+      "step1Description": "Kopiere diesen Prompt in deinen AI Agent. Er installiert den Teable Skill und öffnet den Browser, um die Teable CLI-Authentifizierung abzuschließen.",
+      "step3Title": "Teable-Fähigkeit ausprobieren",
+      "step3Description": "Nach der Installation des Skills kannst du diese Prompts ausprobieren.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Erstelle eine einfache CRM-Tabelle in diesem Projekt.",
+          "note": "Einfache Starter-Prompts"
+        },
+        "template": {
+          "prompt": "Lade alle Rechnungen in diesem lokalen Ordner in <Belegtabelle> {Tabellen-URL einfügen} hoch und extrahiere wichtige Felder.",
+          "note": "Lokale Dateien → Teable"
+        },
+        "validate": {
+          "prompt": "Importiere neue GitHub issues in <Bug Tracker> {Tabellen-URL einfügen}.",
+          "note": "Plattformübergreifende Daten → Teable"
+        },
+        "trace": {
+          "prompt": "Prüfe <Aufgabentabelle> {Tabellen-URL einfügen} und markiere überfällige Aufgaben.",
+          "note": "Teable-Daten bereinigen oder organisieren"
+        }
+      }
+    },
+    "nav": {
+      "settings": "Einstellungen",
+      "logout": "Ausloggen",
+      "contactSupport": "Support kontaktieren"
+    },
+    "integration": {
+      "title": "Integrationen",
+      "thirdPartyIntegrations": {
+        "title": "Drittanbieter-Integrationen",
+        "description": "Sie haben {{count}} Anwendungen Zugriff auf Ihr Konto gewährt.",
+        "lastUsed": "Zuletzt verwendet am {{date}}",
+        "revoke": "Widerrufen",
+        "owner": "Im Besitz von {{user}}",
+        "revokeTitle": "Sind Sie sicher, dass Sie die Genehmigung widerrufen wollen?",
+        "revokeDesc": "{{name}} wird nicht mehr auf die Teable-API zugreifen können. Sie können diese Aktion nicht rückgängig machen.",
+        "scopeTitle": "Berechtigungen",
+        "scopeDesc": "Diese Anwendung wird die folgenden Bereiche abrufen können:",
+        "notifications": "Benachrichtigungen",
+        "notificationsDesc": "{{name}} darf Ihnen Benachrichtigungen senden"
+      },
+      "userIntegration": {
+        "title": "Verbundene Konten",
+        "description": "Verbinden Sie externe Konten, um Teable den Zugriff auf Ihre Ressourcen zu ermöglichen.",
+        "emptyDescription": "Keine verbundenen Konten",
+        "actions": {
+          "reconnect": "Erneut verbinden"
+        },
+        "slack": {
+          "user": "Slack-Benutzer",
+          "workspace": "Slack-Arbeitsbereich"
+        },
+        "deleteTitle": "Verbundenes Konto entfernen",
+        "deleteDesc": "Möchten Sie {{name}} wirklich entfernen?",
+        "create": "Neues Konto verbinden",
+        "manage": "Verbundene Konten verwalten",
+        "searchPlaceholder": "Verbundene Konten suchen",
+        "defaultName": "{{name}} Integration",
+        "callback": {
+          "error": "Autorisierung fehlgeschlagen",
+          "title": "Autorisierung erfolgreich",
+          "desc": "Sie können dieses Fenster jetzt schließen."
+        }
       }
     }
   },
@@ -415,7 +421,7 @@
     "table": "Tabelle",
     "view": "Ansicht",
     "space": "Space",
-    "base": "Base",
+    "base": "Projekt",
     "field": "Feld",
     "record": "Datensatz",
     "dashboard": "Dashboard",
@@ -440,6 +446,8 @@
     "webSearch": "Websuche",
     "folder": "Ordner",
     "newAutomation": "Neue Automatisierung",
+    "routine": "Routine",
+    "newRoutine": "Neue Routine",
     "newApp": "Neue App",
     "newFolder": "Neuer Ordner",
     "template": "Vorlage"
@@ -466,9 +474,9 @@
     "done": "Erledigt",
     "skip": "Überspringen",
     "createSpaceTooltipTitle": "Einen Space erstellen",
-    "createSpaceTooltipContent": "Teable ist in Spaces gegliedert, die zur Zusammenarbeit einladen.<br></br>Die Spaces in Teable dienen als primäres Navigationselement in der Menüleiste und bieten eine grundlegende Plattform für Benutzer, die Datenbanken nach Bedarf hinzufügen und verwalten möchten.",
-    "createBaseTooltipTitle": "Eine Base erstellen",
-    "createBaseTooltipContent": "Eine Base (kurz für \"database\") ist ein Ort, an dem wichtige Daten und die davon abhängigen Arbeitsabläufe gespeichert werden.",
+    "createSpaceTooltipContent": "Teable ist in Spaces gegliedert, die zur Zusammenarbeit einladen.<br></br>Die Spaces in Teable dienen als primäres Navigationselement in der Menüleiste und bieten eine grundlegende Plattform für Benutzer, die Projekte nach Bedarf hinzufügen und verwalten möchten.",
+    "createBaseTooltipTitle": "Ein Projekt erstellen",
+    "createBaseTooltipContent": "Ein Projekt speichert Ihre Daten und bietet Zugriff auf Automatisierungen und das App-Dashboard.",
     "createTableTooltipTitle": "Eine Tabelle erstellen",
     "createTableTooltipContent": "Tabellen sind für den effizienten Umgang mit verschiedenen Datensätzen konzipiert und bieten eine vielseitige Anzeige von Informationen durch verschiedene Datentypen.",
     "createViewTooltipTitle": "Eine Ansicht erstellen",
@@ -487,8 +495,8 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}} Space teilen",
-      "desc_one": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Bases in diesem Space.",
-      "desc_other": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Bases in diesem Space.",
+      "desc_one": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Projekten in diesem Space.",
+      "desc_other": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Projekten in diesem Space.",
       "tabEmail": "Per E-Mail einladen",
       "emailPlaceholder": "Weitere Kollaborateure per E-Mail einladen",
       "tabLink": "Per Link einladen",
@@ -497,31 +505,54 @@
       "directAccessDescription": "Eingeladene Personen können über den folgenden Link direkt auf die Ressource zugreifen und mitarbeiten",
       "linkSend": "Link erstellen",
       "spaceTitle": "Space Kollaborateure",
+      "spaceTitleWithCount": "Space-Mitarbeitende ({{count}})",
+      "baseTitle": "Projekt-Mitarbeitende",
+      "allCollaboratorsTitle": "Alle Mitarbeitenden (Space & Projekt)",
+      "baseOnly": "Nur Projekt",
       "collaboratorSearchPlaceholder": "Finde einen Space Kollaborateur via Name oder E-Mail",
       "collaboratorJoin": "beigetreten am {{joinTime}}",
       "collaboratorRemove": "Kollaborateur entfernen",
+      "basePermissionRemove": "Projektzugriff entfernen",
+      "goToBase": "Zum Projekt",
       "linkTitle": "Einladungslinks",
       "linkCreatedTime": "erstellt am {{createdTime}}",
       "linkCopySuccess": "Link kopiert",
-      "linkRemove": "Link entfernen"
+      "linkRemove": "Link entfernen",
+      "noInviteLinks": "Keine Einladungslinks",
+      "linkDescription": "Erstellen Sie einen Einladungslink und weisen Sie Berechtigungen zu",
+      "haveAccess": "Haben Zugriff"
     },
     "base": {
       "title": "{{baseName}} teilen",
-      "desc_one": "Diese Base wird mit {{count}} Kollaborateur geteilt.",
-      "desc_other": "Diese Base wird mit {{count}} Kollaborateuren geteilt.",
-      "baseTitle": "Base Kollaborateure",
-      "collaboratorSearchPlaceholder": "Finde einen Base Kollaborateur via Name oder E-Mail"
+      "desc_one": "Dieses Projekt wird mit {{count}} Kollaborateur geteilt.",
+      "desc_other": "Dieses Projekt wird mit {{count}} Kollaborateuren geteilt.",
+      "baseTitle": "Projekt Kollaborateure",
+      "collaboratorSearchPlaceholder": "Finde einen Projekt Kollaborateur via Name oder E-Mail",
+      "baseTitleWithCount": "Projekt-Mitarbeitende ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Organisationskollaborateur hinzufügen",
       "button": "Aus Organisation hinzufügen",
       "placeholder": "Organisationskollaborateur oder Abteilung auswählen"
     },
+    "sendInvitationSuccess": "Die Einladung wurde gesendet",
     "table": {
       "collaborator": "Mitarbeiter",
       "accessPermission": "Zugriffsberechtigung",
       "joinAt": "Beigetreten am",
-      "lastLogin": "Letzter Login"
+      "lastLogin": "Letzter Login",
+      "expandPermissions": "Berechtigungen für {{name}} erweitern",
+      "collapsePermissions": "Berechtigungen für {{name}} reduzieren",
+      "basePermissionsOnly": "Hat nur Zugriff auf ausgewählte Projekte",
+      "basePermissionCount": "Projekt-Berechtigungen: {{count}}"
+    },
+    "authority": {
+      "title": "Die Berechtigungsmatrix ist aktiviert",
+      "description": "Die effektiven Zugriffsrechte der Mitarbeitenden hängen von den ihnen zugewiesenen Rollen ab; nicht zugewiesene Benutzer verwenden die Standardrolle",
+      "viewDetail": "Details anzeigen"
+    },
+    "app": {
+      "previewAppError": "App-Fehler"
     }
   },
   "help": {
@@ -537,7 +568,6 @@
     "overLimitsDescription": "Ihr aktuelles Abonnement hat sein Nutzungslimit überschritten. Bitte aktualisieren Sie Ihr Abonnement, um diese Funktion weiterhin ohne Unterbrechung nutzen zu können.",
     "userLimitExceededDescription": "Die aktuelle Instanz hat die maximale Anzahl von Benutzern erreicht, die Ihre Lizenz erlaubt. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz.",
     "unavailableInPlanTips": "Der aktuelle Abonnementplan unterstützt diese Funktion nicht",
-    "unavailableConnectionTips": "Die Datenbankverbindungsfunktion wird in Zukunft entfernt und ist nur in der Enterprise-Edition von öffentlicher Cloud und selbstgehosteten Versionen verfügbar.",
     "levelTips": "Dieser Space befindet sich derzeit auf dem {{level}} Plan",
     "enterpriseFeature": "Enterprise-Funktion",
     "automationRequiresUpgrade": "Upgrade auf Enterprise Edition (EE) um Automatisierung zu aktivieren",
@@ -545,6 +575,15 @@
     "viewPricing": "Preise anzeigen",
     "billable": "Abrechenbar",
     "billableByAuthorityMatrix": "Abrechnung durch Berechtigungsmatrix generiert",
+    "seatConfirm": {
+      "matrixTitle": "Das Hinzufügen von Mitgliedern erhöht Ihre Abonnementkosten",
+      "matrixDesc": "Dieses Mitglied hat derzeit eine kostenlose Rolle (Betrachter/Kommentator). Nach dem Hinzufügen zur Berechtigungsmatrix belegt es 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
+      "seatLimitTitle": "Nicht genügend Lizenzplätze",
+      "seatLimitDesc": "Diese Instanz nutzt {{seats}} von {{seatLimit}} lizenzierten Plätzen; für diese Aktion reichen die verbleibenden Plätze nicht aus. Bitte wenden Sie sich an Ihren Administrator, um weitere Plätze zu erwerben. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden.",
+      "seatLimitConfirm": "Verstanden",
+      "fixedSeatTitle": "Nicht genügend Plätze in Ihrem Tarif",
+      "fixedSeatDesc": "Ihr Tarif umfasst {{quantity}} Plätze, von denen bereits {{seats}} belegt sind. Wenn Sie fortfahren, wird das Platzlimit überschritten und der Space nach einer 7-tägigen Übergangsfrist auf den kostenlosen Tarif herabgestuft. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden."
+    },
     "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
     "licenseAutoFetchFailed": "Automatische Lizenzverlängerung fehlgeschlagen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
     "licenseAutoFetchRetryFailed": "Die automatische Verlängerung ist weiterhin fehlgeschlagen. Bitte überprüfen Sie die Verbindung zum Teable-Server oder aktualisieren Sie die Lizenz manuell.",
@@ -553,6 +592,7 @@
       "title": "Upgrade des Space-Abonnementplans",
       "description": "Sie können nur Arbeitsbereiche aktualisieren, deren Eigentümer Sie sind."
     },
+    "contactAdminToUpgrade": "Bitte wenden Sie sich an den Space-Eigentümer, um das Abonnement zu aktualisieren.",
     "status": {
       "active": "Aktiv",
       "canceled": "Storniert",
@@ -589,15 +629,14 @@
         "description": "Nur in der Enterprise Edition verfügbar",
         "brandName": "Markenname",
         "logo": "Logo",
-        "logoDescription": "Das Logo ist Ihre Markenidentität in Teable.",
         "logoUpload": "Logo hochladen",
         "logoUploadDescription": "Logo-Bild hochladen, unterstützt PNG, JPEG-Format, empfohlene Größe ist 100x100px. Maximale Upload-Größe ist 500KB."
       },
       "ai": {
         "name": "Name",
         "nameDescription": "Der Name des LLM-Anbieters",
-        "enable": "AI aktivieren",
-        "enableDescription": "Aktivieren Sie AI für die aktuelle Instanz, dann können alle Benutzer die AI-Funktionen nutzen.",
+        "customModel": "Benutzerdefiniertes Modell",
+        "customModelDescription": "Benutzerdefinierte Modelle können in KI-Feldern, KI-Automatisierungen und der KI-Chat-Oberfläche verwendet werden. Modelle zur Bildgenerierung müssen zum Testen markiert werden",
         "updateLLMProvider": "LLM-Anbieter aktualisieren",
         "addProvider": "LLM-Anbieter hinzufügen",
         "addProviderDescription": "Einen neuen LLM-Anbieter zur Liste hinzufügen",
@@ -608,10 +647,16 @@
         "apiKeyDescription": "Der API-Schlüssel des LLM-Anbieters",
         "models": "Modelle",
         "modelsDescription": "Die vom LLM-Anbieter unterstützten Modelle",
+        "modelsSelectedCount": "{{count}} Modelle ausgewählt",
+        "clearAllModels": "Alle Modelle entfernen",
+        "customModelPlaceholder": "Namen eines benutzerdefinierten Modells eingeben",
+        "addModelFill": "Hinzufügen",
+        "modelIdReservedAt": "Modell-IDs dürfen kein '@' enthalten",
         "baseUrlRequired": "Basis-URL ist erforderlich",
         "fetchModelListError": "Modellliste konnte nicht abgerufen werden",
         "provider": "LLM-Anbieter",
-        "providerDescription": "Der zu verwendende LLM-Anbieter",
+        "aiAbilitySettings": "KI-Fähigkeitseinstellungen",
+        "aiAbilitySettingsDescription": "Konfigurieren Sie die KI-Fähigkeiten",
         "modelPreferences": "Modellpräferenzen",
         "modelPreferencesDescription": "Die Modellpräferenzen für den LLM-Anbieter",
         "embeddingModel": "Einbettungsmodell",
@@ -622,7 +667,23 @@
         "chatModelDescription": "Das zu verwendende Chat-Modell, Tipp: Das mittlere Kodierungsmodell wird standardmäßig für AI-Formelgenerierung und verwandte Funktionen verwendet",
         "chatModels": {
           "lg": "Erweiteres Chat-Modell",
-          "lgDescription": "Für Planung, Programmierung und andere komplexe Aufgabenszenarien. Empfohlen: claude-sonnet-4.5"
+          "lgDescription": "Für Planung, Programmierung und andere komplexe Aufgabenszenarien. Empfohlen: claude-sonnet-4.5",
+          "md": "Modell für mittlere Aufgaben",
+          "mdDescription": "Für alltägliche Unterhaltungen und allgemeine Aufgaben",
+          "sm": "Modell für leichte Aufgaben",
+          "smDescription": "Für einfache Anfragen und schnelle Antworten",
+          "inheritHint": "Wie das Standard-Hauptmodell ({{model}})",
+          "modelTiers": "Modellstufen",
+          "modelTiersDescription": "Weisen Sie mittleren und leichten Aufgaben unterschiedliche Modelle zu; nicht gesetzte Stufen verwenden das obige Standard-Hauptmodell.",
+          "allInheriting": "Alle Stufen verwenden das Standard-Hauptmodell",
+          "customized": "{{count}} angepasst",
+          "tiersIntro": "Nutzer wählen im Chat-Modellmenü eine dieser Stufen; die Standardstufe ist ihre Ausgangswahl und die 1x-Credit-Basis. Jede Stufe lässt sich jederzeit neu zuordnen.",
+          "defaultTier": "Standard",
+          "setDefault": "Als Standard festlegen",
+          "notOffered": "Nicht angeboten",
+          "lgBackground": "zugleich Hauptmodell für KI-Felder und weitere Funktionen",
+          "mdBackground": "übernimmt auch mittlere Hintergrundaufgaben",
+          "smBackground": "übernimmt auch leichte Hintergrundaufgaben wie Chat-Titel"
         },
         "actions": {
           "title": "KI-Fähigkeiten",
@@ -632,7 +693,12 @@
           },
           "aiChat": {
             "title": "KI-Chat",
-            "description": "KI-Chat-Seitenleiste und alle Agent-Funktionen"
+            "description": "KI-Chat-Seitenleiste und alle Agent-Funktionen",
+            "sandboxWarning": "Die KI-Chat-Laufzeit muss unten konfiguriert werden, bevor sie genutzt werden kann"
+          },
+          "modelSelection": {
+            "title": "Modellauswahl zulassen",
+            "description": "Benutzern erlauben, im KI-Chat und im App Builder ein Modell zu wählen"
           }
         },
         "chatModelTest": {
@@ -644,6 +710,7 @@
           "confirm": "Modell testen",
           "cancel": "Abbrechen",
           "missingCapabilitiesWarning": "Dieses Modell unterstützt keine Bild- oder PDF-Verarbeitung, was dazu führen kann, dass einige Funktionen nicht verfügbar sind.",
+          "modelNotSuitable": "Dieses Modell ist möglicherweise nicht für erweiterte KI-Funktionen geeignet:",
           "enableAITitle": "AI aktivieren",
           "enableAIDescription": "Modelltest abgeschlossen. AI ist derzeit nicht aktiviert. Möchten Sie AI aktivieren, um diese Modellfähigkeiten zu nutzen?",
           "enableAI": "AI aktivieren",
@@ -653,8 +720,19 @@
           "image": "Bild",
           "pdf": "PDF",
           "webSearch": "Websuche",
+          "toolCall": "Tool-Aufruf",
+          "reasoning": "Reasoning",
+          "imageGeneration": "Bildgenerierung",
           "disabledWebSearch": "Websuche deaktiviert",
-          "lgModelAbility": "Große Modellfähigkeit"
+          "lgModelAbility": "Große Modellfähigkeit",
+          "missingVision": "Unterstützt keine Bild- oder PDF-Verarbeitung",
+          "missingToolCall": "Unterstützt keine Tool-/Funktionsaufrufe",
+          "notTested": "Die Modellfähigkeiten wurden noch nicht getestet. Bitte testen Sie das Modell zuerst in den Anbietereinstellungen",
+          "supportedFormats": "Unterstützte Formate"
+        },
+        "imageModelAbility": {
+          "generation": "Text zu Bild",
+          "imageToImage": "Bild zu Bild"
         },
         "configUpdated": "AI-Konfiguration aktualisiert",
         "noModelFound": "Kein Modell gefunden.",
@@ -662,8 +740,6 @@
         "selectModel": "Wähle Modell...",
         "defaultModel": "{{name}} (Standard)",
         "moreModels": "Weitere Modelle",
-        "agentModelWarningTitle": "Modelle sorgfältig auswählen",
-        "agentModelWarningDescription": "Die oben empfohlenen Modelle sind für Agent-Aufgaben wie Tool-Nutzung und mehrstufiges Reasoning optimiert. Andere Modelle haben möglicherweise eingeschränkte Fähigkeiten und können zu unerwarteten Ergebnissen führen.",
         "agentModelWarningConfirm": "Verstanden",
         "recommendedModelNudge": {
           "title": "{{model}} ausprobieren",
@@ -685,22 +761,237 @@
         "testConnection": "Test",
         "testing": "Testen...",
         "testSuccess": "Test erfolgreich",
+        "testCompleteWithCount": "Test abgeschlossen: {{success}}/{{total}} Modelle bestanden",
+        "allTestsFailed": "Alle Modelltests fehlgeschlagen",
         "testFailed": "Test fehlgeschlagen",
+        "batchTest": "Modellfähigkeiten testen",
+        "test": "Testen",
+        "testProvider": "Testen",
+        "testProviderTooltip": "Alle {{count}} Modelle dieses Anbieters testen",
+        "batchTesting": "Alle Modelle werden getestet...",
+        "batchTestComplete": "Stapeltest abgeschlossen",
+        "batchTestResults": "Ergebnisse des Stapeltests",
+        "batchTestResultsSummary": "{{tested}} von {{total}} Modellen getestet: {{success}} bestanden, {{failed}} fehlgeschlagen",
+        "batchTestNoModels": "Keine Modelle zum Testen konfiguriert",
+        "modelStatus": "Modellstatus",
+        "imageSupport": "Bildunterstützung",
+        "basicGeneration": "Basisgenerierung",
+        "supported": "Unterstützt",
+        "notSupported": "Nicht unterstützt",
+        "partialSupport": "Teilweise unterstützt",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "Schließen",
+        "retryFailed": "Fehlgeschlagene wiederholen",
+        "stopTest": "Stoppen",
+        "pending": "Ausstehend",
+        "configuredModels": "Konfigurierte Modelle",
         "fillRequiredFields": "Bitte füllen Sie alle erforderlichen Felder aus",
         "modelsRequired": "Bitte füllen Sie mindestens ein Modell aus",
         "noValidModel": "Kein gültiges Modell gefunden",
         "addCustomModel": "Benutzerdefiniertes Modell hinzufügen",
-        "isOpenRouter": "OpenRouter"
-      },
-      "webSearch": {
-        "description": "Konfigurieren Sie den Firecrawl API-Schlüssel, um die Websuchfunktion zu aktivieren. Gehen Sie zu <a>Firecrawl-Einstellungen</a>, um den API-Schlüssel zu erhalten"
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "Modellpreise",
+        "modelSettings": "Modelleinstellungen",
+        "duplicateModel": "Modell {{model}} ist sowohl unter „{{first}}“ als auch unter „{{second}}“ eingetragen; ein Modell darf pro Typ nur bei einem Anbieter vorkommen.",
+        "model": "Modell",
+        "inputRate": "Eingabe USD/Token",
+        "outputRate": "Ausgabe USD/Token",
+        "inputRateTip": "Generierter Eingabepreis des benutzerdefinierten Anbieters in USD pro Token",
+        "outputRateTip": "Generierter Ausgabepreis des benutzerdefinierten Anbieters in USD pro Token",
+        "rateExplanationTitle": "Preise des benutzerdefinierten Anbieters konfigurieren",
+        "rateExplanationFormula": "Geben Sie den Multiplikator relativ zur AI-Gateway-Referenz an. Zum Beispiel bedeutet 0,1, dass die Preise des benutzerdefinierten Anbieters 10 % des AI-Gateway-Referenzpreises betragen.",
+        "rateExplanationExample": "Preise für Eingabe, Ausgabe, Cache, Reasoning, Bilder und Websuche werden mit demselben Multiplikator aus der AI-Gateway-Referenz erzeugt. Bei der Abrechnung wird USD in Credits umgerechnet: 1 USD = 100 Credits.",
+        "ratesDescription": "Die erzeugten Werte werden in modelConfigs[model].pricing gespeichert und für die instanzweite Abrechnung benutzerdefinierter Anbieter verwendet. Die Spalte „Verhältnis“ zeigt weiterhin das bestehende Kostenniveau mit Claude Opus 4.6 = 1x.",
+        "advancedRates": "Generierte erweiterte Preise",
+        "advancedRatesDescription": "Diese erweiterten Preise werden mit dem konfigurierten Multiplikator aus der AI-Gateway-Referenz erzeugt. Sie werden zur Überprüfung angezeigt und zusammen mit den Modellpreisen gespeichert.",
+        "cacheRead": "Cache↓",
+        "cacheWrite": "Cache↑",
+        "reasoning": "Reasoning",
+        "perImage": "Bild",
+        "cacheReadRateTip": "USD pro zwischengespeichertem Eingabe-Token, falls dieser Anbieter zwischengespeicherte Eingaben separat berechnet",
+        "cacheWriteRateTip": "USD pro Cache-Schreib-Token, falls dieser Anbieter Cache-Schreibvorgänge separat berechnet",
+        "reasoningRateTip": "USD pro Reasoning-Token, falls dieser Anbieter Reasoning-Token separat berechnet",
+        "imageRateTip": "USD pro generiertem Bild, falls dieser Anbieter pro Bild abrechnet",
+        "imageModel": "Bildmodell",
+        "imageGeneration": "Bildgenerierung",
+        "imageToImage": "Bild-zu-Bild",
+        "clickToToggleImageModel": "💡 Klicken, um als Bildgenerierungsmodell zu markieren",
+        "markAsImageModel": "Als Bildgenerierungsmodell markieren",
+        "imageGenerationModel": "Bildgenerierungsmodell",
+        "markedAsImageModel": "Als Bildgenerierungsmodell markiert. Text-zu-Bild- und Bild-zu-Bild-Fähigkeiten werden getestet.",
+        "markedAsTextModel": "Als Textmodell markiert. Die Vision-Fähigkeit (Bildeingabe) wird getestet.",
+        "fetchPricingError": "Preise konnten nicht abgerufen werden",
+        "openRouterId": "Gateway-Modell-ID",
+        "notFound": "Nicht gefunden",
+        "applyPricing": "Anwenden ({{count}})",
+        "pricingApplied": "Preise angewendet",
+        "pricingAppliedCount": "Preise für {{count}} Modelle aktualisiert",
+        "relativeRatio": "Verhältnis",
+        "webSearch": "Web",
+        "referencePricingTip": "Referenzpreis aus dem AI-Gateway-Modellkatalog",
+        "applyReferencePricingTip": "Preise des benutzerdefinierten Anbieters aus diesem AI-Gateway-Referenzpreis erzeugen",
+        "optionalPricing": "optional",
+        "gatewayRatio": "Gateway-Multiplikator",
+        "gatewayRatioTip": "Multiplikator relativ zur AI-Gateway-Referenz. 0,1 bedeutet 10 % des Referenzpreises.",
+        "generatedPricing": "Generierte Preise",
+        "generatedPricingTip": "Generierter Eingabe-/Ausgabepreis des benutzerdefinierten Anbieters, gespeichert in modelConfigs[model].pricing",
+        "rateExplanationManual": "Keine automatisch gefundene Referenz? Wählen Sie im Bearbeitungsdialog des Modells manuell ein Referenzmodell.",
+        "referenceModelLabel": "Referenzmodell",
+        "relativeRatioTip": "Kostenniveau relativ zu Claude Opus 4.6 = 1x, basierend auf dem bestehenden gewichteten Algorithmus",
+        "hint": {
+          "title": "Vorschläge",
+          "missingV1Suffix": "Der Basis-URL fehlt möglicherweise das Suffix \"/v1\". Die meisten OpenAI-kompatiblen APIs erwarten URLs, die auf \"/v1\" enden (z. B. https://api.openai.com/v1)",
+          "removeTrailingSlash": "Versuchen Sie, den abschließenden Schrägstrich aus der Basis-URL zu entfernen",
+          "checkApiKey": "Bitte prüfen Sie, ob Ihr API-Schlüssel korrekt und nicht abgelaufen ist",
+          "azureDeployment": "Stellen Sie bei Azure sicher, dass Ressourcenname und Deployment in der Basis-URL korrekt konfiguriert sind",
+          "checkQuotaOrPermission": "Ihr API-Schlüssel hat möglicherweise unzureichende Berechtigungen oder das Kontingent ist aufgebraucht. Bitte prüfen Sie Ihren Kontostatus",
+          "checkModelName": "Der Modellname ist möglicherweise falsch. Prüfen Sie, ob er mit dem übereinstimmt, was Ihr Anbieter unterstützt",
+          "checkConnection": "Verbindung zum Server nicht möglich. Prüfen Sie, ob die Basis-URL korrekt und der Server erreichbar ist",
+          "ollamaRunning": "Stellen Sie sicher, dass Ollama lokal läuft. Sie können es mit dem Befehl „ollama serve“ starten",
+          "sslCertificate": "Es liegt ein Problem mit dem SSL-Zertifikat vor. Bei selbstsignierten Zertifikaten ist ggf. eine zusätzliche Konfiguration nötig",
+          "checkConfiguration": "Bitte prüfen Sie Ihre Konfiguration. Stellen Sie sicher, dass Basis-URL, API-Schlüssel und Modellname korrekt sind"
+        },
+        "recommended": "Empfohlen",
+        "enabled": "Aktiviert",
+        "gatewayModels": "AI-Gateway-Modelle",
+        "gatewayModelsDescription": "Konfigurieren Sie empfohlene Modelle über das Vercel AI Gateway für optimale AI-SDK-Unterstützung",
+        "gatewayDescription": "Verwenden Sie das AI Gateway für beste Kompatibilität und Zuverlässigkeit. Den API-Schlüssel konfigurieren Sie im Abschnitt „App“ weiter unten.",
+        "providerDescription": "Der zu verwendende LLM-Anbieter",
+        "noGatewayModels": "Keine Gateway-Modelle konfiguriert. Fügen Sie Modelle hinzu, um zu starten.",
+        "addModel": "Modell hinzufügen",
+        "addGatewayModel": "Gateway-Modell hinzufügen",
+        "popularModels": "Beliebte Modelle",
+        "modelId": "Modell-ID",
+        "modelIdHint": "Die vom AI Gateway verwendete Modellkennung (z. B. anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "Zum Suchen von Modellen tippen...",
+        "noMatchingModels": "Keine passenden Modelle gefunden",
+        "typeToSearch": "Geben Sie Stichwörter ein, um verfügbare Modelle zu suchen",
+        "modelNotFound": "Diese Modell-ID wurde in der Liste der verfügbaren Modelle nicht gefunden, bitte Schreibweise prüfen",
+        "testModel": "Modell testen",
+        "testModelSuccess": "Modelltest erfolgreich! Die API hat korrekt geantwortet",
+        "testModelImageSuccess": "Bildmodell in der API bestätigt",
+        "testModelNotFound": "Modell nicht in der API-Liste gefunden",
+        "displayLabel": "Anzeigename",
+        "isImageModel": "Dies ist ein Bildgenerierungsmodell",
+        "capabilities": "Fähigkeiten",
+        "setAsDefault": "Als Standard-Chatmodell festlegen",
+        "quickAdd": "Beliebte Modelle schnell hinzufügen:",
+        "guide": {
+          "configStatus": "Konfigurationsstatus",
+          "ready": "Bereit",
+          "needsAttention": "Benötigt Aufmerksamkeit",
+          "incomplete": "Unvollständig",
+          "aiEnabled": "KI aktiviert",
+          "aiEnabledDesc": "Benutzerdefinierte Modelle sind für diese Instanz aktiviert",
+          "aiDisabledDesc": "Aktivieren, um benutzerdefinierte KI-Modelle zu nutzen",
+          "gatewayKey": "Gateway-API-Schlüssel",
+          "gatewayKeyConfigured": "Der AI-Gateway-Schlüssel ist konfiguriert",
+          "gatewayKeyMissing": "Konfigurieren Sie den AI-Gateway-API-Schlüssel für das empfohlene Setup",
+          "gatewayKeyRequired": "Bitte konfigurieren Sie zuerst den AI-Gateway-API-Schlüssel im Abschnitt „App“ weiter unten",
+          "gatewayModels": "Gateway-Modelle",
+          "gatewayModelsConfigured": "{{count}} Modelle aktiviert",
+          "gatewayModelsEmpty": "Fügen Sie Gateway-Modelle zur Auswahl für Benutzer hinzu",
+          "providers": "Benutzerdefinierte Anbieter",
+          "providersConfigured": "{{count}} Anbieter konfiguriert",
+          "providersEmpty": "Keine benutzerdefinierten Anbieter konfiguriert",
+          "chatModel": "Standard-Chatmodell",
+          "chatModelGateway": "Gateway-Modell wird verwendet",
+          "chatModelProvider": "Modell eines benutzerdefinierten Anbieters wird verwendet",
+          "chatModelMissing": "Wählen Sie ein Standard-Chatmodell"
+        },
+        "enableCard": {
+          "title": "KI-Dienste",
+          "ready": "Konfiguriert und einsatzbereit",
+          "needsConfig": "Aktiviert, benötigt aber unten noch Konfiguration",
+          "disabled": "KI-Funktionen sind derzeit deaktiviert",
+          "missingConfig": "Fehlende Konfiguration:",
+          "allConfigured": "Alle Konfigurationen abgeschlossen"
+        },
+        "wizard": {
+          "setupProgress": "Einrichtungsfortschritt",
+          "checklist": "Checkliste",
+          "allComplete": "Alle erforderlichen Einstellungen sind abgeschlossen! Die KI ist einsatzbereit.",
+          "nextStep": "Als Nächstes: {{step}}",
+          "configureAI": "Führen Sie die folgenden Schritte aus, um die KI zu aktivieren",
+          "optional": "Optional",
+          "gatewayHelp": "AI Gateway: Ein API-Schlüssel für Hunderte von Modellen; bei der ersten Nutzung muss in Vercel eine Kreditkarte hinterlegt werden;",
+          "gatewayByok": "unterstützt (eigene Anbieterschlüssel verwenden)",
+          "getApiKey": "API-Schlüssel abrufen",
+          "keyInvalid": "Ungültiger API-Schlüssel, bitte prüfen und erneut versuchen",
+          "gatewayErrorUnauthorized": "Ungültiger API-Schlüssel. Bitte prüfen Sie, ob er korrekt kopiert wurde",
+          "gatewayErrorNeedCreditCard": "Für die Nutzung des AI Gateway ist eine Kreditkarte erforderlich. Bitte hinterlegen Sie eine im Vercel-Dashboard",
+          "gatewayErrorInsufficientQuota": "Unzureichendes Kontoguthaben. Bitte aufladen und erneut versuchen",
+          "gatewayErrorForbidden": "Zugriff verweigert. Bitte prüfen Sie Ihren Kontostatus im Vercel-Dashboard",
+          "gatewayErrorNetwork": "Netzwerkfehler. Bitte prüfen Sie Ihre Verbindung oder Proxy-Einstellungen",
+          "pleaseTest": "Bitte klicken Sie auf „Testen“, um den API-Schlüssel zu prüfen",
+          "test": "Testen",
+          "testing": "Wird getestet...",
+          "attachmentTest": {
+            "title": "Übertragungsmodus für Anhänge",
+            "urlMode": "URL-Modus",
+            "base64Mode": "Base64-Modus",
+            "accessible": "Verfügbar",
+            "inaccessible": "Nicht verfügbar",
+            "urlNotAccessibleWarning": "Der KI-Dienst kann nicht auf Anhang-URLs zugreifen. Das ist bei Intranet-Deployments üblich. Der Base64-Modus wurde automatisch aktiviert.",
+            "useBase64Mode": "Base64-Modus verwenden",
+            "base64ModeDescription": "Anhänge vor dem Senden in Base64 umwandeln (Teable ist aus dem öffentlichen Netz nicht erreichbar)",
+            "originChanged": "PUBLIC_ORIGIN hat sich geändert",
+            "originChangedDesc": "Die Serveradresse hat sich seit dem letzten Test geändert. Bitte testen Sie erneut, um die Erreichbarkeit der Anhänge zu prüfen."
+          },
+          "saveAndContinue": "Speichern und fortfahren",
+          "completeStep1First": "Bitte schließen Sie zuerst Schritt 1 ab: LLM-API konfigurieren",
+          "completeStep2First": "Bitte schließen Sie zuerst Schritt 2 ab: Mindestens ein Modell hinzufügen",
+          "addCustom": "Benutzerdefiniert...",
+          "enabledModels": "Aktivierte Modelle",
+          "chatDefault": "Chat-Standard",
+          "noModelsAvailable": "Keine Modelle verfügbar. Bitte fügen Sie zuerst in Schritt 2 Modelle hinzu",
+          "quickSetup": "Schnelleinrichtung",
+          "useRecommended": "Empfehlung übernehmen",
+          "useRecommendedDesc": "{{model}} mit einem Klick als Standard für alle Chat-Szenarien festlegen",
+          "chatModels": "Chat-Modellstufen",
+          "chatModelTip": "Smart ist das Hauptmodell: KI-Felder, Hintergrundaufgaben und Stufen ohne eigenes Modell nutzen es. Die Standardstufe ist die Ausgangswahl der Chat-Nutzer.",
+          "selectChatModel": "Chatmodell auswählen...",
+          "lgDesc": "Komplexe Aufgaben, tiefgehende Analysen",
+          "mdDesc": "Alltägliche Unterhaltungen, allgemeine Aufgaben",
+          "smDesc": "Einfache Anfragen, schnelle Antworten",
+          "readyToUse": "Die KI ist konfiguriert und einsatzbereit!",
+          "customProviderHelp": "Fügen Sie eigene KI-Anbieter hinzu (OpenAI, Anthropic, Azure usw.) und konfigurieren Sie API-Schlüssel und Modelle.",
+          "testModelCapabilities": "Modellfähigkeiten testen",
+          "customModelsAutoImported": "Die Modelle Ihres Anbieters wurden automatisch in den Modellpool importiert.",
+          "modelsCount": "{{count}} Modelle verfügbar",
+          "customModelsHint": "Um Modellkonfigurationen anzupassen, kehren Sie zu Schritt 1 zurück und ändern Sie die Anbietereinstellungen.",
+          "gatewayOption": {
+            "title": "AI Gateway (empfohlen)",
+            "desc": "Greifen Sie über das Vercel AI Gateway auf Hunderte Modelle mit bester Kompatibilität und Zuverlässigkeit zu"
+          },
+          "customOption": {
+            "title": "Benutzerdefinierter Anbieter",
+            "desc": "Verbindung zu selbst gehosteten/privaten Modellen, unterstützt mehrere Anbieter"
+          },
+          "step": {
+            "llmApi": "LLM-API konfigurieren",
+            "llmApiDesc": "AI Gateway wählen oder benutzerdefinierte Anbieter konfigurieren",
+            "modelPool": "Empfohlene Modelle konfigurieren",
+            "modelPoolDesc": "Empfohlene Modelle, die Benutzer in KI-Feldern und Automatisierungen auswählen können",
+            "chatModel": "Chatmodell festlegen",
+            "chatModelDesc": "Modell für den KI-Chat in der Seitenleiste (aus den empfohlenen Modellen auswählen)",
+            "providers": "Anbieter konfigurieren",
+            "providersDesc": "KI-Anbieter hinzufügen und verwalten"
+          }
+        }
       },
       "app": {
         "domain": "Domain",
         "customDomain": "Benutzerdefinierte Domain (Optional)",
         "customDomainDescription": "Legen Sie Ihre benutzerdefinierte Domain für die App-Bereitstellung fest, besuchen Sie <a>Vercel Domain</a> um eine benutzerdefinierte Domain zu erhalten",
         "vercelToken": "Vercel API Token",
-        "vercelTokenDescription": "Besuchen Sie <a>Vercel Einstellungen</a> um das API Token zu erhalten"
+        "vercelTokenDescription": "Besuchen Sie <a>Vercel Einstellungen</a> um das API Token zu erhalten",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "Konfigurieren Sie das Vercel AI Gateway, um über einen einzigen Endpunkt auf Hunderte Modelle zuzugreifen. Öffnen Sie die <a>AI-Gateway-Einstellungen</a>, um einen API-Schlüssel zu erhalten",
+        "aiGatewayApiKey": "AI-Gateway-API-Schlüssel",
+        "aiGatewayKeyConfigured": "API-Schlüssel konfiguriert",
+        "aiGatewayBaseUrl": "Benutzerdefinierte Gateway-URL"
       }
     },
     "action": {
@@ -715,6 +1006,16 @@
     "configuration": {
       "title": "Ausstehende Konfiguration",
       "description": "Schließen Sie diese Konfigurationen ab, um vollständige Funktionen zu erhalten",
+      "progressTitle": "Einrichtungsfortschritt",
+      "allComplete": "Alle Konfigurationen abgeschlossen",
+      "incomplete": "Einige Konfigurationen sind unvollständig",
+      "optional": "Optional",
+      "completed": "Abgeschlossen",
+      "group": {
+        "system": "Grundlagen",
+        "ai": "KI-Dienste",
+        "appBuilder": "App Builder"
+      },
       "copyInstance": "ID kopieren",
       "list": {
         "publicOrigin": {
@@ -730,17 +1031,53 @@
           "description": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden, <anchor>zu den Einstellungen gehen</anchor>",
           "errorTips": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden"
         },
-        "webSearch": {
-          "title": "Websuche",
-          "description": "Sie haben die Websuche-API noch nicht konfiguriert. Die Websuchfunktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
-          "errorTips": "Sie haben die Websuche-API noch nicht konfiguriert. Die Websuchfunktion ist nicht verfügbar"
+        "aiEnable": {
+          "title": "KI-Dienste (Chat / KI-Feld)",
+          "description": "Aktivieren, um KI-Chat, KI-Felder und Automatisierungen zu nutzen, <anchor>zur Einstellung</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "KI: LLM-API konfigurieren",
+          "description": "AI Gateway wählen oder benutzerdefinierte Anbieter konfigurieren, <anchor>zur Einstellung</anchor>"
+        },
+        "aiModelPool": {
+          "title": "KI: Verfügbare Modelle konfigurieren",
+          "description": "Aktivieren Sie mindestens ein Modell für KI-Felder und Automatisierungen, <anchor>zur Einstellung</anchor>"
+        },
+        "aiChatModel": {
+          "title": "KI: Chatmodell festlegen",
+          "description": "Wählen Sie ein Standardmodell für den KI-Chat in der Seitenleiste, <anchor>zur Einstellung</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "App Builder: Deployment-Engine",
+          "description": "Konfigurieren Sie die Deployment-Engine (Vercel oder Teable Infra) zum Veröffentlichen von Apps, <anchor>zur Einstellung</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "App Builder: Benutzerdefinierte Domain",
+          "description": "Wenn Sie Apps unter Ihrer eigenen Domain veröffentlichen möchten, konfigurieren Sie Domain + Vercel-Token, <anchor>zur Einstellung</anchor>"
         },
         "email": {
           "title": "E-Mail",
           "description": "E-Mail nicht konfiguriert. Selbstbedienungs-Passwort-Wiederherstellung und E-Mail-Benachrichtigungsfunktion sind nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
           "errorTips": "E-Mail nicht konfiguriert. Selbstbedienungs-Passwort-Wiederherstellung, E-Mail-Verifizierung/Benachrichtigungsfunktion sind nicht verfügbar"
+        },
+        "sandboxOpenSandbox": {
+          "title": "KI-Chat-Laufzeit",
+          "description": "Konfigurieren Sie die OpenSandbox-Laufzeitumgebung für den KI-Chat, <anchor>zur Einstellung</anchor>"
         }
       }
+    },
+    "canary": {
+      "title": "Canary-Release",
+      "enable": "Canary aktivieren",
+      "enableDescription": "Wenn aktiviert, werden Canary-Funktionen für die ausgewählten Spaces aktiviert",
+      "spaces": "Canary-Spaces",
+      "spacesDescription": "{{count}} Spaces konfiguriert",
+      "configure": "Konfigurieren",
+      "spaceIds": "Space-IDs",
+      "spaceIdsDescription": "Geben Sie Space-IDs ein, eine pro Zeile oder getrennt durch Kommas/Leerzeichen",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "Vorschau ({{count}} IDs)",
+      "noSpaceIds": "Keine Space-IDs eingegeben"
     }
   },
   "notification": {
@@ -750,9 +1087,20 @@
     "markAs": "Markieren Sie diese Meldung als {{status}}",
     "markAllAsRead": "Alles als gelesen markieren",
     "noUnread": "Keine Benachrichtigungen mit Status: {{status}}",
+    "noAttention": "Keine Benachrichtigungen erfordern Aufmerksamkeit",
+    "noSeverity": "Keine Benachrichtigungen der Stufe „{{severity}}“",
     "changeSetting": "Einstellungen für Seitenbenachrichtigungen ändern",
     "new": "{{count}} neue",
     "showMore": "Zeige mehr",
+    "sections": {
+      "needsAction": "Wichtig",
+      "all": "Alle"
+    },
+    "severity": {
+      "critical": "Wichtig",
+      "warning": "Warnung",
+      "info": "Normal"
+    },
     "exportBase": {
       "successText": "Exportdaten sind bereit",
       "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
@@ -760,6 +1108,9 @@
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
+    },
+    "oauthApp": {
+      "message": "Von {{app}}: {{text}}"
     }
   },
   "role": {
@@ -771,8 +1122,8 @@
       "viewer": "Betrachter"
     },
     "description": {
-      "owner": "Vollständige Konfiguration und Bearbeitung von Bases, Automatisierungen, Authority Matrizen und Verwaltung von Space Einstellungen und Abrechnung",
-      "creator": "Vollständige Konfiguration und Bearbeitung von Bases, Automatisierungen und Authority Matrizen",
+      "owner": "Kann Projekte, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren sowie Space-Einstellungen und Abrechnung verwalten",
+      "creator": "Kann Projekte, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren",
       "editor": "Kann Datensätze und Ansichten bearbeiten, aber keine Tabellen oder Felder konfigurieren",
       "commenter": "Kann Datensätze kommentieren",
       "viewer": "Kann nicht bearbeiten oder kommentieren"
@@ -790,8 +1141,8 @@
     "addToTrash": "Zum Papierkorb verschieben",
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
     "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
-    "spaceInnerDescription": "Stellen Sie Bases wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
-    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus dieser Base gelöscht wurden"
+    "spaceInnerDescription": "Stellen Sie Projekte wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
+    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin hat keine Url",
@@ -807,6 +1158,7 @@
     "turnOnTip": "Möchten Sie die aktuelle Automatisierung einschalten?"
   },
   "email": {
+    "title": "E-Mail",
     "send": "Senden",
     "config": "E-Mail-Konfiguration",
     "customConfig": "Benutzerdefinierter E-Mail-Server",
@@ -817,6 +1169,8 @@
     "addConfig": "Konfiguration hinzufügen",
     "editConfig": "Konfiguration bearbeiten",
     "resetConfig": "Zurücksetzen",
+    "unsubscribeLink": "Abmeldelink hinzufügen",
+    "unsubscribeLinkDescription": "Für Marketing-E-Mails aktivieren: fügt einen Abmeldelink mit einem Klick hinzu und überspringt abgemeldete Empfänger. Für Antworten und Benachrichtigungen deaktiviert lassen.",
     "testEmail": "Test-E-Mail",
     "testEmailPlaceholder": "Geben Sie die E-Mail-Adressen ein und trennen Sie sie mit der Eingabetaste",
     "testEmailError": "Bitte korrekte Test-E-Mail-Adresse eingeben",
@@ -843,7 +1197,7 @@
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
     "subscribeH1": "Abonnement bestätigen?",
     "subscribeH2": "Sie sind dabei, zukünftige Teable-Werbeaktionen und Produktaktualisierungen zu abonnieren. Möchten Sie wirklich abonnieren?",
-    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Basis haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\".",
+    "unsubscribeListTip": "Die folgenden Benutzer im aktuellen Projekt haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\".",
     "templates": {
       "resetPassword": {
         "subject": "Passwort zurücksetzen - {{brandName}}",
@@ -856,6 +1210,11 @@
           "subject": "Registrierungsbestätigung - {{brandName}}",
           "title": "Registrierungsbestätigung",
           "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
+        },
+        "signinVerification": {
+          "subject": "Anmeldebestätigung - {{brandName}}",
+          "title": "Anmeldebestätigung",
+          "message": "Ihr Anmeldecode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten. Wenn Sie ihn nicht angefordert haben, können Sie diese E-Mail ignorieren."
         },
         "domainVerification": {
           "subject": "Domain-Verifizierung - {{brandName}}",
@@ -876,7 +1235,8 @@
       "collaboratorMultiRowTag": {
         "subject": "{{fromUserName}} hat Sie zu {{refLength}} Datensätzen in {{tableName}} hinzugefügt",
         "title": "<strong>{{fromUserName}}</strong> hat Sie zu <strong>{{refLength}}</strong> Datensätzen in <strong>{{tableName}}</strong> hinzugefügt",
-        "buttonText": "Datensätze anzeigen"
+        "buttonText": "Datensätze anzeigen",
+        "more": "und {{remaining}} weitere"
       },
       "invite": {
         "subject": "{{name}} ({{email}}) hat Sie zu {{resourceAlias}} {{resourceName}} eingeladen - {{brandName}}",
@@ -934,7 +1294,7 @@
         },
         "collaboratorInvite": {
           "space": "{{fromUserName}} hat dich eingeladen, dem Space {{resourceName}} beizutreten",
-          "base": "{{fromUserName}} hat dich eingeladen, der Base {{resourceName}} beizutreten"
+          "base": "{{fromUserName}} hat dich eingeladen, dem Projekt {{resourceName}} beizutreten"
         },
         "automation": {
           "title": "Automatisierungs-Benachrichtigung",
@@ -953,6 +1313,30 @@
           "failedSummary": {
             "title": "Automatisierung {{name}} ist {{failCount}} Mal fehlgeschlagen",
             "message": "Ihre Automatisierung {{name}} hat {{failCount}} aufeinanderfolgende Fehler angesammelt. Öffnen Sie den Ausführungsverlauf, um Details anzuzeigen."
+          },
+          "connectorDisconnected": {
+            "title": "Automation {{name}} empfängt keine Connector-Ereignisse mehr"
+          }
+        },
+        "routine": {
+          "failed": {
+            "title": "Routine {{name}}: Ausführung fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist bei der Ausführung auf einen Fehler gestoßen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "failedSummary": {
+            "title": "Routine {{name}} ist {{failCount}} Mal fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "insufficientCredit": {
+            "title": "Routine {{name}} wurde wegen unzureichender AI-Credits übersprungen",
+            "message": "Ihre Routine {{name}} wurde nicht ausgeführt, da die AI-Credits nicht ausreichen. Bitte laden Sie Credits auf oder upgraden Sie Ihren Tarif."
+          },
+          "autoDeactivated": {
+            "title": "Routine {{name}} wurde nach {{failCount}} aufeinanderfolgenden Fehlschlägen pausiert",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen und wurde automatisch pausiert. Beheben Sie das Problem und aktivieren Sie sie erneut."
+          },
+          "connectorDisconnected": {
+            "title": "Routine {{name}} empfängt keine Connector-Ereignisse mehr"
           }
         },
         "billing": {
@@ -1000,10 +1384,20 @@
                 "message": "Space {{spaceName}}: {{recentValue}} Automatisierungsläufe in den letzten {{windowMinutes}} Minuten erkannt, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf eine Schleife oder Fehlkonfiguration hinweisen. Top-Beitragende: {{topContributors}}"
               }
             }
+          },
+          "customDomain": {
+            "expired": {
+              "title": "Business-Plan für Space {{spaceName}} abgelaufen: benutzerdefinierte Domain wird deaktiviert",
+              "message": "Der Business-Plan für Space {{spaceName}} ist abgelaufen, daher sind benutzerdefinierte Domains nicht mehr in Ihrem Plan enthalten. Die benutzerdefinierte Domain {{domains}} wird am {{releaseDate}} (UTC) nicht mehr aufgelöst. Verlängern Sie Ihren Plan vorher, um sie aktiv zu halten."
+            },
+            "released": {
+              "title": "Benutzerdefinierte Domain für Space {{spaceName}} deaktiviert",
+              "message": "Der Business-Plan für Space {{spaceName}} wurde nicht verlängert, daher wurde die benutzerdefinierte Domain {{domains}} deaktiviert und von Ihrer App getrennt. Führen Sie ein Upgrade auf Business durch, um erneut eine benutzerdefinierte Domain zu verbinden."
+            }
           }
         },
         "exportBase": {
-          "title": "Export-Base-Ergebnis-Benachrichtigung",
+          "title": "Export-Projekt-Ergebnis-Benachrichtigung",
           "success": {
             "message": "{{baseName}} erfolgreich exportiert: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
@@ -1021,6 +1415,7 @@
               "title": "KI-Aufgabe abgebrochen",
               "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
               "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "providerBilling": "Die KI-Aufgabe für die Tabelle \"{{tableName}}\" wurde abgebrochen, weil der Modellanbieter die Anfrage aus Abrechnungsgründen abgelehnt hat. Bitte prüfen Sie Guthaben und Abrechnungsstatus des Kontos hinter dem für dieses Modell konfigurierten API-Schlüssel. Fehler: {{errorMessage}}",
               "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
               "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
               "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
@@ -1036,6 +1431,38 @@
           "title": "Prämienantrag genehmigt",
           "message": "Herzlichen Glückwunsch! Ihr Prämienantrag für <a href=\"{{spaceUrl}}\">{{spaceName}}</a> wurde genehmigt. {{amount}} Guthaben wurden hinzugefügt, gültig für {{expiredDays}} Tage.",
           "buttonText": "Space anzeigen"
+        },
+        "connectorEvent": {
+          "disconnected": {
+            "grantRevoked": "Die Kontofreigabe, die der Connector-Ereignis-Trigger von {{name}} verwendet, wurde widerrufen. Verbinde das Konto erneut, wähle es im Trigger erneut aus und speichere, um fortzufahren.",
+            "connectionDeleted": "Das verbundene Konto, das der Connector-Ereignis-Trigger von {{name}} verwendet, wurde entfernt. Verbinde das Konto erneut, wähle es im Trigger erneut aus und speichere, um fortzufahren.",
+            "providerDisabled": "Das Ereignisabonnement von {{name}} wurde von der verbundenen App gestoppt (abgelaufene Anmeldedaten oder ein fehlerhaftes Abonnement). Verbinde das Konto erneut, wähle es im Trigger erneut aus und speichere, um fortzufahren.",
+            "subscribeFailed": "Das Ereignisabonnement von {{name}} konnte nicht erstellt werden. Prüfe die Trigger-Parameter und speichere erneut, um es noch einmal zu versuchen."
+          }
+        },
+        "userDataExport": {
+          "buttonText": "Meine Daten herunterladen",
+          "failed": "Hallo {{name}},<br><br>wir konnten Ihre Daten nicht vollständig verpacken:<br><em>{{errorMessage}}</em><br><br>Bitte wenden Sie sich an den Administrator.",
+          "accountDeleted": {
+            "title": "Ihr Datenexport ist bereit",
+            "message": "Hallo {{name}},<br><br>Sie haben vor dem Löschen Ihres Teable-Kontos eine Kopie Ihrer Daten angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
+          },
+          "accountExported": {
+            "title": "Ihr Datenexport ist bereit",
+            "message": "Hallo {{name}},<br><br>Sie haben eine Kopie Ihrer Teable-Daten angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
+          },
+          "deactivated": {
+            "title": "Ihr Konto wurde deaktiviert",
+            "message": "Hallo {{name}},<br><br>Ihr Teable-Konto wurde deaktiviert, da es gegen unsere <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Nutzungsbedingungen</a> verstoßen hat.<br>Wir haben die Daten aus den Spaces, die Ihnen gehörten, verpackt, damit Sie eine Kopie behalten können.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig.<br>Wenn Sie glauben, dass es sich um einen Fehler handelt, wenden Sie sich an Ihren Administrator."
+          },
+          "deleted": {
+            "title": "Ihr Konto wurde gelöscht",
+            "message": "Hallo {{name}},<br><br>Ihr Teable-Konto wurde gelöscht, da es gegen unsere <a href=\"https://teable.ai/terms-of-service\" style=\"color:inherit;text-decoration:underline\">Nutzungsbedingungen</a> verstoßen hat.<br>Wir haben die Daten aus den Spaces, die Ihnen gehörten, verpackt, damit Sie eine Kopie behalten können.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig.<br>Wenn Sie glauben, dass es sich um einen Fehler handelt, wenden Sie sich an Ihren Administrator."
+          },
+          "spaceDeleted": {
+            "title": "Ihr Space-Export ist bereit",
+            "message": "Hallo {{name}},<br><br>Sie haben vor dem endgültigen Löschen des Spaces {{spaceNames}} eine Kopie angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
+          }
         }
       }
     }
@@ -1062,14 +1489,11 @@
     "times": "Verfügbare Anzahl",
     "generate": "Generieren",
     "code": "Einladungscode",
-    "inviteSuccess": "Einladung erfolgreich",
-    "app": {
-      "previewAppError": "Anwendungsfehler",
-      "sendErrorToAI": "Fehler an AI senden"
-    }
+    "inviteSuccess": "Einladung erfolgreich"
   },
+  "noPermissionToCreateBase": "Keine Berechtigung, in einem Space ein Projekt zu erstellen",
   "base": {
-    "deleteTip": "Sind Sie sicher, dass Sie \"{{name}}\" Base löschen möchten?",
+    "deleteTip": "Sind Sie sicher, dass Sie \"{{name}}\" Projekt löschen möchten?",
     "createResource": "Ressource erstellen",
     "noPermissionToCreateResource": "Sie haben keine Berechtigung, eine Ressource zu erstellen"
   },
@@ -1114,7 +1538,10 @@
     "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
     "mustMention": "Beitrag muss {{mention}} erwähnen",
     "fetchSnapshotFailed": "Fehler beim Abrufen des Beitrags-Snapshots",
+    "snapshotTimeout": "Zeitüberschreitung beim Warten auf den Beitrags-Snapshot, bitte später erneut versuchen",
     "alreadyClaimedThisWeek": "Sie haben diese Woche bereits eine Belohnung für dieses Konto beansprucht",
+    "maxClaimsReached": "Sie haben die maximale Anzahl an Belohnungsansprüchen (2) für diese Woche erreicht",
+    "postTooOld": "Der Beitrag muss innerhalb der letzten {{hours}} Stunde(n) veröffentlicht worden sein",
     "manage": {
       "title": "Belohnungsverwaltung",
       "description": "Belohnungseinträge aller Spaces anzeigen und verwalten",
@@ -1173,6 +1600,65 @@
       }
     }
   },
+  "chat": {
+    "serverError": "Ein Serverfehler ist aufgetreten",
+    "chatGone": "Dieser Chat existiert nicht mehr",
+    "chatGoneDescription": "Er wurde in einem anderen Tab oder auf einem anderen Gerät gelöscht; hier kann nichts mehr gesendet werden.",
+    "chatArchived": "Dieser Chat ist archiviert",
+    "chatArchivedDescription": "In einen archivierten Chat kann nichts gesendet werden.",
+    "modelNotSupported": "Das ausgewählte Modell wird im Agent-Modus nicht unterstützt. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
+    "byokModelNotSupported": "Ihr benutzerdefiniertes Modell ist nicht mit dem Agent-Modus kompatibel. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
+    "modelServiceUnavailable": "Der Modelldienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+    "providerInsufficientBalance": "Das Guthaben beim Modellanbieter ist aufgebraucht. Bitten Sie Ihren Administrator, das Konto dieses API-Schlüssels zu prüfen.",
+    "imageProcessingFailed": "Bildverarbeitung fehlgeschlagen",
+    "imageProcessingFailedDescription": "Das Bild konnte vom KI-Modell nicht verarbeitet werden. Bitte senden Sie es erneut oder fahren Sie ohne fort.",
+    "sandboxActiveRunBusy": "Cuppy arbeitet noch. Bitte warten Sie, bevor Sie erneut senden.",
+    "sandboxCapacityFull": "Das Limit gleichzeitiger Unterhaltungen ({{max}}) ist erreicht. Bitte warten Sie, bis eine beendet ist.",
+    "sandboxTransient": "Cuppy wird vorbereitet. Bitte versuchen Sie es gleich noch einmal.",
+    "sandboxSnapshotNotFound": "Die Umgebung von Cuppy ist noch nicht eingerichtet. Bitten Sie Ihren Administrator, einen Sandbox-Snapshot zu erstellen.",
+    "sandboxProviderError": "Fehler in der Sandbox-Laufzeit",
+    "sandboxProviderErrorDescription": "Der Aufruf der Sandbox-Laufzeit ist fehlgeschlagen. Bitte erneut versuchen oder einen Administrator die Laufzeit prüfen lassen.",
+    "sandboxUnavailable": "KI-Agent ist derzeit nicht verfügbar",
+    "sandboxUnavailableMaintenance": "Die Laufzeitumgebung des KI-Agenten wird gewartet. Bitte versuchen Sie es später erneut.",
+    "sandboxUnavailableNotConfigured": "Die Laufzeitumgebung des KI-Agenten ist auf dieser Instanz nicht konfiguriert. Bitte wenden Sie sich an Ihren Administrator.",
+    "agentStartFailed": "Die KI-Engine konnte nicht gestartet werden. Bitte erneut versuchen oder eine neue Sitzung starten.",
+    "agentSessionLost": "Etwas ist schiefgelaufen. Bitte senden Sie Ihre Nachricht erneut.",
+    "idleTimeout": "Die Befehlsausführung hat das Zeitlimit ({{seconds}} s) überschritten. Bitte erneut versuchen.",
+    "danglingToolUse": "Die vorherige Sitzung wurde unterbrochen und automatisch repariert. Bitte senden Sie Ihre Nachricht erneut.",
+    "versionSaveFailed": "Version konnte nicht gespeichert werden",
+    "versionSaveFailedDescription": "Diese Version wurde nicht gespeichert. Die Änderungen bleiben in der Sandbox und können verloren gehen, wenn diese abläuft.",
+    "versionPushTooLarge": "Änderungen zu groß zum Speichern",
+    "versionPushTooLargeDescription": "Diese Änderungen überschreiten die Größenbegrenzung beim Speichern und konnten nicht als neue Version gespeichert werden.",
+    "versionPushTooLargeAction": "An KI senden",
+    "versionPushTooLargePrompt": "Die App-Version konnte nicht gespeichert werden, da Git push die Größenbegrenzung überschritten hat. Prüfe das Projekt zuerst auf übergroße Testartefakte, Debug-Dateien oder Anhänge. Ermittle die Ursache, bevor du unnötige Inhalte entfernst, und erhalte den Anwendungscode sowie benötigte Ressourcen. Große Dateien können bereits in noch nicht gepushten Commits enthalten sein. Sie zu löschen oder zu .gitignore hinzuzufügen, reicht daher möglicherweise nicht aus. Falls die Historie bereinigt werden muss, ändere nur noch nicht gepushte Commits.\nFehlerdetails: {{error}}",
+    "collapsedStatus": {
+      "open": "KI-Chat öffnen",
+      "working": "KI arbeitet",
+      "completed": "KI-Aufgabe abgeschlossen",
+      "failed": "KI-Aufgabe fehlgeschlagen"
+    }
+  },
+  "modelTier": {
+    "title": "Modell",
+    "uses": "Verwendet {{model}}",
+    "spaceModels": "Space-Modelle",
+    "xl": {
+      "label": "Ultra",
+      "description": "Höchste Leistung für anspruchsvolle, kritische Aufgaben."
+    },
+    "lg": {
+      "label": "Smart",
+      "description": "Starkes Schlussfolgern für die tägliche Arbeit."
+    },
+    "md": {
+      "label": "Standard",
+      "description": "Schnell und kosteneffizient für Routineaufgaben."
+    },
+    "sm": {
+      "label": "Lite",
+      "description": "Leichtgewichtiges Modell für günstige Routineaufgaben in großer Zahl."
+    }
+  },
   "system": {
     "notFound": {
       "title": "Seite nicht gefunden",
@@ -1203,7 +1689,10 @@
       "requestTimeout": "Zeitüberschreitung der Anfrage",
       "chunkProcessingFailed": "Stapelverarbeitung fehlgeschlagen: {{reason}}",
       "unknown": "{{fieldHint}}{{message}}"
-    }
+    },
+    "connectAnotherAccount": "Weiteres Konto verbinden",
+    "accountNeedsReauth": "Die Autorisierung dieses Kontos ist abgelaufen oder wurde widerrufen. Autorisieren Sie es erneut, um es weiter zu verwenden.",
+    "reauthorize": "Erneut autorisieren"
   },
   "skills": {
     "title": "Fähigkeiten",
@@ -1221,9 +1710,11 @@
       "replace": "Ersetzen",
       "download": "Herunterladen",
       "uninstall": "Deinstallieren",
-      "copyToBase": "In Base kopieren",
+      "copyToBase": "In Projekt kopieren",
+      "copyToSpace": "In Space kopieren",
       "copyToPersonal": "In persönlichen Bereich kopieren",
-      "copyToApp": "In App kopieren"
+      "copyToApp": "In App kopieren",
+      "copyToRoutine": "In Routine kopieren"
     },
     "import": {
       "title": "Fähigkeit importieren",
@@ -1246,6 +1737,7 @@
       "type": "Typ",
       "description": "Beschreibung",
       "source": "Quelle",
+      "addedBy": "Hinzugefügt von",
       "skillLabel": "Fähigkeit",
       "syncStatus": "Synchronisierungsstatus",
       "preview": "SKILL.md-Vorschau"
@@ -1253,14 +1745,19 @@
     "scope": {
       "label": "Bereich",
       "system": "System",
-      "base": "Aktuelle Base",
+      "builtin": "Integriert",
+      "base": "Projekt",
       "user": "Persönlich",
       "userDescription": "Nur für Sie verfügbar",
-      "baseDescription": "Mit Kollaborateuren dieser Base geteilt",
+      "baseDescription": "Mit Kollaborateuren dieses Projekts geteilt",
+      "space": "Space",
+      "spaceDescription": "Für alle Mitglieder dieses Spaces freigegeben",
       "app": "App",
       "appDescription": "Nur in dieser App verfügbar",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Nur für diesen Bot verfügbar"
+      "cuppyclawDescription": "Nur für diesen Bot verfügbar",
+      "routine": "Routine",
+      "routineDescription": "Nur für diese Routine verfügbar"
     },
     "source": {
       "github": "GitHub",
@@ -1273,12 +1770,12 @@
       "synced": "Synchronisiert",
       "failed": "Synchronisierung fehlgeschlagen"
     },
-    "empty": {
-      "mySkills": "Noch keine persönlichen Fähigkeiten. Importieren Sie eine, um zu beginnen."
-    },
     "confirm": {
       "deleteTitle": "Fähigkeit löschen",
-      "deleteDescription": "Sind Sie sicher, dass Sie diese Fähigkeit löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+      "deleteDescription": "Sind Sie sicher, dass Sie diese Fähigkeit löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "copyTitle": "Skill kopieren",
+      "copyDescription": "Die Skill-Dateien werden in den Zielbereich kopiert. Der ursprüngliche Skill bleibt unverändert.",
+      "copyOverwriteWarning": "Existiert im Zielbereich bereits ein Skill mit demselben Namen, wird er ersetzt."
     },
     "toast": {
       "syncing": "Fähigkeit wird synchronisiert...",
@@ -1287,14 +1784,11 @@
       "deleting": "Fähigkeit wird gelöscht...",
       "deleteSuccess": "Fähigkeit erfolgreich gelöscht",
       "deleteError": "Fähigkeit konnte nicht gelöscht werden",
-      "updateSuccess": "Fähigkeit erfolgreich aktualisiert"
+      "updateSuccess": "Fähigkeit erfolgreich aktualisiert",
+      "copying": "Wird kopiert...",
+      "copySuccess": "Kopiert",
+      "copyError": "Kopieren fehlgeschlagen"
     }
-  },
-  "changelog": {
-    "newUpdate": "UPDATE VOM 28. JULI",
-    "title": "Teable Skill für KI-Agenten",
-    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
-    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Beschreibung hinzufügen",
@@ -1302,5 +1796,74 @@
     "descriptionSaving": "Speichern...",
     "descriptionSaveFailed": "Beschreibung konnte nicht gespeichert werden, bitte erneut versuchen",
     "descriptionPlaceholder": "Fügen Sie diesem Knoten eine Beschreibung hinzu"
+  },
+  "announcement": {
+    "viewDetail": "Details anzeigen",
+    "close": "Ankündigung schließen",
+    "acknowledge": "Verstanden",
+    "collapse": "Weniger anzeigen",
+    "more_one": "{{count}} weitere Ankündigung",
+    "more_other": "{{count}} weitere Ankündigungen"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Wähle etwas aus dem Verzeichnis",
+    "pickFromDirectoryHint": "Öffne eine Tabelle, ein Dashboard oder eine Automatisierung aus dem Verzeichnis, dann erscheint sie hier.",
+    "limitReachedTitle": "Tariflimit erreicht",
+    "limitReachedDescription": "Dieser Space hat ein Limit seines aktuellen Tarifs erreicht.",
+    "creditsExhaustedTitle": "KI-Credits aufgebraucht",
+    "creditsExhaustedDescription": "Dieser Space hat alle im aktuellen Tarif enthaltenen KI-Credits verbraucht.",
+    "seatLimitTitle": "Keine Plätze mehr frei",
+    "seatLimitDescription": "In diesem Space sind keine Plätze für weitere Mitarbeitende frei.",
+    "ownerManagesPlan": "Nur der Inhaber des Space kann dessen Tarif verwalten. Wenden Sie sich an ihn, um das zu klären.",
+    "featureUnavailableTitle": "In diesem Tarif nicht verfügbar",
+    "billingUnavailable": "Tarif- und Abrechnungsverwaltung ist in der App nicht verfügbar.",
+    "featureUnavailableDescription": "Diese Funktion ist im aktuellen Tarif dieses Space nicht verfügbar.",
+    "importRowLimitReached": "Das Zeilenlimit des aktuellen Tarifs wurde erreicht; die restlichen Datensätze wurden nicht importiert.",
+    "userCapTitle": "Benutzerlimit erreicht",
+    "userCapDescription": "Diese Instanz hat die von ihrer Lizenz erlaubte Benutzeranzahl erreicht. Wenden Sie sich an Ihren Administrator."
+  },
+  "push": {
+    "gate": {
+      "askUserQuestion": "Cuppy hat eine Frage an dich.",
+      "permission": "Cuppy wartet auf deine Bestätigung.",
+      "connectIntegration": "Cuppy braucht eine verbundene App, um weiterzumachen.",
+      "pickGoogleSheet": "Cuppy braucht die Auswahl einer Tabelle.",
+      "requestCredential": "Cuppy braucht Zugriff, um weiterzumachen."
+    },
+    "result": {
+      "done": "Fertig.",
+      "failed": "Der Lauf ist fehlgeschlagen.",
+      "creditExhausted": "Gestoppt: keine AI-Credits mehr.",
+      "skippedNoCredit": "Diesmal übersprungen: keine AI-Credits mehr.",
+      "autoDeactivated": "Nach fünf Fehlläufen in Folge abgeschaltet.",
+      "summaryTitle": "Teable",
+      "summary": "{{count}} Unterhaltungen haben Neuigkeiten."
+    }
+  },
+  "cookieConsent": {
+    "title": "Cookie-Einwilligung",
+    "body": "Wir verwenden Cookies und ähnliche Technologien, um zu verstehen, wie Teable genutzt wird, Ihr Erlebnis zu verbessern und unser Marketing zu messen.",
+    "accept": "Alle akzeptieren",
+    "reject": "Alle ablehnen",
+    "policy": "Cookie-Richtlinie",
+    "settings": "Cookie-Einstellungen",
+    "customize": "Anpassen",
+    "customBody": "Wählen Sie, welche Cookies Teable verwenden darf. Sie können Ihre Auswahl jederzeit in den Cookie-Einstellungen ändern.",
+    "save": "Auswahl speichern",
+    "alwaysOn": "Immer aktiv",
+    "categories": {
+      "necessary": {
+        "title": "Unbedingt erforderlich",
+        "description": "Sorgen für einen sicheren Betrieb und ermöglichen Anmeldung, Sitzungen, Spracheinstellung, das Speichern Ihrer Cookie-Auswahl sowie das Einlösen von Empfehlungsangeboten."
+      },
+      "analytics": {
+        "title": "Analyse",
+        "description": "Helfen uns zu verstehen, wie das Produkt genutzt wird, damit wir Ihr Erlebnis verbessern können."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Helfen uns zu messen, wie gut unsere Werbung und Aktionen funktionieren."
+      }
+    }
   }
 }

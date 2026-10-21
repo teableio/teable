@@ -222,7 +222,7 @@ describe('ComputedOutboxBaseAdmissionService', () => {
     await expect(result).rejects.toMatchObject({
       name: 'ComputedOutboxBaseAdmissionLeaseLostError',
       cause: expect.objectContaining({
-        message: 'Computed outbox base admission renewal timed out',
+        message: 'Computed outbox project admission renewal timed out',
       }),
     });
     expect(evalRedis).toHaveBeenCalledTimes(3);
@@ -242,6 +242,19 @@ describe('ComputedOutboxBaseAdmissionService', () => {
     expect(keyCount).toBe(1);
     expect(key).toBe('test-queue:v2-computed-outbox-wakeup:admission:{bse123}');
     expect(acquireArgs).toEqual([30_000, 2, expect.any(String)]);
+  });
+
+  it('sizes admission capacity from the effective per-base claim cap', async () => {
+    evalRedis.mockResolvedValue(0);
+    const claimConcurrency = { effective: { perBase: 6, perSeedTable: 2 } };
+    const service = new ComputedOutboxBaseAdmissionService(
+      { client: { eval: evalRedis } } as never,
+      claimConcurrency as never
+    );
+
+    await service.runWithPermit('bse123', vi.fn());
+
+    expect(evalRedis.mock.calls[0].slice(3)).toEqual([30_000, 6, expect.any(String)]);
   });
 
   it('stops local work after the last Redis-confirmed lease even when renewal stalls', async () => {

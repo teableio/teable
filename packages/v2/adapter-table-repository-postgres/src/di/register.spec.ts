@@ -3,6 +3,7 @@ import {
   formulaSqlPgTokens,
   Pg16TypeValidationStrategy,
   PgLegacyTypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +28,11 @@ const createContainer = () => {
     register(token: unknown, implementation: unknown, options: unknown) {
       registrations.push({ token, implementation, options });
       return this;
+    },
+    resolve(token: unknown) {
+      const entry = instances.find((value) => value.token === token);
+      if (!entry) throw new Error('Missing registered dependency');
+      return entry.instance;
     },
     isRegistered(token: unknown) {
       return (
@@ -84,6 +90,18 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     ).toThrow('Invalid v2 postgres ddl adapter config');
   });
 
+  it('refuses unsupported safety policy configuration before registration', async () => {
+    const { registerV2TableRepositoryPostgresAdapter } = await loadRegisterModule();
+    const container = createContainer();
+    expect(() =>
+      registerV2TableRepositoryPostgresAdapter(container as never, {
+        db: createDb() as never,
+        formulaCompileBudget: { ...defaultFormulaCompileBudgetConfig, policyVersion: 2 },
+      })
+    ).toThrow();
+    expect(container.instances).toEqual([]);
+  });
+
   it('registers default schema, record, and strategy dependencies', async () => {
     const {
       registerV2TableRepositoryPostgresAdapter,
@@ -93,16 +111,17 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     const { v2CoreTokens } = await import('@teable/v2-core');
     const { v2PostgresDdlTokens } = await import('../schema/di/tokens');
     const { v2RecordRepositoryPostgresTokens } = await import('../record/di/tokens');
-    const { PostgresTableSchemaRepository } = await import(
-      '../schema/repositories/PostgresTableSchemaRepository'
-    );
+    const { PostgresTableSchemaRepository } =
+      await import('../schema/repositories/PostgresTableSchemaRepository');
     const { TableRecordQueryBuilderManager } = await import('../record/query-builder');
     const {
       HybridWithOutboxStrategy,
       ComputedFieldBackfillService,
+      defaultComputedUpdateRuntimeConfig,
       defaultFieldBackfillConfig,
       defaultHybridWithOutboxStrategyConfig,
     } = await import('../record/computed');
+    const { PostgresBaseDataBulkCopier } = await import('../duplicate');
 
     const container = createContainer();
     const db = createDb();
@@ -125,6 +144,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig)
     ).toEqual(defaultHybridWithOutboxStrategyConfig);
+    expect(
+      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    ).toEqual(defaultComputedUpdateRuntimeConfig);
     expect(getInstance(container, v2RecordRepositoryPostgresTokens.fieldBackfillConfig)).toEqual(
       defaultFieldBackfillConfig
     );
@@ -157,6 +179,11 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(getRegistration(container, v2CoreTokens.computedFieldBackfillService)).toEqual({
       token: v2CoreTokens.computedFieldBackfillService,
       implementation: ComputedFieldBackfillService,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(getRegistration(container, v2CoreTokens.baseDataBulkCopier)).toEqual({
+      token: v2CoreTokens.baseDataBulkCopier,
+      implementation: PostgresBaseDataBulkCopier,
       options: { lifecycle: Lifecycle.Singleton },
     });
   });
@@ -192,6 +219,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
         lockConfig: {
           enabled: false,
         },
+        runtimeConfig: {
+          inlineStatementTimeoutMs: 12_345,
+        },
         fieldBackfillConfig: {
           mode: 'hybrid',
         },
@@ -217,6 +247,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
       maxRecordLocks: 50,
       batchShardCount: 64,
     });
+    expect(
+      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    ).toEqual({ inlineStatementTimeoutMs: 12_345 });
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.fieldBackfillConfig)
     ).toMatchObject({

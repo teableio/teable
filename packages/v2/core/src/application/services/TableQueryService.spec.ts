@@ -1,9 +1,11 @@
 import { err, ok } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
+import { DbFieldName } from '../../domain/table/fields/DbFieldName';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -129,5 +131,291 @@ describe('TableQueryService', () => {
     const result = await service.getById(context, tableId);
 
     expect(result._unsafeUnwrapErr().message).toBe('lookup failed');
+  });
+});
+
+it('preserves pending across getById, getByIdInBase and exists, even for legacy tags', async () => {
+  const table = buildTable('a', 'b');
+  const repo = new MemoryTableRepository();
+  const service = new TableQueryService(repo);
+  for (const factory of [domainError.infrastructure, domainError.notFound]) {
+    const pending = factory({
+      code: 'table.provision_pending',
+      message: 'Table schema is updating (provision_state=pending)',
+    });
+    vi.spyOn(repo, 'findOne').mockResolvedValue(err(pending));
+    for (const result of [
+      await service.getById(createContext(), table.id()),
+      await service.getByIdInBase(createContext(), table.baseId(), table.id()),
+      await service.exists(createContext(), table.id()),
+    ]) {
+      expect(result._unsafeUnwrapErr()).toBe(pending);
+    }
+  }
+});
+
+type SchemaFieldSpec = {
+  id: string;
+  name: string;
+  dbFieldName: string;
+  primary?: boolean;
+};
+
+const schemaFieldId = (seed: string) => `fld${seed.repeat(16)}`;
+
+const buildSchemaTable = (fields: ReadonlyArray<SchemaFieldSpec>): Table => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Records')._unsafeUnwrap());
+
+  for (const spec of fields) {
+    const fieldBuilder = builder
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(spec.id)._unsafeUnwrap())
+      .withName(FieldName.create(spec.name)._unsafeUnwrap());
+    if (spec.primary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  builder.view().defaultGrid().done();
+  const table = builder.build()._unsafeUnwrap();
+  for (const spec of fields) {
+    const field = table.getFields().find((candidate) => candidate.id().toString() === spec.id);
+    if (!field) throw new Error(`Missing field ${spec.id}`);
+    field.setDbFieldName(DbFieldName.rehydrate(spec.dbFieldName)._unsafeUnwrap())._unsafeUnwrap();
+  }
+  return table;
+};
+
+const createSchemaRepository = () => {
+  const findOne = vi.fn<ITableRepository['findOne']>();
+  const repository: ITableRepository = {
+    insert: vi.fn(async () => err(domainError.notImplemented({ message: 'insert' }))),
+    insertMany: vi.fn(async () => err(domainError.notImplemented({ message: 'insertMany' }))),
+    findOne,
+    find: vi.fn(async () => err(domainError.notImplemented({ message: 'find' }))),
+    updateOne: vi.fn(async () => err(domainError.notImplemented({ message: 'updateOne' }))),
+    restore: vi.fn(async () => err(domainError.notImplemented({ message: 'restore' }))),
+    delete: vi.fn(async () => err(domainError.notImplemented({ message: 'delete' }))),
+  };
+  return { repository, findOne };
+};
+
+const undefinedColumnError = (details: Record<string, unknown>) =>
+  domainError.infrastructure({
+    code: 'db.undefined_column',
+    message: 'column does not exist',
+    details: { pgCode: '42703', ...details },
+  });
+
+describe('TableQueryService.resolveRecordSchemaError', () => {
+  const primaryFieldId = schemaFieldId('a');
+
+  it('reports a deleted field as record.schema_changed', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const reloaded = buildSchemaTable([
+      { id: schemaFieldId('b'), name: 'Replacement', dbFieldName: 'replacement', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(ok(reloaded));
+    const service = new TableQueryService(repository);
+
+    const resolved = await service.resolveRecordSchemaError(
+      createContext(),
+      table,
+      undefinedColumnError({
+        column: 'title',
+        table: table.id().toString(),
+        schema: table.baseId().toString(),
+      })
+    );
+
+    expect(resolved.code).toBe('record.schema_changed');
+    expect(resolved.tags).toEqual(['conflict']);
+    expect(resolved.details).toEqual({
+      tableId: table.id().toString(),
+      fieldId: primaryFieldId,
+    });
+    expect(findOne).toHaveBeenCalledTimes(1);
+    expect(findOne.mock.calls[0][1].isSatisfiedBy(table)).toBe(true);
+    expect(findOne.mock.calls[0][2]).toEqual({ state: 'activeWithPending' });
+  });
+
+  it('reports a renamed db field name as record.schema_changed', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const reloaded = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title_renamed', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(ok(reloaded));
+    const service = new TableQueryService(repository);
+
+    const resolved = await service.resolveRecordSchemaError(
+      createContext(),
+      table,
+      undefinedColumnError({ column: 'title' })
+    );
+
+    expect(resolved.code).toBe('record.schema_changed');
+    expect(resolved.details).toEqual({
+      tableId: table.id().toString(),
+      fieldId: primaryFieldId,
+    });
+  });
+
+  it('reports a recreated field with a new id but the same db field name as record.schema_changed', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const recreatedFieldId = schemaFieldId('c');
+    const reloaded = buildSchemaTable([
+      { id: recreatedFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(ok(reloaded));
+    const service = new TableQueryService(repository);
+
+    const resolved = await service.resolveRecordSchemaError(
+      createContext(),
+      table,
+      undefinedColumnError({ column: 'title' })
+    );
+
+    expect(resolved.code).toBe('record.schema_changed');
+    expect(resolved.details).toEqual({
+      tableId: table.id().toString(),
+      fieldId: primaryFieldId,
+    });
+  });
+
+  it('preserves the original error when the field id and db field name are unchanged', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const reloaded = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(ok(reloaded));
+    const service = new TableQueryService(repository);
+    const originalError = undefinedColumnError({ column: 'title' });
+
+    const resolved = await service.resolveRecordSchemaError(createContext(), table, originalError);
+
+    expect(resolved).toBe(originalError);
+    expect(findOne).toHaveBeenCalledTimes(1);
+  });
+
+  const guardCases: ReadonlyArray<[string, Record<string, unknown>]> = [
+    ['a non-42703 pg code', { pgCode: '23505', column: 'title' }],
+    ['a missing pg code', { pgCode: undefined, column: 'title' }],
+    ['a non-string column', { pgCode: '42703', column: 42 }],
+    ['an unknown physical column', { pgCode: '42703', column: 'unknown_column' }],
+  ];
+
+  it.each(guardCases)(
+    'preserves the original error for %s without reloading metadata',
+    async (_label, details) => {
+      const table = buildSchemaTable([
+        { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+      ]);
+      const { repository, findOne } = createSchemaRepository();
+      const service = new TableQueryService(repository);
+      const originalError = undefinedColumnError(details);
+
+      const resolved = await service.resolveRecordSchemaError(
+        createContext(),
+        table,
+        originalError
+      );
+
+      expect(resolved).toBe(originalError);
+      expect(findOne).not.toHaveBeenCalled();
+    }
+  );
+
+  const mismatchCases: ReadonlyArray<[string, Record<string, unknown>]> = [
+    ['a mismatched pg table', { table: 'tbl_not_this_table' }],
+    ['a mismatched pg schema', { schema: 'public' }],
+  ];
+
+  it.each(mismatchCases)(
+    'preserves the original error for %s without reloading metadata',
+    async (_label, details) => {
+      const table = buildSchemaTable([
+        { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+      ]);
+      const { repository, findOne } = createSchemaRepository();
+      const service = new TableQueryService(repository);
+      const originalError = undefinedColumnError({ column: 'title', ...details });
+
+      const resolved = await service.resolveRecordSchemaError(
+        createContext(),
+        table,
+        originalError
+      );
+
+      expect(resolved).toBe(originalError);
+      expect(findOne).not.toHaveBeenCalled();
+    }
+  );
+
+  it('preserves the original error when metadata reload fails', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(
+      err(
+        domainError.infrastructure({
+          code: 'infrastructure.database.lookup_failed',
+          message: 'lookup failed',
+        })
+      )
+    );
+    const service = new TableQueryService(repository);
+    const originalError = undefinedColumnError({ column: 'title' });
+
+    const resolved = await service.resolveRecordSchemaError(createContext(), table, originalError);
+
+    expect(resolved).toBe(originalError);
+  });
+
+  it('strips the caller transaction from the diagnostic reload', async () => {
+    const table = buildSchemaTable([
+      { id: primaryFieldId, name: 'Title', dbFieldName: 'title', primary: true },
+    ]);
+    const reloaded = buildSchemaTable([
+      { id: schemaFieldId('d'), name: 'Replacement', dbFieldName: 'replacement', primary: true },
+    ]);
+    const { repository, findOne } = createSchemaRepository();
+    findOne.mockResolvedValue(ok(reloaded));
+    const service = new TableQueryService(repository);
+    const context: IExecutionContext = {
+      ...createContext(),
+      transaction: { kind: 'unitOfWorkTransaction' },
+      transactions: { data: { kind: 'unitOfWorkTransaction' } },
+    };
+
+    const resolved = await service.resolveRecordSchemaError(
+      context,
+      table,
+      undefinedColumnError({ column: 'title' })
+    );
+
+    expect(resolved.code).toBe('record.schema_changed');
+    const reloadContext = findOne.mock.calls[0][0];
+    expect(reloadContext.actorId).toBe(context.actorId);
+    expect('transaction' in reloadContext).toBe(false);
+    expect('transactions' in reloadContext).toBe(false);
+    expect(context.transaction).toBeDefined();
   });
 });

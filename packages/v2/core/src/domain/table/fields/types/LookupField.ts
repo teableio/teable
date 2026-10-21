@@ -45,7 +45,7 @@ import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldU
 import { FieldOptionsDtoVisitor } from '../visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { CellValueMultiplicity } from './CellValueMultiplicity';
+import type { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { FieldComputed } from './FieldComputed';
 import { LinkField } from './LinkField';
@@ -279,18 +279,15 @@ export class LookupField
 
   /**
    * Get whether this is a multiple cell value field.
-   * Uses the override value if set (from v1 persistence), otherwise defaults to multiple.
+   * Uses the override value if set (from v1 persistence). When the override is
+   * unset, an unambiguously scalar persisted dbFieldType implies single, which
+   * keeps historical rows with NULL is_multiple_cell_value from defaulting to
+   * multiple and writing jsonb into scalar columns. JSON storage is ambiguous
+   * (single-valued lookups of user/link/attachment also persist JSON), so it —
+   * like new/pending fields without a persisted type — defaults to multiple.
    */
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (this.isMultipleCellValueOverride !== undefined) {
-      return ok(
-        this.isMultipleCellValueOverride
-          ? CellValueMultiplicity.multiple()
-          : CellValueMultiplicity.single()
-      );
-    }
-    // Default to multiple for new lookup fields (v2 behavior)
-    return ok(CellValueMultiplicity.multiple());
+    return ok(this.multiplicityFromOverrideOrPersistedStorage(this.isMultipleCellValueOverride));
   }
 
   /**
@@ -349,7 +346,7 @@ export class LookupField
     // 2. Validate that link field points to our foreign table
     if (!linkField.foreignTableId().equals(this.foreignTableId())) {
       return err(
-        domainError.unexpected({
+        domainError.validation({
           message: 'LookupField foreign table does not match link field target',
         })
       );
@@ -368,7 +365,12 @@ export class LookupField
     const lookupFieldResult = ft.fieldById(this.lookupFieldId());
     if (lookupFieldResult.isErr()) {
       return err(
-        domainError.notFound({ message: 'LookupField lookup field not found in foreign table' })
+        domainError.validation({ message: 'LookupField lookup field not found in foreign table' })
+      );
+    }
+    if (lookupFieldResult.value.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a lookup source' })
       );
     }
     if (this.legacyMultiplicityDerivationEnabled) {
@@ -470,7 +472,7 @@ export class LookupField
       return ok(undefined);
     }
 
-    return ok(undefined);
+    return this.setDependencies(deduped);
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {

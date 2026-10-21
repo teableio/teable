@@ -22,6 +22,7 @@ export default async function globalSetup() {
     entryPoints: [path.join(dirname, 'src/worker/**.ts')],
     outdir: path.join(dirname, 'dist/worker'),
     bundle: true,
+    conditions: ['@teable/source'],
     platform: 'node',
     target: 'node20',
   });

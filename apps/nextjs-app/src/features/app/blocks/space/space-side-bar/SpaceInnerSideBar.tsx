@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { Plus, Settings, Trash2, LayoutTemplate } from '@teable/icons';
+import { Plus, Settings, LayoutTemplate } from '@teable/icons';
 import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -11,11 +11,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
+import { Recycle } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { ChangelogNotification } from '@/components/changelog';
 import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
 import {
   CreateBaseDialog,
@@ -30,8 +30,9 @@ import { PinList } from './PinList';
 export const SpaceInnerSideBar = (props: {
   renderSettingModal?: (children: React.ReactNode) => React.ReactNode;
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
+  renderAnnouncementCard?: () => React.ReactNode;
 }) => {
-  const { renderSettingModal, renderWinFreeCredit } = props;
+  const { renderSettingModal, renderWinFreeCredit, renderAnnouncementCard } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -121,7 +122,7 @@ export const SpaceInnerSideBar = (props: {
                 size={'xs'}
                 className={cn('w-full justify-start h-8 text-sm font-normal')}
               >
-                <Trash2 className="size-4 shrink-0" />
+                <Recycle className="size-4 shrink-0" />
                 <p className="truncate">{t('noun.trash')}</p>
               </Button>
             </SpaceInnerTrashModal>
@@ -146,7 +147,7 @@ export const SpaceInnerSideBar = (props: {
         <PinList />
       </div>
       {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
-      <ChangelogNotification />
+      {renderAnnouncementCard && renderAnnouncementCard()}
       {spaceId && (
         <CreateBaseDialog
           spaceId={spaceId}

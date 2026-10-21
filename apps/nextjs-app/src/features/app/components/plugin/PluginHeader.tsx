@@ -45,7 +45,7 @@ export const PluginHeader = (props: {
 
   if (isExpanded) {
     return (
-      <div className="flex h-10 items-center border-b pl-4 pr-2">
+      <div className="flex h-10 items-center border-b pe-2 ps-4">
         <div className=" flex-1 truncate">{name}</div>
         <Button variant={'ghost'} size={'icon-xs'} onClick={onClose}>
           <X className="size-4 shrink-0" />
@@ -119,16 +119,16 @@ export const PluginHeader = (props: {
                   setTimeout(() => renameRef.current?.focus(), 200);
                 }}
               >
-                <Edit className="mr-1.5" />
+                <Edit className="me-1.5" />
                 {t('common:actions.rename')}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={onExpand}>
-              <Maximize2 className="mr-1.5" />
+              <Maximize2 className="me-1.5" />
               {t('common:actions.expand')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={onCopy}>
-              <Copy className="mr-1.5" />
+              <Copy className="me-1.5" />
               {t('common:actions.duplicate')}
             </DropdownMenuItem>
             {canManage && (

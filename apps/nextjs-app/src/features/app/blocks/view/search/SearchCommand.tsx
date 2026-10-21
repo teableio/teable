@@ -97,7 +97,7 @@ const SearchOptionItem = (props: ISearchOptionItem) => {
         {extra}
       </Label>
 
-      <div className="ml-2 flex items-center gap-1">
+      <div className="ms-2 flex items-center gap-1">
         {loading ? <Spin className="size-3" /> : null}
         <Switch id={id} size="sm" checked={checked} onCheckedChange={onCheckedChange} />
       </div>
@@ -183,7 +183,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
       );
       const name = currentField?.name?.toLocaleLowerCase()?.trim() || t('untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      const containWord = name.includes(searchValue.toLowerCase());
       return Number(containWord);
     },
     [fields, t]
@@ -390,7 +390,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
             />
             <label
               htmlFor="noTips"
-              className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="ps-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               {t('table:import.tips.noTips')}
             </label>

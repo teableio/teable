@@ -62,7 +62,7 @@ export class FieldCrossTableUpdateSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldCrossTableUpdateSideEffectInput
   ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
       const pendingUpdates: CrossTableFieldUpdate[] = [input];
@@ -93,7 +93,12 @@ export class FieldCrossTableUpdateSideEffectService {
           continue;
         }
 
-        const specResult = Table.specs(pending.table.baseId()).build();
+        // Only hydrate tables that actually reference this one. Loading every
+        // table in the base is the convert-request hot path on large seeds:
+        // SQL is cheap, mapping unused aggregates is not.
+        const specResult = Table.specs(pending.table.baseId())
+          .byIncomingReferenceToTable(pending.table.id())
+          .build();
         if (specResult.isErr()) return err(specResult.error);
 
         const candidateTables = yield* await service.tableRepository.find(

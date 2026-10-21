@@ -22,6 +22,7 @@ import {
   ensureUndoCaptureInfrastructure,
   getUndoCaptureBatchId,
   loadAndClearUndoLogRows,
+  matchesUndoCaptureTableName,
   restoreUndoCaptureBatchId,
   setUndoCaptureBatchId,
   type UndoCaptureInfrastructureStatus,
@@ -109,9 +110,7 @@ export interface IPostgresRecordMutationSnapshotCaptureService {
   ): Promise<Result<IPostgresRecordMutationSnapshotCaptureSession, DomainError>>;
 }
 
-class PostgresRecordMutationSnapshotCaptureSession
-  implements IPostgresRecordMutationSnapshotCaptureSession
-{
+class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMutationSnapshotCaptureSession {
   private closed = false;
 
   constructor(
@@ -139,7 +138,9 @@ class PostgresRecordMutationSnapshotCaptureSession
 
         try {
           const rows = await loadAndClearUndoLogRows(this.db, this.batchId);
-          return ok(rows.filter((row) => !row.table_name || row.table_name === this.tableName));
+          return ok(
+            rows.filter((row) => matchesUndoCaptureTableName(row.table_name, this.tableName))
+          );
         } catch (error) {
           this.logger.warn('undo:capture:read_failed', {
             batchId: this.batchId,
@@ -203,9 +204,7 @@ class PostgresRecordMutationSnapshotCaptureSession
 }
 
 @injectable()
-export class PostgresRecordMutationSnapshotCaptureService
-  implements IPostgresRecordMutationSnapshotCaptureService
-{
+export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRecordMutationSnapshotCaptureService {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly rootDb: Kysely<V1TeableDatabase>,

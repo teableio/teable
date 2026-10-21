@@ -1,4 +1,4 @@
-import type { AppAction, AutomationAction, TableAction } from '@teable/core';
+import type { RoutineAction, AppAction, AutomationAction, TableAction } from '@teable/core';
 
 export enum BaseNodeAction {
   Read = 'base_node|read',
@@ -12,4 +12,5 @@ export type IBaseNodePermissionContext = {
   permissionSet: Set<string>;
   appPermissionMap?: Record<string, AppAction[]>;
   workflowPermissionMap?: Record<string, AutomationAction[]>;
+  routinePermissionMap?: Record<string, RoutineAction[]>;
 };

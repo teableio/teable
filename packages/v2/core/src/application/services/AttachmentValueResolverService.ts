@@ -12,6 +12,7 @@ import {
 import { CellValue } from '../../domain/table/records/values/CellValue';
 import { IAttachmentLookupService } from '../../ports/AttachmentLookupService';
 import type { AttachmentLookupRecord } from '../../ports/AttachmentLookupService';
+import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { ICellValueSpecResolver } from './SpecResolver';
@@ -61,9 +62,7 @@ const resolveItem = (
 };
 
 @injectable()
-export class AttachmentValueResolverService
-  implements ICellValueSpecResolver<SetAttachmentValueSpec>
-{
+export class AttachmentValueResolverService implements ICellValueSpecResolver<SetAttachmentValueSpec> {
   constructor(
     @inject(v2CoreTokens.attachmentLookupService)
     private readonly attachmentLookupService: IAttachmentLookupService
@@ -75,9 +74,10 @@ export class AttachmentValueResolverService
 
   async resolveSpecs(
     _context: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<SetAttachmentValueSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       if (specs.length === 0) {
         return ok([]);
@@ -184,7 +184,7 @@ export class AttachmentValueResolverService
           resolvedItems.push(resolveItem(item, stored, usedIds, false));
         }
 
-        const resolvedValue = normalized.isArray ? resolvedItems : resolvedItems[0] ?? null;
+        const resolvedValue = normalized.isArray ? resolvedItems : (resolvedItems[0] ?? null);
         resolvedSpecs.push(
           new SetAttachmentValueSpec(
             spec.fieldId,

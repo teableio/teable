@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
+import type { IColumn, IColumnMeta, ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
-  generateShareId,
   FieldType,
   ViewType,
   generatePluginInstallId,
@@ -67,11 +66,19 @@ type IDuplicateTableDataOptions = {
 };
 
 const duplicateTableDataDefaultBatchSize = 500;
+// A duplicated table starts unshared: share credentials belong to the view that
+// published them, so copying them would publish the copy the moment it exists,
+// behind a link its author never opened.
+const unsharedViewState = {
+  shareId: null,
+  enableShare: null,
+  shareMeta: null,
+} as const;
 const autoNumberFieldName = '__auto_number';
 
 @Injectable()
 export class TableDuplicateService {
-  private logger = new Logger(TableDuplicateService.name);
+  private readonly logger = new Logger(TableDuplicateService.name);
 
   constructor(
     private readonly cls: ClsService<IClsStore>,
@@ -322,7 +329,7 @@ export class TableDuplicateService {
         });
         computedDbFieldNames = computedFields.map((f) => f.dbFieldName);
       }
-    } catch (_e) {
+    } catch {
       // Best effort; if query fails, fallback to existing filters
       computedDbFieldNames = [];
     }
@@ -919,6 +926,14 @@ export class TableDuplicateService {
     const sourceToTargetViewMap = {} as Record<string, string>;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
+    const sourcePrimaryField = await this.prismaService.field.findFirst({
+      where: { tableId: sourceTableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    const targetPrimaryFieldId = sourcePrimaryField?.id
+      ? sourceToTargetFieldMap[sourcePrimaryField.id]
+      : undefined;
+
     await prisma.view.createMany({
       data: viewsWithoutPlugin.map((view) => {
         const fieldsToReplace = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
@@ -936,6 +951,21 @@ export class TableDuplicateService {
           {} as Partial<typeof view>
         );
 
+        // Gallery cards are titled by the duplicated table's primary field. The copied
+        // source metadata may still hide it, so the remapped primary entry is normalized
+        // the same way view creation does; every other column and the cover field stay.
+        if (view.type === ViewType.Gallery && targetPrimaryFieldId && updatedFields.columnMeta) {
+          const parsedColumnMeta = JSON.parse(updatedFields.columnMeta) as IColumnMeta;
+          const primaryColumnMeta = parsedColumnMeta[targetPrimaryFieldId];
+          if (primaryColumnMeta) {
+            parsedColumnMeta[targetPrimaryFieldId] = {
+              ...primaryColumnMeta,
+              visible: true,
+            } as IColumn;
+            updatedFields.columnMeta = JSON.stringify(parsedColumnMeta);
+          }
+        }
+
         const newViewId = generateViewId();
 
         sourceToTargetViewMap[view.id] = newViewId;
@@ -947,7 +977,7 @@ export class TableDuplicateService {
           version: 1,
           tableId: targetTableId,
           id: newViewId,
-          shareId: generateShareId(),
+          ...unsharedViewState,
           ...updatedFields,
         };
       }),
@@ -1058,7 +1088,7 @@ export class TableDuplicateService {
           version: 1,
           tableId: targetTableId,
           id: newViewId,
-          shareId: generateShareId(),
+          ...unsharedViewState,
           options: pluginOptions,
           ...updatedFields,
         },

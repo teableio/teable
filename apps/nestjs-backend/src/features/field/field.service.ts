@@ -61,7 +61,7 @@ type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IReadonlyAdapterService {
-  private logger = new Logger(FieldService.name);
+  private readonly logger = new Logger(FieldService.name);
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
@@ -84,6 +84,28 @@ export class FieldService implements IReadonlyAdapterService {
     this.dataLoaderService.field.invalidateTables(ids);
   }
 
+  // A live field row can reference a column that is missing from the physical table (and vice
+  // versa), so uniqueness must be checked against both sources.
+  private async getReservedDbFieldNames(
+    tableId: string,
+    routingOptions?: IDataDbRoutingOptions
+  ): Promise<Set<string>> {
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId, routingOptions));
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      tableId,
+      query,
+      routingOptions
+    );
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { dbFieldName: true },
+    });
+    return new Set([
+      ...columns.map((column) => column.name),
+      ...fieldRaws.map((fieldRaw) => fieldRaw.dbFieldName),
+    ]);
+  }
+
   async generateDbFieldName(
     tableId: string,
     name: string,
@@ -91,15 +113,10 @@ export class FieldService implements IReadonlyAdapterService {
   ): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
 
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId, routingOptions));
-    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
-      tableId,
-      query,
-      routingOptions
-    );
+    const reservedNames = await this.getReservedDbFieldNames(tableId, routingOptions);
     // fallback logic
-    if (columns.some((column) => column.name === dbFieldName)) {
-      dbFieldName += new Date().getTime();
+    if (reservedNames.has(dbFieldName)) {
+      dbFieldName += Date.now();
     }
     return dbFieldName;
   }
@@ -109,21 +126,14 @@ export class FieldService implements IReadonlyAdapterService {
     names: string[],
     routingOptions?: IDataDbRoutingOptions
   ) {
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId, routingOptions));
-    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
-      tableId,
-      query,
-      routingOptions
-    );
+    const reservedNames = await this.getReservedDbFieldNames(tableId, routingOptions);
     return names
       .map((name) => convertNameToValidCharacter(name, 40))
       .map((dbFieldName) => {
-        if (columns.some((column) => column.name === dbFieldName)) {
-          const newDbFieldName = dbFieldName + new Date().getTime();
-          columns.push({ name: newDbFieldName });
-          return (dbFieldName += new Date().getTime());
+        if (reservedNames.has(dbFieldName)) {
+          dbFieldName += Date.now();
         }
-        columns.push({ name: dbFieldName });
+        reservedNames.add(dbFieldName);
         return dbFieldName;
       });
   }
@@ -1201,7 +1211,7 @@ export class FieldService implements IReadonlyAdapterService {
       data: data.ops,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
   }
 
   async batchDeleteFields(
@@ -1236,7 +1246,7 @@ export class FieldService implements IReadonlyAdapterService {
       version: fieldRawMap[fieldId].version,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
 
     await this.deleteMany(
       tableId,
@@ -1268,7 +1278,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleField(tableId, fields);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   // write field at once database operation
@@ -1290,7 +1300,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleFields(tableId, fields);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   async create(tableId: string, snapshot: IFieldVo) {
@@ -1323,7 +1333,26 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldsRaw = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds } },
     });
-    const fieldInstances = fieldsRaw.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    // If db_field_name de-duplication ever raced, another live field may still map to the same
+    // physical column; dropping it would silently destroy that field's data.
+    const sharedFieldRaws = await this.prismaService.txClient().field.findMany({
+      where: {
+        tableId,
+        dbFieldName: { in: fieldsRaw.map((fieldRaw) => fieldRaw.dbFieldName) },
+        deletedTime: null,
+        id: { notIn: fieldIds },
+      },
+      select: { dbFieldName: true },
+    });
+    const sharedDbFieldNames = new Set(sharedFieldRaws.map((fieldRaw) => fieldRaw.dbFieldName));
+    if (sharedDbFieldNames.size) {
+      this.logger.warn(
+        `Skip dropping columns shared with live fields on table ${tableId}: ${[...sharedDbFieldNames].join(', ')}`
+      );
+    }
+    const fieldInstances = fieldsRaw
+      .filter((fieldRaw) => !sharedDbFieldNames.has(fieldRaw.dbFieldName))
+      .map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     await this.alterTableDeleteField(dbTableName, fieldInstances, operationType);
     this.invalidateFieldLoader(tableId);
   }

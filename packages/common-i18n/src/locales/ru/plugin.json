@@ -47,10 +47,26 @@
     "url": {
       "label": "URL",
       "description": "URL плагина"
+    },
+    "autoCreateMember": {
+      "label": "Автоматически создавать участника",
+      "description": "Автоматически создавать участника для плагина"
+    },
+    "config": {
+      "label": "Конфигурация",
+      "description": "Конфигурация плагина"
     }
   },
   "markdown": {
     "write": "Писать",
     "preview": "Предпросмотр"
+  },
+  "status": {
+    "reviewing": "На проверке",
+    "published": "Опубликовано",
+    "developing": "В разработке"
+  },
+  "button": {
+    "submitApproved": "Отправить на утверждение"
   }
 }

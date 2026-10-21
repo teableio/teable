@@ -183,4 +183,57 @@ describe('update-field: number -> singleLineText conversion', () => {
       await ctx.deleteTable(table.id).catch(() => undefined);
     }
   });
+
+  test('T7853 Y2656 stores currency thousands separators and rounds zero-decimal numbers', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'NumberToText Currency Thousands',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'number',
+          name: 'Amount',
+          options: { formatting: { type: 'currency', precision: 2, symbol: '$' } },
+        },
+        {
+          type: 'number',
+          name: 'Integer',
+          options: { formatting: { type: 'decimal', precision: 0 } },
+        },
+      ],
+    });
+
+    try {
+      const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id;
+      const currencyFieldId = table.fields.find((field) => field.name === 'Amount')?.id;
+      const decimalFieldId = table.fields.find((field) => field.name === 'Integer')?.id;
+      if (!primaryFieldId || !currencyFieldId || !decimalFieldId) {
+        throw new Error('Missing required ids for currency conversion test');
+      }
+
+      const record = await ctx.createRecord(table.id, {
+        [primaryFieldId]: 'sample',
+        [currencyFieldId]: 1234,
+        [decimalFieldId]: 1.5,
+      });
+
+      await ctx.updateField({
+        tableId: table.id,
+        fieldId: currencyFieldId,
+        field: { type: 'singleLineText' },
+      });
+      await ctx.updateField({
+        tableId: table.id,
+        fieldId: decimalFieldId,
+        field: { type: 'singleLineText' },
+      });
+
+      const records = await ctx.listRecords(table.id);
+      const stored = records.find((row) => row.id === record.id)?.fields;
+      expect(stored?.[currencyFieldId]).toBe('$1,234.00');
+      expect(stored?.[decimalFieldId]).toBe('2');
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
 });

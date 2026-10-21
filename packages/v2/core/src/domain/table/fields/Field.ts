@@ -12,8 +12,9 @@ import { DbFieldType } from './DbFieldType';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
+import { FieldVersion } from './FieldVersion';
 import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
-import type { CellValueMultiplicity } from './types/CellValueMultiplicity';
+import { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import { FieldComputed } from './types/FieldComputed';
 import { FieldHasError } from './types/FieldHasError';
 import { FieldNotNull } from './types/FieldNotNull';
@@ -38,7 +39,7 @@ export abstract class Field extends Entity<FieldId> {
     dependencies: ReadonlyArray<FieldId> = [],
     computed?: FieldComputed,
     description: string | null = null,
-    aiConfig?: unknown | null
+    aiConfig?: unknown
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
@@ -58,10 +59,12 @@ export abstract class Field extends Entity<FieldId> {
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
   private descriptionValue: string | null;
-  private aiConfigValue: unknown | null | undefined;
+  private aiConfigValue: unknown;
   private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
+  private versionValue: FieldVersion | undefined;
+  private provisionPendingValue = false;
 
   static specs(): FieldSpecBuilder {
     return FieldSpecBuilder.create();
@@ -83,11 +86,35 @@ export abstract class Field extends Entity<FieldId> {
     return this.descriptionValue;
   }
 
-  aiConfig(): unknown | null | undefined {
+  version(): Result<FieldVersion, DomainError> {
+    if (!this.versionValue) {
+      return err(domainError.invariant({ message: 'FieldVersion not set' }));
+    }
+    return ok(this.versionValue);
+  }
+
+  setVersion(version: FieldVersion): Result<void, DomainError> {
+    if (this.versionValue) {
+      if (this.versionValue.equals(version)) return ok(undefined);
+      return err(domainError.invariant({ message: 'FieldVersion already set' }));
+    }
+    this.versionValue = version;
+    return ok(undefined);
+  }
+
+  isProvisionPending(): boolean {
+    return this.provisionPendingValue;
+  }
+
+  setProvisionPending(pending: boolean): void {
+    this.provisionPendingValue = pending;
+  }
+
+  aiConfig(): unknown {
     return this.aiConfigValue;
   }
 
-  setAiConfig(aiConfig: unknown | null | undefined): Result<void, DomainError> {
+  setAiConfig(aiConfig: unknown): Result<void, DomainError> {
     this.aiConfigValue = aiConfig;
     return ok(undefined);
   }
@@ -144,9 +171,11 @@ export abstract class Field extends Entity<FieldId> {
     const nextValue = dbFieldName.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
-    const currentValue = this.dbFieldNameValue.value();
-    if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value)
+    // Probe with isRehydrated() instead of value(): the unset branch is the
+    // common case on rehydration, and value() would allocate a stack-capturing
+    // DomainError per call just to signal "not set".
+    if (this.dbFieldNameValue.isRehydrated()) {
+      if (!this.dbFieldNameValue.equals(dbFieldName))
         return err(domainError.invariant({ message: 'DbFieldName already set' }));
       return ok(undefined);
     }
@@ -174,13 +203,35 @@ export abstract class Field extends Entity<FieldId> {
     return ok(this.dbFieldTypeValue);
   }
 
+  /**
+   * An explicit override always wins. When it is unset (historical NULL
+   * is_multiple_cell_value), an unambiguously scalar persisted dbFieldType
+   * implies single — a multi-value cell could never have been stored there.
+   * JSON storage is ambiguous (single-valued lookups of JSON-object fields
+   * like user/link/attachment also persist JSON), so it keeps the historical
+   * multiple default rather than asserting multiplicity from storage.
+   */
+  protected multiplicityFromOverrideOrPersistedStorage(
+    override: boolean | undefined
+  ): CellValueMultiplicity {
+    if (override !== undefined) {
+      return override ? CellValueMultiplicity.multiple() : CellValueMultiplicity.single();
+    }
+    const persistedType = this.dbFieldType();
+    if (persistedType.isOk() && !persistedType.value.isJson()) {
+      return CellValueMultiplicity.single();
+    }
+    return CellValueMultiplicity.multiple();
+  }
+
   setDbFieldType(dbFieldType: DbFieldType): Result<void, DomainError> {
     const nextValue = dbFieldType.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
-    const currentValue = this.dbFieldTypeValue.value();
-    if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value)
+    // Same as setDbFieldName: avoid constructing a throwaway DomainError on
+    // the common unset branch.
+    if (this.dbFieldTypeValue.isRehydrated()) {
+      if (!this.dbFieldTypeValue.equals(dbFieldType))
         return err(domainError.invariant({ message: 'DbFieldType already set' }));
       return ok(undefined);
     }

@@ -6,7 +6,7 @@ import { Popover, PopoverTrigger, PopoverContent, Button, cn } from '@teable/ui-
 import { useState, useRef, useEffect } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
-import { useLanDayjs, useSession } from '../../../hooks';
+import { useCommentPermission, useLanDayjs, useSession } from '../../../hooks';
 import { UserAvatar } from '../../cell-value';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
 import { CommentQuote } from '../comment-editor/CommentQuote';
@@ -19,6 +19,7 @@ import { Reaction, ReactionPicker } from './reaction';
 interface ICommentItemProps extends ICommentVo, IBaseQueryParams {
   commentId?: string;
   index: number;
+  onDeleted?: (commentId: string) => void;
 }
 
 export const CommentItem = (props: ICommentItemProps) => {
@@ -34,6 +35,7 @@ export const CommentItem = (props: ICommentItemProps) => {
     reaction,
     commentId,
     index,
+    onDeleted,
   } = props;
   const dayjs = useLanDayjs();
   const { t } = useTranslation();
@@ -41,12 +43,16 @@ export const CommentItem = (props: ICommentItemProps) => {
   const relativeTime = dayjs(createdTime).fromNow();
   const { setQuoteId, setEditingCommentId, editorRef } = useCommentStore();
   const { user } = useSession();
+  const { commentWritable } = useCommentPermission();
   const isMe = user?.id === createdBy?.id;
   const queryClient = useQueryClient();
   const { mutateAsync: deleteCommentFn } = useMutation({
     mutationFn: ({ tableId, recordId, id }: { tableId: string; recordId: string; id: string }) =>
       deleteComment(tableId, recordId, id),
     onSuccess: () => {
+      // don't wait for the delete patch to come back over the socket: until the
+      // comment leaves the list it still offers a delete that now 404s
+      onDeleted?.(id);
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.commentDetail(tableId, recordId, id),
       });
@@ -136,86 +142,90 @@ export const CommentItem = (props: ICommentItemProps) => {
             <Reaction value={reaction} commentId={id} />
           </div>
         </div>
-        <div
-          className={cn(
-            'invisible absolute -top-3 z-10 flex items-center rounded-md border border-border-high bg-popover p-0.5 shadow-sm group-hover:visible',
-            {
-              'left-8': !isMe,
-              'right-8': isMe,
-              'top-0': index === 0,
-            },
-            emojiPickOpen && 'visible'
-          )}
-        >
-          <Popover open={emojiPickOpen} onOpenChange={setEmojiPickOpen}>
-            <PopoverTrigger asChild>
+        {/* react / quote / edit / delete are all writes: a read-only viewer sees
+            the thread without the hover actions */}
+        {commentWritable && (
+          <div
+            className={cn(
+              'invisible absolute -top-3 z-10 flex items-center rounded-md border border-border-high bg-popover p-0.5 shadow-sm group-hover:visible',
+              {
+                'start-8': !isMe,
+                'end-8': isMe,
+                'top-0': index === 0,
+              },
+              emojiPickOpen && 'visible'
+            )}
+          >
+            <Popover open={emojiPickOpen} onOpenChange={setEmojiPickOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={'ghost'}
+                  size={'icon-xs'}
+                  onClick={() => {
+                    setEmojiPickOpen(true);
+                  }}
+                >
+                  <Heart className="size-4 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" className="size-auto p-0.5" container={modalRef.current}>
+                <ReactionPicker
+                  onReactionClick={(emoji) => {
+                    setEmojiPickOpen(false);
+                    createCommentEmojiFn({
+                      tableId,
+                      recordId,
+                      commentId: id,
+                      reactionRo: { reaction: emoji },
+                    }).then(() => {
+                      setTimeout(() => {
+                        itemRef?.current &&
+                          itemRef?.current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'nearest',
+                          });
+                      }, 200);
+                    });
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              variant={'ghost'}
+              size={'icon-xs'}
+              onClick={() => {
+                setQuoteId(id);
+                editorRef.focus();
+              }}
+            >
+              <MessageSquare className="size-4 shrink-0" />
+            </Button>
+            {isMe && (
               <Button
                 variant={'ghost'}
                 size={'icon-xs'}
                 onClick={() => {
-                  setEmojiPickOpen(true);
+                  setEditingCommentId(id);
+                  editorRef.focus();
                 }}
               >
-                <Heart className="size-4 shrink-0" />
+                <Edit className="size-4 shrink-0" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent side="top" className="size-auto p-0.5" container={modalRef.current}>
-              <ReactionPicker
-                onReactionClick={(emoji) => {
-                  setEmojiPickOpen(false);
-                  createCommentEmojiFn({
-                    tableId,
-                    recordId,
-                    commentId: id,
-                    reactionRo: { reaction: emoji },
-                  }).then(() => {
-                    setTimeout(() => {
-                      itemRef?.current &&
-                        itemRef?.current?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'nearest',
-                        });
-                    }, 200);
-                  });
+            )}
+            {isMe && (
+              <Button
+                variant={'ghost'}
+                size={'icon-xs'}
+                onClick={() => {
+                  deleteCommentFn({ tableId, recordId, id });
                 }}
-              />
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            variant={'ghost'}
-            size={'icon-xs'}
-            onClick={() => {
-              setQuoteId(id);
-              editorRef.focus();
-            }}
-          >
-            <MessageSquare className="size-4 shrink-0" />
-          </Button>
-          {isMe && (
-            <Button
-              variant={'ghost'}
-              size={'icon-xs'}
-              onClick={() => {
-                setEditingCommentId(id);
-                editorRef.focus();
-              }}
-            >
-              <Edit className="size-4 shrink-0" />
-            </Button>
-          )}
-          {isMe && (
-            <Button
-              variant={'ghost'}
-              size={'icon-xs'}
-              onClick={() => {
-                deleteCommentFn({ tableId, recordId, id });
-              }}
-            >
-              <Trash2 className="size-4 shrink-0" />
-            </Button>
-          )}
-        </div>
+              >
+                <Trash2 className="size-4 shrink-0" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     )
   );

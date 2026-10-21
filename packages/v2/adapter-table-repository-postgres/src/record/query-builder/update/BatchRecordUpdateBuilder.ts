@@ -4,7 +4,6 @@ import type { Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import {
   buildAttachmentTableBatchReplaceQueries,
   type AttachmentTableReplaceInput,
@@ -20,6 +19,7 @@ import {
   buildExtraSeedRecordsFromLinkChanges,
   buildLinkedRecordLocksFromLinkChanges,
   collectLinkChanges,
+  loadBatchExistingHostLinkIds,
   type RecordUpdateBuilderContext,
   type RecordUpdateSeedGroup,
 } from './RecordUpdateBuilder';
@@ -164,7 +164,7 @@ export class BatchRecordUpdateBuilder {
     context: RecordUpdateBuilderContext;
   }): Promise<Result<BatchRecordUpdateDataResult, DomainError>> {
     const { table, tableName, updates, context } = params;
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<BatchRecordUpdateDataResult, DomainError>(async function* () {
       // Early return for empty batch
@@ -210,6 +210,10 @@ export class BatchRecordUpdateBuilder {
       }
       const lastModifiedByJsonValue =
         lastModifiedByDbFieldNames.size > 0 ? buildLastModifiedByJsonValue(context) : undefined;
+
+      const existingLinkIds = context.assumeEmptyLinkState
+        ? undefined
+        : yield* await loadBatchExistingHostLinkIds({ db: builder.db, table, tableName, updates });
 
       for (const update of updates) {
         const recordIdStr = update.recordId.toString();
@@ -276,6 +280,7 @@ export class BatchRecordUpdateBuilder {
           recordId: recordIdStr,
           mutateSpec: update.mutateSpec,
           assumeEmptyLinkState: context.assumeEmptyLinkState,
+          existingLinkIds: existingLinkIds?.get(recordIdStr),
         });
         if (linkChangesResult.isErr()) {
           return err(linkChangesResult.error);
@@ -418,7 +423,7 @@ export class BatchRecordUpdateBuilder {
     }
 
     // Sort by key to ensure consistent lock ordering
-    const sortedKeys = Array.from(lockKeysSet).sort();
+    const sortedKeys = Array.from(lockKeysSet).sort((a, b) => Number(a > b) - Number(a < b));
     return sortedKeys.map((key) => lockMap.get(key)!);
   }
 }
@@ -430,6 +435,5 @@ function buildLastModifiedByJsonValue(context: RecordUpdateBuilderContext): stri
     id: context.actorId,
     title,
     email,
-    avatarUrl: buildUserAvatarUrl(context.actorId),
   });
 }

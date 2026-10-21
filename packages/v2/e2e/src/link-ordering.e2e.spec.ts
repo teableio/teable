@@ -2,7 +2,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 link field ordering (e2e)', () => {
+describe('[F11] v2 link field ordering (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 

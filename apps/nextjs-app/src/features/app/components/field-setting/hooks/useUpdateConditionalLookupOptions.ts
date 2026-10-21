@@ -16,7 +16,7 @@ export function useUpdateConditionalLookupOptions(
 
       const nextLookupOptions: IConditionalLookupOptions = {
         ...existing,
-        ...(partial || {}),
+        ...partial,
       } as IConditionalLookupOptions;
 
       const nextField: IFieldEditorRo = {

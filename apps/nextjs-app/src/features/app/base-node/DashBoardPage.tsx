@@ -2,6 +2,7 @@ import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import dynamic from 'next/dynamic';
+import { PlainPageSkeleton } from '@/features/app/components/PlainPageSkeleton';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
@@ -73,6 +74,9 @@ const DynamicDashboard = dynamic(
   () => import('@/features/app/dashboard/Pages').then((mod) => mod.DashboardPage),
   {
     ssr: false,
+    // Rendered into the SSR HTML and kept until the dashboard chunk hydrates,
+    // matching the base-entry transition overlay's plain variant
+    loading: () => <PlainPageSkeleton />,
   }
 );
 

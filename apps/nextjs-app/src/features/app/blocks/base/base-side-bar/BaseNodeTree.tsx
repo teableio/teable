@@ -1,16 +1,21 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal } from '@teable/icons';
 import type {
   IBaseNodeVo,
   IBaseNodeWorkflowResourceMeta,
+  IBaseNodeRoutineResourceMeta,
   IBaseNodeAppResourceMeta,
   IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
+import { LocalStorageKeys } from '@teable/sdk/config';
+import {
+  useBaseId,
+  useBasePermission,
+  useIsAnonymous,
+  useIsReadOnlyPreview,
+} from '@teable/sdk/hooks';
 import {
   AssistiveTreeDescription,
   createOnDropHandler,
@@ -32,7 +37,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shadcn/ui/tree';
-import { ChevronDownIcon, ShieldCheck } from 'lucide-react';
+import { ChevronDownIcon, Pin, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -40,11 +45,10 @@ import { createPortal } from 'react-dom';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { collapseChatPanelIfExpanded } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
-import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
-import { useIsCommunity } from '@/features/app/hooks/useIsCommunity';
-import { useSetting } from '@/features/app/hooks/useSetting';
+import { usePinActions } from '../../space/usePinActions';
 import { usePinMap } from '../../space/usePinMap';
 import { useTableHref } from '../../table-list/useTableHref';
 import { useGridSearchStore } from '../../view/grid/useGridSearchStore';
@@ -54,6 +58,7 @@ import {
   getNodeName,
   getNodeUrl,
   ROOT_ID,
+  useBaseNodeCreatePermissions,
   useBaseNodeCrud,
 } from '../base-node/hooks';
 import type { TreeItemData } from '../base-node/hooks';
@@ -61,9 +66,21 @@ import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
 import { BaseNodeShareIndicator, useSharedNodeIds } from './BaseNodeShareIndicator';
-import { BaseNodeStarButton } from './BaseNodeStarButton';
+import { BaseNodeStarButton, getNodePinType } from './BaseNodeStarButton';
 
 const INDENTATION_WIDTH = 24;
+/**
+ * Compact (the space sidebar's project tree): a row's highlight spans the sidebar's width, as the
+ * project row above does, so the level's indent goes inside the label instead of before it. The
+ * label's extra 1.75rem is the 1.25rem inset the tree used to sit at plus its own 0.5rem, keeping
+ * names where they were; the drag line, placed from the tree's edge, moves back by the 1.25rem.
+ */
+const COMPACT_ITEM_CLS = 'ps-0';
+// 2rem to the icon, the label's 1px border included: under the space sidebar's group titles.
+const COMPACT_LABEL_CLS = 'ps-[calc(var(--tree-padding)+2rem-1px)] pe-2';
+const COMPACT_DRAG_LINE_CLS = 'ms-5';
+/** A row's trailing buttons: muted until hovered. */
+const ROW_ACTION_CLS = 'text-muted-foreground hover:text-foreground';
 const GROUP_ACTIVE_WIDTH_CLS =
   'group-hover:w-auto group-has-[[data-state=open]]:w-auto group-data-[context-menu]:w-auto';
 const GROUP_ACTIVE_OPACITY_CLS =
@@ -138,14 +155,18 @@ type TreeMode = 'view' | 'edit';
 interface IBaseNodeTreeProps {
   mode?: TreeMode;
   emptyText?: string;
+  /** What an empty tree shows instead of `emptyText`, for a host with its own empty state. */
+  empty?: React.ReactNode;
   skeleton?: React.ReactNode;
   onPrimaryAction?: (item: ItemInstance<TreeItemData>) => void;
+  /** The space shell sidebar's denser rows: 13px labels, smaller icons, and the host draws the create button. */
+  compact?: boolean;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
-  const { mode = 'edit', emptyText, onPrimaryAction } = props;
+  const { mode = 'edit', emptyText, empty, onPrimaryAction, compact } = props;
+  const iconSize = compact ? 'size-3.5' : 'size-4';
   const isEditMode = mode === 'edit';
-  const queryClient = useQueryClient();
   const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId() as string;
   const router = useRouter();
@@ -153,22 +174,39 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { highlightedTableId } = useGridSearchStore();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
   const permission = useBasePermission();
-  const { aiChat: aiChatEnabled } = useDisableAIAction();
-  const { disallowDashboard } = useSetting();
   const pinMap = usePinMap();
-  const isCommunity = useIsCommunity();
+  const { togglePin } = usePinActions();
+  const isAnonymous = useIsAnonymous();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
+  /** The space sidebar pins from a node's menu; elsewhere the row's star does it. */
+  const pinAction = (resourceType: BaseNodeResourceType, resourceId: string) => {
+    const pinType = getNodePinType(resourceType);
+    if (!compact || !pinType || isAnonymous || isReadOnlyPreview) return undefined;
+    return {
+      pinned: Boolean(pinMap?.[resourceId]),
+      onToggle: () => togglePin(resourceId, pinType),
+    };
+  };
   const shareUrlPrefix = useShareUrlPrefix();
-  const canCreateTable = Boolean(permission?.['table|create']);
-  const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
-  const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
-  const canCreateApp = !isCommunity && Boolean(aiChatEnabled && permission?.['app|create']);
-  const canCreateFolder = Boolean(permission?.['base|update']);
+  const {
+    canCreateTable,
+    canCreateDashboard,
+    canCreateWorkflow,
+    canCreateRoutine,
+    canCreateApp,
+    canCreateFolder,
+  } = useBaseNodeCreatePermissions();
   const canUpdateTable = Boolean(permission?.['table|update']);
 
   const canCreateResource =
     isEditMode &&
     Boolean(
-      canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
+      canCreateTable ||
+      canCreateDashboard ||
+      canCreateWorkflow ||
+      canCreateRoutine ||
+      canCreateApp ||
+      canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
   const { sharedNodeIds } = useSharedNodeIds();
@@ -253,6 +291,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         const viewId = tableViewIdsMap[resourceId];
         const url = tableHrefMap[resourceId];
         if (url) {
+          collapseChatPanelIfExpanded();
           router.push({ pathname: url }, undefined, {
             shallow: !isSharePage && Boolean(viewId),
           });
@@ -267,6 +306,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         urlPrefix: shareUrlPrefix,
       });
       if (!url) return;
+      // A folder never reaches here (getNodeUrl returns null for it), so this
+      // only fires for node clicks that actually navigate to content
+      collapseChatPanelIfExpanded();
       // Table URLs built here have no view id (hrefMap not ready yet); only a
       // non-shallow navigation runs getServerSideProps, which redirects to the
       // last-visited/default view. A shallow push would strand the page on a
@@ -279,6 +321,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
+    if (!canMoveNode) return Promise.resolve();
+    draggedItemsRef.current = items;
+    // Effects that run between the drop's remove and insert steps can clear draggedItemsRef
+    const draggedNodeId = items[0].getId();
     const handler = createOnDropHandler<TreeItemData>((parentItem, newChildrenIds) => {
       setTreeItems((prevItems) => ({
         ...prevItems,
@@ -288,33 +334,26 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         },
       }));
 
-      if (draggedItemsRef.current.length > 0) {
-        const draggedItem = draggedItemsRef.current[0];
-        const draggedNodeId = draggedItem.getId();
-        const newIndex = newChildrenIds.indexOf(draggedNodeId);
+      const newIndex = newChildrenIds.indexOf(draggedNodeId);
+      if (newIndex === -1) return;
 
-        if (newIndex !== -1) {
-          const parentId = parentItem.getId() === ROOT_ID ? null : parentItem.getId();
-          let anchorId: string | undefined;
-          let position: 'before' | 'after' | undefined;
+      const parentId = parentItem.getId() === ROOT_ID ? null : parentItem.getId();
+      let anchorId: string | undefined;
+      let position: 'before' | 'after' | undefined;
 
-          if (newIndex > 0 && newChildrenIds[newIndex - 1]) {
-            anchorId = newChildrenIds[newIndex - 1];
-            position = 'after';
-          } else if (newChildrenIds[newIndex + 1]) {
-            anchorId = newChildrenIds[newIndex + 1];
-            position = 'before';
-          }
-          curdHooks.moveNode(draggedNodeId, {
-            parentId: anchorId ? undefined : parentId,
-            anchorId,
-            position,
-          });
-        }
+      if (newIndex > 0 && newChildrenIds[newIndex - 1]) {
+        anchorId = newChildrenIds[newIndex - 1];
+        position = 'after';
+      } else if (newChildrenIds[newIndex + 1]) {
+        anchorId = newChildrenIds[newIndex + 1];
+        position = 'before';
       }
+      curdHooks.moveNode(draggedNodeId, {
+        parentId: anchorId ? undefined : parentId,
+        anchorId,
+        position,
+      });
     });
-    if (!canMoveNode) return Promise.resolve();
-    draggedItemsRef.current = items;
     return handler(items, target);
   };
 
@@ -402,26 +441,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     [baseId, router, setExpandedItems, setSelectedItems, shareUrlPrefix]
   );
 
-  const updateSuccefulyCallback = useCallback(
-    (node: IBaseNodeVo) => {
-      const { resourceType, resourceId } = node;
-      switch (resourceType) {
-        case BaseNodeResourceType.Dashboard:
-          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(resourceId) });
-          break;
-        case BaseNodeResourceType.Workflow:
-          queryClient.invalidateQueries({
-            queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
-          });
-          break;
-        case BaseNodeResourceType.App:
-          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
-          break;
-      }
-    },
-    [baseId, queryClient]
-  );
-
   const getAllParentIds = useCallback((nodeId: string) => {
     const parentIds: string[] = [];
     let parentId = treeItemsRef.current[nodeId]?.parentId;
@@ -434,7 +453,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   const curdHooks = useBaseNodeCrud({
     onCreateSuccess: createSuccefulyCallback,
-    onUpdateSuccess: updateSuccefulyCallback,
   });
 
   useEffect(() => {
@@ -449,6 +467,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -579,19 +599,23 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const isFolder = item.isFolder();
     if (isFolder) {
       return (
-        <ChevronDownIcon className="size-4 text-muted-foreground group-aria-[expanded=false]:-rotate-90" />
+        <ChevronDownIcon
+          className={cn(iconSize, 'text-muted-foreground group-aria-[expanded=false]:-rotate-90')}
+        />
       );
     }
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
       <div
-        className="flex size-4 shrink-0 cursor-pointer items-center justify-center"
+        className={cn('flex shrink-0 cursor-pointer items-center justify-center', iconSize)}
         onClick={(e) => e.stopPropagation()}
       >
         {resourceType === BaseNodeResourceType.Table && (
           <EmojiPicker
             className="flex size-full items-center justify-center hover:bg-muted-foreground/60"
+            icon={icon}
             onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
+            onRemove={() => curdHooks.updateNode(nodeId, { icon: null })}
             disabled={!canUpdateTable}
           >
             {icon ? <Emoji emoji={icon} size="1rem" /> : <IconComponent className="size-full" />}
@@ -609,10 +633,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const isWorkflowActive =
       resourceType === BaseNodeResourceType.Workflow &&
       (resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive;
+    const isRoutineActive =
+      resourceType === BaseNodeResourceType.Routine &&
+      (resourceMeta as IBaseNodeRoutineResourceMeta)?.status === 'active';
     const isAppPublished =
       resourceType === BaseNodeResourceType.App &&
       (resourceMeta as IBaseNodeAppResourceMeta)?.publicUrl;
-    if (isWorkflowActive || isAppPublished) {
+    if (isWorkflowActive || isRoutineActive || isAppPublished) {
       return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
     }
     return null;
@@ -636,6 +663,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           )}
         </>
       );
+    } else if (empty) {
+      return empty;
     } else if (emptyText) {
       return (
         <div className="flex min-h-16 w-full flex-col items-center justify-center gap-2 px-2 ">
@@ -649,7 +678,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     return (
       <ScrollArea
         viewportRef={viewportRef}
-        className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+        className={cn(
+          'flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0',
+          compact && 'px-0'
+        )}
         scrollBar="none"
       >
         <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
@@ -662,17 +694,27 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             const name = getNodeName(node);
             const isPinned = pinMap?.[resourceId];
             return (
-              <TreeItem asChild key={nodeId} item={item}>
+              <TreeItem
+                asChild
+                key={nodeId}
+                item={item}
+                className={cn(compact && COMPACT_ITEM_CLS)}
+              >
                 <div
                   className="h-8 w-full cursor-pointer"
                   onClickCapture={(e) => handleModifierClick(e, item)}
                 >
-                  <TreeItemLabel className={cn('size-full min-w-0 py-0')}>
+                  <TreeItemLabel
+                    className={cn(
+                      'size-full min-w-0 py-0',
+                      compact && ['text-[13px]', COMPACT_LABEL_CLS]
+                    )}
+                  >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
                       <div className="flex min-w-0 grow items-center" title={name}>
-                        <span className="truncate text-left">{name}</span>
-                        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                        <span className="truncate text-start">{name}</span>
+                        <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
                           <ItemStatus item={item} />
                           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                           <div
@@ -696,7 +738,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               </TreeItem>
             );
           })}
-          <TreeDragLine />
+          <TreeDragLine className={cn(compact && COMPACT_DRAG_LINE_CLS)} />
         </Tree>
         <ScrollBar className="z-30" />
       </ScrollArea>
@@ -711,6 +753,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           'flex w-full px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0',
           {
             '!border-none': canCreateResource,
+            'px-0': compact,
           }
         )}
         scrollBar="none"
@@ -733,7 +776,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               resourceType === BaseNodeResourceType.Table &&
               Boolean(tableMeta?.loginApps?.length || tableMeta?.loginAppId);
             return (
-              <TreeItem asChild key={nodeId} item={item}>
+              <TreeItem
+                asChild
+                key={nodeId}
+                item={item}
+                className={cn(compact && COMPACT_ITEM_CLS)}
+              >
                 <div
                   className="h-8 w-full cursor-pointer"
                   data-table-id={
@@ -756,7 +804,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   }}
                 >
                   <TreeItemLabel
-                    className={cn('size-full min-w-0 py-0', {
+                    className={cn('size-full min-w-0 py-0', compact && COMPACT_LABEL_CLS, {
                       'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
                       'group-has-[[data-state=open]]:bg-accent': !isHighlighted,
                       'bg-accent': isContextMenuTarget && !isHighlighted,
@@ -792,14 +840,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                           <ItemIcon item={item} />
                           <div className="flex min-w-0 grow items-center" title={name}>
                             <span
-                              className="truncate text-left"
+                              className="truncate text-start"
                               onDoubleClick={() => {
                                 setEditingNodeId(nodeId);
                               }}
                             >
                               {name}
                             </span>
-                            <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                            <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
                               <ItemStatus item={item} />
                             </div>
                           </div>
@@ -811,15 +859,23 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               }}
                               className="flex shrink-0 items-center"
                             >
-                              <BaseNodeStarButton
-                                resourceType={resourceType}
-                                resourceId={resourceId}
-                                className={cn(
-                                  isPinned ? 'w-auto' : 'w-0',
-                                  !isPinned && GROUP_ACTIVE_WIDTH_CLS,
-                                  GROUP_ACTIVE_OPACITY_CLS
-                                )}
-                              />
+                              {/* The space sidebar pins from the node's menu instead, as its chats do. */}
+                              {!compact && (
+                                <BaseNodeStarButton
+                                  resourceType={resourceType}
+                                  resourceId={resourceId}
+                                  // 16px, with the ghost buttons' hover beside it; muted until
+                                  // hovered, or yellow and deepening when hovered once pinned.
+                                  className={cn(
+                                    'h-4 rounded-md hover:bg-accent',
+                                    isPinned
+                                      ? 'w-auto hover:fill-yellow-500 hover:text-yellow-500'
+                                      : 'w-0',
+                                    !isPinned && [GROUP_ACTIVE_WIDTH_CLS, 'hover:text-foreground'],
+                                    GROUP_ACTIVE_OPACITY_CLS
+                                  )}
+                                />
+                              )}
                               <div
                                 className={cn(
                                   'flex shrink-0 items-center overflow-hidden gap-1',
@@ -837,12 +893,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                     canCreateTable={canCreateTable}
                                     canCreateDashboard={canCreateDashboard}
                                     canCreateWorkflow={canCreateWorkflow}
+                                    canCreateRoutine={canCreateRoutine}
                                     canCreateApp={canCreateApp}
                                   >
                                     <Button
                                       variant="ghost"
                                       size="icon-xs"
-                                      className="size-4 shrink-0 p-0 group-data-[folder=false]:hidden"
+                                      className={cn(
+                                        'size-4 shrink-0 p-0 group-data-[folder=false]:hidden',
+                                        ROW_ACTION_CLS
+                                      )}
                                     >
                                       <AddBoldIcon className="size-full" />
                                     </Button>
@@ -851,14 +911,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                 <BaseNodeMore
                                   resourceType={resourceType}
                                   resourceId={resourceId}
+                                  pin={pinAction(resourceType, resourceId)}
                                   onRename={() => setEditingNodeId(nodeId)}
                                   onCreateSuccess={createSuccefulyCallback}
-                                  onUpdateSuccess={updateSuccefulyCallback}
                                 >
                                   <Button
                                     variant="ghost"
                                     size="icon-xs"
-                                    className="size-4 shrink-0 p-0"
+                                    className={cn('size-4 shrink-0 p-0', ROW_ACTION_CLS)}
                                   >
                                     <MoreHorizontal className="size-full" />
                                   </Button>
@@ -873,7 +933,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                         GROUP_ACTIVE_HIDDEN_CLS
                                       )}
                                     >
-                                      <ShieldCheck className="size-3.5" />
+                                      <ShieldCheck className="size-4" />
                                     </span>
                                   )}
                                   {showShareIndicator && (
@@ -881,7 +941,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                       nodeId={nodeId}
                                       sharedNodeIds={sharedNodeIds}
                                       node={node}
-                                      className={cn('ml-1', GROUP_ACTIVE_HIDDEN_CLS)}
+                                      className={cn('ms-1', GROUP_ACTIVE_HIDDEN_CLS)}
+                                    />
+                                  )}
+                                  {compact && isPinned && (
+                                    <Pin
+                                      className={cn(
+                                        'ms-1 size-3.5 shrink-0 text-muted-foreground',
+                                        GROUP_ACTIVE_HIDDEN_CLS
+                                      )}
                                     />
                                   )}
                                 </>
@@ -896,7 +964,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               </TreeItem>
             );
           })}
-          <TreeDragLine />
+          <TreeDragLine className={cn(compact && COMPACT_DRAG_LINE_CLS)} />
         </Tree>
         {contextMenu &&
           typeof document !== 'undefined' &&
@@ -915,6 +983,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                 key={`${contextMenu.nodeId}-${contextMenu.x}-${contextMenu.y}`}
                 resourceType={contextMenu.resourceType}
                 resourceId={contextMenu.resourceId}
+                pin={pinAction(contextMenu.resourceType, contextMenu.resourceId)}
                 open={contextMenuOpen}
                 setOpen={setContextMenuOpen}
                 contentAlign="start"
@@ -924,7 +993,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   setContextMenuOpen(false);
                 }}
                 onCreateSuccess={createSuccefulyCallback}
-                onUpdateSuccess={updateSuccefulyCallback}
               >
                 <span className="absolute size-0 overflow-hidden" />
               </BaseNodeMore>
@@ -938,7 +1006,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   return (
     <>
-      {canCreateResource && (
+      {canCreateResource && !compact && (
         <div className="flex w-full flex-col px-4 pb-2 pt-4">
           <TooltipProvider>
             <Tooltip>
@@ -951,6 +1019,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                     canCreateTable={canCreateTable}
                     canCreateDashboard={canCreateDashboard}
                     canCreateWorkflow={canCreateWorkflow}
+                    canCreateRoutine={canCreateRoutine}
                     canCreateApp={canCreateApp}
                   >
                     <Button
@@ -960,7 +1029,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       disabled={!canCreateResource}
                     >
                       <AddBoldIcon className="size-4" />
-                      <span className="truncate text-left">{t('common:base.createResource')}</span>
+                      <span className="truncate text-start">{t('common:base.createResource')}</span>
                     </Button>
                   </BaseNodeAddResourceButton>
                 </span>

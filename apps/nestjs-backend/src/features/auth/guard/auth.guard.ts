@@ -63,7 +63,7 @@ export class AuthGuard extends PassportAuthGuard([
         // The redirect completes the response; returning false stops the
         // pipeline. Nest still raises ForbiddenException for a false guard,
         // which the global exception filter drops once headers are sent.
-        res.redirect(`/auth/login?redirect=${encodeURIComponent(req.url)}`);
+        res.redirect(`/auth/signup?redirect=${encodeURIComponent(req.url)}`);
         return false;
       }
       throw error;

@@ -1,21 +1,22 @@
 import type { Action } from '@teable/core';
 import { ActionPrefix } from '@teable/core';
-import { Database, Hash, Sheet, Table2, User } from '@teable/icons';
+import { LayoutGrid, Hash, Sheet, Table2, User } from '@teable/icons';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Badge, cn } from '@teable/ui-lib/shadcn';
-import { AppWindowMac, Bot, List } from 'lucide-react';
+import { AppWindowMac, Bot, CalendarClock, List } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const IconMap: Partial<Record<ActionPrefix, React.JSXElementConstructor<any>>> = {
   [ActionPrefix.App]: AppWindowMac,
-  [ActionPrefix.Base]: Database,
+  [ActionPrefix.Base]: LayoutGrid,
   [ActionPrefix.Table]: Table2,
   [ActionPrefix.Field]: Hash,
   [ActionPrefix.Record]: List,
   [ActionPrefix.View]: Sheet,
   [ActionPrefix.Automation]: Bot,
+  [ActionPrefix.Routine]: CalendarClock,
   [ActionPrefix.User]: User,
 };
 

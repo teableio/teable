@@ -24,7 +24,7 @@ export const Process = (props: IFileItemProps) => {
         <div>{name}</div>
         <div>{filesize(size)}</div>
         <X
-          className="absolute -right-2 -top-2 hidden size-4 cursor-pointer rounded-full bg-secondary p-0.5 group-hover:block hover:opacity-70"
+          className="absolute -end-2 -top-2 hidden size-4 cursor-pointer rounded-full bg-secondary p-0.5 group-hover:block hover:opacity-70"
           onClick={() => onClose()}
         />
       </div>

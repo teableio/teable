@@ -32,7 +32,7 @@ import type { Result } from 'neverthrow';
  * PostgreSQL uses '' to escape a single quote within a string.
  */
 function escapeSqlQuotes(value: string): string {
-  return value.replace(/'/g, "''");
+  return value.replaceAll("'", "''");
 }
 
 /**
@@ -166,7 +166,7 @@ export class FieldSqlLiteralVisitor implements IFieldVisitor<string> {
   }
 
   visitButtonField(_field: ButtonField): Result<string, DomainError> {
-    return ok('NULL');
+    return ok(this.jsonbLiteral(this.value));
   }
 
   visitConditionalRollupField(_field: ConditionalRollupField): Result<string, DomainError> {

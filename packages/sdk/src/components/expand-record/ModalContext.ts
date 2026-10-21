@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 
 interface IModalContext {
-  ref: React.RefObject<HTMLDivElement>;
+  ref: React.RefObject<HTMLDivElement | null>;
 }
 
 export const ModalContext = createContext<IModalContext>({ ref: { current: null } });

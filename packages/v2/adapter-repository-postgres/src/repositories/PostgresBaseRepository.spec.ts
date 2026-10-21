@@ -116,6 +116,37 @@ describe('PostgresBaseRepository', () => {
     });
   });
 
+  it('deletes a base and wraps delete failures as infrastructure errors', async () => {
+    const baseId = BaseId.create(`bse${'j'.repeat(16)}`)._unsafeUnwrap();
+    const db = createTestDb();
+    const repo = new PostgresBaseRepository(db);
+
+    expect(
+      (
+        await repo.delete({ actorId: ActorId.create('system')._unsafeUnwrap() } as never, baseId)
+      ).isOk()
+    ).toBe(true);
+
+    const failedDb = {
+      deleteFrom: () => ({
+        where: () => ({
+          execute: () => {
+            throw new Error('delete failed');
+          },
+        }),
+      }),
+    } as unknown as Kysely<V1TeableDatabase>;
+    const failedResult = await new PostgresBaseRepository(failedDb).delete(
+      { actorId: ActorId.create('system')._unsafeUnwrap() } as never,
+      baseId
+    );
+
+    expect(failedResult._unsafeUnwrapErr()).toMatchObject({
+      code: 'infrastructure',
+      message: 'Failed to delete base: Error: delete failed',
+    });
+  });
+
   it('findOne returns null, a mapped base, or an unexpected error', async () => {
     const nullDb = {
       selectFrom: vi.fn(() => ({

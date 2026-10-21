@@ -13,7 +13,10 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/zod.js",
+    "./src/zod.ts"
+  ],
   "exports": {
     ".": {
       "@teable/source": "./src/index.ts",
@@ -27,9 +30,9 @@
   ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache",
     "dev": "tsc --watch",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",
+    "lint": "oxlint && oxfmt --check",
     "test": "run test-unit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
@@ -38,9 +41,9 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.1.0",
     "@teable/core": "workspace:^",
-    "@types/node": "22.18.0",
-    "axios": "1.7.7",
-    "form-data": "4.0.0",
+    "@types/node": "24.13.2",
+    "axios": "1.20.0",
+    "form-data": "4.0.6",
     "httpsnippet-lite": "3.0.5",
     "openapi-sampler": "1.4.0",
     "openapi3-ts": "4.2.2",
@@ -48,10 +51,11 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@vitest/coverage-v8": "4.0.17",
-    "eslint": "8.57.0",
+    "@vitest/coverage-v8": "4.1.12",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

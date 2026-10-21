@@ -5,12 +5,14 @@ const {
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeGetTableByIdEndpoint,
   executeListTableRecordsEndpoint,
   executeRestoreTableEndpoint,
 } = vi.hoisted(() => ({
   executeCreateTableEndpoint: vi.fn(),
   executeDeleteTableEndpoint: vi.fn(),
   executeDuplicateTableEndpoint: vi.fn(),
+  executeGetTableByIdEndpoint: vi.fn(),
   executeListTableRecordsEndpoint: vi.fn(),
   executeRestoreTableEndpoint: vi.fn(),
 }));
@@ -19,16 +21,9 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeGetTableByIdEndpoint,
   executeListTableRecordsEndpoint,
   executeRestoreTableEndpoint,
-}));
-
-vi.mock('../table.service', () => ({
-  TableService: class TableService {},
-}));
-
-vi.mock('../../field/open-api/field-open-api.service', () => ({
-  FieldOpenApiService: class FieldOpenApiService {},
 }));
 
 vi.mock('../../record/record.service', () => ({
@@ -43,10 +38,6 @@ vi.mock('../../v2/v2-execution-context.factory', () => ({
   V2ExecutionContextFactory: class V2ExecutionContextFactory {},
 }));
 
-vi.mock('../../view/view.service', () => ({
-  ViewService: class ViewService {},
-}));
-
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
 
 const duplicatedTableId = 'tblDuplicated';
@@ -59,9 +50,6 @@ describe('TableOpenApiV2Service.createTable', () => {
   });
 
   const createService = (overrides?: {
-    tableService?: Record<string, unknown>;
-    fieldOpenApiService?: Record<string, unknown>;
-    viewService?: Record<string, unknown>;
     prismaService?: Record<string, unknown>;
     dbProvider?: Record<string, unknown>;
   }) =>
@@ -77,9 +65,6 @@ describe('TableOpenApiV2Service.createTable', () => {
       {
         createContext: vi.fn().mockResolvedValue({}),
       } as never,
-      (overrides?.tableService ?? {}) as never,
-      (overrides?.fieldOpenApiService ?? {}) as never,
-      (overrides?.viewService ?? {}) as never,
       (overrides?.prismaService ?? {}) as never,
       {
         generateDbTableName: vi
@@ -111,21 +96,26 @@ describe('TableOpenApiV2Service.createTable', () => {
         },
       },
     });
-
-    const fieldOpenApiService = {
-      getFields: vi.fn().mockResolvedValue([
-        {
-          id: 'fldPrimary',
-          name: 'Name',
-          type: FieldType.SingleLineText,
-          isPrimary: true,
+    executeGetTableByIdEndpoint.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          table: {
+            fields: [
+              {
+                id: 'fldPrimary',
+                name: 'Name',
+                type: FieldType.SingleLineText,
+                isPrimary: true,
+              },
+            ],
+          },
         },
-      ]),
-    };
-
-    const service = createService({
-      fieldOpenApiService,
+      },
     });
+
+    const service = createService();
 
     await expect(
       service.createTable('bseTest', {
@@ -146,9 +136,11 @@ describe('TableOpenApiV2Service.createTable', () => {
       })
     ).rejects.toBeTruthy();
 
-    expect(fieldOpenApiService.getFields).toHaveBeenCalledWith('tblForeign', {
-      filterHidden: false,
-    });
+    expect(executeGetTableByIdEndpoint).toHaveBeenCalledWith(
+      expect.anything(),
+      { baseId: 'bseTest', tableId: 'tblForeign' },
+      expect.anything()
+    );
     expect(executeCreateTableEndpoint).toHaveBeenCalledTimes(1);
     expect(executeCreateTableEndpoint.mock.calls[0]?.[1]).toMatchObject({
       baseId: 'bseTest',
@@ -176,6 +168,7 @@ describe('TableOpenApiV2Service.createTable', () => {
         data: {
           table: {
             id: 'tblTest',
+            views: [{ id: 'viwDefault' }],
           },
         },
       },
@@ -209,37 +202,7 @@ describe('TableOpenApiV2Service.createTable', () => {
           },
         },
       });
-    const tableService = {
-      getTableMeta: vi.fn().mockResolvedValue({
-        id: 'tblTest',
-        name: 'Orders',
-        dbTableName: 'bseTest.orders',
-        defaultViewId: 'viwDefault',
-      }),
-    };
-    const fieldOpenApiService = {
-      getFields: vi.fn().mockResolvedValue([
-        {
-          id: 'fldName',
-          name: 'Name',
-          type: FieldType.SingleLineText,
-        },
-      ]),
-    };
-    const viewService = {
-      getViews: vi.fn().mockResolvedValue([
-        {
-          id: 'viwDefault',
-          name: 'Grid',
-          type: 'grid',
-        },
-      ]),
-    };
-    const service = createService({
-      tableService,
-      fieldOpenApiService,
-      viewService,
-    });
+    const service = createService();
 
     const result = await service.createTable('bseTest', {
       name: 'Orders',
@@ -288,11 +251,9 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
   });
 
   const createService = (overrides?: {
-    tableService?: Record<string, unknown>;
-    fieldOpenApiService?: Record<string, unknown>;
-    viewService?: Record<string, unknown>;
     prismaService?: Record<string, unknown>;
     dbProvider?: Record<string, unknown>;
+    tableDuplicateLegacyService?: Record<string, unknown>;
   }) =>
     new TableOpenApiV2Service(
       {
@@ -306,9 +267,6 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       {
         createContext: vi.fn().mockResolvedValue({}),
       } as never,
-      (overrides?.tableService ?? {}) as never,
-      (overrides?.fieldOpenApiService ?? {}) as never,
-      (overrides?.viewService ?? {}) as never,
       (overrides?.prismaService ?? {}) as never,
       {
         generateDbTableName: vi
@@ -318,6 +276,8 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       } as never,
       {
         previewCrossSpaceAffectedFields: vi.fn().mockResolvedValue([]),
+        duplicateTable: vi.fn(),
+        ...overrides?.tableDuplicateLegacyService,
       } as never,
       {
         current: vi.fn().mockReturnValue(undefined),
@@ -338,6 +298,23 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         data: {
           table: {
             id: duplicatedTableId,
+            name: duplicatedTableName,
+            views: [
+              {
+                id: duplicatedViewId,
+                name: 'Grid',
+                type: 'grid',
+              },
+            ],
+            fields: [
+              {
+                id: 'fldDuplicated',
+                name: 'Name',
+                type: FieldType.SingleLineText,
+                isPrimary: true,
+                dbFieldName: 'name_copy',
+              },
+            ],
           },
           fieldIdMap: {
             fldSource: 'fldDuplicated',
@@ -349,69 +326,27 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         },
       },
     });
-
-    const tableService = {
-      getTableMeta: vi.fn().mockResolvedValue({
-        id: duplicatedTableId,
-        name: duplicatedTableName,
-        dbTableName: 'bseTest.orders_copy',
-        defaultViewId: duplicatedViewId,
-      }),
-    };
-    const fieldOpenApiService = {
-      getFields: vi
-        .fn()
-        .mockResolvedValueOnce([
-          {
-            id: 'fldSource',
-            name: 'Name',
-            type: FieldType.SingleLineText,
-            isPrimary: true,
-            dbFieldName: 'name',
+    executeGetTableByIdEndpoint.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          table: {
+            fields: [
+              {
+                id: 'fldSource',
+                name: 'Name',
+                type: FieldType.SingleLineText,
+                isPrimary: true,
+                dbFieldName: 'name',
+              },
+            ],
           },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id: 'fldDuplicated',
-            name: 'Name',
-            type: FieldType.SingleLineText,
-            isPrimary: true,
-            dbFieldName: 'name_copy',
-          },
-        ]),
-    };
-    const viewService = {
-      getViews: vi.fn().mockResolvedValue([
-        {
-          id: duplicatedViewId,
-          name: 'Grid',
-          type: 'grid',
         },
-      ]),
-    };
-    const prismaService = {
-      view: {
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'viwSource',
-            filter:
-              '{"conjunction":"and","filterSet":[{"fieldId":"fldSource","operator":"is","value":"x"}]}',
-            sort: null,
-            group: null,
-            options: null,
-            columnMeta: '{"fldSource":{"order":0}}',
-            enableShare: true,
-          },
-        ]),
-        update: vi.fn().mockResolvedValue(undefined),
       },
-    };
-    const service = createService({
-      tableService,
-      fieldOpenApiService,
-      viewService,
-      prismaService,
     });
+
+    const service = createService();
 
     const result = await service.duplicateTable('bseTest', 'tblSource', {
       name: duplicatedTableName,
@@ -428,43 +363,11 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       },
       {}
     );
-    expect(prismaService.view.findMany).toHaveBeenCalledWith({
-      where: {
-        tableId: 'tblSource',
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-        filter: true,
-        sort: true,
-        group: true,
-        options: true,
-        columnMeta: true,
-        enableShare: true,
-      },
-    });
-    expect(prismaService.view.update).toHaveBeenCalledWith({
-      where: {
-        id: duplicatedViewId,
-      },
-      data: {
-        filter:
-          '{"conjunction":"and","filterSet":[{"fieldId":"fldDuplicated","operator":"is","value":"x"}]}',
-        sort: null,
-        group: null,
-        options: null,
-        columnMeta: '{"fldDuplicated":{"order":0}}',
-        enableShare: true,
-      },
-    });
-    expect(tableService.getTableMeta).toHaveBeenCalledWith('bseTest', duplicatedTableId);
-    expect(fieldOpenApiService.getFields).toHaveBeenNthCalledWith(1, 'tblSource', {
-      filterHidden: false,
-    });
-    expect(fieldOpenApiService.getFields).toHaveBeenNthCalledWith(2, duplicatedTableId, {
-      filterHidden: false,
-    });
-    expect(viewService.getViews).toHaveBeenCalledWith(duplicatedTableId);
+    expect(executeGetTableByIdEndpoint).toHaveBeenCalledWith(
+      expect.anything(),
+      { baseId: 'bseTest', tableId: 'tblSource' },
+      expect.anything()
+    );
     expect(result).toMatchObject({
       id: duplicatedTableId,
       name: duplicatedTableName,
@@ -490,5 +393,27 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         },
       ],
     });
+  });
+
+  it('rejects cross-space duplicate instead of calling v1 duplicateTable', async () => {
+    const tableDuplicateLegacyService = {
+      previewCrossSpaceAffectedFields: vi
+        .fn()
+        .mockResolvedValue([{ fieldId: 'fldLink', fieldName: 'Orders', type: 'link' }]),
+      duplicateTable: vi.fn(),
+    };
+    const service = createService({ tableDuplicateLegacyService });
+
+    await expect(
+      service.duplicateTable('bseTest', 'tblSource', {
+        name: duplicatedTableName,
+        includeRecords: true,
+      })
+    ).rejects.toMatchObject({
+      message: 'v2 will not silently downgrade cross-space fields when duplicating a table',
+      status: 400,
+    });
+    expect(tableDuplicateLegacyService.duplicateTable).not.toHaveBeenCalled();
+    expect(executeDuplicateTableEndpoint).not.toHaveBeenCalled();
   });
 });

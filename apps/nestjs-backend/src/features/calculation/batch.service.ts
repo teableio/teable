@@ -13,8 +13,8 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { DATA_KNEX } from '../../global/knex/knex.module';
 import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -37,7 +37,7 @@ export interface IOpsData {
 
 @Injectable()
 export class BatchService {
-  private logger = new Logger(BatchService.name);
+  private readonly logger = new Logger(BatchService.name);
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
@@ -114,7 +114,7 @@ export class BatchService {
     );
     const versionGroup = keyBy(raw, '__id');
 
-    opsPair.map(([recordId]) => {
+    opsPair.forEach(([recordId]) => {
       if (!versionGroup[recordId]) {
         throw new CustomHttpException(
           `Record ${recordId} not found in ${tableId}`,
@@ -141,7 +141,7 @@ export class BatchService {
       return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
     });
 
-    await this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
+    this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
   }
 
   @Timing()

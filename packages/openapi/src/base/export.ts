@@ -5,6 +5,7 @@ import { BaseNodeResourceType } from '../base-node/types';
 import { pluginInstallStorageSchema } from '../dashboard';
 import { PluginPosition } from '../plugin';
 import { registerRoute, urlBuilder } from '../utils';
+import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 export const EXPORT_BASE = '/base/{baseId}/export';
 export const EXPORT_BASE_STREAM = '/base/{baseId}/export-stream';
@@ -189,7 +190,8 @@ export type IFieldWithTableIdJson = IFieldJson & {
 export const ExportBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: EXPORT_BASE,
-  description: 'export a base by baseId',
+  title: 'Export project',
+  description: 'Export a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -239,7 +241,9 @@ export type IExportBaseSSEEvent =
 export const ExportBaseStreamRoute: RouteConfig = registerRoute({
   method: 'get',
   path: EXPORT_BASE_STREAM,
-  description: 'export a base by baseId with SSE progress stream',
+  title: 'Export project with progress',
+  description:
+    'Export a project by its ID and receive progress updates and the final result through server-sent events.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -368,7 +372,7 @@ export const exportBaseStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Export base failed: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, 'Export base failed');
   }
 
   const reader = response.body?.getReader();
@@ -378,7 +382,7 @@ export const exportBaseStream = async (
 
   const result = await readSSEStream(reader, onProgress);
   if (!result) {
-    throw new Error('Export base stream ended without result');
+    throw new Error('Export project stream ended without result');
   }
 
   return { data: result };

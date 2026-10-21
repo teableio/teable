@@ -1,4 +1,4 @@
-import { ActionPrefix, type Action } from '@teable/core';
+import { ActionPrefix, allActions, type Action } from '@teable/core';
 import {
   createAccessTokenRoSchema,
   type CreateAccessTokenRo,
@@ -56,7 +56,12 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const [description, setDescription] = useState<string | undefined>(
     defaultData?.description || ''
   );
-  const [scopes, setScopes] = useState<string[]>(defaultData?.scopes || []);
+  // A saved token can still hold scopes of retired actions, which the update schema rejects.
+  const [scopes, setScopes] = useState<string[]>(
+    () =>
+      defaultData?.scopes?.filter((scope) => (allActions as readonly string[]).includes(scope)) ??
+      []
+  );
   const [hasFullAccess, setHasFullAccess] = useState<boolean | undefined>(
     defaultData?.hasFullAccess
   );
@@ -73,6 +78,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       ActionPrefix.TableRecordHistory,
       ActionPrefix.User,
       ActionPrefix.Automation,
+      ActionPrefix.Routine,
       ActionPrefix.App,
     ];
 
@@ -209,7 +215,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         </div>
       </div>
       <Separator />
-      <div className="space-x-3 text-right">
+      <div className="space-x-3 text-end rtl:space-x-reverse">
         {id && <RefreshToken accessTokenId={id} onRefresh={onRefresh} />}
         <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
           {t('common:actions.cancel')}

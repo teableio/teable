@@ -1,4 +1,5 @@
-import { v2CoreTokens } from '@teable/v2-core';
+import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
+import { v2CoreTokens, registerFieldOperationPlugin } from '@teable/v2-core';
 import type { TableDataSafetyLimitConfig } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -7,13 +8,23 @@ import {
   Pg16TypeValidationStrategy,
   PgLegacyTypeValidationStrategy,
   type IPgTypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
+  assertFormulaCompileBudgetOptions,
+  type FormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
+import { PostgresBaseDataBulkCopier } from '../duplicate';
+import {
+  PostgresTransactionalProjectionMessageJournal,
+  noopDomainEventWakeupPublisher,
+  type IDomainEventWakeupPublisher,
+} from '../projection';
 import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
+  ComputedUpdateRuntimeConfig,
   FieldBackfillConfig,
   HybridWithOutboxStrategyConfig,
   IComputedOutboxWakeupPublisher,
@@ -25,6 +36,7 @@ import {
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
+  defaultComputedUpdateRuntimeConfig,
   defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
   ComputedUpdatePauseRegistry,
@@ -37,6 +49,7 @@ import {
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   normalizeComputedUpdateOutboxConfig,
+  resolveComputedWorkerLane,
   noopComputedOutboxWakeupPublisher,
   ComputedUpdateWorker,
   UserRenamePropagationService,
@@ -50,8 +63,11 @@ import {
   PostgresTableRecordRepository,
   PostgresRecordOrderCalculator,
   PostgresAttachmentLookupService,
+  PostgresCollaboratorDirectoryService,
   PostgresUserLookupService,
 } from '../record/repository';
+import { FormulaAdmissionFieldOperationPlugin } from '../schema/admission/FormulaAdmissionFieldOperationPlugin';
+import { FormulaAdmissionService } from '../schema/admission/FormulaAdmissionService';
 import {
   v2PostgresDdlAdapterConfigSchema,
   type IV2PostgresDdlAdapterConfig,
@@ -74,6 +90,7 @@ export interface IV2TableRepositoryPostgresConfig {
    * `createTypeValidationStrategy(db)` after running DB migrations).
    */
   typeValidationStrategy?: IPgTypeValidationStrategy;
+  formulaCompileBudget?: FormulaCompileBudgetConfig;
   computedUpdate?: {
     /**
      * Strategy mode for computed field updates.
@@ -82,6 +99,7 @@ export interface IV2TableRepositoryPostgresConfig {
     mode?: 'sync' | 'hybrid' | 'async';
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
+    runtimeConfig?: Partial<ComputedUpdateRuntimeConfig>;
     lockConfig?: Partial<ComputedUpdateLockConfig>;
     wakeupPublisher?: IComputedOutboxWakeupPublisher;
     /**
@@ -91,6 +109,18 @@ export interface IV2TableRepositoryPostgresConfig {
     fieldBackfillConfig?: Partial<FieldBackfillConfig>;
   };
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  domainEventWakeupPublisher?: IDomainEventWakeupPublisher;
+  /**
+   * Statement budget for the record count/aggregate statements, in ms.
+   *
+   * A positive value runs those statements inside a dedicated transaction whose
+   * `statement_timeout` is set to the budget, so a pathological count fails fast
+   * instead of holding a pooled connection. 0/undefined (default) leaves them
+   * unbudgeted. Transaction-local, so it is safe behind a transaction pooler.
+   */
+  recordQuery?: {
+    statementBudgetMs?: number;
+  };
 }
 
 /**
@@ -126,6 +156,26 @@ export const registerV2TableRepositoryPostgresAdapter = (
   if (!parsed.success) {
     throw new Error('Invalid v2 postgres ddl adapter config');
   }
+  const formulaCompileBudget = config.formulaCompileBudget ?? defaultFormulaCompileBudgetConfig;
+  assertFormulaCompileBudgetOptions({ ...formulaCompileBudget, mode: 'enforce' });
+  if (formulaCompileBudget.policyVersion !== 1)
+    throw new Error('Unsupported formula safety policy version');
+  c.registerInstance(formulaSqlPgTokens.compileBudget, formulaCompileBudget);
+  const formulaAdmission = new FormulaAdmissionService(
+    config.typeValidationStrategy ?? new Pg16TypeValidationStrategy(),
+    formulaCompileBudget
+  );
+  c.registerInstance(v2CoreTokens.formulaAdmissionService, formulaAdmission);
+  registerFieldOperationPlugin(c, new FormulaAdmissionFieldOperationPlugin(formulaAdmission));
+  c.registerInstance(
+    v2CoreTokens.formulaSourceBudget,
+    Object.freeze({
+      ...defaultFormulaSourceBudgetLimits,
+      policyVersion: formulaCompileBudget.policyVersion,
+      check: (metric: 'astDepth' | 'visitedNodes' | 'referenceDepth', attempted: number) =>
+        formulaCompileBudget.policy.check(metric, attempted),
+    })
+  );
 
   if (config.tableDataSafetyLimits || !c.isRegistered(v2CoreTokens.tableDataSafetyLimits)) {
     c.registerInstance(v2CoreTokens.tableDataSafetyLimits, config.tableDataSafetyLimits ?? {});
@@ -141,6 +191,19 @@ export const registerV2TableRepositoryPostgresAdapter = (
   // Register record (DML) components
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
   c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, config.metaDb ?? config.db);
+  const statementBudgetMs = config.recordQuery?.statementBudgetMs;
+  c.registerInstance(v2RecordRepositoryPostgresTokens.recordQueryConfig, {
+    statementBudgetMs:
+      typeof statementBudgetMs === 'number' &&
+      Number.isFinite(statementBudgetMs) &&
+      statementBudgetMs > 0
+        ? Math.floor(statementBudgetMs)
+        : 0,
+  });
+
+  c.register(v2CoreTokens.baseDataBulkCopier, PostgresBaseDataBulkCopier, {
+    lifecycle: Lifecycle.Singleton,
+  });
 
   c.register(
     v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,
@@ -154,6 +217,9 @@ export const registerV2TableRepositoryPostgresAdapter = (
     { lifecycle: Lifecycle.Singleton }
   );
   c.register(v2CoreTokens.userLookupService, PostgresUserLookupService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.collaboratorDirectoryService, PostgresCollaboratorDirectoryService, {
     lifecycle: Lifecycle.Singleton,
   });
 
@@ -208,16 +274,22 @@ export const registerV2TableRepositoryPostgresAdapter = (
   };
   const outboxConfig: ComputedUpdateOutboxConfig = normalizeComputedUpdateOutboxConfig({
     ...defaultComputedUpdateOutboxConfig,
+    workerLane: resolveComputedWorkerLane(),
     ...config.computedUpdate?.outboxConfig,
   });
   const lockConfig: ComputedUpdateLockConfig = {
     ...defaultComputedUpdateLockConfig,
     ...config.computedUpdate?.lockConfig,
   };
+  const runtimeConfig: ComputedUpdateRuntimeConfig = {
+    ...defaultComputedUpdateRuntimeConfig,
+    ...config.computedUpdate?.runtimeConfig,
+  };
 
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig, runtimeConfig);
 
   const fieldBackfillConfig: FieldBackfillConfig = {
     ...defaultFieldBackfillConfig,
@@ -285,6 +357,18 @@ export const registerV2TableRepositoryPostgresAdapter = (
   // For PG < 16, callers should use createTypeValidationStrategy() before registration
   const typeValidationStrategy = config.typeValidationStrategy ?? new Pg16TypeValidationStrategy();
   c.registerInstance(formulaSqlPgTokens.typeValidationStrategy, typeValidationStrategy);
+
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.domainEventWakeupPublisher,
+    config.domainEventWakeupPublisher ?? noopDomainEventWakeupPublisher
+  );
+  if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
+    c.register(
+      v2CoreTokens.projectionMessageJournal,
+      PostgresTransactionalProjectionMessageJournal,
+      { lifecycle: Lifecycle.Singleton }
+    );
+  }
 
   return c;
 };

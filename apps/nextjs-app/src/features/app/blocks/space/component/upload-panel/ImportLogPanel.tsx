@@ -9,6 +9,8 @@ export interface ILogEntry {
   message: string;
   type: 'info' | 'warning' | 'error' | 'done';
   timestamp: number;
+  /** Optional inline call to action, e.g. open the upgrade modal on a plan limit. */
+  action?: { label: string; onClick: () => void };
 }
 
 export interface ITableImportProgress {
@@ -166,7 +168,18 @@ export const ImportLogPanel = ({ logs, tableProgresses, isImporting }: IImportLo
         {errorLogs.map((log, i) => (
           <div key={log.timestamp + i} className="mt-2 flex items-start gap-2">
             <AlertCircle className="mt-1 size-3.5 shrink-0 text-destructive" />
-            <span className="break-all text-destructive">{log.message}</span>
+            <span className="break-all text-destructive">
+              {log.message}
+              {log.action && (
+                <button
+                  type="button"
+                  onClick={log.action.onClick}
+                  className="ms-2 text-blue-500 underline-offset-2 hover:underline"
+                >
+                  {log.action.label}
+                </button>
+              )}
+            </span>
           </div>
         ))}
         <div ref={logEndRef} />

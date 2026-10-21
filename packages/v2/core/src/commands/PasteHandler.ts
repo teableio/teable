@@ -17,6 +17,7 @@ import {
   type RecordWritePluginExecution,
   RecordWritePluginRunner,
 } from '../application/services/RecordWritePluginRunner';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -28,13 +29,18 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import {
+  domainError,
+  type DomainError,
+  type IDomainErrorLocalization,
+} from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type {
   RecordFieldChangeDTO,
   RecordUpdateDTO,
@@ -50,10 +56,8 @@ import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
-import {
-  normalizeCellDisplayValue,
-  normalizeCellDisplayValues,
-} from '../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { normalizeCellDisplayValue } from '../domain/table/fields/visitors/normalizeCellDisplayValue';
+import { splitSelectTypecastValues } from '../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
@@ -67,10 +71,11 @@ import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { ViewId } from '../domain/table/views/ViewId';
 import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { RecordQueryOperationKind, type RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -81,7 +86,6 @@ import {
   createUndoRedoCommand,
   type UndoRedoCommandLeafData,
 } from '../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { RecordFilter } from '../queries/RecordFilterDto';
 import {
   buildRecordConditionSpec,
@@ -273,6 +277,7 @@ export interface PasteStreamErrorEvent {
   recordIds: string[];
   message: string;
   code?: string;
+  localization?: IDomainErrorLocalization;
 }
 
 export type PasteStreamEvent =
@@ -314,12 +319,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     protected readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     protected readonly recordWritePluginRunner: RecordWritePluginRunner,
-    @inject(v2CoreTokens.eventBus)
-    protected readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     protected readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    protected readonly domainWriteTransaction: IDomainWriteTransaction,
+    @inject(v2CoreTokens.recordQueryPluginRunner)
+    protected readonly recordQueryPluginRunner?: RecordQueryPluginRunner
   ) {}
 
   @TraceSpan()
@@ -327,7 +332,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     context: ExecutionContextPort.IExecutionContext,
     command: PasteCommand
   ): Promise<Result<PasteResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<PasteResult, DomainError>(async function* () {
       // 1. Get table
@@ -344,6 +349,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           projection: command.projection,
         }
       );
+      const queryScope = yield* await handler.resolvePasteReadScope(
+        context,
+        persistedTable,
+        command
+      );
+      if (queryScope?.readableFieldIds) {
+        orderedFieldIds = orderedFieldIds.filter((fieldId) =>
+          queryScope.readableFieldIds!.has(fieldId.toString())
+        );
+      }
       const totalCols = orderedFieldIds.length;
 
       const view = yield* persistedTable.getView(command.viewId);
@@ -354,10 +369,10 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         group: command.groupBy,
       });
       const effectiveFilter = command.ignoreViewQuery
-        ? command.filter ?? undefined
+        ? (command.filter ?? undefined)
         : mergedDefaults.filter();
       const effectiveSort = command.ignoreViewQuery
-        ? command.sort ?? undefined
+        ? (command.sort ?? undefined)
         : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
@@ -367,9 +382,18 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         effectiveFilter,
         context.actorId.toString()
       );
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(
+      const viewFilterSpec = yield* buildSanitizedRecordConditionSpec(
         persistedTable,
         actorResolvedFilter
+      );
+      const filterSpec = composeAndSpecsOrUndefined(
+        [
+          viewFilterSpec,
+          queryScope?.recordSpec && !queryScope.skipRecordSpec ? queryScope.recordSpec : undefined,
+        ].filter(
+          (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
+            spec != null
+        )
       );
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
@@ -384,7 +408,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             context,
             persistedTable,
             filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch }
+            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
           );
           totalRows = countResult.total;
         }
@@ -440,7 +464,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
-        ? command.groupBy ?? undefined
+        ? (command.groupBy ?? undefined)
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
@@ -549,53 +573,36 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         afterCommitHandlers: [],
       };
 
-      yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
-        return handler.executePasteStream(
-          txContext,
-          tableForPaste,
-          executableUpdateOperations,
-          executableCreateOperations,
-          pluginExecution,
-          command.typecast,
-          editableColumns,
-          scopedCreateColumns,
-          eventData,
-          batchMutation,
-          plannedColumnExpansion
-        );
-      });
-
-      // 13. Publish events AFTER transaction commits
-      const events: IDomainEvent[] = [...eventData.tableEvents];
-
-      if (eventData.updates.length > 0) {
-        events.push(
-          RecordsBatchUpdated.create({
-            tableId: persistedTable.id(),
-            baseId: persistedTable.baseId(),
-            updates: eventData.updates,
-            source: 'user',
-            orchestration: batchMutation,
-            auditSource: 'paste',
-          })
-        );
-      }
-
-      if (eventData.createdRecords.length > 0) {
-        events.push(
-          RecordsBatchCreated.create({
-            tableId: persistedTable.id(),
-            baseId: persistedTable.baseId(),
-            records: eventData.createdRecords,
-            orchestration: batchMutation,
-            auditSource: 'paste',
-          })
-        );
-      }
-
-      if (events.length > 0) {
-        yield* await handler.eventBus.publishMany(context, events);
-      }
+      const committed = yield* await handler.domainWriteTransaction.execute(
+        context,
+        async (txContext) => {
+          const persistResult = await handler.executePasteStream(
+            txContext,
+            tableForPaste,
+            executableUpdateOperations,
+            executableCreateOperations,
+            pluginExecution,
+            command.typecast,
+            editableColumns,
+            scopedCreateColumns,
+            eventData,
+            batchMutation,
+            plannedColumnExpansion
+          );
+          if (persistResult.isErr()) {
+            return err(persistResult.error);
+          }
+          const tableForWrite = persistResult.value;
+          return ok(
+            domainWrite.fromEvents(
+              eventData,
+              handler.buildPasteDomainEvents(tableForWrite, eventData, batchMutation),
+              { tables: [tableForWrite] }
+            )
+          );
+        }
+      );
+      const persistedEventData = committed.value;
 
       const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) =>
         createUndoRedoCommand('UpdateRecord', {
@@ -609,17 +616,17 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       const undoCommands: UndoRedoCommandLeafData[] = [];
       const redoCommands: UndoRedoCommandLeafData[] = [];
 
-      if (eventData.createdRecords.length > 0) {
+      if (persistedEventData.createdRecords.length > 0) {
         undoCommands.push(
           createUndoRedoCommand('DeleteRecords', {
             tableId: persistedTable.id().toString(),
-            recordIds: eventData.createdRecords.map((record) => record.recordId),
+            recordIds: persistedEventData.createdRecords.map((record) => record.recordId),
           })
         );
       }
 
-      if (eventData.updates.length > 0) {
-        for (const update of eventData.updates) {
+      if (persistedEventData.updates.length > 0) {
+        for (const update of persistedEventData.updates) {
           const fields: Record<string, unknown> = {};
           for (const change of update.changes) {
             fields[change.fieldId] = change.oldValue;
@@ -628,8 +635,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
       }
 
-      if (eventData.updates.length > 0) {
-        for (const update of eventData.updates) {
+      if (persistedEventData.updates.length > 0) {
+        for (const update of persistedEventData.updates) {
           const fields: Record<string, unknown> = {};
           for (const change of update.changes) {
             fields[change.fieldId] = change.newValue;
@@ -638,8 +645,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
       }
 
-      if (eventData.createdRecords.length > 0) {
-        const restoreRecords = eventData.createdRecords.map((record) => {
+      if (persistedEventData.createdRecords.length > 0) {
+        const restoreRecords = persistedEventData.createdRecords.map((record) => {
           const fields: Record<string, unknown> = {};
           for (const field of record.fields) {
             fields[field.fieldId] = field.value;
@@ -666,26 +673,54 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           {
             undoCommand: composeUndoRedoCommands([
               ...undoCommands,
-              ...eventData.schemaUndoCommands,
+              ...persistedEventData.schemaUndoCommands,
             ]),
             redoCommand: composeUndoRedoCommands([
-              ...eventData.schemaRedoCommands,
+              ...persistedEventData.schemaRedoCommands,
               ...redoCommands,
             ]),
           }
         );
       }
       await pluginExecution.afterCommit();
-      for (const afterCommitHandler of eventData.afterCommitHandlers) {
+      for (const afterCommitHandler of persistedEventData.afterCommitHandlers) {
         await afterCommitHandler();
       }
 
       return ok({
-        updatedCount: eventData.updatedCount,
-        createdCount: eventData.createdRecords.length,
-        createdRecordIds: eventData.createdRecords.map((r) => r.recordId),
+        updatedCount: persistedEventData.updatedCount,
+        createdCount: persistedEventData.createdRecords.length,
+        createdRecordIds: persistedEventData.createdRecords.map((r) => r.recordId),
       });
     });
+  }
+
+  private async resolvePasteReadScope(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    command: PasteCommand
+  ): Promise<Result<RecordQueryPluginScope | undefined, DomainError>> {
+    if (!this.recordQueryPluginRunner) {
+      return ok(undefined);
+    }
+    const prepared = await this.recordQueryPluginRunner.prepare({
+      kind: RecordQueryOperationKind.list,
+      executionContext: context,
+      table,
+      payload: {
+        viewId: command.viewId.toString(),
+        ignoreViewQuery: command.ignoreViewQuery,
+        projectionFieldIds: command.projection,
+      },
+    });
+    if (prepared.isErr()) {
+      return err(prepared.error);
+    }
+    const guardResult = await prepared.value.guard();
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+    return prepared.value.getScope();
   }
 
   protected async planColumnExpansion(
@@ -711,7 +746,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       this.sourceFieldToInput(headerFields[startIndex + index])
     );
 
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<PlannedColumnExpansion, DomainError>(async function* () {
       const existingNames = table.getFields().map((field) => field.name().toString());
       const resolvedInputs = yield* resolveTableFieldInputs(fieldInputs, existingNames, {
@@ -882,7 +917,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       return {
         type: 'user',
         options: {
-          ...(field.options ?? {}),
+          ...field.options,
           isMultiple: true,
         },
       };
@@ -1135,10 +1170,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       const changes: RecordFieldChangeDTO[] = [];
       for (const change of update.changes) {
-        const oldValue = Object.prototype.hasOwnProperty.call(
-          persistedRecord.oldFieldValues,
-          change.fieldId
-        )
+        const oldValue = Object.hasOwn(persistedRecord.oldFieldValues, change.fieldId)
           ? persistedRecord.oldFieldValues[change.fieldId]
           : change.oldValue;
         if (areRecordFieldValuesEqual(oldValue, change.newValue)) {
@@ -1176,8 +1208,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     eventData: CollectedEventData,
     orchestration: IBatchMutationOrchestration,
     plannedColumnExpansion?: PlannedColumnExpansion
-  ): Promise<Result<void, DomainError>> {
-    const handler = this;
+  ): Promise<Result<Table, DomainError>> {
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const tracer = context.tracer;
     const executeSpan = tracer?.startSpan('teable.PasteHandler.executePasteStream');
 
@@ -1316,10 +1348,42 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         eventData.schemaRedoCommands.push(...sideEffectUndoRedoPlan.value.redoCommands);
       }
 
-      return ok(undefined);
+      return ok(streamState.tableForMutations);
     } finally {
       executeSpan?.end();
     }
+  }
+
+  protected buildPasteDomainEvents(
+    table: Table,
+    eventData: CollectedEventData,
+    orchestration: IBatchMutationOrchestration
+  ): ReadonlyArray<IDomainEvent> {
+    const events: IDomainEvent[] = [...eventData.tableEvents];
+    if (eventData.updates.length > 0) {
+      events.push(
+        RecordsBatchUpdated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          updates: eventData.updates,
+          source: 'user',
+          orchestration,
+          auditSource: 'paste',
+        })
+      );
+    }
+    if (eventData.createdRecords.length > 0) {
+      events.push(
+        RecordsBatchCreated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          records: eventData.createdRecords,
+          orchestration,
+          auditSource: 'paste',
+        })
+      );
+    }
+    return events;
   }
 
   protected async *createResolvedUpdateBatchStream(
@@ -1439,6 +1503,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
         const resolvedBatchResult = await this.resolveUpdateBatch(
           context,
+          batchTable.id(),
           batchResult.value,
           typecast
         );
@@ -1578,6 +1643,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       const resolvedRecordsResult = await this.resolveCreatedRecords(
         context,
+        batchTable.id(),
         createResult.value.records,
         createResult.value.mutateSpecs,
         typecast
@@ -1606,6 +1672,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
   protected async resolveUpdateBatch(
     context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId,
     batch: ReadonlyArray<RecordUpdateResult>,
     typecast: boolean
   ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
@@ -1615,6 +1682,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       batch.map((updateResult) => updateResult.mutateSpec)
     );
     if (resolveManyResult.isErr()) {
@@ -1635,6 +1703,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
   protected async resolveCreatedRecords(
     context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId,
     records: ReadonlyArray<TableRecord>,
     mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
     typecast: boolean
@@ -1645,6 +1714,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       mutateSpecs
     );
     if (resolveManyResult.isErr()) {
@@ -1888,9 +1958,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     const validValues = new Set(
-      selectField
-        .selectOptions()
-        .flatMap((option) => [option.id().toString(), option.name().toString()])
+      selectField.selectOptions().map((option) => option.name().toString())
     );
 
     if (isSingleSelect) {
@@ -1898,7 +1966,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       return candidate != null && !validValues.has(candidate);
     }
 
-    const candidates = normalizeCellDisplayValues(rawValue);
+    const candidates = splitSelectTypecastValues(rawValue);
     return candidates.length > 0 && candidates.some((candidate) => !validValues.has(candidate));
   }
 
@@ -1978,7 +2046,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const title =
           typeof existingTitle === 'string'
             ? existingTitle
-            : linkTitleMap?.get(recordId) ?? undefined;
+            : (linkTitleMap?.get(recordId) ?? undefined);
         return title ? { ...(item as Record<string, unknown>), id: recordId, title } : item;
       }
 
@@ -2023,7 +2091,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     editableColumns: ReadonlyArray<EditableColumn>,
     operations: ReadonlyArray<PasteOperation>
   ): Promise<Result<LinkTitleMap, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const tracer = context.tracer;
     const span = tracer?.startSpan('teable.PasteHandler.buildLinkTitleMap.inner');
     try {
@@ -2430,31 +2498,6 @@ export class PasteStreamApplicationService extends PasteHandler {
           )
         );
 
-        const publishResult = await this.publishPasteChunkEvents(
-          context,
-          plan.persistedTable,
-          chunkPersistResult.value.eventData,
-          {
-            operationId,
-            totalRecordCount: plan.totalCount,
-            totalChunkCount: plan.totalChunkCount,
-            chunkIndex: batchIndex,
-          }
-        );
-        if (publishResult.isErr()) {
-          queue.push(
-            this.createErrorEvent(publishResult.error, {
-              phase: 'publishing',
-              batchIndex,
-              totalCount: plan.totalCount,
-              processedCount,
-              updatedCount,
-              createdCount,
-              recordIds: [],
-            })
-          );
-        }
-
         const undoRedoResult = await this.recordPasteChunkUndoRedoEntry(
           context,
           plan.persistedTable,
@@ -2527,21 +2570,18 @@ export class PasteStreamApplicationService extends PasteHandler {
     const persistedTable = persistedTableResult.value;
     let tableForPaste = persistedTable;
 
-    let orderedFieldIds = await persistedTable.getOrderedVisibleFieldIds(
-      command.viewId.toString(),
-      {
-        projection: command.projection,
-      }
-    );
+    let orderedFieldIds = persistedTable.getOrderedVisibleFieldIds(command.viewId.toString(), {
+      projection: command.projection,
+    });
     if (orderedFieldIds.isErr()) {
       return err(orderedFieldIds.error);
     }
 
-    const viewResult = await persistedTable.getView(command.viewId);
+    const viewResult = persistedTable.getView(command.viewId);
     if (viewResult.isErr()) {
       return err(viewResult.error);
     }
-    const viewDefaultsResult = await viewResult.value.queryDefaults();
+    const viewDefaultsResult = viewResult.value.queryDefaults();
     if (viewDefaultsResult.isErr()) {
       return err(viewDefaultsResult.error);
     }
@@ -2552,10 +2592,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       group: command.groupBy,
     });
     const effectiveFilter = command.ignoreViewQuery
-      ? command.filter ?? undefined
+      ? (command.filter ?? undefined)
       : mergedDefaults.filter();
     const effectiveSort = command.ignoreViewQuery
-      ? command.sort ?? undefined
+      ? (command.sort ?? undefined)
       : mergedDefaults.sort();
 
     const actorResolvedFilter = replaceCurrentUserTagInFilter(
@@ -2563,10 +2603,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       effectiveFilter,
       context.actorId.toString()
     );
-    const filterSpecResult = await buildSanitizedRecordConditionSpec(
-      persistedTable,
-      actorResolvedFilter
-    );
+    const filterSpecResult = buildSanitizedRecordConditionSpec(persistedTable, actorResolvedFilter);
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }
@@ -2594,7 +2631,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           context,
           persistedTable,
           filterSpec,
-          { mode: 'stored', pagination, search: visibleRowSearch }
+          { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
         );
         if (countResult.isErr()) {
           return err(countResult.error);
@@ -2682,13 +2719,13 @@ export class PasteStreamApplicationService extends PasteHandler {
     });
 
     const effectiveGroup = command.ignoreViewQuery
-      ? command.groupBy ?? undefined
+      ? (command.groupBy ?? undefined)
       : mergedDefaults.group();
-    const groupByOrderByResult = await resolveGroupByToOrderBy(effectiveGroup);
+    const groupByOrderByResult = resolveGroupByToOrderBy(effectiveGroup);
     if (groupByOrderByResult.isErr()) {
       return err(groupByOrderByResult.error);
     }
-    const sortOrderByResult = await resolveOrderBy(effectiveSort);
+    const sortOrderByResult = resolveOrderBy(effectiveSort);
     if (sortOrderByResult.isErr()) {
       return err(sortOrderByResult.error);
     }
@@ -2702,10 +2739,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       | ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
       | undefined = undefined;
     if (command.updateFilter) {
-      const updateFilterSpecResult = await buildRecordConditionSpec(
-        persistedTable,
-        command.updateFilter
-      );
+      const updateFilterSpecResult = buildRecordConditionSpec(persistedTable, command.updateFilter);
       if (updateFilterSpecResult.isErr()) {
         return err(updateFilterSpecResult.error);
       }
@@ -2912,7 +2946,7 @@ export class PasteStreamApplicationService extends PasteHandler {
     };
 
     let nextTable = params.table;
-    const persistResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+    const committed = await this.domainWriteTransaction.execute(context, async (txContext) => {
       const beforePersistResult = await params.pluginExecution.beforePersist(txContext);
       if (beforePersistResult.isErr()) {
         return err(beforePersistResult.error);
@@ -3026,78 +3060,24 @@ export class PasteStreamApplicationService extends PasteHandler {
       }
 
       nextTable = streamState.tableForMutations;
-      return ok(undefined);
-    });
-    if (persistResult.isErr()) {
-      return err(persistResult.error);
-    }
-
-    return ok({
-      table: nextTable,
-      eventData: chunkEventData,
-      updatedCount: chunkEventData.updatedCount,
-      createdCount: chunkEventData.createdRecords.length,
-      createdRecordIds: chunkEventData.createdRecords.map((record) => record.recordId),
-    });
-  }
-
-  private async publishPasteChunkEvents(
-    context: ExecutionContextPort.IExecutionContext,
-    table: Table,
-    eventData: CollectedEventData,
-    orchestration: {
-      operationId: string;
-      totalRecordCount: number;
-      totalChunkCount: number;
-      chunkIndex: number;
-    }
-  ): Promise<Result<void, DomainError>> {
-    const events: IDomainEvent[] = [...eventData.tableEvents];
-
-    if (eventData.updates.length > 0) {
-      events.push(
-        RecordsBatchUpdated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          updates: eventData.updates,
-          source: 'user',
-          auditSource: 'paste',
-          orchestration: {
-            operationId: orchestration.operationId,
-            groupId: orchestration.operationId,
-            totalRecordCount: orchestration.totalRecordCount,
-            totalChunkCount: orchestration.totalChunkCount,
-            chunkIndex: orchestration.chunkIndex,
-            scope: 'chunk',
+      return ok(
+        domainWrite.fromEvents(
+          {
+            table: nextTable,
+            eventData: chunkEventData,
+            updatedCount: chunkEventData.updatedCount,
+            createdCount: chunkEventData.createdRecords.length,
+            createdRecordIds: chunkEventData.createdRecords.map((record) => record.recordId),
           },
-        })
+          this.buildPasteDomainEvents(params.persistedTable, chunkEventData, params.batchMutation),
+          { tables: [nextTable] }
+        )
       );
+    });
+    if (committed.isErr()) {
+      return err(committed.error);
     }
-
-    if (eventData.createdRecords.length > 0) {
-      events.push(
-        RecordsBatchCreated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          records: eventData.createdRecords,
-          auditSource: 'paste',
-          orchestration: {
-            operationId: orchestration.operationId,
-            groupId: orchestration.operationId,
-            totalRecordCount: orchestration.totalRecordCount,
-            totalChunkCount: orchestration.totalChunkCount,
-            chunkIndex: orchestration.chunkIndex,
-            scope: 'chunk',
-          },
-        })
-      );
-    }
-
-    if (!events.length) {
-      return ok(undefined);
-    }
-
-    return this.eventBus.publishMany(context, events);
+    return ok(committed.value.value);
   }
 
   private async recordPasteChunkUndoRedoEntry(
@@ -3252,6 +3232,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       recordIds: summary.recordIds,
       message: error.message,
       code: error.code,
+      ...(error.localization && { localization: error.localization }),
     };
   }
 }

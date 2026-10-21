@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { RecordCreateSource } from '../domain/table/events/RecordFieldValuesDTO';
+import type { IRecordRemovalReason } from '../domain/table/events/RecordsDeleted';
 import type { FieldId } from '../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -22,8 +23,10 @@ export const RecordWriteOperationKind = {
   duplicate: 'duplicate',
   duplicateStream: 'duplicateStream',
   updateOne: 'updateOne',
+  buttonClick: 'buttonClick',
   updateMany: 'updateMany',
   deleteMany: 'deleteMany',
+  archiveMany: 'archiveMany',
   importAppend: 'importAppend',
   paste: 'paste',
 } as const;
@@ -107,6 +110,11 @@ export type RecordWriteCreateManyPayload = {
   readonly typecast: boolean;
   readonly order?: RecordInsertOrder;
   readonly recordCount: number;
+  /**
+   * When true, row-limit plugins may drop overflowing records and continue.
+   * Leave unset for atomic createMany callers such as table seed/duplication.
+   */
+  readonly isolateRowOverflow?: boolean;
 };
 
 export type RecordWriteCreateStreamPayload = {
@@ -164,6 +172,9 @@ export type RecordWriteUpdateManyPayload =
 export type RecordWriteDeleteManyPayload = {
   readonly recordIds: ReadonlyArray<RecordId>;
   readonly recordCount: number;
+  // Archive rides the delete pipeline (same scope and limits) but plugins authorize
+  // it as its own action; absent means a plain delete.
+  readonly removalReason?: IRecordRemovalReason;
 };
 
 export type RecordWriteImportAppendPayload = {
@@ -215,12 +226,21 @@ export type IRecordWriteUpdateOneContext = IRecordWritePluginContextBase<
   'updateOne',
   RecordWriteUpdateOnePayload
 >;
+// Clicking is a read-authorized action; the derived count is not a user cell update.
+export type IRecordWriteButtonClickContext = IRecordWritePluginContextBase<
+  'buttonClick',
+  RecordWriteUpdateOnePayload
+>;
 export type IRecordWriteUpdateManyContext = IRecordWritePluginContextBase<
   'updateMany',
   RecordWriteUpdateManyPayload
 >;
 export type IRecordWriteDeleteManyContext = IRecordWritePluginContextBase<
   'deleteMany',
+  RecordWriteDeleteManyPayload
+>;
+export type IRecordWriteArchiveManyContext = IRecordWritePluginContextBase<
+  'archiveMany',
   RecordWriteDeleteManyPayload
 >;
 export type IRecordWriteImportAppendContext = IRecordWritePluginContextBase<
@@ -240,8 +260,10 @@ export type RecordWritePluginContextMap = {
   duplicate: IRecordWriteDuplicateContext;
   duplicateStream: IRecordWriteDuplicateStreamContext;
   updateOne: IRecordWriteUpdateOneContext;
+  buttonClick: IRecordWriteButtonClickContext;
   updateMany: IRecordWriteUpdateManyContext;
   deleteMany: IRecordWriteDeleteManyContext;
+  archiveMany: IRecordWriteArchiveManyContext;
   importAppend: IRecordWriteImportAppendContext;
   paste: IRecordWritePasteContext;
 };

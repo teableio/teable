@@ -26,11 +26,11 @@ export const PresortRowContainer = (props: IRowStatusContainerProps) => {
   return (
     <div
       ref={prefillingGridContainerRef}
-      className="absolute left-0 w-full border-y-2 border-violet-500 dark:border-violet-700"
+      className="absolute start-0 w-full border-y-2 border-violet-500 dark:border-violet-700"
       style={style}
     >
-      <div className="absolute left-0 top-[-32px] flex h-8 items-center rounded-ss-lg bg-violet-500 px-2 py-1 text-background dark:border-violet-700">
-        <ArrowUpDown className="mr-1" />
+      <div className="absolute start-0 top-[-32px] flex h-8 items-center rounded-ss-lg bg-violet-500 px-2 py-1 text-background dark:border-violet-700">
+        <ArrowUpDown className="me-1" />
         <span className="text-[13px]">{t('table:grid.presortRowTitle')}</span>
       </div>
       {children}

@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { HttpError } from '@teable/core';
+import { cliOAuthApp, HttpError, mcpOAuthScopes } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   CREATE_BASE,
   CREATE_SPACE,
@@ -16,6 +17,7 @@ import {
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
+  oauthUpdate,
   revokeAccess,
   urlBuilder,
 } from '@teable/openapi';
@@ -31,6 +33,7 @@ import type {
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import axiosInstance from 'axios';
 import { omit } from 'lodash';
+import { CacheService } from '../src/cache/cache.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -141,6 +144,34 @@ describe('OpenAPI OAuthController (e2e)', () => {
     await app.close();
   });
 
+  const exchange = async (target: OAuthCreateVo, code: string) => {
+    const secret = await generateOAuthSecret(target.clientId);
+    return anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: target.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: target.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+  };
+
+  // The user approves on the consent screen and the app exchanges the code: it holds a token.
+  const approve = async (target: OAuthCreateVo) => {
+    const { transactionID } = await getAuthorize(axios, target);
+    const res = await decision(axios, transactionID!);
+    return exchange(target, new URL(res.headers.location).searchParams.get('code')!);
+  };
+
   it('/api/oauth/authorize (GET)', async () => {
     const res = await axios.get(
       `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&redirect_uri=${oauth.redirectUris[0]}&scope=${oauth.scopes?.join(' ')}`,
@@ -175,7 +206,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
     const ensure = await decision(axios, transactionID!);
     expect(ensure.status).toBe(302);
     expect(ensure.headers.location).toContain(`${oauth.redirectUris[0]}?code=`);
-    // Trust Authorized
+    // Trust Authorized, once the app holds a token from the approval
+    await exchange(oauth, new URL(ensure.headers.location).searchParams.get('code')!);
     const { code } = await getAuthorize(axios, oauth);
     expect(code).not.toBeNull();
   });
@@ -207,7 +239,10 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const res = await axios.get(`/oauth/decision/${transactionID}`);
     expect(res.status).toBe(200);
-    expect(res.data).toEqual(omit(oauthData, 'redirectUris'));
+    expect(res.data).toEqual({
+      ...omit(oauthData, 'redirectUris'),
+      redirectUri: oauthData.redirectUris[0],
+    });
   });
 
   it('/api/oauth/decision/:transactionId (GET) - transaction_id invalid', async () => {
@@ -323,28 +358,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('/api/oauth/access_token (POST) - has decision', async () => {
-    const { transactionID } = await getAuthorize(axios, oauth);
-    await decision(axios, transactionID!);
+    await approve(oauth);
+    // approved, and the app holds a token for it: no consent screen this time
     const { code } = await getAuthorize(axios, oauth);
-    const secret = await generateOAuthSecret(oauth.clientId);
+    expect(code).not.toBeNull();
 
-    const tokenRes = await anonymousAxios.post(
-      `/oauth/access_token`,
-      new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code ?? '',
-        client_id: oauth.clientId,
-        client_secret: secret.data.secret,
-        redirect_uri: oauth.redirectUris[0],
-      }),
-      {
-        maxRedirects: 0,
-        headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
+    const tokenRes = await exchange(oauth, code!);
     expect(tokenRes.status).toBe(201);
     expect(tokenRes.data).toEqual({
       token_type: 'Bearer',
@@ -354,6 +373,86 @@ describe('OpenAPI OAuthController (e2e)', () => {
       expires_in: expect.any(Number),
       refresh_expires_in: expect.any(Number),
     });
+  });
+
+  it('/api/oauth/access_token (POST) - one code, concurrent exchanges, one token pair', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const code = new URL(res.headers.location).searchParams.get('code');
+    expect(code).not.toBeNull();
+    const secret = await generateOAuthSecret(oauth.clientId);
+
+    // Every exchange races the same code (RFC 6749 §10.5: a code is single use).
+    const redeem = () =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code!,
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          validateStatus: () => true,
+        }
+      );
+    const results = await Promise.all(Array.from({ length: 10 }, redeem));
+    const statuses = results.map((r) => r.status);
+    expect(statuses.filter((status) => status === 201)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 401)).toHaveLength(9);
+  });
+
+  it('/api/oauth/authorize (GET) - asks again when the app got no token from the approval', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    await decision(axios, transactionID!);
+    expect((await getAuthorize(axios, oauth)).code).toBeNull();
+  });
+
+  it('/api/oauth/authorize (GET) - asks again for scopes the app does not hold', async () => {
+    await approve(oauth);
+    // the same scopes again: the app holds them, no consent screen
+    expect((await getAuthorize(axios, oauth)).code).not.toBeNull();
+
+    // the app now asks for more: the user is shown the consent screen again
+    const moreScopes = ['user|email_read', 'user|spaces_read'];
+    await oauthUpdate(oauth.clientId, { ...oauthData, scopes: moreScopes });
+    const asksMore = { ...oauth, scopes: moreScopes };
+    const again = await getAuthorize(axios, asksMore);
+    expect(again.code).toBeNull();
+    const info = await axios.get(`/oauth/decision/${again.transactionID}`);
+    expect(info.data.scopes).toEqual(moreScopes);
+
+    const approved = await decision(axios, again.transactionID!);
+    await exchange(asksMore, new URL(approved.headers.location).searchParams.get('code')!);
+    expect((await getAuthorize(axios, asksMore)).code).not.toBeNull();
+    // asking for less than the app holds needs no new approval
+    expect((await getAuthorize(axios, oauth)).code).not.toBeNull();
+  });
+
+  it('/api/oauth/authorize (GET) - counts every token the app holds, approved one scope at a time', async () => {
+    await oauthUpdate(oauth.clientId, {
+      ...oauthData,
+      scopes: ['user|email_read', 'user|spaces_read'],
+    });
+    const emailOnly = { ...oauth, scopes: ['user|email_read'] };
+    const spacesOnly = { ...oauth, scopes: ['user|spaces_read'] };
+    await approve(emailOnly);
+
+    const spaces = await getAuthorize(axios, spacesOnly);
+    expect(spaces.code).toBeNull();
+    const approved = await decision(axios, spaces.transactionID!);
+    await exchange(spacesOnly, new URL(approved.headers.location).searchParams.get('code')!);
+
+    // both approved now, one at a time: neither asks again
+    expect((await getAuthorize(axios, emailOnly)).code).not.toBeNull();
+    expect(
+      (await getAuthorize(axios, { ...oauth, scopes: ['user|email_read', 'user|spaces_read'] }))
+        .code
+    ).not.toBeNull();
   });
 
   it('/api/oauth/access_token (POST) - scope [no email]', async () => {
@@ -860,7 +959,25 @@ describe('OpenAPI OAuthController (e2e)', () => {
         'S256',
         '123456'
       );
-      await decision(axios, transactionID!);
+      const approved = await decision(axios, transactionID!);
+      // the app exchanges the code: it now holds a token with the approved scopes
+      await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: new URL(approved.headers.location).searchParams.get('code') ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier1,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
 
       // Second authorization - should be trusted (immediate)
       const codeVerifier2 = generateCodeVerifier();
@@ -1228,6 +1345,354 @@ describe('OpenAPI OAuthController (e2e)', () => {
         })
       );
       expect(error?.status).toBe(401);
+    });
+  });
+
+  /**
+   * RFC 8628 device authorization grant, end to end on the real cache store.
+   * Deliberately not unit-level: the flow's cross-request state lives in
+   * Redis, and its unit specs run on an idealized in-memory cache — a
+   * key-layout drift in CacheService (setnx/get split) once 404'd every
+   * user-code lookup while all unit tests stayed green. This file is the
+   * canary for that class of bug.
+   */
+  describe('device authorization grant', () => {
+    const deviceGrantType = 'urn:ietf:params:oauth:grant-type:device_code';
+    const urlencoded = {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      validateStatus: () => true,
+    };
+
+    const requestDeviceCode = (body: Record<string, string>) =>
+      anonymousAxios.post('/oauth/device/code', new URLSearchParams(body).toString(), urlencoded);
+
+    const pollToken = (deviceCode: string, clientId = cliOAuthApp.clientId) =>
+      anonymousAxios.post(
+        '/oauth/access_token',
+        new URLSearchParams({
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          grant_type: deviceGrantType,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          device_code: deviceCode,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          client_id: clientId,
+        }).toString(),
+        urlencoded
+      );
+
+    beforeAll(async () => {
+      // The endpoint rate limits per IP; repeated local runs inside one window
+      // would otherwise start flaking on the 429.
+      const cacheService = app.get(CacheService);
+      for (const ip of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+        await cacheService.del(`oauth:device-rate:${ip}`);
+      }
+    });
+
+    it('walks the whole flow: code, approval page, decision, tokens, spent replay', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+      expect(device.status).toBe(200);
+      expect(device.data).toMatchObject({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        user_code: expect.stringMatching(/^[A-Z]{4}-[A-Z]{4}$/),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        expires_in: expect.any(Number),
+        interval: expect.any(Number),
+      });
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { device_code, user_code } = device.data;
+
+      // The approval page accepts the code the way people type it.
+      const appInfo = await axios.get(`/oauth/device/${user_code.toLowerCase().replace('-', '')}`);
+      expect(appInfo.data).toMatchObject({ name: cliOAuthApp.name });
+      expect(appInfo.data.scopes.length).toBeGreaterThan(0);
+
+      await axios.post('/oauth/device/decision', { userCode: user_code, approve: true });
+
+      const tokens = await pollToken(device_code);
+      expect(tokens.status).toBe(200);
+      expect(tokens.data).toMatchObject({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        token_type: 'Bearer',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        access_token: expect.any(String),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        refresh_token: expect.any(String),
+      });
+
+      // The token belongs to whoever approved in the browser.
+      const userInfo = await anonymousAxios.get(`/auth/user`, {
+        headers: { Authorization: `Bearer ${tokens.data.access_token}` },
+      });
+      expect(userInfo.data.email).toEqual(testEmail);
+
+      // Single use: the spent code reads as expired.
+      const replay = await pollToken(device_code);
+      expect(replay.status).toBe(400);
+      expect(replay.data).toEqual({ error: 'expired_token' });
+    });
+
+    it('answers authorization_pending, then slow_down to a hasty poll', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+
+      const pending = await pollToken(device.data.device_code);
+      expect(pending.status).toBe(400);
+      expect(pending.data).toEqual({ error: 'authorization_pending' });
+
+      const hasty = await pollToken(device.data.device_code);
+      expect(hasty.status).toBe(400);
+      expect(hasty.data).toEqual({ error: 'slow_down' });
+    });
+
+    it('reports a denial once, then forgets the code', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+
+      await axios.post('/oauth/device/decision', {
+        userCode: device.data.user_code,
+        approve: false,
+      });
+
+      const denied = await pollToken(device.data.device_code);
+      expect(denied.data).toEqual({ error: 'access_denied' });
+      const gone = await pollToken(device.data.device_code);
+      expect(gone.data).toEqual({ error: 'expired_token' });
+    });
+
+    it('speaks RFC 8628 error codes on the device authorization endpoint', async () => {
+      const missing = await requestDeviceCode({});
+      expect(missing.status).toBe(400);
+      expect(missing.data.error).toBe('invalid_request');
+
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const unknown = await requestDeviceCode({ client_id: 'no-such-client' });
+      expect(unknown.data.error).toBe('invalid_client');
+
+      // `oauth` is created fresh per test and never opted in to the device flow.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const notOptedIn = await requestDeviceCode({ client_id: oauth.clientId });
+      expect(notOptedIn.data.error).toBe('unauthorized_client');
+
+      const badScope = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+        scope: 'not|granted',
+      });
+      expect(badScope.data.error).toBe('invalid_scope');
+    });
+
+    it('refuses the approval page for a code nobody issued', async () => {
+      const error = await getError(() => axios.get(`/oauth/device/ZZZZ-ZZZZ`));
+      expect(error?.status).toBe(404);
+    });
+  });
+
+  describe('dynamic client registration (RFC 7591)', () => {
+    const clientName = `dcr-${Date.now()}`;
+    const register = (body: Record<string, unknown>) =>
+      anonymousAxios.post('/oauth/register', body, { validateStatus: () => true });
+
+    afterAll(async () => {
+      await app.get(PrismaService).oAuthApp.deleteMany({
+        where: { dynamicRegistration: true, name: clientName },
+      });
+    });
+
+    it('registers a public client and answers with RFC 7591 metadata', async () => {
+      const res = await register({
+        client_name: clientName,
+        redirect_uris: ['http://localhost:51234/callback', 'cursor://anysphere.cursor/oauth'],
+        token_endpoint_auth_method: 'none',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.client_id).toMatch(/^cl/);
+      expect(res.data.client_secret).toBeUndefined();
+      expect(res.data.token_endpoint_auth_method).toBe('none');
+      expect(res.data.redirect_uris).toEqual([
+        'http://localhost:51234/callback',
+        'cursor://anysphere.cursor/oauth',
+      ]);
+      expect(res.data.scope).toBe(mcpOAuthScopes.join(' '));
+      expect(typeof res.data.client_id_issued_at).toBe('number');
+    });
+
+    it('rejects metadata it cannot honor with RFC error objects', async () => {
+      const cases: [Record<string, unknown>, string][] = [
+        [{ client_name: clientName }, 'invalid_redirect_uri'],
+        [{ client_name: clientName, redirect_uris: [] }, 'invalid_redirect_uri'],
+        [{ client_name: clientName, redirect_uris: ['not a url'] }, 'invalid_redirect_uri'],
+        [
+          { client_name: clientName, redirect_uris: ['http://evil.example/callback'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['https://app.example/cb#frag'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            token_endpoint_auth_method: 'client_secret_post',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            scope: 'base|read nope|read',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            scope: 'user|integrations',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['https://app.teable.ai@evil.example/cb'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          { client_name: clientName, redirect_uris: ['mailto:x@evil.example'] },
+          'invalid_redirect_uri',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            grant_types: ['client_credentials'],
+          },
+          'invalid_client_metadata',
+        ],
+      ];
+      for (const [body, error] of cases) {
+        const res = await register(body);
+        expect(res.status).toBe(400);
+        expect(res.data.error).toBe(error);
+        expect(typeof res.data.error_description).toBe('string');
+      }
+    });
+
+    it('lets a self-registered client ask for any supported scope, not just its registered default', async () => {
+      const redirectUri = 'http://127.0.0.1:52001/callback';
+      const registered = await register({
+        client_name: clientName,
+        redirect_uris: [redirectUri],
+        scope: 'base|read',
+      });
+      const clientId = registered.data.client_id as string;
+      const codeChallenge = crypto
+        .createHash('sha256')
+        .update(crypto.randomBytes(32).toString('base64url'))
+        .digest('base64url');
+      const authorize = (scope: string) =>
+        axios.get(
+          `/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+            redirectUri
+          )}&scope=${encodeURIComponent(scope)}&code_challenge=${codeChallenge}&code_challenge_method=S256`,
+          { maxRedirects: 0, validateStatus: () => true }
+        );
+
+      // Outside the registered default but inside the MCP set: fine.
+      expect((await authorize('base|read automation|read')).status).toBe(302);
+      // Not a scope this server knows at all: still rejected.
+      expect((await authorize('base|read nope|read')).status).toBe(400);
+      // User-level scopes (stored integration credentials, notifications) are
+      // never available to a self-registered client, whatever it asks for.
+      expect((await authorize('base|read user|integrations')).status).toBe(400);
+      expect((await authorize('user|notifications_send')).status).toBe(400);
+    });
+
+    it('runs the whole PKCE flow for a self-registered client, and the user sees it as such', async () => {
+      const redirectUri = 'http://127.0.0.1:52000/callback';
+      const registered = await register({ client_name: clientName, redirect_uris: [redirectUri] });
+      expect(registered.status).toBe(201);
+      const clientId = registered.data.client_id as string;
+
+      const codeVerifier = crypto.randomBytes(32).toString('base64url');
+      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+      const authorizeRes = await axios.get(
+        `/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&scope=${encodeURIComponent('base|read')}&code_challenge=${codeChallenge}&code_challenge_method=S256&resource=${encodeURIComponent(
+          'https://example.test/api/mcp'
+        )}`,
+        { maxRedirects: 0 }
+      );
+      const transactionId = new URL(authorizeRes.headers.location, redirectUri).searchParams.get(
+        'transaction_id'
+      );
+      expect(transactionId).toBeTruthy();
+
+      // The consent page has a name but no homepage to point at.
+      const info = await axios.get(`/oauth/decision/${transactionId}`);
+      expect(info.data.name).toBe(clientName);
+      expect(info.data.homepage).toBeUndefined();
+      expect(info.data.dynamicRegistration).toBe(true);
+      expect(info.data.redirectUri).toBe(redirectUri);
+      expect(info.data.scopes).toEqual(['base|read']);
+
+      const decisionRes = await decision(axios, transactionId!);
+      const code = new URL(decisionRes.headers.location).searchParams.get('code');
+      expect(code).toBeTruthy();
+
+      const tokenRes = await anonymousAxios.post(
+        '/oauth/access_token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code!,
+          client_id: clientId,
+          code_verifier: codeVerifier,
+          redirect_uri: redirectUri,
+          resource: 'https://example.test/api/mcp',
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data.access_token).toBeTruthy();
+      expect(tokenRes.data.refresh_token).toBeTruthy();
+
+      const baseRes = await anonymousAxios.get(`/base/${baseId}`, {
+        headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+      });
+      expect(baseRes.data.id).toBe(baseId);
+
+      const authorizedList = await axios.get('/oauth/client/authorized/list');
+      const entry = authorizedList.data.find((a: { clientId: string }) => a.clientId === clientId);
+      expect(entry).toBeTruthy();
+      expect(entry.dynamicRegistration).toBe(true);
+      // Settings → MCP shows when the client was first connected and last used;
+      // the call above with the access token counts as a use.
+      expect(typeof entry.authorizedTime).toBe('string');
+      expect(typeof entry.lastUsedTime).toBe('string');
+
+      // It is nobody's app to manage from the developer side.
+      const developerList = await axios.get('/oauth/client');
+      expect(developerList.data.some((a: { clientId: string }) => a.clientId === clientId)).toBe(
+        false
+      );
     });
   });
 });

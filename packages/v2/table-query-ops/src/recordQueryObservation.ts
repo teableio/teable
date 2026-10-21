@@ -1,12 +1,23 @@
 import {
+  AndSpec,
+  NotSpec,
+  OrSpec,
+  RecordValueConditionSpec,
+  isRecordConditionFieldReferenceValue,
   v2CoreTokens,
   type DomainError,
   type IExecutionContext,
+  type ITableRecordAggregationQueryRepository,
+  type ITableRecordCalendarQueryRepository,
+  type ITableRecordCollaboratorQueryRepository,
   type ITableRecordConditionSpecVisitor,
+  type ITableRecordCountOptions,
+  type ITableRecordCountQueryRepository,
   type ITableRecordQueryOptions,
   type ITableRecordQueryRepository,
   type ITableRecordQueryResult,
   type ITableRecordQueryStreamOptions,
+  type IRecordSearchAccessPathResolution,
   type ISpecification,
   type Table,
   type TableRecord,
@@ -18,12 +29,15 @@ import type { Result } from 'neverthrow';
 import {
   TableQueryObservationWindow,
   TableQueryShape,
+  type TableQueryAggregationShape,
   type TableQueryExecutionShape,
   type TableQueryKind,
   type TableQueryOrderFieldShape,
+  type TableQueryShapeInput,
   type TableQuerySqlDiagnostic,
 } from './domain';
-import type { TableQueryObservationSink } from './ports';
+import type { TableQueryObservationPublisher } from './ports';
+import { toOperatorFamily } from './queryConfigShape';
 import {
   attachTableQuerySqlDiagnosticsCollector,
   defaultTableQuerySqlDiagnosticsConfig,
@@ -33,12 +47,29 @@ import { v2TableOpsTokens } from './tokens';
 
 const observedRepositoryMarker = Symbol('v2.tableOps.observedTableRecordQueryRepository');
 
-export class ObservedTableRecordQueryRepository implements ITableRecordQueryRepository {
+type ObservableTableRecordQueryRepository = ITableRecordQueryRepository &
+  ITableRecordCountQueryRepository &
+  ITableRecordAggregationQueryRepository &
+  ITableRecordCalendarQueryRepository &
+  ITableRecordCollaboratorQueryRepository;
+
+type ObservationShapeExtras = {
+  readonly queryKind?: TableQueryKind;
+  readonly aggregationShape?: TableQueryAggregationShape;
+  /**
+   * T7339: the access path resolution the read itself reported. The requested path is only the
+   * configuration - a probe that was too short, or coverage that did not match, runs a plain
+   * predicate, and the shape has to describe the predicate that ran.
+   */
+  readonly usedSearchAccessPath?: IRecordSearchAccessPathResolution;
+};
+
+export class ObservedTableRecordQueryRepository implements ObservableTableRecordQueryRepository {
   readonly [observedRepositoryMarker] = true;
 
   constructor(
-    private readonly inner: ITableRecordQueryRepository,
-    private readonly observationSink: TableQueryObservationSink,
+    private readonly inner: ObservableTableRecordQueryRepository,
+    private readonly observationPublisher: TableQueryObservationPublisher,
     private readonly sqlDiagnosticsConfig: TableQuerySqlDiagnosticsConfig = defaultTableQuerySqlDiagnosticsConfig
   ) {}
 
@@ -48,36 +79,74 @@ export class ObservedTableRecordQueryRepository implements ITableRecordQueryRepo
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
-    const startedAt = Date.now();
-    const sqlDiagnostics = attachTableQuerySqlDiagnosticsCollector(
+    return this.observeResult(
       context,
-      this.sqlDiagnosticsConfig
+      table,
+      spec,
+      options,
+      () => this.inner.find(context, table, spec, options),
+      (value) => value.records.length,
+      undefined,
+      // T7339: the read result carries the access path the SQL actually used.
+      (value) => ({ usedSearchAccessPath: value.searchAccessPath })
     );
-    try {
-      const result = await this.inner.find(context, table, spec, options);
-      await this.recordObservation(
-        context,
-        table,
-        spec,
-        options,
-        {
-          durationMs: Date.now() - startedAt,
-          timedOut: false,
-          errorKind: result.isErr() ? 'unknown' : undefined,
-          resultCountBucket: result.isOk()
-            ? bucketResultCount(result.value.records.length)
-            : undefined,
-        },
-        sqlDiagnostics.collector.snapshot()
-      );
-      return result;
-    } finally {
-      sqlDiagnostics.restore();
-    }
   }
 
   findOne(...args: Parameters<ITableRecordQueryRepository['findOne']>) {
     return this.inner.findOne(...args);
+  }
+
+  async count(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    return this.observeResult(
+      context,
+      table,
+      spec,
+      options,
+      () => this.inner.count(context, table, spec, options),
+      (value) => value,
+      {
+        queryKind: options?.search ? 'search' : 'rowCount',
+      }
+    );
+  }
+
+  async aggregate(
+    ...args: Parameters<ITableRecordAggregationQueryRepository['aggregate']>
+  ): ReturnType<ITableRecordAggregationQueryRepository['aggregate']> {
+    const [context, table, aggregation, spec, options] = args;
+    return this.observeResult(
+      context,
+      table,
+      spec,
+      options?.search ? { search: options.search } : undefined,
+      () => this.inner.aggregate(...args),
+      (value) => value.length,
+      {
+        queryKind: 'aggregation',
+        aggregationShape: {
+          groupFieldCount: aggregation.groupBy.length,
+          metricCount: aggregation.fields.length,
+          hasFilter: spec != null,
+        },
+      }
+    );
+  }
+
+  calendarDailyCollection(
+    ...args: Parameters<ITableRecordCalendarQueryRepository['calendarDailyCollection']>
+  ) {
+    return this.inner.calendarDailyCollection(...args);
+  }
+
+  findDistinctUserIds(
+    ...args: Parameters<ITableRecordCollaboratorQueryRepository['findDistinctUserIds']>
+  ) {
+    return this.inner.findDistinctUserIds(...args);
   }
 
   async *findStream(
@@ -101,7 +170,7 @@ export class ObservedTableRecordQueryRepository implements ITableRecordQueryRepo
       }
     } finally {
       try {
-        await this.recordObservation(
+        this.recordObservation(
           context,
           table,
           spec,
@@ -120,15 +189,53 @@ export class ObservedTableRecordQueryRepository implements ITableRecordQueryRepo
     }
   }
 
-  private async recordObservation(
+  private async observeResult<T>(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryOptions | ITableRecordQueryStreamOptions | undefined,
+    run: () => Promise<Result<T, DomainError>>,
+    count: (value: T) => number,
+    extras?: ObservationShapeExtras,
+    deriveExtras?: (value: T) => ObservationShapeExtras | undefined
+  ): Promise<Result<T, DomainError>> {
+    const startedAt = Date.now();
+    const sqlDiagnostics = attachTableQuerySqlDiagnosticsCollector(
+      context,
+      this.sqlDiagnosticsConfig
+    );
+    try {
+      const result = await run();
+      this.recordObservation(
+        context,
+        table,
+        spec,
+        options,
+        {
+          durationMs: Date.now() - startedAt,
+          timedOut: false,
+          errorKind: result.isErr() ? 'unknown' : undefined,
+          resultCountBucket: result.isOk() ? bucketResultCount(count(result.value)) : undefined,
+        },
+        sqlDiagnostics.collector.snapshot(),
+        result.isOk() && deriveExtras ? { ...extras, ...deriveExtras(result.value) } : extras
+      );
+      return result;
+    } finally {
+      sqlDiagnostics.restore();
+    }
+  }
+
+  private recordObservation(
     context: IExecutionContext,
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     options: ITableRecordQueryOptions | ITableRecordQueryStreamOptions | undefined,
     executionShape: TableQueryExecutionShape,
-    sqlDiagnostics: ReadonlyArray<TableQuerySqlDiagnostic>
-  ): Promise<void> {
-    const shape = buildRecordQueryShape(table, spec, options, executionShape);
+    sqlDiagnostics: ReadonlyArray<TableQuerySqlDiagnostic>,
+    extras?: ObservationShapeExtras
+  ): void {
+    const shape = buildRecordQueryShape(table, spec, options, executionShape, extras);
     if (shape.isErr()) return;
     const observation = TableQueryObservationWindow.create({
       baseId: table.baseId().toString(),
@@ -147,7 +254,11 @@ export class ObservedTableRecordQueryRepository implements ITableRecordQueryRepo
       sqlDiagnostics,
     });
     if (observation.isErr()) return;
-    await this.observationSink.record(context, observation.value);
+    try {
+      this.observationPublisher.publish(context, observation.value);
+    } catch {
+      // Query observations are best-effort and must not affect product requests.
+    }
   }
 }
 
@@ -155,56 +266,110 @@ export const decorateV2TableRecordQueryRepositoryWithTableOps = (
   container: DependencyContainer
 ): void => {
   if (!container.isRegistered(v2CoreTokens.tableRecordQueryRepository)) return;
-  if (!container.isRegistered(v2TableOpsTokens.observationSink)) return;
-  const current = container.resolve<ITableRecordQueryRepository>(
+  if (!container.isRegistered(v2TableOpsTokens.observationPublisher)) return;
+  const current = container.resolve<ObservableTableRecordQueryRepository>(
     v2CoreTokens.tableRecordQueryRepository
   );
   if ((current as Partial<ObservedTableRecordQueryRepository>)[observedRepositoryMarker]) return;
-  const sink = container.resolve<TableQueryObservationSink>(v2TableOpsTokens.observationSink);
+  const publisher = container.resolve<TableQueryObservationPublisher>(
+    v2TableOpsTokens.observationPublisher
+  );
   const sqlDiagnosticsConfig = container.isRegistered(v2TableOpsTokens.sqlDiagnosticsConfig)
     ? container.resolve<TableQuerySqlDiagnosticsConfig>(v2TableOpsTokens.sqlDiagnosticsConfig)
     : defaultTableQuerySqlDiagnosticsConfig;
   container.registerInstance(
     v2CoreTokens.tableRecordQueryRepository,
-    new ObservedTableRecordQueryRepository(current, sink, sqlDiagnosticsConfig)
+    new ObservedTableRecordQueryRepository(current, publisher, sqlDiagnosticsConfig)
   );
+};
+
+type ObservationWhereShape = NonNullable<TableQueryShapeInput['whereShape']>;
+
+const describeConditionSpec = (
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+): ObservationWhereShape | undefined => {
+  if (!spec) return undefined;
+  const fields: ObservationWhereShape['fields'][number][] = [];
+  let conditionCount = 0;
+  let andDepth = 0;
+  let orDepth = 0;
+
+  const walk = (
+    node: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    ands: number,
+    ors: number
+  ) => {
+    if (node instanceof NotSpec) {
+      walk(node.innerSpec(), ands, ors);
+      return;
+    }
+    if (node instanceof AndSpec) {
+      andDepth = Math.max(andDepth, ands + 1);
+      walk(node.leftSpec(), ands + 1, ors);
+      walk(node.rightSpec(), ands + 1, ors);
+      return;
+    }
+    if (node instanceof OrSpec) {
+      orDepth = Math.max(orDepth, ors + 1);
+      walk(node.leftSpec(), ands, ors + 1);
+      walk(node.rightSpec(), ands, ors + 1);
+      return;
+    }
+    if (node instanceof RecordValueConditionSpec) {
+      conditionCount += 1;
+      fields.push({
+        fieldId: node.field().id().toString(),
+        fieldType: node.field().type().toString(),
+        operatorFamily: toOperatorFamily(
+          node.operator(),
+          isRecordConditionFieldReferenceValue(node.value())
+        ),
+      });
+    }
+  };
+
+  walk(spec, 0, 0);
+  return { conditionCount, andDepth, orDepth, fields };
 };
 
 const buildRecordQueryShape = (
   table: Table,
   spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
   options: ITableRecordQueryOptions | ITableRecordQueryStreamOptions | undefined,
-  executionShape: TableQueryExecutionShape
+  executionShape: TableQueryExecutionShape,
+  extras?: ObservationShapeExtras
 ): Result<TableQueryShape, DomainError> => {
   const search = options?.search;
   const orderBy = options?.orderBy ?? [];
-  const queryKind: TableQueryKind = search
-    ? 'search'
-    : spec
-      ? 'filter'
-      : orderBy.some((item) => 'fieldId' in item)
-        ? 'sort'
-        : 'recordList';
+  const queryKind: TableQueryKind = extras?.queryKind
+    ? extras.queryKind
+    : search
+      ? 'search'
+      : spec
+        ? 'filter'
+        : orderBy.some((item) => 'fieldId' in item)
+          ? 'sort'
+          : 'recordList';
   const searchFieldsResult = search?.search.resolveFields(table, {
     visibleFieldIds: search.visibleFieldIds,
   });
   const searchedFieldIds = searchFieldsResult?.isOk()
-    ? searchFieldsResult.value.map((field) => field.id().toString()).sort()
+    ? searchFieldsResult.value
+        .map((field) => field.id().toString())
+        .sort((a, b) => Number(a > b) - Number(a < b))
     : undefined;
   const searchFieldCount = searchedFieldIds?.length;
   const searchAccessPath = options?.searchAccessPath;
+  // T7339: describe the predicate that ran, not the one that was configured. The read reports
+  // the path it used; the requested configuration is only a fallback for callers that cannot
+  // report what happened.
+  const effectiveSearchAccessPathKind =
+    extras?.usedSearchAccessPath?.used ?? searchAccessPath?.kind;
   const searchesAllFields = search?.search.searchesAllFields() ?? false;
 
   return TableQueryShape.create({
     queryKind,
-    whereShape: spec
-      ? {
-          conditionCount: 1,
-          andDepth: 1,
-          orDepth: 0,
-          fields: [],
-        }
-      : undefined,
+    whereShape: describeConditionSpec(spec),
     searchShape: search
       ? {
           fieldCount: searchFieldCount ?? table.getFields().length,
@@ -212,18 +377,19 @@ const buildRecordQueryShape = (
           ...(!searchesAllFields && searchedFieldIds ? { searchedFieldIds } : {}),
           valueLengthBucket: bucketSearchLength(search.search.value.length),
           searchMode:
-            searchAccessPath?.kind === 'generated_tsvector'
+            effectiveSearchAccessPathKind === 'generated_tsvector'
               ? 'full_text'
-              : searchAccessPath?.kind === 'generated_text'
+              : effectiveSearchAccessPathKind === 'generated_text'
                 ? 'substring'
                 : 'ilike',
           searchScope: searchesAllFields ? 'all_fields' : 'selected_fields',
-          ...(searchAccessPath?.kind === 'generated_tsvector'
+          ...(effectiveSearchAccessPathKind === 'generated_tsvector' &&
+          searchAccessPath?.kind === 'generated_tsvector'
             ? {
                 languageConfig: searchAccessPath.languageConfig,
                 coveredFieldIds: searchAccessPath.coveredFieldIds
                   .map((fieldId) => fieldId.toString())
-                  .sort(),
+                  .sort((a, b) => Number(a > b) - Number(a < b)),
               }
             : {}),
         }
@@ -248,6 +414,7 @@ const buildRecordQueryShape = (
           ),
         }
       : undefined,
+    aggregationShape: extras?.aggregationShape,
     executionShape,
   });
 };

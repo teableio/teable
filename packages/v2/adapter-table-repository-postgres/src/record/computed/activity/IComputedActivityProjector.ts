@@ -1,5 +1,6 @@
 import type {
   DomainError,
+  FieldComputeLastError,
   FieldComputeMetaDto,
   FieldComputeBatch,
   FieldComputeTarget,
@@ -56,6 +57,37 @@ export type ComputedActivityProjectionResult = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ComputedActivityDbHandle = any;
 
+export type ComputedActivityFieldError = {
+  fieldId: string;
+  error: FieldComputeLastError;
+};
+
+export type ComputedActivityStageSettlementParams = {
+  /** The task being completed in the same stage transaction. */
+  done: {
+    taskId: string;
+    baseId?: string;
+    durationMs?: number;
+    error?: FieldComputeLastError | null;
+    fieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
+  };
+  /** The follow-up continuation task enqueued in the same stage transaction, if any. */
+  enqueued?: {
+    taskId: string;
+    baseId: string;
+    targets: ReadonlyArray<FieldComputeTarget>;
+    metrics: ComputedActivityTaskMetrics;
+  };
+  /**
+   * Tasks relay-claimed in the same stage transaction (normally just the
+   * `enqueued` task's own id, when the enqueuing worker claims its own
+   * continuation).
+   */
+  claimed?: ReadonlyArray<{ taskId: string; baseId: string }>;
+  now?: Date;
+  trx?: ComputedActivityDbHandle;
+};
+
 /**
  * Maintains field/table compute metadata projections alongside the computed outbox lifecycle.
  */
@@ -89,6 +121,7 @@ export interface IComputedActivityProjector {
       taskId: string;
       baseId?: string;
       durationMs?: number;
+      fieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
       now?: Date;
       trx?: ComputedActivityDbHandle;
     },
@@ -99,7 +132,7 @@ export interface IComputedActivityProjector {
     params: {
       taskId: string;
       baseId?: string;
-      error: { code?: string; message: string };
+      error: FieldComputeLastError;
       /** When true, release the task ref (terminal). When false, only clear processing (retry). */
       terminal: boolean;
       durationMs?: number;
@@ -110,8 +143,28 @@ export interface IComputedActivityProjector {
   ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>>;
 
   /**
+   * Combined tail for one outbox-worker stage transaction: settle the
+   * completed task, the freshly enqueued continuation (if any), and its
+   * relay-claim (if any) with a single lock round, a single load, and a
+   * single persist instead of one independent round per call. Semantics
+   * match calling onTaskEnqueued, onTasksClaimed, and onTaskDone
+   * back-to-back in the same transaction (see ComputedUpdateWorker's
+   * enqueue+markDone hand-off).
+   */
+  projectStageSettlement(
+    params: ComputedActivityStageSettlementParams,
+    context?: IExecutionContext
+  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>>;
+
+  /**
    * Reconcile field/table activity for one table from persisted task-field refs.
    * Heals orphaned queued/running counters that no longer have outbox refs.
+   *
+   * lockTimeoutMs bounds the wait for the per-table advisory lock; pass 0 to
+   * try once and give up (returns ok(null)) when another connection is already
+   * reconciling — read-path callers must use this so concurrent polls across
+   * pods collapse into a single flight instead of each parking a pool
+   * connection on the same global lock.
    */
   reconcileTable(
     params: {
@@ -119,6 +172,7 @@ export interface IComputedActivityProjector {
       baseId?: string;
       now?: Date;
       trx?: ComputedActivityDbHandle;
+      lockTimeoutMs?: number;
     },
     context?: IExecutionContext
   ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>>;
@@ -144,6 +198,9 @@ export const noopComputedActivityProjector: IComputedActivityProjector = {
     return ok(null);
   },
   async onTaskFailed() {
+    return ok(null);
+  },
+  async projectStageSettlement() {
     return ok(null);
   },
   async reconcileTable() {

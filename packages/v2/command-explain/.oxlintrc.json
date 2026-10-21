@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../eslint-config-bases/src/bases/typescript.json",
+    "../../eslint-config-bases/src/bases/sonar.json",
+    "../../eslint-config-bases/src/bases/regexp.json",
+    "../../eslint-config-bases/src/bases/jest.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "teable/consistent-type-imports": "off",
+    "teable/naming-convention": "off",
+    "import-js/order": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/analyzers/**/*.ts"],
+      "rules": {
+        "typescript/no-this-alias": "off",
+        "require-yield": "off",
+        "sonarjs/cognitive-complexity": "off"
+      }
+    },
+    {
+      "files": ["src/utils/SqlExplainRunner.ts"],
+      "rules": {
+        "sonarjs/cognitive-complexity": "off",
+        "sonarjs/no-duplicate-string": "off"
+      }
+    }
+  ]
+}

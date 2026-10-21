@@ -3,6 +3,7 @@ import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { deleteAttachmentTableRefsByRecordIds } from '@teable/v2-adapter-table-repository-postgres';
 import {
   ProjectionHandler,
   RecordsDeleted,
@@ -148,6 +149,12 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
     if (event.recordSnapshots.length === 0) {
       return ok(undefined);
     }
+    // Archive removals persist their own snapshot (with reason='archived') before deleting.
+    // Deleted removals persist a one-row table_trash index in the delete transaction;
+    // this projection inserts recycle-bin JSON without blocking the delete response.
+    if (event.removalReason === 'archived') {
+      return ok(undefined);
+    }
 
     const buildPayloadAttributes = {
       teableTableId: event.tableId.toString(),
@@ -198,7 +205,8 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
             userId: context.actorId.toString(),
             records,
           },
-          context
+          context,
+          { fillExistingMarkers: true }
         )
     );
 
@@ -245,19 +253,21 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
     if (event.recordIds.length === 0) {
       return ok(undefined);
     }
+    // Archived records keep their attachment reference rows (see AttachmentListener).
+    if (event.removalReason === 'archived') {
+      return ok(undefined);
+    }
 
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
+    const dataDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2DataDbTokens.db);
+    const metaDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
 
-    await db
-      .deleteFrom('attachments_table')
-      .where('table_id', '=', event.tableId.toString())
-      .where(
-        'record_id',
-        'in',
-        event.recordIds.map((id) => id.toString())
-      )
-      .execute();
+    await deleteAttachmentTableRefsByRecordIds(
+      dataDb as never,
+      metaDb as never,
+      event.tableId.toString(),
+      event.recordIds.map((id) => id.toString())
+    );
 
     return ok(undefined);
   }
@@ -283,23 +293,26 @@ export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
       return ok(undefined);
     }
 
-    await db
-      .deleteFrom('trash')
+    const existingTrash = await db
+      .selectFrom('trash')
       .where('resource_id', '=', event.tableId.toString())
       .where('resource_type', '=', ResourceType.Table)
-      .execute();
+      .select(['id'])
+      .executeTakeFirst();
 
-    await db
-      .insertInto('trash')
-      .values({
-        id: nanoid(),
-        resource_id: event.tableId.toString(),
-        resource_type: ResourceType.Table,
-        parent_id: table.base_id,
-        deleted_time: table.deleted_time,
-        deleted_by: context.actorId.toString(),
-      })
-      .execute();
+    if (!existingTrash) {
+      await db
+        .insertInto('trash')
+        .values({
+          id: nanoid(),
+          resource_id: event.tableId.toString(),
+          resource_type: ResourceType.Table,
+          parent_id: table.base_id,
+          deleted_time: table.deleted_time,
+          deleted_by: context.actorId.toString(),
+        })
+        .execute();
+    }
 
     const dataContainer = await this.v2ContainerService.getContainerForTable(
       event.tableId.toString()

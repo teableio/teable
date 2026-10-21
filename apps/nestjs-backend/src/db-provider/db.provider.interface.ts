@@ -7,7 +7,6 @@ import type {
   ISortItem,
   TableDomain,
 } from '@teable/core';
-import type { Prisma } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
@@ -71,6 +70,13 @@ export interface IDbProvider {
   generateDbTableName(baseId: string, name: string): string;
 
   renameTableName(oldTableName: string, newTableName: string): string[];
+
+  /**
+   * Move a physical table (with its indexes, constraints and owned sequences)
+   * into another schema. Both arguments are schema-qualified names whose table
+   * part must match; only the schema changes.
+   */
+  setTableSchema(oldTableName: string, newTableName: string): string;
 
   getForeignKeysInfo(dbTableName: string): string;
 

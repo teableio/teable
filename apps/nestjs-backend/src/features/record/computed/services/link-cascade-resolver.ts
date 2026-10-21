@@ -222,7 +222,7 @@ where ${srcCol} is not null
   }
 
   private quoteIdentifier(identifier: string): string {
-    return `"${identifier.replace(/"/g, '""')}"`;
+    return `"${identifier.replaceAll('"', '""')}"`;
   }
 
   private formatQualifiedName(qualified: string): string {

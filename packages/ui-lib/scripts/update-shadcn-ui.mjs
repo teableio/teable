@@ -1,6 +1,6 @@
-import { execSync } from 'child_process';
-import { readdirSync } from 'fs';
-import { join } from 'path';
+import { execSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const componentsDir = join(process.cwd(), 'src/shadcn/ui');
 const updateComName = process.argv[2];
@@ -19,7 +19,6 @@ components.forEach((component) => {
   execSync(command, { stdio: 'inherit', cwd: process.cwd() });
 });
 
-execSync(
-  `pnpm eslint --ext .ts,.tsx --fix --rule 'typescript-eslint/naming-convention: off' ${componentsDir}`,
-  { stdio: 'inherit' }
-);
+execSync(`pnpm oxlint --fix --allow teable/naming-convention ${componentsDir}`, {
+  stdio: 'inherit',
+});

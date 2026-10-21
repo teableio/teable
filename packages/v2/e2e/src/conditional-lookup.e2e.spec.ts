@@ -12,7 +12,7 @@ import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-describe('v2 http conditional lookup (e2e)', () => {
+describe('[F22][R04] v2 http conditional lookup (e2e)', () => {
   let ctx: SharedTestContext;
   let fieldIdCounter = 0;
 
@@ -274,6 +274,223 @@ describe('v2 http conditional lookup (e2e)', () => {
 
       // Closed record should see Gamma
       expect(closedRecord!.fields[lookupFieldId]).toEqual(['Gamma']);
+    });
+
+    it('keeps isMultipleCellValue on multi-value text conditional lookups (T6946)', async () => {
+      const titleFieldId = createFieldId();
+      const statusFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_MultiText_Foreign',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title' },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+        ],
+        records: [
+          { fields: { [titleFieldId]: 'Alpha', [statusFieldId]: 'Active' } },
+          { fields: { [titleFieldId]: 'Beta', [statusFieldId]: 'Active' } },
+        ],
+      });
+
+      const statusFilterFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_MultiText_Host',
+        fields: [{ type: 'singleLineText', id: statusFilterFieldId, name: 'StatusFilter' }],
+        records: [{ fields: { [statusFilterFieldId]: 'Active' } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matched Titles',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusFieldId,
+                  operator: 'is',
+                  value: statusFilterFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const table = await getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId) as
+        | {
+            isLookup?: boolean;
+            isMultipleCellValue?: boolean;
+            dbFieldType?: string;
+          }
+        | undefined;
+      expect(lookupField?.isLookup).toBe(true);
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const hostRecords = await listRecords(host.id);
+      expect(hostRecords[0]?.fields[lookupFieldId]).toEqual(['Alpha', 'Beta']);
+    });
+
+    it('keeps isMultipleCellValue after renaming a multi-value text conditional lookup', async () => {
+      const titleFieldId = createFieldId();
+      const statusFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_RenameText_Foreign',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title' },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+        ],
+        records: [
+          { fields: { [titleFieldId]: 'Alpha', [statusFieldId]: 'Active' } },
+          { fields: { [titleFieldId]: 'Beta', [statusFieldId]: 'Active' } },
+        ],
+      });
+
+      const statusFilterFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_RenameText_Host',
+        fields: [{ type: 'singleLineText', id: statusFilterFieldId, name: 'StatusFilter' }],
+        records: [{ fields: { [statusFilterFieldId]: 'Active' } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      const lookupOptions = {
+        foreignTableId: foreign.id,
+        lookupFieldId: titleFieldId,
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusFieldId,
+                operator: 'is',
+                value: statusFilterFieldId,
+                isSymbol: true,
+              },
+            ],
+          },
+        },
+      };
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matched Titles',
+        options: lookupOptions,
+      });
+      await drainOutbox();
+
+      const recordsBefore = await listRecords(host.id);
+      const baseline = recordsBefore[0]?.fields[lookupFieldId];
+      expect(baseline).toEqual(['Alpha', 'Beta']);
+
+      await updateField(host.id, lookupFieldId, {
+        type: 'conditionalLookup',
+        name: 'Matched Titles Renamed',
+        options: lookupOptions,
+      });
+      await drainOutbox();
+
+      const table = await getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId) as
+        | {
+            name?: string;
+            isLookup?: boolean;
+            isMultipleCellValue?: boolean;
+            dbFieldType?: string;
+          }
+        | undefined;
+      expect(lookupField?.name).toBe('Matched Titles Renamed');
+      expect(lookupField?.isLookup).toBe(true);
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const recordsAfter = await listRecords(host.id);
+      expect(recordsAfter[0]?.fields[lookupFieldId]).toEqual(baseline);
+    });
+
+    it('keeps isMultipleCellValue on a multi-value select conditional lookup', async () => {
+      const categoryFieldId = createFieldId();
+      const statusFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Select_Foreign',
+        fields: [
+          {
+            type: 'singleSelect',
+            id: categoryFieldId,
+            name: 'Category',
+            options: {
+              choices: [{ name: 'Alpha' }, { name: 'Beta' }, { name: 'Gamma' }],
+            },
+          },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+        ],
+        records: [
+          { fields: { [categoryFieldId]: 'Alpha', [statusFieldId]: 'Active' } },
+          { fields: { [categoryFieldId]: 'Beta', [statusFieldId]: 'Active' } },
+        ],
+      });
+
+      const statusFilterFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Select_Host',
+        fields: [{ type: 'singleLineText', id: statusFilterFieldId, name: 'StatusFilter' }],
+        records: [{ fields: { [statusFilterFieldId]: 'Active' } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matched Categories',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: categoryFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusFieldId,
+                  operator: 'is',
+                  value: statusFilterFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+      await drainOutbox();
+
+      const table = await getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId) as
+        | {
+            isLookup?: boolean;
+            isMultipleCellValue?: boolean;
+            dbFieldType?: string;
+          }
+        | undefined;
+      expect(lookupField?.isLookup).toBe(true);
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const hostRecords = await listRecords(host.id);
+      expect(hostRecords[0]?.fields[lookupFieldId]).toEqual(['Alpha', 'Beta']);
     });
 
     it('matches text field against lookup field reference values stored as arrays', async () => {
@@ -600,6 +817,95 @@ describe('v2 http conditional lookup (e2e)', () => {
       activeRecord = hostRecords[0];
       expect(activeRecord.fields[lookupFieldId]).toEqual(['Alpha', 'Beta']);
     });
+
+    it('refreshes ARRAY_JOIN formula after a later foreign insert fills the lookup', async () => {
+      const foreignOrderIdFieldId = createFieldId();
+      const foreignNameFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'FormulaAfterLookup_LineItems',
+        fields: [
+          {
+            type: 'number',
+            id: foreignOrderIdFieldId,
+            name: 'Order Id',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+          },
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Product Name' },
+        ],
+      });
+
+      const hostNumberFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'FormulaAfterLookup_Orders',
+        fields: [{ type: 'singleLineText', id: hostNumberFieldId, name: 'Number' }],
+      });
+
+      const hostOrderIdFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'formula',
+        id: hostOrderIdFieldId,
+        name: 'Order Id',
+        options: {
+          expression: `IF(REGEXP_REPLACE({${hostNumberFieldId}}, "[0-9]", "") = "", VALUE({${hostNumberFieldId}}), BLANK())`,
+        },
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Product Names',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNameFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignOrderIdFieldId,
+                  operator: 'is',
+                  value: hostOrderIdFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const displayFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'formula',
+        id: displayFieldId,
+        name: 'Product Names Display',
+        options: {
+          expression: `IF(COUNTA({${lookupFieldId}}) > 0, ARRAY_JOIN({${lookupFieldId}}, "\\n"), BLANK())`,
+        },
+      });
+
+      const hostRecord = await createRecord(host.id, { [hostNumberFieldId]: '1001' });
+      await drainOutbox();
+
+      let hostRecords = await listRecords(host.id);
+      let record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[hostOrderIdFieldId]).toBe(1001);
+      expect(record?.fields[lookupFieldId] ?? null).toBeNull();
+      expect(record?.fields[displayFieldId] ?? null).toBeNull();
+
+      await createRecord(foreign.id, {
+        [foreignOrderIdFieldId]: 1001,
+        [foreignNameFieldId]: 'Widget Alpha',
+      });
+      await drainOutbox();
+
+      hostRecords = await listRecords(host.id);
+      record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[lookupFieldId]).toEqual(['Widget Alpha']);
+      expect(record?.fields[displayFieldId]).toBe('Widget Alpha');
+    });
   });
 
   describe('date field reference filters', () => {
@@ -796,6 +1102,12 @@ describe('v2 http conditional lookup (e2e)', () => {
       await sql`
         insert into users (id, name, email)
         values (${bobCell.id}, ${bobCell.title}, ${'bob+conditional-lookup@e2e.com'})
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+
+      await sql`
+        insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+        values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
         on conflict (id) do nothing
       `.execute(ctx.testContainer.db);
 
@@ -1887,6 +2199,553 @@ describe('v2 http conditional lookup (e2e)', () => {
       expect(restoredRollupValues.filter((value) => value > 0).sort((a, b) => a - b)).toEqual(
         baselineRollupValues.filter((value) => value > 0)
       );
+    });
+  });
+
+  describe('self-table field-reference lookups', () => {
+    it('projects Title2 from self-table rows whose NameMirror matches Name', async () => {
+      const titleFieldId = createFieldId();
+      const nameFieldId = createFieldId();
+      const nameMirrorFieldId = createFieldId();
+      const title2FieldId = createFieldId();
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Self_AltProjection',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title' },
+          { type: 'singleLineText', id: nameFieldId, name: 'Name' },
+          { type: 'singleLineText', id: nameMirrorFieldId, name: 'NameMirror' },
+          { type: 'singleLineText', id: title2FieldId, name: 'Title2' },
+        ],
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'T1',
+              [nameFieldId]: 'Alice',
+              [nameMirrorFieldId]: 'Alice',
+              [title2FieldId]: 'T1-alt',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: 'T2',
+              [nameFieldId]: 'Bob',
+              [nameMirrorFieldId]: 'Alice',
+              [title2FieldId]: 'T2-alt',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: 'T3',
+              [nameFieldId]: 'Charlie',
+              [nameMirrorFieldId]: 'Charlie',
+              [title2FieldId]: 'T3-alt',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: 'T4',
+              [nameFieldId]: 'Dave',
+              [title2FieldId]: 'T4-alt',
+            },
+          },
+        ],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(table.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matching Title2 Values',
+        options: {
+          foreignTableId: table.id,
+          lookupFieldId: title2FieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: nameMirrorFieldId,
+                  operator: 'is',
+                  value: nameFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+      await drainOutbox();
+
+      const records = await listRecords(table.id);
+      const byName = (name: string) =>
+        records.find((record) => record.fields[nameFieldId] === name);
+      expect(byName('Alice')?.fields[lookupFieldId]).toEqual(['T1-alt']);
+      expect(byName('Bob')?.fields[lookupFieldId]).toEqual(['T1-alt']);
+      expect(byName('Charlie')?.fields[lookupFieldId]).toEqual(['T3-alt']);
+      expect(byName('Dave')?.fields[lookupFieldId] ?? []).toEqual([]);
+    });
+
+    it('returns Title2 from rows where host Name2 matches foreign Name', async () => {
+      const titleFieldId = createFieldId();
+      const nameFieldId = createFieldId();
+      const name2FieldId = createFieldId();
+      const title2FieldId = createFieldId();
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Self_Title2',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title' },
+          { type: 'singleLineText', id: nameFieldId, name: 'Name' },
+          { type: 'singleLineText', id: name2FieldId, name: 'Name2' },
+          { type: 'singleLineText', id: title2FieldId, name: 'Title2' },
+        ],
+        records: [
+          {
+            fields: {
+              [titleFieldId]: '00001',
+              [nameFieldId]: 'Zhang',
+              [name2FieldId]: 'Zhang',
+              [title2FieldId]: '00001',
+            },
+          },
+          { fields: { [titleFieldId]: '00002', [nameFieldId]: 'Li', [title2FieldId]: null } },
+          {
+            fields: {
+              [titleFieldId]: '00003',
+              [nameFieldId]: 'Wang',
+              [name2FieldId]: 'Li',
+              [title2FieldId]: '00002',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: '00004',
+              [nameFieldId]: 'Zhao',
+              [name2FieldId]: 'Hello',
+            },
+          },
+        ],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(table.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Title2 via matching Name2',
+        options: {
+          foreignTableId: table.id,
+          lookupFieldId: title2FieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: name2FieldId,
+                  operator: 'is',
+                  value: nameFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+      await drainOutbox();
+
+      const records = await listRecords(table.id);
+      const byTitle = (title: string) =>
+        records.find((record) => record.fields[titleFieldId] === title);
+      expect(byTitle('00001')?.fields[lookupFieldId]).toEqual(['00001']);
+      expect(byTitle('00002')?.fields[lookupFieldId] ?? []).toEqual([]);
+      expect(byTitle('00003')?.fields[lookupFieldId] ?? []).toEqual([]);
+      expect(byTitle('00004')?.fields[lookupFieldId] ?? []).toEqual([]);
+    });
+  });
+
+  describe('empty field-reference values', () => {
+    // Only the both-array-like comparison regressed (T7653); the two parity guards below
+    // pin the scalar and scalar-vs-array routes that were already empty-safe.
+    it('keeps scalar field-reference equality empty-safe (parity guard, T7653)', async () => {
+      const foreignEmailFieldId = createFieldId();
+      const foreignNoteFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_EmptyRef_Foreign',
+        fields: [
+          {
+            type: 'singleLineText',
+            id: foreignEmailFieldId,
+            name: 'CustomerEmail',
+            isPrimary: true,
+          },
+          {
+            type: 'singleSelect',
+            id: foreignNoteFieldId,
+            name: 'Note',
+            options: { choices: [{ name: 'CaseA' }, { name: 'CaseB' }] },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              [foreignEmailFieldId]: 'match@example.com',
+              [foreignNoteFieldId]: 'CaseA',
+            },
+          },
+          { fields: { [foreignNoteFieldId]: 'CaseB' } },
+        ],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostEmailFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_EmptyRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: hostEmailFieldId, name: 'Email' },
+        ],
+        records: [
+          {
+            fields: { [hostNameFieldId]: 'matching', [hostEmailFieldId]: 'match@example.com' },
+          },
+          { fields: { [hostNameFieldId]: 'empty' } },
+          {
+            fields: { [hostNameFieldId]: 'other', [hostEmailFieldId]: 'other@example.com' },
+          },
+        ],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Notes For Matching Email',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNoteFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignEmailFieldId,
+                  operator: 'is',
+                  value: hostEmailFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const records = await listRecords(host.id);
+      const byName = (name: string) =>
+        records.find((record) => record.fields[hostNameFieldId] === name);
+      const matching = byName('matching');
+      const empty = byName('empty');
+      const other = byName('other');
+      expect(matching).toBeDefined();
+      expect(empty).toBeDefined();
+      expect(other).toBeDefined();
+
+      expect(matching?.fields[lookupFieldId]).toEqual(['CaseA']);
+      expect(empty?.fields[lookupFieldId] ?? []).toEqual([]);
+      expect(other?.fields[lookupFieldId] ?? []).toEqual([]);
+    });
+
+    it('keeps lookup-vs-scalar field-reference equality empty-safe (parity guard, T7653)', async () => {
+      const sourceEmailFieldId = createFieldId();
+      const source = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_EmptyLookupRef_Source',
+        fields: [
+          { type: 'singleLineText', id: sourceEmailFieldId, name: 'Email', isPrimary: true },
+        ],
+        records: [{ fields: { [sourceEmailFieldId]: 'match@example.com' } }],
+      });
+
+      const foreignEmailFieldId = createFieldId();
+      const foreignNoteFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_EmptyLookupRef_Foreign',
+        fields: [
+          {
+            type: 'singleLineText',
+            id: foreignEmailFieldId,
+            name: 'CustomerEmail',
+            isPrimary: true,
+          },
+          {
+            type: 'singleSelect',
+            id: foreignNoteFieldId,
+            name: 'Note',
+            options: { choices: [{ name: 'CaseA' }, { name: 'CaseB' }] },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              [foreignEmailFieldId]: 'match@example.com',
+              [foreignNoteFieldId]: 'CaseA',
+            },
+          },
+          { fields: { [foreignNoteFieldId]: 'CaseB' } },
+        ],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_EmptyLookupRef_Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        records: [
+          { fields: { [hostNameFieldId]: 'Linked Host' } },
+          { fields: { [hostNameFieldId]: 'Empty Host' } },
+        ],
+      });
+
+      const hostLinkFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'link',
+        id: hostLinkFieldId,
+        name: 'Source Link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: source.id,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const hostEmailLookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'lookup',
+        id: hostEmailLookupFieldId,
+        name: 'Email Lookup',
+        options: {
+          foreignTableId: source.id,
+          linkFieldId: hostLinkFieldId,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const sourceRecords = await listRecords(source.id);
+      const hostRecordsBeforeLink = await listRecords(host.id);
+      const sourceRecordId = sourceRecords[0]?.id;
+      const linkedHostRecordId = hostRecordsBeforeLink.find(
+        (record) => record.fields[hostNameFieldId] === 'Linked Host'
+      )?.id;
+      if (!sourceRecordId || !linkedHostRecordId) {
+        throw new Error('Missing source or host record for lookup reference test');
+      }
+      await updateRecord(host.id, linkedHostRecordId, {
+        [hostLinkFieldId]: { id: sourceRecordId },
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Notes For Matching Email',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNoteFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignEmailFieldId,
+                  operator: 'is',
+                  value: hostEmailLookupFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const records = await listRecords(host.id);
+      const linked = records.find((record) => record.fields[hostNameFieldId] === 'Linked Host');
+      const empty = records.find((record) => record.fields[hostNameFieldId] === 'Empty Host');
+      expect(linked).toBeDefined();
+      expect(empty).toBeDefined();
+
+      expect(linked?.fields[lookupFieldId]).toEqual(['CaseA']);
+      expect(empty?.fields[lookupFieldId] ?? []).toEqual([]);
+    });
+
+    it('returns no matches when both compared lookup values are empty (T7653)', async () => {
+      const sourceEmailFieldId = createFieldId();
+      const source = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_BothLookup_Source',
+        fields: [
+          { type: 'singleLineText', id: sourceEmailFieldId, name: 'Email', isPrimary: true },
+        ],
+        records: [{ fields: { [sourceEmailFieldId]: 'match@example.com' } }, { fields: {} }],
+      });
+      const sourceRecords = await listRecords(source.id);
+      const sourceMatchedId = sourceRecords.find(
+        (record) => record.fields[sourceEmailFieldId] === 'match@example.com'
+      )?.id;
+      const sourceEmptyId = sourceRecords.find((record) => !record.fields[sourceEmailFieldId])?.id;
+      if (!sourceMatchedId || !sourceEmptyId) throw new Error('Missing source records');
+
+      const foreignTitleFieldId = createFieldId();
+      const foreignNoteFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_BothLookup_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignTitleFieldId, name: 'Title', isPrimary: true },
+          {
+            type: 'singleSelect',
+            id: foreignNoteFieldId,
+            name: 'Note',
+            options: { choices: [{ name: 'CaseA' }, { name: 'CaseB' }, { name: 'CaseC' }] },
+          },
+        ],
+        records: [
+          { fields: { [foreignTitleFieldId]: 'F1', [foreignNoteFieldId]: 'CaseA' } },
+          { fields: { [foreignTitleFieldId]: 'F2', [foreignNoteFieldId]: 'CaseB' } },
+          { fields: { [foreignTitleFieldId]: 'F3', [foreignNoteFieldId]: 'CaseC' } },
+        ],
+      });
+
+      const foreignLinkFieldId = createFieldId();
+      await createField(foreign.id, {
+        type: 'link',
+        id: foreignLinkFieldId,
+        name: 'Source Link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: source.id,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const foreignEmailLookupFieldId = createFieldId();
+      await createField(foreign.id, {
+        type: 'lookup',
+        id: foreignEmailLookupFieldId,
+        name: 'Customer Email',
+        options: {
+          foreignTableId: source.id,
+          linkFieldId: foreignLinkFieldId,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const hostNameFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_BothLookup_Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        records: [
+          { fields: { [hostNameFieldId]: 'matching' } },
+          { fields: { [hostNameFieldId]: 'empty-linked' } },
+          { fields: { [hostNameFieldId]: 'empty-unlinked' } },
+        ],
+      });
+
+      const hostLinkFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'link',
+        id: hostLinkFieldId,
+        name: 'Source Link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: source.id,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const hostEmailLookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'lookup',
+        id: hostEmailLookupFieldId,
+        name: 'Email Lookup',
+        options: {
+          foreignTableId: source.id,
+          linkFieldId: hostLinkFieldId,
+          lookupFieldId: sourceEmailFieldId,
+        },
+      });
+
+      const foreignRecords = await listRecords(foreign.id);
+      const hostRecordsBeforeLink = await listRecords(host.id);
+      const foreignById = (title: string) =>
+        foreignRecords.find((record) => record.fields[foreignTitleFieldId] === title)?.id;
+      const hostByName = (name: string) =>
+        hostRecordsBeforeLink.find((record) => record.fields[hostNameFieldId] === name)?.id;
+      const foreignMatchedId = foreignById('F1');
+      const foreignEmptyLinkedId = foreignById('F2');
+      const hostMatchedId = hostByName('matching');
+      const hostEmptyLinkedId = hostByName('empty-linked');
+      if (!foreignMatchedId || !foreignEmptyLinkedId || !hostMatchedId || !hostEmptyLinkedId) {
+        throw new Error('Missing foreign or host record for both-lookup reference test');
+      }
+      await updateRecord(foreign.id, foreignMatchedId, {
+        [foreignLinkFieldId]: { id: sourceMatchedId },
+      });
+      await updateRecord(foreign.id, foreignEmptyLinkedId, {
+        [foreignLinkFieldId]: { id: sourceEmptyId },
+      });
+      await updateRecord(host.id, hostMatchedId, {
+        [hostLinkFieldId]: { id: sourceMatchedId },
+      });
+      await updateRecord(host.id, hostEmptyLinkedId, {
+        [hostLinkFieldId]: { id: sourceEmptyId },
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Notes For Matching Email',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNoteFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignEmailLookupFieldId,
+                  operator: 'is',
+                  value: hostEmailLookupFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const records = await listRecords(host.id);
+      const byName = (name: string) =>
+        records.find((record) => record.fields[hostNameFieldId] === name);
+      const matched = byName('matching');
+      const emptyLinked = byName('empty-linked');
+      const emptyUnlinked = byName('empty-unlinked');
+      expect(matched).toBeDefined();
+      expect(emptyLinked).toBeDefined();
+      expect(emptyUnlinked).toBeDefined();
+
+      expect(matched?.fields[lookupFieldId]).toEqual(['CaseA']);
+      expect(emptyLinked?.fields[lookupFieldId] ?? []).toEqual([]);
+      expect(emptyUnlinked?.fields[lookupFieldId] ?? []).toEqual([]);
     });
   });
 });

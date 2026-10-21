@@ -16,9 +16,7 @@ import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import withEnv from '@/lib/withEnv';
 
-type Props = {
-  /** Add props here */
-};
+type Props = {/** Add props here */};
 
 export default function LoginRoute(
   props: InferGetServerSidePropsType<typeof getServerSideProps> & {

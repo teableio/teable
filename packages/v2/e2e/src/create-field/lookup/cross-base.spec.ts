@@ -3,7 +3,7 @@ import { createBaseOkResponseSchema } from '@teable/v2-contract-http';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
-describe('create-field: lookup cross-base', () => {
+describe('[R13] create-field: lookup cross-base', () => {
   let ctx: SharedTestContext;
   let nameCounter = 0;
   let fieldIdCounter = 0;

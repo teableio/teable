@@ -5,9 +5,12 @@ import { CONDITIONAL_QUERY_MAX_LIMIT } from './conditional.constants';
 import { Relationship } from './constant';
 
 const lookupLinkOptionsVoSchema = z.object({
+  isUnique: z.boolean().optional().meta({
+    description: 'Remove duplicate lookup values while preserving their type and first occurrence.',
+  }),
   baseId: z.string().optional().meta({
     description:
-      'the base id of the table that this field is linked to, only required for cross base link',
+      'the project id of the table that this field is linked to, only required for cross project link',
   }),
   relationship: z.enum(Relationship).meta({
     description: 'describe the relationship from this table to the foreign table',
@@ -49,6 +52,7 @@ const lookupLinkOptionsVoSchema = z.object({
 });
 
 const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
+  isUnique: true,
   foreignTableId: true,
   lookupFieldId: true,
   linkFieldId: true,
@@ -56,6 +60,7 @@ const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
 });
 
 const lookupLinkOptionsRoKeys = new Set([
+  'isUnique',
   'foreignTableId',
   'lookupFieldId',
   'linkFieldId',
@@ -95,9 +100,12 @@ const normalizeLookupOptionsRoInput = (input: unknown): unknown => {
 };
 
 const lookupConditionalOptionsVoSchema = z.object({
+  isUnique: z.boolean().optional().meta({
+    description: 'Remove duplicate lookup values after filtering, sorting, and limiting records.',
+  }),
   baseId: z.string().optional().meta({
     description:
-      'the base id of the table that this field is linked to, only required for cross base link',
+      'the project id of the table that this field is linked to, only required for cross project link',
   }),
   foreignTableId: z.string().meta({
     description: 'the table this field is linked to',
@@ -213,6 +221,26 @@ export const lookupOptionsRoSchema = z.preprocess(
     },
   })
 );
+
+/**
+ * Partial lookup/link configuration accepted by the field PATCH endpoint. Every key is
+ * optional so a caller can re-point a lookup or rollup without resending the whole
+ * configuration; `null` clears an optional condition field.
+ */
+export const lookupOptionsPatchSchema = z
+  .object({
+    isUnique: z.boolean().optional(),
+    baseId: z.string().optional(),
+    linkFieldId: z.string().optional(),
+    foreignTableId: z.string().optional(),
+    lookupFieldId: z.string().optional(),
+    filter: filterSchema.nullable().optional(),
+    sort: lookupConditionalOptionsVoSchema.shape.sort.nullable().optional(),
+    limit: lookupConditionalOptionsVoSchema.shape.limit.nullable().optional(),
+  })
+  .strict();
+
+export type ILookupOptionsPatch = z.infer<typeof lookupOptionsPatchSchema>;
 
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;

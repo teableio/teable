@@ -53,22 +53,31 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
   private constructor(
     private readonly db: Kysely<V1TeableDatabase>,
     private readonly rulesContext: FieldSchemaRulesContext,
-    private readonly referenceMode: 'delete' | 'convert' = 'delete'
+    private readonly referenceMode: 'delete' | 'convert' = 'delete',
+    private readonly preserveSharedColumn: boolean = false
   ) {
     super();
   }
 
-  static forSchemaUpdate(params: {
-    db: Kysely<V1TeableDatabase>;
-    schema: string | null;
-    tableName: string;
-    tableId: string;
-  }): PostgresTableSchemaFieldDeleteVisitor {
-    return new PostgresTableSchemaFieldDeleteVisitor(params.db, {
-      schema: params.schema,
-      tableName: params.tableName,
-      tableId: params.tableId,
-    });
+  static forSchemaUpdate(
+    params: {
+      db: Kysely<V1TeableDatabase>;
+      schema: string | null;
+      tableName: string;
+      tableId: string;
+    },
+    options?: { preserveSharedColumn?: boolean }
+  ): PostgresTableSchemaFieldDeleteVisitor {
+    return new PostgresTableSchemaFieldDeleteVisitor(
+      params.db,
+      {
+        schema: params.schema,
+        tableName: params.tableName,
+        tableId: params.tableId,
+      },
+      'delete',
+      options?.preserveSharedColumn ?? false
+    );
   }
 
   /**
@@ -127,7 +136,9 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
 
         const ctx = this.createRuleContext(field);
         const deleteCtx: SchemaRuleContext =
-          this.referenceMode === 'convert' ? ctx : { ...ctx, mode: 'delete' };
+          this.referenceMode === 'convert'
+            ? ctx
+            : { ...ctx, mode: 'delete', preserveSharedColumn: this.preserveSharedColumn };
 
         return schemaRuleResolver.downAll(rules, deleteCtx);
       }.bind(this)

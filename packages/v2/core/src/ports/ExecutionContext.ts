@@ -1,18 +1,31 @@
+import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
 import type { TableI18nKey } from '@teable/i18n-keys';
 
 import type { ActorId } from '../domain/shared/ActorId';
 import type { IDomainContext, IDomainContextConfig } from '../domain/shared/DomainContext';
 import type { TableDataSafetyLimitConfig } from '../domain/shared/TableDataSafetyLimits';
+import type { FormulaSourceBudget } from '../domain/table/fields/types/FormulaExpression';
 import type { ITracer } from './Tracer';
 
 export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
   readonly scope?: UnitOfWorkScope;
+  readonly pending?: boolean;
   readonly committed?: boolean;
   readonly rolledBack?: boolean;
   afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
   afterRollback?(handler: UnitOfWorkAfterCommitHandler): void;
 }
+
+export type SameTxHistoryRowBudget = {
+  remaining: number;
+};
+
+export type SameTxProjectionContext = Readonly<{
+  eventId: string;
+  tables: ReadonlyMap<string, { id(): { toString(): string } }>;
+  historyRowBudget?: SameTxHistoryRowBudget;
+}>;
 
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
@@ -33,16 +46,28 @@ export interface IExecutionContext {
   requestId?: string;
   windowId?: string;
   scheduleBackgroundTask?: ExecutionContextBackgroundTaskScheduler;
-  undoRedo?: { mode: 'undo' | 'redo' | 'normal' };
+  undoRedo?: { mode: 'undo' | 'redo' | 'normal'; operationId?: string };
+  sameTxProjection?: SameTxProjectionContext;
   config?: {
+    formulaSourceBudget?: FormulaSourceBudget;
+    /** Read callers holding an external lock must disable provisioning waits. */
+    tableProvisionWaitMs?: number;
     tableLimits?: TableDataSafetyLimitConfig;
     /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
     selectFieldOptions?: IDomainContextConfig['selectFieldOptions'];
     /** @deprecated Use `tableLimits.tableSchema.maxFieldsPerTable`. */
     tableFields?: IDomainContextConfig['tableFields'];
+    /**
+     * Host policy for typecast/paste choice creation.
+     * `false` rejects writes that would add a choice. Unset means allowed.
+     */
+    allowSelectOptionAutoCreate?: boolean;
   };
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
 }
+
+export const isUndoRedoReplay = (context: Pick<IExecutionContext, 'undoRedo'>): boolean =>
+  context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
 
 export const getUnitOfWorkTransaction = (
   context: IExecutionContext | undefined,
@@ -75,7 +100,7 @@ export const bindUnitOfWorkTransaction = (
     transaction,
     transactions: scope
       ? {
-          ...(context.transactions ?? {}),
+          ...context.transactions,
           [scope]: transaction,
         }
       : context.transactions,
@@ -96,7 +121,7 @@ export const activateUnitOfWorkScope = (
     transaction,
     transactions: transaction.scope
       ? {
-          ...(context.transactions ?? {}),
+          ...context.transactions,
           [transaction.scope]: transaction,
         }
       : context.transactions,
@@ -125,7 +150,7 @@ export const scheduleExecutionContextBackgroundTask = (
 
   const timeout = (
     globalThis as {
-      setTimeout?: (handler: () => void, timeout: number) => { unref?: () => void } | unknown;
+      setTimeout?: (handler: () => void, timeout: number) => unknown;
     }
   ).setTimeout;
   if (typeof timeout === 'function') {
@@ -134,9 +159,8 @@ export const scheduleExecutionContextBackgroundTask = (
     return;
   }
 
-  const immediate = (
-    globalThis as { setImmediate?: (handler: () => void) => { unref?: () => void } | unknown }
-  ).setImmediate;
+  const immediate = (globalThis as { setImmediate?: (handler: () => void) => unknown })
+    .setImmediate;
   if (typeof immediate === 'function') {
     const handle = immediate(() => void task()) as { unref?: () => void } | undefined;
     handle?.unref?.();
@@ -152,11 +176,16 @@ export const scheduleExecutionContextBackgroundTask = (
   void task();
 };
 
+/** Commands admit new sources even before a DI-backed command bus is available. */
+export const getFormulaSourceBudget = (context?: IExecutionContext): FormulaSourceBudget =>
+  context?.config?.formulaSourceBudget ?? { ...defaultFormulaSourceBudgetLimits, policyVersion: 1 };
+
 export const getDomainContext = (context?: IExecutionContext): IDomainContext | undefined => {
   const tableLimits = context?.config?.tableLimits;
   const selectFieldOptions = context?.config?.selectFieldOptions;
   const tableFields = context?.config?.tableFields;
-  if (!context?.$t && !tableLimits && !selectFieldOptions && !tableFields) {
+  const formulaSourceBudget = context?.config?.formulaSourceBudget;
+  if (!context?.$t && !tableLimits && !selectFieldOptions && !tableFields && !formulaSourceBudget) {
     return undefined;
   }
 
@@ -165,8 +194,9 @@ export const getDomainContext = (context?: IExecutionContext): IDomainContext | 
   return {
     t: translate,
     config:
-      tableLimits || selectFieldOptions || tableFields
+      tableLimits || selectFieldOptions || tableFields || formulaSourceBudget
         ? {
+            ...(formulaSourceBudget ? { formulaSourceBudget } : {}),
             ...(tableLimits ? { tableLimits } : {}),
             ...(selectFieldOptions ? { selectFieldOptions } : {}),
             ...(tableFields ? { tableFields } : {}),

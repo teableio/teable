@@ -4,8 +4,9 @@ import {
   PostgresUnitOfWorkTransaction,
 } from '@teable/v2-adapter-db-postgres-shared';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
+import { domainError } from '@teable/v2-core';
 import type { Transaction } from 'kysely';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 const createContext = (transaction?: IUnitOfWorkTransaction): IExecutionContext => ({
@@ -120,6 +121,43 @@ describe('shared Postgres unit of work helpers', () => {
     expect(getPostgresTransaction(observedContext, 'meta')).toBe(db);
   });
 
+  it('preserves automatic deadlock retry for ordinary replayable writes', async () => {
+    let writes = 0;
+    let calls = 0;
+    let rollbacks = 0;
+    const db = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => {
+          const originalWrites = writes;
+          try {
+            return await work({} as Transaction<unknown>);
+          } catch (error) {
+            writes = originalWrites;
+            rollbacks++;
+            throw error;
+          }
+        },
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      db as never,
+      db as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+    const result = await unitOfWork.withTransaction(createContext(), async () => {
+      writes++;
+      calls++;
+      return calls === 1
+        ? err(domainError.infrastructure({ message: 'deadlock detected' }))
+        : ok('committed');
+    });
+    expect(result._unsafeUnwrap()).toBe('committed');
+    expect(calls).toBe(2);
+    expect(writes).toBe(1);
+    expect(rollbacks).toBe(1);
+  });
+
   it('binds a new transaction to both scopes when meta and data share one database', async () => {
     const db = { marker: 'shared' } as unknown as Transaction<unknown>;
     const metaDb = { transaction: vi.fn() };
@@ -200,5 +238,114 @@ describe('shared Postgres unit of work helpers', () => {
     expect(result.isErr()).toBe(true);
     expect(metaDb.transaction).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it('returns the transaction db while pending and null once rolled back or committed', async () => {
+    const db = { marker: 'data' } as unknown as Transaction<unknown>;
+    const rolledBackTransaction = new PostgresUnitOfWorkTransaction(db, 'data');
+    const committedTransaction = new PostgresUnitOfWorkTransaction(db, 'data');
+
+    expect(getPostgresTransaction(createContext(rolledBackTransaction))).toBe(db);
+    expect(getPostgresTransaction(createContext(committedTransaction))).toBe(db);
+
+    await rolledBackTransaction.runAfterRollbackHandlers();
+    await committedTransaction.runAfterCommitHandlers();
+
+    expect(getPostgresTransaction(createContext(rolledBackTransaction))).toBeNull();
+    expect(getPostgresTransaction(createContext(committedTransaction))).toBeNull();
+  });
+
+  it('returns null while afterCommit handlers are running', async () => {
+    const db = { marker: 'data' } as unknown as Transaction<unknown>;
+    const transaction = new PostgresUnitOfWorkTransaction(db, 'data');
+    const observed: Array<Transaction<unknown> | null> = [];
+
+    transaction.afterCommit(() => {
+      observed.push(getPostgresTransaction(createContext(transaction)));
+    });
+
+    await transaction.runAfterCommitHandlers();
+
+    expect(observed).toEqual([null]);
+  });
+
+  it('opens a fresh transaction for withTransaction calls inside afterCommit handlers', async () => {
+    const handles: Array<{ marker: string }> = [];
+    const dataDb = {
+      transaction: vi.fn(() => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => {
+          const handle = { marker: `trx-${handles.length}` };
+          handles.push(handle);
+          return work(handle as unknown as Transaction<unknown>);
+        },
+      })),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      dataDb as never,
+      dataDb as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+
+    let outerHandle: Transaction<unknown> | null = null;
+    let innerHandle: Transaction<unknown> | null = null;
+    let innerError: string | null = null;
+    const result = await unitOfWork.withTransaction(createContext(), async (outerContext) => {
+      outerHandle = getPostgresTransaction(outerContext);
+      outerContext.transaction?.afterCommit?.(async () => {
+        const innerResult = await unitOfWork.withTransaction(outerContext, async (innerContext) => {
+          innerHandle = getPostgresTransaction(innerContext);
+          return ok('inner');
+        });
+        if (innerResult.isErr()) {
+          innerError = innerResult.error.message;
+        }
+      });
+      return ok('outer');
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(innerError).toBeNull();
+    expect(dataDb.transaction).toHaveBeenCalledTimes(2);
+    expect(outerHandle).toBe(handles[0]);
+    expect(innerHandle).toBe(handles[1]);
+    expect(innerHandle).not.toBe(outerHandle);
+  });
+
+  it('opens a new transaction instead of reusing a dead sibling scope transaction', async () => {
+    const freshHandle = { marker: 'fresh' } as unknown as Transaction<unknown>;
+    const sharedDb = {
+      transaction: vi.fn(() => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => work(freshHandle),
+      })),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      sharedDb as never,
+      sharedDb as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+    const deadTransaction = new PostgresUnitOfWorkTransaction(
+      { marker: 'dead' } as unknown as Transaction<unknown>,
+      'data'
+    );
+    await deadTransaction.runAfterCommitHandlers();
+
+    let observedMetaTransaction: Transaction<unknown> | null = null;
+    const result = await unitOfWork.withTransaction(
+      {
+        ...createContext(deadTransaction),
+        transactions: { data: deadTransaction },
+      },
+      async (transactionContext) => {
+        observedMetaTransaction = getPostgresTransaction(transactionContext, 'meta');
+        return ok('done');
+      },
+      { scope: 'meta' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(sharedDb.transaction).toHaveBeenCalledOnce();
+    expect(observedMetaTransaction).toBe(freshHandle);
   });
 });

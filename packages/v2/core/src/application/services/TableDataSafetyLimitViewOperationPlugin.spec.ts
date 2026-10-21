@@ -122,6 +122,16 @@ describe('TableDataSafetyLimitViewOperationPlugin', () => {
       { viewConfig: { maxFilterItems: 1 } },
     ],
     [
+      'validation.limit.view_filter_items_max',
+      ViewOperationKind.create,
+      {
+        tableId: 'tblTest',
+        currentViewCount: 1,
+        view: { filter: { conjunction: 'and', items: [filterItem, filterItem] } },
+      },
+      { viewConfig: { maxFilterItems: 1 } },
+    ],
+    [
       'validation.limit.view_filter_depth_max',
       ViewOperationKind.update,
       {
@@ -131,6 +141,21 @@ describe('TableDataSafetyLimitViewOperationPlugin', () => {
           filter: {
             conjunction: 'and',
             filterSet: [{ conjunction: 'and', filterSet: [filterItem] }],
+          },
+        },
+      },
+      { viewConfig: { maxFilterDepth: 1 } },
+    ],
+    [
+      'validation.limit.view_filter_depth_max',
+      ViewOperationKind.create,
+      {
+        tableId: 'tblTest',
+        currentViewCount: 1,
+        view: {
+          filter: {
+            conjunction: 'and',
+            items: [{ conjunction: 'and', items: [filterItem] }],
           },
         },
       },

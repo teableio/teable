@@ -20,6 +20,7 @@ export interface IRecordMenu {
   isMultipleSelected?: boolean;
   position: IPosition;
   deleteRecords?: () => Promise<void>;
+  archiveRecords?: () => Promise<void>;
   insertRecord?: (anchorId: string, position: 'before' | 'after', num: number) => void;
   duplicateRecord?: () => Promise<void>;
   copyRecordUrl?: () => Promise<void>;

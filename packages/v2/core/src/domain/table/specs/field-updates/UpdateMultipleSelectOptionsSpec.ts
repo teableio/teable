@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../../shared/DomainContext';
@@ -11,9 +11,12 @@ import {
   ensureSelectFieldOptionCountWithinLimit,
   ensureSelectFieldOptionNamesWithinLimit,
 } from '../../fields/types/SelectFieldOptionWriteConfig';
+import type { SelectDefaultValue } from '../../fields/types/SelectDefaultValue';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
+import type { SelectDefaultValueChange } from './UpdateSingleSelectOptionsSpec';
+import { reconcileSelectDefaultAfterOptionRewrite } from './reconcileSelectDefaultAfterOptionRewrite';
 
 /**
  * Specification for updating a multiple select field's options.
@@ -26,7 +29,8 @@ export class UpdateMultipleSelectOptionsSpec<
     private readonly dbFieldNameValue: DbFieldName,
     private readonly previousOptionsValue: ReadonlyArray<SelectOption>,
     private readonly nextOptionsValue: ReadonlyArray<SelectOption>,
-    private readonly domainContextValue: IDomainContext | undefined
+    private readonly domainContextValue: IDomainContext | undefined,
+    private readonly defaultValueChangeValue: SelectDefaultValueChange | undefined
   ) {
     super();
   }
@@ -36,15 +40,22 @@ export class UpdateMultipleSelectOptionsSpec<
     dbFieldName: DbFieldName,
     previousOptions: ReadonlyArray<SelectOption>,
     nextOptions: ReadonlyArray<SelectOption>,
-    domainContext?: IDomainContext
+    domainContext?: IDomainContext,
+    defaultValueChange?: SelectDefaultValueChange
   ): UpdateMultipleSelectOptionsSpec {
     return new UpdateMultipleSelectOptionsSpec(
       fieldId,
       dbFieldName,
       previousOptions,
       nextOptions,
-      domainContext
+      domainContext,
+      defaultValueChange
     );
+  }
+
+  /** The default to write alongside the option rewrite, when one was requested. */
+  defaultValueChange(): SelectDefaultValueChange | undefined {
+    return this.defaultValueChangeValue;
   }
 
   fieldId(): FieldId {
@@ -133,11 +144,22 @@ export class UpdateMultipleSelectOptionsSpec<
       return err(domainError.validation({ message: 'Field is not a multiple select field' }));
     }
 
+    // See UpdateSingleSelectOptionsSpec: explicit defaults validate as
+    // supplied; an unchanged default follows renames and drops deleted names.
+    const defaultValueResult = this.defaultValueChangeValue
+      ? ok(this.defaultValueChangeValue.next)
+      : reconcileSelectDefaultAfterOptionRewrite(
+          this.previousOptionsValue,
+          this.nextOptionsValue,
+          field.defaultValue()
+        );
+    if (defaultValueResult.isErr()) return err(defaultValueResult.error);
+
     const updatedFieldResult = MultipleSelectField.create({
       id: field.id(),
       name: field.name(),
       options: this.nextOptionsValue,
-      defaultValue: field.defaultValue(),
+      defaultValue: defaultValueResult.value,
       preventAutoNewOptions: field.preventAutoNewOptions(),
       domainContext: this.domainContextValue,
     });

@@ -35,28 +35,28 @@
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/formula.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
+    "lint": "oxlint && oxfmt --check",
     "antlr4ts": "antlr4ts -visitor -no-listener src/parser/*.g4",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "vitest run test-unit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
-    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+    "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "antlr4ts": "0.5.0-alpha.4"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
-    "@vitest/coverage-v8": "4.0.17",
+    "@types/node": "24.13.2",
+    "@vitest/coverage-v8": "4.1.12",
     "antlr4ts-cli": "0.5.0-alpha.4",
-    "eslint": "8.57.0",
-    "prettier": "3.2.5",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
-    "vitest": "4.0.17"
+    "vitest": "4.1.12"
   }
 }

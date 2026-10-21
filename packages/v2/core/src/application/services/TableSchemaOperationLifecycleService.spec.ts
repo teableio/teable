@@ -13,6 +13,7 @@ import type {
 } from '../../ports/TableRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import {
+  abandonTableSchemaOperation,
   beginTableSchemaOperation,
   beginTablesSchemaOperation,
   completeTableSchemaOperation,
@@ -130,6 +131,42 @@ describe('TableSchemaOperationLifecycleService', () => {
         operationType: 'table.create',
         phase: 'error',
         payload: undefined,
+      })
+    );
+  });
+
+  it('abandons a cleaned-up table operation as dead so the runner will not claim it', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const targetTable = table('tblLifecycle00000A');
+
+    const result = await abandonTableSchemaOperation(
+      unitOfWork,
+      tableRepository,
+      context(),
+      targetTable,
+      {
+        type: 'table.import',
+        lastError: 'Exceed max row limit: 1',
+        payload: { source: 'csv', durableSource: false },
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      targetTable,
+      'error',
+      expect.objectContaining({
+        lastError: 'Exceed max row limit: 1',
+        operationType: 'table.import',
+        phase: 'error',
+        status: 'dead',
+        payload: {
+          source: 'csv',
+          durableSource: false,
+          tableId: 'tblLifecycle00000A',
+        },
       })
     );
   });

@@ -66,3 +66,13 @@ export class SpaceEventFactory {
       .otherwise(() => null);
   }
 }
+
+/** A user's first space, created with the account. Emitted inside the signup transaction. */
+export class SpaceSignupCreateEvent {
+  public readonly name = Events.SPACE_SIGNUP_CREATE;
+
+  constructor(
+    public readonly spaceId: string,
+    public readonly userId: string
+  ) {}
+}

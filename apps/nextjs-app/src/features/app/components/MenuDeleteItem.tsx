@@ -36,7 +36,7 @@ export const MenuDeleteItem = React.forwardRef<
       >
         {children ?? (
           <>
-            <Trash2 className="mr-1.5" />
+            <Trash2 className="me-1.5" />
             {t('actions.delete')}
           </>
         )}

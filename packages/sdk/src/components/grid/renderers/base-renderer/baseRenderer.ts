@@ -1,4 +1,5 @@
 import { LRUCache } from 'lru-cache';
+import { resolveContentDirection } from '../../../../utils/text-direction';
 import { parseToRGB } from '../../utils';
 import type {
   ILineProps,
@@ -23,6 +24,8 @@ const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }>
 
 const multiLineTextInfoCache: LRUCache<string, ITextInfo[]> = new LRUCache({ max: 1000 });
 
+export const TEXT_ELLIPSIS = '...';
+
 const createFallbackSegmenter = () => ({
   segment: (text: string) => ({
     [Symbol.iterator]: function* () {
@@ -41,6 +44,35 @@ const graphemeSegmenter = hasSegmenter
   ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   : createFallbackSegmenter();
 
+// Longest prefix of text (word-bounded, then grapheme-bounded within the
+// overflowing word) whose measured width stays within budget
+const truncateToBudget = (ctx: CanvasRenderingContext2D, text: string, budget: number) => {
+  let keptText = '';
+  let keptWidth = 0;
+
+  for (const { segment } of wordSegmenter.segment(text)) {
+    const segWidth = ctx.measureText(segment).width;
+    if (keptWidth + segWidth > budget) {
+      for (const { segment: grapheme } of graphemeSegmenter.segment(segment)) {
+        const gWidth = ctx.measureText(grapheme).width;
+        if (keptWidth + gWidth > budget) break;
+        keptText += grapheme;
+        keptWidth += gWidth;
+      }
+      break;
+    }
+    keptText += segment;
+    keptWidth += segWidth;
+  }
+
+  return { text: keptText, width: keptWidth };
+};
+
+/**
+ * Base direction to draw `text` with, or `null` to leave the canvas direction
+ * untouched. Detection is skipped entirely while the language gate is off, so
+ * every other locale keeps running the exact code path it ran before.
+ */
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
@@ -59,10 +91,13 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   } = props;
 
   let lines: ITextInfo[] = [];
-  const ellipsis = '...';
+  const ellipsis = TEXT_ELLIPSIS;
   const ellipsisWidth = ctx.measureText(ellipsis).width;
   let currentLine = '';
   let currentLineWidth = 0;
+  // Source offset where currentLine begins; every emitted line is a verbatim
+  // slice of text starting there (plus the ellipsis when truncated)
+  let lineStart = 0;
 
   const fontKey = ctx.font || '';
   const cacheKey = `${fontKey}-${text}-${fontSize}-${maxWidth}-${maxLines}`;
@@ -73,79 +108,76 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   } else {
     let consumed = 0;
 
-    // eslint-disable-next-line sonarjs/cognitive-complexity
-    const addEllipsisLine = (overflowSeg?: string) => {
+    const pushLine = (lineText: string, lineWidth: number) => {
+      lines.push({ text: lineText, width: lineWidth, start: lineStart });
+    };
+
+    const append = (piece: string, pieceWidth: number, pieceStart: number) => {
+      if (currentLine === '') lineStart = pieceStart;
+      currentLine += piece;
+      currentLineWidth += pieceWidth;
+    };
+
+    const addEllipsisLine = (overflowSeg?: string, overflowStart = 0) => {
       const budget = maxWidth - ellipsisWidth;
       if (currentLineWidth > budget) {
-        let newLine = '';
-        let newWidth = 0;
-        for (const { segment: word } of wordSegmenter.segment(currentLine)) {
-          const w = ctx.measureText(word).width;
-          if (newWidth + w > budget) {
-            for (const { segment: grapheme } of graphemeSegmenter.segment(word)) {
-              const gw = ctx.measureText(grapheme).width;
-              if (newWidth + gw > budget) break;
-              newLine += grapheme;
-              newWidth += gw;
-            }
-            break;
-          }
-          newLine += word;
-          newWidth += w;
-        }
-        currentLine = newLine;
-        currentLineWidth = newWidth;
+        const truncated = truncateToBudget(ctx, currentLine, budget);
+        currentLine = truncated.text;
+        currentLineWidth = truncated.width;
       } else if (overflowSeg) {
+        let graphemeStart = overflowStart;
         for (const { segment: grapheme } of graphemeSegmenter.segment(overflowSeg)) {
           const gw = ctx.measureText(grapheme).width;
           if (currentLineWidth + gw > budget) break;
-          currentLine += grapheme;
-          currentLineWidth += gw;
+          append(grapheme, gw, graphemeStart);
+          graphemeStart += grapheme.length;
         }
       }
-      lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
+      pushLine(currentLine + ellipsis, currentLineWidth + ellipsisWidth);
       currentLine = '';
       currentLineWidth = 0;
     };
 
-    const addSegment = (seg: string, segWidth: number) => {
+    const addSegment = (seg: string, segWidth: number, segStart: number) => {
       if (currentLineWidth + segWidth <= maxWidth) {
-        currentLine += seg;
-        currentLineWidth += segWidth;
+        append(seg, segWidth, segStart);
         return;
       }
       if (segWidth <= maxWidth) {
         if (lines.length < maxLines - 1) {
-          lines.push({ text: currentLine, width: currentLineWidth });
-          currentLine = seg;
-          currentLineWidth = segWidth;
+          pushLine(currentLine, currentLineWidth);
+          currentLine = '';
+          currentLineWidth = 0;
+          append(seg, segWidth, segStart);
         } else {
-          addEllipsisLine(seg);
+          addEllipsisLine(seg, segStart);
         }
         return;
       }
+      let graphemeStart = segStart;
       for (const { segment: grapheme } of graphemeSegmenter.segment(seg)) {
         if (lines.length >= maxLines) break;
         const gWidth = ctx.measureText(grapheme).width;
         if (currentLineWidth + gWidth > maxWidth) {
           if (lines.length < maxLines - 1) {
-            lines.push({ text: currentLine, width: currentLineWidth });
-            currentLine = grapheme;
-            currentLineWidth = gWidth;
+            pushLine(currentLine, currentLineWidth);
+            currentLine = '';
+            currentLineWidth = 0;
+            append(grapheme, gWidth, graphemeStart);
           } else {
             addEllipsisLine();
           }
         } else {
-          currentLine += grapheme;
-          currentLineWidth += gWidth;
+          append(grapheme, gWidth, graphemeStart);
         }
+        graphemeStart += grapheme.length;
       }
     };
 
     for (const { segment } of wordSegmenter.segment(text)) {
       if (lines.length >= maxLines) break;
 
-      if (segment.indexOf('\n') !== -1) {
+      if (segment.includes('\n')) {
         const parts = segment.split('\n');
         for (let p = 0; p < parts.length; p++) {
           if (lines.length >= maxLines) break;
@@ -155,25 +187,26 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
               addEllipsisLine();
               break;
             }
-            lines.push({ text: currentLine, width: currentLineWidth });
+            pushLine(currentLine, currentLineWidth);
             currentLine = '';
             currentLineWidth = 0;
+            lineStart = consumed;
           }
           const part = parts[p];
           if (part.length > 0) {
             consumed += part.length;
-            addSegment(part, ctx.measureText(part).width);
+            addSegment(part, ctx.measureText(part).width, consumed - part.length);
           }
         }
         continue;
       }
 
       consumed += segment.length;
-      addSegment(segment, ctx.measureText(segment).width);
+      addSegment(segment, ctx.measureText(segment).width, consumed - segment.length);
     }
 
     if (lines.length < maxLines && currentLine !== '') {
-      lines.push({ text: currentLine, width: currentLineWidth });
+      pushLine(currentLine, currentLineWidth);
     }
 
     multiLineTextInfoCache.set(cacheKey, lines);
@@ -182,23 +215,37 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
 
   if (needRender) {
+    const contentDir = resolveContentDirection(text);
+    // Only the direction-agnostic default alignment follows the content; an
+    // explicit 'right'/'center' is a layout decision the caller already made.
+    const isAutoRtl = contentDir === 'rtl' && textAlign === 'left';
+    const finalX = isAutoRtl ? x + maxWidth : x;
+    // Reading and writing ctx.direction is a canvas-state round-trip on the
+    // grid's hot paint path, so it only happens when the content asks for it.
+    const prevDirection = contentDir != null ? ctx.direction : null;
+
     if (fill) {
       ctx.fillStyle = fill;
       ctx.strokeStyle = fill;
     }
-    ctx.textAlign = textAlign;
+    if (contentDir != null) ctx.direction = contentDir;
+    ctx.textAlign = isAutoRtl ? 'right' : textAlign;
     ctx.textBaseline = verticalAlign;
 
     for (let j = 0; j < lines.length; j++) {
-      ctx.fillText(lines[j].text, x, y + j * lineHeight + offsetY);
+      ctx.fillText(lines[j].text, finalX, y + j * lineHeight + offsetY);
       if (isUnderline) {
         const textWidth = ctx.measureText(lines[j].text).width;
+        // Right-anchored text grows leftwards from finalX.
+        const underlineStart = isAutoRtl ? finalX - textWidth : finalX;
         ctx.beginPath();
-        ctx.moveTo(x, y + j * lineHeight + fontSize - 1);
-        ctx.lineTo(x + textWidth, y + j * lineHeight + fontSize - 1);
+        ctx.moveTo(underlineStart, y + j * lineHeight + fontSize - 1);
+        ctx.lineTo(underlineStart + textWidth, y + j * lineHeight + fontSize - 1);
         ctx.stroke();
       }
     }
+
+    if (prevDirection != null) ctx.direction = prevDirection;
   }
 
   return lines;
@@ -229,58 +276,60 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     width = cachedTextInfo.width;
     displayText = cachedTextInfo.text;
   } else {
-    const ellipsis = '...';
-    const ellipsisWidth = ctx.measureText(ellipsis).width;
+    const fullWidth = ctx.measureText(text).width;
 
-    let needsEllipsis = false;
-
-    for (const { segment } of wordSegmenter.segment(text)) {
-      const segWidth = ctx.measureText(segment).width;
-      if (width + segWidth > maxWidth) {
-        needsEllipsis = true;
-        const budget = maxWidth - ellipsisWidth;
-        for (const { segment: grapheme } of graphemeSegmenter.segment(segment)) {
-          const gWidth = ctx.measureText(grapheme).width;
-          if (width + gWidth > budget) break;
-          displayText += grapheme;
-          width += gWidth;
-        }
-        break;
-      }
-      displayText += segment;
-      width += segWidth;
-    }
-
-    if (!needsEllipsis && displayText.length < text.length) {
-      needsEllipsis = true;
-    }
-
-    if (needsEllipsis) {
-      displayText = ctx.direction === 'rtl' ? ellipsis + displayText : displayText + ellipsis;
-      width = Math.min(width + ellipsisWidth, maxWidth);
-    } else {
+    if (fullWidth <= maxWidth) {
       displayText = text;
+      width = fullWidth;
+    } else {
+      const ellipsis = TEXT_ELLIPSIS;
+      const ellipsisWidth = ctx.measureText(ellipsis).width;
+      // Reserve the ellipsis width up front so that the rendered text and the
+      // returned width stay within maxWidth (as long as maxWidth fits at
+      // least the ellipsis itself)
+      const truncated = truncateToBudget(ctx, text, maxWidth - ellipsisWidth);
+
+      // Logical order: the bidi algorithm places the ellipsis at the reading
+      // end of the run, which is the visual left for RTL content.
+      displayText = truncated.text + ellipsis;
+      width = truncated.width + ellipsisWidth;
     }
 
     singleLineTextInfoCache.set(cacheKey, { text: displayText, width });
   }
 
   if (needRender) {
+    const contentDir = resolveContentDirection(text);
+    // Only the direction-agnostic default alignment follows the content; an
+    // explicit 'right'/'center' is a layout decision the caller already made.
+    // An unbounded maxWidth gives nothing to anchor against, so it stays as is.
+    const isAutoRtl = contentDir === 'rtl' && textAlign === 'left' && maxWidth !== Infinity;
+    const resolvedAlign = isAutoRtl ? 'right' : textAlign;
     const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
-    const finalX = textAlign === 'right' ? x + maxWidth : x;
+    const finalX = resolvedAlign === 'right' ? x + maxWidth : x;
+    // Reading and writing ctx.direction is a canvas-state round-trip on the
+    // grid's hot paint path, so it only happens when the content asks for it.
+    const prevDirection = contentDir != null ? ctx.direction : null;
+
     if (fill) {
       ctx.fillStyle = fill;
       ctx.strokeStyle = fill;
     }
-    ctx.textAlign = textAlign;
+    if (contentDir != null) ctx.direction = contentDir;
+    ctx.textAlign = resolvedAlign;
     ctx.textBaseline = verticalAlign;
     ctx.fillText(displayText, finalX, y + offsetY);
     if (isUnderline) {
+      // Right-anchored text grows leftwards from finalX. Corrected only for the
+      // content-driven case so existing right-aligned callers keep their geometry.
+      const underlineStart = isAutoRtl ? finalX - width : finalX;
       ctx.beginPath();
-      ctx.moveTo(finalX, y + offsetY + fontSize / 2 - 1);
-      ctx.lineTo(finalX + width, y + offsetY + fontSize / 2 - 1);
+      ctx.moveTo(underlineStart, y + offsetY + fontSize / 2 - 1);
+      ctx.lineTo(underlineStart + width, y + offsetY + fontSize / 2 - 1);
       ctx.stroke();
     }
+
+    if (prevDirection != null) ctx.direction = prevDirection;
   }
 
   return {
@@ -378,7 +427,7 @@ export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyPr
     const v2 = asVec(p2, p3);
     const sinA = v1.nx * v2.ny - v1.ny * v2.nx;
     const sinA90 = v1.nx * v2.nx - v1.ny * -v2.ny;
-    let angle = Math.asin(sinA < -1 ? -1 : sinA > 1 ? 1 : sinA);
+    let angle = Math.asin(Math.min(Math.max(sinA, -1), 1));
     let radDirection = 1;
     let drawDirection = false;
     if (sinA90 < 0) {
@@ -389,11 +438,9 @@ export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyPr
         radDirection = -1;
         drawDirection = true;
       }
-    } else {
-      if (angle > 0) {
-        radDirection = -1;
-        drawDirection = true;
-      }
+    } else if (angle > 0) {
+      radDirection = -1;
+      drawDirection = true;
     }
     radius = p2.radius !== undefined ? p2.radius : radiusAll;
 
@@ -638,7 +685,7 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
 
   const barMaxWidth = 8;
   const [originMinY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
-  const minY = originMinY > 0 ? 0 : originMinY;
+  const minY = Math.min(originMinY, 0);
   const delta = maxY - minY === 0 ? 1 : maxY - minY;
   const zeroY = maxY <= 0 ? y : minY >= 0 ? y + height : y + height * (maxY / delta);
 

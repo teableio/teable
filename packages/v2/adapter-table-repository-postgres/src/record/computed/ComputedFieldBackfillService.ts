@@ -1,9 +1,14 @@
+import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
 import {
   Field,
   FieldType,
+  FormulaField,
+  RecordByIdsSpec,
+  RecordId,
   TableByIdSpec,
   domainError,
   generatePrefixedId,
+  hasCode,
   type DomainError,
   type IComputedFieldBackfillService,
   type IExecutionContext,
@@ -16,12 +21,24 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
+import {
+  analyzeDeterministicScalarFormula,
+  formulaSqlPgTokens,
+  type IPgTypeValidationStrategy,
+  isFormulaCompileBudgetError,
+  defaultFormulaCompileBudgetConfig,
+  type FormulaCompileBudgetConfig,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { PostgresSchemaIntrospector } from '../../schema/rules';
+import {
+  resolveColumnName,
+  resolveColumnType,
+} from '../../schema/visitors/PostgresTableSchemaFieldColumn';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
@@ -39,19 +56,109 @@ export type { ComputedFieldBackfillManyResult } from '@teable/v2-core';
 
 const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
 
+export type ComputedFieldBackfillBatchResult = ComputedFieldBackfillManyResult & {
+  batch?: {
+    recordCount: number;
+    lastRecordId?: string;
+    hasMore: boolean;
+  };
+};
+
 const hasTrackedFieldIds = (
   field: Field
 ): field is Field & { trackedFieldIds: () => ReadonlyArray<unknown> } => {
   return 'trackedFieldIds' in field && typeof field.trackedFieldIds === 'function';
 };
 
-const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
-  if (size <= 0 || items.length <= size) return [items];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
+/** Fuse bounded deterministic scalar formulas over stored scalar inputs. Clocks,
+ * computed dependencies, arrays, and expensive/unknown calls keep their statement
+ * boundary. The syntax analysis is shared with other safe scalar optimizations.
+ */
+export const planBackfillFieldChunks = (table: Table, fields: ReadonlyArray<Field>): Field[][] => {
+  const chunks: Field[][] = [];
+  let pending: Field[] = [];
+  let expressionBytes = 0;
+  let syntaxCost = 0;
+  const flush = () => {
+    if (pending.length) chunks.push(pending);
+    pending = [];
+    expressionBytes = 0;
+    syntaxCost = 0;
+  };
+  for (const field of fields) {
+    let eligible = false;
+    let length = 0;
+    let cost = 0;
+    if (field instanceof FormulaField) {
+      const expression = field.expression().toString();
+      length = expression.length;
+      const resultType = field.cellValueType();
+      const analysis = analyzeDeterministicScalarFormula(expression, {
+        requireDateResult: resultType.isOk() && resultType.value.toString() === 'dateTime',
+        isStoredDateField: (id) =>
+          table
+            .getFields((candidate) => candidate.id().toString() === id)[0]
+            ?.type()
+            .equals(FieldType.date()) === true,
+      }).unwrapOr(undefined);
+      const multiplicity = field.isMultipleCellValue();
+      eligible =
+        analysis !== undefined &&
+        resultType.isOk() &&
+        multiplicity.isOk() &&
+        !multiplicity.value.toBoolean() &&
+        analysis.fieldReferences.every((id) => {
+          const dependency = table.getFields((candidate) => candidate.id().toString() === id)[0];
+          return (
+            dependency !== undefined &&
+            [
+              FieldType.number(),
+              FieldType.rating(),
+              FieldType.singleLineText(),
+              FieldType.longText(),
+              FieldType.checkbox(),
+              FieldType.date(),
+            ].some((type) => dependency.type().equals(type))
+          );
+        });
+      cost = analysis?.cost ?? 0;
+    }
+    if (!eligible) {
+      flush();
+      chunks.push([field]);
+      continue;
+    }
+    if (
+      pending.length >= 8 ||
+      expressionBytes + length > 1024 ||
+      syntaxCost + cost > 1024 ||
+      pending.some((candidate) => candidate.id().equals(field.id()))
+    ) {
+      flush();
+    }
+    pending.push(field);
+    expressionBytes += length;
+    syntaxCost += cost;
   }
+  flush();
   return chunks;
+};
+
+const normalizePgColumnType = (dataType: string): string => {
+  const normalized = dataType.trim().toLowerCase();
+  if (normalized === 'timestamp with time zone' || normalized === 'timestamptz') {
+    return 'timestamptz';
+  }
+  if (normalized === 'double precision' || normalized === 'float8') {
+    return 'double precision';
+  }
+  if (normalized === 'character varying' || normalized === 'varchar') {
+    return 'text';
+  }
+  if (normalized === 'json') {
+    return 'jsonb';
+  }
+  return normalized;
 };
 
 const hasUnitOfWorkTransaction = (context: IExecutionContext): boolean => {
@@ -93,9 +200,9 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  * values for the new field. This service computes and stores values for all existing records.
  *
  * Key design decisions:
- * 1. Does NOT load record IDs into memory - uses SQL UPDATE directly
+ * 1. Synchronous callers use set-based SQL; async workers load only one bounded ID batch
  * 2. No dirty table mechanism - updates all records in the table
- * 3. Single column update - new fields have no downstream dependencies
+ * 3. Bounded fusion of independent scalar formulas; other fields update separately
  * 4. Supports sync/async modes for different scale requirements
  *
  * @example
@@ -129,7 +236,9 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     @inject(v2RecordRepositoryPostgresTokens.fieldBackfillConfig)
     private readonly config: FieldBackfillConfig = defaultFieldBackfillConfig,
     @inject(formulaSqlPgTokens.typeValidationStrategy)
-    private readonly typeValidationStrategy: IPgTypeValidationStrategy
+    private readonly typeValidationStrategy: IPgTypeValidationStrategy,
+    @inject(formulaSqlPgTokens.compileBudget)
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
   ) {}
 
   /**
@@ -157,7 +266,12 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     }
 
     const syncResult = await this.executeSync(context, input);
-    if (syncResult.isOk()) {
+    if (
+      syncResult.isOk() ||
+      isFormulaCompileBudgetError(syncResult.error) ||
+      hasCode(syncResult.error, 'validation.formula_safety_version_unsupported') ||
+      hasCode(syncResult.error, 'db.undefined_column')
+    ) {
       return syncResult;
     }
 
@@ -226,6 +340,13 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     });
     if (syncResult.isOk()) {
       return syncResult;
+    }
+    if (
+      isFormulaCompileBudgetError(syncResult.error) ||
+      hasCode(syncResult.error, 'validation.formula_safety_version_unsupported') ||
+      hasCode(syncResult.error, 'db.undefined_column')
+    ) {
+      return err(syncResult.error);
     }
 
     const fallbackResult = await this.enqueueManyAfterSyncFailure(
@@ -392,6 +513,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     }
 
     const db = this.resolveDb(context);
+    await this.disableJitInTransaction(db, context);
     const fieldId = input.field.id();
 
     this.logger.debug('computed:backfill:start', {
@@ -402,10 +524,13 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
 
     return safeTry<void, DomainError>(
       async function* (this: ComputedFieldBackfillService) {
+        yield* await this.ensurePhysicalColumnTypes(context, db, input.table, [input.field]);
+
         // Build SELECT query for the computed field without dirty filter
         // This will select all records in the table
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
+          formulaCompileBudget: this.formulaCompileBudget,
           forceLookupArrayOutput: true,
           resolveSystemUserSnapshotsFromUsers: true,
           allowFullTableSetBasedRollups: true,
@@ -421,6 +546,10 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
         });
 
         const selectQuery = yield* builder.build();
+        this.warnDanglingFieldReferences(builder, {
+          tableId: input.table.id().toString(),
+          fieldId: fieldId.toString(),
+        });
 
         // Build UPDATE using UpdateFromSelectBuilder
         // Without dirtyFilter, it will update all records
@@ -472,8 +601,12 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       fields: ReadonlyArray<Field>;
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
+      recordBatch?: {
+        cursor?: string;
+        size: number;
+      };
     }
-  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>> {
+  ): Promise<Result<ComputedFieldBackfillBatchResult, DomainError>> {
     const computedFields = input.fields.filter((f) =>
       this.needsBackfill(f, input.includeOneManyTwoWay)
     );
@@ -481,8 +614,21 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return ok({ fields: [] });
     }
 
+    // The async worker resolves task fields from the table snapshot it loaded, so a
+    // link field whose storage column was dropped by a concurrent field deletion
+    // (DROP COLUMN commits outside the metadata transaction) can still be requested
+    // here. Re-probe the physical columns and skip the vanished fields instead of
+    // failing the whole backfill with 42703 and dead-lettering the task (T7710).
+    const backfillableResult = await this.collectBackfillFields(context, {
+      table: input.table,
+      fields: computedFields,
+      includeOneManyTwoWay: input.includeOneManyTwoWay,
+    });
+    if (backfillableResult.isErr()) return err(backfillableResult.error);
+    const backfillableFields = backfillableResult.value;
+
     const filtered: Field[] = [];
-    for (const field of computedFields) {
+    for (const field of backfillableFields) {
       const persistedAsGenerated = isPersistedAsGeneratedColumn(field);
       if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
       if (!persistedAsGenerated.value) filtered.push(field);
@@ -490,6 +636,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     if (filtered.length === 0) return ok({ fields: [] });
 
     const db = this.resolveDb(context);
+    await this.disableJitInTransaction(db, context);
     const fieldIds = filtered.map((f) => f.id());
 
     this.logger.debug('computed:backfillMany:start', {
@@ -497,21 +644,70 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       fieldIds: fieldIds.map((id) => id.toString()),
     });
 
-    return safeTry<ComputedFieldBackfillManyResult, DomainError>(
+    return safeTry<ComputedFieldBackfillBatchResult, DomainError>(
       async function* (this: ComputedFieldBackfillService) {
-        const fieldChunks = chunkArray(filtered, BACKFILL_SYNC_FIELD_CHUNK_SIZE);
+        yield* await this.ensurePhysicalColumnTypes(context, db, input.table, filtered);
+
+        let batchProgress: ComputedFieldBackfillBatchResult['batch'];
+        let batchRecordIds: RecordId[] | undefined;
+        if (input.recordBatch) {
+          const tableName = yield* input.table.dbTableName().andThen((name) => name.value());
+          const size = Math.max(1, Math.trunc(input.recordBatch.size));
+          try {
+            let recordQuery = db
+              .selectFrom(`${tableName} as backfill_source` as keyof DynamicDB)
+              .select(sql<string>`backfill_source.__id`.as('__id'));
+            if (input.recordBatch.cursor) {
+              recordQuery = recordQuery.where(
+                sql<boolean>`backfill_source.__id > ${input.recordBatch.cursor}`
+              );
+            }
+            const rows = await recordQuery
+              .orderBy(sql.ref('backfill_source.__id'))
+              .limit(size + 1)
+              .execute();
+            const hasMore = rows.length > size;
+            const recordIdResults = rows
+              .slice(0, size)
+              .map((row) => RecordId.create(String((row as { __id: unknown }).__id)));
+            const invalidRecordId = recordIdResults.find((result) => result.isErr());
+            if (invalidRecordId?.isErr()) return err(invalidRecordId.error);
+            batchRecordIds = recordIdResults.map((result) => result._unsafeUnwrap());
+            batchProgress = {
+              recordCount: batchRecordIds.length,
+              lastRecordId: batchRecordIds.at(-1)?.toString(),
+              hasMore,
+            };
+          } catch (error) {
+            return err(
+              domainError.infrastructure({
+                message: `Failed to select field backfill record batch (table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+              })
+            );
+          }
+
+          if (batchRecordIds.length === 0) {
+            return ok({ fields: filtered, batch: batchProgress });
+          }
+        }
+
+        const fieldChunks = planBackfillFieldChunks(input.table, filtered);
         for (let index = 0; index < fieldChunks.length; index += 1) {
           const fields = fieldChunks[index]!;
           const chunkFieldIds = fields.map((f) => f.id());
 
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
+            formulaCompileBudget: this.formulaCompileBudget,
             forceLookupArrayOutput: true,
             resolveSystemUserSnapshotsFromUsers: true,
             allowFullTableSetBasedRollups: true,
           })
             .from(input.table)
             .select(chunkFieldIds);
+          if (batchRecordIds) {
+            builder.where(RecordByIdsSpec.create(batchRecordIds));
+          }
 
           yield* await builder.prepare({
             context,
@@ -519,6 +715,10 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           });
 
           const selectQuery = yield* builder.build();
+          this.warnDanglingFieldReferences(builder, {
+            tableId: input.table.id().toString(),
+            fieldIds: chunkFieldIds.map((id) => id.toString()),
+          });
 
           const updateBuilder = new UpdateFromSelectBuilder(db);
           const compiled = yield* updateBuilder.build({
@@ -526,6 +726,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             fieldIds: chunkFieldIds,
             selectQuery,
             skipDistinctFilter: input.skipDistinctFilter,
+            countChangedFieldsForVersion: fields.length > 1,
           });
 
           this.logger.debug('computed:backfillMany:sql', {
@@ -545,9 +746,14 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
                 return `${f.id().toString()}(dbFieldName=${dbName.isOk() ? dbName.value : 'unknown'})`;
               })
               .join(', ');
+            const pgCode = pgErrorCode(error);
             return err(
               domainError.infrastructure({
+                // 42703 (undefined_column) means the physical schema is behind the
+                // metadata, which the idempotent schema operation repair recreates.
+                ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
                 message: `Failed to backfill computed fields [${fieldDetails}] (table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+                ...(pgCode ? { details: { pgCode } } : {}),
               })
             );
           }
@@ -558,7 +764,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           fieldCount: fieldIds.length,
         });
 
-        return ok({ fields: filtered });
+        return ok({ fields: filtered, batch: batchProgress });
       }.bind(this)
     );
   }
@@ -604,7 +810,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       includeOneManyTwoWay?: boolean;
     }
   ): Promise<Result<Field[], DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Field[], DomainError>(async function* () {
       const fields: Field[] = [];
       for (const field of input.fields) {
@@ -618,6 +824,26 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
 
         const linkField = field as unknown as LinkField;
         const relationship = linkField.relationship().toString();
+        // The field's own storage column is the UPDATE's SET target. Delete and repair
+        // schema paths can drop it independently of the join columns, so probe it too.
+        const valueColumnLocation = yield* input.table
+          .dbTableName()
+          .andThen((dbTableName) => dbTableName.split({ defaultSchema: null }));
+        const valueColumn = yield* resolveColumnName(field);
+        const valueColumnExists = yield* await service.columnExists(
+          context,
+          valueColumnLocation.schema,
+          valueColumnLocation.tableName,
+          valueColumn
+        );
+        if (!valueColumnExists) {
+          service.logger.debug('computed:backfillMany:skip_missing_link_value_column', {
+            tableId: input.table.id().toString(),
+            fieldId: field.id().toString(),
+            valueColumn,
+          });
+          continue;
+        }
         const isTwoWayOneMany = relationship === 'oneMany' && !linkField.isOneWay();
         const usesJunctionTable =
           relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay());
@@ -815,6 +1041,65 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     });
   }
 
+  private async ensurePhysicalColumnTypes(
+    _context: IExecutionContext,
+    db: Kysely<DynamicDB>,
+    table: Table,
+    fields: ReadonlyArray<Field>
+  ): Promise<Result<void, DomainError>> {
+    const locationResult = table
+      .dbTableName()
+      .andThen((dbTableName) => dbTableName.split({ defaultSchema: null }));
+    if (locationResult.isErr()) return err(locationResult.error);
+    const { schema, tableName } = locationResult.value;
+    const schemaName = schema ?? 'public';
+    const introspector = new PostgresSchemaIntrospector(db as unknown as Kysely<V1TeableDatabase>);
+    const quoteIdent = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+    for (const field of fields) {
+      if (!field.type().equals(FieldType.formula())) {
+        continue;
+      }
+      const columnNameResult = resolveColumnName(field);
+      if (columnNameResult.isErr()) return err(columnNameResult.error);
+      const expectedTypeResult = resolveColumnType(field);
+      if (expectedTypeResult.isErr()) return err(expectedTypeResult.error);
+      const columnName = columnNameResult.value;
+      const expectedType = String(expectedTypeResult.value);
+      const columnResult = await introspector.getColumn(schema, tableName, columnName);
+      if (columnResult.isErr()) return err(columnResult.error);
+      const column = columnResult.value;
+      if (!column || column.isGenerated) continue;
+      const currentType = normalizePgColumnType(column.dataType);
+      const expectedNormalized = normalizePgColumnType(expectedType);
+      const isNumeric =
+        currentType === 'double precision' ||
+        currentType === 'float8' ||
+        currentType === 'real' ||
+        currentType === 'numeric' ||
+        currentType === 'integer' ||
+        currentType === 'int4' ||
+        currentType === 'bigint' ||
+        currentType === 'int8';
+      if (!isNumeric || expectedNormalized !== 'text') {
+        continue;
+      }
+
+      const alterSql = `ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)} ALTER COLUMN ${quoteIdent(columnName)} TYPE ${expectedType} USING NULL::${expectedType}`;
+      try {
+        await sql.raw(alterSql).execute(db);
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to align computed column type [${field.id().toString()}(dbFieldName=${columnName})] (table=${table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+          })
+        );
+      }
+    }
+
+    return ok(undefined);
+  }
+
   private async columnExists(
     context: IExecutionContext,
     schema: string | null,
@@ -923,5 +1208,32 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return transaction.db as unknown as Kysely<DynamicDB>;
     }
     return this.db as unknown as Kysely<DynamicDB>;
+  }
+
+  // Backfill joins on computed expressions (e.g. the to_jsonb-wrapped field
+  // comparisons of conditional lookups) have no column statistics, so the
+  // planner's inflated row estimates push statement cost past
+  // jit_optimize_above_cost and each one-shot backfill UPDATE pays a ~400ms
+  // LLVM compile that never amortizes. SET LOCAL is transaction-scoped, so
+  // only apply it when the backfill runs on a bound transaction.
+  private async disableJitInTransaction(
+    db: Kysely<DynamicDB>,
+    context: IExecutionContext
+  ): Promise<void> {
+    const transaction = context.transaction as { kind?: string } | undefined;
+    if (transaction?.kind !== 'unitOfWorkTransaction') return;
+    await db.executeQuery(sql.raw('SET LOCAL jit = off').compile(db));
+  }
+
+  private warnDanglingFieldReferences(
+    builder: ComputedTableRecordQueryBuilder,
+    logContext: Record<string, unknown>
+  ): void {
+    const dangling = builder.danglingFieldReferences();
+    if (dangling.length === 0) return;
+    this.logger.warn('computed:backfill:dangling_field_reference_degraded', {
+      ...logContext,
+      danglingFieldReferences: dangling,
+    });
   }
 }

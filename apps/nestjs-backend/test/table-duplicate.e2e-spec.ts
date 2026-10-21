@@ -239,13 +239,25 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
           )
         );
 
-      const duplicatedViews = targetViews.map((v) =>
-        omit(v, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy', 'shareId'])
-      );
+      const normalizeComparedView = (view: IViewVo) => {
+        const normalized: Record<string, any> = omit(view, [
+          'createdBy',
+          'createdTime',
+          'lastModifiedTime',
+          'lastModifiedBy',
+          'shareId',
+        ]);
+        // The v2 duplicate response carries the view `order` while the v2
+        // getViews read model omits it.
+        if (isForceV2) {
+          delete normalized.order;
+        }
+        return normalized;
+      };
 
-      const assertPureViews = assertViews.map((v) =>
-        omit(v, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy', 'shareId'])
-      );
+      const duplicatedViews = targetViews.map(normalizeComparedView);
+
+      const assertPureViews = assertViews.map(normalizeComparedView);
 
       const sortById = (a: any, b: any) => a.id.localeCompare(b.id);
 
@@ -622,18 +634,22 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
 
       const { fieldMap } = duplicateTableData;
       expect(sourceViews.length).toBe(targetViews.length);
+      // Share state is deliberately not portable, so it is compared separately below.
+      const omittedViewKeys = [
+        'createdBy',
+        'createdTime',
+        'lastModifiedBy',
+        'lastModifiedTime',
+        'shareId',
+        'enableShare',
+        'shareMeta',
+        'id',
+      ];
       let assertViewsString = JSON.stringify(
         sourceViews
           .filter((f) => f.type !== ViewType.Plugin)
           .map((v) => ({
-            ...omit(v, [
-              'createdBy',
-              'createdTime',
-              'lastModifiedBy',
-              'lastModifiedTime',
-              'shareId',
-              'id',
-            ]),
+            ...omit(v, omittedViewKeys),
             options: omit(v.options, ['pluginId', 'pluginInstallId']),
           }))
       );
@@ -648,17 +664,18 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         targetViews
           .filter((f) => f.type !== ViewType.Plugin)
           .map((v) => ({
-            ...omit(v, [
-              'createdBy',
-              'createdTime',
-              'lastModifiedBy',
-              'lastModifiedTime',
-              'shareId',
-              'id',
-            ]),
+            ...omit(v, omittedViewKeys),
             options: omit(v.options, ['pluginId', 'pluginInstallId']),
           }))
       );
+
+      // A shared source view must not hand its public link to the copy.
+      expect(sourceViews.some((v) => v.enableShare)).toBe(true);
+      targetViews.forEach((view) => {
+        expect(view.enableShare).toBeFalsy();
+        expect(view.shareId).toBeFalsy();
+        expect(view.shareMeta).toBeFalsy();
+      });
     });
   });
 

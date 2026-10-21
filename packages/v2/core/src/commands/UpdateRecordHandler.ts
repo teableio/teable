@@ -25,25 +25,29 @@ import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldVal
 import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { isOmittedComputedEventField } from '../domain/table/fields/fieldPredicates';
 import { FieldType } from '../domain/table/fields/FieldType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import { RecordUpdateResult as SingleRecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../domain/table/records/TableRecord';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
-import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { toTableRecord } from './shared/toTableRecord';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
+
 const buildScopedUpdateForbiddenError = (tableId: string) =>
   domainError.forbidden({
     code: 'record_write_plugin.scope_forbidden',
@@ -82,7 +86,6 @@ const areFieldValuesEqual = (left: unknown, right: unknown): boolean => {
     return false;
   }
 };
-
 const isResolvedLinkCellValue = (cellValue: unknown): boolean => {
   if (cellValue == null) {
     return false;
@@ -121,9 +124,10 @@ export class UpdateRecordResult {
 
 @CommandHandler(UpdateRecordCommand)
 @injectable()
-export class UpdateRecordHandler
-  implements ICommandHandler<UpdateRecordCommand, UpdateRecordResult>
-{
+export class UpdateRecordHandler implements ICommandHandler<
+  UpdateRecordCommand,
+  UpdateRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -145,14 +149,14 @@ export class UpdateRecordHandler
     private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
@@ -160,7 +164,34 @@ export class UpdateRecordHandler
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateRecordCommand
   ): Promise<Result<UpdateRecordResult, DomainError>> {
-    const handler = this;
+    // Row-order preparation performs CREATE INDEX CONCURRENTLY, which waits for
+    // any open snapshot. Holding a coordination transaction across it self-locks.
+    if (command.order != null) {
+      return this.execute(context, command);
+    }
+
+    const mode = command.typecast === true ? 'exclusive' : 'shared';
+    const leaseResult = await this.tableSchemaCoordination.acquire(
+      context,
+      [command.tableId.toString()],
+      mode
+    );
+    if (leaseResult.isErr()) {
+      return err(leaseResult.error);
+    }
+    const lease = leaseResult.value;
+    try {
+      return await this.execute(context, command);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  private async execute(
+    context: ExecutionContextPort.IExecutionContext,
+    command: UpdateRecordCommand
+  ): Promise<Result<UpdateRecordResult, DomainError>> {
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateRecordResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
@@ -189,12 +220,22 @@ export class UpdateRecordHandler
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
       // Query the current record after plugin guard passes to capture old values and row order.
-      const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
+      const currentRecordResult = await handler.tableRecordQueryRepository.findOne(
         context,
         table,
         command.recordId,
         { mode: 'stored', includeOrders: true }
       );
+      if (currentRecordResult.isErr()) {
+        return err(
+          await handler.tableQueryService.resolveRecordSchemaError(
+            context,
+            table,
+            currentRecordResult.error
+          )
+        );
+      }
+      const currentRecord = currentRecordResult.value;
       const currentRecordEntity = yield* toTableRecord(table, currentRecord);
       if (pluginRecordSpec) {
         if (!pluginRecordSpec.isSatisfiedBy(currentRecordEntity)) {
@@ -209,6 +250,43 @@ export class UpdateRecordHandler
         );
         if (deniedFieldIds.length) {
           return err(buildScopedUpdateFieldsForbiddenError(table.id().toString(), deniedFieldIds));
+        }
+      }
+
+      // Computed assignments are ignored, but only after checking the record and write scope.
+      // Count known computed IDs so unknown fields still reach normal field validation.
+      if (!command.order && resolvedFieldValues.size > 0) {
+        let computedAssignmentCount = 0;
+        for (const field of table.getFields()) {
+          if (field.computed().toBoolean() && resolvedFieldValues.has(field.id().toString())) {
+            computedAssignmentCount++;
+          }
+        }
+        if (computedAssignmentCount === resolvedFieldValues.size) {
+          const fields = { ...currentRecord.fields };
+          const fieldKeyMapping: FieldKeyMapping = new Map();
+          for (const field of table.getFields()) {
+            const fieldId = field.id().toString();
+            if (
+              fields[fieldId] == null ||
+              (field.type().equals(FieldType.link()) && !isResolvedLinkCellValue(fields[fieldId]))
+            ) {
+              delete fields[fieldId];
+            }
+            if (command.fieldKeyType !== FieldKeyType.Id) {
+              fieldKeyMapping.set(
+                fieldId,
+                FieldKeyResolverService.getFieldKey(field, command.fieldKeyType)
+              );
+            }
+          }
+          const record = yield* TableRecord.fromRawFieldValues({
+            id: command.recordId.toString(),
+            tableId: table.id(),
+            fields,
+          });
+          updateRecordSpan?.end();
+          return ok(UpdateRecordResult.create(record, [], fieldKeyMapping));
         }
       }
 
@@ -248,24 +326,33 @@ export class UpdateRecordHandler
         if (needsResolution) {
           mutateSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
             context,
+            table.id(),
             mutateSpec
           );
           updatedRecord = yield* mutateSpec.mutate(updatedRecord);
         }
       }
 
-      const mutationResult = yield* await handler.unitOfWork.withTransaction(
+      // T7251: create a missing row-order column on the non-tx handle
+      // before this request transaction takes table locks. calculateOrders
+      // inside the transaction would either hang on CIC or 55P03-fail ADD COLUMN.
+      let nextOrder: number | undefined;
+      if (command.order) {
+        const orderValues = yield* await handler.recordOrderCalculator.calculateOrders(
+          context,
+          tableForUpdate,
+          command.order.viewId,
+          command.order.anchorId,
+          command.order.position,
+          1
+        );
+        nextOrder = orderValues[0];
+      }
+
+      const committedResult = await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
-          return safeTry<
-            {
-              mutation: RecordMutationResult;
-              tableEvents: ReadonlyArray<IDomainEvent>;
-              previousOrder?: number;
-              nextOrder?: number;
-            },
-            DomainError
-          >(async function* () {
+          return safeTry(async function* () {
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
@@ -295,26 +382,10 @@ export class UpdateRecordHandler
             );
 
             let previousOrder: number | undefined;
-            let nextOrder: number | undefined;
-
-            if (command.order) {
+            if (command.order && nextOrder !== undefined) {
               const viewId = command.order.viewId;
               const viewIdText = viewId.toString();
               previousOrder = currentRecord.orders?.[viewIdText] ?? currentRecord.autoNumber;
-
-              const orderValuesResult = await handler.recordOrderCalculator.calculateOrders(
-                transactionContext,
-                tableForUpdate,
-                viewId,
-                command.order.anchorId,
-                command.order.position,
-                1
-              );
-              if (orderValuesResult.isErr()) {
-                return err(orderValuesResult.error);
-              }
-
-              nextOrder = orderValuesResult.value[0];
               if (previousOrder !== nextOrder) {
                 const orderOnlyRecord = yield* TableRecord.create({
                   id: command.recordId,
@@ -338,10 +409,116 @@ export class UpdateRecordHandler
               }
             }
 
-            return ok({ mutation, tableEvents, previousOrder, nextOrder });
+            const changes: RecordFieldChangeDTO[] = [];
+            const mutationApplied = mutation.mutationApplied !== false;
+            const changedFieldValues = new Map<string, unknown>(mutation.changedFields ?? []);
+            const computedFieldIds = new Set(
+              tableForUpdate
+                .getFields()
+                .filter((field) => isOmittedComputedEventField(field))
+                .map((field) => field.id().toString())
+            );
+            for (const fieldId of computedFieldIds) {
+              changedFieldValues.delete(fieldId);
+            }
+            if (mutationApplied) {
+              for (const entry of updatedRecord.fields().entries()) {
+                const fieldId = entry.fieldId.toString();
+                const newValue = entry.value.toValue();
+                if (changedFieldValues.has(fieldId) || computedFieldIds.has(fieldId)) {
+                  continue;
+                }
+                if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+                  changedFieldValues.set(fieldId, newValue);
+                }
+              }
+            }
+            const updatedFieldValues =
+              yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
+                tableForUpdate,
+                changedFieldValues.size > 0 ? changedFieldValues : undefined,
+                currentRecord.fields
+              );
+            for (const [fieldId, newValue] of updatedFieldValues ?? new Map<string, unknown>()) {
+              if (computedFieldIds.has(fieldId)) {
+                continue;
+              }
+              if (areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+                continue;
+              }
+              changes.push({
+                fieldId,
+                oldValue: currentRecord.fields[fieldId],
+                newValue,
+              });
+            }
+
+            const oldVersion = currentRecord.version;
+            const newVersion = oldVersion + 1;
+            const events: IDomainEvent[] = [...tableEvents];
+            if (changes.length > 0) {
+              events.push(
+                RecordUpdated.create({
+                  tableId: table.id(),
+                  baseId: table.baseId(),
+                  recordId: command.recordId,
+                  oldVersion,
+                  newVersion,
+                  changes,
+                  source: 'user',
+                })
+              );
+            }
+
+            if (command.order && previousOrder !== nextOrder) {
+              events.push(
+                RecordReordered.create({
+                  tableId: table.id(),
+                  baseId: table.baseId(),
+                  viewId: command.order.viewId,
+                  recordIds: [command.recordId],
+                  ordersByRecordId: {
+                    [command.recordId.toString()]: nextOrder as number,
+                  },
+                  previousOrdersByRecordId:
+                    previousOrder !== undefined
+                      ? {
+                          [command.recordId.toString()]: previousOrder,
+                        }
+                      : {},
+                })
+              );
+            }
+
+            return ok(
+              domainWrite.fromEvents(
+                {
+                  mutation,
+                  previousOrder,
+                  nextOrder,
+                  updatedFieldValues,
+                  changes,
+                },
+                events,
+                { tables: [tableForUpdate] }
+              )
+            );
           });
         }
       );
+      if (committedResult.isErr()) {
+        return err(
+          await handler.tableQueryService.resolveRecordSchemaError(
+            context,
+            tableForUpdate,
+            committedResult.error
+          )
+        );
+      }
+      const committed = committedResult.value;
+
+      const mutationResult = committed.value;
+      const events = committed.events;
 
       // Build extended field key mapping that includes all fields (including computed fields)
       // This ensures computed field values can be keyed by field name when fieldKeyType is 'name'
@@ -353,80 +530,6 @@ export class UpdateRecordHandler
           extendedFieldKeyMapping.set(fieldIdStr, key);
         }
       }
-
-      // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
-      const changes: RecordFieldChangeDTO[] = [];
-      const mutationApplied = mutationResult.mutation.mutationApplied !== false;
-      const changedFieldValues = new Map<string, unknown>(
-        mutationResult.mutation.changedFields ?? []
-      );
-      if (mutationApplied) {
-        for (const entry of updatedRecord.fields().entries()) {
-          const fieldId = entry.fieldId.toString();
-          const newValue = entry.value.toValue();
-          if (changedFieldValues.has(fieldId)) {
-            continue;
-          }
-          if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
-            changedFieldValues.set(fieldId, newValue);
-          }
-        }
-      }
-      const updatedFieldValues =
-        yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
-          tableForUpdate,
-          changedFieldValues.size > 0 ? changedFieldValues : undefined,
-          currentRecord.fields
-        );
-      for (const [fieldId, newValue] of updatedFieldValues ?? new Map<string, unknown>()) {
-        if (areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
-          continue;
-        }
-        changes.push({
-          fieldId,
-          oldValue: currentRecord.fields[fieldId],
-          newValue,
-        });
-      }
-      // 3. Create and publish RecordUpdated event
-      // Use the actual version from the current record for ShareDB sync
-      const oldVersion = currentRecord.version;
-      const newVersion = oldVersion + 1;
-      const events: IDomainEvent[] = [...mutationResult.tableEvents];
-      if (changes.length > 0) {
-        events.push(
-          RecordUpdated.create({
-            tableId: table.id(),
-            baseId: table.baseId(),
-            recordId: command.recordId,
-            oldVersion,
-            newVersion,
-            changes,
-            source: 'user',
-          })
-        );
-      }
-
-      if (command.order && mutationResult.previousOrder !== mutationResult.nextOrder) {
-        events.push(
-          RecordReordered.create({
-            tableId: table.id(),
-            baseId: table.baseId(),
-            viewId: command.order.viewId,
-            recordIds: [command.recordId],
-            ordersByRecordId: {
-              [command.recordId.toString()]: mutationResult.nextOrder as number,
-            },
-            previousOrdersByRecordId:
-              mutationResult.previousOrder !== undefined
-                ? {
-                    [command.recordId.toString()]: mutationResult.previousOrder,
-                  }
-                : {},
-          })
-        );
-      }
-      yield* await handler.eventBus.publishMany(context, events);
 
       const orderUndoCommands =
         command.order && mutationResult.previousOrder !== mutationResult.nextOrder
@@ -463,7 +566,7 @@ export class UpdateRecordHandler
             ]
           : [];
 
-      if (changes.length > 0) {
+      if (mutationResult.changes.length > 0) {
         const updateSnapshotResult = requireRecordUpdateSnapshot(
           {
             operation: 'update',
@@ -481,7 +584,7 @@ export class UpdateRecordHandler
             tableId: table.id(),
             recordId: command.recordId,
             snapshot: updateSnapshotResult.value,
-            fieldIds: changes.map((change) => change.fieldId),
+            fieldIds: mutationResult.changes.map((change) => change.fieldId),
             undoCommandsAfter: [...sideEffectUndoRedoPlan.undoCommands, ...orderUndoCommands],
             redoCommandsBefore: [...sideEffectUndoRedoPlan.redoCommands, ...orderRedoCommands],
           }
@@ -524,7 +627,9 @@ export class UpdateRecordHandler
               .entries()
               .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
           ),
-          ...(updatedFieldValues ? Object.fromEntries(updatedFieldValues) : {}),
+          ...(mutationResult.updatedFieldValues
+            ? Object.fromEntries(mutationResult.updatedFieldValues)
+            : {}),
         },
       });
       const responseFields = Object.fromEntries(
@@ -535,7 +640,7 @@ export class UpdateRecordHandler
       );
       const changedResponseFieldIds = new Set([
         ...recordUpdateResult.fieldKeyMapping.keys(),
-        ...(updatedFieldValues?.keys() ?? []),
+        ...(mutationResult.updatedFieldValues?.keys() ?? []),
         ...(mutationResult.mutation.changedFields?.keys() ?? []),
         ...(mutationResult.mutation.computedChanges?.keys() ?? []),
       ]);

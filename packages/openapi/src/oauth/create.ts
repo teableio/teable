@@ -17,6 +17,10 @@ export const oauthCreateRoSchema = z.object({
     .transform<string[]>((val) => (val ? Array.from(new Set(val)) : val))
     .optional(),
   redirectUris: z.array(z.string().url()).min(1),
+  // Opt-in for the RFC 8628 device grant (defaults to off): any client_id can
+  // be phished onto the device approval page, so an app accepts that exposure
+  // explicitly.
+  allowDeviceFlow: z.boolean().optional(),
 });
 
 export type OAuthCreateRo = z.infer<typeof oauthCreateRoSchema>;

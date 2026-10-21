@@ -1,4 +1,5 @@
 export * from './signin';
+export * from './signin-with-code';
 export * from './signout';
 export * from './signup';
 export * from './user-me';
@@ -8,9 +9,11 @@ export * from './reset-password';
 export * from './add-password';
 export * from './user';
 export * from './send-signup-verification-code';
+export * from './send-signin-verification-code';
 export * from './change-email';
 export * from './send-change-email-code';
 export * from './temp-token';
 export * from './delete';
 export * from './waitlist';
+export * from './mobile-auth';
 export * from './types';

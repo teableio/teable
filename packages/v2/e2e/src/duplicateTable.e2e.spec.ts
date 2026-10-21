@@ -3,7 +3,11 @@ import { createBaseOkResponseSchema } from '@teable/v2-contract-http';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  getSharedTestContext,
+  TEST_USER,
+  type SharedTestContext,
+} from './shared/globalTestContext';
 
 type RawViewRow = {
   id: string;
@@ -179,12 +183,257 @@ const setRawFieldValue = async (
   `.execute(ctx.testContainer.db);
 };
 
-describe('duplicateTable (e2e)', () => {
+describe('[B07] duplicateTable (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {
     ctx = await getSharedTestContext();
   });
+
+  it('T7783 Y2839 duplicates auto numbers consecutively after a deleted source row', async () => {
+    const nameId = createFieldId();
+    const numberId = createFieldId();
+    const formulaId = createFieldId();
+    const source = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('duplicate-auto-number'),
+      fields: [
+        { id: nameId, name: 'Name', type: 'singleLineText', isPrimary: true },
+        { id: numberId, name: 'Number', type: 'autoNumber' },
+        {
+          id: formulaId,
+          name: 'Derived number',
+          type: 'formula',
+          options: { expression: `{${numberId}} + 10` },
+        },
+      ],
+      records: ['Alpha', 'Beta', 'Gamma', 'Delta'].map((name) => ({ fields: { [nameId]: name } })),
+    });
+    let copyId: string | undefined;
+    try {
+      const records = await ctx.listRecords(source.id);
+      const deleted = records.find((record) => record.fields[nameId] === 'Beta')!;
+      await ctx.deleteRecord(source.id, deleted.id);
+      expect((await ctx.listRecords(source.id)).map((record) => record.fields[numberId])).toEqual([
+        1, 3, 4,
+      ]);
+      const copy = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: source.id,
+        name: nextName('duplicate-auto-number-copy'),
+        includeRecords: true,
+      });
+      copyId = copy.table.id;
+      const copied = await ctx.listRecordsWithoutDrain(copyId);
+      expect(
+        copied.map((record) => [
+          record.fields[copy.fieldIdMap[nameId]],
+          record.fields[copy.fieldIdMap[numberId]],
+        ])
+      ).toEqual([
+        ['Alpha', 1],
+        ['Gamma', 2],
+        ['Delta', 3],
+      ]);
+      expect(copied.map((record) => record.fields[copy.fieldIdMap[formulaId]])).toEqual([
+        11, 12, 13,
+      ]);
+      const added = await ctx.createRecord(copyId, { [copy.fieldIdMap[nameId]]: 'Epsilon' });
+      const afterInsert = await ctx.listRecords(copyId);
+      expect(
+        afterInsert.find((record) => record.id === added.id)?.fields[copy.fieldIdMap[numberId]]
+      ).toBe(4);
+    } finally {
+      if (copyId) await ctx.deleteTable(copyId);
+      await ctx.deleteTable(source.id);
+    }
+  });
+
+  it('T7783 Y2840 duplicates created times at copy time rather than source time', async () => {
+    const nameId = createFieldId();
+    const createdId = createFieldId();
+    const formulaId = createFieldId();
+    const source = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('duplicate-created-time'),
+      fields: [
+        { id: nameId, name: 'Name', type: 'singleLineText', isPrimary: true },
+        {
+          id: createdId,
+          name: 'Created',
+          type: 'createdTime',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Singapore' },
+          },
+        },
+        {
+          id: formulaId,
+          name: 'Derived creation',
+          type: 'formula',
+          options: { expression: `{${createdId}}` },
+        },
+      ],
+      records: ['Alpha', 'Beta'].map((name) => ({ fields: { [nameId]: name } })),
+    });
+    let copyId: string | undefined;
+    try {
+      // Age only the isolated fixture; the duplicate itself goes through the HTTP API.
+      const oldTime = new Date(Date.now() - 600_000).toISOString();
+      const dbTableName = await getDbTableName(ctx, source.id);
+      await sql`UPDATE ${sql.table(dbTableName)} SET "__created_time" = ${oldTime}::timestamptz`.execute(
+        ctx.testContainer.db
+      );
+      const before = await ctx.listRecords(source.id);
+      expect(before).toHaveLength(2);
+      expect(before.every((record) => record.fields[createdId] === oldTime)).toBe(true);
+      const started = Date.now();
+      const copy = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: source.id,
+        name: nextName('duplicate-created-time-copy'),
+        includeRecords: true,
+      });
+      copyId = copy.table.id;
+      const copied = await ctx.listRecordsWithoutDrain(copyId);
+      expect(copied.map((record) => record.fields[copy.fieldIdMap[nameId]])).toEqual([
+        'Alpha',
+        'Beta',
+      ]);
+      for (const record of copied) {
+        const value = record.fields[copy.fieldIdMap[createdId]];
+        expect(value).not.toBe(oldTime);
+        expect(record.fields[copy.fieldIdMap[formulaId]]).toBe(value);
+        const time = Date.parse(String(value));
+        expect(time).toBeGreaterThanOrEqual(started);
+        expect(time).toBeLessThanOrEqual(started + 60_000);
+      }
+    } finally {
+      if (copyId) await ctx.deleteTable(copyId);
+      await ctx.deleteTable(source.id);
+    }
+  });
+
+  it.each([false, true])(
+    'T7783 Y2842 clears modification history until first edit (tracked=%s)',
+    async (tracked) => {
+      const nameId = createFieldId();
+      const modifiedId = createFieldId();
+      const modifierId = createFieldId();
+      const formulaId = createFieldId();
+      const nestedFormulaId = createFieldId();
+      const nowId = createFieldId();
+      const nowConsumerId = createFieldId();
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('duplicate-modification-history'),
+        fields: [
+          { id: nameId, name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            id: modifiedId,
+            name: 'Modified',
+            type: 'lastModifiedTime',
+            options: {
+              trackedFieldIds: tracked ? [nameId] : [],
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          },
+          {
+            id: modifierId,
+            name: 'Modifier',
+            type: 'lastModifiedBy',
+            options: {
+              trackedFieldIds: tracked ? [nameId] : [],
+            },
+          },
+          {
+            id: formulaId,
+            name: 'Derived modification',
+            type: 'formula',
+            options: { expression: `{${modifiedId}}` },
+          },
+          {
+            id: nestedFormulaId,
+            name: 'Nested modification',
+            type: 'formula',
+            options: { expression: `{${formulaId}}` },
+          },
+          { id: nowId, name: 'Copy clock', type: 'formula', options: { expression: 'NOW()' } },
+          {
+            id: nowConsumerId,
+            name: 'Derived clock',
+            type: 'formula',
+            options: { expression: `{${nowId}}` },
+          },
+        ],
+        records: ['Alpha-before', 'Beta-before'].map((name) => ({ fields: { [nameId]: name } })),
+      });
+      let copyId: string | undefined;
+      try {
+        const records = await ctx.listRecords(source.id);
+        for (const record of records) {
+          await ctx.updateRecord(source.id, record.id, {
+            [nameId]: String(record.fields[nameId]).replace('-before', ''),
+          });
+        }
+        const before = await ctx.listRecords(source.id);
+        expect(before).toHaveLength(2);
+        for (const record of before) {
+          expect(record.fields[modifiedId]).toBeTruthy();
+          expect(record.fields[modifierId]).toMatchObject({ id: TEST_USER.id });
+          expect(record.fields[formulaId]).toBe(record.fields[modifiedId]);
+          expect(record.fields[nestedFormulaId]).toBe(record.fields[modifiedId]);
+        }
+        const copy = await ctx.duplicateTable({
+          baseId: ctx.baseId,
+          tableId: source.id,
+          name: nextName('duplicate-modification-history-copy'),
+          includeRecords: true,
+        });
+        copyId = copy.table.id;
+        const copied = await ctx.listRecordsWithoutDrain(copyId);
+        expect(copied).toHaveLength(2);
+        for (const record of copied) {
+          expect(record.fields[copy.fieldIdMap[modifiedId]] ?? null).toBeNull();
+          expect(record.fields[copy.fieldIdMap[modifierId]] ?? null).toBeNull();
+          expect(record.fields[copy.fieldIdMap[formulaId]] ?? null).toBeNull();
+          expect(record.fields[copy.fieldIdMap[nestedFormulaId]] ?? null).toBeNull();
+          expect(record.fields[copy.fieldIdMap[nowId]]).toBeTruthy();
+          expect(record.fields[copy.fieldIdMap[nowConsumerId]]).toBe(
+            record.fields[copy.fieldIdMap[nowId]]
+          );
+        }
+        const alpha = copied.find((record) => record.fields[copy.fieldIdMap[nameId]] === 'Alpha')!;
+        const started = Date.now();
+        await ctx.updateRecord(copyId, alpha.id, { [copy.fieldIdMap[nameId]]: 'Alpha-edited' });
+        const after = await ctx.listRecords(copyId);
+        expect(after).toHaveLength(2);
+        for (const record of after) {
+          if (record.id === alpha.id) {
+            expect(record.fields[copy.fieldIdMap[nameId]]).toBe('Alpha-edited');
+            expect(
+              Date.parse(String(record.fields[copy.fieldIdMap[modifiedId]]))
+            ).toBeGreaterThanOrEqual(started);
+            expect(record.fields[copy.fieldIdMap[modifierId]]).toMatchObject({ id: TEST_USER.id });
+            expect(record.fields[copy.fieldIdMap[formulaId]]).toBe(
+              record.fields[copy.fieldIdMap[modifiedId]]
+            );
+            expect(record.fields[copy.fieldIdMap[nestedFormulaId]]).toBe(
+              record.fields[copy.fieldIdMap[modifiedId]]
+            );
+          } else {
+            expect(record.fields[copy.fieldIdMap[nameId]]).toBe('Beta');
+            expect(record.fields[copy.fieldIdMap[modifiedId]] ?? null).toBeNull();
+            expect(record.fields[copy.fieldIdMap[modifierId]] ?? null).toBeNull();
+            expect(record.fields[copy.fieldIdMap[formulaId]] ?? null).toBeNull();
+            expect(record.fields[copy.fieldIdMap[nestedFormulaId]] ?? null).toBeNull();
+          }
+        }
+      } finally {
+        if (copyId) await ctx.deleteTable(copyId);
+        await ctx.deleteTable(source.id);
+      }
+    }
+  );
 
   it('duplicates all field kinds and remaps link-based schemas', async () => {
     const cleanupTableIds: string[] = [];

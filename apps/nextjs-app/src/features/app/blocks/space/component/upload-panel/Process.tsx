@@ -30,7 +30,7 @@ export const Process = (props: IFileItemProps) => {
         <Button
           variant="ghost"
           size="icon-xs"
-          className="absolute right-2 top-2"
+          className="absolute end-2 top-2"
           onClick={() => onClose()}
         >
           <Trash className="size-4 text-muted-foreground" />

@@ -61,7 +61,7 @@ export const ImportantNotificationPopup = ({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogAction disabled={isLoading} onClick={handleAcknowledge}>
-            {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {isLoading && <Loader2 className="me-2 size-4 animate-spin" />}
             {t('notification.importantNotice.acknowledge')}
           </AlertDialogAction>
         </AlertDialogFooter>

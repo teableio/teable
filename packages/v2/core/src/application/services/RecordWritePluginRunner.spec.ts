@@ -898,6 +898,44 @@ describe('RecordWritePluginRunner', () => {
     });
   });
 
+  it('rehydrates a detached table snapshot once per runner execution', async () => {
+    const liveTable = createLiveTable('r');
+    let cloneCount = 0;
+    const originalClone = liveTable.clone.bind(liveTable);
+    liveTable.clone = ((mapper: DefaultTableMapper) => {
+      cloneCount += 1;
+      return originalClone(mapper);
+    }) as Table['clone'];
+
+    const runner = new RecordWritePluginRunner(
+      [
+        {
+          name: 'first',
+          supports: () => true,
+          prepare: async () => ok(undefined),
+        },
+        {
+          name: 'second',
+          supports: () => true,
+          prepare: async () => ok(undefined),
+          guard: async () => ok(undefined),
+        },
+      ],
+      new FakeLogger(),
+      tableMapper
+    );
+
+    const execution = (
+      await runner.prepare({
+        ...createContext(),
+        table: liveTable,
+      })
+    )._unsafeUnwrap();
+    expect((await execution.guard()).isOk()).toBe(true);
+
+    expect(cloneCount).toBe(1);
+  });
+
   it('passes a detached table snapshot to each plugin hook', async () => {
     const liveTable = createLiveTable('r');
     const originalField = liveTable.getFields()[0]!;
@@ -943,8 +981,9 @@ describe('RecordWritePluginRunner', () => {
     )._unsafeUnwrap();
     expect((await execution.guard()).isOk()).toBe(true);
 
-    expect(observedUniqueStates).toEqual([false, false, false]);
+    expect(observedUniqueStates).toEqual([false, true, true]);
     expect(originalField.unique().toBoolean()).toBe(false);
     expect(seenTables.every((table) => table !== liveTable)).toBe(true);
+    expect(new Set(seenTables).size).toBe(1);
   });
 });

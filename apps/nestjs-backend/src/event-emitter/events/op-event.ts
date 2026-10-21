@@ -2,7 +2,7 @@ import type { RawOpType } from '../../share-db/interface';
 import { CoreEvent } from './core-event';
 
 export interface IChangeValue {
-  oldValue: unknown | undefined;
+  oldValue: unknown;
   newValue: unknown;
 }
 

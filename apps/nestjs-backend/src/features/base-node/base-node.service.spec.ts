@@ -29,14 +29,19 @@ describe('BaseNodeService', () => {
     }>;
   };
 
+  let module: TestingModule;
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, BaseNodeModule],
     }).compile();
 
     service = module.get<BaseNodeService>(BaseNodeService);
     knex = module.get<Knex>('CUSTOM_KNEX');
   });
+
+  // GlobalModule opens Redis-backed queues; close them before the file is torn down.
+  afterEach(() => module.close());
 
   it('should be defined', () => {
     expect(service).toBeDefined();
@@ -279,6 +284,147 @@ describe('BaseNodeService', () => {
         'createTable'
       );
       expect(decision).toEqual({ useV2: true, reason: 'new_base' });
+    });
+  });
+
+  describe('prepareNodeList with half-provisioned tables', () => {
+    const makeNode = (id: string, resourceId: string, order: number) => ({
+      id,
+      baseId,
+      parentId: null,
+      resourceType: BaseNodeResourceType.Table,
+      resourceId,
+      order,
+      createdBy: 'usr1',
+      createdTime: new Date('2026-08-11T00:03:15.670Z'),
+      lastModifiedBy: null,
+      lastModifiedTime: null,
+      children: [],
+      parent: null,
+    });
+
+    const tableRow = (id: string, provisionState: string) => ({
+      id,
+      name: `Table ${id}`,
+      icon: null,
+      createdBy: 'usr1',
+      createdTime: new Date('2026-08-11T00:02:58.016Z'),
+      lastModifiedBy: null,
+      lastModifiedTime: null,
+      provisionState,
+    });
+
+    const createReconcileService = (
+      nodes: ReturnType<typeof makeNode>[],
+      extraTables: Array<ReturnType<typeof tableRow>> = []
+    ) => {
+      // Simulates the real DB: only honors the provisionState filter if the
+      // query actually passes it, so a missing filter surfaces the error table.
+      const allTables = [
+        tableRow('tblReady', 'ready'),
+        tableRow('tblError', 'error'),
+        ...extraTables,
+      ];
+      const tableMetaFindMany = vi.fn(({ where }: { where: { provisionState?: unknown } }) => {
+        const filter = where.provisionState;
+        const states = Array.isArray((filter as { in?: string[] } | undefined)?.in)
+          ? (filter as { in: string[] }).in
+          : typeof filter === 'string'
+            ? [filter]
+            : undefined;
+        return Promise.resolve(
+          states ? allTables.filter((t) => states.includes(t.provisionState)) : allTables
+        );
+      });
+      const baseNodeDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
+      const baseNodeCreateMany = vi.fn().mockResolvedValue({ count: 0 });
+      let currentNodes = nodes;
+      const txPrisma = {
+        baseNode: {
+          deleteMany: vi.fn((args: { where: { id: { in: string[] } } }) => {
+            currentNodes = currentNodes.filter((n) => !args.where.id.in.includes(n.id));
+            return baseNodeDeleteMany(args);
+          }),
+          createMany: baseNodeCreateMany,
+          aggregate: vi.fn().mockResolvedValue({ _max: { order: nodes.length } }),
+          findMany: vi.fn(() => Promise.resolve(currentNodes)),
+        },
+      };
+      const prismaService = {
+        tableMeta: { findMany: tableMetaFindMany },
+        baseNodeFolder: { findMany: vi.fn().mockResolvedValue([]) },
+        dashboard: { findMany: vi.fn().mockResolvedValue([]) },
+        user: { findMany: vi.fn().mockResolvedValue([]) },
+        baseNode: { findMany: vi.fn(() => Promise.resolve(currentNodes)) },
+        $tx: vi.fn((fn: (prisma: unknown) => Promise<unknown>) => fn(txPrisma)),
+      };
+      const reconcileService = new BaseNodeService(
+        {} as never,
+        {} as never,
+        prismaService as never,
+        {} as never,
+        {} as never,
+        { get: vi.fn(), set: vi.fn() } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      return { reconcileService, tableMetaFindMany, baseNodeDeleteMany, baseNodeCreateMany };
+    };
+
+    it('queries table resources with the ready provision-state filter', async () => {
+      const { reconcileService, tableMetaFindMany } = createReconcileService([
+        makeNode('node1', 'tblReady', 1),
+      ]);
+
+      await reconcileService.prepareNodeList(baseId);
+
+      expect(tableMetaFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            provisionState: { in: ['ready', 'deleting'] },
+          }),
+        })
+      );
+    });
+
+    it('drops ghost sidebar nodes pointing at half-provisioned tables', async () => {
+      const { reconcileService, baseNodeDeleteMany } = createReconcileService([
+        makeNode('node1', 'tblReady', 1),
+        makeNode('node2', 'tblError', 2),
+      ]);
+
+      const result = await reconcileService.prepareNodeList(baseId);
+
+      expect(baseNodeDeleteMany).toHaveBeenCalledWith({ where: { id: { in: ['node2'] } } });
+      expect(result.map((n) => n.resourceId)).toEqual(['tblReady']);
+    });
+
+    it('keeps the sidebar node of a table that is still deleting', async () => {
+      const { reconcileService, baseNodeDeleteMany } = createReconcileService(
+        [makeNode('node1', 'tblReady', 1), makeNode('node2', 'tblDeleting', 2)],
+        [tableRow('tblDeleting', 'deleting')]
+      );
+
+      const result = await reconcileService.prepareNodeList(baseId);
+
+      expect(baseNodeDeleteMany).not.toHaveBeenCalled();
+      expect(result.map((n) => n.resourceId)).toEqual(['tblReady', 'tblDeleting']);
+    });
+
+    it('does not backfill sidebar nodes for half-provisioned tables', async () => {
+      const { reconcileService, baseNodeCreateMany } = createReconcileService([
+        makeNode('node1', 'tblReady', 1),
+      ]);
+
+      const result = await reconcileService.prepareNodeList(baseId);
+
+      expect(baseNodeCreateMany).not.toHaveBeenCalled();
+      expect(result.map((n) => n.resourceId)).toEqual(['tblReady']);
     });
   });
 });

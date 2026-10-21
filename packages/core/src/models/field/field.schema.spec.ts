@@ -4,7 +4,7 @@ import { CellValueType, DbFieldType, FieldType, Relationship } from './constant'
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { unionFieldOptionsRoSchema } from './field-unions.schema';
 import type { IFieldRo } from './field.schema';
-import { createFieldRoSchema, fieldVoSchema } from './field.schema';
+import { convertFieldRoSchema, createFieldRoSchema, fieldVoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 import type { ILookupConditionalOptions } from './lookup-options-base.schema';
 import type { IUnionShowAs } from './show-as';
@@ -34,6 +34,87 @@ describe('field Schema Test', () => {
 
     const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
+  });
+
+  describe('conditional rollup creation defaults', () => {
+    const options = {
+      foreignTableId: 'tblForeign000000001',
+      lookupFieldId: 'fldAmount0000000001',
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: 'fldAmount0000000001', operator: 'isGreater', value: 15 }],
+      },
+    };
+
+    it('defaults an omitted expression to countall without mutating the input', () => {
+      const input = { type: FieldType.ConditionalRollup, options };
+      const result = createFieldRoSchema.parse(input);
+      expect(result.options).toEqual({ ...options, expression: 'countall({values})' });
+      expect(input.options).not.toHaveProperty('expression');
+    });
+
+    it('preserves explicit expressions and rejects invalid expressions', () => {
+      const input = { type: FieldType.ConditionalRollup, options };
+      expect(
+        createFieldRoSchema.parse({
+          ...input,
+          options: { ...options, expression: 'sum({values})' },
+        }).options
+      ).toEqual({ ...options, expression: 'sum({values})' });
+      for (const expression of ['', null, 'invalid({values})']) {
+        expect(
+          createFieldRoSchema.safeParse({ ...input, options: { ...options, expression } }).success
+        ).toBe(false);
+      }
+    });
+
+    it('does not default conversion requests or bypass required filters', () => {
+      expect(
+        convertFieldRoSchema.safeParse({ type: FieldType.ConditionalRollup, options }).success
+      ).toBe(false);
+      expect(
+        createFieldRoSchema.safeParse({
+          type: FieldType.ConditionalRollup,
+          options: { ...options, filter: null },
+        }).success
+      ).toBe(false);
+    });
+  });
+
+  // T6606: a defaulted passthrough union member must not inject a phantom
+  // `expression` into other field types' options (e.g. longText showAs).
+  it('should not inject a default expression into longText options', () => {
+    const options = { showAs: { type: 'markdown' } };
+
+    for (const schema of [createFieldRoSchema, convertFieldRoSchema]) {
+      const result = schema.safeParse({ type: FieldType.LongText, options });
+      expect(result.success).toBe(true);
+      result.success && expect(result.data.options).toEqual(options);
+    }
+  });
+
+  it('ignores forged formula safety metadata in ordinary create and convert requests', () => {
+    for (const schema of [createFieldRoSchema, convertFieldRoSchema]) {
+      const result = schema.parse({
+        type: FieldType.Formula,
+        options: { expression: '1' },
+        meta: { persistedAsGeneratedColumn: true, formulaSafetyVersion: 1 },
+      });
+      expect(result).not.toHaveProperty('meta');
+      expect(result.options).toEqual({ expression: '1' });
+    }
+  });
+
+  it('should parse lastModifiedTime options without requiring expression', () => {
+    const result = unionFieldOptionsRoSchema.safeParse({
+      formatting: {
+        date: 'YYYY-MM-DD',
+        time: 'HH:mm',
+        timeZone: 'Asia/Shanghai',
+      },
+    });
+    expect(result.success).toBe(true);
+    result.success && expect(result.data).not.toHaveProperty('expression');
   });
 
   it('should return true when isLookup with lookupOptions', () => {

@@ -2,6 +2,7 @@ import { Code2 } from '@teable/icons';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
 
 const appIconBasePath = '/images/app-icons';
 
@@ -115,15 +116,16 @@ const StepSection = ({
           <StepNumber>{step}</StepNumber>
           <h2 className="text-sm font-semibold leading-5">{title}</h2>
         </div>
-        <p className="pl-7 text-xs text-muted-foreground">{description}</p>
+        <p className="ps-7 text-xs text-muted-foreground">{description}</p>
       </div>
       {children && <div>{children}</div>}
     </section>
   );
 };
 
-export const TeableSkillContent = () => {
+export const TeableSkillContent = ({ showTitle = true }: { showTitle?: boolean } = {}) => {
   const { t } = useTranslation('common');
+  const origin = useOrigin();
   const copy = {
     title: t('settings.setting.teableSkill'),
     intro: t('settings.teableSkill.intro'),
@@ -131,7 +133,7 @@ export const TeableSkillContent = () => {
     more: t('settings.teableSkill.more'),
     copy: t('settings.teableSkill.copy'),
     installPromptLabel: t('settings.teableSkill.installPromptLabel'),
-    installPrompt: t('settings.teableSkill.installPrompt'),
+    installPrompt: t('settings.teableSkill.installPrompt', { origin }),
     step1Title: t('settings.teableSkill.step1Title'),
     step1Description: t('settings.teableSkill.step1Description'),
     step3Title: t('settings.teableSkill.step3Title'),
@@ -157,14 +159,16 @@ export const TeableSkillContent = () => {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
+          {showTitle && (
+            <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
+          )}
           <p className="max-w-4xl text-sm leading-6 text-muted-foreground">{copy.intro}</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground dark:bg-surface">
-          <span className="mr-1">{copy.worksWith}</span>
+          <span className="me-1">{copy.worksWith}</span>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {worksWith.map(({ name, iconLight, iconDark }) => (
               <AgentBadge key={name} iconDark={iconDark} iconLight={iconLight} name={name} />

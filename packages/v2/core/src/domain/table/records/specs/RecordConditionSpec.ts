@@ -8,6 +8,7 @@ import { FieldType } from '../../fields/FieldType';
 import { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
 import { LookupField } from '../../fields/types/LookupField';
 import type { TableRecord } from '../TableRecord';
+import { isEmptyCellValue } from '../values/isEmptyCellValue';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { RecordConditionOperator } from './RecordConditionOperators';
 import {
@@ -69,13 +70,6 @@ const toPrimitiveArray = (value: unknown): ReadonlyArray<Primitive> | undefined 
   if (Array.isArray(value) && value.every(isPrimitive)) return value;
   if (isPrimitive(value)) return [value];
   return undefined;
-};
-
-const isEmptyValue = (value: unknown): boolean => {
-  if (value == null) return true;
-  if (typeof value === 'string') return value.length === 0;
-  if (Array.isArray(value)) return value.length === 0;
-  return false;
 };
 
 const parseTimestamp = (value: unknown): number | undefined => {
@@ -326,8 +320,8 @@ const evaluateRecordCondition = (
   value: RecordConditionValue | undefined,
   record: TableRecord
 ): boolean => {
-  if (operator === 'isEmpty') return isEmptyValue(recordValue);
-  if (operator === 'isNotEmpty') return !isEmptyValue(recordValue);
+  if (operator === 'isEmpty') return isEmptyCellValue(recordValue);
+  if (operator === 'isNotEmpty') return !isEmptyCellValue(recordValue);
   if (!value) return false;
 
   const comparisonValue = resolveComparisonValue(value, record);
@@ -354,8 +348,7 @@ const evaluateRecordCondition = (
 
 export abstract class RecordConditionSpec<
   V extends ITableRecordConditionSpecVisitor = ITableRecordConditionSpecVisitor,
-> implements ISpecification<TableRecord, V>
-{
+> implements ISpecification<TableRecord, V> {
   protected constructor(private readonly fieldValue: Field) {}
 
   field(): Field {

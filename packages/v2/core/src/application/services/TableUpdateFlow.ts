@@ -13,11 +13,25 @@ import {
   type DomainError,
 } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
 import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
+import { TableProvisionReady } from '../../domain/table/events/TableProvisionReady';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
+import { ViewCreated } from '../../domain/table/events/ViewCreated';
+import { ViewDescriptionUpdated } from '../../domain/table/events/ViewDescriptionUpdated';
+import { ViewFilterUpdated } from '../../domain/table/events/ViewFilterUpdated';
+import { ViewGroupUpdated } from '../../domain/table/events/ViewGroupUpdated';
+import { ViewLockedUpdated } from '../../domain/table/events/ViewLockedUpdated';
+import { ViewOptionsUpdated } from '../../domain/table/events/ViewOptionsUpdated';
+import { ViewOrderUpdated } from '../../domain/table/events/ViewOrderUpdated';
+import { ViewRenamed } from '../../domain/table/events/ViewRenamed';
+import { ViewShareDisabled } from '../../domain/table/events/ViewShareDisabled';
+import { ViewShareEnabled } from '../../domain/table/events/ViewShareEnabled';
+import { ViewShareIdRefreshed } from '../../domain/table/events/ViewShareIdRefreshed';
+import { ViewShareMetaUpdated } from '../../domain/table/events/ViewShareMetaUpdated';
+import { ViewSortUpdated } from '../../domain/table/events/ViewSortUpdated';
 import {
   RemoveSymmetricLinkFieldSpec,
   UpdateLinkConfigSpec,
@@ -26,15 +40,18 @@ import {
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from '../../domain/table/specs/TableAddFieldSpec';
 import { TableAddFieldsSpec } from '../../domain/table/specs/TableAddFieldsSpec';
+import { TableAddViewSpec } from '../../domain/table/specs/TableAddViewSpec';
 import { TableDuplicateFieldSpec } from '../../domain/table/specs/TableDuplicateFieldSpec';
 import { TableRemoveFieldSpec } from '../../domain/table/specs/TableRemoveFieldSpec';
 import { TableUpdateFieldConstraintsSpec } from '../../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
+import { viewIdsNeedingRowOrderStorage } from '../../domain/table/specs/viewRowOrderStorage';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
+import { ViewVersion } from '../../domain/table/views/ViewVersion';
 import * as EventBusPort from '../../ports/EventBus';
 import {
   registerAfterCommit,
@@ -80,6 +97,7 @@ type TableUpdateTarget =
     };
 
 type TableUpdateFlowOptions = {
+  // Defers mutation events, not the provision-ready completion notification.
   publishEvents?: boolean;
   hooks?: TableUpdateFlowHooks;
 };
@@ -121,15 +139,19 @@ const mayRequirePhysicalSchemaRepair = (
     if (
       spec instanceof TableAddFieldSpec ||
       spec instanceof TableAddFieldsSpec ||
+      (spec instanceof TableAddViewSpec && spec.view().type().toString() === 'grid') ||
       spec instanceof TableDuplicateFieldSpec ||
       spec instanceof TableRemoveFieldSpec ||
       spec instanceof TableUpdateFieldDbFieldNameSpec ||
       spec instanceof TableUpdateFieldConstraintsSpec ||
-      spec instanceof UpdateLinkConfigSpec ||
       spec instanceof UpdateLinkRelationshipSpec ||
       spec instanceof RemoveSymmetricLinkFieldSpec
     ) {
       return true;
+    }
+
+    if (spec instanceof UpdateLinkConfigSpec) {
+      return spec.isRelationshipChanging() || spec.isOneWayChanging();
     }
 
     return spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion();
@@ -157,7 +179,7 @@ export class TableUpdateFlow {
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, DomainError>> {
     const publishEvents = options?.publishEvents ?? true;
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
       const postPersistEvents: IDomainEvent[] = [];
@@ -174,25 +196,18 @@ export class TableUpdateFlow {
 
       const mutateSpec = updated.mutateSpec;
       const requiresPhysicalSchemaRepair = mayRequirePhysicalSchemaRepair(mutateSpec);
+      const rowOrderViewIds = viewIdsNeedingRowOrderStorage(mutateSpec);
+      if (rowOrderViewIds.length > 0 && handler.tableSchemaRepository.prepareViewRowOrderStorage) {
+        yield* await handler.tableSchemaRepository.prepareViewRowOrderStorage(
+          context,
+          latestTable,
+          rowOrderViewIds
+        );
+      }
 
       let transactionContextRef: IExecutionContext | undefined;
       let schemaOperationStarted = false;
       let tableMetadataPersisted = false;
-      if (requiresPhysicalSchemaRepair) {
-        // Split meta/data databases can expose committed DDL before the meta transaction commits.
-        yield* await beginTableSchemaOperation(
-          handler.unitOfWork,
-          handler.tableRepository,
-          context,
-          latestTable,
-          {
-            type: 'table.update',
-            state: 'pending',
-            status: 'pending',
-          }
-        );
-        schemaOperationStarted = true;
-      }
 
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
@@ -212,26 +227,29 @@ export class TableUpdateFlow {
               latestTable = normalizedResult.table ?? latestTable;
             }
 
-            if (!requiresPhysicalSchemaRepair) {
-              yield* await beginTableSchemaOperation(
-                handler.unitOfWork,
-                handler.tableRepository,
-                metaTransactionContext,
-                latestTable,
-                {
-                  type: 'table.update',
-                  state: 'ready',
-                  status: 'pending',
-                }
-              );
-              schemaOperationStarted = true;
-            }
+            // Commit pending with the meta transaction, not before it. An
+            // aborted formula/field create used to leave provision_state=
+            // pending after rollback, hiding the table from lists and
+            // direct reads until schema-op repair (T7114).
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              latestTable,
+              {
+                type: 'table.update',
+                state: requiresPhysicalSchemaRepair ? 'pending' : 'ready',
+                status: 'pending',
+              }
+            );
+            schemaOperationStarted = true;
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
               latestTable,
               mutateSpec
             );
+            handler.applyPersistedViewVersions(latestTable, tableUpdatePersistResult);
             tableMetadataPersisted = true;
             const dataPhaseResult = yield* await handler.unitOfWork.withTransaction(
               metaTransactionContext,
@@ -283,6 +301,13 @@ export class TableUpdateFlow {
                 {
                   lastError: transactionResult.error.message,
                   type: 'table.update',
+                  result: {
+                    // Structured failure classification for the schema operation
+                    // repair gate; never parse lastError prose when this is set.
+                    tableUpdateFailure: {
+                      code: transactionResult.error.code,
+                    },
+                  },
                 }
               )
             : completeTableSchemaOperation(
@@ -316,6 +341,18 @@ export class TableUpdateFlow {
         return err(transactionResult.error);
       }
 
+      // Table list queries exclude pending tables, so once a physical schema
+      // change finishes the Table document is re-ensured to put the table back
+      // for any subscriber whose list polled during the pending window.
+      const provisionReadyEvents = (): IDomainEvent[] =>
+        requiresPhysicalSchemaRepair
+          ? [
+              TableProvisionReady.create({
+                tableId: latestTable.id(),
+                baseId: latestTable.baseId(),
+              }),
+            ]
+          : [];
       const finalizeReady = async (): Promise<void> => {
         const readyResult = await completeTableSchemaOperation(
           handler.unitOfWork,
@@ -327,8 +364,17 @@ export class TableUpdateFlow {
         if (readyResult.isErr()) {
           throw new Error(readyResult.error.message);
         }
+        const readyEvents = provisionReadyEvents();
+        if (readyEvents.length > 0) {
+          const publishResult = await handler.eventBus.publishMany(context, readyEvents);
+          if (publishResult.isErr()) {
+            throw new Error(publishResult.error.message);
+          }
+        }
       };
+      let readyEventsAfterCommit = false;
       if (registerAfterCommit(context, finalizeReady)) {
+        readyEventsAfterCommit = true;
         registerAfterRollback(context, async () => {
           const operationResult = requiresPhysicalSchemaRepair
             ? await failRecoverableTableSchemaOperation(
@@ -339,6 +385,11 @@ export class TableUpdateFlow {
                 {
                   lastError: 'Parent transaction rolled back',
                   type: 'table.update',
+                  result: {
+                    tableUpdateFailure: {
+                      code: 'transaction.parent_rolled_back',
+                    },
+                  },
                 }
               )
             : await completeTableSchemaOperation(
@@ -384,8 +435,31 @@ export class TableUpdateFlow {
           yield* await handler.eventBus.publishMany(context, postPersistEvents);
         }
       }
+      const readyEvents = readyEventsAfterCommit ? [] : provisionReadyEvents();
+      if (readyEvents.length > 0) {
+        yield* await handler.eventBus.publishMany(context, readyEvents);
+      }
       return ok({ table: latestTable, events: normalizedEvents, postPersistEvents });
     });
+  }
+
+  /**
+   * The persisted view versions advanced during this update; sync the aggregate
+   * instance we return so a follow-up update reusing it (e.g. dependent-field
+   * cleanup after a field delete) does not fail the optimistic view-version
+   * guard with a stale expectation.
+   */
+  private applyPersistedViewVersions(
+    table: Table,
+    persistResult: TableRepositoryPort.TableUpdatePersistResult | void
+  ): void {
+    for (const change of persistResult?.viewVersionChanges ?? []) {
+      const viewResult = table.getViewById(change.viewId);
+      if (viewResult.isErr()) continue;
+      const versionResult = ViewVersion.rehydrate(change.newVersion);
+      if (versionResult.isErr()) continue;
+      viewResult.value.advanceVersion(versionResult.value);
+    }
   }
 
   private attachPersistedEventVersions(
@@ -412,7 +486,46 @@ export class TableUpdateFlow {
       queueByViewId.set(change.viewId, queue);
     }
 
+    let activeQueryVersion:
+      | {
+          viewId: string;
+          rank: number;
+          change: TableRepositoryPort.ViewVersionChange;
+        }
+      | undefined;
+
+    const queryEventRank = (event: IDomainEvent): number | undefined => {
+      if (event instanceof ViewFilterUpdated) return 0;
+      if (event instanceof ViewGroupUpdated) return 1;
+      if (event instanceof ViewSortUpdated) return 2;
+      return undefined;
+    };
+
+    const takeViewVersion = (
+      viewId: string,
+      rank?: number
+    ): TableRepositoryPort.ViewVersionChange | undefined => {
+      if (
+        rank !== undefined &&
+        activeQueryVersion?.viewId === viewId &&
+        rank > activeQueryVersion.rank
+      ) {
+        activeQueryVersion.rank = rank;
+        return activeQueryVersion.change;
+      }
+
+      const change = queueByViewId.get(viewId)?.shift();
+      activeQueryVersion =
+        rank !== undefined && change !== undefined ? { viewId, rank, change } : undefined;
+      return change;
+    };
+
     return events.map((event) => {
+      const queryRank = queryEventRank(event);
+      if (queryRank === undefined) {
+        activeQueryVersion = undefined;
+      }
+
       if (event instanceof FieldUpdated) {
         if (event.oldVersion != null && event.newVersion != null) {
           return event;
@@ -477,6 +590,237 @@ export class TableUpdateFlow {
           viewId: event.viewId,
           fieldId: event.fieldId,
           fieldInColumnMeta: event.fieldInColumnMeta,
+          changes: event.changes,
+          optionsChange: event.optionsChange,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewCreated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewCreated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewRenamed) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewRenamed.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousName: event.previousName,
+          nextName: event.nextName,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewDescriptionUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewDescriptionUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousDescription: event.previousDescription,
+          nextDescription: event.nextDescription,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewFilterUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const versionChange = takeViewVersion(event.viewId.toString(), queryRank);
+        if (!versionChange) return event;
+        return ViewFilterUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousFilter: event.previousFilter,
+          nextFilter: event.nextFilter,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewSortUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const versionChange = takeViewVersion(event.viewId.toString(), queryRank);
+        if (!versionChange) return event;
+        return ViewSortUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousSort: event.previousSort,
+          nextSort: event.nextSort,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewGroupUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const versionChange = takeViewVersion(event.viewId.toString(), queryRank);
+        if (!versionChange) return event;
+        return ViewGroupUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousGroup: event.previousGroup,
+          nextGroup: event.nextGroup,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewOptionsUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewOptionsUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousOptions: event.previousOptions,
+          nextOptions: event.nextOptions,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewShareMetaUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewShareMetaUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousShareMeta: event.previousShareMeta,
+          nextShareMeta: event.nextShareMeta,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewShareIdRefreshed) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewShareIdRefreshed.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousShareId: event.previousShareId,
+          nextShareId: event.nextShareId,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewShareEnabled) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewShareEnabled.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          shareId: event.shareId,
+          shareMeta: event.shareMeta,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewShareDisabled) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewShareDisabled.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousShareId: event.previousShareId,
+          shareMeta: event.shareMeta,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewLockedUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewLockedUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousIsLocked: event.previousIsLocked,
+          nextIsLocked: event.nextIsLocked,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewOrderUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (!versionChange) return event;
+        return ViewOrderUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          previousOrder: event.previousOrder,
+          nextOrder: event.nextOrder,
           oldVersion: versionChange.oldVersion,
           newVersion: versionChange.newVersion,
         });

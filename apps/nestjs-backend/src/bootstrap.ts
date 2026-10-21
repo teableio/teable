@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { isDomainError, toError } from '@teable/v2-core';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -15,6 +16,7 @@ import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.conf
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
 import type { IClsStore } from './types/cls';
+import { nestModuleIdOptions, nestRouteDiagnosticsOptions } from './utils/nest-module-id-options';
 import { relaxOAuthPopupCoop } from './utils/oauth-popup-coop';
 
 const host = 'localhost';
@@ -47,12 +49,23 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   }
 
   if (securityWebConfig?.cors.enabled) {
-    app.enableCors();
+    // Public token-API CORS (GitHub-style): any origin may call with a bearer
+    // token, which the browser never attaches automatically, so a cross-origin
+    // page cannot ride a victim's credentials. Session/cookie endpoints stay
+    // protected because credentials are never allowed — the browser blocks
+    // cross-origin credentialed reads when Allow-Origin is `*` without
+    // Allow-Credentials. Do NOT enable credentials here without also pinning
+    // `origin` to an explicit allowlist.
+    app.enableCors({ origin: '*', credentials: false });
   }
 }
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    ...nestModuleIdOptions,
+    ...nestRouteDiagnosticsOptions,
+  });
   const configService = app.get(ConfigService);
 
   const logger = app.get(Logger);
@@ -84,9 +97,13 @@ export async function bootstrap() {
   logger.log(`> System Time Zone: ${timeZone}`);
   logger.log(`> Current System Time: ${now.toString()}`);
 
-  process.on('unhandledRejection', (reason: string, promise: Promise<unknown>) => {
-    logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
-    throw reason;
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+    // DomainError is intentionally a POJO (Result-based, not thrown). If one
+    // still escapes as an unhandled rejection, wrap it so Sentry gets a real
+    // stack-bearing Error instead of collapsing into activeSpanWrapper.
+    const normalized = isDomainError(reason) ? toError(reason) : reason;
+    logger.error(`Unhandled Rejection at: ${promise}, reason: ${normalized}`);
+    throw normalized;
   });
 
   process.on('uncaughtException', (error) => {

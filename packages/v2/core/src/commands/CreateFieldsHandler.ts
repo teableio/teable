@@ -55,9 +55,10 @@ export class CreateFieldsResult {
 
 @CommandHandler(CreateFieldsCommand)
 @injectable()
-export class CreateFieldsHandler
-  implements ICommandHandler<CreateFieldsCommand, CreateFieldsResult>
-{
+export class CreateFieldsHandler implements ICommandHandler<
+  CreateFieldsCommand,
+  CreateFieldsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
@@ -76,7 +77,7 @@ export class CreateFieldsHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldsCommand
   ): Promise<Result<CreateFieldsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateFieldsResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
@@ -250,7 +251,7 @@ export class CreateFieldsHandler
       let progressed = false;
       let deferredError: DomainError | undefined;
 
-      for (let index = 0; index < remaining.length; ) {
+      for (let index = 0; index < remaining.length;) {
         const current = remaining[index]!;
         const attemptResult = this.tryPlanField(
           currentTable,
@@ -388,7 +389,12 @@ export class CreateFieldsHandler
       ...field,
       options: {
         ...field.options,
-        lookupFieldId: foreignTable.primaryFieldId().toString(),
+        lookupFieldId: (
+          foreignTable
+            .getFields()
+            .find((candidate) => candidate.name().toString() === 'Label')
+            ?.id() ?? foreignTable.primaryFieldId()
+        ).toString(),
       },
     };
   }

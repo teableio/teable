@@ -12,12 +12,15 @@ export async function* createRecordsStreamAsync(
   recordsFieldValues: AsyncIterable<ReadonlyMap<string, unknown>>,
   options?: CreateRecordsStreamOptions
 ): AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>> {
-  const { typecast = false } = options ?? {};
+  const { typecast = false, emitRecordCreatedEvents = true } = options ?? {};
   const batchSize = calculateBatchSize(this.getFields().length, options?.batchSize);
   let batch: TableRecord[] = [];
 
   for await (const fieldValues of recordsFieldValues) {
-    const recordResult = buildRecord.call(this, fieldValues, undefined, { typecast });
+    const recordResult = buildRecord.call(this, fieldValues, undefined, {
+      typecast,
+      emitRecordCreatedEvent: emitRecordCreatedEvents,
+    });
     if (recordResult.isErr()) {
       yield err(recordResult.error);
       return;

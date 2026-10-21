@@ -9,11 +9,13 @@ import type {
   ICellValueSpecVisitor,
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
+import type { SetButtonValueSpec } from '../../domain/table/records/specs/values/SetButtonValueSpec';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
 import type { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
 import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../domain/table/records/specs/values/SetUserValueSpec';
+import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { AttachmentValueResolverService } from './AttachmentValueResolverService';
@@ -76,6 +78,9 @@ class SpecResolutionCollector implements ICellValueSpecVisitor {
     this.addSpec(spec);
     return ok(undefined);
   }
+  visitSetButtonValue(_spec: SetButtonValueSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {
     this.addSpec(spec);
     return ok(undefined);
@@ -134,6 +139,7 @@ export class RecordMutationSpecResolverService {
 
   async resolveAndReplace(
     context: IExecutionContext,
+    tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     const collector = new SpecResolutionCollector(this.resolvers);
@@ -147,7 +153,7 @@ export class RecordMutationSpecResolverService {
 
     const replacements = new Map<string, ICellValueSpec>();
     for (const [resolver, specs] of collectedSpecs) {
-      const result = await resolver.resolveSpecs(context, specs);
+      const result = await resolver.resolveSpecs(context, tableId, specs);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -172,6 +178,7 @@ export class RecordMutationSpecResolverService {
 
   async resolveAndReplaceMany(
     context: IExecutionContext,
+    tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     const collectedSpecs = new Map<
@@ -202,7 +209,7 @@ export class RecordMutationSpecResolverService {
 
     const perSpecReplacements = specs.map(() => new Map<string, ICellValueSpec>());
     for (const [resolver, batch] of collectedSpecs) {
-      const result = await resolver.resolveSpecs(context, batch.specs);
+      const result = await resolver.resolveSpecs(context, tableId, batch.specs);
       if (result.isErr()) {
         return err(result.error);
       }

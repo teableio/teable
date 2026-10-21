@@ -5,14 +5,16 @@ import type {
   RealtimeApplyChangeOptions,
   RealtimeChange,
   RealtimeDocId,
+  RealtimeEnsureOptions,
 } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
-import { RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
+import { domainError, RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IComputeActivitySignalConfig } from './ComputeActivitySignal';
 import { v2ShareDbTokens } from './di/tokens';
+import type { IShareDbPresencePublisher } from './ShareDbPresencePublisher';
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -21,13 +23,18 @@ const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 export class ShareDbRealtimeEngine implements IRealtimeEngine {
   constructor(
     @inject(v2ShareDbTokens.publisher)
-    private readonly publisher: IShareDbOpPublisher
+    private readonly publisher: IShareDbOpPublisher,
+    @inject(v2ShareDbTokens.presence)
+    private readonly presence: IShareDbPresencePublisher,
+    @inject(v2ShareDbTokens.computeActivitySignal)
+    private readonly computeActivitySignal: IComputeActivitySignalConfig
   ) {}
 
   async ensure(
     context: IExecutionContext,
     docId: RealtimeDocId,
-    initial: unknown
+    initial: unknown,
+    options?: RealtimeEnsureOptions
   ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
@@ -50,7 +57,14 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       d: documentId,
     };
 
-    const channels = [collection, `${collection}.${documentId}`];
+    // An already persisted document cannot become a new member of any
+    // collection query, so the collection channel (query subscriptions, one
+    // getDocIdsByQuery poll per subscriber) has nothing to learn from this
+    // create; only doc subscribers still receive it, which lets a client that
+    // holds an empty doc heal itself.
+    const channels = options?.expectExisting
+      ? [`${collection}.${documentId}`]
+      : [collection, `${collection}.${documentId}`];
     return this.publisher.publish(channels, op);
   }
 
@@ -96,14 +110,23 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
     switch (change.type) {
       case 'set': {
         // json0 object replace: { p: path, od: oldValue, oi: newValue }
-        if (Object.prototype.hasOwnProperty.call(change, 'oldValue')) {
-          return [{ p: path, oi: change.value, od: change.oldValue }];
+        // `undefined` is not expressible in json0: it vanishes during JSON
+        // serialization, leaving an instruction-less `{ p }` component that
+        // crashes ot-json0 ("invalid / missing instruction in op") on every
+        // client applying the op. Normalize absent values to `null` instead.
+        const value = change.value === undefined ? null : change.value;
+        if (change.oldValue !== undefined) {
+          return [{ p: path, oi: value, od: change.oldValue }];
         }
-        return [{ p: path, oi: change.value }];
+        return [{ p: path, oi: value }];
       }
       case 'insert': {
         // json0 list insert: { p: path.concat(index), li: value }
-        return [{ p: [...path, change.index], li: change.value }];
+        // `li` drops out of the wire component when the value is `undefined`,
+        // which leaves the same instruction-less `{ p }` the `set` branch
+        // normalizes, so absent values become `null` here as well.
+        const value = change.value === undefined ? null : change.value;
+        return [{ p: [...path, change.index], li: value }];
       }
       case 'delete': {
         // json0 list delete: { p: path.concat(index), ld: value }
@@ -119,7 +142,8 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
 
   async delete(
     context: IExecutionContext,
-    docId: RealtimeDocId
+    docId: RealtimeDocId,
+    options?: RealtimeApplyChangeOptions
   ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
@@ -131,7 +155,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       op: undefined,
       src: this.toProjectionSource(context.requestId),
       seq: 1,
-      v: 1,
+      v: options?.version ?? 1,
       m: {
         ts: Date.now(),
       },
@@ -141,6 +165,34 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
 
     const channels = [collection, `${collection}.${documentId}`];
     return this.publisher.publish(channels, op);
+  }
+
+  async invalidateCollection(
+    context: IExecutionContext,
+    collection: string,
+    change: RealtimeChange
+  ): Promise<Result<void, DomainError>> {
+    const op: ShareDbOp = {
+      create: undefined,
+      del: undefined,
+      op: this.toJson0Op(change),
+      src: this.toProjectionSource(context.requestId),
+      seq: 1,
+      v: 0,
+      m: {
+        ts: Date.now(),
+      },
+      c: collection,
+    };
+    return this.publisher.publish([collection], op);
+  }
+
+  async notifyTableComputeActivity(
+    _context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<void, DomainError>> {
+    const channel = this.computeActivitySignal.resolveChannel(tableId);
+    return this.presence.publish(channel, [{ actionKey: this.computeActivitySignal.actionKey }]);
   }
 
   private toProjectionSource(requestId: string | undefined): string {

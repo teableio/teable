@@ -72,7 +72,7 @@ export const CreateBaseDialog = (props: ICreateBaseDialogProps) => {
               type="button"
               disabled={isCreating}
               onClick={handleCreateBlank}
-              className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+              className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                 <Plus className="size-5" />
@@ -82,7 +82,7 @@ export const CreateBaseDialog = (props: ICreateBaseDialogProps) => {
             <button
               type="button"
               onClick={handleImportAirtable}
-              className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+              className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                 <Airtable className="size-5" />

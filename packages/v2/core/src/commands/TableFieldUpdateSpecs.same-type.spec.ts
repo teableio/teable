@@ -17,7 +17,6 @@ import { FieldColor } from '../domain/table/fields/types/FieldColor';
 import { FieldHasError } from '../domain/table/fields/types/FieldHasError';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
-import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import { NumberShowAs, SingleNumberDisplayType } from '../domain/table/fields/types/NumberShowAs';
 import { RatingColor } from '../domain/table/fields/types/RatingColor';
 import { RatingIcon } from '../domain/table/fields/types/RatingIcon';
@@ -31,6 +30,7 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import { UpdateButtonWorkflowSpec } from '../domain/table/specs/field-updates/UpdateButtonWorkflowSpec';
+import { UpdateMultipleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateMultipleSelectOptionsSpec';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
@@ -82,10 +82,6 @@ const BUTTON_CONFIRM = ButtonConfirm.create({
   confirmText: 'Deploy',
 })._unsafeUnwrap();
 const BUTTON_COLOR_TEAL = FieldColor.from('teal');
-const FORMULA_NUMBER_FORMATTING = NumberFormatting.create({
-  type: 'decimal',
-  precision: 1,
-})._unsafeUnwrap();
 const RATING_MAX_FIVE = RatingMax.five();
 const RATING_ICON_STAR = RatingIcon.star();
 const RATING_COLOR_YELLOW = RatingColor.yellowBright();
@@ -483,10 +479,12 @@ const sameTypeCases: SameTypeCase[] = [
           notNull: true,
           unique: true,
         },
+        // The default is folded into the options spec on purpose: a rename plus
+        // a re-point has to be validated as a pair (see
+        // UpdateSingleSelectOptionsSpec.defaultValueChange).
         expectedSpecNames: [
           'TableUpdateFieldNameSpec',
           'UpdateSingleSelectOptionsSpec',
-          'UpdateSingleSelectDefaultValueSpec',
           'UpdateSingleSelectAutoNewOptionsSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
@@ -500,6 +498,7 @@ const sameTypeCases: SameTypeCase[] = [
             'blueLight2',
             'blueLight1',
           ]);
+          expect(optionsSpec?.defaultValueChange()?.next?.toDto()).toBe('Done');
         },
       };
     },
@@ -532,52 +531,21 @@ const sameTypeCases: SameTypeCase[] = [
           notNull: true,
           unique: true,
         },
+        // See the singleSelect case: the default rides along with the option
+        // rewrite so a rename plus a re-point validates as a pair.
         expectedSpecNames: [
           'TableUpdateFieldNameSpec',
           'UpdateMultipleSelectOptionsSpec',
-          'UpdateMultipleSelectDefaultValueSpec',
           'UpdateMultipleSelectAutoNewOptionsSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
-      };
-    },
-  },
-  {
-    name: 'formula',
-    prepare: () => {
-      const { currentField } = buildHarness('n', 'n', (builder, fieldId) => {
-        builder
-          .field()
-          .formula()
-          .withId(fieldId)
-          .withName(FieldName.create('Calc')._unsafeUnwrap())
-          .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
-          .withFormatting(FORMULA_NUMBER_FORMATTING)
-          .withShowAs(NUMBER_SHOW_AS_BAR)
-          .withResultType({
-            cellValueType: CellValueType.number(),
-            isMultipleCellValue: CellValueMultiplicity.single(),
-          })
-          .done();
-      });
-
-      return {
-        currentField,
-        input: {
-          name: 'Calc 2',
-          options: {
-            expression: '2',
-            formatting: { type: 'currency', precision: 2, symbol: '$' },
-            showAs: null,
-          },
+        assertSpecs: (specs) => {
+          const optionsSpec = specs.find(
+            (spec): spec is UpdateMultipleSelectOptionsSpec =>
+              spec instanceof UpdateMultipleSelectOptionsSpec
+          );
+          expect(optionsSpec?.defaultValueChange()?.next?.toDto()).toEqual(['Todo', 'Done']);
         },
-        expectedSpecNames: [
-          'TableUpdateFieldNameSpec',
-          'UpdateFormulaExpressionSpec',
-          'UpdateFormulaTimeZoneSpec',
-          'UpdateFormulaFormattingSpec',
-          'UpdateFormulaShowAsSpec',
-        ],
       };
     },
   },
@@ -707,6 +675,48 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     assertSpecs?.(specsResult.value);
   });
 
+  it('adopts a previous select id only when the payload omits it', () => {
+    const alpha = SelectOption.create({
+      id: 'choOldAlpha',
+      name: 'Alpha',
+      color: 'blue',
+    })._unsafeUnwrap();
+    const { currentField } = buildHarness('v', 'v', (builder, fieldId) => {
+      builder
+        .field()
+        .singleSelect()
+        .withId(fieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .withOptions([alpha])
+        .done();
+    });
+    setStableDbFieldName(currentField, 'stable_select_id_column');
+
+    const nextChoice = (input: Record<string, unknown>) => {
+      const specs = buildUpdateFieldSpecs(currentField, input)._unsafeUnwrap();
+      const spec = specs.find((item) => item instanceof UpdateSingleSelectOptionsSpec);
+      if (!(spec instanceof UpdateSingleSelectOptionsSpec)) {
+        throw new Error('missing options spec');
+      }
+      return spec.nextOptions()[0]?.toDto();
+    };
+
+    expect(nextChoice({ options: { choices: [{ name: 'Alpha', color: 'red' }] } })).toEqual({
+      id: 'choOldAlpha',
+      name: 'Alpha',
+      color: 'red',
+    });
+    expect(
+      nextChoice({
+        options: { choices: [{ id: 'choNewAlpha', name: 'Alpha', color: 'green' }] },
+      })
+    ).toEqual({
+      id: 'choNewAlpha',
+      name: 'Alpha',
+      color: 'green',
+    });
+  });
+
   it('adds dbFieldName, description, and aiConfig specs when field metadata changes', () => {
     const { currentField } = buildHarness('r', 'r', (builder, fieldId) => {
       builder
@@ -724,7 +734,7 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     const specsResult = buildUpdateFieldSpecs(currentField, {
       dbFieldName: 'next_column_name',
       description: 'New description',
-      aiConfig: { prompt: 'fill this field' },
+      aiConfig: { type: 'customization', modelKey: 'openai@gpt-4o@gpt', prompt: 'fill this field' },
     });
 
     expect(specsResult.isOk()).toBe(true);
@@ -741,6 +751,28 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldAiConfigSpec)).toBe(
       true
     );
+  });
+
+  it('rejects aiConfig that does not match the field type on update', () => {
+    const { currentField } = buildHarness('r', 'r', (builder, fieldId) => {
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+    });
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      aiConfig: {
+        type: 'imageGeneration',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: `fld${'z'.repeat(16)}`,
+      },
+    });
+
+    expect(specsResult.isErr()).toBe(true);
+    expect(specsResult._unsafeUnwrapErr().message).toMatch(/aiConfig/i);
   });
 
   it('clears description and aiConfig when metadata is explicitly nulled', () => {

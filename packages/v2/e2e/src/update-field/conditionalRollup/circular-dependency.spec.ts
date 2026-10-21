@@ -22,7 +22,7 @@ const makeCondition = (fieldId: string, refFieldId: string) => ({
   },
 });
 
-describe('update-field: conditionalRollup circular dependency detection', () => {
+describe('[C15] update-field: conditionalRollup circular dependency detection', () => {
   let ctx: SharedTestContext;
   let alphaTableId: string;
   let alphaKeyFieldId: string;

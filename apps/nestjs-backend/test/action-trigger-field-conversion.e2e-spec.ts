@@ -12,8 +12,13 @@ describe('Action trigger field conversion presence (e2e)', () => {
   let shareDbService: ShareDbService;
   const tableIds = new Set<string>();
   const baseId = globalThis.testConfig.baseId;
+  // The conversion leg asserts v1 routing; FORCE_V2_ALL has higher priority
+  // than routing headers and would force the request onto v2.
+  let previousForceV2All: string | undefined;
 
   beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'false';
     const appCtx = await initApp();
     app = appCtx.app;
     cookie = appCtx.cookie;
@@ -22,6 +27,11 @@ describe('Action trigger field conversion presence (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
     for (const tableId of [...tableIds].reverse()) {
       await permanentDeleteTable(baseId, tableId);
     }

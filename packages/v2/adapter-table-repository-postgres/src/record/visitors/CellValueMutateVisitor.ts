@@ -23,6 +23,7 @@ import type {
   SetUserValueSpec,
   SetUserValueByIdentifierSpec,
   Table,
+  SetButtonValueSpec,
 } from '@teable/v2-core';
 import {
   CellValue,
@@ -30,6 +31,7 @@ import {
   FieldId,
   FieldType,
   ok,
+  resolveTrackedFieldIds,
   SetAttachmentValueSpec,
   SetLinkValueSpec as SetLinkValueSpecClass,
 } from '@teable/v2-core';
@@ -38,15 +40,15 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
 import {
   buildAttachmentTableReplaceQueries,
   type AttachmentTableReplaceInput,
 } from '../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
-import { normalizeStoredLinkItems } from '../normalizeLinkItems';
+import { dedupeLinkItemsById, normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
+import { serializeUserCellValue } from '../serializeUserCellValue';
 
 // System columns
 const RECORD_ID_COLUMN = '__id';
@@ -150,7 +152,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   private applyTrackedLastModifiedTimeUpdates(): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(function* () {
       if (visitor.changedFieldIds.length === 0) return ok(undefined);
 
@@ -159,7 +161,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       );
 
       for (const field of lastModifiedTimeFields) {
-        const trackedFieldIds = yield* visitor.resolveTrackedFieldIds(field);
+        const trackedFieldIds = resolveTrackedFieldIds(visitor.table, field);
         const shouldUpdate =
           trackedFieldIds.length === 0 ||
           trackedFieldIds.some((tracked) =>
@@ -183,7 +185,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   private applyTrackedLastModifiedByUpdates(): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(function* () {
       if (visitor.changedFieldIds.length === 0) return ok(undefined);
 
@@ -192,7 +194,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       );
 
       for (const field of lastModifiedByFields) {
-        const trackedFieldIds = yield* visitor.resolveTrackedFieldIds(field);
+        const trackedFieldIds = resolveTrackedFieldIds(visitor.table, field);
         const shouldUpdate =
           trackedFieldIds.length === 0 ||
           trackedFieldIds.some((tracked) =>
@@ -305,33 +307,11 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return isPersistedAsGeneratedColumn(field);
   }
 
-  private resolveTrackedFieldIds(
-    field: LastModifiedByField | LastModifiedTimeField
-  ): Result<ReadonlyArray<FieldId>, DomainError> {
-    const visitor = this;
-    const trackedFieldIds = field.trackedFieldIds();
-    if (trackedFieldIds.length === 0) {
-      return ok([]);
-    }
-
-    const validTracked = trackedFieldIds.filter((tracked) => {
-      const result = visitor.table.getField((candidate) => candidate.id().equals(tracked));
-      return result.isOk();
-    });
-
-    if (validTracked.length === 0) {
-      return ok([]);
-    }
-
-    return ok(validTracked);
-  }
-
   private buildLastModifiedByValue(): string {
     return JSON.stringify({
       id: this.ctx.actorId,
       title: this.ctx.actorName ?? this.ctx.actorId,
       email: this.ctx.actorEmail ?? null,
-      avatarUrl: buildUserAvatarUrl(this.ctx.actorId),
     });
   }
 
@@ -380,14 +360,13 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     }
 
     const options = field.selectOptions();
-    const byId = options.find((opt) => opt.id().toString() === rawValue);
-    if (byId) {
-      return byId.name().toString();
-    }
-
     const byName = options.find((opt) => opt.name().toString() === rawValue);
     if (byName) {
       return byName.name().toString();
+    }
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
     }
 
     return rawValue;
@@ -400,6 +379,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     if (!Array.isArray(rawValue)) {
       return rawValue;
     }
+    // Align with v1: empty multi-select arrays are stored as null.
+    if (rawValue.length === 0) {
+      return null;
+    }
 
     const options = field.selectOptions();
     const nameById = new Map(options.map((opt) => [opt.id().toString(), opt.name().toString()]));
@@ -409,14 +392,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       if (typeof item !== 'string') {
         return item;
       }
-      const name = nameById.get(item);
-      if (name) {
-        return name;
-      }
       if (validNames.has(item)) {
         return item;
       }
-      return item;
+      return nameById.get(item) ?? item;
     });
   }
 
@@ -519,8 +498,12 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return ok(undefined);
   }
 
-  visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {
+  visitSetButtonValue(spec: SetButtonValueSpec): Result<void, DomainError> {
     return this.addJsonValue(spec.fieldId, spec.value.toValue());
+  }
+
+  visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {
+    return this.addSimpleValue(spec.fieldId, serializeUserCellValue(spec.value.toValue()));
   }
 
   visitSetUserValueByIdentifier(_spec: SetUserValueByIdentifierSpec): Result<void, DomainError> {
@@ -561,7 +544,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   // --- Link field ---
 
   visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<void, DomainError>(function* () {
       const fieldIdStr = spec.fieldId.toString();
@@ -591,14 +574,14 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
         return ok(undefined);
       }
 
-      const linkItems = normalizeStoredLinkItems(rawValue);
+      const linkItems = dedupeLinkItemsById(normalizeStoredLinkItems(rawValue));
       const hasMissingTitles =
         visitor.ctx.fillLinkTitles &&
         spec.foreignTableId != null &&
         linkItems.some((item) => item.id && !item.title);
       const storedValue = linkField.isMultipleValue()
         ? linkItems
-        : linkItems[0] ?? (rawValue == null ? null : rawValue);
+        : (linkItems[0] ?? (rawValue == null ? null : rawValue));
 
       visitor.changedFieldIds.push(fieldId);
       if (hasMissingTitles && linkItems.length > 0) {
@@ -799,7 +782,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    * The recommended approach is to use a dedicated title-to-ID resolution service.
    */
   visitSetLinkValueByTitle(spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<void, DomainError>(function* () {
       const fieldIdStr = spec.fieldId.toString();

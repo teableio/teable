@@ -63,7 +63,12 @@ describe('TrashService write freeze', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       dataDbClientManager as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       migrationGuard as never

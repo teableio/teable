@@ -711,8 +711,12 @@ describe('OpenAPI integrity (e2e)', () => {
       const record = await getRecord(base2table1.id, base2table1.records[0].id);
       const linkIds = (record.data.fields[linkField.name] as { id: string }[])
         .map((item) => item.id)
-        .sort();
-      expect(linkIds).toEqual([base2table2.records[0].id, base2table2.records[1].id].sort());
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      expect(linkIds).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
+      );
     });
 
     it('should backfill OneMany (one-way) junction rows from link cell data', async () => {
@@ -751,15 +755,21 @@ describe('OpenAPI integrity (e2e)', () => {
         options.foreignKeyName,
         base2table1.records[0].id
       );
-      expect(foreignIds.sort()).toEqual(
-        [base2table2.records[0].id, base2table2.records[1].id].sort()
+      expect(foreignIds.sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
 
       const record = await getRecord(base2table1.id, base2table1.records[0].id);
       const linkIds = (record.data.fields[linkField.name] as { id: string }[])
         .map((item) => item.id)
-        .sort();
-      expect(linkIds).toEqual([base2table2.records[0].id, base2table2.records[1].id].sort());
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      expect(linkIds).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
+      );
     });
 
     it('should backfill ManyMany junction rows when foreign key column is missing', async () => {
@@ -802,15 +812,21 @@ describe('OpenAPI integrity (e2e)', () => {
         options.foreignKeyName,
         base2table1.records[0].id
       );
-      expect(foreignIds.sort()).toEqual(
-        [base2table2.records[0].id, base2table2.records[1].id].sort()
+      expect(foreignIds.sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
 
       const record = await getRecord(base2table1.id, base2table1.records[0].id);
       const linkIds = (record.data.fields[linkField.name] as { id: string }[])
         .map((item) => item.id)
-        .sort();
-      expect(linkIds).toEqual([base2table2.records[0].id, base2table2.records[1].id].sort());
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      expect(linkIds).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
+      );
     });
 
     it('should backfill ManyMany junction rows when junction table is missing', async () => {
@@ -848,15 +864,21 @@ describe('OpenAPI integrity (e2e)', () => {
         options.foreignKeyName,
         base2table1.records[0].id
       );
-      expect(foreignIds.sort()).toEqual(
-        [base2table2.records[0].id, base2table2.records[1].id].sort()
+      expect(foreignIds.sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
 
       const record = await getRecord(base2table1.id, base2table1.records[0].id);
       const linkIds = (record.data.fields[linkField.name] as { id: string }[])
         .map((item) => item.id)
-        .sort();
-      expect(linkIds).toEqual([base2table2.records[0].id, base2table2.records[1].id].sort());
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      expect(linkIds).toEqual(
+        [base2table2.records[0].id, base2table2.records[1].id].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
+      );
     });
 
     it('should backfill OneOne foreign key values from link cell data', async () => {

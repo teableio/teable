@@ -1,7 +1,7 @@
 // @ts-check
 
-const { readFileSync } = require('fs');
-const path = require('path');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 const { createSecureHeaders } = require('next-secure-headers');
 const pc = require('picocolors');
 
@@ -30,6 +30,19 @@ const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
 
 const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
 
+// Next 16.3 answers a cross-origin request for a /_next dev resource with 403 instead of warning,
+// so a dev server reached over anything but its own hostname serves no client chunks at all and the
+// page never hydrates: the e2e lab drives 127.0.0.1, and a phone or the mobile app reaches a LAN
+// address. Dev only — a production build serves its assets normally.
+const NEXT_DEV_ALLOWED_ORIGINS = [
+  '127.0.0.1',
+  'localhost',
+  ...(process.env?.NEXT_BUILD_ENV_ALLOWED_DEV_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
+
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
 );
@@ -57,9 +70,8 @@ if (!NEXT_BUILD_ENV_SOURCEMAPS) {
 
 // Tell webpack to compile those packages
 // @link https://www.npmjs.com/package/next-transpile-modules
+/** @type {string[]} */
 const tmModules = [
-  // for legacy browsers support (only in prod and none electron)
-  ...(isProd && !process.versions['electron'] ? [] : []),
   // ESM only packages are not yet supported by NextJs if you're not
   // using experimental esmExternals
   // @link {https://nextjs.org/blog/next-11-1#es-modules-support|Blog 11.1.0}
@@ -82,11 +94,14 @@ const secureHeaders = createSecureHeaders({
             "'self'",
             "'unsafe-eval'",
             "'unsafe-inline'",
-            'https://www.clarity.ms',
             'https://*.posthog.com',
             'https://*.teable.io',
             'https://*.teable.ai',
             'https://*.teable.cn',
+            // Google Picker loader (apis.google.com/js/api.js) for the Google
+            // Sheets importer; the picker widget itself is an iframe covered by
+            // frameSrc below.
+            'https://apis.google.com',
           ],
           frameSrc: ["'self'", 'blob:', '*'],
           connectSrc: [
@@ -95,12 +110,13 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.io',
             'https://*.teable.ai',
             'https://*.teable.cn',
-            'https://*.clarity.ms',
             'https://*.posthog.com',
+            'https://apis.google.com',
           ],
           mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
-          workerSrc: ['blob:'],
+          // 'self' lets the WebView register the same-origin /mobile-sw.js app-shell worker.
+          workerSrc: ["'self'", 'blob:'],
         }
       : {},
   },
@@ -121,6 +137,12 @@ const nextConfig = {
       ? process.env.NEXT_BUILD_ENV_ASSET_PREFIX
       : undefined,
   crossOrigin: 'anonymous',
+  allowedDevOrigins: NEXT_DEV_ALLOWED_ORIGINS,
+  // Next 16.3 writes an AGENTS.md + CLAUDE.md into the app directory on every `next dev`, telling
+  // agents to read its bundled docs. The repository keeps its own AGENTS.md with the project's
+  // rules, so these only add untracked files to everyone's tree and a second file of instructions
+  // to confuse them with.
+  agentRules: false,
   reactStrictMode: true,
   productionBrowserSourceMaps: NEXT_BUILD_ENV_SOURCEMAPS === true,
   // Transpile packages that use React to ensure single React instance
@@ -207,6 +229,12 @@ const nextConfig = {
     resolveAlias: {
       // Required: next-i18next and i18next-fs-backend require 'fs' at top level
       fs: './turbopack-empty-stub.js',
+      // i18next-fs-backend >= 2.6 imports the 'node:' scheme instead, which is
+      // a different specifier for the resolver. Browser-only: the server bundle
+      // (Sentry's instrumentation, for one) needs the real module. Without it the
+      // browser bundle ends up with an external require and the dev runtime
+      // throws "__turbopack_context__.x is not a function".
+      'node:fs': { browser: './turbopack-empty-stub.js' },
     },
   },
 
@@ -214,9 +242,6 @@ const nextConfig = {
     ignoreBuildErrors: !NEXT_BUILD_ENV_TYPECHECK,
     tsconfigPath: NEXT_BUILD_ENV_TSCONFIG,
   },
-
-  // Note: eslint configuration is no longer supported in next.config.js
-  // Use ESLint CLI directly: npx eslint .
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
@@ -241,6 +266,17 @@ const nextConfig = {
         ],
       },
       {
+        // Mobile app-shell service worker, generated into public/ after `next build`
+        // by scripts/build-mobile-precache.mjs (community nextjs-app). Revalidated on
+        // every update check so a deploy is picked up promptly; the explicit allow
+        // header keeps the "/" scope legitimate wherever the file ends up served from.
+        source: '/mobile-sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
         // All page routes, not the api ones
         source: '/:path((?!api|streamsaver).*)*',
         headers: [
@@ -260,7 +296,7 @@ const nextConfig = {
         // allow-popups above only protects the opener side. Must come after
         // the all-pages rule so this value wins (later setHeader overwrites).
         // Keep in sync with the backend middleware (utils/oauth-popup-coop.ts).
-        source: '/auth/login',
+        source: '/auth/:path(login|signup)',
         headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' }],
       },
       {
@@ -327,7 +363,7 @@ let config = nextConfig;
 if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
   try {
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/
-    const { withSentryConfig } = require('@sentry/nextjs');
+    const { withSentryConfig } = require('@sentry/nextjs/config');
     // @ts-ignore because sentry does not match nextjs current definitions
     config = withSentryConfig(config, {
       // Additional config options for the Sentry webpack plugin. Keep in mind that
@@ -350,8 +386,8 @@ if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
       silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
     });
     console.log(`- ${pc.green('info')} Sentry enabled for this build`);
-  } catch {
-    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`);
+  } catch (e) {
+    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`, e);
   }
 }
 

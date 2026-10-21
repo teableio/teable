@@ -24,7 +24,7 @@ export const useDownload = ({ downloadUrl, key }: IDownloadProps) => {
     iframeRef.current = iframe;
 
     return () => {
-      iframeRef.current && document.body.removeChild(iframeRef.current);
+      iframeRef.current?.remove();
     };
   }, [key]);
 

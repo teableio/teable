@@ -9,6 +9,7 @@ import {
   type IClearSelectionStreamProgressEvent,
 } from './clear-stream';
 import { selectionIdsRoSchema, type ISelectionIdsRo } from './id';
+import { createSelectionStreamError } from './stream-error';
 
 export const CLEAR_BY_ID_STREAM_URL = '/table/{tableId}/selection/clear-by-id-stream';
 
@@ -86,7 +87,7 @@ export const clearSelectionByIdStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    if (lastError) throw new Error(lastError.message);
+    if (lastError) throw createSelectionStreamError(lastError);
     throw new Error('Clear selection by id stream ended without result');
   }
 

@@ -4,6 +4,9 @@ export interface IPresignParams {
   expiresIn?: number;
   hash?: string;
   internal?: boolean;
+  /** stored as object metadata when the client echoes it on PUT via
+   * requestHeaders; not signature-enforced */
+  cacheControl?: string;
 }
 
 export interface IPresignRes {

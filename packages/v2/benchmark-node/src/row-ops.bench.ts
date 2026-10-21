@@ -451,7 +451,9 @@ const getScenario = (tableCount: number, profileId: string): IScenarioState => {
 };
 
 const setup = async () => {
-  const testContainer = await createV2NodeTestContainer();
+  // Delete now writes id-only record_trash markers inside the transaction
+  // (purge-guard existence rows). trashSink is unused.
+  const testContainer = await createV2NodeTestContainer({ trashSink: false });
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
   dispose = testContainer.dispose;
   baseId = testContainer.baseId.toString();

@@ -149,6 +149,54 @@ describe('update-field: singleLineText → date conversion', () => {
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
+  test('should null calendar-invalid ISO values without aborting conversion', async () => {
+    const fieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'singleLineText', id: fieldId, name: 'Calendar Validation' },
+    });
+    const values = [
+      '2026-02-30',
+      '2026-13-01',
+      '2026-02-29',
+      '2026-00-10',
+      '2026-01-32',
+      'abc',
+      '2026-03-01',
+    ];
+    const records = await Promise.all(
+      values.map((value) => ctx.createRecord(tableId, { [fieldId]: value }))
+    );
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { type: 'date' },
+    });
+
+    expect(updatedTable.fields.find((field) => field.id === fieldId)?.type).toBe('date');
+    const convertedRecords = await ctx.listRecords(tableId);
+    const convertedValues = records.map(
+      (record) => convertedRecords.find((candidate) => candidate.id === record.id)?.fields[fieldId]
+    );
+    expect(convertedValues).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      '2026-03-01T00:00:00.000Z',
+    ]);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(
+      tableId,
+      records.map((record) => record.id)
+    );
+  });
+
   test('should handle null values', async () => {
     // Setup: Create singleLineText with null values
     const fieldId = createFieldId();

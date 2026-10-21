@@ -1,4 +1,4 @@
-import { join, resolve } from 'path';
+import { join, resolve } from 'node:path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getPluginEmail } from '@teable/core';
@@ -38,7 +38,7 @@ interface IPreparedPlugin {
 
 @Injectable()
 export class OfficialPluginInitService implements OnModuleInit {
-  private logger = new Logger(OfficialPluginInitService.name);
+  private readonly logger = new Logger(OfficialPluginInitService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -109,6 +109,8 @@ export class OfficialPluginInitService implements OnModuleInit {
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, filePath, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(type),
     });
 
     return { id, path, url: `/${path}`, size, width, height, hash, mimetype };

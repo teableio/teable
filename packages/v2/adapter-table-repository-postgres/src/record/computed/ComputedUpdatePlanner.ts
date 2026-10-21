@@ -1,3 +1,4 @@
+import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import {
   createTeableSpanAttributes,
   domainError,
@@ -21,12 +22,14 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+import type { ComputedActivityFieldError } from './activity/IComputedActivityProjector';
 import type {
   FieldDependencyEdge,
   FieldDependencyGraph,
   FieldMeta,
   TableProvisionStatesForDependencyGraph,
 } from './FieldDependencyGraph';
+import { pushAll } from './pushAll';
 
 export type UpdateContext = {
   table: Table;
@@ -151,6 +154,9 @@ export type ConditionalFilterCondition = {
 export type ComputedDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
+  /** Complete source provenance for a deduplicated path. Missing on legacy
+   * payloads: fromFieldId alone cannot prove which changes trigger the path. */
+  propagationSourceFieldIds?: ReadonlyArray<FieldId>;
   /**
    * Target computed fields covered by this propagation edge. Planner-level deduplication
    * may collapse multiple target fields that share the same dirty-propagation path.
@@ -167,6 +173,12 @@ export type ComputedDependencyEdge = {
   allTargetRecordsReasons?: ReadonlyArray<AllTargetRecordsReason>;
   /** Filter condition for conditionalFiltered mode */
   filterCondition?: ConditionalFilterCondition;
+  /**
+   * When set, this edge's dirty scan is restricted to these source record ids.
+   * Empty array skips the edge. Absent means unrestricted (other edges in the
+   * same call may still be table-filtered via propagate options).
+   */
+  restrictDirtySourceRecordIds?: ReadonlyArray<string>;
   order: number;
 };
 
@@ -188,6 +200,12 @@ export type ComputedUpdatePlan = {
   edges: ReadonlyArray<ComputedDependencyEdge>;
   estimatedComplexity: number;
   changeType: UpdateContext['changeType'];
+  /**
+   * User-mutated field ids that started this plan. Schema-wide; leftover
+   * slices keep the original mutation, not every formula input.
+   */
+  changedFieldIds?: ReadonlyArray<FieldId>;
+
   cyclePolicy?: ComputedUpdateCyclePolicy;
   /**
    * Same-table batches that can be executed using CTE optimization.
@@ -201,6 +219,23 @@ export type ComputedUpdatePlan = {
    * Used to avoid storing/loading individual record IDs when the full table is dirty.
    */
   seedAllTableIds?: ReadonlyArray<TableId>;
+  /**
+   * Whole-table seeding resume cursors (last seeded __id per table id). O(1)
+   * durable state replacing per-row exclusion ledgers for full-table sources;
+   * cursors only advance once the seeded slice's propagation completed.
+   */
+  seedAllCursors?: Readonly<Record<string, string>>;
+  /**
+   * Stage-ledger scope: the continuation chain's root task id. Keys the durable
+   * exclusion ledger + frontier queue in computed_update_stage_ledger. Chains
+   * are serial, so the scope has one writer; parallel chunk-split tasks of the
+   * same run get distinct scopes.
+   */
+  ledgerScopeId?: string;
+  /** Exact floor partition whose cursors/exclusions are already committed. */
+  partialStageBudget?: { maxSteps: number; maxFields: number; maxEdges: number };
+  /** Terminal fields stay excluded while a partial stage drains its original partition. */
+  terminalFieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
 };
 
 const emptyComputedUpdatePlan = (
@@ -218,6 +253,7 @@ const emptyComputedUpdatePlan = (
   changeType: context.changeType,
   cyclePolicy: context.cyclePolicy,
   sameTableBatches: [],
+  ...(context.changedFieldIds.length ? { changedFieldIds: context.changedFieldIds } : {}),
 });
 
 const withPlannerTraceSpan = async <T>(
@@ -876,6 +912,9 @@ export class ComputedUpdatePlanner {
                   cyclePolicy: context.cyclePolicy,
                   sameTableBatches: [],
                   cycleInfo,
+                  ...(context.changedFieldIds.length
+                    ? { changedFieldIds: context.changedFieldIds }
+                    : {}),
                 });
               }
             }
@@ -962,10 +1001,65 @@ export class ComputedUpdatePlanner {
               cyclePolicy: context.cyclePolicy,
               sameTableBatches,
               cycleInfo,
+              ...(context.changedFieldIds.length
+                ? { changedFieldIds: context.changedFieldIds }
+                : {}),
             });
           }.bind(this)
         )
     );
+  }
+
+  /**
+   * Whether a plan-free seed would have any computed writes.
+   * Write path: in-memory table + hydrate-time outbound-reference hint. No extra SQL.
+   */
+  hasWritableComputedWork(
+    context: Pick<
+      PlanStageContext,
+      'baseId' | 'table' | 'changedFieldIds' | 'changeType' | 'impact'
+    >
+  ): boolean {
+    const table = context.table;
+    if (!table) {
+      return true;
+    }
+
+    const hasSameTableComputed = tableHasComputedTargetFields(table);
+    const hasOutboundReference = getTableComputedDownstreamHint(table) === true;
+
+    if (context.changeType === 'insert') {
+      return hasSameTableComputed || hasOutboundReference;
+    }
+
+    if ((context.impact?.linkFieldIds.length ?? 0) > 0) {
+      return true;
+    }
+
+    const seedFieldIds = collectImpactSeedFieldIds(context.changedFieldIds, context.impact);
+    if (seedFieldIds.length === 0) {
+      return false;
+    }
+
+    const changed = new Set(seedFieldIds.map((id) => id.toString()));
+    const sameTableDependent = table.getFields().some((field) => {
+      const fieldType = field.type().toString();
+      const isTarget =
+        isComputedFieldType(fieldType) ||
+        (field.computed().toBoolean() && !systemComputedFieldTypes.has(fieldType));
+      if (!isTarget) {
+        return false;
+      }
+      return field.dependencies().some((depId) => changed.has(depId.toString()));
+    });
+    if (sameTableDependent) {
+      return true;
+    }
+
+    if (hasSameTableComputed) {
+      return true;
+    }
+    return hasOutboundReference;
   }
 
   private async hasComputedTargets(
@@ -1101,10 +1195,10 @@ const collectRelevantEdgesForImpact = (
 ): ReadonlyArray<FieldDependencyEdge> => {
   const relevantEdges: FieldDependencyEdge[] = [];
   if (impact.includesValueChange) {
-    relevantEdges.push(...edges.filter(isEdgeRelevantForValue));
+    pushAll(relevantEdges, edges.filter(isEdgeRelevantForValue));
   }
   if (impact.includesLinkRelation) {
-    relevantEdges.push(...edges.filter(isEdgeRelevantForLink));
+    pushAll(relevantEdges, edges.filter(isEdgeRelevantForLink));
   }
   return relevantEdges;
 };
@@ -1388,7 +1482,7 @@ export const splitSeedGroupsForPlan = (
   const primary =
     preferredTableId === undefined
       ? nonEmpty[0]
-      : nonEmpty.find((group) => group.tableId.equals(preferredTableId)) ?? nonEmpty[0];
+      : (nonEmpty.find((group) => group.tableId.equals(preferredTableId)) ?? nonEmpty[0]);
 
   return {
     seedTableId: primary.tableId,
@@ -1666,12 +1760,17 @@ const buildPropagationEdges = (
           edge.allTargetRecordsReasons
         ),
         propagationTargetFieldIds: [edge.toFieldId],
+        propagationSourceFieldIds: [edge.fromFieldId],
       });
       edgeIndexByKey.set(key, result.length - 1);
       return;
     }
 
     const existing = result[existingIndex];
+    const sourceFieldIds = existing.propagationSourceFieldIds ?? [existing.fromFieldId];
+    if (!sourceFieldIds.some((fieldId) => fieldId.equals(edge.fromFieldId))) {
+      existing.propagationSourceFieldIds = [...sourceFieldIds, edge.fromFieldId];
+    }
     const targetFieldIds = existing.propagationTargetFieldIds ?? [existing.toFieldId];
     if (!targetFieldIds.some((fieldId) => fieldId.equals(edge.toFieldId))) {
       existing.propagationTargetFieldIds = [...targetFieldIds, edge.toFieldId];

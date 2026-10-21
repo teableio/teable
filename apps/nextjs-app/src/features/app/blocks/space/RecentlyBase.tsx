@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getUserLastVisitListBase, getSpaceList, getSharedBase } from '@teable/openapi';
+import { getUserLastVisitListBase, getSharedBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   Card,
@@ -52,7 +52,7 @@ export const RecentlyBase = () => {
                 <TabsTrigger value="shared" className="relative">
                   {t('space:sharedBase.title')}
                   {sharedBases && sharedBases.length > 0 && (
-                    <span className="absolute right-1 top-0 ml-2 text-xs font-medium text-muted-foreground">
+                    <span className="absolute end-1 top-0 ms-2 text-xs font-medium text-muted-foreground">
                       {sharedBases.length}
                     </span>
                   )}

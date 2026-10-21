@@ -1,4 +1,4 @@
-import { hash } from 'crypto';
+import { hash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { LRUCache } from 'lru-cache';
@@ -29,6 +29,11 @@ export class RedisNativeService {
     if (!this.redis) {
       this.logger.warn('Redis client not available — RedisNativeService disabled');
     }
+  }
+
+  /** false when the cache provider is not redis; every command below then throws */
+  get available(): boolean {
+    return this.redis !== undefined;
   }
 
   private get client(): Redis {
@@ -215,6 +220,17 @@ export class RedisNativeService {
   }
 
   /**
+   * Iterate a set one page at a time (SSCAN command).
+   * @param key - Redis set key
+   * @param cursor - Cursor from the previous page, '0' to start
+   * @param count - Page size hint
+   * @returns Next cursor ('0' once exhausted) and the page's members, which may repeat across pages
+   */
+  async sscan(key: string, cursor: string, count: number): Promise<[string, string[]]> {
+    return this.client.sscan(key, cursor, 'COUNT', count);
+  }
+
+  /**
    * Check if a member exists in a set.
    * @param key - Redis set key
    * @param member - Member to check
@@ -324,6 +340,30 @@ export class RedisNativeService {
   }
 
   /**
+   * Batch ZCOUNT via pipeline — single network roundtrip for multiple sorted-set keys.
+   * @param keys - Array of Redis sorted set keys
+   * @param min - Minimum score (number or '-inf')
+   * @param max - Maximum score (number or '+inf')
+   * @returns Array of counts (0 for missing keys)
+   * @throws on any per-command error — unknown must not read as zero
+   */
+  async zcountMulti(keys: string[], min: number | string, max: number | string): Promise<number[]> {
+    if (keys.length === 0) return [];
+    const pipe = this.client.pipeline();
+    for (const key of keys) {
+      pipe.zcount(key, min, max);
+    }
+    const replies = await pipe.exec();
+    return keys.map((key, i) => {
+      const reply = replies?.[i];
+      if (!reply) throw new Error(`zcountMulti got no reply for ${key}`);
+      const [err, count] = reply;
+      if (err) throw err;
+      return (count as number) ?? 0;
+    });
+  }
+
+  /**
    * Batch SCARD via pipeline — single network roundtrip for multiple set keys.
    * @param keys - Array of Redis set keys
    * @returns Array of cardinalities (0 for missing keys or errors)
@@ -337,7 +377,7 @@ export class RedisNativeService {
     const replies = await pipe.exec();
     return keys.map((_, i) => {
       const [err, count] = replies?.[i] ?? [null, 0];
-      return err ? 0 : (count as number) ?? 0;
+      return err ? 0 : ((count as number) ?? 0);
     });
   }
 

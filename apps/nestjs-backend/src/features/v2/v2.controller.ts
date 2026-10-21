@@ -11,11 +11,11 @@ import {
   executeUpdateRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
-import type {
-  ICommandBus,
-  IComputedActivityReader,
-  IQueryBus,
-} from '@teable/v2-core' with { 'resolution-mode': 'import' };
+import type { ICommandBus, IComputedActivityReader, IQueryBus } from '@teable/v2-core' with {
+  'resolution-mode': 'import',
+};
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -46,72 +46,94 @@ export class V2Controller {
     private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {}
 
-  @Implement(v2Contract.tables)
-  tables() {
-    return {
-      create: implement(v2Contract.tables.create).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainerForBase(input.baseId);
-        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext(container);
+  @Implement(v2Contract.tables.create)
+  @Permissions('table|create')
+  @ResourceMeta('baseId', 'body')
+  createTable() {
+    return implement(v2Contract.tables.create).handler(async ({ input }) => {
+      const container = await this.v2Container.getContainerForBase(input.baseId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = await this.v2ContextFactory.createContext(container);
 
-        const result = await executeCreateTableEndpoint(context, input, commandBus);
+      const result = await executeCreateTableEndpoint(context, input, commandBus);
 
-        if (result.status === 201) return result.body;
+      if (result.status === 201) return result.body;
 
-        throwOrpcErrorByStatus(result.status, result.body.error);
-      }),
-      getById: implement(v2Contract.tables.getById).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainerForTable(input.tableId);
-        const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-        const context = await this.v2ContextFactory.createContext(container);
-        let activityReader: IComputedActivityReader | undefined;
-        try {
-          activityReader = container.resolve<IComputedActivityReader>(
-            v2CoreTokens.computedActivityReader
-          );
-        } catch {
-          activityReader = undefined;
-        }
+      throwOrpcErrorByStatus(result.status, result.body.error);
+    });
+  }
 
-        const result = await executeGetTableByIdEndpoint(context, input, queryBus, activityReader);
-        if (result.status === 200) return result.body;
+  @Implement(v2Contract.tables.getById)
+  @Permissions('table|read')
+  @ResourceMeta('tableId', 'query')
+  getTableById() {
+    return implement(v2Contract.tables.getById).handler(async ({ input }) => {
+      const container = await this.v2Container.getContainerForTable(input.tableId);
+      const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+      const context = await this.v2ContextFactory.createContext(container);
+      let activityReader: IComputedActivityReader | undefined;
+      try {
+        activityReader = container.resolve<IComputedActivityReader>(
+          v2CoreTokens.computedActivityReader
+        );
+      } catch {
+        activityReader = undefined;
+      }
 
-        throwOrpcErrorByStatus(result.status, result.body.error);
-      }),
-      getComputeActivity: implement(v2Contract.tables.getComputeActivity).handler(
-        async ({ input }) => {
-          const container = await this.v2Container.getContainerForTable(input.tableId);
-          const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-          const context = await this.v2ContextFactory.createContext(container);
+      const result = await executeGetTableByIdEndpoint(context, input, queryBus, activityReader);
+      if (result.status === 200) return result.body;
 
-          const result = await executeGetComputeActivityEndpoint(context, input, queryBus);
-          if (result.status === 200) return result.body;
+      throwOrpcErrorByStatus(result.status, result.body.error);
+    });
+  }
 
-          throwOrpcErrorByStatus(result.status, result.body.error);
-        }
-      ),
-      deleteRecords: implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainerForTable(input.tableId);
-        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext(container);
+  @Implement(v2Contract.tables.getComputeActivity)
+  @Permissions('table|read')
+  @ResourceMeta('tableId', 'query')
+  getComputeActivity() {
+    return implement(v2Contract.tables.getComputeActivity).handler(async ({ input }) => {
+      const container = await this.v2Container.getContainerForTable(input.tableId);
+      const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+      const context = await this.v2ContextFactory.createContext(container);
 
-        const result = await executeDeleteRecordsEndpoint(context, input, commandBus);
+      const result = await executeGetComputeActivityEndpoint(context, input, queryBus);
+      if (result.status === 200) return result.body;
 
-        if (result.status === 200) return result.body;
+      throwOrpcErrorByStatus(result.status, result.body.error);
+    });
+  }
 
-        throwOrpcErrorByStatus(result.status, result.body.error);
-      }),
-      updateRecords: implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainerForTable(input.tableId);
-        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext(container);
+  @Implement(v2Contract.tables.deleteRecords)
+  @Permissions('record|delete')
+  @ResourceMeta('tableId', 'body')
+  deleteRecords() {
+    return implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
+      const container = await this.v2Container.getContainerForTable(input.tableId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = await this.v2ContextFactory.createContext(container);
 
-        const result = await executeUpdateRecordsEndpoint(context, input, commandBus);
+      const result = await executeDeleteRecordsEndpoint(context, input, commandBus);
 
-        if (result.status === 200) return result.body;
+      if (result.status === 200) return result.body;
 
-        throwOrpcErrorByStatus(result.status, result.body.error);
-      }),
-    };
+      throwOrpcErrorByStatus(result.status, result.body.error);
+    });
+  }
+
+  @Implement(v2Contract.tables.updateRecords)
+  @Permissions('record|update')
+  @ResourceMeta('tableId', 'body')
+  updateRecords() {
+    return implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
+      const container = await this.v2Container.getContainerForTable(input.tableId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = await this.v2ContextFactory.createContext(container);
+
+      const result = await executeUpdateRecordsEndpoint(context, input, commandBus);
+
+      if (result.status === 200) return result.body;
+
+      throwOrpcErrorByStatus(result.status, result.body.error);
+    });
   }
 }

@@ -453,6 +453,69 @@ describe('CreateTablesHandler', () => {
     ]);
   });
 
+  it('rejects missing not-null record values before starting table.create_many', async () => {
+    const requiredFieldId = `fld${'z'.repeat(16)}`;
+    const commandResult = CreateTablesCommand.create({
+      baseId: `bse${'z'.repeat(16)}`,
+      tables: [
+        {
+          name: 'Required Records',
+          fields: [
+            { type: 'singleLineText', name: 'Title', isPrimary: true },
+            {
+              type: 'singleLineText',
+              id: requiredFieldId,
+              name: 'Required Code',
+              notNull: true,
+            },
+          ],
+          views: [{ type: 'grid' }],
+          records: [{ fields: { Title: 'Row 1' } }],
+        },
+      ],
+    });
+
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const tableCreationService = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectService
+    );
+    const handler = new CreateTablesHandler(
+      tableRepository,
+      recordRepository,
+      foreignTableLoaderService,
+      tableCreationService,
+      eventBus,
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.field.not_null',
+    });
+    expect(tableRepository.inserted).toHaveLength(0);
+    expect(schemaRepository.inserted).toHaveLength(0);
+    expect(recordRepository.insertedCount).toBe(0);
+    expect(tableRepository.provisionStateChanges).toHaveLength(0);
+  });
+
   it('keeps record insertion mapped to input order', async () => {
     const baseId = `bse${'e'.repeat(16)}`;
     const tableAId = `tbl${'a'.repeat(16)}`;

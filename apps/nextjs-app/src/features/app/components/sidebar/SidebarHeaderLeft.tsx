@@ -34,7 +34,7 @@ export const SidebarHeaderLeft = (props: ISidebarBackButtonProps) => {
         displayIcon
       )}
 
-      <p className="ml-[2px] truncate text-sm">{title ?? brandName}</p>
+      <p className="ms-[2px] truncate text-sm">{title ?? brandName}</p>
     </>
   );
 };

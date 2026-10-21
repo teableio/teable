@@ -1,20 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBaseNodeChannel } from '@teable/core';
 import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
-import { BaseNodeResourceType, getBaseNodeTree } from '@teable/openapi';
+import { getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildTreeItems, hasChildrenNode } from './helper';
+import { buildTreeItems, filterAutoHiddenFolders } from './helper';
 
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
 export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => {
   const { connection } = useConnection();
   const channel = getBaseNodeChannel(baseId);
-  const presence = connection?.getPresence(channel);
-  const [nodes, setNodes] = useState<IBaseNodeVo[]>([]);
   const queryClient = useQueryClient();
 
   // Initialize treeItems from cache to avoid flash of empty state on remount
@@ -23,12 +21,19 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
       ReactQueryKeys.baseNodeTree(baseId)
     );
     if (cachedData?.nodes && cachedData.nodes.length > 0) {
-      return buildTreeItems(cachedData.nodes);
+      return buildTreeItems(
+        isRestrictedAuthority ? filterAutoHiddenFolders(cachedData.nodes) : cachedData.nodes
+      );
     }
     return {};
   });
 
-  const { data: queryData, isLoading } = useQuery({
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    isError,
+  } = useQuery({
     queryKey: ReactQueryKeys.baseNodeTree(baseId),
     queryFn: ({ queryKey }) => getBaseNodeTree(queryKey[1]).then((res) => res.data),
     enabled: Boolean(baseId),
@@ -44,41 +49,29 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     return queryData?.maxFolderDepth ?? 2;
   }, [queryData?.maxFolderDepth]);
 
+  /** The query result the current treeItems were built from. */
+  const [builtFrom, setBuiltFrom] = useState<IBaseNodeVo[] | null>(null);
   useEffect(() => {
-    if (queryData?.nodes) {
-      setNodes(queryData?.nodes);
-    }
-  }, [queryData?.nodes, setNodes]);
+    const nodes = queryData?.nodes;
+    if (!nodes) return;
+    setTreeItems(
+      nodes.length > 0
+        ? buildTreeItems(isRestrictedAuthority ? filterAutoHiddenFolders(nodes) : nodes)
+        : {}
+    );
+    setBuiltFrom(nodes);
+  }, [queryData?.nodes, setTreeItems, isRestrictedAuthority]);
 
+  // The channel's presence is looked up here, not in render, and never destroyed: a destroyed
+  // ShareDB presence re-subscribes fine but drops out of the connection's routing once the
+  // pending unsubscribe settles, so a mount following a cleanup (Strict Mode, a project's tree
+  // handed from the sidebar's provider to the page's) would listen on an orphan and never
+  // hear another change. Every instance listens; the last one out unsubscribes.
   useEffect(() => {
-    if (nodes.length > 0) {
-      setTreeItems(
-        buildTreeItems(
-          isRestrictedAuthority
-            ? nodes.filter((node) => {
-                if (node.resourceType === BaseNodeResourceType.Folder) {
-                  return hasChildrenNode(node.id, nodes);
-                }
-                return true;
-              })
-            : nodes
-        )
-      );
-    } else {
-      setTreeItems({});
-    }
-  }, [nodes, setTreeItems, isRestrictedAuthority]);
-
-  useEffect(() => {
-    if (!presence || !channel) {
+    if (!connection || !channel) {
       return;
     }
-
-    if (presence.subscribed) {
-      return;
-    }
-
-    presence.subscribe();
+    const presence = connection.getPresence(channel);
 
     const receiveHandler = () => {
       const { remotePresences } = presence;
@@ -91,21 +84,28 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
     };
 
     presence.on('receive', receiveHandler);
+    presence.subscribe();
 
     return () => {
-      presence?.removeListener('receive', receiveHandler);
-      presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
-      presence?.listenerCount('receive') === 0 && presence?.destroy();
+      presence.removeListener('receive', receiveHandler);
+      if (presence.listenerCount('receive') === 0) {
+        presence.unsubscribe();
+      }
     };
-  }, [connection, presence, channel, setNodes, invalidateMenu]);
+  }, [connection, channel, invalidateMenu]);
+
+  // treeItems answers for the latest result once rebuilt from it; a refetch in flight or failed
+  // leaves the old result standing, which is no answer.
+  const isLoaded = !isFetching && !isError && builtFrom === queryData?.nodes;
 
   return useMemo(() => {
     return {
       isLoading,
+      isLoaded,
       maxFolderDepth,
       treeItems,
       setTreeItems,
       invalidateMenu,
     };
-  }, [isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
+  }, [isLoading, isLoaded, maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
 };

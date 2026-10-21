@@ -59,7 +59,7 @@ export const ImportOptionPanel = (props: ICollapsePanel) => {
             checked={options.autoSelectType}
             onCheckedChange={(value) => onChange(value, 'autoSelectType')}
           />
-          <span className="pl-2">{t('table:import.options.autoSelectFieldOptionName')}</span>
+          <span className="ps-2">{t('table:import.options.autoSelectFieldOptionName')}</span>
         </label>
 
         <label
@@ -71,7 +71,7 @@ export const ImportOptionPanel = (props: ICollapsePanel) => {
             checked={options.useFirstRowAsHeader}
             onCheckedChange={(value) => onChange(value, 'useFirstRowAsHeader')}
           />
-          <span className="pl-2">{t('table:import.options.useFirstRowAsHeaderOptionName')}</span>
+          <span className="ps-2">{t('table:import.options.useFirstRowAsHeaderOptionName')}</span>
         </label>
 
         <label
@@ -83,7 +83,7 @@ export const ImportOptionPanel = (props: ICollapsePanel) => {
             checked={options.importData}
             onCheckedChange={(value) => onChange(value, 'importData')}
           />
-          <span className="pl-2">{t('table:import.options.importDataOptionName')}</span>
+          <span className="ps-2">{t('table:import.options.importDataOptionName')}</span>
         </label>
       </div>
     </CollapseWraper>
@@ -112,7 +112,7 @@ export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
     <CollapseWraper>
       <div>
         {sheetKeyOptions?.length > 1 ? (
-          <div className="pl-4">
+          <div className="ps-4">
             <span className="text-xs">{t('table:import.options.sheetKey')}</span>
             <BaseSingleSelect
               modal
@@ -129,14 +129,14 @@ export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
 
         <label
           htmlFor="excludeFirstRow"
-          className="ml-4 flex w-56 cursor-pointer items-center rounded py-2 text-sm hover:bg-accent"
+          className="ms-4 flex w-56 cursor-pointer items-center rounded py-2 text-sm hover:bg-accent"
         >
           <Switch
             id="excludeFirstRow"
             checked={options.excludeFirstRow}
             onCheckedChange={(value) => onChangeHandler('excludeFirstRow', value)}
           />
-          <span className="pl-2">{t('table:import.options.excludeFirstRow')}</span>
+          <span className="ps-2">{t('table:import.options.excludeFirstRow')}</span>
         </label>
       </div>
     </CollapseWraper>

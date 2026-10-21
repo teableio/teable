@@ -43,6 +43,10 @@ export const resolveOrderBy = (
 /**
  * Convert groupBy items to repository orderBy.
  * Invalid field IDs are ignored.
+ * Entries are marked for group-identity collation: every consumer of a
+ * grouped view's row order (list, copy, paste/clear/delete ranges) resolves
+ * its group-derived sorts through this helper, so the mark is what keeps
+ * their record order aligned with the group buckets.
  */
 export const resolveGroupByToOrderBy = (
   groupBy: ReadonlyArray<SortLike> | undefined
@@ -52,7 +56,11 @@ export const resolveGroupByToOrderBy = (
   for (const item of groupBy) {
     const fieldIdResult = FieldId.create(item.fieldId);
     if (fieldIdResult.isErr()) continue;
-    orderBy.push({ fieldId: fieldIdResult.value, direction: item.order });
+    orderBy.push({
+      fieldId: fieldIdResult.value,
+      direction: item.order,
+      groupIdentityCollation: true,
+    });
   }
   return ok(orderBy.length > 0 ? orderBy : undefined);
 };

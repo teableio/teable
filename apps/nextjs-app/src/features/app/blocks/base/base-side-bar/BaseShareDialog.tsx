@@ -9,6 +9,7 @@ import {
   updateBaseShare,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import { Dialog, DialogContent } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -51,6 +52,7 @@ const BaseShareDialogContent = ({
   baseName: string;
   isBaseShared?: boolean;
 }) => {
+  const contentDir = useContentDir();
   const { t } = useTranslation(['common']);
   const queryClient = useQueryClient();
 
@@ -102,7 +104,7 @@ const BaseShareDialogContent = ({
     },
   });
 
-  const { mutate: updateShare } = useMutation({
+  const { mutateAsync: updateShare, isPending: isUpdateLoading } = useMutation({
     mutationFn: (data: IUpdateBaseShareRo) => updateBaseShare(baseId, share!.shareId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -145,14 +147,18 @@ const BaseShareDialogContent = ({
     },
   });
 
-  const handleUpdateSetting = (data: Record<string, unknown>) => {
-    if (!share) return;
-    updateShare(data as IUpdateBaseShareRo);
+  // Resolves whether the update was saved; failures are already toasted by onError
+  const handleUpdateSetting = async (data: Record<string, unknown>) => {
+    if (!share) return false;
+    return updateShare(data as IUpdateBaseShareRo).then(
+      () => true,
+      () => false
+    );
   };
 
   const permissionOptions = useBaseSharePermissionOptions({
     share,
-    onUpdate: handleUpdateSetting,
+    onUpdate: (data) => void handleUpdateSetting(data),
   });
 
   // Show loading for initial fetch, or when refetching after create (share not yet available)
@@ -169,7 +175,7 @@ const BaseShareDialogContent = ({
       header={
         <div className="flex w-full items-center gap-2">
           <span className="text-base font-medium">{t('baseShare.shareTitle')}</span>
-          <span className="truncate text-base font-medium" title={baseName}>
+          <span dir={contentDir} className="truncate text-base font-medium" title={baseName}>
             {baseName}
           </span>
         </div>
@@ -180,6 +186,7 @@ const BaseShareDialogContent = ({
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}
+      isUpdateLoading={isUpdateLoading}
       permissionOptions={permissionOptions}
       onToggleShare={() => createShare()}
       onUpdateSetting={handleUpdateSetting}

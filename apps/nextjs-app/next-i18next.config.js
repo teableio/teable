@@ -1,6 +1,6 @@
 const defaultLocale = 'en';
 const debugI18n = ['true', 1].includes(process?.env?.NEXTJS_DEBUG_I18N ?? 'false');
-const path = require('path');
+const path = require('node:path');
 const localePublicFolder = undefined;
 
 const localPaths = [
@@ -30,7 +30,7 @@ const localePath = getLocalPath();
 module.exports = {
   i18n: {
     defaultLocale,
-    locales: ['en', 'it', 'zh', 'fr', 'ja', 'ru', 'de', 'uk', 'tr', 'es'],
+    locales: ['en', 'it', 'zh', 'fr', 'ja', 'ru', 'de', 'uk', 'tr', 'es', 'ar', 'he'],
   },
   saveMissing: false,
   strictMode: true,

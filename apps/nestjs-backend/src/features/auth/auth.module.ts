@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { authConfig, type IAuthConfig } from '../../configs/auth.config';
 import { AccessTokenModule } from '../access-token/access-token.module';
 import { DeleteUserModule } from '../user/delete-user/delete-user.module';
 import { UserModule } from '../user/user.module';
@@ -11,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
 import { LocalAuthModule } from './local-auth/local-auth.module';
+import { MobileAuthModule } from './mobile-auth/mobile-auth.module';
 import { PermissionModule } from './permission.module';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
@@ -38,17 +37,9 @@ const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
       { timeout: CONDITIONAL_MODULE_TIMEOUT }
     ),
     SocialModule,
+    MobileAuthModule,
     PermissionModule,
     TurnstileModule,
-    JwtModule.registerAsync({
-      useFactory: (config: IAuthConfig) => ({
-        secret: config.jwt.secret,
-        signOptions: {
-          expiresIn: config.jwt.expiresIn,
-        },
-      }),
-      inject: [authConfig.KEY],
-    }),
     DeleteUserModule,
   ],
   providers: [

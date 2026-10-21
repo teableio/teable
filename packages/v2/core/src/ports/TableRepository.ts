@@ -24,6 +24,18 @@ export type TableFindOptions = IFindOptions<TableSortKey> & {
   state?: TableQueryState;
 };
 
+export type TableLockMode = 'forUpdate';
+
+export type TableFindOneOptions = Pick<TableFindOptions, 'state'> & {
+  /**
+   * Requires a transaction-bound execution context. The repository locks the
+   * aggregate root row before hydrating its current child collection.
+   */
+  lock?: TableLockMode;
+  /** Zero probes once without waiting; omitted uses the repository default. */
+  provisionWaitMs?: number;
+};
+
 export type FieldVersionChange = {
   fieldId: string;
   oldVersion: number;
@@ -62,6 +74,12 @@ export type TableDeleteOptions = {
 };
 
 export interface ITableRepository {
+  /** Readiness only: never hydrate fields/views. Optional for non-persistent adapters. */
+  waitForReady?(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOneOptions, 'provisionWaitMs'>
+  ): Promise<Result<void, DomainError>>;
   insert(context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>>;
   insertMany(
     context: IExecutionContext,
@@ -70,7 +88,7 @@ export interface ITableRepository {
   findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
-    options?: Pick<TableFindOptions, 'state'>
+    options?: TableFindOneOptions
   ): Promise<Result<Table, DomainError>>;
   find(
     context: IExecutionContext,

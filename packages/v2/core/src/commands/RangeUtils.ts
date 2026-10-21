@@ -52,15 +52,13 @@ export function validateRangesFormat(
         })
       );
     }
-  } else {
+  } else if (ranges.length !== 2) {
     // For cell range (default), ranges should be two elements: [[startCol, startRow], [endCol, endRow]]
-    if (ranges.length !== 2) {
-      return err(
-        domainError.validation({
-          message: `For cell range, ranges must have exactly 2 elements [[startCol, startRow], [endCol, endRow]], got ${ranges.length}`,
-        })
-      );
-    }
+    return err(
+      domainError.validation({
+        message: `For cell range, ranges must have exactly 2 elements [[startCol, startRow], [endCol, endRow]], got ${ranges.length}`,
+      })
+    );
   }
 
   return ok(undefined);

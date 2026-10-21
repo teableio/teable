@@ -44,7 +44,7 @@ export function ModelCard({
   onRemove,
   onUpdateI18nDescription,
   onUpdateRecommendedDescription,
-}: IModelCardProps) {
+}: Readonly<IModelCardProps>) {
   const { t } = useTranslation('common');
   const isCloud = useIsCloud();
   const [descEn, setDescEn] = useState(model.i18nDescription?.en ?? '');
@@ -119,7 +119,7 @@ export function ModelCard({
             model.isImageModel ||
             model.tags?.includes('image-generation')) && (
             <Badge variant="secondary" className="text-xs">
-              <ImageIcon className="mr-1 size-3" />
+              <ImageIcon className="me-1 size-3" />
               Image
             </Badge>
           )}

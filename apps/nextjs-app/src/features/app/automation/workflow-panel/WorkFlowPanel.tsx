@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle } from 'react';
 import { AutomationPage } from '../Pages';
 
 export interface WorkFlowPanelRef {
-  getWorkflow?: () => unknown | undefined;
+  getWorkflow?: () => unknown;
   checkCanActive?: () => {
     canActive: boolean;
     message: string;
@@ -17,13 +17,9 @@ interface WorkFlowPanelProps {
 }
 
 const WorkFlowPanel = forwardRef<WorkFlowPanelRef, WorkFlowPanelProps>((_props, ref) => {
-  useImperativeHandle(
-    ref,
-    () => {
-      return {};
-    },
-    []
-  );
+  useImperativeHandle(ref, () => {
+    return {};
+  }, []);
 
   return <AutomationPage />;
 });

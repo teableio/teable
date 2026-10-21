@@ -47,7 +47,7 @@ export const OperatorComponent: IFilterBaseComponent<IBaseFilterItem> = (props) 
     return [];
   }, [field, item.type]);
 
-  const operatorsStatic = useOperatorI18nMap(cellValueType);
+  const operatorsStatic = useOperatorI18nMap(cellValueType, type);
   const shouldDisabled = useMemo(
     () => shouldFilterByDefaultValue(type && cellValueType ? { type, cellValueType } : undefined),
     [cellValueType, type]
@@ -63,7 +63,7 @@ export const OperatorComponent: IFilterBaseComponent<IBaseFilterItem> = (props) 
   }, [operatorsStatic, operators]);
 
   const onSelectHandler = (value: IBaseFilterItem['operator'] | null) => {
-    const resetFieldValue = shouldResetFieldValue(item.operator as string, value as string);
+    const resetFieldValue = shouldResetFieldValue(item.operator as string, value as string, field);
     if (resetFieldValue || !operators.includes(value as IBaseFilterItem['operator'])) {
       const newPath = path.slice(0, -1);
       onChange(newPath, {

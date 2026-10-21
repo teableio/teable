@@ -2,9 +2,8 @@
  * E2E tests for converting SingleLineText field to Rating.
  *
  * Conversion behavior:
- * - Numeric strings are parsed to rating values
- * - Values are clamped to valid range (0 to max)
- * - Non-numeric strings become null
+ * - Numeric strings are rounded and clamped to [1, max]
+ * - Values below 1 and non-numeric strings become null
  * - Null values remain null
  */
 /* eslint-disable @typescript-eslint/naming-convention */

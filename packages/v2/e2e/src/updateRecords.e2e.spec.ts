@@ -408,4 +408,459 @@ describe('v2 http updateRecords (e2e)', () => {
     expect(statusByTitle.get('Alpha')).toBe('Open');
     expect(statusByTitle.get('Beta')).toBe('Open');
   });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1431 — omitted fields in sparse explicit
+   * batch updates must be preserved, not cleared or re-validated.
+   */
+  it('preserves omitted singleSelect values in sparse explicit batch updates', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Sparse Select',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: {
+            choices: [
+              { id: 'optOpen', name: 'Open', color: 'blue' },
+              { id: 'optClosed', name: 'Closed', color: 'red' },
+            ],
+            preventAutoNewOptions: true,
+          },
+        },
+        { type: 'singleLineText', name: 'Notes' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.name === 'Title')?.id ?? '';
+    const statusFieldId = table.fields.find((f) => f.name === 'Status')?.id ?? '';
+    const notesFieldId = table.fields.find((f) => f.name === 'Notes')?.id ?? '';
+
+    const alpha = await ctx.createRecord(table.id, {
+      [titleFieldId]: 'Alpha',
+      [statusFieldId]: 'Open',
+    });
+    const beta = await ctx.createRecord(table.id, {
+      [titleFieldId]: 'Beta',
+      [statusFieldId]: 'Open',
+    });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: alpha.id, fields: { [notesFieldId]: 'Touched' } },
+        { id: beta.id, fields: { [statusFieldId]: 'Closed' } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    const alphaAfter = records.find((r) => r.id === alpha.id);
+    const betaAfter = records.find((r) => r.id === beta.id);
+    expect(alphaAfter?.fields[statusFieldId]).toBe('Open');
+    expect(alphaAfter?.fields[notesFieldId]).toBe('Touched');
+    expect(betaAfter?.fields[statusFieldId]).toBe('Closed');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:244 — with preventAutoNewOptions, typecast
+   * drops unknown option values instead of creating new choices.
+   */
+  it('drops unknown option values under typecast when preventAutoNewOptions is set', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Prevent Auto Options',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleSelect',
+          name: 'Single',
+          options: {
+            choices: [{ id: 'optRed', name: 'red', color: 'red' }],
+            preventAutoNewOptions: true,
+          },
+        },
+        {
+          type: 'multipleSelect',
+          name: 'Multi',
+          options: {
+            choices: [{ id: 'optRedM', name: 'red', color: 'red' }],
+            preventAutoNewOptions: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const singleFieldId = table.fields.find((f) => f.name === 'Single')?.id ?? '';
+    const multiFieldId = table.fields.find((f) => f.name === 'Multi')?.id ?? '';
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+
+    const r1 = await ctx.createRecord(table.id, { [titleFieldId]: 'R1' });
+    const r2 = await ctx.createRecord(table.id, { [titleFieldId]: 'R2' });
+
+    const updated = await ctx.updateRecords({
+      tableId: table.id,
+      typecast: true,
+      records: [
+        { id: r1.id, fields: { [singleFieldId]: 'red' } },
+        { id: r2.id, fields: { [singleFieldId]: 'blue' } },
+      ],
+    });
+    const updatedById = new Map(updated.records.map((r) => [r.id, r]));
+    expect(updatedById.get(r1.id)?.fields[singleFieldId]).toBe('red');
+    // v1 contract: unknown option is dropped, no new option is created
+    expect(updatedById.get(r2.id)?.fields[singleFieldId] == null).toBe(true);
+
+    const updatedMulti = await ctx.updateRecords({
+      tableId: table.id,
+      typecast: true,
+      records: [{ id: r1.id, fields: { [multiFieldId]: ['red', 'blue'] } }],
+    });
+    expect(updatedMulti.records[0]?.fields[multiFieldId]).toEqual(['red']);
+
+    const refreshed = await ctx.getTableById(table.id);
+    const choiceNames = (fieldId: string) =>
+      (
+        (refreshed.fields.find((f) => f.id === fieldId)?.options as {
+          choices?: Array<{ name: string }>;
+        }) ?? {}
+      ).choices?.map((c) => c.name) ?? [];
+    expect(choiceNames(singleFieldId)).toEqual(['red']);
+    expect(choiceNames(multiFieldId)).toEqual(['red']);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1225 — duplicate updates targeting the
+   * same record in one batch are merged so the latest value wins.
+   */
+  it('merges duplicate basic field updates to the latest', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Basic',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'singleLineText', name: 'Text' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const textFieldId = table.fields.find((f) => f.name === 'Text')?.id ?? '';
+
+    const record = await ctx.createRecord(table.id, { [titleFieldId]: 'Dup' });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: record.id, fields: { [textFieldId]: 'v1' } },
+        { id: record.id, fields: { [textFieldId]: 'v2' } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    expect(records.find((r) => r.id === record.id)?.fields[textFieldId]).toBe('v2');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1242 — duplicate link updates (manyOne)
+   * for the same record are merged so the last link target wins.
+   */
+  it('merges duplicate link updates (manyOne) so the last wins', async () => {
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Link Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignNameFieldId = foreign.fields.find((f) => f.isPrimary)?.id ?? '';
+    const targetA = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'A' });
+    const targetB = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'B' });
+
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Link Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const linkFieldId = table.fields.find((f) => f.name === 'Link')?.id ?? '';
+
+    const record = await ctx.createRecord(table.id, { [titleFieldId]: 'Main' });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: record.id, fields: { [linkFieldId]: { id: targetA.id } } },
+        { id: record.id, fields: { [linkFieldId]: { id: targetB.id } } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    expect(records.find((r) => r.id === record.id)?.fields[linkFieldId]).toMatchObject({
+      id: targetB.id,
+    });
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1268 — after merging duplicate updates,
+   * dependent formulas compute from the latest value.
+   */
+  it('merges duplicate updates with formula: computed value reflects the latest', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Formula',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'singleLineText', name: 'Text' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const textFieldId = table.fields.find((f) => f.name === 'Text')?.id ?? '';
+
+    const withFormula = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: { type: 'formula', name: 'Echo', options: { expression: `{${textFieldId}}` } },
+    });
+    const formulaFieldId = withFormula.fields.find((f) => f.name === 'Echo')?.id ?? '';
+
+    const record = await ctx.createRecord(table.id, { [titleFieldId]: 'Dup Formula' });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: record.id, fields: { [textFieldId]: 'first' } },
+        { id: record.id, fields: { [textFieldId]: 'second' } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    expect(records.find((r) => r.id === record.id)?.fields[formulaFieldId]).toBe('second');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1289 — after merging duplicate link
+   * updates, lookups reflect the latest link target.
+   */
+  it('merges duplicate updates with lookup: value reflects the latest link target', async () => {
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Lookup Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignNameFieldId = foreign.fields.find((f) => f.isPrimary)?.id ?? '';
+    const targetA = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'A' });
+    const targetB = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'B' });
+
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Lookup Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const linkFieldId = table.fields.find((f) => f.name === 'Link')?.id ?? '';
+
+    const withLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'lookup',
+        name: 'Name Lookup',
+        options: {
+          linkFieldId,
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNameFieldId,
+        },
+      },
+    });
+    const lookupFieldId = withLookup.fields.find((f) => f.name === 'Name Lookup')?.id ?? '';
+
+    const record = await ctx.createRecord(table.id, { [titleFieldId]: 'Main' });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: record.id, fields: { [linkFieldId]: { id: targetA.id } } },
+        { id: record.id, fields: { [linkFieldId]: { id: targetB.id } } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    const lookupValue = records.find((r) => r.id === record.id)?.fields[lookupFieldId];
+    // assert merge semantics without pinning the single/array lookup shape
+    expect(Array.isArray(lookupValue) ? lookupValue : [lookupValue]).toEqual(['B']);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1334 — after merging duplicate link-set
+   * updates, rollups aggregate over the latest link set only.
+   */
+  it('merges duplicate updates with rollup: sum reflects the latest link set', async () => {
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Rollup Foreign',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', name: 'Value' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const foreignNameFieldId = foreign.fields.find((f) => f.isPrimary)?.id ?? '';
+    const foreignValueFieldId = foreign.fields.find((f) => f.name === 'Value')?.id ?? '';
+    const targetA = await ctx.createRecord(foreign.id, {
+      [foreignNameFieldId]: 'A',
+      [foreignValueFieldId]: 10,
+    });
+    const targetB = await ctx.createRecord(foreign.id, {
+      [foreignNameFieldId]: 'B',
+      [foreignValueFieldId]: 7,
+    });
+    const targetC = await ctx.createRecord(foreign.id, {
+      [foreignNameFieldId]: 'C',
+      [foreignValueFieldId]: 5,
+    });
+
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Duplicate Rollup Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Links',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const linkFieldId = table.fields.find((f) => f.name === 'Links')?.id ?? '';
+
+    const withRollup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'rollup',
+        name: 'Sum',
+        options: { expression: 'sum({values})' },
+        config: {
+          linkFieldId,
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignValueFieldId,
+        },
+      },
+    });
+    const rollupFieldId = withRollup.fields.find((f) => f.name === 'Sum')?.id ?? '';
+
+    const record = await ctx.createRecord(table.id, { [titleFieldId]: 'Main' });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        {
+          id: record.id,
+          fields: { [linkFieldId]: [{ id: targetA.id }, { id: targetB.id }] },
+        },
+        {
+          id: record.id,
+          fields: { [linkFieldId]: [{ id: targetC.id }] },
+        },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    expect(records.find((r) => r.id === record.id)?.fields[rollupFieldId]).toBe(5);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1489 — a required (notNull) singleSelect
+   * must not fail validation for batch rows that omit the field.
+   */
+  it('does not fail required singleSelect validation when omitted in another batch row', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'UpdateRecords Required Select Sparse',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: {
+            choices: [
+              { id: 'optReqOpen', name: 'Open', color: 'blue' },
+              { id: 'optReqClosed', name: 'Closed', color: 'red' },
+            ],
+            preventAutoNewOptions: true,
+          },
+        },
+        { type: 'singleLineText', name: 'Notes' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const statusFieldId = table.fields.find((f) => f.name === 'Status')?.id ?? '';
+    const notesFieldId = table.fields.find((f) => f.name === 'Notes')?.id ?? '';
+
+    const alpha = await ctx.createRecord(table.id, {
+      [titleFieldId]: 'Alpha',
+      [statusFieldId]: 'Open',
+    });
+    const beta = await ctx.createRecord(table.id, {
+      [titleFieldId]: 'Beta',
+      [statusFieldId]: 'Open',
+    });
+
+    await ctx.updateField({
+      tableId: table.id,
+      fieldId: statusFieldId,
+      field: { notNull: true },
+    });
+
+    await ctx.updateRecords({
+      tableId: table.id,
+      records: [
+        { id: alpha.id, fields: { [statusFieldId]: 'Closed' } },
+        { id: beta.id, fields: { [notesFieldId]: 'Still open' } },
+      ],
+    });
+
+    const records = await ctx.listRecords(table.id);
+    const alphaAfter = records.find((r) => r.id === alpha.id);
+    const betaAfter = records.find((r) => r.id === beta.id);
+    expect(alphaAfter?.fields[statusFieldId]).toBe('Closed');
+    expect(betaAfter?.fields[statusFieldId]).toBe('Open');
+    expect(betaAfter?.fields[notesFieldId]).toBe('Still open');
+  });
 });

@@ -56,10 +56,10 @@ export const DragItem: FC<IDragItemProps> = (props) => {
       onClick={() => !disabled && onClick?.()}
     >
       <div className="flex items-center overflow-hidden">
-        <Icon className="ml-1 mr-2 size-4 shrink-0 text-muted-foreground" />
+        <Icon className="me-2 ms-1 size-4 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm">{name}</span>
       </div>
-      {!disabled && <DraggableHandle className="ml-1 shrink-0" />}
+      {!disabled && <DraggableHandle className="ms-1 shrink-0" />}
     </div>
   );
 
@@ -128,26 +128,22 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
   }, [activeViewId, allFields, view?.columnMeta, sidebarAdditionalFieldId]);
 
   const onFieldShown = (field: IFieldInstance) => {
-    view &&
-      view.updateColumnMeta([
-        {
-          fieldId: field.id,
-          columnMeta: {
-            visible: true,
-          },
+    view?.updateColumnMeta([
+      {
+        fieldId: field.id,
+        columnMeta: {
+          visible: true,
         },
-      ]);
+      },
+    ]);
   };
 
   const onFieldsVisibleChange = (fields: IFieldInstance[], visible: boolean) => {
-    view &&
-      view.updateColumnMeta(
-        fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } }))
-      );
+    view?.updateColumnMeta(fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } })));
   };
 
   return (
-    <div className="flex h-full w-64 shrink-0 flex-col border-r pb-4 pt-3">
+    <div className="flex h-full w-64 shrink-0 flex-col border-e pb-4 pt-3">
       <div className="mb-2 flex justify-between px-4">
         <h2 className="text-base font-medium">{t('table:form.fieldsManagement')}</h2>
         <div>

@@ -1,12 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Optional } from '@nestjs/common';
-import type { FieldType, IFieldVo } from '@teable/core';
-import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
-import { PrismaService, type Prisma } from '@teable/db-main-prisma';
+import { Inject, Injectable, Optional, ServiceUnavailableException } from '@nestjs/common';
+import type { FieldType, IFieldVo, IRecord } from '@teable/core';
+import { HttpErrorCode, IdPrefix, Role } from '@teable/core';
+import type { DataPrismaService } from '@teable/db-data-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IDeleteTrashQuery,
+  IGetTrashItemRecordsQuery,
+  IGetTrashItemRecordsVo,
   IRestoreFieldTrashStreamEvent,
   IResetTrashItemsRo,
   IResourceMapVo,
+  ITrashItemRecordVo,
   ITrashItemsRo,
   ITrashItemVo,
   ITrashRo,
@@ -15,8 +20,9 @@ import type {
 } from '@teable/openapi';
 import { CollaboratorType, ResourceType, TableTrashType, TrashType } from '@teable/openapi';
 import {
+  DELETED_RECORD_TRASH_MARKER_SNAPSHOT,
+  RECORD_REMOVAL_REASON,
   RestoreFieldStreamCommand,
-  RestoreRecordsCommand,
   RestoreRecordsStreamCommand,
   TableId,
   v2CoreTokens,
@@ -25,7 +31,6 @@ import type {
   ICommandBus,
   RestoreFieldStreamResult,
   RestoreRecordInput,
-  RestoreRecordsResult,
   RestoreRecordsStreamResult,
   Table,
   TableQueryService,
@@ -44,31 +49,100 @@ import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CanaryService, type IV2Decision } from '../canary/canary.service';
+import { RecordCommentCleanupService } from '../comment/record-comment-cleanup.service';
+import type { IFieldInstance } from '../field/model/factory';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { restoreFieldRecordValues } from '../field/restore-field-record-values';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
+import { RecordRestoreService } from '../record/open-api/record-restore.service';
 import { RecordService } from '../record/record.service';
+import type { IColdRemovalRow } from '../record-removal-cold/part-codec';
+import type { IRemovalColdBoundary } from '../record-removal-cold/record-removal-cold-read.service';
+import {
+  decodeRemovalColdCursor,
+  encodeRemovalColdCursor,
+  RecordRemovalColdReadService,
+} from '../record-removal-cold/record-removal-cold-read.service';
+import { RecordRemovalColdStorageService } from '../record-removal-cold/record-removal-cold-storage.service';
+import {
+  isTombstonedAt,
+  RecordRemovalTombstoneService,
+} from '../record-removal-cold/record-removal-tombstone.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
-import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
 import { UserService } from '../user/user.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewService } from '../view/view.service';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
-type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
-
 // A single trash item can reference tens of thousands of resource ids (bulk record deletion),
 // while postgres prepared statements accept at most 32767 bind variables per query.
 const IN_CHUNK = 5000;
+
+// The list only previews the first few resources of each trash item (name resolution
+// included); the full set is paged through the item records endpoint.
+const TABLE_TRASH_RESOURCE_PREVIEW_LIMIT = 20;
+
+const TRASH_RECORD_DEFAULT_TAKE = 50;
+
+// Emptying a base's or a table's trash; also the operation the purged items' own rows join.
+const TRASH_RESET_ACTION = 'trash.reset';
+
+// Hot-zone scan budget for LEGACY trash items (rows predating the operation_id column):
+// the walk filters item membership app-side, so a busy table could make one page scan far
+// more rows than it serves — cap the work and hand back a resume cursor instead.
+const TRASH_HOT_SCAN_BATCH = 1000;
+const TRASH_HOT_MAX_SCANNED = 5000;
+
+// rth1: hot-zone cursor of the trash-item records walk — exclusive (created_time, id)
+// resume point in the PG zone. Once a page is served (even partially) from cold parts the
+// cursor becomes the cold reader's self-describing `rms1:` form and skips PG entirely.
+const TRASH_HOT_CURSOR_PREFIX = 'rth1:';
+
+const encodeTrashHotCursor = (k: Date, id: string): string =>
+  TRASH_HOT_CURSOR_PREFIX +
+  Buffer.from(JSON.stringify({ k: k.toISOString(), id })).toString('base64url');
+
+const decodeTrashHotCursor = (cursor: string): { k: Date; id: string } | undefined => {
+  if (!cursor.startsWith(TRASH_HOT_CURSOR_PREFIX)) return undefined;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(cursor.slice(TRASH_HOT_CURSOR_PREFIX.length), 'base64url').toString()
+    ) as { k: string; id: string };
+    const k = new Date(payload.k);
+    if (Number.isNaN(k.getTime()) || typeof payload.id !== 'string') return undefined;
+    return { k, id: payload.id };
+  } catch {
+    return undefined;
+  }
+};
+
+type ITrashRecordHotRow = {
+  id: string;
+  recordId: string;
+  snapshot: string;
+  createdTime: Date;
+  createdBy: string;
+  recordCreatedTime: Date | null;
+  recordCreatedBy: string | null;
+  recordLastModifiedTime: Date | null;
+  recordLastModifiedBy: string | null;
+};
+
+const maxDefinedDate = (a?: Date, b?: Date): Date | undefined => {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+};
 
 type IRestoreProgressInput = {
   phase: 'preparing' | 'restoring';
@@ -133,6 +207,12 @@ type ITableTrashDelegate = {
       createdTime: Date;
     }>
   >;
+  findFirst<TArgs>(args: TArgs): Promise<{
+    id: string;
+    resourceType: string;
+    snapshot: string;
+    createdTime: Date;
+  } | null>;
   findUniqueOrThrow<TArgs>(args: TArgs): Promise<{
     tableId: string;
     resourceType: string;
@@ -150,6 +230,11 @@ type IRecordTrashDelegate = {
       recordId: string;
       snapshot: string;
       createdTime: Date;
+      createdBy: string;
+      recordCreatedTime: Date | null;
+      recordCreatedBy: string | null;
+      recordLastModifiedTime: Date | null;
+      recordLastModifiedBy: string | null;
     }>
   >;
   deleteMany<TArgs>(args: TArgs): Promise<unknown>;
@@ -158,6 +243,12 @@ type IRecordTrashDelegate = {
 type ITrashDataPrisma = {
   tableTrash: ITableTrashDelegate;
   recordTrash: IRecordTrashDelegate;
+};
+
+export type IGetTrashItemsOptions = {
+  // Hide table-trash rows created before this instant (plan read window); rows are hidden,
+  // never deleted.
+  createdTimeAfter?: Date;
 };
 
 type IScopedTrashDataPrisma = ITrashDataPrisma & {
@@ -172,8 +263,19 @@ type IScopedTrashDataPrisma = ITrashDataPrisma & {
   ) => Promise<T>;
 };
 
+/** A trash item as its audit rows need it. */
+export type ITrashAuditItem = {
+  id?: string;
+  resourceType: TrashType;
+  resourceId: string;
+  parentId?: string | null;
+};
+
 @Injectable()
 export class TrashService {
+  // Property-injected: the EE subclass forwards the constructor arguments positionally.
+  @Inject(AuditScope) protected readonly audit!: AuditScope;
+
   constructor(
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     protected readonly prismaService: PrismaService,
@@ -188,12 +290,17 @@ export class TrashService {
     protected readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     protected readonly recordOpenApiService: RecordOpenApiService,
     protected readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    protected readonly recordRestoreService: RecordRestoreService,
     protected readonly recordService: RecordService,
     protected readonly viewService: ViewService,
     protected readonly v2ContainerService: V2ContainerService,
     protected readonly v2ExecutionContextFactory: V2ExecutionContextFactory,
     protected readonly canaryService: CanaryService,
     protected readonly dataDbClientManager: DataDbClientManager,
+    protected readonly recordRemovalTombstoneService: RecordRemovalTombstoneService,
+    protected readonly recordRemovalColdStorageService: RecordRemovalColdStorageService,
+    protected readonly recordRemovalColdReadService: RecordRemovalColdReadService,
+    protected readonly recordCommentCleanupService: RecordCommentCleanupService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel(META_KNEX) protected readonly knex: Knex,
     @Optional()
@@ -237,6 +344,16 @@ export class TrashService {
     return (await this.dataDbClientManager.dataPrismaForTable(tableId, {
       useTransaction: true,
     })) as IScopedTrashDataPrisma;
+  }
+
+  // Full-typed executor for the tombstone service (the narrow ITrashDataPrisma
+  // view has no recordRemovalTombstone delegate); the tombstone table lives in
+  // the same data db as record_trash.
+  private async trashTombstoneClientForTable(tableId: string): Promise<DataPrismaService> {
+    const prisma = (await this.dataDbClientManager.dataPrismaForTable(tableId, {
+      useTransaction: true,
+    })) as DataPrismaService;
+    return (prisma.txClient?.() ?? prisma) as DataPrismaService;
   }
 
   private async trashDataPrismaTransactionForTable<T>(
@@ -337,6 +454,15 @@ export class TrashService {
       where: { resourceId: { in: spaceIds } },
       orderBy: { deletedTime: 'desc' },
     });
+    const byodbBindings = await this.prismaService.spaceDataDbBinding.findMany({
+      where: {
+        spaceId: { in: list.map(({ resourceId }) => resourceId) },
+        mode: 'byodb',
+        dataDbConnectionId: { not: null },
+      },
+      select: { spaceId: true },
+    });
+    const byodbSpaceIds = new Set(byodbBindings.map(({ spaceId }) => spaceId));
 
     const trashItems: ITrashItemVo[] = [];
     const deletedBySet: Set<string> = new Set();
@@ -351,6 +477,7 @@ export class TrashService {
         resourceType: resourceType as TrashType,
         deletedTime: deletedTime.toISOString(),
         deletedBy,
+        isByodb: byodbSpaceIds.has(resourceId),
       });
       const { name, avatar } = spaceIdMap[resourceId];
       resourceMap[resourceId] = {
@@ -432,14 +559,17 @@ export class TrashService {
     };
   }
 
-  async getTrashItems(trashItemsRo: ITrashItemsRo): Promise<ITrashVo> {
+  async getTrashItems(
+    trashItemsRo: ITrashItemsRo,
+    options?: IGetTrashItemsOptions
+  ): Promise<ITrashVo> {
     const { resourceType } = trashItemsRo;
 
     switch (resourceType) {
       case TrashType.Base:
         return await this.getBaseTrashItems(trashItemsRo);
       case TrashType.Table:
-        return await this.getTableTrashItems(trashItemsRo);
+        return await this.getTableTrashItems(trashItemsRo, options);
       default:
         throw new CustomHttpException(
           `Invalid resource type ${resourceType}`,
@@ -481,6 +611,10 @@ export class TrashService {
     const resourceMap: IResourceMapVo = {};
 
     for (const { recordId, snapshot } of recordList) {
+      if (snapshot === DELETED_RECORD_TRASH_MARKER_SNAPSHOT) {
+        continue;
+      }
+
       const parsedSnapshot = JSON.parse(snapshot) as {
         id?: string;
         name?: string;
@@ -535,7 +669,7 @@ export class TrashService {
       fields: parsedSnapshot.fields,
     });
 
-    return nameResult.isOk() ? nameResult.value ?? '' : '';
+    return nameResult.isOk() ? (nameResult.value ?? '') : '';
   }
 
   async getResourceMapByIds(
@@ -599,7 +733,7 @@ export class TrashService {
           await Promise.all(
             chunk(resourceIds, IN_CHUNK).map((ids) =>
               dataPrisma.recordTrash.findMany({
-                where: { tableId, recordId: { in: ids } },
+                where: { tableId, recordId: { in: ids }, reason: RECORD_REMOVAL_REASON.Deleted },
                 select: {
                   recordId: true,
                   snapshot: true,
@@ -624,8 +758,19 @@ export class TrashService {
     }
   }
 
-  async getTableTrashItems(trashItemsRo: ITrashItemsRo): Promise<ITrashVo> {
-    const { resourceId: tableId, cursor, pageSize = 20 } = trashItemsRo;
+  async getTableTrashItems(
+    trashItemsRo: ITrashItemsRo,
+    options?: IGetTrashItemsOptions
+  ): Promise<ITrashVo> {
+    const {
+      resourceId: tableId,
+      cursor,
+      pageSize = 20,
+      resourceTypes,
+      deletedBy,
+      deletedTimeStart,
+      deletedTimeEnd,
+    } = trashItemsRo;
     const accessTokenId = this.cls.get('accessTokenId');
     let nextCursor: typeof cursor | undefined = undefined;
 
@@ -636,10 +781,28 @@ export class TrashService {
       true
     );
 
+    // Plan read window (EE) and the user's deleted-time filter combine to the later bound;
+    // rows outside the window stay stored but are hidden from the list.
+    const createdTimeGte = maxDefinedDate(
+      options?.createdTimeAfter,
+      deletedTimeStart ? new Date(deletedTimeStart) : undefined
+    );
+    const createdTimeLte = deletedTimeEnd ? new Date(deletedTimeEnd) : undefined;
+
     const dataPrisma = this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
     const list = await dataPrisma.tableTrash.findMany({
       where: {
         tableId,
+        ...(resourceTypes?.length ? { resourceType: { in: resourceTypes } } : {}),
+        ...(deletedBy?.length ? { createdBy: { in: deletedBy } } : {}),
+        ...(createdTimeGte || createdTimeLte
+          ? {
+              createdTime: {
+                ...(createdTimeGte ? { gte: createdTimeGte } : {}),
+                ...(createdTimeLte ? { lte: createdTimeLte } : {}),
+              },
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -674,11 +837,12 @@ export class TrashService {
       const parsedSnapshot = JSON.parse(snapshot);
       const resourceType = item.resourceType as TableTrashType;
 
-      const resourceIds =
+      const resourceIds: string[] =
         resourceType === TableTrashType.Field
           ? (parsedSnapshot.fields as IFieldVo[]).map(({ id }) => id)
           : parsedSnapshot;
-      deletedResourceMap[resourceType].push(...resourceIds);
+      const previewResourceIds = resourceIds.slice(0, TABLE_TRASH_RESOURCE_PREVIEW_LIMIT);
+      deletedResourceMap[resourceType].push(...previewResourceIds);
       deletedBySet.add(createdBy);
 
       return {
@@ -686,7 +850,8 @@ export class TrashService {
         resourceType: resourceType,
         deletedTime: createdTime.toISOString(),
         deletedBy: createdBy,
-        resourceIds,
+        resourceIds: previewResourceIds,
+        totalResourceCount: resourceIds.length,
       };
     });
 
@@ -700,13 +865,468 @@ export class TrashService {
     }
 
     const userList = await this.userService.getUserInfoList(Array.from(deletedBySet));
+    // Delete commits a table_trash index before recycle-bin JSON lands. Hide the
+    // item until every preview id has a real snapshot so list/restore cannot race
+    // the async projection.
+    const readyTrashItems = trashItems.filter((item) => {
+      if (item.resourceType !== TableTrashType.Record) {
+        return true;
+      }
+      return item.resourceIds.every((resourceId) => resourceMap[resourceId] != null);
+    });
 
     return {
-      trashItems,
+      trashItems: readyTrashItems,
       resourceMap,
       userMap: keyBy(userList, 'id'),
       nextCursor,
     };
+  }
+
+  async getTableTrashItemRecords(
+    trashId: string,
+    query: IGetTrashItemRecordsQuery,
+    options?: IGetTrashItemsOptions
+  ): Promise<IGetTrashItemRecordsVo> {
+    const { tableId, cursor, take = TRASH_RECORD_DEFAULT_TAKE } = query;
+    const accessTokenId = this.cls.get('accessTokenId');
+
+    await this.permissionService.validPermissions(
+      tableId,
+      ['table|trash_read'],
+      accessTokenId,
+      true
+    );
+
+    const dataPrisma = this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
+    const [trashItem, fieldInstances] = await Promise.all([
+      this.loadRecordTrashItem(dataPrisma, trashId, tableId, options),
+      this.recordService.getFieldsByProjection(tableId),
+    ]);
+
+    const recordIds = JSON.parse(trashItem.snapshot) as string[];
+    const idSet = new Set(recordIds);
+
+    // Dual-zone cursor, mirroring the archive list merge: while pages come from PG the
+    // cursor is the rth1: keyset form; once a page is served (even partially) from cold
+    // parts it becomes the cold reader's rms1: cursor, which skips PG entirely.
+    const coldCursor = cursor ? decodeRemovalColdCursor(cursor) : undefined;
+    const hotCursor = cursor && !coldCursor ? decodeTrashHotCursor(cursor) : undefined;
+    if (cursor && !coldCursor && !hotCursor) {
+      throw new CustomHttpException('Invalid trash records cursor', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    let hotRows: ITrashRecordHotRow[] = [];
+    let nextCursor: string | null = null;
+    let boundary: IRemovalColdBoundary | undefined = coldCursor?.boundary;
+    let fillFromCold = Boolean(coldCursor);
+    if (!coldCursor) {
+      const hot = await this.collectHotTrashItemRecords({
+        dataPrisma,
+        trashId,
+        tableId,
+        itemCreatedTime: trashItem.createdTime,
+        idSet,
+        query,
+        take,
+        hotCursor,
+      });
+      hotRows = hot.rows;
+      if (hot.nextCursor) {
+        nextCursor = hot.nextCursor;
+      } else {
+        fillFromCold = true;
+        boundary = hot.boundary;
+      }
+    }
+
+    let coldRows: IColdRemovalRow[] = [];
+    if (fillFromCold) {
+      ({ coldRows, nextCursor } = await this.fillTrashItemColdPage({
+        tableId,
+        idSet,
+        itemCreatedTime: trashItem.createdTime,
+        query,
+        pageSize: take,
+        hotRows,
+        boundary,
+      }));
+    }
+
+    const items = hotRows.map((row) => this.buildTrashItemRecordVo(row, fieldInstances));
+    // cold rows are already predicate-filtered and ordered after the PG zone; their
+    // time dims are the flusher's canonical ISO strings
+    for (const row of coldRows) {
+      items.push({
+        id: row.id,
+        recordId: row.recordId,
+        record: this.normalizeTrashRecordSnapshot(
+          fieldInstances,
+          JSON.parse(row.snapshot) as IRecord
+        ),
+        deletedTime: row.removedTime,
+        deletedBy: row.removedBy,
+        recordCreatedTime: row.recordCreatedTime ?? null,
+        recordCreatedBy: row.recordCreatedBy ?? null,
+        recordLastModifiedTime: row.recordLastModifiedTime ?? null,
+        recordLastModifiedBy: row.recordLastModifiedBy ?? null,
+      });
+    }
+
+    const userList = await this.userService.getUserInfoList(
+      Array.from(this.collectTrashRecordUserIds(items))
+    );
+
+    return {
+      items,
+      userMap: keyBy(userList, 'id'),
+      nextCursor,
+    };
+  }
+
+  // Hot (PG) zone of one trash-item records page, keyset-ordered by
+  // (created_time DESC, id DESC). Items whose rows carry operation_id read straight off
+  // the operation-scoped partial index; LEGACY items (rows predating the column) walk the
+  // table's deleted timeline and filter item membership app-side under a scan budget.
+  // Latest-wins per record id holds within one request via `servedRecordIds`; a duplicate
+  // pair split across pages can only exist in the transient window between a restore and
+  // its row cleanup — the same accepted edge the pre-merge implementation carried.
+  private async collectHotTrashItemRecords(params: {
+    dataPrisma: ITrashDataPrisma;
+    trashId: string;
+    tableId: string;
+    itemCreatedTime: Date;
+    idSet: Set<string>;
+    query: IGetTrashItemRecordsQuery;
+    take: number;
+    hotCursor?: { k: Date; id: string };
+  }): Promise<{
+    rows: ITrashRecordHotRow[];
+    nextCursor: string | null;
+    boundary?: IRemovalColdBoundary;
+  }> {
+    const { dataPrisma, trashId, tableId, itemCreatedTime, idSet, query, take } = params;
+    const probe = await dataPrisma.recordTrash.findMany({
+      where: { tableId, operationId: trashId, reason: RECORD_REMOVAL_REASON.Deleted },
+      select: { id: true },
+      take: 1,
+    });
+    const usesOperationId = probe.length > 0;
+    const filters = this.buildTrashRecordSnapshotFilters(query);
+
+    const rows: ITrashRecordHotRow[] = [];
+    const servedRecordIds = new Set<string>();
+    let position = params.hotCursor;
+    let scanned = 0;
+    let exhausted = false;
+
+    while (rows.length <= take && !exhausted && scanned < TRASH_HOT_MAX_SCANNED) {
+      const batchTake = usesOperationId ? take + 1 - rows.length : TRASH_HOT_SCAN_BATCH;
+      const batch = (await dataPrisma.recordTrash.findMany({
+        where: {
+          tableId,
+          reason: RECORD_REMOVAL_REASON.Deleted,
+          ...(usesOperationId ? { operationId: trashId } : {}),
+          ...filters,
+          ...this.buildHotTrashKeysetWhere(itemCreatedTime, position),
+        },
+        select: {
+          id: true,
+          recordId: true,
+          snapshot: true,
+          createdTime: true,
+          createdBy: true,
+          recordCreatedTime: true,
+          recordCreatedBy: true,
+          recordLastModifiedTime: true,
+          recordLastModifiedBy: true,
+        },
+        orderBy: [{ createdTime: 'desc' }, { id: 'desc' }],
+        take: batchTake,
+      })) as ITrashRecordHotRow[];
+
+      scanned += batch.length;
+      this.collectHotTrashBatch({ batch, take, idSet, servedRecordIds, rows });
+      if (batch.length < batchTake) {
+        exhausted = true;
+      } else {
+        const last = batch[batch.length - 1];
+        position = { k: last.createdTime, id: last.id };
+      }
+    }
+
+    return this.resolveHotTrashPageOutcome({
+      rows,
+      take,
+      exhausted,
+      position,
+      hotCursor: params.hotCursor,
+    });
+  }
+
+  // Keyset predicate of the hot walk: an exclusive (created_time, id) resume point, or —
+  // from the top — only snapshots that belong to this trash item, not rows written by a
+  // later delete of the same record ids.
+  private buildHotTrashKeysetWhere(itemCreatedTime: Date, position?: { k: Date; id: string }) {
+    return position
+      ? {
+          OR: [
+            { createdTime: { lt: position.k } },
+            { createdTime: position.k, id: { lt: position.id } },
+          ],
+        }
+      : { createdTime: { lte: itemCreatedTime } };
+  }
+
+  private collectHotTrashBatch(params: {
+    batch: ITrashRecordHotRow[];
+    take: number;
+    idSet: Set<string>;
+    servedRecordIds: Set<string>;
+    rows: ITrashRecordHotRow[];
+  }): void {
+    const { batch, take, idSet, servedRecordIds, rows } = params;
+    for (const row of batch) {
+      if (rows.length > take) return;
+      if (!idSet.has(row.recordId) || servedRecordIds.has(row.recordId)) continue;
+      servedRecordIds.add(row.recordId);
+      rows.push(row);
+    }
+  }
+
+  private resolveHotTrashPageOutcome(params: {
+    rows: ITrashRecordHotRow[];
+    take: number;
+    exhausted: boolean;
+    position?: { k: Date; id: string };
+    hotCursor?: { k: Date; id: string };
+  }): { rows: ITrashRecordHotRow[]; nextCursor: string | null; boundary?: IRemovalColdBoundary } {
+    const { rows, take, exhausted, position, hotCursor } = params;
+    if (rows.length > take) {
+      rows.pop();
+      const last = rows[rows.length - 1];
+      return { rows, nextCursor: encodeTrashHotCursor(last.createdTime, last.id) };
+    }
+    if (!exhausted) {
+      // scan budget hit before the page filled: a partial page with a resume point at
+      // the last scanned row — every request makes progress
+      return {
+        rows,
+        nextCursor: position ? encodeTrashHotCursor(position.k, position.id) : null,
+      };
+    }
+    // hot zone exhausted: cold continues strictly after the last served row (or the
+    // incoming resume point when this request served nothing)
+    const lastServed = rows[rows.length - 1];
+    const boundary = lastServed
+      ? { k: lastServed.createdTime.toISOString(), id: lastServed.id }
+      : hotCursor
+        ? { k: hotCursor.k.toISOString(), id: hotCursor.id }
+        : undefined;
+    return { rows, nextCursor: null, boundary };
+  }
+
+  // Cold continuation of one trash-item records page: shortfall fill from the deleted/
+  // parts (or the seam cursor when PG filled the page exactly) plus the S3 degradation
+  // rule, mirroring the archive list merge.
+  private async fillTrashItemColdPage(params: {
+    tableId: string;
+    idSet: Set<string>;
+    itemCreatedTime: Date;
+    query: IGetTrashItemRecordsQuery;
+    pageSize: number;
+    hotRows: ITrashRecordHotRow[];
+    boundary?: IRemovalColdBoundary;
+  }): Promise<{ coldRows: IColdRemovalRow[]; nextCursor: string | null }> {
+    const { tableId, idSet, itemCreatedTime, query, pageSize, hotRows, boundary } = params;
+    const shortfall = pageSize - hotRows.length;
+    // seeded with the hot page ids: rows already sunk to parts but not yet deleted from
+    // the buffer exist in both stores and must not be served twice
+    const seenIds = new Set(hotRows.map((row) => row.id));
+    try {
+      if (shortfall <= 0) {
+        // hot rows filled the page exactly: hand out a seam cursor instead of probing S3
+        // now — the next request serves the (possibly empty) cold tail
+        return { coldRows: [], nextCursor: encodeRemovalColdCursor(boundary) };
+      }
+      const tombstoneClient = await this.trashTombstoneClientForTable(tableId);
+      const tombstones = await this.recordRemovalTombstoneService.loadTombstonedRecordIds(
+        tombstoneClient,
+        tableId
+      );
+      const cold = await this.recordRemovalColdReadService.collectArchivedRows({
+        tableId,
+        reason: RECORD_REMOVAL_REASON.Deleted,
+        limit: shortfall,
+        orderBy: 'removedTime',
+        direction: 'desc',
+        boundary,
+        filters: {
+          // rows of this item share the item's delete instant; later re-deletes of the
+          // same record ids carry newer removedTimes and stay out
+          removedTimeEnd: itemCreatedTime.toISOString(),
+          recordCreatedBys: query.recordCreatedBy,
+          recordCreatedTimeStart: query.recordCreatedTimeStart,
+          recordCreatedTimeEnd: query.recordCreatedTimeEnd,
+        },
+        // item membership: rows of other delete operations in the same month do not
+        // count toward the page
+        rowPredicate: (row) => idSet.has(row.recordId),
+        isTombstoned: (recordId, removedTime) => isTombstonedAt(tombstones, recordId, removedTime),
+        seenIds,
+      });
+      return { coldRows: cold.rows, nextCursor: cold.nextCursor };
+    } catch (error) {
+      // an S3 outage/timeout must not take the hot rows down with it: degrade to the hot
+      // rows plus a retryable cold cursor pinned at the boundary. Only an entirely empty
+      // response propagates the failure, mirroring the archive merge.
+      if (!(error instanceof ServiceUnavailableException) || hotRows.length === 0) {
+        throw error;
+      }
+      return { coldRows: [], nextCursor: encodeRemovalColdCursor(boundary) };
+    }
+  }
+
+  // Cold fallback for a trash-item restore: ids with no PG snapshot row may have sunk
+  // past the flush horizon. Latest cold row per id, tombstone-filtered, and bounded to
+  // rows belonging to THIS item (removedTime <= the item's delete instant) — a record
+  // individually restored and re-deleted later owns a newer cold row that must stay
+  // untouched. The read service throws ServiceUnavailable past its S3 budget and that
+  // propagates deliberately: restore stays all-or-nothing per request (a partial scan
+  // could restore a stale snapshot); retries progress through the part byte cache.
+  private async lookupColdTrashRows(
+    tableId: string,
+    recordIds: string[],
+    itemCreatedTime: Date
+  ): Promise<IColdRemovalRow[]> {
+    const client = await this.trashTombstoneClientForTable(tableId);
+    const tombstones = await this.recordRemovalTombstoneService.loadTombstonedRecordIds(
+      client,
+      tableId
+    );
+    const found = await this.recordRemovalColdReadService.lookupArchivedRowsByRecordIds({
+      tableId,
+      reason: RECORD_REMOVAL_REASON.Deleted,
+      recordIds,
+      isTombstoned: (recordId, removedTime) => isTombstonedAt(tombstones, recordId, removedTime),
+    });
+    const itemTimeIso = itemCreatedTime.toISOString();
+    return [...found.values()].filter((row) => row.removedTime <= itemTimeIso);
+  }
+
+  private buildTrashRecordSnapshotFilters(query: IGetTrashItemRecordsQuery) {
+    const { recordCreatedBy, recordCreatedTimeStart, recordCreatedTimeEnd } = query;
+    return {
+      ...(recordCreatedBy?.length ? { recordCreatedBy: { in: recordCreatedBy } } : {}),
+      ...(recordCreatedTimeStart || recordCreatedTimeEnd
+        ? {
+            recordCreatedTime: {
+              ...(recordCreatedTimeStart ? { gte: new Date(recordCreatedTimeStart) } : {}),
+              ...(recordCreatedTimeEnd ? { lte: new Date(recordCreatedTimeEnd) } : {}),
+            },
+          }
+        : {}),
+    };
+  }
+
+  private async loadRecordTrashItem(
+    dataPrisma: ITrashDataPrisma,
+    trashId: string,
+    tableId: string,
+    options?: IGetTrashItemsOptions
+  ) {
+    const trashItem = await dataPrisma.tableTrash.findFirst({
+      where: {
+        id: trashId,
+        tableId,
+        // Plan read window (EE): items hidden from the list are hidden from the detail too.
+        ...(options?.createdTimeAfter ? { createdTime: { gte: options.createdTimeAfter } } : {}),
+      },
+      select: {
+        id: true,
+        resourceType: true,
+        snapshot: true,
+        createdTime: true,
+      },
+    });
+
+    if (!trashItem) {
+      throw new CustomHttpException(
+        `The table trash ${trashId} not found`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.tableNotFound',
+          },
+        }
+      );
+    }
+
+    if (trashItem.resourceType !== TableTrashType.Record) {
+      throw new CustomHttpException(
+        `Invalid resource type ${trashItem.resourceType}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.invalidResourceType',
+          },
+        }
+      );
+    }
+
+    return trashItem;
+  }
+
+  private buildTrashItemRecordVo(
+    row: ITrashRecordHotRow,
+    fieldInstances: IFieldInstance[]
+  ): ITrashItemRecordVo {
+    return {
+      id: row.id,
+      recordId: row.recordId,
+      record: this.normalizeTrashRecordSnapshot(
+        fieldInstances,
+        JSON.parse(row.snapshot) as IRecord
+      ),
+      deletedTime: row.createdTime.toISOString(),
+      deletedBy: row.createdBy,
+      recordCreatedTime: row.recordCreatedTime?.toISOString() ?? null,
+      recordCreatedBy: row.recordCreatedBy ?? null,
+      recordLastModifiedTime: row.recordLastModifiedTime?.toISOString() ?? null,
+      recordLastModifiedBy: row.recordLastModifiedBy ?? null,
+    };
+  }
+
+  private collectTrashRecordUserIds(items: ITrashItemRecordVo[]): Set<string> {
+    const userIds = new Set<string>();
+    for (const item of items) {
+      userIds.add(item.deletedBy);
+      if (item.recordCreatedBy) {
+        userIds.add(item.recordCreatedBy);
+      }
+      if (item.recordLastModifiedBy) {
+        userIds.add(item.recordLastModifiedBy);
+      }
+    }
+    return userIds;
+  }
+
+  // Deletion snapshots differ by engine: v1 stores normalized cell values while v2 stores
+  // raw db column values. convertDBValue2CellValue is idempotent on normalized values, so
+  // it is applied unconditionally; a field that fails to convert keeps its snapshot value.
+  private normalizeTrashRecordSnapshot(fieldInstances: IFieldInstance[], record: IRecord): IRecord {
+    const fields: IRecord['fields'] = { ...record.fields };
+    for (const field of fieldInstances) {
+      if (!(field.id in fields)) {
+        continue;
+      }
+      try {
+        fields[field.id] = field.convertDBValue2CellValue(fields[field.id] as never);
+      } catch {
+        // Keep the snapshot value; the client tolerates unknown shapes.
+      }
+    }
+    return { ...record, fields };
   }
 
   protected async getBaseTrashResourceList(baseId: string) {
@@ -729,7 +1349,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       baseId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );
@@ -800,7 +1420,7 @@ export class TrashService {
 
     if (trashedSpace != null) {
       throw new CustomHttpException(
-        'Unable to restore this base because its parent space is also trashed',
+        'Unable to restore this project because its parent space is also trashed',
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
@@ -1035,10 +1655,7 @@ export class TrashService {
       case TableTrashType.Field:
         return await this.restoreFieldTableResourceV2(trashId, routedTableId);
       case TableTrashType.Record:
-        for await (const event of await this.restoreRecordTableResourceV2Stream(
-          trashId,
-          routedTableId
-        )) {
+        for await (const event of this.restoreRecordTableResourceV2Stream(trashId, routedTableId)) {
           if (event.id === 'error') {
             throw new CustomHttpException(event.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
           }
@@ -1082,6 +1699,16 @@ export class TrashService {
       return;
     }
 
+    // Same gate as the record restore sibling: the non-stream `restore/:trashId`
+    // route reaches this generator without a route-level permission check.
+    await this.assertTableWritable(routedTableId);
+    await this.permissionService.validPermissions(
+      routedTableId,
+      ['table|trash_update'],
+      this.cls.get('accessTokenId'),
+      true
+    );
+
     const container = await this.v2ContainerService.getContainerForTable(routedTableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ExecutionContextFactory.createContext(container);
@@ -1103,6 +1730,11 @@ export class TrashService {
       return;
     }
 
+    // Read before the restore: the trash row is gone once the field is back.
+    const trashed = await this.prismaService.trash.findUnique({
+      where: { id: trashId },
+      select: { resourceId: true },
+    });
     const result = await commandBus.execute<RestoreFieldStreamCommand, RestoreFieldStreamResult>(
       context,
       commandResult.value
@@ -1124,6 +1756,12 @@ export class TrashService {
     for await (const event of result.value) {
       yield event;
     }
+    // The v2 restore command has no audit projection: a field coming back is a schema change.
+    await this.audit.emitAtomic({
+      action: 'table.field.restore',
+      resourceId: trashed?.resourceId ?? routedTableId,
+      params: { tableId: routedTableId, trashId },
+    });
   }
 
   private async *restoreRecordTableResourceV2Stream(
@@ -1193,7 +1831,7 @@ export class TrashService {
       await Promise.all(
         chunk(recordIds, IN_CHUNK).map((ids) =>
           lookupDataPrisma.recordTrash.findMany({
-            where: { tableId, recordId: { in: ids } },
+            where: { tableId, recordId: { in: ids }, reason: RECORD_REMOVAL_REASON.Deleted },
             select: {
               id: true,
               recordId: true,
@@ -1205,19 +1843,27 @@ export class TrashService {
         )
       )
     ).flat();
-    const latestSnapshotsByRecordId = recordTrashRows.reduce<
-      Map<string, (typeof recordTrashRows)[number]>
-    >((acc, row) => {
-      if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
-        acc.set(row.recordId, row);
-      }
-      return acc;
-    }, new Map<string, (typeof recordTrashRows)[number]>());
-    const matchedRecordTrashRows = recordIds
-      .map((recordId) => latestSnapshotsByRecordId.get(recordId))
-      .filter((row): row is (typeof recordTrashRows)[number] => row != null);
-    const records = matchedRecordTrashRows.map(({ snapshot }) =>
-      this.toV2RestoreRecord(JSON.parse(snapshot))
+    const { matched: matchedRecordTrashRows, missingIds } = this.pickHotRecordTrashRowsForRestore(
+      recordIds,
+      recordTrashRows,
+      createdTime
+    );
+    // Cold fallback: ids with no PG snapshot row may have sunk past the flush horizon.
+    const coldTrashRows = missingIds.length
+      ? await this.lookupColdTrashRows(tableId, missingIds, createdTime)
+      : [];
+    const readyRows = [...matchedRecordTrashRows, ...coldTrashRows].filter(({ snapshot }) =>
+      this.isReadyRecordTrashSnapshot(snapshot)
+    );
+    if (recordIds.length > 0 && readyRows.length === 0) {
+      yield this.createRestoreErrorEvent(ResourceType.Record, {
+        phase: 'preparing',
+        message: `The trash ${trashId} snapshots are not ready`,
+      });
+      return;
+    }
+    const records = readyRows.map(({ snapshot }) =>
+      this.recordRestoreService.toV2RestoreRecord(JSON.parse(snapshot))
     );
 
     yield this.createRestoreProgressEvent(ResourceType.Record, {
@@ -1293,6 +1939,17 @@ export class TrashService {
       });
     });
 
+    // Cold-copy suppression: a trash row already uploaded to a cold part (flush
+    // overlap window) outlives the deleteMany above and would resurface in merged
+    // reads once the buffer drains; cold-fetched rows have no PG row at all and rely
+    // on the marker alone. Marked only after the restore succeeded, matching the
+    // archive restore ordering.
+    await this.recordRemovalTombstoneService.markRestored(
+      await this.trashTombstoneClientForTable(tableId),
+      tableId,
+      [...matchedRecordTrashRows, ...coldTrashRows].map(({ recordId }) => recordId)
+    );
+
     yield this.createRestoreDoneEvent(ResourceType.Record, {
       totalCount: records.length,
       restoredCount,
@@ -1354,6 +2011,63 @@ export class TrashService {
       message: event.message,
       ...(event.code ? { code: event.code } : {}),
     };
+  }
+
+  private isReadyRecordTrashSnapshot(snapshot: string): boolean {
+    return snapshot !== DELETED_RECORD_TRASH_MARKER_SNAPSHOT;
+  }
+
+  private pickHotRecordTrashRowsForRestore<
+    T extends { recordId: string; createdTime: Date; snapshot: string },
+  >(
+    recordIds: readonly string[],
+    recordTrashRows: readonly T[],
+    trashCreatedTime: Date
+  ): { matched: T[]; missingIds: string[] } {
+    const latestAtOrBefore = new Map<string, T>();
+    const latestAnyReady = new Map<string, T>();
+    for (const row of recordTrashRows) {
+      if (!latestAnyReady.has(row.recordId) && this.isReadyRecordTrashSnapshot(row.snapshot)) {
+        latestAnyReady.set(row.recordId, row);
+      }
+      if (
+        row.createdTime <= trashCreatedTime &&
+        !latestAtOrBefore.has(row.recordId) &&
+        this.isReadyRecordTrashSnapshot(row.snapshot)
+      ) {
+        latestAtOrBefore.set(row.recordId, row);
+      }
+    }
+    // Delete commits table_trash first; recycle-bin JSON can land afterwards with a
+    // later created_time. Fall back to those later rows only when nothing in the
+    // original time window is ready.
+    const useLaterSnapshots =
+      recordIds.every((recordId) => latestAtOrBefore.get(recordId) == null) &&
+      recordIds.some((recordId) => latestAnyReady.has(recordId));
+    const source = useLaterSnapshots ? latestAnyReady : latestAtOrBefore;
+    const matched = recordIds
+      .map((recordId) => source.get(recordId))
+      .filter((row): row is T => row != null);
+    const missingIds = recordIds.filter((recordId) => source.get(recordId) == null);
+    return { matched, missingIds };
+  }
+
+  private assertRecordTrashSnapshotsReady(
+    trashId: string,
+    recordIds: readonly string[],
+    readyRows: readonly unknown[]
+  ): void {
+    if (recordIds.length > 0 && readyRows.length === 0) {
+      throw new CustomHttpException(
+        `The trash ${trashId} snapshots are not ready`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.notFound',
+          },
+        }
+      );
+    }
   }
 
   async restoreResource(trash: { resourceType: TrashType; resourceId: string }) {
@@ -1460,19 +2174,11 @@ export class TrashService {
       }
       case TableTrashType.Record: {
         const recordIds = snapshot as string[];
-        type IRecordTrashSnapshotRow = Prisma.RecordTrashGetPayload<{
-          select: {
-            id: true;
-            recordId: true;
-            snapshot: true;
-            createdTime: true;
-          };
-        }>;
         const recordTrashRows = (
           await Promise.all(
             chunk(recordIds, IN_CHUNK).map((ids) =>
               dataPrisma.recordTrash.findMany({
-                where: { tableId, recordId: { in: ids } },
+                where: { tableId, recordId: { in: ids }, reason: RECORD_REMOVAL_REASON.Deleted },
                 select: {
                   id: true,
                   recordId: true,
@@ -1485,45 +2191,19 @@ export class TrashService {
           )
         ).flat();
 
-        // A record can be deleted, restored through undo, then deleted again with the same id.
-        // Restore should use the snapshot that belongs to this trash item, not every historical
-        // record_trash row for the same record id.
-        const latestSnapshotsByRecordId = recordTrashRows.reduce<
-          Map<string, IRecordTrashSnapshotRow>
-        >((acc, row) => {
-          if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
-            acc.set(row.recordId, row);
-          }
-          return acc;
-        }, new Map<string, IRecordTrashSnapshotRow>());
-
-        const matchedRecordTrashRows = recordIds
-          .map((recordId) => latestSnapshotsByRecordId.get(recordId))
-          .filter((row): row is IRecordTrashSnapshotRow => row != null);
-        const records = matchedRecordTrashRows.map(({ snapshot }) => JSON.parse(snapshot));
-
-        if (await this.shouldRestoreRecordsWithV2(tableId)) {
-          await this.restoreRecordsV2(tableId, records);
-          await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
-            await prisma.recordTrash.deleteMany({
-              where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
-            });
-            await prisma.tableTrash.delete({
-              where: { id: trashId },
-            });
-          });
-          return;
-        }
-
-        await this.recordOpenApiService.multipleCreateRecords(
-          tableId,
-          {
-            fieldKeyType: FieldKeyType.Id,
-            records,
-            typecast: true,
-          },
-          true
+        const { matched: matchedRecordTrashRows, missingIds } =
+          this.pickHotRecordTrashRowsForRestore(recordIds, recordTrashRows, createdTime);
+        // Cold fallback: ids with no PG snapshot row may have sunk past the flush horizon.
+        const coldTrashRows = missingIds.length
+          ? await this.lookupColdTrashRows(tableId, missingIds, createdTime)
+          : [];
+        const readyRows = [...matchedRecordTrashRows, ...coldTrashRows].filter(({ snapshot }) =>
+          this.isReadyRecordTrashSnapshot(snapshot)
         );
+        this.assertRecordTrashSnapshotsReady(trashId, recordIds, readyRows);
+        const records = readyRows.map(({ snapshot }) => JSON.parse(snapshot));
+
+        await this.recordRestoreService.restoreRecordSnapshots(tableId, records);
         await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
           await prisma.recordTrash.deleteMany({
             where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
@@ -1532,6 +2212,12 @@ export class TrashService {
             where: { id: trashId },
           });
         });
+        // Cold-copy suppression, same rule as the stream restore path above.
+        await this.recordRemovalTombstoneService.markRestored(
+          await this.trashTombstoneClientForTable(tableId),
+          tableId,
+          [...matchedRecordTrashRows, ...coldTrashRows].map(({ recordId }) => recordId)
+        );
         return;
       }
       default:
@@ -1551,70 +2237,15 @@ export class TrashService {
     });
   }
 
-  private async shouldRestoreRecordsWithV2(tableId: string): Promise<boolean> {
-    const table = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { id: tableId, deletedTime: null },
-      select: {
-        base: {
-          select: {
-            spaceId: true,
-            v2Enabled: true,
-          },
-        },
-      },
+  // Lets EE guards inspect what a table-trash operation restores (e.g. row-quota checks
+  // only apply to record restores) without duplicating the data-db routing.
+  async getTableTrashResourceType(trashId: string, tableId: string): Promise<string | null> {
+    const prisma = this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
+    const rows = await prisma.tableTrash.findMany({
+      where: { id: trashId },
+      select: { resourceType: true },
     });
-
-    if (!table?.base?.spaceId) {
-      return false;
-    }
-
-    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(
-      table.base,
-      'createRecord'
-    );
-    return decision.useV2;
-  }
-
-  private async restoreRecordsV2(tableId: string, records: IRecordTrashSnapshot[]): Promise<void> {
-    if (records.length === 0) {
-      return;
-    }
-
-    const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ExecutionContextFactory.createContext(container);
-
-    const commandResult = RestoreRecordsCommand.create({
-      tableId,
-      records: records.map((record) => this.toV2RestoreRecord(record)),
-    });
-
-    if (commandResult.isErr()) {
-      throw new CustomHttpException(commandResult.error.message, HttpErrorCode.VALIDATION_ERROR);
-    }
-
-    const result = await commandBus.execute<RestoreRecordsCommand, RestoreRecordsResult>(
-      context,
-      commandResult.value
-    );
-
-    if (result.isErr()) {
-      throw new CustomHttpException(result.error.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  private toV2RestoreRecord(record: IRecordTrashSnapshot): RestoreRecordInput {
-    return {
-      recordId: record.id,
-      fields: record.fields ?? {},
-      ...(record.version !== undefined ? { version: record.version } : {}),
-      ...(record.order ? { orders: record.order } : {}),
-      ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
-      ...(record.createdTime ? { createdTime: record.createdTime } : {}),
-      ...(record.createdBy ? { createdBy: record.createdBy } : {}),
-      ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
-      ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
-    };
+    return rows[0]?.resourceType ?? null;
   }
 
   async restoreTrash(trashId: string, tableId?: string) {
@@ -1622,7 +2253,7 @@ export class TrashService {
       return await this.restoreTableResource(trashId, tableId);
     }
 
-    await this.prismaService.$tx(async (prisma) => {
+    const restored = await this.prismaService.$tx(async (prisma) => {
       const trash = await prisma.trash
         .findUniqueOrThrow({
           where: { id: trashId },
@@ -1656,7 +2287,103 @@ export class TrashService {
       await prisma.trash.deleteMany({
         where: { id: trashId },
       });
+      return { ...trash, resourceType: trash.resourceType as TrashType };
     });
+    await this.auditTrashRestore(restored, await this.describeTrashItemSafely(restored));
+  }
+
+  // Audit lookups never fail the operation they describe.
+  private async describeTrashItemSafely(trash: ITrashAuditItem) {
+    return this.describeTrashItem(trash).catch(() => undefined);
+  }
+
+  /**
+   * Name and scope columns of a trashed item for its audit row, read while the resource still
+   * exists. Only the types the trash itself audits are described (the subclass adds its own);
+   * everything else gets undefined, so no lookup runs for it.
+   */
+  protected async describeTrashItem(
+    trash: ITrashAuditItem
+  ): Promise<Record<string, unknown> | undefined> {
+    switch (trash.resourceType) {
+      case TrashType.Space: {
+        const space = await this.prismaService.space.findUnique({
+          where: { id: trash.resourceId },
+          select: { name: true },
+        });
+        return { spaceId: trash.resourceId, name: space?.name };
+      }
+      case TrashType.Base: {
+        const base = await this.prismaService.base.findUnique({
+          where: { id: trash.resourceId },
+          select: { name: true, spaceId: true },
+        });
+        return { baseId: trash.resourceId, spaceId: base?.spaceId, name: base?.name };
+      }
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * A space or base restore is a bare column update that emits nothing, so the trash writes its row
+   * once the restore committed. A table restore is not written here: its re-emitted TABLE_CREATE
+   * (v1) or TableRestored (v2) becomes the `table.restore` row.
+   */
+  protected async auditTrashRestore(
+    trash: ITrashAuditItem,
+    described: Record<string, unknown> | undefined
+  ): Promise<void> {
+    const params = { ...described, ...(trash.id ? { trashId: trash.id } : {}) };
+    switch (trash.resourceType) {
+      case TrashType.Space:
+        await this.audit.emitAtomic({
+          action: 'space.restore',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      case TrashType.Base:
+        await this.audit.emitAtomic({
+          action: 'base.restore',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      default:
+        return;
+    }
+  }
+
+  /**
+   * The permanent delete of a space or base from the trash: distinct from the soft delete that put
+   * it there. Tables and routines are not written here — their services write
+   * `table.permanent-delete` / `base.routine.permanent-delete` for every entry point.
+   */
+  protected async auditTrashPermanentDelete(
+    trash: ITrashAuditItem,
+    described: Record<string, unknown> | undefined,
+    extra?: Record<string, unknown>
+  ): Promise<void> {
+    const params = { ...described, ...(trash.id ? { trashId: trash.id } : {}), ...extra };
+    switch (trash.resourceType) {
+      case TrashType.Space:
+        await this.audit.emitAtomic({
+          action: 'space.permanent-delete',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      case TrashType.Base:
+        await this.audit.emitAtomic({
+          action: 'base.permanent-delete',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      default:
+        return;
+    }
   }
 
   /**
@@ -1667,7 +2394,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       resourceId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );
@@ -1703,16 +2430,52 @@ export class TrashService {
 
     await this.assertTrashResourceWritable(resourceType, resourceId);
 
-    if (resourceType === TrashType.Base) {
-      await this.resetBaseTrashResource(resetTrashItemsRo);
-    }
+    // One `trash.reset` row with what was purged; the rows the purge writes on its own (a table's or
+    // a routine's permanent delete) join its operation.
+    await this.audit.withOperation({ rootAction: TRASH_RESET_ACTION, resourceId }, async () => {
+      if (resourceType === TrashType.Base) {
+        const counts = await this.countBaseTrashItems(resourceId).catch(() => undefined);
+        await this.resetBaseTrashResource(resetTrashItemsRo);
+        await this.auditTrashReset(resourceId, { resourceType, baseId: resourceId }, counts);
+      }
 
-    if (resourceType === TrashType.Table) {
-      await this.resetTableTrashItems(resourceId);
-    }
+      if (resourceType === TrashType.Table) {
+        const counts = await this.resetTableTrashItems(resourceId);
+        await this.auditTrashReset(resourceId, { resourceType, tableId: resourceId }, counts);
+      }
+    });
   }
 
-  private async resetTableTrashItems(tableId: string) {
+  /** What a base's trash holds, per resource type, before it is emptied. */
+  private async countBaseTrashItems(baseId: string): Promise<Record<string, number>> {
+    const items = await this.prismaService.trash.findMany({
+      where: { parentId: baseId },
+      select: { resourceType: true },
+    });
+    const counts: Record<string, number> = {};
+    for (const { resourceType } of items) {
+      counts[resourceType] = (counts[resourceType] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  // An empty trash purges nothing, so it writes nothing (unknown counts still write the row).
+  private async auditTrashReset(
+    resourceId: string,
+    scope: Record<string, unknown>,
+    counts: Record<string, number> | undefined
+  ) {
+    if (counts && !Object.values(counts).some((count) => count > 0)) return;
+    await this.audit.emitAtomic({
+      action: TRASH_RESET_ACTION,
+      resourceId,
+      params: { ...scope, ...(counts ? { counts } : {}) },
+    });
+  }
+
+  private async resetTableTrashItems(
+    tableId: string
+  ): Promise<{ view: number; field: number; record: number }> {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       tableId,
@@ -1765,26 +2528,79 @@ export class TrashService {
         },
       });
 
-      await prisma.ops.deleteMany({
-        where: {
-          collection: tableId,
-          docId: { in: [...deletedViewIds, ...deletedFieldIds, ...deletedRecordIds] },
-        },
-      });
+      const opDocIds = [...deletedViewIds, ...deletedFieldIds, ...deletedRecordIds];
+      for (const docIds of chunk(opDocIds, IN_CHUNK)) {
+        await prisma.ops.deleteMany({
+          where: { collection: tableId, docId: { in: docIds } },
+        });
+      }
     });
 
     await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+      // Scope to trash rows: archive snapshots share record_trash (reason 'archived') and
+      // must survive a trash reset together with their kept attachment reference rows.
       await prisma.recordTrash.deleteMany({
-        where: { tableId },
+        where: { tableId, reason: RECORD_REMOVAL_REASON.Deleted },
       });
 
       await prisma.tableTrash.deleteMany({
         where: { tableId },
       });
     });
+
+    // The deleted/ cold subtree mirrors the PG rows just removed — wipe it too so
+    // sunk copies cannot resurface in merged reads. Same rule as archive reset: a
+    // full prefix wipe needs no tombstones, and running after the PG deletes
+    // leaves a retryable state if the wipe fails. The archived/ subtree is
+    // untouched.
+    await this.recordRemovalColdStorageService.deleteReasonPrefix(
+      tableId,
+      RECORD_REMOVAL_REASON.Deleted
+    );
+
+    // Comments were kept while the records sat in the recycle bin so a restore brings
+    // them back. The purge runs last: a failure before the trash rows are deleted must
+    // leave restorable records with their threads intact, and a failure here only
+    // leaves orphans the comment API already hides.
+    await this.recordCommentCleanupService.purgeRecordComments(tableId, deletedRecordIds);
+    return {
+      view: deletedViewIds.length,
+      field: deletedFieldIds.length,
+      record: deletedRecordIds.length,
+    };
   }
 
-  async delete(trashId: string, ignorePermissionCheck = false): Promise<void> {
+  async delete(
+    trashId: string,
+    ignorePermissionCheck = false,
+    query?: IDeleteTrashQuery
+  ): Promise<void> {
+    if (query?.force) {
+      if (ignorePermissionCheck) {
+        throw new CustomHttpException(
+          'Force removal requires explicit user authorization',
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+      const trash = await this.prismaService.trash.findUnique({ where: { id: trashId } });
+      if (!trash) {
+        throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: { i18nKey: 'httpErrors.trash.notFound' },
+        });
+      }
+      if (trash.resourceType !== TrashType.Space) {
+        throw new CustomHttpException(
+          'Only deleted BYODB spaces can be force removed',
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+      const item = { ...trash, resourceType: TrashType.Space };
+      const described = await this.describeTrashItemSafely(item);
+      await this.spaceService.permanentDeleteSpace(trash.resourceId, false, { force: true });
+      await this.auditTrashPermanentDelete(item, described, { force: true });
+      return;
+    }
+
     const trash = await this.prismaService.trash
       .findUniqueOrThrow({
         where: { id: trashId },
@@ -1797,13 +2613,13 @@ export class TrashService {
         });
       });
 
-    await this.deleteResource(
-      {
-        ...trash,
-        resourceType: trash.resourceType as TrashType,
-      },
-      ignorePermissionCheck
-    );
+    const item = { ...trash, resourceType: trash.resourceType as TrashType };
+    // The retention sweep (ignorePermissionCheck) has no user to attribute the purge to.
+    const described = ignorePermissionCheck ? undefined : await this.describeTrashItemSafely(item);
+    await this.deleteResource(item, ignorePermissionCheck);
+    if (!ignorePermissionCheck) {
+      await this.auditTrashPermanentDelete(item, described);
+    }
   }
 
   async deleteResource(
@@ -1826,7 +2642,7 @@ export class TrashService {
         const baseId = parentId ?? '';
         if (!baseId) {
           throw new CustomHttpException(
-            'Base ID is required for deleting table resources',
+            'Project ID is required for deleting table resources',
             HttpErrorCode.VALIDATION_ERROR,
             {
               localization: {

@@ -6,6 +6,7 @@ import { isDomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
+import { isRecordUpdatedEvent } from '../../domain/table/events/RecordUpdated';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventDispatchScope, IEventHandler } from '../EventHandler';
 import {
@@ -91,16 +92,35 @@ export class AsyncMemoryEventBus implements IEventBus {
   private shouldAwait(events: ReadonlyArray<IDomainEvent>): boolean {
     if (!events.length) return false;
 
-    const awaitableEventNames = new Set([
-      'FieldCreated',
-      'FieldUpdated',
-      'FieldDeleted',
-      'FieldDuplicated',
-      'FieldOptionsAdded',
-      'ViewColumnMetaUpdated',
-    ]);
+    // Field/view schema events must finish before the HTTP response because
+    // callers immediately re-read schema. RecordsDeleted is not awaitable:
+    // restorePurgeGuard reads the table_trash index committed inside the delete
+    // transaction, and the NestJS recycle-bin snapshot fill stays fire-and-forget.
+    const awaitableEventNames: Record<string, true> = {
+      FieldCreated: true,
+      FieldUpdated: true,
+      FieldDeleted: true,
+      FieldDuplicated: true,
+      FieldOptionsAdded: true,
+      ViewColumnMetaUpdated: true,
+      ViewRenamed: true,
+      ViewDescriptionUpdated: true,
+      ViewLockedUpdated: true,
+      ViewOrderUpdated: true,
+    };
 
-    return events.every((event) => awaitableEventNames.has(event.name.toString()));
+    return events.every((event) => {
+      if (awaitableEventNames[event.name.toString()] === true) {
+        return true;
+      }
+      // Lookup/formula cascades publish after the source write. Await handler
+      // completion (pending-run insert for computed automation), not full
+      // workflow execution.
+      if (isRecordsBatchUpdatedEvent(event) && event.source === 'computed') {
+        return true;
+      }
+      return isRecordUpdatedEvent(event) && event.source === 'computed';
+    });
   }
 
   constructor(
@@ -128,6 +148,10 @@ export class AsyncMemoryEventBus implements IEventBus {
 
   events(): ReadonlyArray<IDomainEvent> {
     return [...this.publishedEvents];
+  }
+
+  recordPublished(events: ReadonlyArray<IDomainEvent>): void {
+    this.maybeRecordPublishedEvents(events);
   }
 
   async publish(

@@ -12,9 +12,9 @@ import {
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
-import { FieldKeyType } from '@teable/v2-core';
+import { FieldKeyType, RecordsBatchUpdated } from '@teable/v2-core';
 import { sql } from 'kysely';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 describe('v2 http record compatibility (P0)', () => {
@@ -333,6 +333,253 @@ describe('v2 http record compatibility (P0)', () => {
         email: ctx.testUser.email,
       });
     });
+  });
+
+  describe('avatar URL portability', () => {
+    it('does not persist avatar URLs and normalizes legacy values at read time', async () => {
+      const previousPublicUrl = process.env.BACKEND_STORAGE_PUBLIC_URL;
+      vi.stubEnv('BACKEND_STORAGE_PUBLIC_URL', 'https://example.com/public');
+      try {
+        const table = await createTable({
+          baseId: ctx.baseId,
+          name: uniqueTableName('avatar-portability'),
+          fields: [
+            { type: 'singleLineText', name: 'Title', isPrimary: true },
+            { type: 'user', name: 'Single User', options: { isMultiple: false } },
+            { type: 'user', name: 'Multiple Users', options: { isMultiple: true } },
+            { type: 'createdBy', name: 'Created By' },
+            { type: 'lastModifiedBy', name: 'Last Modified By' },
+          ],
+        });
+        const field = (name: string) => table.fields.find((entry) => entry.name === name)!;
+        const user = { id: ctx.testUser.id, title: ctx.testUser.name };
+        const created = await createRecord(table.id, {
+          [field('Title').id]: 'avatar row',
+          [field('Single User').id]: user,
+          [field('Multiple Users').id]: [user],
+        });
+
+        const expectedAvatarUrl = `https://example.com/public/avatar/${ctx.testUser.id}`;
+        expect(created.fields[field('Single User').id]).toMatchObject({
+          avatarUrl: expectedAvatarUrl,
+        });
+        expect(created.fields[field('Multiple Users').id]).toEqual([
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl }),
+        ]);
+        const listedAfterCreate = await listRecords(table.id, FieldKeyType.Name);
+        expect(listedAfterCreate[0]?.fields['Single User']).toMatchObject({
+          id: ctx.testUser.id,
+          title: ctx.testUser.name,
+          email: ctx.testUser.email,
+          avatarUrl: expectedAvatarUrl,
+        });
+        expect(listedAfterCreate[0]?.fields['Multiple Users']).toEqual([
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl }),
+        ]);
+        expect(listedAfterCreate[0]?.fields['Created By']).toEqual(
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl })
+        );
+
+        const updated = await updateRecord(table.id, created.id, {
+          [field('Title').id]: 'updated avatar row',
+          [field('Single User').id]: user,
+          [field('Multiple Users').id]: [user],
+        });
+        expect(updated.fields[field('Single User').id]).toMatchObject({
+          avatarUrl: expectedAvatarUrl,
+        });
+        expect(updated.fields[field('Multiple Users').id]).toEqual([
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl }),
+        ]);
+        expect(updated.fields[field('Last Modified By').id]).toMatchObject({
+          id: ctx.testUser.id,
+          avatarUrl: expectedAvatarUrl,
+        });
+        const listedAfterUpdate = await listRecords(table.id, FieldKeyType.Name);
+        expect(listedAfterUpdate[0]?.fields['Last Modified By']).toEqual(
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl })
+        );
+
+        const physical = await sql<{
+          single: unknown;
+          multiple: unknown;
+          created: unknown;
+          modified: unknown;
+          version: number;
+        }>`
+          SELECT
+            "__version" as version,
+            ${sql.ref(field('Single User').dbFieldName!)} as single,
+            ${sql.ref(field('Multiple Users').dbFieldName!)} as multiple,
+            ${sql.ref(field('Created By').dbFieldName!)} as created,
+            ${sql.ref(field('Last Modified By').dbFieldName!)} as modified
+          FROM ${sql.table(`${ctx.baseId}.${table.id}`)}
+          WHERE "__id" = ${created.id}
+        `.execute(ctx.testContainer.db);
+        const storedUser = {
+          id: ctx.testUser.id,
+          title: ctx.testUser.name,
+          email: ctx.testUser.email,
+        };
+        expect.soft(physical.rows).toEqual([
+          {
+            single: storedUser,
+            multiple: [storedUser],
+            created: storedUser,
+            modified: storedUser,
+            version: expect.any(Number),
+          },
+        ]);
+
+        const legacy = {
+          id: ctx.testUser.id,
+          title: ctx.testUser.name,
+          email: ctx.testUser.email,
+          avatarUrl: 'https://old.example.com/api/attachments/read/public/avatar/legacy',
+        };
+        await sql`
+          UPDATE ${sql.table(`${ctx.baseId}.${table.id}`)}
+          SET ${sql.ref(field('Multiple Users').dbFieldName!)} = ${JSON.stringify([legacy])}::jsonb,
+              ${sql.ref(field('Created By').dbFieldName!)} = ${JSON.stringify(legacy)}::jsonb
+          WHERE "__id" = ${created.id}
+        `.execute(ctx.testContainer.db);
+
+        const legacyList = await listRecords(table.id, FieldKeyType.Name);
+        const legacyGet = await getRecordById(table.id, created.id);
+        expect(legacyList[0]?.fields['Multiple Users']).toEqual([
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl }),
+        ]);
+        expect(legacyGet.fields[field('Multiple Users').id]).toEqual([
+          expect.objectContaining({ id: ctx.testUser.id, avatarUrl: expectedAvatarUrl }),
+        ]);
+        const groupParams = new URLSearchParams({
+          tableId: table.id,
+          fieldKeyType: FieldKeyType.Id,
+          groupBy: JSON.stringify([field('Created By').id]),
+          includeGroups: 'true',
+        });
+        const groupedResponse = await fetch(`${ctx.baseUrl}/tables/listRecords?${groupParams}`);
+        expect(groupedResponse.status).toBe(200);
+        const grouped = listTableRecordsOkResponseSchema.parse(await groupedResponse.json());
+        if (!grouped.ok) throw new Error('Grouped records request failed');
+        expect(grouped.data.groups).toEqual([
+          {
+            count: 1,
+            fields: { [field('Created By').id]: { ...storedUser, avatarUrl: expectedAvatarUrl } },
+          },
+        ]);
+        const unchanged = await sql<{ multiple: unknown; version: number }>`
+          SELECT ${sql.ref(field('Multiple Users').dbFieldName!)} as multiple, "__version" as version
+          FROM ${sql.table(`${ctx.baseId}.${table.id}`)} WHERE "__id" = ${created.id}
+        `.execute(ctx.testContainer.db);
+        expect(JSON.stringify(unchanged.rows[0]?.multiple)).toContain('old.example.com');
+        expect(unchanged.rows[0]?.version).toBe(physical.rows[0]?.version);
+      } finally {
+        vi.unstubAllEnvs();
+        if (previousPublicUrl === undefined) delete process.env.BACKEND_STORAGE_PUBLIC_URL;
+        else process.env.BACKEND_STORAGE_PUBLIC_URL = previousPublicUrl;
+      }
+    });
+
+    it('backfills audit users without persisting avatar URLs', async () => {
+      vi.stubEnv('BACKEND_STORAGE_PUBLIC_URL', 'https://backfill.example.com');
+      try {
+        const table = await createTable({
+          baseId: ctx.baseId,
+          name: uniqueTableName('audit-avatar-backfill'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        });
+        const record = await createRecord(table.id, { [table.fields[0].id]: 'existing row' });
+        const createdBy = await createField(table.id, { type: 'createdBy', name: 'Created By' });
+        const modifiedBy = await createField(table.id, {
+          type: 'lastModifiedBy',
+          name: 'Modified By',
+        });
+        await ctx.drainOutbox();
+
+        const storedUser = {
+          id: ctx.testUser.id,
+          title: ctx.testUser.name,
+          email: ctx.testUser.email,
+        };
+        const stored = await sql<{ created: unknown; modified: unknown }>`
+          SELECT ${sql.ref(createdBy.dbFieldName!)} as created,
+                 ${sql.ref(modifiedBy.dbFieldName!)} as modified
+          FROM ${sql.table(`${ctx.baseId}.${table.id}`)} WHERE "__id" = ${record.id}
+        `.execute(ctx.testContainer.db);
+        expect(stored.rows).toEqual([{ created: storedUser, modified: storedUser }]);
+
+        const response = await getRecordById(table.id, record.id);
+        const displayedUser = {
+          ...storedUser,
+          avatarUrl: `https://backfill.example.com/avatar/${ctx.testUser.id}`,
+        };
+        expect(response.fields[createdBy.id]).toEqual(displayedUser);
+        expect(response.fields[modifiedBy.id]).toEqual(displayedUser);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it.each(['filter', 'records'] as const)(
+      'keeps bulk %s user event values consistent without redundant member changes',
+      async (mode) => {
+        vi.stubEnv('BACKEND_STORAGE_PUBLIC_URL', 'https://bulk.example.com');
+        try {
+          const table = await createTable({
+            baseId: ctx.baseId,
+            name: uniqueTableName('bulk-avatar'),
+            fields: [
+              { type: 'singleLineText', name: 'Title', isPrimary: true },
+              { type: 'user', name: 'Member', options: { isMultiple: false } },
+            ],
+          });
+          const titleId = table.fields[0].id;
+          const userId = table.fields.find((field) => field.name === 'Member')!.id;
+          const user = { id: ctx.testUser.id, title: ctx.testUser.name };
+          const record = await createRecord(table.id, { [titleId]: 'first', [userId]: user });
+          const update = (fields: Record<string, unknown>) =>
+            ctx.updateRecords(
+              mode === 'filter'
+                ? { tableId: table.id, fields, recordIds: [record.id] }
+                : { tableId: table.id, records: [{ id: record.id, fields }] }
+            );
+          const changesSince = (offset: number) =>
+            ctx.testContainer.eventBus
+              .events()
+              .slice(offset)
+              .filter(
+                (event): event is RecordsBatchUpdated =>
+                  event instanceof RecordsBatchUpdated && event.tableId.toString() === table.id
+              )
+              .flatMap((event) => event.updates)
+              .flatMap((update) => update.changes);
+
+          let offset = ctx.testContainer.eventBus.events().length;
+          await update({ [titleId]: 'second', [userId]: user });
+          expect(changesSince(offset)).toContainEqual({
+            fieldId: titleId,
+            oldValue: 'first',
+            newValue: 'second',
+          });
+          expect(changesSince(offset).some((change) => change.fieldId === userId)).toBe(false);
+
+          offset = ctx.testContainer.eventBus.events().length;
+          await update({ [userId]: null });
+          expect(changesSince(offset)).toContainEqual({
+            fieldId: userId,
+            oldValue: {
+              ...user,
+              email: ctx.testUser.email,
+              avatarUrl: `https://bulk.example.com/avatar/${ctx.testUser.id}`,
+            },
+            newValue: null,
+          });
+        } finally {
+          vi.unstubAllEnvs();
+        }
+      }
+    );
   });
 
   describe('record typecast compatibility', () => {

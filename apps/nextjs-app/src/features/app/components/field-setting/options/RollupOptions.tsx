@@ -84,7 +84,7 @@ export const RollupOptions = (props: {
         timeZone:
           formatting && 'timeZone' in formatting && formatting?.timeZone
             ? formatting.timeZone
-            : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+            : (options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
       };
 
       const formattingSchema = getFormattingSchema(newCellValueType);
@@ -109,10 +109,10 @@ export const RollupOptions = (props: {
   );
 
   useEffect(() => {
-    if (!availableExpressions || availableExpressions.length === 0) {
+    if (!expression || !availableExpressions || availableExpressions.length === 0) {
       return;
     }
-    if (expression && availableExpressions.includes(expression)) {
+    if (availableExpressions.includes(expression)) {
       return;
     }
     const fallbackExpression = availableExpressions[0];
@@ -246,7 +246,7 @@ export const RollupOptions = (props: {
     return (
       <div className="flex items-center justify-start">
         <div>
-          <div className="truncate pl-1 text-[13px]">{label}</div>
+          <div className="truncate ps-1 text-[13px]">{label}</div>
         </div>
       </div>
     );
@@ -256,7 +256,7 @@ export const RollupOptions = (props: {
     const { label, description } = option;
     return (
       <div className="flex items-start justify-start">
-        <div className="pl-1">
+        <div className="ps-1">
           <div className="truncate text-[13px]">{label}</div>
           <span className="text-wrap text-xs text-primary/60" title={description}>
             {description}
@@ -278,6 +278,7 @@ export const RollupOptions = (props: {
             modal
             className="h-9 w-full"
             placeholder={t('field.default.rollup.selectAnRollupFunction')}
+            selectPlaceholder={t('field.default.rollup.selectAnRollupFunction')}
             options={candidates}
             value={expression || null}
             onSelect={(id) => {

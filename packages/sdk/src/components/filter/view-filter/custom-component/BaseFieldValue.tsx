@@ -25,9 +25,10 @@ import {
   cn,
 } from '@teable/ui-lib';
 import { cloneElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { JSX, ReactElement } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
+import { useInDrawer } from '../../../adaptive-panel';
 import { NumberEditor, RatingEditor } from '../../../editor';
 import { FieldSelector } from '../../../field';
 import {
@@ -70,7 +71,29 @@ interface IConditionalRollupValueProps {
   field?: IFieldInstance;
 }
 
+/**
+ * NumberEditor only displays runtime numbers. AutoNumber filters used to be
+ * stored as strings by FilterInput; coerce finite numeric strings so a saved
+ * value such as "50" still renders.
+ */
+const toNumberEditorValue = (value: unknown): number | null | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  if (value == null) {
+    return value as null | undefined;
+  }
+  return undefined;
+};
+
 const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
+  const inDrawer = useInDrawer();
   const { literalComponent, value, onSelect, operator, referenceSource, modal, field } = props;
   const { t } = useTranslation();
   const referenceFields = referenceSource?.fields ?? [];
@@ -226,7 +249,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
       className: cn(
         element.props.className,
         '!h-9 min-w-[8rem] w-full',
-        shouldHideToggle ? null : 'rounded-r-none border-r-0'
+        shouldHideToggle ? null : 'rounded-e-none border-e-0'
       ),
       onModeChange: (mode: IDateFilter['mode'] | null) => {
         handleLiteralModeChange(mode);
@@ -247,7 +270,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
           value={value.fieldId}
           onSelect={handleFieldSelect}
           modal={modal}
-          className="!h-9 w-40 rounded-r-none border-r-0"
+          className={cn('!h-9 w-36 rounded-e-none border-e-0', inDrawer && 'w-full')}
           showTableName={Boolean(referenceTableId)}
           tableId={referenceTableId}
           isOptionDisabled={isReferenceFieldDisabled}
@@ -261,7 +284,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
             <Button
               variant="outline"
               size="icon"
-              className="-ml-px size-9 shrink-0 rounded-l-none border-input"
+              className="-ms-px size-9 shrink-0 rounded-s-none border-input"
               onClick={handleToggle}
               disabled={toggleDisabled}
               aria-label={tooltipLabel}
@@ -280,7 +303,12 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   );
 };
 
-export function BaseFieldValue(props: IBaseFieldValue) {
+export function BaseFieldValue(props: Readonly<IBaseFieldValue>) {
+  const inDrawer = useInDrawer();
+  // Precomputed once: the editors below are laid out by a wrapper that already
+  // decided how wide the row is, so inside a drawer they simply fill it.
+  const controlWidth = inDrawer ? 'w-full' : 'w-36';
+  const selectWidth = inDrawer ? 'w-full min-w-0 max-w-none' : 'min-w-36';
   const { onSelect, components, field, operator, value, linkContext, modal, referenceSource } =
     props;
   const { t } = useTranslation();
@@ -300,7 +328,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       placeholder={t('filter.default.placeholder')}
       value={value as string}
       onChange={onSelect}
-      className="w-40"
+      className={controlWidth}
     />
   );
 
@@ -315,15 +343,19 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             value={value as IDateFilter}
             onSelect={onSelect}
             operator={operator}
+            // The plain Date branch forwards this; the formula-date branch
+            // used to drop it, leaving a non-modal calendar inside a modal
+            // container.
+            modal={modal}
           />
         );
       case CellValueType.Number:
         return (
           <NumberEditor
-            value={value as number}
+            value={toNumberEditorValue(value)}
             saveOnChange={true}
             onChange={onSelect as (value?: number | null) => void}
-            className="w-40 placeholder:text-xs"
+            className={cn(controlWidth, 'placeholder:text-xs')}
             placeholder={t('filter.default.placeholder')}
             formatting={(field?.options as { formatting?: INumberFormatting })?.formatting}
           />
@@ -359,12 +391,13 @@ export function BaseFieldValue(props: IBaseFieldValue) {
 
   switch (field?.type) {
     case FieldType.Number:
+    case FieldType.AutoNumber:
       return wrapWithReference(
         <NumberEditor
-          value={value as number}
+          value={toNumberEditorValue(value)}
           saveOnChange={true}
           onChange={onSelect as (value?: number | null) => void}
-          className="w-40 placeholder:text-sm"
+          className={cn(controlWidth, 'placeholder:text-sm')}
           placeholder={t('filter.default.placeholder')}
           formatting={(field.options as { formatting?: INumberFormatting })?.formatting}
         />
@@ -377,7 +410,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             modal={modal}
             value={value as string[]}
             onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
-            className="h-8 min-w-40 max-w-64"
+            className={cn('h-8 max-w-64', selectWidth)}
             popoverClassName="min-w-40 max-w-64"
           />
         ) : (
@@ -387,7 +420,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             value={value as string}
             onSelect={onSelect}
             operator={operator}
-            className="h-8 min-w-40 max-w-64"
+            className={cn('h-8 max-w-64', selectWidth)}
             popoverClassName="min-w-40 max-w-64"
           />
         )
@@ -399,7 +432,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           modal={modal}
           value={value as string[]}
           onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
-          className="h-8 min-w-40 max-w-64"
+          className={cn('h-8 max-w-64', selectWidth)}
           popoverClassName="min-w-40 max-w-64"
         />
       );
@@ -417,7 +450,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       );
     case FieldType.Checkbox:
       return wrapWithReference(
-        <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-40" />
+        <FilterCheckbox value={value as boolean} onChange={onSelect} className={controlWidth} />
       );
     case FieldType.Link: {
       const linkProps = {
@@ -428,22 +461,26 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         operator: operator,
         context: linkContext,
       };
-      if (components && components[FieldType.Link]) {
+      if (components?.[FieldType.Link]) {
         const LinkComponents = components[FieldType.Link];
         return wrapWithReference(<LinkComponents {...linkProps} />);
       }
-      return wrapWithReference(<FilterLink {...linkProps} modal={modal} />);
+      return wrapWithReference(
+        <FilterLink {...linkProps} modal={modal} className={controlWidth} />
+      );
     }
     case FieldType.Attachment:
-      return <FileTypeSelect value={value as string} onSelect={onSelect} />;
+      return (
+        <FileTypeSelect value={value as string} onSelect={onSelect} className={controlWidth} />
+      );
     case FieldType.Rating:
       return wrapWithReference(
         <RatingEditor
           value={value as number}
           options={field.options}
           onChange={onSelect as (value?: number) => void}
-          className="h-8 w-40 rounded-md border px-2"
-          iconClassName="w-4 h-4 mr-1"
+          className={cn('h-8 rounded-md border px-2', controlWidth)}
+          iconClassName="w-4 h-4 me-1"
         />
       );
     case FieldType.User:
@@ -456,11 +493,13 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         value: value as string[],
         operator: operator,
       };
-      if (components && components[FieldType.User]) {
+      if (components?.[FieldType.User]) {
         const UserComponents = components[FieldType.User];
         return wrapWithReference(<UserComponents {...props} />);
       }
-      return wrapWithReference(<FilterUserSelect {...props} modal={modal} />);
+      return wrapWithReference(
+        <FilterUserSelect {...props} modal={modal} className={controlWidth} />
+      );
     }
     case FieldType.Rollup:
     case FieldType.Formula:

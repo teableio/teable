@@ -35,7 +35,7 @@ enum MenuItemType {
   CollapseAll = 'CollapseAll',
 }
 
-const iconClassName = 'mr-2 h-4 w-4';
+const iconClassName = 'me-2 h-4 w-4';
 
 export const GroupHeaderMenu = () => {
   const isTouchDevice = useIsTouchDevice();
@@ -143,7 +143,7 @@ export const GroupHeaderMenu = () => {
                   key={type}
                   onClick={async () => {
                     if (disabled) return;
-                    await onClick();
+                    onClick();
                     closeGroupHeaderMenu();
                   }}
                 >
@@ -183,7 +183,7 @@ export const GroupHeaderMenu = () => {
                             value={name}
                             onSelect={async () => {
                               if (disabled) return;
-                              await onClick();
+                              onClick();
                               closeGroupHeaderMenu();
                             }}
                           >

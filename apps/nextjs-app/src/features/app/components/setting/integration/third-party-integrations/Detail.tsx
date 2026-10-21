@@ -6,18 +6,29 @@ import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { OAuthLogo } from '../../../oauth/OAuthLogo';
 import { OAuthScope } from '../../../oauth/OAuthScope';
+import { NotificationsSwitch } from './NotificationsSwitch';
 import { RevokeButton } from './RevokeButton';
 
 export const Detail = (props: { detail?: AuthorizedVo; onBack: () => void }) => {
   const { detail, onBack } = props;
-  const { logo, name, lastUsedTime, createdUser, homepage, description, scopes, clientId } =
-    detail || {};
+  const {
+    logo,
+    name,
+    lastUsedTime,
+    createdUser,
+    homepage,
+    description,
+    scopes,
+    clientId,
+    notificationsMuted,
+    dynamicRegistration,
+  } = detail || {};
   const dayjs = useLanDayjs();
   const { t } = useTranslation('common');
   return (
     <div className="px-5">
       <div className="flex items-center gap-4">
-        <OAuthLogo logo={logo || ''} name={name || ''} />
+        <OAuthLogo logo={logo || ''} name={name || ''} dynamicRegistration={dynamicRegistration} />
         <div className="space-y-1">
           <p>{name}</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
@@ -27,25 +38,40 @@ export const Detail = (props: { detail?: AuthorizedVo; onBack: () => void }) => 
                 date: dayjs(lastUsedTime).fromNow(),
               })}
             </p>
-            <p className="flex items-center gap-2">
-              <User />
-              {t('settings.integration.thirdPartyIntegrations.owner', {
-                user: createdUser?.name || '',
-              })}
-            </p>
-            <p className="flex items-center gap-2">
-              <Home />
-              <Button className="h-5 p-0" size="xs" variant={'link'}>
-                <Link target="_blank" href={homepage || ''}>
-                  {homepage}
-                </Link>
-              </Button>
-            </p>
+            {/* A self-registered client (an MCP client) has no developer behind it. */}
+            {!dynamicRegistration && (
+              <p className="flex items-center gap-2">
+                <User />
+                {t('settings.integration.thirdPartyIntegrations.owner', {
+                  user: createdUser?.name || '',
+                })}
+              </p>
+            )}
+            {homepage && (
+              <p className="flex items-center gap-2">
+                <Home />
+                <Button className="h-5 p-0" size="xs" variant={'link'}>
+                  <Link target="_blank" href={homepage}>
+                    {homepage}
+                  </Link>
+                </Button>
+              </p>
+            )}
           </div>
         </div>
       </div>
       <Separator className="my-4" />
       <div className="text-sm">{description}</div>
+      {clientId && scopes?.includes('user|notifications_send') && (
+        <div className="mt-8">
+          <NotificationsSwitch
+            key={clientId}
+            clientId={clientId}
+            name={name || ''}
+            muted={notificationsMuted}
+          />
+        </div>
+      )}
       <div className="mt-8 flex items-center justify-between">
         <div>{t('settings.integration.thirdPartyIntegrations.scopeTitle')}</div>
         <RevokeButton clientId={clientId || ''} name={name || ''} onSuccess={onBack} />

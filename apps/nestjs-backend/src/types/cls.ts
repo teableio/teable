@@ -1,7 +1,10 @@
-import type { Action, IFieldVo } from '@teable/core';
+import type { Action, IFieldVo, ISignupAttribution, MarketingAdConsent } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
-import type { ExecutionContextBackgroundTaskScheduler } from '@teable/v2-core';
+import type {
+  ExecutionContextBackgroundTaskScheduler,
+  IRecordRemovalReason,
+} from '@teable/v2-core';
 import type { ClsStore } from 'nestjs-cls';
 import type { IAuditOperation } from '../features/audit/audit-scope';
 import type { IWorkflowContext } from '../features/auth/strategies/types';
@@ -59,10 +62,29 @@ export interface IClsStore extends ClsStore {
     // The actor identity (e.g. which app) lives in payload.appId, not here —
     // origin describes how the request arrived, not who performed it.
     via?: 'ai' | 'automation' | 'app';
+    // First-party non-browser client from `X-Teable-Client` (`mobile/<version>`); browsers
+    // never send it. Queries: `WHERE origin->>'client' LIKE 'mobile/%'`.
+    client?: string;
   };
   // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
   // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
   affiliateVia?: string;
+  // First-touch utm/click-id params (teable_attribution cookie) + Meta pixel
+  // cookies, parsed by RequestInfoMiddleware on every request but consumed only
+  // once, at account creation (user.service withAttribution → refMeta).
+  // Contract: @teable/core attribution.ts.
+  signupAttribution?: ISignupAttribution;
+  // Banner ad consent (ad_user_data, teable_consent parent-domain cookie),
+  // parsed by RequestInfoMiddleware; snapshotted at account creation and at
+  // checkout to scope what may be forwarded to ad platforms for EEA users
+  // (adUserDataConsent). undefined = no banner choice.
+  marketingAdConsent?: MarketingAdConsent;
+  // Visitor's country from the CDN geo header (cf-ipcountry), parsed by
+  // RequestInfoMiddleware; snapshotted next to marketingAdConsent. undefined = unknown.
+  requestCountry?: string;
+  // OAuth login destination from the verified oauth state — the only
+  // signup-time invite signal on OAuth paths (OauthStoreService.verify).
+  oauthRedirectUri?: string;
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;
@@ -101,6 +123,8 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  authSource?: 'sandbox'; // temp user token minted for an AI sandbox
+  sandboxPrincipal?: { principalType: string; principalId: string; chatId?: string }; // whose chat minted the sandbox token; credentials resolve for it, audit rows name the chat
   appId?: string; // for app internal call
   // Active audit operation attribution. Outer-wins: the first withOperation() call sets
   // rootAction/operationId; downstream atomic audit rows keep their own `action` and copy
@@ -112,9 +136,11 @@ export interface IClsStore extends ClsStore {
   canaryHeader?: string; // x-canary header value for canary release override
   scheduleV2BackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   useV2?: boolean; // Flag to indicate if V2 implementation should be used (set by V2FeatureGuard)
+  interactiveQueryAbort?: AbortSignal;
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking
+  recordRemovalReason?: IRecordRemovalReason; // set by the archive flow; flows into op events
   // cache for base share node tree (to avoid repeated queries within same request)
   baseShareNodeCache?: Map<
     string,
@@ -126,4 +152,13 @@ export interface IClsStore extends ClsStore {
   // Keep values bounded — only store structured metadata (view config, field
   // list), never record payloads or unbounded user input.
   shareViewScopeCache?: Map<string, unknown>;
+  // cache for data-db routing resolution (table/base → spaceId, space → resolved
+  // data db). One request resolves the same routing several times across guards,
+  // container lookup, and query paths; this dedupes the meta-db lookups.
+  // Type is `unknown` to avoid importing the resolver types here.
+  dataDbRoutingCache?: Map<string, unknown>;
+  // cache for table → base → space ancestry rows shared across guards and
+  // permission checks (see utils/meta-ancestry-cache.ts). Stores full rows
+  // including soft-deleted ones; callers apply their own deletedTime filters.
+  metaAncestryCache?: Map<string, unknown>;
 }

@@ -362,13 +362,14 @@ export class TableFieldPersistenceBuilder {
     }
 
     // For conditionalRollup, match v1 format: flatten config into options
-    // v1 stores: expression, timeZone, formatting, showAs, foreignTableId, lookupFieldId, filter, sort, limit
+    // v1 stores: expression, timeZone, formatting, showAs, baseId, foreignTableId, lookupFieldId, filter, sort, limit
     if (field.type === 'conditionalRollup') {
       const config = this.resolveConditionalRollupConfig(field, domainField);
       if (!config) return JSON.stringify(resolvedFieldOptions);
       const condition = config.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
         ...resolvedFieldOptions,
+        ...(typeof config.baseId === 'string' && config.baseId ? { baseId: config.baseId } : {}),
         foreignTableId: config.foreignTableId,
         lookupFieldId: config.lookupFieldId,
         // Convert condition to v1 filter format
@@ -390,8 +391,10 @@ export class TableFieldPersistenceBuilder {
       if (!opts) return null;
       const condition = opts.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
+        ...(typeof opts.baseId === 'string' && opts.baseId ? { baseId: opts.baseId } : {}),
         foreignTableId: opts.foreignTableId,
         lookupFieldId: opts.lookupFieldId,
+        isUnique: opts.isUnique,
         filter: condition?.filter ?? null,
         sort: condition?.sort,
         limit: condition?.limit,
@@ -449,10 +452,7 @@ export class TableFieldPersistenceBuilder {
     return null;
   }
 
-  private resolveFieldOptions(
-    field: ITableFieldPersistenceDTO,
-    domainField?: Field
-  ): unknown | undefined {
+  private resolveFieldOptions(field: ITableFieldPersistenceDTO, domainField?: Field): unknown {
     if (field.type === 'conditionalLookup') {
       return this.resolveConditionalLookupInnerOptions(field, domainField);
     }
@@ -465,7 +465,7 @@ export class TableFieldPersistenceBuilder {
   private resolveConditionalLookupInnerOptions(
     field: ITableFieldPersistenceDTO,
     domainField?: Field
-  ): unknown | undefined {
+  ): unknown {
     if (field.type !== 'conditionalLookup') {
       return field.options;
     }
@@ -539,7 +539,7 @@ export class TableFieldPersistenceBuilder {
     return (domainField as RollupFieldLike).configDto();
   }
 
-  private extractPersistedOptionsFromField(field: Field): unknown | undefined {
+  private extractPersistedOptionsFromField(field: Field): unknown {
     if (field.type().toString() === 'lookup') {
       return this.extractLookupInnerOptions(field as LookupFieldLike);
     }
@@ -551,9 +551,7 @@ export class TableFieldPersistenceBuilder {
     return optionsResult.isOk() ? optionsResult.value : undefined;
   }
 
-  private extractLookupInnerOptions(
-    field: LookupFieldLike | ConditionalLookupFieldLike
-  ): unknown | undefined {
+  private extractLookupInnerOptions(field: LookupFieldLike | ConditionalLookupFieldLike): unknown {
     const innerFieldResult = field.innerField();
     if (innerFieldResult.isErr()) {
       return undefined;
@@ -586,7 +584,7 @@ export class TableFieldPersistenceBuilder {
   private mergeLookupInnerOptions(
     innerOptions: unknown,
     innerOptionsPatch?: Readonly<Record<string, unknown>>
-  ): unknown | undefined {
+  ): unknown {
     if (!innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0) {
       return innerOptions;
     }

@@ -6,6 +6,7 @@ import {
   domainError,
   v2CoreTokens,
   type DomainError,
+  type ICommandBus,
   type ICommandHandler,
   type IExecutionContext,
   type IQueryHandler,
@@ -16,6 +17,14 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
 import {
+  TableQueryDecisionLogEntry,
+  type TableQueryAcceptanceDecisionInput,
+  type TableQueryAcceptancePlanEvidence,
+  type TableQueryDecision,
+  type TableQueryDecisionPolicy,
+} from './decisionPolicy';
+import {
+  SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH,
   TableQueryPlanValidation,
   TableQueryRecommendation,
   TableQueryRemediationTask,
@@ -32,6 +41,7 @@ import type {
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type {
   TablePhysicalStatsReader,
+  TableQueryDecisionLogRepository,
   TableQueryIndexInspector,
   TableQueryObservationReader,
   TableQueryObservationSink,
@@ -40,6 +50,7 @@ import type {
   TableQueryRecommendationRepository,
   TableQueryRemediationExecutor,
   TableQueryRemediationTaskRepository,
+  TableQuerySearchHeatByTable,
 } from './ports';
 import { v2TableOpsTokens } from './tokens';
 
@@ -71,7 +82,8 @@ export type AnalyzeAndRecommendTableQueryResult = {
 export class AcceptTableQueryRecommendationCommand extends PublicCommand {
   constructor(
     readonly recommendationId: string,
-    readonly kind?: ExecutablePhase1RemediationKind
+    readonly kind?: ExecutablePhase1RemediationKind,
+    readonly manualAuthorization = false
   ) {
     super();
   }
@@ -82,6 +94,21 @@ export class DismissTableQueryRecommendationCommand extends PublicCommand {
     super();
   }
 }
+
+export class DecideTableQueryRecommendationCommand extends PublicCommand {
+  constructor(
+    readonly recommendation: TableQueryRecommendation,
+    readonly report: TableQueryRiskReport
+  ) {
+    super();
+  }
+}
+
+export type DecideTableQueryRecommendationResult = {
+  readonly decision: TableQueryDecision;
+  readonly logEntry?: TableQueryDecisionLogEntry;
+  readonly task?: TableQueryRemediationTask;
+};
 
 export class RunTableQueryRemediationTaskCommand extends PublicCommand {
   constructor(
@@ -110,9 +137,10 @@ export class RunTableQueryRecommendedIndexCommand extends PublicCommand {
 
 @CommandHandler(RecordTableQueryObservationCommand)
 @injectable()
-export class RecordTableQueryObservationHandler
-  implements ICommandHandler<RecordTableQueryObservationCommand, void>
-{
+export class RecordTableQueryObservationHandler implements ICommandHandler<
+  RecordTableQueryObservationCommand,
+  void
+> {
   constructor(
     @inject(v2TableOpsTokens.observationSink)
     private readonly observationSink: TableQueryObservationSink
@@ -128,9 +156,10 @@ export class RecordTableQueryObservationHandler
 
 @QueryHandler(AnalyzeTableQueryRiskQuery)
 @injectable()
-export class AnalyzeTableQueryRiskHandler
-  implements IQueryHandler<AnalyzeTableQueryRiskQuery, AnalyzeTableQueryRiskResult>
-{
+export class AnalyzeTableQueryRiskHandler implements IQueryHandler<
+  AnalyzeTableQueryRiskQuery,
+  AnalyzeTableQueryRiskResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -180,10 +209,10 @@ export class AnalyzeTableQueryRiskHandler
 
 @CommandHandler(AnalyzeAndRecommendTableQueryCommand)
 @injectable()
-export class AnalyzeAndRecommendTableQueryHandler
-  implements
-    ICommandHandler<AnalyzeAndRecommendTableQueryCommand, AnalyzeAndRecommendTableQueryResult>
-{
+export class AnalyzeAndRecommendTableQueryHandler implements ICommandHandler<
+  AnalyzeAndRecommendTableQueryCommand,
+  AnalyzeAndRecommendTableQueryResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -229,6 +258,29 @@ export class AnalyzeAndRecommendTableQueryHandler
           indexInspection,
           planValidation,
         });
+        const wantsAccessPath = report
+          .snapshot()
+          .remediationCandidates.some(
+            (candidate) => candidate.kind === 'create_search_access_path'
+          );
+        const existingSentinel = yield* await this.recommendationRepository.findOpenByShape(
+          context,
+          {
+            tableId: command.observation.tableId(),
+            shapeHash: SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH,
+            policyVersion: report.snapshot().policyVersion,
+          }
+        );
+        if (!wantsAccessPath && existingSentinel) {
+          const dismissed = yield* existingSentinel.dismiss(this.clock.now());
+          yield* await this.recommendationRepository.save(context, dismissed);
+        }
+        if (
+          !wantsAccessPath &&
+          command.observation.shapeHash() === SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH
+        ) {
+          return ok({ report });
+        }
         if (!report.shouldRecommend()) {
           return ok({ report });
         }
@@ -246,9 +298,10 @@ export class AnalyzeAndRecommendTableQueryHandler
 
 @CommandHandler(AcceptTableQueryRecommendationCommand)
 @injectable()
-export class AcceptTableQueryRecommendationHandler
-  implements ICommandHandler<AcceptTableQueryRecommendationCommand, TableQueryRemediationTask>
-{
+export class AcceptTableQueryRecommendationHandler implements ICommandHandler<
+  AcceptTableQueryRecommendationCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.recommendationRepository)
     private readonly recommendationRepository: TableQueryRecommendationRepository,
@@ -268,17 +321,14 @@ export class AcceptTableQueryRecommendationHandler
           context,
           command.recommendationId
         );
-        const accepted = yield* recommendation.accept(this.clock.now());
-        const savedRecommendation = yield* await this.recommendationRepository.save(
-          context,
-          accepted
-        );
-        const snapshot = savedRecommendation.snapshot();
-        const firstCandidate = snapshot.remediationCandidates.find(
-          (candidate) => candidate.executableInPhase1
-        );
+        const snapshot = recommendation.snapshot();
+        const firstCandidate = snapshot.remediationCandidates.find((candidate) => {
+          if (!candidate.executableInPhase1) return false;
+          if (command.kind) return candidate.kind === command.kind;
+          return candidate.kind !== 'create_search_access_path';
+        });
         const kind = command.kind ?? firstCandidate?.kind;
-        if (!kind || !isExecutablePhase1Kind(kind)) {
+        if (!kind || !isExecutablePhase1Kind(kind) || kind === 'create_search_access_path') {
           return err(
             domainError.validation({
               code: 'table_query_ops.invalid_remediation_kind',
@@ -286,15 +336,23 @@ export class AcceptTableQueryRecommendationHandler
             })
           );
         }
+        const accepted =
+          snapshot.status === 'accepted'
+            ? recommendation
+            : yield* recommendation.accept(this.clock.now());
         const task = yield* TableQueryRemediationTask.createQueued({
-          recommendation: savedRecommendation,
+          recommendation: accepted,
           tableId: snapshot.tableId,
           baseId: snapshot.baseId,
           kind,
-          payload: firstCandidate ?? { kind },
+          payload: {
+            ...(firstCandidate ?? { kind }),
+            ...(command.manualAuthorization ? { trigger: 'admin_index' } : {}),
+          },
           now: this.clock.now(),
         });
         const savedTask = yield* await this.taskRepository.save(context, task);
+        yield* await this.recommendationRepository.save(context, accepted);
         return ok(savedTask);
       }.bind(this)
     );
@@ -303,9 +361,10 @@ export class AcceptTableQueryRecommendationHandler
 
 @CommandHandler(DismissTableQueryRecommendationCommand)
 @injectable()
-export class DismissTableQueryRecommendationHandler
-  implements ICommandHandler<DismissTableQueryRecommendationCommand, TableQueryRecommendation>
-{
+export class DismissTableQueryRecommendationHandler implements ICommandHandler<
+  DismissTableQueryRecommendationCommand,
+  TableQueryRecommendation
+> {
   constructor(
     @inject(v2TableOpsTokens.recommendationRepository)
     private readonly recommendationRepository: TableQueryRecommendationRepository,
@@ -331,16 +390,124 @@ export class DismissTableQueryRecommendationHandler
   }
 }
 
+@CommandHandler(DecideTableQueryRecommendationCommand)
+@injectable()
+export class DecideTableQueryRecommendationHandler implements ICommandHandler<
+  DecideTableQueryRecommendationCommand,
+  DecideTableQueryRecommendationResult
+> {
+  constructor(
+    @inject(v2TableOpsTokens.decisionPolicy)
+    private readonly decisionPolicy: TableQueryDecisionPolicy,
+    @inject(v2TableOpsTokens.decisionLogRepository)
+    private readonly decisionLogRepository: TableQueryDecisionLogRepository,
+    @inject(v2CoreTokens.commandBus)
+    private readonly commandBus: ICommandBus,
+    @inject(v2TableOpsTokens.clock)
+    private readonly clock: TableQueryOpsClock
+  ) {}
+
+  async handle(
+    context: IExecutionContext,
+    command: DecideTableQueryRecommendationCommand
+  ): Promise<Result<DecideTableQueryRecommendationResult, DomainError>> {
+    return safeTry<DecideTableQueryRecommendationResult, DomainError>(
+      async function* (this: DecideTableQueryRecommendationHandler) {
+        const snapshot = command.recommendation.snapshot();
+        if (snapshot.status !== 'open') {
+          return ok({
+            decision: { action: 'noop', wouldAutoAccept: false, reasonCodes: [] },
+          } satisfies DecideTableQueryRecommendationResult);
+        }
+        const report = command.report.snapshot();
+        const now = this.clock.now();
+        const scopeKey = snapshot.shapeHash;
+        const history = yield* await this.decisionLogRepository.findRecentByScope(context, {
+          tableId: snapshot.tableId,
+          scopeKey,
+          limit: 20,
+        });
+        const decision = yield* this.decisionPolicy.decideAcceptance({
+          now,
+          scopeKey,
+          hot: report.workloadHot,
+          estimatedRows: report.physicalStats.estimatedRows,
+          nextAction: toDecisionNextAction(report.planValidation),
+          planEvidence: toDecisionPlanEvidence(report.planValidation),
+          history: history.map((entry) => entry.snapshot()),
+        });
+        if (decision.action === 'noop') {
+          return ok({ decision } satisfies DecideTableQueryRecommendationResult);
+        }
+        if (
+          decision.action === 'auto_accept' &&
+          !hasGenericPhase1AcceptCandidate(snapshot.remediationCandidates)
+        ) {
+          return ok({
+            decision: {
+              action: 'hold',
+              wouldAutoAccept: false,
+              reasonCodes: ['no_executable_phase1_candidate'],
+            },
+          } satisfies DecideTableQueryRecommendationResult);
+        }
+        // The analyzer re-decides the same open recommendation every tick; only
+        // log decision *transitions*, or a persistently hot scope in shadow or
+        // cooldown would append an identical hold row every interval forever.
+        const latest = history[0]?.snapshot();
+        if (
+          decision.action === 'hold' &&
+          latest !== undefined &&
+          latest.action === 'hold' &&
+          latest.actor === 'system_policy' &&
+          latest.outcome === 'pending' &&
+          sameReasonCodes(latest.reasonCodes, decision.reasonCodes)
+        ) {
+          return ok({ decision } satisfies DecideTableQueryRecommendationResult);
+        }
+        const entry = yield* TableQueryDecisionLogEntry.create({
+          baseId: snapshot.baseId,
+          tableId: snapshot.tableId,
+          scopeKey,
+          decision,
+          actor: 'system_policy',
+          recommendationId: snapshot.id,
+          now,
+        });
+        const savedEntry = yield* await this.decisionLogRepository.save(context, entry);
+        if (decision.action !== 'auto_accept') {
+          return ok({ decision, logEntry: savedEntry });
+        }
+        const accepted = await this.commandBus.execute<
+          AcceptTableQueryRecommendationCommand,
+          TableQueryRemediationTask
+        >(context, new AcceptTableQueryRecommendationCommand(snapshot.id));
+        if (accepted.isErr()) {
+          const skipped = yield* savedEntry.withOutcome('skipped', this.clock.now());
+          yield* await this.decisionLogRepository.save(context, skipped);
+          return err(accepted.error);
+        }
+        return ok({ decision, logEntry: savedEntry, task: accepted.value });
+      }.bind(this)
+    );
+  }
+}
+
 @CommandHandler(RunTableQueryRemediationTaskCommand)
 @injectable()
-export class RunTableQueryRemediationTaskHandler
-  implements ICommandHandler<RunTableQueryRemediationTaskCommand, TableQueryRemediationTask>
-{
+export class RunTableQueryRemediationTaskHandler implements ICommandHandler<
+  RunTableQueryRemediationTaskCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.taskRepository)
     private readonly taskRepository: TableQueryRemediationTaskRepository,
     @inject(v2TableOpsTokens.remediationExecutor)
     private readonly remediationExecutor: TableQueryRemediationExecutor,
+    @inject(v2TableOpsTokens.decisionPolicy)
+    private readonly decisionPolicy: TableQueryDecisionPolicy,
+    @inject(v2TableOpsTokens.decisionLogRepository)
+    private readonly decisionLogRepository: TableQueryDecisionLogRepository,
     @inject(v2TableOpsTokens.clock)
     private readonly clock: TableQueryOpsClock
   ) {}
@@ -354,28 +521,85 @@ export class RunTableQueryRemediationTaskHandler
         const task = yield* await this.taskRepository.findById(context, command.taskId);
         const running = yield* task.start(command.workerId, this.clock.now());
         const savedRunning = yield* await this.taskRepository.save(context, running);
-        const executed = await this.remediationExecutor.execute(context, {
-          task: savedRunning,
-          allowManualIndexExecution: command.allowManualIndexExecution,
-        });
+        const executed = await this.remediationExecutor
+          .execute(context, {
+            task: savedRunning,
+            allowManualIndexExecution: command.allowManualIndexExecution,
+          })
+          .catch((error: unknown) =>
+            err(
+              domainError.infrastructure({
+                message: error instanceof Error ? error.message : String(error),
+              })
+            )
+          );
         if (executed.isErr()) {
           const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
           const savedFailed = yield* await this.taskRepository.save(context, failed);
+          await this.recordDecisionOutcome(context, savedFailed, false);
           return ok(savedFailed);
         }
         const succeeded = yield* savedRunning.succeed(executed.value, this.clock.now());
         const savedSucceeded = yield* await this.taskRepository.save(context, succeeded);
+        await this.recordDecisionOutcome(context, savedSucceeded, true);
         return ok(savedSucceeded);
       }.bind(this)
     );
+  }
+
+  /**
+   * Best-effort: close the loop for policy-driven executions. Any failure counts as a
+   * post-verify failure so backoff kicks in even for transient errors — being slow to
+   * retry is safe; thrashing DDL on a hot table is not.
+   */
+  private async recordDecisionOutcome(
+    context: IExecutionContext,
+    task: TableQueryRemediationTask,
+    succeeded: boolean
+  ): Promise<void> {
+    const taskSnapshot = task.snapshot();
+    if (!taskSnapshot.recommendationId) return;
+    const latest = await this.decisionLogRepository.findLatestByRecommendation(context, {
+      recommendationId: taskSnapshot.recommendationId,
+    });
+    if (latest.isErr() || !latest.value) return;
+    const entrySnapshot = latest.value.snapshot();
+    if (
+      entrySnapshot.actor !== 'system_policy' ||
+      entrySnapshot.action !== 'auto_accept' ||
+      entrySnapshot.outcome !== 'pending'
+    ) {
+      return;
+    }
+    const now = this.clock.now();
+    let updated: Result<TableQueryDecisionLogEntry, DomainError>;
+    if (succeeded) {
+      updated = latest.value.withOutcome('executed', now);
+    } else {
+      const history = await this.decisionLogRepository.findRecentByScope(context, {
+        tableId: entrySnapshot.tableId,
+        scopeKey: entrySnapshot.scopeKey,
+        limit: 20,
+      });
+      const cooldownUntil = this.decisionPolicy.computePostVerifyFailureCooldown({
+        now,
+        scopeKey: entrySnapshot.scopeKey,
+        history: history.isOk() ? history.value.map((entry) => entry.snapshot()) : [],
+      });
+      updated = latest.value.withOutcome('post_verify_failed', now, cooldownUntil);
+    }
+    if (updated.isOk()) {
+      await this.decisionLogRepository.save(context, updated.value);
+    }
   }
 }
 
 @CommandHandler(RunTableQueryRecommendedIndexCommand)
 @injectable()
-export class RunTableQueryRecommendedIndexHandler
-  implements ICommandHandler<RunTableQueryRecommendedIndexCommand, TableQueryRemediationTask>
-{
+export class RunTableQueryRecommendedIndexHandler implements ICommandHandler<
+  RunTableQueryRecommendedIndexCommand,
+  TableQueryRemediationTask
+> {
   constructor(
     @inject(v2TableOpsTokens.taskRepository)
     private readonly taskRepository: TableQueryRemediationTaskRepository,
@@ -412,10 +636,18 @@ export class RunTableQueryRecommendedIndexHandler
           this.clock.now()
         );
         const savedRunning = yield* await this.taskRepository.save(context, running);
-        const executed = await this.remediationExecutor.execute(context, {
-          task: savedRunning,
-          allowManualIndexExecution: command.input.allowManualIndexExecution ?? false,
-        });
+        const executed = await this.remediationExecutor
+          .execute(context, {
+            task: savedRunning,
+            allowManualIndexExecution: command.input.allowManualIndexExecution ?? false,
+          })
+          .catch((error: unknown) =>
+            err(
+              domainError.infrastructure({
+                message: error instanceof Error ? error.message : String(error),
+              })
+            )
+          );
         if (executed.isErr()) {
           const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
           const savedFailed = yield* await this.taskRepository.save(context, failed);
@@ -439,6 +671,12 @@ export class NoopTableQueryObservationReader implements TableQueryObservationRea
   async findRecent(): Promise<Result<ReadonlyArray<TableQueryObservationWindow>, DomainError>> {
     return ok([]);
   }
+
+  async findSearchHeatByTable(): Promise<
+    Result<ReadonlyArray<TableQuerySearchHeatByTable>, DomainError>
+  > {
+    return ok([]);
+  }
 }
 
 export class NoopTableQueryPlanValidator implements TableQueryPlanValidator {
@@ -458,11 +696,42 @@ export class NoopTableQueryPlanValidator implements TableQueryPlanValidator {
 
 const parseTableId = (raw: string) => TableId.create(raw);
 
+const sameReasonCodes = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
+  left.length === right.length && left.every((code, index) => code === right[index]);
+
+type PlanValidationSnapshot = ReturnType<TableQueryPlanValidation['snapshot']> | undefined;
+
+const toDecisionNextAction = (
+  plan: PlanValidationSnapshot
+): TableQueryAcceptanceDecisionInput['nextAction'] => {
+  if (!plan || plan.status === 'skipped') return 'needs_plan_validation';
+  if (plan.status === 'failed') return 'manual_investigation';
+  return 'ready_for_confirmation';
+};
+
+const toDecisionPlanEvidence = (plan: PlanValidationSnapshot): TableQueryAcceptancePlanEvidence => {
+  const before = plan?.totalCostBefore;
+  const after = plan?.totalCostAfter;
+  const costDeltaPct =
+    typeof before === 'number' && typeof after === 'number' && before > 0
+      ? ((after - before) / before) * 100
+      : undefined;
+  return {
+    explainStatus: plan?.status ?? 'skipped',
+    ...(plan?.method ? { explainMethod: plan.method } : {}),
+    ...(costDeltaPct !== undefined ? { costDeltaPct } : {}),
+    ...(plan?.usesCandidateIndex !== undefined
+      ? { usesCandidateIndex: plan.usesCandidateIndex }
+      : {}),
+  };
+};
+
 const isExecutablePhase1Kind = (kind: string): kind is ExecutablePhase1RemediationKind =>
   [
     'create_search_index',
     'create_search_access_path',
     'rebuild_search_access_path',
+    'drop_search_access_path',
     'create_search_vector',
     'rebuild_search_vector',
     'create_filter_index',
@@ -470,3 +739,13 @@ const isExecutablePhase1Kind = (kind: string): kind is ExecutablePhase1Remediati
     'repair_index',
     'manual_investigation',
   ].includes(kind);
+
+const hasGenericPhase1AcceptCandidate = (
+  candidates: ReadonlyArray<{ readonly executableInPhase1: boolean; readonly kind: string }>
+): boolean =>
+  candidates.some(
+    (candidate) =>
+      candidate.executableInPhase1 &&
+      candidate.kind !== 'create_search_access_path' &&
+      isExecutablePhase1Kind(candidate.kind)
+  );

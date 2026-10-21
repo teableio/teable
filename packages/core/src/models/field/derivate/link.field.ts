@@ -11,10 +11,13 @@ import {
   type ILinkFieldMeta,
 } from './link-option.schema';
 
-export const linkCellValueSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Record),
-  title: z.string().optional(),
-});
+export const linkCellValueSchema = z
+  .object({
+    id: z.string().startsWith(IdPrefix.Record),
+    // Persisted empty-primary links may carry title:null; accept and strip.
+    title: z.string().nullish(),
+  })
+  .transform(({ id, title }) => (title == null ? { id } : { id, title }));
 
 export type ILinkCellValue = z.infer<typeof linkCellValueSchema>;
 
@@ -48,7 +51,7 @@ export class LinkFieldCore extends FieldCore {
 
   cellValueType!: CellValueType.String;
 
-  declare isMultipleCellValue?: boolean | undefined;
+  declare isMultipleCellValue?: boolean;
 
   getHasOrderColumn(): boolean {
     return !!this.meta?.hasOrderColumn;

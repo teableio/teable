@@ -34,12 +34,12 @@
   ],
   "scripts": {
     "build": "pnpm prisma-generate-ci && tsc",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "tsc --watch",
-    "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
+    "fix-all-files": "oxlint --fix && oxfmt",
+    "lint": "oxlint && oxfmt --check",
     "prisma-generate": "node ./scripts/run-prisma-command.mjs generate --schema ./prisma/postgres/schema.prisma",
-    "prisma-generate-ci": "cross-env PRISMA_DATABASE_URL=\"postgresql://teable:teable@127.0.0.1:5432/teable?schema=public\" prisma generate --schema ./prisma/postgres/schema.prisma",
+    "prisma-generate-ci": "node ../../scripts/prisma-generate-ci.mjs ./prisma/postgres/schema.prisma",
     "prisma-migrate": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate",
     "prisma-migrate-reset": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate reset",
     "prisma-db-push": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs db push",
@@ -52,37 +52,38 @@
   },
   "peerDependencies": {
     "@prisma/client": "^5.0.0",
-    "@nestjs/common": "^10.0.0",
-    "nestjs-cls": "^4.0.0"
+    "@nestjs/common": "^12.0.0",
+    "nestjs-cls": "^6.0.0"
   },
   "dependencies": {
     "@prisma/adapter-pg": "6.2.1",
     "@prisma/client": "6.2.1",
     "prisma": "6.2.1",
-    "nanoid": "3.3.7",
+    "nanoid": "6.0.2",
     "pg": "8.11.5"
   },
   "devDependencies": {
     "@httpx/dsn-parser": "1.8.4",
-    "@faker-js/faker": "8.4.1",
+    "@faker-js/faker": "10.6.0",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
-    "@types/bcrypt": "5.0.2",
+    "@types/bcrypt": "6.0.0",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
-    "eslint": "8.57.0",
-    "handlebars": "4.7.8",
+    "handlebars": "4.7.10",
     "is-port-reachable": "3.1.0",
     "mustache": "4.2.0",
     "npm-run-all2": "6.1.2",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "picocolors": "1.0.0",
-    "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "tsx": "4.7.1",
+    "tsx": "4.23.15",
+    "rxjs": "7.8.1",
     "typescript": "5.4.3",
-    "bcrypt": "5.1.1"
+    "bcrypt": "6.0.0"
   },
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"

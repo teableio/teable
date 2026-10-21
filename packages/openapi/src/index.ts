@@ -1,3 +1,6 @@
+// Route modules register schemas during import, so install the Zod OpenAPI extension first.
+import './zod';
+
 export * from './zod';
 export * from './axios';
 export * from './generate.schema';
@@ -12,7 +15,6 @@ export * from './selection';
 export * from './plan';
 export * from './attachment';
 export * from './auth';
-export * from './db-connection';
 export * from './invitation';
 export * from './share';
 export * from './short-link';
@@ -22,12 +24,14 @@ export * from './access-token';
 export * from './import';
 export * from './export';
 export * from './utils';
+export * from './utils/model-key';
 export * from './pin';
 export * from './billing';
 export * from './admin';
 export * from './usage';
 export * from './oauth';
 export * from './trash';
+export * from './archive';
 export * from './undo-redo';
 export * from './plugin';
 export * from './dashboard';

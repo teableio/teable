@@ -7,6 +7,11 @@ import {
   createSingleLineTextField,
   DbTableName,
   FieldId,
+  FormulaExpression,
+  FormulaField,
+  CellValueType,
+  CellValueMultiplicity,
+  UpdateFormulaExpressionSpec,
   LinkFieldConfig,
   LinkFieldMeta,
   LinkRelationship,
@@ -18,6 +23,11 @@ import {
   TableName,
   type TableByIdSpec,
 } from '@teable/v2-core';
+import {
+  createFormulaCompileBudgetPolicy,
+  defaultFormulaCompileBudgetLimits,
+  Pg16TypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
   CompiledQuery,
@@ -281,6 +291,129 @@ describe('PostgresTableSchemaRepository', () => {
     await db.destroy();
   });
 
+  it('rejects an empty-table import batch before creating even its valid sibling schema', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const build = (expression: string) => {
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Budget')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withName(FieldName.create('Formula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(expression)._unsafeUnwrap())
+        .withResultType({
+          cellValueType: CellValueType.number(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        })
+        .done();
+      builder.view().defaultGrid().done();
+      return builder.build()._unsafeUnwrap();
+    };
+    const valid = build('1');
+    const rejected = build('ABS(ABS(ABS(1)))');
+    const backfill = new FakeComputedFieldBackfillService();
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([valid, rejected]) as never,
+      backfill,
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      new Pg16TypeValidationStrategy(),
+      undefined,
+      {
+        policyVersion: 1,
+        policy: createFormulaCompileBudgetPolicy({
+          ...defaultFormulaCompileBudgetLimits,
+          astDepth: 2,
+        }),
+      }
+    );
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const single = await repository.insert(context, rejected);
+    expect(single._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    const batch = await repository.insertMany(context, [valid, rejected], {
+      optimizeForEmptyTables: true,
+    });
+    expect(batch._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    const rows = await sql<{
+      count: string;
+    }>`select count(*)::text as count from information_schema.tables where table_schema = ${baseId.toString()}`.execute(
+      db
+    );
+    expect(rows.rows[0].count).toBe('0');
+    expect(backfill.calls).toEqual([]);
+  });
+
+  it('rejects a changed formula before DDL or asynchronous backfill', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withName(TableName.create('Update budget')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .formula()
+      .withName(FieldName.create('Formula')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
+      .withResultType({
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      })
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const backfill = new FakeComputedFieldBackfillService();
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([table]) as never,
+      backfill,
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      new Pg16TypeValidationStrategy(),
+      undefined,
+      {
+        policyVersion: 1,
+        policy: createFormulaCompileBudgetPolicy({
+          ...defaultFormulaCompileBudgetLimits,
+          astDepth: 2,
+        }),
+      }
+    );
+    const field = table
+      .getFields()
+      .find((field): field is FormulaField => field instanceof FormulaField)!;
+    const spec = UpdateFormulaExpressionSpec.create(
+      field.id(),
+      field.expression(),
+      FormulaExpression.create('ABS(ABS(ABS(1)))')._unsafeUnwrap()
+    );
+    const candidate = spec.mutate(table)._unsafeUnwrap();
+    const result = await repository.update(
+      { actorId: ActorId.create('system')._unsafeUnwrap() },
+      candidate,
+      spec
+    );
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    expect(backfill.calls).toEqual([]);
+    expect(field.expression().toString()).toBe('1');
+  });
+
   it('triggers computed backfill after adding fields', async () => {
     const baseId = BaseId.generate()._unsafeUnwrap();
     const tableId = TableId.generate()._unsafeUnwrap();
@@ -329,6 +462,141 @@ describe('PostgresTableSchemaRepository', () => {
     expect(backfillService.calls[0]?.fields[0]?.id().equals(newFieldId)).toBe(true);
     expect(backfillService.calls[0]?.skipDistinctFilter).toBe(true);
     expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(false);
+  });
+
+  it('discards pending computed outbox tasks only on permanent delete', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Drop Target')._unsafeUnwrap();
+    const fieldName = FieldName.create('Name')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(fieldName).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const discardCalls: Array<{ baseId: string; seedTableId: string }> = [];
+    const fieldDiscardCalls: Array<{
+      baseId: string;
+      seedTableId: string;
+      fieldIds: ReadonlyArray<string>;
+    }> = [];
+    const recordingOutbox = {
+      discardBySeedTable: async (params: { baseId: string; seedTableId: string }) => {
+        discardCalls.push(params);
+        return ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] });
+      },
+      discardFieldBackfills: async (params: {
+        baseId: string;
+        seedTableId: string;
+        fieldIds: ReadonlyArray<string>;
+      }) => {
+        fieldDiscardCalls.push(params);
+        return ok({ discardedTaskIds: [], trimmedTaskIds: [], discardedDeadLetterTaskIds: [] });
+      },
+    };
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([table]) as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      undefined,
+      recordingOutbox
+    );
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+
+    (await repository.delete(context, table, { mode: 'soft' }))._unsafeUnwrap();
+    expect(discardCalls).toEqual([]);
+
+    (await repository.delete(context, table, { mode: 'permanent' }))._unsafeUnwrap();
+    expect(discardCalls).toEqual([{ baseId: baseId.toString(), seedTableId: tableId.toString() }]);
+  });
+
+  it('discards pending field-backfill work for removed fields', async () => {
+    // Field removal reads table locations and marks the search vector pending,
+    // and this suite does not otherwise create table_meta.
+    await db.schema
+      .createTable('table_meta')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('base_id', 'text')
+      .addColumn('db_table_name', 'text')
+      .addColumn('search_index', 'text')
+      .addColumn('deleted_time', 'timestamp')
+      .addColumn('version', 'integer', (col) => col.defaultTo(1))
+      .execute();
+
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Field Drop Target')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(FieldName.create('Keep')._unsafeUnwrap()).done();
+    const removedFieldId = FieldId.generate()._unsafeUnwrap();
+    builder
+      .field()
+      .singleLineText()
+      .withId(removedFieldId)
+      .withName(FieldName.create('Remove')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const fieldDiscardCalls: Array<{
+      baseId: string;
+      seedTableId: string;
+      fieldIds: ReadonlyArray<string>;
+    }> = [];
+    const recordingOutbox = {
+      discardBySeedTable: async () => ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] }),
+      discardFieldBackfills: async (params: {
+        baseId: string;
+        seedTableId: string;
+        fieldIds: ReadonlyArray<string>;
+      }) => {
+        fieldDiscardCalls.push(params);
+        return ok({ discardedTaskIds: [], trimmedTaskIds: [], discardedDeadLetterTaskIds: [] });
+      },
+    };
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([table]) as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      undefined,
+      recordingOutbox
+    );
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+
+    const updateResult = table.update((mutator) => mutator.removeField(removedFieldId));
+    updateResult._unsafeUnwrap();
+    (
+      await repository.update(
+        context,
+        updateResult._unsafeUnwrap().table,
+        updateResult._unsafeUnwrap().mutateSpec
+      )
+    )._unsafeUnwrap();
+
+    expect(fieldDiscardCalls).toEqual([
+      {
+        baseId: baseId.toString(),
+        seedTableId: tableId.toString(),
+        fieldIds: [removedFieldId.toString()],
+      },
+    ]);
   });
 
   it('creates a table whose schema checker reports no warn or error results', async () => {
@@ -495,6 +763,61 @@ describe('PostgresTableSchemaRepository', () => {
 
     const repairedColumn = await introspector.columnExists(schema, dbTableName, dbFieldName);
     expect(repairedColumn._unsafeUnwrap()).toBe(true);
+  });
+
+  it('creates a missing physical table without replaying schema on an existing one', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Ensure Physical')._unsafeUnwrap();
+    const fieldName = FieldName.create('Name')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(fieldName).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository([table]);
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      tableRepository as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never
+    );
+
+    const { schema, tableName: dbTableName } = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }))
+      ._unsafeUnwrap();
+    const introspector = new PostgresSchemaIntrospector(db);
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+    await sql
+      .raw(`DROP TABLE IF EXISTS "${schema ?? 'public'}"."${dbTableName}" CASCADE`)
+      .execute(db);
+    expect((await introspector.tableExists(schema, dbTableName))._unsafeUnwrap()).toBe(false);
+
+    (await repository.ensurePhysicalTable(context, table))._unsafeUnwrap();
+    expect((await introspector.tableExists(schema, dbTableName))._unsafeUnwrap()).toBe(true);
+
+    const dbFieldName = table
+      .getFields()[0]!
+      .dbFieldName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+    await sql`ALTER TABLE ${sql.raw(`"${schema ?? 'public'}"."${dbTableName}"`)}
+      DROP COLUMN ${sql.raw(`"${dbFieldName}"`)}`.execute(db);
+    expect(
+      (await introspector.columnExists(schema, dbTableName, dbFieldName))._unsafeUnwrap()
+    ).toBe(false);
+
+    (await repository.ensurePhysicalTable(context, table))._unsafeUnwrap();
+    expect(
+      (await introspector.columnExists(schema, dbTableName, dbFieldName))._unsafeUnwrap()
+    ).toBe(false);
   });
 
   it('executes reference metadata statements on the meta DB when databases are split', async () => {

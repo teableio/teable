@@ -13,9 +13,12 @@ export class SessionHandleService {
     private readonly sessionStoreService: SessionStoreService,
     @AuthConfig() private readonly authConfig: IAuthConfig
   ) {
+    const { secret, oldSecret } = this.authConfig.session;
     this.sessionMiddleware = session({
       name: AUTH_SESSION_COOKIE_NAME,
-      secret: this.authConfig.session.secret,
+      // Array form: the first secret signs new cookies, every secret validates
+      // existing ones — so rotating BACKEND_SESSION_SECRET keeps live sessions.
+      secret: oldSecret ? [secret, oldSecret] : secret,
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -33,7 +36,7 @@ export class SessionHandleService {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.sessionMiddleware(request, {} as any, (err) => {
         if (err) {
-          return reject(err);
+          return reject(err instanceof Error ? err : new Error(String(err)));
         }
         resolve(request.sessionID);
       });
@@ -44,7 +47,7 @@ export class SessionHandleService {
     return new Promise<string | undefined>((resolve, reject) => {
       this.sessionStoreService.get(sessionId, (err, session) => {
         if (err) {
-          return reject(err);
+          return reject(err instanceof Error ? err : new Error(String(err)));
         }
         if (!session) {
           return resolve(undefined);

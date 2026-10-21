@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
@@ -43,7 +44,7 @@ import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldU
 import { FieldOptionsDtoVisitor } from '../visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { CellValueMultiplicity } from './CellValueMultiplicity';
+import type { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import {
   ConditionalLookupOptions,
@@ -87,7 +88,7 @@ export class ConditionalLookupField
    * Override for isMultipleCellValue. When set, this value is used instead of
    * defaulting to multiple. This is important for compatibility with v1.
    */
-  private isMultipleCellValueOverride: boolean | undefined;
+  private readonly isMultipleCellValueOverride: boolean | undefined;
 
   private constructor(
     id: FieldId,
@@ -241,6 +242,10 @@ export class ConditionalLookupField
     return this.conditionalLookupOptionsValue.foreignTableId();
   }
 
+  baseId(): BaseId | undefined {
+    return this.conditionalLookupOptionsValue.baseId();
+  }
+
   /**
    * Get the lookup target field from the foreign table.
    */
@@ -264,18 +269,12 @@ export class ConditionalLookupField
 
   /**
    * Get whether this is a multiple cell value field.
-   * Uses the override value if set (from v1 persistence), otherwise defaults to multiple.
+   * Uses the override value if set (from v1 persistence). When the override is
+   * unset, an unambiguously scalar persisted dbFieldType implies single;
+   * ambiguous JSON storage and absent storage default to multiple.
    */
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (this.isMultipleCellValueOverride !== undefined) {
-      return ok(
-        this.isMultipleCellValueOverride
-          ? CellValueMultiplicity.multiple()
-          : CellValueMultiplicity.single()
-      );
-    }
-    // Default to multiple for new conditional lookup fields (v2 behavior)
-    return ok(CellValueMultiplicity.multiple());
+    return ok(this.multiplicityFromOverrideOrPersistedStorage(this.isMultipleCellValueOverride));
   }
 
   /**
@@ -316,6 +315,11 @@ export class ConditionalLookupField
     }
 
     const resolvedInnerField = lookupFieldResult.value;
+    if (resolvedInnerField.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a lookup source' })
+      );
+    }
     // Keep explicit inner type/options (for example conditional lookup -> formula convert).
     // Only backfill from lookup target when the field is still pending.
     if (!this.innerFieldValue) {
@@ -458,7 +462,7 @@ export class ConditionalLookupField
     context: FieldUpdateContext
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
-    let currentField: ConditionalLookupField = this;
+    let currentField: ConditionalLookupField = this; // NOSONAR typescript:S7740 -- reassigned below; it is not a plain alias of `this`
 
     const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
     const hasLookupTargetSelectOptionChanges = hasFieldSelectOptionChanges(

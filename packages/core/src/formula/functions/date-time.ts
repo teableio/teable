@@ -59,7 +59,7 @@ function isISODateString(dateString: string) {
 }
 
 const normalizeDateTimeParseInput = (isoStr: string) =>
-  isoStr.trim().replace(/\//g, '-').replace('T', ' ');
+  isoStr.trim().replaceAll('/', '-').replace('T', ' ');
 
 const inferDateTimeParseFormat = (isoStr: string) => {
   if (!/^\d{4}-\d{1,2}-\d{1,2}(?: \d{1,2}:\d{1,2}(?::\d{1,2}(?:\.\d{1,3})?)?)?$/.test(isoStr)) {
@@ -454,7 +454,7 @@ export class Workday extends DateTimeFunc {
     const extraDays = count % 5;
     let targetDate = startDate.add(weeks * 7, unit);
 
-    for (let i = 0; i < extraDays; ) {
+    for (let i = 0; i < extraDays;) {
       targetDate = targetDate.add(efficientSign, unit);
       const holidayIndex = holidays.findIndex((holiday) => holiday.isSame(targetDate, unit));
       if (holidayIndex > -1) holidays.splice(holidayIndex);
@@ -524,7 +524,7 @@ export class WorkdayDiff extends DateTimeFunc {
       normalizedEndDate.isAfter(normalizedStartDate, 'day');
     const minDate = isForward ? normalizedStartDate : normalizedEndDate;
     const maxDate = isForward ? normalizedEndDate : normalizedStartDate;
-    let currentDay = minDate.add(1, 'day');
+    let currentDay = minDate;
     let count = 0;
 
     while (currentDay.isSame(maxDate, 'day') || currentDay.isBefore(maxDate, 'day')) {

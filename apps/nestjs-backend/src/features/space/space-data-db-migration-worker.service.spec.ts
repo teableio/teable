@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpaceDataDbMigrationWorkerService } from './space-data-db-migration-worker.service';
 
 describe('SpaceDataDbMigrationWorkerService', () => {
@@ -10,10 +10,17 @@ describe('SpaceDataDbMigrationWorkerService', () => {
   };
 
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.stubEnv('BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ID', workerId);
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('VITEST', 'true');
     migrationService.recoverStaleActiveMigrationJobs.mockReset().mockResolvedValue([]);
     migrationService.claimNextPendingMigrationJob.mockReset().mockResolvedValue(null);
     migrationService.runMigrationJob.mockReset().mockResolvedValue({ state: 'succeeded' });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns null when there is no pending job', async () => {
@@ -48,5 +55,27 @@ describe('SpaceDataDbMigrationWorkerService', () => {
       status: 'failed',
       error: 'copy failed',
     });
+  });
+
+  it('does not auto-start the poll loop in test runtime', () => {
+    const service = new SpaceDataDbMigrationWorkerService(migrationService as never);
+    const runForever = vi.spyOn(service, 'runForever').mockResolvedValue(undefined);
+
+    service.onApplicationBootstrap();
+
+    expect(runForever).not.toHaveBeenCalled();
+  });
+
+  it('starts the poll loop when explicitly enabled', async () => {
+    vi.stubEnv('BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ENABLED', 'true');
+    const service = new SpaceDataDbMigrationWorkerService(migrationService as never);
+    const runForever = vi.spyOn(service, 'runForever').mockImplementation(async () => {
+      service.stop();
+    });
+
+    service.onApplicationBootstrap();
+    await service.waitForStop();
+
+    expect(runForever).toHaveBeenCalledOnce();
   });
 });

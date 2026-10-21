@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { getRandomString } from '@teable/core';
+import { useUiDirection } from '@teable/ui-lib';
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
@@ -16,30 +17,29 @@ import {
 import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType } from '../../renderers/cell-renderer/interface';
-import { isPrintableKey } from '../../utils';
+import { isPrintableKey, shouldForwardPasteToGrid } from '../../utils';
 import { BooleanEditor } from './BooleanEditor';
 import { RatingEditor } from './RatingEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
-export interface IEditorContainerProps
-  extends Pick<
-    IInteractionLayerProps,
-    | 'theme'
-    | 'coordInstance'
-    | 'scrollToItem'
-    | 'real2RowIndex'
-    | 'getCellContent'
-    | 'onUndo'
-    | 'onRedo'
-    | 'onCopy'
-    | 'onPaste'
-    | 'onDelete'
-    | 'onRowAppend'
-    | 'onRowExpand'
-    | 'scrollBy'
-    | 'disableEnterMoveDown'
-  > {
+export interface IEditorContainerProps extends Pick<
+  IInteractionLayerProps,
+  | 'theme'
+  | 'coordInstance'
+  | 'scrollToItem'
+  | 'real2RowIndex'
+  | 'getCellContent'
+  | 'onUndo'
+  | 'onRedo'
+  | 'onCopy'
+  | 'onPaste'
+  | 'onDelete'
+  | 'onRowAppend'
+  | 'onRowExpand'
+  | 'scrollBy'
+  | 'disableEnterMoveDown'
+> {
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;
@@ -49,6 +49,7 @@ export interface IEditorContainerProps
   setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (cell: ICellItem, cellValue: IInnerCell) => void;
+  onContextMenu?: () => void;
 }
 
 export interface IEditorRef<T extends IInnerCell = IInnerCell> {
@@ -96,6 +97,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onChange,
     onDelete,
     onRowExpand,
+    onContextMenu,
     setEditing,
     setActiveCell,
     setSelection,
@@ -140,14 +142,20 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }, [cellContent, activeCell, isEditing]);
 
   useEffect(() => {
-    if ((cellType as CellType) === CellType.Loading) return;
-    if (!activeCell || selection.type === SelectionRegionType.None) return;
+    if (selection.type === SelectionRegionType.None) return;
+    // Row header selection clears activeCell; keep its clipboard target available.
+    if (activeCell && (cellType as CellType) === CellType.Loading) return;
 
     initialSearchRef.current = '';
 
     requestAnimationFrame(() => {
-      // Don't steal focus from dialogs/modals/sheets
-      if (document.activeElement?.closest('[role="dialog"]')) return;
+      // Don't steal focus from dialogs/modals/sheets — unless this grid itself lives inside it
+      const dialog = document.activeElement?.closest('[role="dialog"]');
+      if (dialog && !dialog.contains(defaultFocusRef.current)) return;
+      // Linked grids synchronize row selections without a user interaction.
+      // Only hand off row-selection focus if this grid already owns it.
+      const grid = defaultFocusRef.current?.closest('[data-t-grid-container]');
+      if (!activeCell && !grid?.contains(document.activeElement)) return;
       (editorRef.current || defaultFocusRef.current)?.focus?.();
     });
   }, [cellType, activeCell, selection, isEditing]);
@@ -178,6 +186,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     [editingEnable, height, width]
   );
 
+  const uiDir = useUiDirection();
   const rect = useMemo(() => {
     const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
     const x = clamp(
@@ -316,7 +325,20 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onPasteInner = (e: React.ClipboardEvent) => {
-    if (!activeCell || isEditing) return;
+    if (selection.type === SelectionRegionType.None) return;
+    if (
+      !shouldForwardPasteToGrid({
+        isEditing: Boolean(isEditing),
+        eventTarget: e.target,
+        hiddenFocusEl: defaultFocusRef.current,
+      })
+    ) {
+      return;
+    }
+    if (isEditing) {
+      e.preventDefault();
+      setEditing(false);
+    }
     onPaste?.(selection, e);
   };
 
@@ -325,12 +347,39 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onCopy?.(selection, e);
   };
 
+  const onContextMenuInner = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onContextMenu) return;
+    // Portalled content (the expand dialog) bubbles through React but is not over the cell
+    if (!e.currentTarget.contains(e.target as Node)) return;
+    // An open editor keeps its native context menu. Otherwise whatever editor DOM
+    // is under the pointer (readonly preview, expand button) sits over the active
+    // cell, which the stage cannot see, so the right-click belongs to the grid.
+    if (isEditing && !enableReadonlyCustomEditor) return;
+    // Text selected inside the editor keeps the native menu so it can be copied
+    const textSelection = window.getSelection();
+    if (
+      textSelection &&
+      !textSelection.isCollapsed &&
+      e.currentTarget.contains(textSelection.anchorNode)
+    ) {
+      return;
+    }
+    e.preventDefault();
+    onContextMenu();
+  };
+
   return (
     <div
       id={editorId}
-      className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full"
+      className="click-outside-ignore pointer-events-none absolute start-0 top-0 w-full"
     >
       <div
+        // The grid pins itself to dir="ltr" so its column geometry and
+        // `scrollLeft` stay put, but a cell editor is a panel like any other and
+        // reads with the rest of the interface. Position stays physical — it is
+        // measured off that same LTR frame — while everything drawn inside the
+        // box follows the document again.
+        dir={uiDir}
         className="absolute z-10"
         style={{
           top: rect.y,
@@ -341,6 +390,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         onKeyDown={onKeyDown}
         onPaste={onPasteInner}
         onCopy={onCopyInner}
+        onContextMenu={onContextMenuInner}
       >
         {EditorRenderer}
         <input className="size-0 opacity-0" ref={defaultFocusRef} />

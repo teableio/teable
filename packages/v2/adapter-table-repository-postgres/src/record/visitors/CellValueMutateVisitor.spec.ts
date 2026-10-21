@@ -2,6 +2,7 @@ import {
   CellValue,
   FieldId,
   SetAttachmentValueSpec,
+  SetButtonValueSpec,
   SetLinkValueByTitleSpec,
   SetLinkValueSpec,
   SetUserValueByIdentifierSpec,
@@ -197,6 +198,21 @@ const createForeignTable = (params: {
 });
 
 describe('CellValueMutateVisitor', () => {
+  it('persists aggregate-created Button values as JSONB', () => {
+    const field = createField({
+      fieldId: 'buttonField',
+      type: 'button',
+      dbFieldName: 'button_col',
+    });
+    const visitor = createVisitor(field);
+    const spec = new SetButtonValueSpec(field.id(), CellValue.fromValidated({ count: 3 }));
+
+    expect(visitor.visitSetButtonValue(spec).isOk()).toBe(true);
+    const result = visitor.build()._unsafeUnwrap();
+    expect(result.setClauses.button_col).toBe(JSON.stringify({ count: 3 }));
+    expect(result.changedFieldIds.map(String)).toEqual([field.id().toString()]);
+  });
+
   it('returns an error when user identifiers are not pre-resolved', () => {
     const visitor = createVisitor();
     const spec = SetUserValueByIdentifierSpec.create(mkFieldId('userField'), ['alice'], false);
@@ -308,6 +324,51 @@ describe('CellValueMutateVisitor', () => {
     );
   });
 
+  it('collapses duplicate ids in one link cell into a single junction row', () => {
+    const linkField = createLinkField({
+      fieldId: 'linkField',
+      dbFieldName: 'link_json',
+      relationship: 'manyMany',
+      hostTableName: 'public.junction_links',
+      selfKeyName: '__fk_source',
+      foreignKeyName: '__fk_foreign',
+      hasOrderColumn: true,
+      orderColumnName: '__order_links',
+    });
+    const visitor = createVisitor(linkField);
+
+    const result = visitor.visitSetLinkValue(
+      new SetLinkValueSpec(
+        linkField.id(),
+        CellValue.fromValidated([
+          { id: mkRecordId('first') },
+          { id: mkRecordId('second') },
+          { id: mkRecordId('first') },
+        ])
+      ) as never
+    );
+
+    expect(result.isOk()).toBe(true);
+    const raw = visitor.getSetClausesRaw();
+    expect(raw.setClauses.link_json).toBe(
+      JSON.stringify([{ id: mkRecordId('first') }, { id: mkRecordId('second') }])
+    );
+
+    const insert = raw.additionalStatements.find((statement) =>
+      normalizeSql(statement.sql).startsWith('insert into "public"."junction_links"')
+    );
+    expect(insert).toBeDefined();
+    // One row per linked record: a repeated id must not insert the pair twice.
+    expect(insert?.parameters).toEqual([
+      mkRecordId('source'),
+      mkRecordId('first'),
+      1,
+      mkRecordId('source'),
+      mkRecordId('second'),
+      2,
+    ]);
+  });
+
   it('returns an error when SetLinkValue targets a non-link field', () => {
     const textField = createField({
       fieldId: 'textField',
@@ -395,6 +456,7 @@ describe('CellValueMutateVisitor', () => {
     expect(normalizeSql(built.mainUpdate.sql)).toContain('LEFT JOIN "bseLegacy"."Legacy_Name" ft');
     expect(normalizeSql(built.mainUpdate.sql)).toContain('"ft"."Primary_Field"');
     expect(normalizeSql(built.mainUpdate.sql)).not.toContain(`"${foreignTable.id().toString()}"`);
+    expect(normalizeSql(built.mainUpdate.sql)).toContain('jsonb_strip_nulls');
   });
 
   it('rejects oversized multi-link title fill writes before compiling SQL', () => {
@@ -427,7 +489,7 @@ describe('CellValueMutateVisitor', () => {
       }
     );
     const oversizedItems = Array.from({ length: MAX_FILLED_LINK_VALUE_ITEMS + 1 }, (_, index) => ({
-      id: mkRecordId(`foreign${index}`),
+      id: `rec${String(index).padStart(16, '0')}`,
     }));
     const spec = new SetLinkValueSpec(
       linkField.id(),

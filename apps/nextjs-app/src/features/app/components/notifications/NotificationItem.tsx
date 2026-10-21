@@ -5,6 +5,7 @@ import { cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import React from 'react';
 import { LinkNotification } from './notification-component';
+import { isExternalNotificationUrl } from './notification-component/external-url';
 import { NotificationIcon } from './NotificationIcon';
 
 interface INotificationItemProps extends React.HTMLAttributes<HTMLElement> {
@@ -26,7 +27,7 @@ export const NotificationItem = React.forwardRef<HTMLElement, INotificationItemP
       <>
         <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
 
-        <div className="mr-3 w-full items-center overflow-hidden whitespace-pre-wrap break-words text-sm font-normal">
+        <div className="me-3 w-full items-center overflow-hidden whitespace-pre-wrap break-words text-sm font-normal">
           <div className="overflow-auto">
             <LinkNotification data={data} notifyStatus={notifyStatus} disableLink />
           </div>
@@ -43,6 +44,21 @@ export const NotificationItem = React.forwardRef<HTMLElement, INotificationItemP
         <div ref={ref as React.Ref<HTMLDivElement>} className={className} {...rest}>
           {content}
         </div>
+      );
+    }
+
+    if (isExternalNotificationUrl(url)) {
+      return (
+        <a
+          ref={ref as React.Ref<HTMLAnchorElement>}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={className}
+          {...rest}
+        >
+          {content}
+        </a>
       );
     }
 

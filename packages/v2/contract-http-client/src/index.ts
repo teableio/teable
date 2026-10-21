@@ -6,6 +6,7 @@ import { OpenAPILink } from '@orpc/openapi-client/fetch';
 import { apiErrorResponseDtoSchema, v2Contract } from '@teable/v2-contract-http';
 
 export { v2Contract } from '@teable/v2-contract-http';
+export * from './dataQuery';
 
 export interface IV2HttpClientOptions {
   baseUrl: string;
@@ -60,6 +61,7 @@ export const createV2HttpClient = (
             domainErrorCode: parsedError.data.error.code,
             tags: parsedError.data.error.tags,
             details: parsedError.data.error.details,
+            localization: parsedError.data.error.localization,
           },
         });
       }

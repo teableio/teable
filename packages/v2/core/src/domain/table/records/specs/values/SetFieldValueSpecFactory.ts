@@ -1,18 +1,17 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import z from 'zod';
 import { domainError, type DomainError } from '../../../../shared/DomainError';
 import type { Field } from '../../../fields/Field';
-import { FieldType } from '../../../fields/FieldType';
 import {
   FieldCellValueSchemaVisitor,
   type FieldCellValueSchema,
 } from '../../../fields/visitors/FieldCellValueSchemaVisitor';
 import { SetFieldValueSpecFactoryVisitor } from '../../../fields/visitors/SetFieldValueSpecFactoryVisitor';
-import type { ICellValueSpec } from './ICellValueSpecVisitor';
-import { NoopCellValueSpec } from './NoopCellValueSpec';
 import { ClearFieldValueSpec } from './ClearFieldValueSpec';
+import type { ICellValueSpec } from './ICellValueSpecVisitor';
 
 /**
  * Factory for creating SetValueSpec instances.
@@ -40,9 +39,6 @@ export class SetFieldValueSpecFactory {
     value: unknown,
     schema?: FieldCellValueSchema
   ): Result<ICellValueSpec, DomainError> {
-    if (field.type().equals(FieldType.button())) {
-      return ok(NoopCellValueSpec.create());
-    }
     // Null values use ClearFieldValueSpec for optimized SQL generation
     if (value === null || value === undefined) {
       if (field.notNull().toBoolean()) {
@@ -54,6 +50,10 @@ export class SetFieldValueSpecFactory {
               fieldId: field.id().toString(),
               fieldName: field.name().toString(),
               fieldType: field.type().toString(),
+            },
+            localization: {
+              i18nKey: sdkErrorI18nKeys.custom.recordFieldValueNotNull,
+              context: { fieldName: field.name().toString() },
             },
           })
         );
@@ -82,7 +82,11 @@ export class SetFieldValueSpecFactory {
       }
 
       // Step 3: Create the SetValueSpec with the validated value
-      const factoryVisitor = new SetFieldValueSpecFactoryVisitor(parseResult.data);
+      const factoryVisitor = new SetFieldValueSpecFactoryVisitor(parseResult.data, {
+        // Strict (non-typecast) writes are API input, so bare `{ id }` user
+        // references must resolve within the table's collaborators (v1 scope).
+        requireUserCollaborator: true,
+      });
       return field.accept(factoryVisitor);
     });
   }
@@ -99,9 +103,6 @@ export class SetFieldValueSpecFactory {
     field: Field,
     validatedValue: unknown
   ): Result<ICellValueSpec, DomainError> {
-    if (field.type().equals(FieldType.button())) {
-      return ok(NoopCellValueSpec.create());
-    }
     // Null values use ClearFieldValueSpec for optimized SQL generation
     if (validatedValue === null || validatedValue === undefined) {
       return ok(ClearFieldValueSpec.create(field));

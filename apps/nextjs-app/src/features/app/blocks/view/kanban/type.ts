@@ -13,5 +13,6 @@ export interface IKanbanPermission {
   cardEditable: boolean;
   cardDeletable: boolean;
   cardDraggable: boolean;
+  cardCommentReadable: boolean;
   cardCommentCreatable: boolean;
 }

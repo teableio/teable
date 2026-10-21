@@ -8,8 +8,28 @@ declare module './ApplyRecordOrdersCommand' {
   interface ApplyRecordOrdersCommand extends IPublicCommand {}
 }
 
+declare module './ApplyViewManualSortCommand' {
+  interface ApplyViewManualSortCommand extends IPublicCommand {}
+}
+
 declare module './ClearCommand' {
   interface ClearCommand extends IPublicCommand {}
+}
+
+declare module './ClickButtonCommand' {
+  interface ClickButtonCommand extends IPublicCommand {}
+}
+
+declare module './SetButtonValueCommand' {
+  interface SetButtonValueCommand extends IPublicCommand {}
+}
+
+declare module './ResetButtonCommand' {
+  interface ResetButtonCommand extends IPublicCommand {}
+}
+
+declare module './ArchiveRecordsCommand' {
+  interface ArchiveRecordsCommand extends IPublicCommand {}
 }
 
 declare module './CreateBaseCommand' {
@@ -70,6 +90,10 @@ declare module './DuplicateTableCommand' {
 
 declare module './ImportCsvCommand' {
   interface ImportCsvCommand extends IPublicCommand {}
+}
+
+declare module './ImportExcelCommand' {
+  interface ImportExcelCommand extends IPublicCommand {}
 }
 
 declare module './ImportDotTeaStructureCommand' {

@@ -94,7 +94,7 @@ export class ConvertFieldV2Operation {
 
     if (field.type === FieldType.Link && ro.options && typeof ro.options === 'object') {
       const linkOptions = { ...(ro.options as Record<string, unknown>) };
-      if (!Object.prototype.hasOwnProperty.call(linkOptions, 'isOneWay')) {
+      if (!Object.hasOwn(linkOptions, 'isOneWay')) {
         linkOptions.isOneWay = false;
       }
       ro.options = linkOptions;

@@ -94,6 +94,12 @@ describe('v2 conditional user field reference operators (e2e)', () => {
           on conflict (id) do nothing
         `.execute(ctx.testContainer.db);
 
+        await sql`
+          insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+          values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
+          on conflict (id) do nothing
+        `.execute(ctx.testContainer.db);
+
         const foreignNameFieldId = createFieldId();
         const foreignUserFieldId = createFieldId();
         const foreignAmountFieldId = createFieldId();
@@ -271,6 +277,12 @@ describe('v2 conditional user field reference operators (e2e)', () => {
         await sql`
           insert into users (id, name, email)
           values (${bobCell.id}, ${bobCell.title}, ${'bob+conditional-user-operators@e2e.com'})
+          on conflict (id) do nothing
+        `.execute(ctx.testContainer.db);
+
+        await sql`
+          insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+          values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
           on conflict (id) do nothing
         `.execute(ctx.testContainer.db);
 

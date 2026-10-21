@@ -1,8 +1,14 @@
+import {
+  isManagedSearchIndexName,
+  MANAGED_SCOPED_SEARCH_INDEX_PREFIX,
+} from '@teable/v2-adapter-db-postgres-shared';
 import { type DomainError, type IExecutionContext, type Table } from '@teable/v2-core';
 import {
   TableQueryIndexInspection,
   type TableQueryIndexKind,
   type TableQueryShape,
+  type TableQueryShapeInput,
+  type TableQueryWhereFieldShape,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -58,17 +64,23 @@ export class PostgresTableQueryIndexInspector {
             : 'ready';
       return TableQueryIndexInspection.create({
         state,
-        usefulIndexes: expected
-          .filter((candidate) => hasMatchingIndex(existingIndexes, candidate))
-          .map((candidate) => ({
-            fieldId: candidate.fieldId,
-            fieldDbName: candidate.fieldDbName,
-            fields: candidate.fields,
-            kind: candidate.kind,
-            accessPath: candidate.accessPath,
-            valid: true,
-            name: existingIndexes.find((index) => hasMatchingIndex([index], candidate))?.name,
-          })),
+        usefulIndexes: [
+          ...expected
+            .filter((candidate) => hasMatchingIndex(existingIndexes, candidate))
+            .map((candidate) => ({
+              fieldId: candidate.fieldId,
+              fieldDbName: candidate.fieldDbName,
+              fields: candidate.fields,
+              kind: candidate.kind,
+              accessPath: candidate.accessPath,
+              valid: true,
+              name: existingIndexes.find((index) => hasMatchingIndex([index], candidate))?.name,
+            })),
+          ...collectGeneratedTextIndexes(
+            existingIndexes,
+            new Set(abnormalIndexes.map((index) => index.name))
+          ),
+        ],
         missingIndexCandidates,
         abnormalIndexes,
       });
@@ -83,7 +95,7 @@ type ExpectedIndexCandidate = {
   readonly fieldDbName?: string;
   readonly fields: ReadonlyArray<ExpectedIndexField>;
   readonly kind: TableQueryIndexKind;
-  readonly accessPath: 'single_field' | 'composite' | 'expression';
+  readonly accessPath: 'single_field' | 'composite' | 'expression' | 'generated_text';
   readonly reason: string;
 };
 
@@ -209,7 +221,7 @@ const addExpectedIndexCandidate = (
   });
 };
 
-const collectBtreeAccessPathFields = (
+export const collectBtreeAccessPathFields = (
   snapshot: ReturnType<TableQueryShape['snapshot']>,
   resolveField: FieldResolver
 ) => {
@@ -257,16 +269,43 @@ const collectBtreeAccessPathFields = (
         })
       )
       .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName)) ?? [];
-  const orderFields =
-    snapshot.orderShape?.fields
-      .filter((field) => field.fieldId && field.source !== 'tieBreaker')
-      .map((field) =>
-        resolveField(field.fieldId, {
+  const orderShapeFields = snapshot.orderShape?.fields ?? [];
+  const explicitOrderFields = orderShapeFields
+    .filter((field) => (field.fieldId || field.systemColumn) && field.source !== 'tieBreaker')
+    .map((field) =>
+      field.fieldId
+        ? resolveField(field.fieldId, {
+            direction: field.direction,
+            role: field.source === 'group' ? 'group' : 'sort',
+          })
+        : field.systemColumn
+          ? {
+              fieldDbName: field.systemColumn,
+              direction: field.direction,
+              role: field.source === 'group' ? 'group' : 'sort',
+            }
+          : undefined
+    )
+    .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName));
+  // Filtered list pages are ordered by the shape's tie-breakers (view row
+  // order, then __auto_number). Equality predicates plus that order is what
+  // lets one composite btree return the page without scanning, so keep them
+  // for list-shaped queries instead of dropping every tie-breaker.
+  const includeTieBreakers =
+    equalityFilterFields.length > 0 &&
+    (snapshot.queryKind === 'filter' ||
+      snapshot.queryKind === 'recordList' ||
+      snapshot.queryKind === 'sort');
+  const tieBreakerOrderFields = includeTieBreakers
+    ? orderShapeFields
+        .filter((field) => field.source === 'tieBreaker' && field.systemColumn)
+        .map((field) => ({
+          fieldDbName: field.systemColumn!,
           direction: field.direction,
-          role: field.source === 'group' ? 'group' : 'sort',
-        })
-      )
-      .filter((field): field is ExpectedIndexField => Boolean(field?.fieldDbName)) ?? [];
+          role: 'sort' as const,
+        }))
+    : [];
+  const orderFields = [...explicitOrderFields, ...tieBreakerOrderFields];
   return {
     btreeFilterFields,
     equalityFilterFields,
@@ -275,97 +314,94 @@ const collectBtreeAccessPathFields = (
   };
 };
 
+type WhereIndexContext = {
+  readonly resolveField: FieldResolver;
+  readonly btreeFilterFields: ReadonlyArray<ExpectedIndexField>;
+  readonly compositeFields: ReadonlyArray<ExpectedIndexField>;
+};
+
 const addWhereIndexCandidates = (
   candidates: Map<string, ExpectedIndexCandidate>,
-  snapshot: ReturnType<TableQueryShape['snapshot']>,
-  input: {
-    readonly resolveField: FieldResolver;
-    readonly btreeFilterFields: ReadonlyArray<ExpectedIndexField>;
-    readonly compositeFields: ReadonlyArray<ExpectedIndexField>;
-  }
+  snapshot: TableQueryShapeInput,
+  input: WhereIndexContext
 ): void => {
   for (const field of snapshot.whereShape?.fields ?? []) {
     addFormulaExpressionIndexCandidate(candidates, field, input.resolveField);
-    if (field.operatorFamily === 'text_contains') {
-      addExpectedIndexCandidate(
-        candidates,
-        [
-          input.resolveField(field.fieldId, {
-            role: field.sourceKind === 'formula_source' ? 'formula_source' : 'search',
-            sourceKind: field.sourceKind,
-            formulaFieldId: field.formula?.formulaFieldId,
-            formulaFunctionNames: field.formula?.functionNames,
-            formulaSkippedReasons: field.formula?.skippedReasons,
-            formulaPredicatePushdown: field.formula?.predicatePushdown,
-          }),
-        ],
-        'gin_trgm',
-        field.sourceKind === 'formula_source'
-          ? 'Formula source text lookup can use trigram index'
-          : 'Text contains filter can use trigram index'
-      );
-    } else if (field.operatorFamily === 'text_prefix') {
-      addExpectedIndexCandidate(
-        candidates,
-        [
-          input.resolveField(field.fieldId, {
-            role: field.sourceKind === 'formula_source' ? 'formula_source' : 'filter',
-            sourceKind: field.sourceKind,
-            formulaFieldId: field.formula?.formulaFieldId,
-            formulaFunctionNames: field.formula?.functionNames,
-            formulaSkippedReasons: field.formula?.skippedReasons,
-            formulaPredicatePushdown: field.formula?.predicatePushdown,
-          }),
-        ],
-        'btree',
-        field.sourceKind === 'formula_source'
-          ? 'Formula source prefix lookup can use btree index'
-          : 'Text prefix filter can use btree index'
-      );
+    if (field.operatorFamily === 'text_contains' || field.operatorFamily === 'text_prefix') {
+      addTextWhereIndexCandidate(candidates, field, input.resolveField);
     } else if (
       ['equality', 'range', 'selection', 'empty', 'link', 'formula_result'].includes(
         field.operatorFamily
       )
     ) {
-      const resolved =
-        input.btreeFilterFields.find((candidate) => candidate.fieldId === field.fieldId) ??
-        input.resolveField(field.fieldId, {
-          role:
-            field.sourceKind === 'formula_result'
-              ? 'formula_result'
-              : field.sourceKind === 'formula_expression'
-                ? 'formula_expression'
-                : 'filter',
-          sourceKind: field.sourceKind,
-          formulaFieldId: field.formula?.formulaFieldId,
-          formulaFunctionNames: field.formula?.functionNames,
-          formulaSkippedReasons: field.formula?.skippedReasons,
-          formulaPredicatePushdown: field.formula?.predicatePushdown,
-        });
-      if (!isCoveredByCompositeCandidate(resolved, input.compositeFields)) {
-        addExpectedIndexCandidate(
-          candidates,
-          [resolved],
-          'btree',
-          field.sourceKind === 'formula_expression'
-            ? 'Formula expression filter can use a validated expression index'
-            : field.sourceKind === 'formula_result'
-              ? 'Formula result filter can use btree index'
-              : 'Filter predicate can use btree index',
-          field.sourceKind === 'formula_expression' ? 'expression' : undefined
-        );
-      }
+      addBtreeWhereIndexCandidate(candidates, field, input);
     }
   }
 };
 
-type SnapshotWhereField = NonNullable<
-  ReturnType<TableQueryShape['snapshot']>['whereShape']
->['fields'][number];
+const addTextWhereIndexCandidate = (
+  candidates: Map<string, ExpectedIndexCandidate>,
+  field: TableQueryWhereFieldShape,
+  resolveField: FieldResolver
+): void => {
+  const contains = field.operatorFamily === 'text_contains';
+  const formulaSource = field.sourceKind === 'formula_source';
+  const resolved = resolveField(field.fieldId, {
+    role: formulaSource ? 'formula_source' : contains ? 'search' : 'filter',
+    sourceKind: field.sourceKind,
+    formulaFieldId: field.formula?.formulaFieldId,
+    formulaFunctionNames: field.formula?.functionNames,
+    formulaSkippedReasons: field.formula?.skippedReasons,
+    formulaPredicatePushdown: field.formula?.predicatePushdown,
+  });
+  const reason = formulaSource
+    ? contains
+      ? 'Formula source text lookup can use trigram index'
+      : 'Formula source prefix lookup can use btree index'
+    : contains
+      ? 'Text contains filter can use trigram index'
+      : 'Text prefix filter can use btree index';
+  addExpectedIndexCandidate(candidates, [resolved], contains ? 'gin_trgm' : 'btree', reason);
+};
+
+const addBtreeWhereIndexCandidate = (
+  candidates: Map<string, ExpectedIndexCandidate>,
+  field: TableQueryWhereFieldShape,
+  input: WhereIndexContext
+): void => {
+  const role =
+    field.sourceKind === 'formula_result' || field.sourceKind === 'formula_expression'
+      ? field.sourceKind
+      : 'filter';
+  const resolved =
+    input.btreeFilterFields.find((candidate) => candidate.fieldId === field.fieldId) ??
+    input.resolveField(field.fieldId, {
+      role,
+      sourceKind: field.sourceKind,
+      formulaFieldId: field.formula?.formulaFieldId,
+      formulaFunctionNames: field.formula?.functionNames,
+      formulaSkippedReasons: field.formula?.skippedReasons,
+      formulaPredicatePushdown: field.formula?.predicatePushdown,
+    });
+  if (isCoveredByCompositeCandidate(resolved, input.compositeFields)) return;
+  const reason =
+    field.sourceKind === 'formula_expression'
+      ? 'Formula expression filter can use a validated expression index'
+      : field.sourceKind === 'formula_result'
+        ? 'Formula result filter can use btree index'
+        : 'Filter predicate can use btree index';
+  addExpectedIndexCandidate(
+    candidates,
+    [resolved],
+    'btree',
+    reason,
+    field.sourceKind === 'formula_expression' ? 'expression' : undefined
+  );
+};
 
 const addFormulaExpressionIndexCandidate = (
   candidates: Map<string, ExpectedIndexCandidate>,
-  field: SnapshotWhereField,
+  field: TableQueryWhereFieldShape,
   resolveField: FieldResolver
 ): void => {
   const formula = field.formula;
@@ -415,24 +451,24 @@ const addSearchIndexCandidates = (
   snapshot: ReturnType<TableQueryShape['snapshot']>,
   resolveField: FieldResolver
 ): void => {
-  if (snapshot.searchShape) {
-    const searchFields = snapshot.searchShape.allFields
-      ? table.getFields()
-      : table
-          .getFields()
-          .filter((field) =>
-            snapshot.whereShape?.fields.some(
-              (whereField) => whereField.fieldId === field.id().toString()
-            )
-          );
-    for (const field of searchFields) {
-      addExpectedIndexCandidate(
-        candidates,
-        [resolveField(field.id().toString(), { role: 'search' })],
-        'gin_trgm',
-        'Search field can use trigram index'
-      );
-    }
+  if (!snapshot.searchShape) return;
+  if (snapshot.queryKind === 'search' && snapshot.searchShape.allFields) return;
+  const selectedFieldIds = new Set(
+    [
+      ...(snapshot.whereShape?.fields.map((field) => field.fieldId) ?? []),
+      ...(snapshot.searchShape.searchedFieldIds ?? []),
+    ].filter((fieldId): fieldId is string => Boolean(fieldId))
+  );
+  const searchFields = snapshot.searchShape.allFields
+    ? table.getFields()
+    : table.getFields().filter((field) => selectedFieldIds.has(field.id().toString()));
+  for (const field of searchFields) {
+    addExpectedIndexCandidate(
+      candidates,
+      [resolveField(field.id().toString(), { role: 'search' })],
+      'gin_trgm',
+      'Search field can use trigram index'
+    );
   }
 };
 
@@ -507,7 +543,7 @@ const matchesIndexColumn = (
 ): boolean => {
   if (!indexColumn || !fieldDbName) return false;
   const lowercaseField = fieldDbName.toLowerCase();
-  const quotedColumn = `"${lowercaseField.replace(/"/g, '""')}"`;
+  const quotedColumn = `"${lowercaseField.replaceAll('"', '""')}"`;
   return indexColumn.startsWith(quotedColumn) || indexColumn.startsWith(lowercaseField);
 };
 
@@ -516,11 +552,42 @@ const containsColumnReference = (
   fieldDbName: string
 ): boolean => {
   const lowercaseField = fieldDbName.toLowerCase();
-  const quotedColumn = `"${lowercaseField.replace(/"/g, '""')}"`;
+  const quotedColumn = `"${lowercaseField.replaceAll('"', '""')}"`;
   if (lowercaseIndexDefinition.includes(quotedColumn)) return true;
-  return new RegExp(`(^|[\\s(,])${escapeRegExp(lowercaseField)}([\\s),]|$)`).test(
+  return new RegExp(String.raw`(^|[\s(,])${escapeRegExp(lowercaseField)}([\s),]|$)`).test(
     lowercaseIndexDefinition
   );
 };
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const collectGeneratedTextIndexes = (
+  existingIndexes: ReadonlyArray<{ readonly name: string; readonly definition: string }>,
+  invalidNames: ReadonlySet<string>
+): ReadonlyArray<{
+  readonly kind: TableQueryIndexKind;
+  readonly accessPath: 'generated_text';
+  readonly valid: boolean;
+  readonly name: string;
+}> =>
+  existingIndexes
+    .filter((index) => isGeneratedTextSearchIndex(index))
+    .map((index) => ({
+      kind: index.definition.toLowerCase().includes('gin_bigm_ops') ? 'gin_bigm' : 'gin_trgm',
+      accessPath: 'generated_text' as const,
+      valid: !invalidNames.has(index.name),
+      name: index.name,
+    }));
+
+const isGeneratedTextSearchIndex = (index: {
+  readonly name: string;
+  readonly definition: string;
+}): boolean => {
+  const definition = index.definition.toLowerCase();
+  return (
+    isManagedSearchIndexName(index.name) &&
+    !index.name.startsWith(MANAGED_SCOPED_SEARCH_INDEX_PREFIX) &&
+    definition.includes(' using gin ') &&
+    (definition.includes('gin_trgm_ops') || definition.includes('gin_bigm_ops'))
+  );
+};

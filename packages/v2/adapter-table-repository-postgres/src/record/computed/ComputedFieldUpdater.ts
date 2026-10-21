@@ -1,10 +1,14 @@
+import { iterateFormulaSourceReferences } from '@teable/formula';
 import {
+  getPostgresTransaction,
   PostgresSqlExecutionError,
   resolvePostgresDbOrTx,
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
+  tableDataSafetyLimitErrors,
   FieldType,
+  FormulaField,
   FieldCondition,
   LinkRelationship,
   measureJsonBytes,
@@ -21,32 +25,64 @@ import type {
   ILogger,
   ITableRepository,
   LinkField,
+  Field,
   FieldId,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
+import {
+  formulaSqlPgTokens,
+  defaultFormulaCompileBudgetConfig,
+  checkFormulaSqlBudget,
+  type FormulaCompileBudgetConfig,
+  type FormulaCompileBudgetOptions,
+  type IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { CompiledQuery, Expression, Kysely, SqlBool } from 'kysely';
+import type { CompiledQuery, Expression, Kysely, RawBuilder, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  resolveColumnType,
+  resolveColumnName,
+} from '../../schema/visitors/PostgresTableSchemaFieldColumn';
 import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
-import {
-  SameTableBatchQueryBuilder,
-  type SameTableFieldLevel,
-} from '../query-builder/computed/SameTableBatchQueryBuilder';
+import { type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
+import type { ComputedActivityFieldError } from './activity/IComputedActivityProjector';
+import {
+  cleanupChangeFrontierOrphans,
+  clearChangeFrontier,
+  recordStageValueChanges,
+} from './ComputedChangeFrontier';
+import {
+  STAGE_LEDGER_TABLE,
+  type ComputedStageLedgerSettlementMode,
+  appendStageLedgerPartialBatch,
+  clearStageLedger,
+  collectStageOutputSeedGroups,
+  pushStageLedgerFrontierHead,
+  retireStageLedgerFrontierHead,
+  stageLedgerHasFrontier,
+  seedStageLedgerFrontierHead,
+} from './ComputedStageLedger';
 import {
   COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
   type ComputedUpdateLockConfig,
+  type ComputedUpdateLockStatement,
   type ComputedUpdateLockSummary,
+  buildAdvisoryLockBatchQuery,
   buildAdvisoryLockQuery,
   buildComputedUpdateLockPlan,
+  buildSharedAdvisoryLockQuery,
+  buildTryAdvisoryLockBatchQuery,
   buildTryAdvisoryLockQuery,
+  buildTrySharedAdvisoryLockQuery,
   defaultComputedUpdateLockConfig,
 } from './ComputedUpdateLock';
 import type {
@@ -63,10 +99,12 @@ import {
   toRunLogContext,
   toRunSpanAttributes,
 } from './ComputedUpdateRun';
+import { isValueGatedLinkEdge, recordIdsChangedForFields } from './ComputedValueGatedPropagation';
 import { toErrorLogFields } from './errorLog';
+import { planFormulaUpdateBatches, type FormulaUpdateQueryPlan } from './FormulaUpdateBatchPlanner';
 import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
-import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
-import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
+import { pushAll } from './pushAll';
+import { UpdateFromSelectBuilder, type UpdatedRecordRow } from './UpdateFromSelectBuilder';
 
 const DIRTY_TABLE = 'pg_temp.tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
@@ -75,7 +113,10 @@ const DIRTY_GENERATION_COL = 'generation';
 const BEFORE_IMAGE_TABLE = 'pg_temp.tmp_computed_before_image';
 const BEFORE_IMAGE_SNAPSHOT_COL = 'field_values';
 const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
+/** Dirty-count threshold above which a table collects as seed-all instead of ids. */
+const DEFAULT_SEED_ALL_THRESHOLD = 5000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
+const JSON_SAME_TABLE_BATCH_CHUNK_SIZE = 25;
 const COMPUTED_UPDATE_FIELD_CHUNK_SIZE = 16;
 const DISTINCT_HOST_KEY_UNCHUNK_MAX_DIRTY_RECORDS = 50_000;
 const DISTINCT_HOST_KEY_UNCHUNK_MAX_KEYS = 5_000;
@@ -85,6 +126,9 @@ const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""
 type ComputedUpdateQueryPlan = {
   selectQuery: QB;
   fieldIds: ReadonlyArray<FieldId>;
+  returning?: FormulaUpdateQueryPlan['returning'];
+  formulaBudget?: FormulaCompileBudgetOptions;
+  compiled?: CompiledQuery;
 };
 
 const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
@@ -103,10 +147,12 @@ const mergeRecordChanges = (
 ): void => {
   for (const change of changes) {
     const existing = target.get(change.recordId);
+    const changeNewVersion = change.newVersion ?? change.oldVersion + 1;
     if (!existing) {
       target.set(change.recordId, {
         recordId: change.recordId,
         oldVersion: change.oldVersion,
+        newVersion: changeNewVersion,
         changes: [...change.changes],
       });
       continue;
@@ -115,8 +161,61 @@ const mergeRecordChanges = (
     target.set(change.recordId, {
       recordId: change.recordId,
       oldVersion: Math.min(existing.oldVersion, change.oldVersion),
+      newVersion: Math.max(existing.newVersion ?? existing.oldVersion + 1, changeNewVersion),
       changes: [...existing.changes, ...change.changes],
     });
+  }
+};
+
+export const collapseRecordChangesByRecordId = (
+  recordChanges: ReadonlyArray<RecordChangeData>
+): RecordChangeData[] => {
+  const merged = new Map<string, RecordChangeData>();
+  mergeRecordChanges(merged, recordChanges);
+  return [...merged.values()].map((change) => {
+    const byField = new Map<string, FieldChangeData>();
+    for (const fieldChange of change.changes) {
+      const existing = byField.get(fieldChange.fieldId);
+      if (!existing) {
+        byField.set(fieldChange.fieldId, fieldChange);
+        continue;
+      }
+      byField.set(fieldChange.fieldId, {
+        fieldId: fieldChange.fieldId,
+        oldValue: existing.oldValue,
+        newValue: fieldChange.newValue,
+      });
+    }
+    return { ...change, changes: [...byField.values()] };
+  });
+};
+
+const encodeRevertValue = (rejection: ComputedCellLimitRejection): unknown => {
+  if (rejection.oldValue === undefined || rejection.oldValue === null) return null;
+  // node-pg serializes JS arrays as Postgres array literals and strings as
+  // bare text — neither is valid jsonb input, so jsonb old values must be
+  // JSON-encoded before binding (see FieldInsertValueVisitor for the same rule).
+  return rejection.columnType === 'jsonb' ? JSON.stringify(rejection.oldValue) : rejection.oldValue;
+};
+
+const stripRejectedFieldChanges = (
+  recordChanges: RecordChangeData[],
+  rejections: ReadonlyArray<ComputedCellLimitRejection>
+): void => {
+  const rejectedKeys = new Set(
+    rejections.map((rejection) => `${rejection.recordId}|${rejection.fieldId}`)
+  );
+  for (let index = recordChanges.length - 1; index >= 0; index -= 1) {
+    const record = recordChanges[index];
+    if (!record) continue;
+    const changes = record.changes.filter(
+      (change) => !rejectedKeys.has(`${record.recordId}|${change.fieldId}`)
+    );
+    if (changes.length === 0) {
+      recordChanges.splice(index, 1);
+      continue;
+    }
+    recordChanges[index] = { ...record, changes };
   }
 };
 /**
@@ -135,6 +234,8 @@ export type RecordChangeData = {
   recordId: string;
   /** Version of the record BEFORE this computed update */
   oldVersion: number;
+  /** Version of the record AFTER merged computed updates */
+  newVersion?: number;
   changes: ReadonlyArray<FieldChangeData>;
 };
 
@@ -147,11 +248,85 @@ export type StepChangeData = {
 };
 
 /**
+ * A computed cell that exceeded the persisted-value byte cap. Isolated async
+ * updates revert the column to `oldValue` and continue the rest of the cascade.
+ */
+export type ComputedCellLimitRejection = {
+  tableId: string;
+  recordId: string;
+  fieldId: string;
+  column: string;
+  /** Postgres column type — jsonb columns need re-serialization on revert. */
+  columnType: string;
+  oldValue: unknown;
+  attempted: number;
+  max: number;
+};
+
+export const formatComputedCellLimitErrorMessage = (attempted: number, max: number): string =>
+  `Computed cell value is too large (${attempted} / ${max} bytes). Shorten the source data or change the formula.`;
+
+/**
  * Result of computed update execution with optional change data.
  */
+/**
+ * Outcome of running dirty propagation under options.maxDirtyRecords.
+ * - 'exceeded' (abort mode): propagation stopped, no steps were executed; the
+ *   caller must retry with a smaller stage plan.
+ * - 'partial' (partial mode): propagation stopped at the budget but the steps
+ *   ran against the materialized batch; the caller must continue with the
+ *   processed records excluded until propagation completes.
+ */
+export type ComputedUpdateDirtyBudgetOutcome =
+  | { status: 'exceeded'; dirtyRecordsAtAbort: number }
+  | {
+      status: 'partial';
+      propagatedDirtyRecords: number;
+      /**
+       * Which side of the budget cut this batch short.
+       * - 'seeding': bounded whole-table seeding has more source rows to seed;
+       *   the seeded slice's propagation completed, so the slice may retire.
+       * - 'propagation': the seeded slice's targets are not fully materialized;
+       *   sources must NOT retire — the next batch re-seeds the slice and
+       *   progresses via target-side exclusions.
+       * - 'both': seeding truncated and the slice's propagation also truncated.
+       */
+      truncated: 'seeding' | 'propagation' | 'both';
+      /**
+       * How many frontier-queue rows this batch seeded (a stable prefix).
+       * Settlement retires exactly this prefix once propagation completed.
+       */
+      frontierConsumed?: number;
+      /**
+       * Highest run-ledger seq among the consumed frontier prefix; settlement
+       * retires ledger rows up to this seq once propagation completed.
+       */
+      frontierMaxSeq?: string;
+      /**
+       * Advanced whole-table seeding cursors (last __id seeded per table).
+       * Settlement persists them once the slice's propagation completed.
+       */
+      seedAllCursors?: Readonly<Record<string, string>>;
+      /**
+       * Every table this batch seeded in whole-table form (explicit seed-all and
+       * the implicit schema-update case alike). Settlement normalizes them into
+       * explicit seedAllTableIds on the continuation, so classification never
+       * re-derives the implicit case from the (migrated-away) seed fields.
+       */
+      wholeTableSeedTables?: ReadonlyArray<string>;
+    };
+
 export type ComputedUpdateResult = {
   /** Change data by step, used for event generation */
   changesByStep: ReadonlyArray<StepChangeData>;
+  /** Present only when a dirty budget cut this run short; absent = complete run. */
+  dirtyBudget?: ComputedUpdateDirtyBudgetOutcome;
+  /**
+   * Oversized computed cells that were reverted in-place so the rest of the
+   * update could commit. Absent unless isolateOversizedComputedCells was set.
+   */
+  rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>;
+  fieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
 };
 
 const stepKey = (step: UpdateStep): string => `${step.tableId.toString()}|${step.level}`;
@@ -234,6 +409,8 @@ type AllTargetReasonCounts = Partial<Record<AllTargetRecordsReason, number>>;
 export type DirtyPropagationStats = {
   plannedAllTargetReasonCounts: AllTargetReasonCounts;
   runtimeAllTargetFallbackReasonCounts: AllTargetReasonCounts;
+  /** Present only when maxDirtyRecords stopped propagation early. */
+  dirtyBudget?: ComputedUpdateDirtyBudgetOutcome;
 };
 
 const incrementAllTargetReasonCount = (
@@ -301,6 +478,7 @@ interface StepTraceInfo {
 interface StepExecutionResult {
   traceInfo: StepTraceInfo;
   recordChanges: ReadonlyArray<RecordChangeData>;
+  rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>;
 }
 
 /**
@@ -309,6 +487,9 @@ interface StepExecutionResult {
 export type ExecutePreparedStepsResult = {
   traceInfos: ReadonlyArray<StepTraceInfo>;
   changesByStep: ReadonlyArray<StepChangeData>;
+  rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>;
+  fieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
+  dirtyBudget?: ComputedUpdateDirtyBudgetOutcome;
 };
 
 export type PreparedDirtyState = {
@@ -317,11 +498,94 @@ export type PreparedDirtyState = {
   dirtyStats: ReadonlyArray<DirtyRecordStats>;
   totalDirtyRecords: number;
   propagationStats: DirtyPropagationStats;
+  /** Catalog results belong to this prepared operation and its transaction only. */
+  storageColumnCache: Map<string, boolean>;
+  valueGatedEdges?: ReadonlyArray<ComputedDependencyEdge>;
+  valueGatedPropagateOptions?: {
+    maxDirtyRecords?: number;
+    dirtyBudgetMode?: 'abort' | 'partial';
+    exclusionScopeId?: string;
+  };
 };
 
 type ComputedUpdateLockOptions = {
   logContext?: Record<string, unknown>;
   wait?: boolean;
+};
+
+const lockUnavailable = (statement: ComputedUpdateLockStatement) =>
+  err(
+    domainError.infrastructure({
+      code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+      message: `Computed update lock unavailable: ${statement.key}`,
+      details: {
+        lockKey: statement.key,
+        lockScope: statement.scope,
+        lockTableId: statement.tableId,
+        lockBatchId: statement.batchId,
+        lockRecordId: statement.recordId,
+        lockShared: statement.shared,
+      },
+    })
+  );
+
+const acquireTableLock = async (
+  db: Kysely<DynamicDB>,
+  statement: ComputedUpdateLockStatement,
+  waitForLocks: boolean
+): Promise<Result<ComputedUpdateLockSummary, DomainError> | undefined> => {
+  if (waitForLocks) {
+    await db.executeQuery(
+      statement.shared
+        ? buildSharedAdvisoryLockQuery(db, statement.key)
+        : buildAdvisoryLockQuery(db, statement.key)
+    );
+    return undefined;
+  }
+  const result = await db.executeQuery(
+    statement.shared
+      ? buildTrySharedAdvisoryLockQuery(db, statement.key)
+      : buildTryAdvisoryLockQuery(db, statement.key)
+  );
+  if (result.rows[0]?.locked !== true) {
+    return lockUnavailable(statement);
+  }
+  return undefined;
+};
+
+/**
+ * Seed-input eligibility, shared by execute() and prepareDirtyState() so the
+ * rules cannot drift: seedAllTableIds is real seed input (a continuation
+ * carrying only seed-all tables must not be mistaken for a schema-update
+ * "seed everything" run), and the stage ledger's frontier queue counts too —
+ * probed only when everything else is empty.
+ */
+const resolveSeedInputEligibility = async (
+  db: Kysely<DynamicDB>,
+  plan: ComputedUpdatePlan,
+  ledgerScopeId: string | undefined
+): Promise<
+  Result<{ noSeedInput: boolean; shouldSeedAllForSchemaUpdate: boolean }, DomainError>
+> => {
+  const noExplicitSeedInput =
+    plan.seedRecordIds.length === 0 &&
+    plan.extraSeedRecords.length === 0 &&
+    (plan.seedAllTableIds ?? []).length === 0;
+  let ledgerFrontierPresent = false;
+  if (
+    (plan.steps.length > 0 || plan.edges.length > 0) &&
+    noExplicitSeedInput &&
+    ledgerScopeId !== undefined
+  ) {
+    const hasFrontier = await stageLedgerHasFrontier(db, ledgerScopeId);
+    if (hasFrontier.isErr()) return err(hasFrontier.error);
+    ledgerFrontierPresent = hasFrontier.value;
+  }
+  const noSeedInput = noExplicitSeedInput && !ledgerFrontierPresent;
+  return ok({
+    noSeedInput,
+    shouldSeedAllForSchemaUpdate: noSeedInput && plan.changeType === 'update',
+  });
 };
 
 /**
@@ -347,7 +611,9 @@ export class ComputedFieldUpdater {
     @inject(formulaSqlPgTokens.typeValidationStrategy)
     private readonly typeValidationStrategy: IPgTypeValidationStrategy,
     @inject(v2CoreTokens.tableDataSafetyLimitComposer)
-    private readonly tableDataSafetyLimitComposer: TableDataSafetyLimitComposer = new TableDataSafetyLimitComposer()
+    private readonly tableDataSafetyLimitComposer: TableDataSafetyLimitComposer = new TableDataSafetyLimitComposer(),
+    @inject(formulaSqlPgTokens.compileBudget)
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
   ) {}
 
   private async executeComputedQuery(
@@ -372,11 +638,49 @@ export class ComputedFieldUpdater {
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
     run?: ComputedUpdateRunContext,
-    options?: { collectChanges?: boolean; lockWait?: boolean }
+    options?: {
+      collectChanges?: boolean;
+      /** Track selected source tables and invalidate evidence for excluded tables. */
+      valueFrontier?: { tableIds: ReadonlyArray<string> };
+      lockWait?: boolean;
+      maxDirtyRecords?: number;
+      dirtyBudgetMode?: 'abort' | 'partial';
+      maxStatements?: number;
+      /**
+       * Scope id (the continuation chain's root task id) of the staged
+       * execution's durable stage ledger. When set, the frontier queue seeds
+       * from — and processed targets anti-join against —
+       * computed_update_stage_ledger instead of plan-carried record arrays.
+       */
+      ledgerScopeId?: string;
+      /**
+       * When true (async worker only), oversized non-link computed cells are
+       * reverted to their previous value so the rest of the cascade can commit.
+       * Synchronous user-facing updates keep the default fail-and-rollback.
+       */
+      isolateOversizedComputedCells?: boolean;
+    }
   ): Promise<Result<ComputedUpdateResult, DomainError>> {
-    const noSeedInput = plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0;
-    const shouldSeedAllForSchemaUpdate = noSeedInput && plan.changeType === 'update';
-    if (plan.steps.length === 0 || (noSeedInput && !shouldSeedAllForSchemaUpdate)) {
+    const executeDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    if (options?.ledgerScopeId && options.valueFrontier !== undefined) {
+      // A partial batch can become untracked after a budget/config change.
+      // Invalidate old table coverage before processing even overlapping rows.
+      await clearChangeFrontier(executeDb, options.ledgerScopeId, options.valueFrontier.tableIds);
+    }
+    if (plan.steps.length === 0 && plan.edges.length === 0) {
+      return ok({ changesByStep: [] });
+    }
+    // Backfill joins on computed expressions (e.g. the to_jsonb-wrapped field
+    // comparisons of conditional lookups) have no column statistics, so the
+    // planner's inflated row estimates routinely push the statement cost past
+    // jit_optimize_above_cost and pay a one-off LLVM compile of ~400ms per
+    // backfill. These are one-shot dynamic statements — JIT never amortizes.
+    if (getPostgresTransaction(context)) {
+      await executeDb.executeQuery(sql.raw('SET LOCAL jit = off').compile(executeDb));
+    }
+    const eligibility = await resolveSeedInputEligibility(executeDb, plan, options?.ledgerScopeId);
+    if (eligibility.isErr()) return err(eligibility.error);
+    if (eligibility.value.noSeedInput && !eligibility.value.shouldSeedAllForSchemaUpdate) {
       return ok({ changesByStep: [] });
     }
 
@@ -450,6 +754,7 @@ export class ComputedFieldUpdater {
       seedTableId: effectivePlan.seedTableId.toString(),
       changeType: effectivePlan.changeType,
       seedRecordIds: effectivePlan.seedRecordIds.map((r) => r.toString()),
+      ledgerScopeId: options?.ledgerScopeId,
       steps: effectivePlan.steps.map((s) => ({
         tableId: s.tableId.toString(),
         level: s.level,
@@ -495,7 +800,31 @@ export class ComputedFieldUpdater {
       safeTry<ComputedUpdateResult, DomainError>(
         async function* (this: ComputedFieldUpdater) {
           currentPhase = 'prepare_dirty_state';
-          const prepared = yield* await this.prepareDirtyState(effectivePlan, context);
+          const prepared = yield* await this.prepareDirtyState(effectivePlan, context, {
+            maxDirtyRecords: options?.maxDirtyRecords,
+            dirtyBudgetMode: options?.dirtyBudgetMode,
+            ledgerScopeId: options?.ledgerScopeId,
+            deferValueGatedEdges: collectChanges,
+          });
+          const dirtyBudget = prepared.propagationStats.dirtyBudget;
+          if (dirtyBudget?.status === 'exceeded') {
+            mainSpan?.setAttribute('computed.dirtyBudgetOutcome', 'exceeded');
+            runLogger.warn('computed:run:dirty_budget_exceeded', {
+              maxDirtyRecords: options?.maxDirtyRecords,
+              dirtyRecordsAtAbort: dirtyBudget.dirtyRecordsAtAbort,
+              stepCount: effectivePlan.steps.length,
+              edgeCount: effectivePlan.edges.length,
+            });
+            return ok({ changesByStep: [], dirtyBudget });
+          }
+          if (dirtyBudget?.status === 'partial') {
+            mainSpan?.setAttribute('computed.dirtyBudgetOutcome', 'partial');
+            runLogger.info('computed:run:dirty_budget_partial', {
+              maxDirtyRecords: options?.maxDirtyRecords,
+              propagatedDirtyRecords: dirtyBudget.propagatedDirtyRecords,
+              stepCount: effectivePlan.steps.length,
+            });
+          }
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
           mainSpan?.setAttribute('computed.affectedTableCount', prepared.dirtyStats.length);
           const runtimeFallbackCount = countAllTargetReasonOccurrences(
@@ -519,7 +848,28 @@ export class ComputedFieldUpdater {
           });
 
           currentPhase = 'execute_prepared_steps';
-          const stepsResult = yield* await this.executePreparedSteps(
+          const rollbackOnExceed =
+            (((options?.maxDirtyRecords ?? 0) > 0 && options?.dirtyBudgetMode !== 'partial') ||
+              (options?.maxStatements ?? 0) > 0) &&
+            'isTransaction' in prepared.db &&
+            prepared.db.isTransaction === true;
+          if ((options?.maxStatements ?? 0) > 0 && !rollbackOnExceed) {
+            return err(
+              domainError.infrastructure({
+                message: 'Statement-budgeted computation requires a transaction',
+              })
+            );
+          }
+          const abortSavepoint = 'computed_abort_prepared_steps';
+          if (rollbackOnExceed) {
+            await sql.raw(`SAVEPOINT ${abortSavepoint}`).execute(prepared.db);
+          }
+          const rollbackAbortSavepoint = async () => {
+            if (!rollbackOnExceed) return;
+            await sql.raw(`ROLLBACK TO SAVEPOINT ${abortSavepoint}`).execute(prepared.db);
+            await sql.raw(`RELEASE SAVEPOINT ${abortSavepoint}`).execute(prepared.db);
+          };
+          const stepsOutcome = await this.executePreparedSteps(
             effectivePlan,
             context,
             prepared,
@@ -529,8 +879,53 @@ export class ComputedFieldUpdater {
             {
               wait: options?.lockWait,
               logContext: toRunLogContext(resolvedRun),
-            }
+            },
+            options?.isolateOversizedComputedCells ?? false,
+            options?.maxStatements
           );
+          if (stepsOutcome.isErr()) {
+            await rollbackAbortSavepoint();
+            return err(stepsOutcome.error);
+          }
+          const stepsResult = stepsOutcome.value;
+          if (stepsResult.dirtyBudget?.status === 'exceeded') {
+            await rollbackAbortSavepoint();
+            mainSpan?.setAttribute('computed.dirtyBudgetOutcome', 'exceeded');
+            runLogger.warn('computed:run:dirty_budget_exceeded', {
+              maxDirtyRecords: options?.maxDirtyRecords,
+              dirtyRecordsAtAbort: stepsResult.dirtyBudget.dirtyRecordsAtAbort,
+              stepCount: effectivePlan.steps.length,
+              edgeCount: effectivePlan.edges.length,
+              phase: 'execute_prepared_steps',
+            });
+            return ok({
+              changesByStep: [],
+              dirtyBudget: stepsResult.dirtyBudget,
+            });
+          }
+          if (rollbackOnExceed) {
+            try {
+              await sql.raw(`RELEASE SAVEPOINT ${abortSavepoint}`).execute(prepared.db);
+            } catch {
+              // Already released.
+            }
+          }
+          if (
+            collectChanges &&
+            options?.ledgerScopeId &&
+            options.valueFrontier &&
+            options.valueFrontier.tableIds.length > 0
+          ) {
+            await recordStageValueChanges(
+              prepared.db,
+              options.ledgerScopeId,
+              effectivePlan,
+              prepared.tableById,
+              stepsResult.changesByStep,
+              stepsResult.rejectedCells,
+              options.valueFrontier.tableIds
+            );
+          }
           mainSpan?.setAttribute('computed.executedStepCount', stepsResult.traceInfos.length);
 
           const completedSteps = resolvedRun.completedStepsBefore + stepsResult.traceInfos.length;
@@ -540,7 +935,14 @@ export class ComputedFieldUpdater {
             durationMs: Date.now() - runStartTime,
           });
 
-          return ok({ changesByStep: stepsResult.changesByStep });
+          return ok({
+            changesByStep: stepsResult.changesByStep,
+            ...(dirtyBudget ? { dirtyBudget } : {}),
+            ...(stepsResult.rejectedCells?.length
+              ? { rejectedCells: stepsResult.rejectedCells }
+              : {}),
+            ...(stepsResult.fieldErrors?.length ? { fieldErrors: stepsResult.fieldErrors } : {}),
+          });
         }.bind(this)
       );
 
@@ -572,7 +974,10 @@ export class ComputedFieldUpdater {
     context: IExecutionContext,
     options?: ComputedUpdateLockOptions
   ): Promise<Result<ComputedUpdateLockSummary, DomainError>> {
-    const lockPlan = buildComputedUpdateLockPlan(plan, this.lockConfig);
+    const writeTableIds = [...new Set(plan.steps.map((step) => step.tableId.toString()))];
+    const lockPlan = buildComputedUpdateLockPlan(plan, this.lockConfig, {
+      writeTableIds: writeTableIds.length > 0 ? writeTableIds : undefined,
+    });
     const summary = lockPlan.summary;
     const waitForLocks = options?.wait ?? true;
     if (summary.mode === 'disabled' || summary.mode === 'none') {
@@ -596,27 +1001,38 @@ export class ComputedFieldUpdater {
     const runWork = async (): Promise<Result<ComputedUpdateLockSummary, DomainError>> => {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       try {
-        for (const statement of lockPlan.statements) {
-          if (waitForLocks) {
-            await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
-            continue;
-          }
+        // Table locks (shared covering or exclusive fallback) first, in tableId
+        // order, then exclusive record/batch keys. Mixing shared and exclusive
+        // in one unnest would take the covering key exclusively and serialize
+        // unrelated small updates; taking records before a later table also
+        // inverts lock order across multi-table plans.
+        const tableStatements = lockPlan.statements
+          .filter((statement) => statement.scope === 'table')
+          .sort(
+            (left, right) =>
+              left.tableId.localeCompare(right.tableId) || left.key.localeCompare(right.key)
+          );
+        const exclusiveKeys = lockPlan.statements
+          .filter((statement) => statement.scope !== 'table')
+          .map((statement) => statement.key)
+          .sort((left, right) => left.localeCompare(right));
 
-          const result = await db.executeQuery(buildTryAdvisoryLockQuery(db, statement.key));
-          if (!result.rows[0]?.locked) {
-            return err(
-              domainError.infrastructure({
-                code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
-                message: `Computed update lock unavailable: ${statement.key}`,
-                details: {
-                  lockKey: statement.key,
-                  lockScope: statement.scope,
-                  lockTableId: statement.tableId,
-                  lockBatchId: statement.batchId,
-                  lockRecordId: statement.recordId,
-                },
-              })
+        for (const statement of tableStatements) {
+          const unavailable = await acquireTableLock(db, statement, waitForLocks);
+          if (unavailable) return unavailable;
+        }
+        if (exclusiveKeys.length > 0) {
+          if (waitForLocks) {
+            await db.executeQuery(buildAdvisoryLockBatchQuery(db, exclusiveKeys));
+          } else {
+            const result = await db.executeQuery(buildTryAdvisoryLockBatchQuery(db, exclusiveKeys));
+            const lockedByKey = new Map(result.rows.map((row) => [row.key, row.locked]));
+            const failed = lockPlan.statements.find(
+              (statement) => statement.scope !== 'table' && lockedByKey.get(statement.key) !== true
             );
+            if (failed) {
+              return lockUnavailable(failed);
+            }
           }
         }
       } catch (error) {
@@ -716,22 +1132,35 @@ export class ComputedFieldUpdater {
    */
   async prepareDirtyState(
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    options?: {
+      maxDirtyRecords?: number;
+      dirtyBudgetMode?: 'abort' | 'partial';
+      /** @see execute — durable stage ledger scope for staged executions. */
+      ledgerScopeId?: string;
+      /** Delay eligible linkTraversal edges until formula RETURNING. */
+      deferValueGatedEdges?: boolean;
+    }
   ): Promise<Result<PreparedDirtyState, DomainError>> {
-    const noSeedInput = plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0;
-    const shouldSeedAllForSchemaUpdate = noSeedInput && plan.changeType === 'update';
-    if (plan.steps.length === 0 || (noSeedInput && !shouldSeedAllForSchemaUpdate)) {
-      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const storageColumnCache = new Map<string, boolean>();
+    const eligibilityResult = await resolveSeedInputEligibility(db, plan, options?.ledgerScopeId);
+    if (eligibilityResult.isErr()) return err(eligibilityResult.error);
+    const { noSeedInput, shouldSeedAllForSchemaUpdate } = eligibilityResult.value;
+    if (
+      (plan.steps.length === 0 && plan.edges.length === 0) ||
+      (noSeedInput && !shouldSeedAllForSchemaUpdate)
+    ) {
       return ok({
         db,
         tableById: new Map(),
         dirtyStats: [],
         totalDirtyRecords: 0,
         propagationStats: emptyDirtyPropagationStats(),
+        storageColumnCache,
+        valueGatedEdges: [],
       });
     }
-
-    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
     return safeTry<PreparedDirtyState, DomainError>(
       async function* (this: ComputedFieldUpdater) {
@@ -768,42 +1197,197 @@ export class ComputedFieldUpdater {
           resetBeforeImageTable(db)
         );
 
-        // Seed dirty records - wrap with span
+        // Targets already computed by earlier partial batches of this run stage
+        // live in the run-scoped ledger (kind 'excluded') and are anti-joined
+        // directly by budgeted seeding/propagation, so every batch's LIMIT slots
+        // go only to genuinely-new rows — no per-batch copy into the transaction.
+        const exclusionScopeId = options?.ledgerScopeId;
+
+        const maxDirtyRecords =
+          options?.maxDirtyRecords !== undefined && options.maxDirtyRecords > 0
+            ? Math.trunc(options.maxDirtyRecords)
+            : undefined;
+        const partialMode = maxDirtyRecords !== undefined && options?.dirtyBudgetMode === 'partial';
+        // Seeding and propagation share one budget pool: seeding may take at most
+        // half so propagation always keeps at least one slot, keeping the
+        // per-transaction ceiling at explicit seeds + stageMaxDirtyRecords total.
+        const partialSeedingBudget =
+          partialMode && maxDirtyRecords !== undefined
+            ? Math.max(1, Math.floor(maxDirtyRecords / 2))
+            : undefined;
+        let seedingConsumed = 0;
+        let frontierConsumed = 0;
+        let frontierMaxSeq: string | undefined;
+        const advancedSeedAllCursors: Record<string, string> = {};
+        const wholeTableSeededTables = new Set<string>();
+        let seedAllBudgetOutcome: DirtyPropagationStats['dirtyBudget'];
+
+        // Seed dirty records - wrap with span. Full-table seeding (explicit seed-all
+        // tables and schema-update runs alike) is budget-bounded: at most `limit`
+        // rows materialize per table, and truncation surfaces as a budget outcome
+        // instead of flooding the transaction.
         yield* await runWithSpan(
           'teable.ComputedFieldUpdater.seedDirtyRecords',
           async () => {
+            const seedWholeTable = async (table: Table): Promise<Result<void, DomainError>> => {
+              const tableKey = table.id().toString();
+              wholeTableSeededTables.add(tableKey);
+              const cursor = plan.seedAllCursors?.[tableKey];
+              if (maxDirtyRecords === undefined) {
+                if (cursor === undefined) {
+                  return seedAllDirtyRecordsForTable(db, table);
+                }
+                // Cursored plan executed without a budget: seed the remainder only.
+                const remainderResult = await seedAllDirtyRecordsForTableBounded(
+                  db,
+                  table,
+                  Number.MAX_SAFE_INTEGER,
+                  exclusionScopeId,
+                  cursor
+                );
+                return remainderResult.isErr() ? err(remainderResult.error) : ok(undefined);
+              }
+
+              const seedingBudget = partialSeedingBudget ?? maxDirtyRecords;
+              const remaining = seedingBudget - seedingConsumed;
+              if (remaining <= 0) {
+                seedAllBudgetOutcome = partialMode
+                  ? {
+                      status: 'partial',
+                      propagatedDirtyRecords: seedingConsumed,
+                      truncated: 'seeding',
+                    }
+                  : { status: 'exceeded', dirtyRecordsAtAbort: seedingConsumed };
+                return ok(undefined);
+              }
+              const limit = partialMode ? remaining : remaining + 1;
+              const seededResult = await seedAllDirtyRecordsForTableBounded(
+                db,
+                table,
+                limit,
+                exclusionScopeId,
+                cursor
+              );
+              if (seededResult.isErr()) return err(seededResult.error);
+              seedingConsumed += seededResult.value.count;
+              if (seededResult.value.lastRecordId !== undefined) {
+                advancedSeedAllCursors[tableKey] = seededResult.value.lastRecordId;
+              }
+              if (seededResult.value.count >= limit) {
+                seedAllBudgetOutcome = partialMode
+                  ? {
+                      status: 'partial',
+                      propagatedDirtyRecords: seedingConsumed,
+                      truncated: 'seeding',
+                    }
+                  : { status: 'exceeded', dirtyRecordsAtAbort: seedingConsumed };
+              }
+              return ok(undefined);
+            };
+
             if (noSeedInput && shouldSeedAllForSchemaUpdate) {
               const seedTable = tableById.get(plan.seedTableId.toString());
               if (!seedTable) {
-                return err(
-                  domainError.notFound({
-                    message: `Missing seed table for full dirty seeding: ${plan.seedTableId.toString()}`,
-                  })
-                );
+                return ok(undefined);
               }
-              return seedAllDirtyRecordsForTable(db, seedTable);
+              // Fall through: self-referential schema-update continuations carry a
+              // frontier that must still seed, or its unfinished propagation is lost.
+              const wholeTableResult = await seedWholeTable(seedTable);
+              if (wholeTableResult.isErr()) return wholeTableResult;
             }
 
-            // Seed "all records" tables via efficient SQL (skip individual record IDs)
             for (const tableId of plan.seedAllTableIds ?? []) {
               const table = tableById.get(tableId.toString());
               if (!table) {
-                return err(
-                  domainError.notFound({
-                    message: `Missing table for seed-all dirty seeding: ${tableId.toString()}`,
-                  })
-                );
+                continue;
               }
-              const result = await seedAllDirtyRecordsForTable(db, table);
+              const result = await seedWholeTable(table);
               if (result.isErr()) return result;
+              if (seedAllBudgetOutcome?.status === 'exceeded') break;
             }
 
-            // Seed individual records for remaining tables
-            if (plan.seedRecordIds.length > 0) {
-              const seedResult = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
-              if (seedResult.isErr()) return seedResult;
+            // Seed individual records for remaining tables. In abort mode they
+            // count against the budget BEFORE materializing: a seed set that
+            // cannot fit reports exceeded immediately (zero extra rows), the
+            // caller shrinks to the floor, and floor entry migrates the seeds
+            // into the frontier queue — so every budgeted transaction
+            // materializes at most stageMaxDirtyRecords dirty rows (+1 abort
+            // probe sentinel), regardless of the seed set's size.
+            const explicitSeedCount =
+              plan.seedRecordIds.length +
+              plan.extraSeedRecords.reduce((sum, group) => sum + group.recordIds.length, 0);
+            if (
+              !partialMode &&
+              maxDirtyRecords !== undefined &&
+              !seedAllBudgetOutcome &&
+              seedingConsumed + explicitSeedCount > maxDirtyRecords
+            ) {
+              seedAllBudgetOutcome = {
+                status: 'exceeded',
+                dirtyRecordsAtAbort: seedingConsumed + explicitSeedCount,
+              };
             }
-            return seedExtraDirtyRecords(db, plan.extraSeedRecords);
+            if (seedAllBudgetOutcome?.status !== 'exceeded') {
+              if (plan.seedRecordIds.length > 0) {
+                const seedResult = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
+                if (seedResult.isErr()) return seedResult;
+              }
+              // INSERT owns only the new rows. Extra seeds are typically the
+              // linked foreign record; seeding them expands lookup edges onto
+              // every pre-existing sibling host and then contends with the
+              // in-flight foreign cascade (first-name-only create-order).
+              const seedInsertOnly =
+                plan.changeType === 'insert' && (plan.seedAllTableIds?.length ?? 0) === 0;
+              if (!seedInsertOnly) {
+                const extraResult = await seedExtraDirtyRecords(db, plan.extraSeedRecords);
+                if (extraResult.isErr()) return extraResult;
+              }
+            }
+            // Frontier queue: sources for the next self-referential generations,
+            // stored seq-ordered in the run ledger. Only a budget-bounded HEAD
+            // seeds per batch (sharing the seeding pool with whole-table slices)
+            // so a wide generation cannot flood the transaction; the rest of the
+            // queue waits for later batches. The consumed head (count + max seq)
+            // is reported so settlement can retire exactly the sources whose
+            // propagation completed.
+            if (exclusionScopeId !== undefined && seedAllBudgetOutcome?.status !== 'exceeded') {
+              const seedingBudget = partialSeedingBudget ?? maxDirtyRecords;
+              // The frontier never overdraws the seeding pool: with the pool
+              // exhausted the queue simply waits for the next batch (reported as
+              // a seeding truncation below), keeping the per-transaction total at
+              // exactly maxDirtyRecords — seeding <= floor(budget/2), propagation
+              // gets the remainder.
+              const frontierLimit =
+                seedingBudget === undefined
+                  ? undefined
+                  : Math.max(0, seedingBudget - seedingConsumed);
+              const headResult =
+                frontierLimit === 0
+                  ? // Pool exhausted: seed nothing, but a non-empty queue must
+                    // still surface as a remainder (else the stage would complete
+                    // and drop it).
+                    (await stageLedgerHasFrontier(db, exclusionScopeId)).map((hasQueue) => ({
+                      consumed: 0,
+                      maxSeq: null,
+                      remainder: hasQueue,
+                    }))
+                  : await seedStageLedgerFrontierHead(db, exclusionScopeId, frontierLimit);
+              if (headResult.isErr()) return err(headResult.error);
+              frontierConsumed = headResult.value.consumed;
+              frontierMaxSeq = headResult.value.maxSeq ?? undefined;
+              seedingConsumed += frontierConsumed;
+              // An unseeded queue remainder is a seeding truncation: without the
+              // partial outcome the stage would complete and drop the queue,
+              // losing the remaining sources' propagation entirely.
+              if (partialMode && headResult.value.remainder && !seedAllBudgetOutcome) {
+                seedAllBudgetOutcome = {
+                  status: 'partial',
+                  propagatedDirtyRecords: seedingConsumed,
+                  truncated: 'seeding',
+                };
+              }
+            }
+            return ok(undefined);
           },
           {
             seedCount: plan.seedRecordIds.length,
@@ -819,12 +1403,97 @@ export class ComputedFieldUpdater {
           }
         );
 
-        // Propagate dirty records - wrap with span so propagateEdge spans are children
+        // Propagate dirty records - wrap with span so propagateEdge spans are children.
+        // Abort mode stops before propagation once seeding exceeded the budget.
+        // Partial mode ALWAYS propagates the seeded batch — skipping propagation
+        // after truncated seeding would produce zero targets, zero exclusions, and
+        // an identical continuation (an infinite loop). Seeding (whole-table slices
+        // + frontier prefix) and propagation share one maxDirtyRecords pool, so the
+        // per-transaction ceiling is that pool plus the upstream-bounded explicit
+        // seeds.
+        const valueGatedEdges = options?.deferValueGatedEdges
+          ? plan.edges.filter((edge) => isValueGatedLinkEdge(edge, plan, tableById))
+          : [];
+        const valueGatedEdgeSet = new Set(valueGatedEdges);
+        const stageFieldIds = new Set(
+          plan.steps.flatMap((step) => step.fieldIds.map((fieldId) => fieldId.toString()))
+        );
+        const edgesToPropagate = plan.edges.filter(
+          (edge) =>
+            !valueGatedEdgeSet.has(edge) && canInsertEdgeChangeTargets(plan, edge, stageFieldIds)
+        );
+        const valueGatedPropagateOptions = {
+          ...(options?.maxDirtyRecords !== undefined
+            ? { maxDirtyRecords: options.maxDirtyRecords }
+            : {}),
+          ...(options?.dirtyBudgetMode !== undefined
+            ? { dirtyBudgetMode: options.dirtyBudgetMode }
+            : {}),
+          ...(exclusionScopeId !== undefined ? { exclusionScopeId } : {}),
+        };
+
         const propagationStats = (yield* await runWithSpan(
           'teable.ComputedFieldUpdater.propagateDirtyRecords',
-          () => propagateDirtyRecords(db, plan.edges, tableById, context),
+          async () => {
+            if (seedAllBudgetOutcome && !partialMode) {
+              return ok({
+                ...emptyDirtyPropagationStats(),
+                dirtyBudget: seedAllBudgetOutcome,
+              });
+            }
+            const propagateResult = await propagateDirtyRecords(
+              db,
+              edgesToPropagate,
+              tableById,
+              storageColumnCache,
+              context,
+              {
+                maxDirtyRecords:
+                  partialMode && maxDirtyRecords !== undefined
+                    ? Math.max(1, maxDirtyRecords - seedingConsumed)
+                    : options?.maxDirtyRecords,
+                dirtyBudgetMode: options?.dirtyBudgetMode,
+                exclusionScopeId,
+              }
+            );
+            if (propagateResult.isErr() || !seedAllBudgetOutcome) return propagateResult;
+
+            const stats = propagateResult.value;
+            const propagationOutcome = stats.dirtyBudget;
+            const propagationTruncated =
+              propagationOutcome?.status === 'partial' &&
+              (propagationOutcome.truncated === 'propagation' ||
+                propagationOutcome.truncated === 'both');
+            return ok({
+              ...stats,
+              dirtyBudget: {
+                status: 'partial' as const,
+                propagatedDirtyRecords:
+                  seedingConsumed +
+                  (propagationOutcome?.status === 'partial'
+                    ? propagationOutcome.propagatedDirtyRecords
+                    : 0),
+                truncated: propagationTruncated ? ('both' as const) : ('seeding' as const),
+              },
+            });
+          },
           { 'propagate.edgeCount': plan.edges.length }
         )) as DirtyPropagationStats;
+
+        // Attach the consumed frontier prefix to partial outcomes so settlement
+        // can retire exactly the sources whose propagation completed.
+        if (propagationStats.dirtyBudget?.status === 'partial') {
+          propagationStats.dirtyBudget = {
+            ...propagationStats.dirtyBudget,
+            ...(frontierConsumed > 0 ? { frontierConsumed, frontierMaxSeq } : {}),
+            ...(Object.keys(advancedSeedAllCursors).length > 0
+              ? { seedAllCursors: { ...plan.seedAllCursors, ...advancedSeedAllCursors } }
+              : {}),
+            ...(wholeTableSeededTables.size > 0
+              ? { wholeTableSeedTables: [...wholeTableSeededTables] }
+              : {}),
+          };
+        }
 
         // Collect dirty stats - wrap with span
         const dirtyStats = yield* await runWithSpan(
@@ -839,6 +1508,11 @@ export class ComputedFieldUpdater {
           dirtyStats,
           totalDirtyRecords,
           propagationStats,
+          storageColumnCache,
+          valueGatedEdges,
+          ...(Object.keys(valueGatedPropagateOptions).length > 0
+            ? { valueGatedPropagateOptions }
+            : {}),
         });
       }.bind(this)
     );
@@ -860,7 +1534,9 @@ export class ComputedFieldUpdater {
     steps: ReadonlyArray<UpdateStep> = plan.steps,
     run?: ComputedUpdateRunContext,
     collectChanges: boolean = false,
-    lockOptions?: ComputedUpdateLockOptions
+    lockOptions?: ComputedUpdateLockOptions,
+    isolateOversizedComputedCells: boolean = false,
+    maxStatements: number = 0
   ): Promise<Result<ExecutePreparedStepsResult, DomainError>> {
     if (steps.length === 0) return ok({ traceInfos: [], changesByStep: [] });
 
@@ -876,7 +1552,81 @@ export class ComputedFieldUpdater {
     const updateBuilder = new UpdateFromSelectBuilder(prepared.db);
     const stepTraces: StepTraceInfo[] = [];
     const changesByStep: StepChangeData[] = [];
+    const rejectedCells: ComputedCellLimitRejection[] = [];
+    const blockedFields = new Map<string, ComputedActivityFieldError>(
+      plan.terminalFieldErrors?.map((entry) => [entry.fieldId, entry]) ?? []
+    );
+    const statementBudget = { max: maxStatements, used: 0 };
+    let fieldTableIds: Map<string, string>;
+    let dependents: Map<string, Set<string>> | undefined;
+    const recordFormulaFailure = (fieldId: FieldId, error: DomainError) => {
+      if (!dependents) {
+        dependents = new Map();
+        fieldTableIds = new Map();
+        const addDependency = (source: string, target: string) => {
+          const targets = dependents!.get(source) ?? new Set<string>();
+          targets.add(target);
+          dependents!.set(source, targets);
+        };
+        for (const table of prepared.tableById.values()) {
+          for (const field of table.getFields()) {
+            fieldTableIds.set(field.id().toString(), table.id().toString());
+            if (!(field instanceof FormulaField)) continue;
+            for (const reference of iterateFormulaSourceReferences(field.expression().toString())) {
+              addDependency(reference, field.id().toString());
+            }
+          }
+        }
+        for (const edge of plan.edges) {
+          for (const fieldId of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
+            fieldTableIds.set(fieldId.toString(), edge.toTableId.toString());
+          }
+          for (const source of edge.propagationSourceFieldIds ?? [edge.fromFieldId]) {
+            for (const target of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
+              addDependency(source.toString(), target.toString());
+            }
+          }
+        }
+      }
+      const root = fieldId.toString();
+      const ownerContext = {
+        ...error.details,
+        tableId: fieldTableIds.get(root),
+        baseId: plan.baseId.toString(),
+      };
+      blockedFields.set(root, {
+        fieldId: root,
+        error: { code: error.code, message: error.message, context: ownerContext },
+      });
+      const pending = [root];
+      while (pending.length > 0) {
+        for (const dependent of dependents.get(pending.pop()!) ?? []) {
+          if (blockedFields.has(dependent)) continue;
+          const dependentTableId = fieldTableIds.get(dependent);
+          blockedFields.set(dependent, {
+            fieldId: dependent,
+            error: {
+              code: 'computed.update_failed',
+              message: 'Computed results have not been updated because a dependency failed',
+              context: {
+                failedFieldId: root,
+                tableId: dependentTableId,
+                baseId: plan.baseId.toString(),
+              },
+            },
+          });
+          pending.push(dependent);
+        }
+      }
+    };
     const runLogger = run ? this.logger.child(toRunLogContext(run)) : this.logger;
+
+    const skippedStorageFieldIds = new Set<string>();
+    // Without a transaction, preparation and execution can observe different schemas.
+    const storageColumnCache =
+      'isTransaction' in prepared.db && prepared.db.isTransaction === true
+        ? prepared.storageColumnCache
+        : new Map<string, boolean>();
 
     // If we collapsed same-table batches into a single step, we still need the original
     // level structure to execute them correctly (CTE chain), and to avoid volatile formula
@@ -910,6 +1660,15 @@ export class ComputedFieldUpdater {
     }
 
     const levels = [...stepsByLevel.keys()].sort((a, b) => a - b);
+    // Counts affect chunk selection, so read each table on first use rather than
+    // trusting a PreparedDirtyState that may have been used by an earlier call.
+    // Ordinary steps only update stored cells; rejected-cell restoration below
+    // is the only step path that can add dirty rows. Never share this cache
+    // across prepared executions or transactions.
+    const dirtyCounts = new Map<string, number>();
+    const executedFieldIds = new Set<string>();
+    const flushedGatedEdgeKeys = new Set<string>();
+    const valueGatedEdges = prepared.valueGatedEdges ?? [];
 
     for (const level of levels) {
       const levelSteps = stepsByLevel.get(level)!;
@@ -922,8 +1681,70 @@ export class ComputedFieldUpdater {
       });
 
       const executeLevel = async (): Promise<Result<StepExecutionResult[], DomainError>> => {
-        const results: StepExecutionResult[] = [];
+        const writableSteps: Array<{ index: number; step: UpdateStep }> = [];
+        const storageColumns: QualifiedColumn[] = [];
+        const storageByFieldId = new Map<string, { tableId: string; keys: string[] }>();
         for (const { index, step } of levelSteps) {
+          const tableId = step.tableId.toString();
+          const table = prepared.tableById.get(tableId);
+          if (!table) {
+            writableSteps.push({ index, step });
+            continue;
+          }
+          let dirtyCount = dirtyCounts.get(tableId);
+          if (dirtyCount === undefined) {
+            const countResult = await this.getDirtyCountForTable(prepared.db, step.tableId);
+            if (countResult.isErr()) return err(countResult.error);
+            dirtyCount = countResult.value;
+            dirtyCounts.set(tableId, dirtyCount);
+          }
+
+          const fieldIds: FieldId[] = [];
+          for (const fieldId of step.fieldIds) {
+            const key = fieldId.toString();
+            if (blockedFields.has(key) || skippedStorageFieldIds.has(key)) continue;
+            const fieldResult = table.getField((field) => field.id().equals(fieldId));
+            if (fieldResult.isErr()) {
+              // Preserve the existing execution error for fields absent from metadata.
+              fieldIds.push(fieldId);
+              continue;
+            }
+            const persistedAsGenerated = isPersistedAsGeneratedColumn(fieldResult.value);
+            if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
+            if (persistedAsGenerated.value) continue;
+            fieldIds.push(fieldId);
+            if (dirtyCount === 0 || storageByFieldId.has(key)) continue;
+            const columnsResult = resolveFieldStorageColumns(table, fieldResult.value);
+            if (columnsResult.isErr()) return err(columnsResult.error);
+            storageByFieldId.set(key, {
+              tableId,
+              keys: columnsResult.value.map(qualifiedColumnKey),
+            });
+            storageColumns.push(...columnsResult.value);
+          }
+          writableSteps.push({ index, step: { ...step, fieldIds } });
+        }
+
+        // Probe only writes with dirty targets. A later level may acquire targets through
+        // value-gated propagation, so its storage cannot be decided from initial stats.
+        const missingStorageKeys = await loadMissingStorageColumnKeys(
+          prepared.db,
+          storageColumns,
+          storageColumnCache
+        );
+        for (const [fieldId, storage] of storageByFieldId) {
+          const missingColumns = storage.keys.filter((key) => missingStorageKeys.has(key));
+          if (missingColumns.length === 0) continue;
+          skippedStorageFieldIds.add(fieldId);
+          runLogger.warn('computed:update:skip_missing_storage', {
+            fieldId,
+            tableId: storage.tableId,
+            missingColumns,
+          });
+        }
+
+        const results: StepExecutionResult[] = [];
+        for (const { index, step } of writableSteps) {
           const doneSteps = run ? run.completedStepsBefore + index + 1 : undefined;
           const pendingSteps =
             run && doneSteps !== undefined ? Math.max(run.totalSteps - doneSteps, 0) : undefined;
@@ -942,7 +1763,13 @@ export class ComputedFieldUpdater {
           const stepResult = await this.executeStep(
             prepared.db,
             updateBuilder,
-            step,
+            {
+              ...step,
+              fieldIds: step.fieldIds.filter(
+                (id) =>
+                  !blockedFields.has(id.toString()) && !skippedStorageFieldIds.has(id.toString())
+              ),
+            },
             collapsedBatchByStepKey.get(stepKey(step)),
             prepared.tableById,
             context,
@@ -950,7 +1777,12 @@ export class ComputedFieldUpdater {
             run,
             doneSteps,
             pendingSteps,
-            collectChanges
+            collectChanges,
+            isolateOversizedComputedCells,
+            dirtyCounts.get(step.tableId.toString()),
+            blockedFields,
+            recordFormulaFailure,
+            statementBudget
           );
 
           if (stepResult.isErr()) {
@@ -959,6 +1791,11 @@ export class ComputedFieldUpdater {
             return err(stepResult.error);
           }
 
+          if (stepResult.value.rejectedCells?.length) {
+            dirtyCounts.delete(step.tableId.toString());
+          } else {
+            dirtyCounts.set(step.tableId.toString(), stepResult.value.traceInfo.dirtyRecordCount);
+          }
           results.push(stepResult.value);
         }
         return ok(results);
@@ -984,9 +1821,96 @@ export class ComputedFieldUpdater {
             recordChanges: result.recordChanges,
           });
         }
+        if (result.rejectedCells?.length) {
+          rejectedCells.push(...result.rejectedCells);
+        }
+      }
+
+      for (const { step } of levelSteps) {
+        const batch = collapsedBatchByStepKey.get(stepKey(step));
+        const fields = batch
+          ? batch.steps.flatMap((batchStep) => batchStep.fieldIds)
+          : step.fieldIds;
+        for (const fieldId of fields) {
+          if (!blockedFields.has(fieldId.toString())) executedFieldIds.add(fieldId.toString());
+        }
+      }
+
+      if (valueGatedEdges.length > 0 && collectChanges) {
+        const readyEdges = valueGatedEdges.filter((edge) => {
+          const key = `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`;
+          if (flushedGatedEdgeKeys.has(key)) return false;
+          const sources = edge.propagationSourceFieldIds ?? [];
+          return sources.length > 0 && sources.every((id) => executedFieldIds.has(id.toString()));
+        });
+        if (readyEdges.length > 0) {
+          const restrictedReadyEdges = readyEdges.map((edge) => {
+            flushedGatedEdgeKeys.add(
+              `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`
+            );
+            return {
+              ...edge,
+              restrictDirtySourceRecordIds: recordIdsChangedForFields(
+                changesByStep,
+                new Set((edge.propagationSourceFieldIds ?? []).map((id) => id.toString()))
+              ),
+            };
+          });
+          const flushingEdges = restrictedReadyEdges.filter(
+            (edge) => (edge.restrictDirtySourceRecordIds?.length ?? 0) > 0
+          );
+          if (flushingEdges.length > 0) {
+            const gatedEdgeSet = new Set(valueGatedEdges);
+            const continuationEdges = plan.edges.filter(
+              (edge) =>
+                !gatedEdgeSet.has(edge) &&
+                !(edge.propagationSourceFieldIds ?? [edge.fromFieldId]).some((id) =>
+                  blockedFields.has(id.toString())
+                ) &&
+                !(edge.propagationTargetFieldIds ?? [edge.toFieldId]).some((id) =>
+                  blockedFields.has(id.toString())
+                )
+            );
+            const flushEdges = [...flushingEdges, ...continuationEdges];
+            const propagateResult = await propagateDirtyRecords(
+              prepared.db,
+              flushEdges,
+              prepared.tableById,
+              storageColumnCache,
+              context,
+              prepared.valueGatedPropagateOptions
+            );
+            if (propagateResult.isErr()) return err(propagateResult.error);
+            if (propagateResult.value.dirtyBudget?.status === 'exceeded') {
+              return ok({
+                traceInfos: stepTraces,
+                changesByStep,
+                ...(rejectedCells.length > 0 ? { rejectedCells } : {}),
+                ...(blockedFields.size ? { fieldErrors: [...blockedFields.values()] } : {}),
+                dirtyBudget: propagateResult.value.dirtyBudget,
+              });
+            }
+            for (const edge of flushEdges) dirtyCounts.delete(edge.toTableId.toString());
+            const lookupSteps = steps.filter((step) =>
+              flushEdges.some((edge) => edge.toTableId.equals(step.tableId))
+            );
+            const lockResult = await this.acquireDirtyTargetLocks(
+              { ...plan, steps: lookupSteps, edges: flushEdges },
+              context,
+              prepared,
+              lockOptions
+            );
+            if (lockResult.isErr()) return err(lockResult.error);
+          }
+        }
       }
     }
-    return ok({ traceInfos: stepTraces, changesByStep });
+    return ok({
+      traceInfos: stepTraces,
+      changesByStep,
+      ...(rejectedCells.length > 0 ? { rejectedCells } : {}),
+      ...(blockedFields.size ? { fieldErrors: [...blockedFields.values()] } : {}),
+    });
   }
 
   /**
@@ -1000,37 +1924,40 @@ export class ComputedFieldUpdater {
     tableById: Map<string, Table>,
     context: IExecutionContext,
     stepIndex: number,
-    run?: ComputedUpdateRunContext,
-    doneSteps?: number,
-    pendingSteps?: number,
-    collectChanges: boolean = false
+    run: ComputedUpdateRunContext | undefined,
+    doneSteps: number | undefined,
+    pendingSteps: number | undefined,
+    collectChanges: boolean,
+    isolateOversizedComputedCells: boolean,
+    knownDirtyCount: number | undefined,
+    blockedFields: ReadonlyMap<string, ComputedActivityFieldError>,
+    onFormulaFailure: (fieldId: FieldId, error: DomainError) => void,
+    statementBudget: { max: number; used: number }
   ): Promise<Result<StepExecutionResult, DomainError>> {
     const table = tableById.get(step.tableId.toString());
     if (!table) {
-      return err(
-        domainError.notFound({
-          message: `Missing table for computed update: ${step.tableId.toString()}`,
-        })
-      );
+      // Trashed or permanently deleted tables are omitted from loadTables.
+      // Skip the step so the rest of a persisted plan can still run.
+      return ok({
+        traceInfo: {
+          tableId: step.tableId.toString(),
+          tableName: step.tableId.toString(),
+          level: step.level,
+          fieldIds: [],
+          fieldNames: [],
+          sql: '',
+          parameterCount: 0,
+          dirtyRecordCount: 0,
+        },
+        recordChanges: [],
+      });
     }
     const tableName = table
       .dbTableName()
       .andThen((n) => n.value())
       .unwrapOr(step.tableId.toString());
 
-    const fieldIds: FieldId[] = [];
-    for (const fieldId of step.fieldIds) {
-      const fieldResult = table.getField((f) => f.id().equals(fieldId));
-      if (fieldResult.isErr()) {
-        // Keep it - we can't determine generated-ness without the field.
-        fieldIds.push(fieldId);
-        continue;
-      }
-
-      const persistedAsGenerated = isPersistedAsGeneratedColumn(fieldResult.value);
-      if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
-      if (!persistedAsGenerated.value) fieldIds.push(fieldId);
-    }
+    const fieldIds = step.fieldIds;
 
     // Collect field names for tracing
     const fieldNames: string[] = [];
@@ -1044,7 +1971,13 @@ export class ComputedFieldUpdater {
     }
 
     // Get dirty record count for this table
-    const dirtyCount = await this.getDirtyCountForTable(db, step.tableId);
+    let resolvedDirtyCount = knownDirtyCount;
+    if (resolvedDirtyCount === undefined) {
+      const dirtyCountResult = await this.getDirtyCountForTable(db, step.tableId);
+      if (dirtyCountResult.isErr()) return err(dirtyCountResult.error);
+      resolvedDirtyCount = dirtyCountResult.value;
+    }
+    const dirtyCount = resolvedDirtyCount;
 
     const stepSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.step', {
       // Basic step info
@@ -1070,15 +2003,15 @@ export class ComputedFieldUpdater {
     const executeStepWork = async (): Promise<Result<StepExecutionResult, DomainError>> => {
       return safeTry<StepExecutionResult, DomainError>(
         async function* (this: ComputedFieldUpdater) {
-          if (fieldIds.length === 0) {
-            // Nothing to update (all fields are generated columns).
+          if (fieldIds.length === 0 || dirtyCount === 0) {
+            // Preserve step completion without building SQL when there is nothing to update.
             return ok({
               traceInfo: {
                 tableId: step.tableId.toString(),
                 tableName,
                 level: step.level,
-                fieldIds: [],
-                fieldNames: [],
+                fieldIds: fieldIds.map((id) => id.toString()),
+                fieldNames,
                 sql: '',
                 parameterCount: 0,
                 dirtyRecordCount: dirtyCount,
@@ -1090,83 +2023,104 @@ export class ComputedFieldUpdater {
           let queryPlans: ComputedUpdateQueryPlan[] | undefined;
           const shouldChunkFields =
             collectChanges && !collapsedBatch && fieldIds.length > COMPUTED_UPDATE_FIELD_CHUNK_SIZE;
+          let deferVersion = shouldChunkFields;
 
-          const formulaOnlyFieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(
-            function* () {
-              if (fieldIds.length === 0) return ok([]);
+          const formulaOnlyFieldLevelsResult = ((): Result<SameTableFieldLevel[], DomainError> => {
+            if (fieldIds.length === 0) return ok([]);
 
-              if (collapsedBatch && !collapsedBatch.tableId.equals(step.tableId)) {
-                return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
-              }
-
-              const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
-              const sourceSteps = collapsedBatch
-                ? [...collapsedBatch.steps].sort((a, b) => a.level - b.level)
-                : [step];
-              const fieldLevels: SameTableFieldLevel[] = [];
-
-              for (const sourceStep of sourceSteps) {
-                const levelFieldIds: FieldId[] = [];
-                for (const fieldId of sourceStep.fieldIds) {
-                  if (!allowedFieldIds.has(fieldId.toString())) continue;
-                  const field = yield* table.getField((f) => f.id().equals(fieldId));
-                  if (!field.type().equals(FieldType.formula())) {
-                    return ok([]);
-                  }
-                  levelFieldIds.push(fieldId);
-                }
-                if (levelFieldIds.length > 0) {
-                  fieldLevels.push({ level: sourceStep.level, fieldIds: levelFieldIds });
-                }
-              }
-
-              return ok(fieldLevels);
+            if (collapsedBatch && !collapsedBatch.tableId.equals(step.tableId)) {
+              return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
             }
-          );
+
+            const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
+            const sourceSteps = collapsedBatch
+              ? [...collapsedBatch.steps].sort((a, b) => a.level - b.level)
+              : [step];
+            const fieldLevels: SameTableFieldLevel[] = [];
+
+            for (const sourceStep of sourceSteps) {
+              const levelFieldIds: FieldId[] = [];
+              for (const fieldId of sourceStep.fieldIds) {
+                if (!allowedFieldIds.has(fieldId.toString())) continue;
+                const fieldResult = table.getField((f) => f.id().equals(fieldId));
+                // Deleted between planning and execution — nothing to compute.
+                if (fieldResult.isErr()) continue;
+                if (!fieldResult.value.type().equals(FieldType.formula())) {
+                  continue;
+                }
+                levelFieldIds.push(fieldId);
+              }
+              if (levelFieldIds.length > 0) {
+                fieldLevels.push({ level: sourceStep.level, fieldIds: levelFieldIds });
+              }
+            }
+
+            return ok(fieldLevels);
+          })();
           if (formulaOnlyFieldLevelsResult.isErr()) return err(formulaOnlyFieldLevelsResult.error);
+          const formulaFieldIds = new Set(
+            formulaOnlyFieldLevelsResult.value.flatMap((level) =>
+              level.fieldIds.map((id) => id.toString())
+            )
+          );
+          let formulaPlans: FormulaUpdateQueryPlan[] | undefined;
 
           // Formula-only same-table steps use a CTE chain so formula dependencies are computed
           // once and later formulas read CTE columns instead of recursively inlining expressions.
-          if (formulaOnlyFieldLevelsResult.value.length > 0 && !shouldChunkFields) {
-            const hasJsonTargets = await this.hasJsonTargetColumns(db, tableName, table, fieldIds);
-            if (hasJsonTargets) {
-              stepSpan?.setAttribute('step.sameTableCollapsedSkipped', true);
-              stepSpan?.setAttribute('step.sameTableCollapsedSkipReason', 'json_target_column');
-            }
+          if (formulaOnlyFieldLevelsResult.value.length > 0) {
+            const chunkedRecordIds = this.hasJsonBackedFormulaTarget(
+              table,
+              formulaOnlyFieldLevelsResult.value
+            )
+              ? await this.getDirtyRecordIdChunks(
+                  db,
+                  step.tableId,
+                  JSON_SAME_TABLE_BATCH_CHUNK_SIZE,
+                  true
+                )
+              : dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
+                ? await this.getDirtyRecordIdChunks(db, step.tableId)
+                : [];
+            const effectiveChunks = chunkedRecordIds.length > 0 ? chunkedRecordIds : [undefined];
 
-            if (!hasJsonTargets) {
-              const batchBuilder = new SameTableBatchQueryBuilder(db, this.typeValidationStrategy);
-              const chunkedRecordIds =
-                dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
-                  ? await this.getDirtyRecordIdChunks(db, step.tableId)
-                  : [];
-              const effectiveChunks = chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
+            stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
+            stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
 
-              stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
-              stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
-
-              const batchQueryPlans: ComputedUpdateQueryPlan[] = [];
-              for (const recordIds of effectiveChunks) {
-                const batchResult = yield* batchBuilder.build({
-                  table,
-                  fieldLevels: formulaOnlyFieldLevelsResult.value,
-                  ...(recordIds ? { recordIds } : {}),
-                  dirtyFilter: {
-                    tableId: step.tableId.toString(),
-                    dirtyTableName: DIRTY_TABLE,
-                    tableIdColumn: DIRTY_TABLE_ID_COL,
-                    recordIdColumn: DIRTY_RECORD_ID_COL,
-                  },
-                });
-                batchQueryPlans.push({ selectQuery: batchResult.selectQuery, fieldIds });
-              }
-              queryPlans = batchQueryPlans;
-            }
+            const planned = yield* planFormulaUpdateBatches({
+              db,
+              table,
+              fieldLevels: formulaOnlyFieldLevelsResult.value,
+              recordChunks: effectiveChunks,
+              typeValidationStrategy: this.typeValidationStrategy,
+              config: this.formulaCompileBudget,
+              dirtyFilter: {
+                tableId: step.tableId.toString(),
+                dirtyTableName: DIRTY_TABLE,
+                tableIdColumn: DIRTY_TABLE_ID_COL,
+                recordIdColumn: DIRTY_RECORD_ID_COL,
+              },
+              isolateFailures: isolateOversizedComputedCells,
+              collectChanges,
+              deferVersion: fieldIds.some((id) => !formulaFieldIds.has(id.toString())),
+              maxPlans:
+                statementBudget.max > 0
+                  ? Math.max(1, statementBudget.max - statementBudget.used)
+                  : undefined,
+              dirtyRecordCount: dirtyCount,
+              blocked: blockedFields,
+              onFailure: onFormulaFailure,
+            });
+            formulaPlans = planned.plans;
+            deferVersion = planned.deferVersion;
           }
 
+          const genericFieldIds = fieldIds.filter(
+            (id) => !formulaFieldIds.has(id.toString()) && !blockedFields.has(id.toString())
+          );
+          if (genericFieldIds.length === 0) queryPlans = formulaPlans ?? [];
           const fieldChunks = shouldChunkFields
-            ? chunkArray(fieldIds, COMPUTED_UPDATE_FIELD_CHUNK_SIZE)
-            : [fieldIds];
+            ? chunkArray(genericFieldIds, COMPUTED_UPDATE_FIELD_CHUNK_SIZE)
+            : [genericFieldIds];
 
           stepSpan?.setAttribute('step.fieldChunkCount', fieldChunks.length);
           stepSpan?.setAttribute('step.fieldChunked', shouldChunkFields ? 1 : 0);
@@ -1175,7 +2129,7 @@ export class ComputedFieldUpdater {
             const canProbeDistinctHostKeyAggregation =
               dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER &&
               dirtyCount <= DISTINCT_HOST_KEY_UNCHUNK_MAX_DIRTY_RECORDS &&
-              fieldIds.every((fieldId) => {
+              genericFieldIds.every((fieldId) => {
                 const fieldResult = table.getField((field) => field.id().equals(fieldId));
                 return (
                   fieldResult.isOk() &&
@@ -1193,6 +2147,7 @@ export class ComputedFieldUpdater {
                 const builder = new ComputedTableRecordQueryBuilder(db, {
                   typeValidationStrategy: this.typeValidationStrategy,
                   forceLookupArrayOutput: true,
+                  formulaCompileBudget: this.formulaCompileBudget,
                 })
                   .from(table)
                   .select(fieldChunk)
@@ -1205,6 +2160,10 @@ export class ComputedFieldUpdater {
                   tableRepository: this.tableRepository,
                 });
                 const selectQuery = yield* builder.build();
+                this.warnDanglingFieldReferences(builder, {
+                  tableId: step.tableId.toString(),
+                  stepLevel: step.level,
+                });
                 canExecuteUnchunked = canExecuteUnchunked && builder.canExecuteUnchunkedDirtySet();
                 for (const column of builder.unchunkedHostKeyColumns()) {
                   hostKeyColumns.add(column);
@@ -1251,6 +2210,7 @@ export class ComputedFieldUpdater {
                   const builder = new ComputedTableRecordQueryBuilder(db, {
                     typeValidationStrategy: this.typeValidationStrategy,
                     forceLookupArrayOutput: true,
+                    formulaCompileBudget: this.formulaCompileBudget,
                   })
                     .from(table)
                     .select(fieldChunk)
@@ -1263,26 +2223,110 @@ export class ComputedFieldUpdater {
                     context,
                     tableRepository: this.tableRepository,
                   });
-                  queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+                  const selectQuery = yield* builder.build();
+                  this.warnDanglingFieldReferences(builder, {
+                    tableId: step.tableId.toString(),
+                    stepLevel: step.level,
+                  });
+                  queryPlans.push({ selectQuery, fieldIds: fieldChunk });
                 }
               }
             }
           }
+          if (genericFieldIds.length > 0 && formulaPlans) pushAll(queryPlans, formulaPlans);
+          const plannedStatementCount =
+            queryPlans.length + (deferVersion && queryPlans.length ? 1 : 0);
+          if (
+            statementBudget.max > 0 &&
+            statementBudget.used + plannedStatementCount > statementBudget.max
+          ) {
+            return err(
+              domainError.infrastructure({
+                code: 'computed.statement_budget_exceeded',
+                message: 'Computed statement work requires a smaller record stage',
+                details: {
+                  attempted: statementBudget.used + plannedStatementCount,
+                  max: statementBudget.max,
+                  dirtyRecordCount: dirtyCount,
+                },
+              })
+            );
+          }
+          statementBudget.used += plannedStatementCount;
 
           const recordChanges: RecordChangeData[] = [];
           const executedSqls: Array<{ sql: string; parameterCount: number }> = [];
+          const rejectedCells: ComputedCellLimitRejection[] = [];
+          const bumpVersions = async (
+            ids: ReadonlyArray<string>
+          ): Promise<Result<void, DomainError>> => {
+            const budget =
+              queryPlans.find((plan) => plan.formulaBudget?.mode === 'enforce')?.formulaBudget ??
+              queryPlans.find((plan) => plan.formulaBudget)?.formulaBudget;
+            const pending = [...chunkArray(ids, SAME_TABLE_BATCH_CHUNK_SIZE)].reverse();
+            let statements = 0;
+            while (pending.length > 0) {
+              const recordIds = pending.pop()!;
+              if (recordIds.length === 0) continue;
+              const compiled = sql`update ${sql.raw(toQualifiedIdentifierLiteral(tableName))}
+                set "__version" = "__version" + 1
+                where "__id" in (${sql.join(recordIds)})`.compile(db);
+              const checked = budget
+                ? checkFormulaSqlBudget(compiled.sql, budget)
+                : ok(compiled.sql);
+              if (checked.isErr()) {
+                if (recordIds.length === 1) return err(checked.error);
+                const middle = Math.floor(recordIds.length / 2);
+                pending.push(recordIds.slice(middle), recordIds.slice(0, middle));
+                continue;
+              }
+              if (statements > 0) statementBudget.used++;
+              if (statementBudget.max > 0 && statementBudget.used > statementBudget.max) {
+                return err(
+                  domainError.infrastructure({
+                    code: 'computed.statement_budget_exceeded',
+                    message: 'Computed statement work requires a smaller record stage',
+                    details: {
+                      dirtyRecordCount: dirtyCount,
+                      attempted: statementBudget.used,
+                      max: statementBudget.max,
+                    },
+                  })
+                );
+              }
+              statements++;
+              executedSqls.push({ sql: compiled.sql, parameterCount: compiled.parameters.length });
+              await this.executeComputedQuery(db, compiled, {
+                source: 'computed_version_bump',
+                tableId: step.tableId.toString(),
+                tableName,
+                fieldIds: [],
+                stepLevel: step.level,
+              });
+            }
+            return ok(undefined);
+          };
 
           if (collectChanges) {
             const mergedRecordChanges = new Map<string, RecordChangeData>();
 
             for (let i = 0; i < queryPlans.length; i++) {
-              const { selectQuery, fieldIds: chunkFieldIds } = queryPlans[i];
-              const compiledResult = yield* updateBuilder.buildWithReturning({
-                table,
-                fieldIds: chunkFieldIds,
+              const {
                 selectQuery,
-                incrementVersion: !shouldChunkFields,
-              });
+                fieldIds: chunkFieldIds,
+                returning,
+                formulaBudget,
+              } = queryPlans[i];
+              const compiledResult =
+                returning ??
+                (yield* updateBuilder.buildWithReturning({
+                  table,
+                  fieldIds: chunkFieldIds,
+                  selectQuery,
+                  incrementVersion: !deferVersion,
+                }));
+              if (formulaBudget)
+                yield* checkFormulaSqlBudget(compiledResult.compiled.sql, formulaBudget);
               executedSqls.push({
                 sql: compiledResult.compiled.sql,
                 parameterCount: compiledResult.compiled.parameters.length,
@@ -1331,41 +2375,39 @@ export class ComputedFieldUpdater {
               const safetyResult = await this.ensureComputedChangesWithinLimit(
                 context,
                 table,
-                chunkRecordChanges
+                chunkRecordChanges,
+                compiledResult.columnToFieldId,
+                isolateOversizedComputedCells
               );
               if (safetyResult.isErr()) return err(safetyResult.error);
-              if (shouldChunkFields) {
+              if (safetyResult.value.length > 0) {
+                const revertResult = await this.revertOversizedComputedCells(
+                  db,
+                  tableName,
+                  step.tableId.toString(),
+                  step.level,
+                  safetyResult.value
+                );
+                if (revertResult.isErr()) return err(revertResult.error);
+                stripRejectedFieldChanges(chunkRecordChanges, safetyResult.value);
+                rejectedCells.push(...safetyResult.value);
+              }
+              if (deferVersion) {
                 mergeRecordChanges(mergedRecordChanges, chunkRecordChanges);
               } else {
-                recordChanges.push(...chunkRecordChanges);
+                pushAll(recordChanges, chunkRecordChanges);
               }
             }
 
-            if (shouldChunkFields) {
-              recordChanges.push(...mergedRecordChanges.values());
-              if (recordChanges.length > 0) {
-                const changedRecordIds = [...mergedRecordChanges.keys()];
-                const versionBump = sql`update ${sql.raw(toQualifiedIdentifierLiteral(tableName))}
-                  set "__version" = "__version" + 1
-                  where "__id" in (${sql.join(changedRecordIds)})`.compile(db);
-                executedSqls.push({
-                  sql: versionBump.sql,
-                  parameterCount: versionBump.parameters.length,
-                });
-                await this.executeComputedQuery(db, versionBump, {
-                  source: 'computed_version_bump',
-                  tableId: step.tableId.toString(),
-                  tableName,
-                  fieldIds: [],
-                  stepLevel: step.level,
-                });
-              }
+            if (deferVersion) {
+              pushAll(recordChanges, mergedRecordChanges.values());
+              yield* await bumpVersions([...mergedRecordChanges.keys()]);
             }
 
             const sqlSummary =
               executedSqls.length > 1
                 ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
-                : executedSqls[0]?.sql ?? '';
+                : (executedSqls[0]?.sql ?? '');
             const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
 
             // Record SQL on span
@@ -1383,18 +2425,52 @@ export class ComputedFieldUpdater {
               dirtyRecordCount: dirtyCount,
             };
 
-            return ok({ traceInfo, recordChanges });
+            // Persistence and byte-limit checks use raw cells; outgoing changes use
+            // the same user presentation as record reads, including lookup values.
+            const userFieldIds = new Set(
+              table
+                .getFields()
+                .filter(isUserCellField)
+                .map((field) => field.id().toString())
+            );
+            if (userFieldIds.size > 0) {
+              for (const record of recordChanges) {
+                for (const change of record.changes) {
+                  if (!userFieldIds.has(change.fieldId)) continue;
+                  const unchanged = Object.is(change.oldValue, change.newValue);
+                  change.newValue = normalizeStoredUserAvatarUrls(change.newValue);
+                  change.oldValue = unchanged
+                    ? change.newValue
+                    : normalizeStoredUserAvatarUrls(change.oldValue);
+                }
+              }
+            }
+
+            return ok({
+              traceInfo,
+              recordChanges,
+              ...(rejectedCells.length > 0 ? { rejectedCells } : {}),
+            });
           }
 
+          const versionRecordIds = new Set<string>();
           for (let i = 0; i < queryPlans.length; i++) {
-            const { selectQuery, fieldIds: chunkFieldIds } = queryPlans[i];
-            const compiled = yield* updateBuilder.build({
-              table,
-              fieldIds: chunkFieldIds,
+            const {
               selectQuery,
-              // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
-              // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
-            });
+              fieldIds: chunkFieldIds,
+              compiled: preparedQuery,
+              formulaBudget,
+            } = queryPlans[i];
+            const compiled =
+              preparedQuery ??
+              (yield* updateBuilder.build({
+                table,
+                fieldIds: chunkFieldIds,
+                selectQuery,
+                incrementVersion: !deferVersion,
+                returnRecordIds: deferVersion,
+              }));
+            if (formulaBudget) yield* checkFormulaSqlBudget(compiled.sql, formulaBudget);
             executedSqls.push({
               sql: compiled.sql,
               parameterCount: compiled.parameters.length,
@@ -1409,19 +2485,37 @@ export class ComputedFieldUpdater {
               sqlLogContext
             );
 
-            await this.executeComputedQuery(db, compiled, {
+            const result = await this.executeComputedQuery(db, compiled, {
               source: 'computed_update',
               tableId: step.tableId.toString(),
               tableName,
               fieldIds: chunkFieldIds.map((fieldId) => fieldId.toString()),
               stepLevel: step.level,
             });
+            if (deferVersion) {
+              for (const row of result.rows) {
+                if (
+                  !row ||
+                  typeof row !== 'object' ||
+                  !('__id' in row) ||
+                  typeof row.__id !== 'string'
+                ) {
+                  return err(
+                    domainError.infrastructure({
+                      message: 'Computed update did not return a record identifier',
+                    })
+                  );
+                }
+                versionRecordIds.add(row.__id);
+              }
+            }
           }
+          if (deferVersion) yield* await bumpVersions([...versionRecordIds]);
 
           const sqlSummary =
             executedSqls.length > 1
               ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
-              : executedSqls[0]?.sql ?? '';
+              : (executedSqls[0]?.sql ?? '');
           const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
 
           // Record SQL on span
@@ -1455,135 +2549,13 @@ export class ComputedFieldUpdater {
     }
   }
 
-  /**
-   * Execute a same-table batch using CTE optimization when possible.
-   *
-   * Currently, this method checks if the batch can be optimized (all formula fields)
-   * and logs the opportunity. Full CTE optimization will be implemented in a future version.
-   *
-   * @param batch The same-table batch to execute
-   * @param prepared The prepared dirty state
-   * @param context Execution context
-   * @returns Result containing trace info for all executed steps
-   */
-  async executeSameTableBatch(
-    batch: SameTableBatch,
-    prepared: PreparedDirtyState,
-    context: IExecutionContext,
-    run?: ComputedUpdateRunContext
-  ): Promise<Result<StepTraceInfo[], DomainError>> {
-    const table = prepared.tableById.get(batch.tableId.toString());
-    if (!table) {
-      return err(
-        domainError.notFound({
-          message: `Table not found for batch: ${batch.tableId.toString()}`,
-        })
-      );
-    }
-
-    const tableName = table
-      .dbTableName()
-      .andThen((n) => n.value())
-      .unwrapOr(batch.tableId.toString());
-
-    const batchSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.sameTableBatch', {
-      'batch.tableId': batch.tableId.toString(),
-      'batch.tableName': tableName,
-      'batch.stepCount': batch.steps.length,
-      'batch.minLevel': batch.minLevel,
-      'batch.maxLevel': batch.maxLevel,
-      'batch.totalFieldCount': batch.steps.reduce((acc, s) => acc + s.fieldIds.length, 0),
-    });
-
-    const executeBatchWork = async (): Promise<Result<StepTraceInfo[], DomainError>> => {
-      // Check if batch can use CTE optimization (all formula fields)
-      const canOptimize = await this.canBatchOptimize(batch, prepared);
-      batchSpan?.setAttribute('batch.canOptimize', canOptimize);
-
-      if (canOptimize && batch.steps.length > 1) {
-        // TODO: Implement CTE-based batch execution
-        // For now, log the optimization opportunity and fall back to step-by-step
-        this.logger.debug('computed:batch:optimizable', {
-          tableId: batch.tableId.toString(),
-          tableName,
-          stepCount: batch.steps.length,
-          levelRange: `${batch.minLevel}-${batch.maxLevel}`,
-          message: 'CTE optimization available but not yet implemented',
-        });
-      }
-
-      // Fall back to step-by-step execution
-      const updateBuilder = new UpdateFromSelectBuilder(prepared.db);
-      const traces: StepTraceInfo[] = [];
-
-      for (let i = 0; i < batch.steps.length; i++) {
-        const step = batch.steps[i];
-        const result = await this.executeStep(
-          prepared.db,
-          updateBuilder,
-          step,
-          undefined,
-          prepared.tableById,
-          context,
-          i,
-          run,
-          undefined,
-          undefined,
-          false // collectChanges not supported for batch execution yet
-        );
-        if (result.isErr()) return err(result.error);
-        traces.push(result.value.traceInfo);
-      }
-
-      return ok(traces);
-    };
-
-    try {
-      // Use withSpan to set batchSpan as active context so pg queries become children
-      if (batchSpan && context.tracer) {
-        return await context.tracer.withSpan(batchSpan, executeBatchWork);
-      }
-      return await executeBatchWork();
-    } finally {
-      batchSpan?.end();
-    }
-  }
-
-  /**
-   * Check if a batch can be optimized using CTE.
-   * Currently requires all fields to be formulas (no lookup/rollup/link).
-   */
-  private async canBatchOptimize(
-    batch: SameTableBatch,
-    prepared: PreparedDirtyState
-  ): Promise<boolean> {
-    const table = prepared.tableById.get(batch.tableId.toString());
-    if (!table) return false;
-
-    // Check if all fields in the batch are formulas
-    for (const step of batch.steps) {
-      for (const fieldId of step.fieldIds) {
-        const fieldResult = table.getField((f) => f.id().equals(fieldId));
-        if (fieldResult.isErr()) return false;
-
-        const field = fieldResult.value;
-        // Only formulas can be CTE-optimized
-        // Lookup/rollup need lateral joins which don't work well with CTEs
-        // Link fields have their own lateral join logic
-        if (field.type().toString() !== 'formula') {
-          return false;
-        }
-      }
-    }
-
-    return batch.steps.length > 1;
-  }
-
   private async ensureComputedChangesWithinLimit(
     context: IExecutionContext,
     table: Table,
-    recordChanges: ReadonlyArray<RecordChangeData>
-  ): Promise<Result<void, DomainError>> {
+    recordChanges: ReadonlyArray<RecordChangeData>,
+    columnToFieldId: ReadonlyMap<string, string>,
+    isolateOversizedComputedCells: boolean
+  ): Promise<Result<ComputedCellLimitRejection[], DomainError>> {
     const configResult = await this.tableDataSafetyLimitComposer.compose(context);
     if (configResult.isErr()) return err(configResult.error);
     const limits = resolveTableDataSafetyLimits(configResult.value);
@@ -1592,6 +2564,11 @@ export class ComputedFieldUpdater {
         .getFields((field) => field.type().equals(FieldType.link()))
         .map((field) => field.id().toString())
     );
+    // Only needed when a rejection actually occurs — keep the no-rejection
+    // fast path (every clean chunk) allocation-free.
+    let fieldIdToColumn: Map<string, string> | undefined;
+    const columnTypeByFieldId = new Map<string, string>();
+    const rejections: ComputedCellLimitRejection[] = [];
 
     for (const recordChange of recordChanges) {
       for (const change of recordChange.changes) {
@@ -1600,23 +2577,137 @@ export class ComputedFieldUpdater {
         if (linkFieldIds.has(change.fieldId)) continue;
 
         const bytes = measureJsonBytes(change.newValue);
-        if (bytes > limits.computed.maxComputedCellValueBytes) {
-          return err(
-            domainError.validation({
-              code: 'validation.limit.computed_cell_value_max_bytes',
-              message:
-                'Table data safety limit exceeded: validation.limit.computed_cell_value_max_bytes',
-              details: {
-                tableId: table.id().toString(),
-                recordId: recordChange.recordId,
-                fieldId: change.fieldId,
-                attempted: bytes,
-                max: limits.computed.maxComputedCellValueBytes,
-              },
-            })
-          );
+        if (bytes <= limits.computed.maxComputedCellValueBytes) continue;
+
+        const details = {
+          tableId: table.id().toString(),
+          recordId: recordChange.recordId,
+          fieldId: change.fieldId,
+          attempted: bytes,
+          max: limits.computed.maxComputedCellValueBytes,
+        };
+        const oversizedError = () =>
+          domainError.validation({
+            code: tableDataSafetyLimitErrors.computedCellValueMaxBytes.code,
+            message:
+              'Table data safety limit exceeded: validation.limit.computed_cell_value_max_bytes',
+            details,
+            localization: {
+              i18nKey: tableDataSafetyLimitErrors.computedCellValueMaxBytes.i18nKey,
+              context: { max: limits.computed.maxComputedCellValueBytes },
+            },
+          });
+        if (!isolateOversizedComputedCells) {
+          return err(oversizedError());
         }
+
+        fieldIdToColumn ??= new Map(
+          [...columnToFieldId.entries()].map(([column, fieldId]) => [fieldId, column])
+        );
+        const column = fieldIdToColumn.get(change.fieldId);
+        if (!column) {
+          return err(oversizedError());
+        }
+
+        let columnType = columnTypeByFieldId.get(change.fieldId);
+        if (columnType === undefined) {
+          const fieldResult = table.getField((field) => field.id().toString() === change.fieldId);
+          const columnTypeResult = fieldResult.andThen((field) => resolveColumnType(field));
+          // Without the column type the revert cannot re-serialize the old
+          // value safely — fall back to the fail-closed error.
+          if (columnTypeResult.isErr()) {
+            return err(oversizedError());
+          }
+          columnType = String(columnTypeResult.value);
+          columnTypeByFieldId.set(change.fieldId, columnType);
+        }
+
+        rejections.push({
+          ...details,
+          column,
+          columnType,
+          oldValue: change.oldValue,
+        });
       }
+    }
+
+    return ok(rejections);
+  }
+
+  private async revertOversizedComputedCells(
+    db: Kysely<DynamicDB>,
+    tableName: string,
+    tableId: string,
+    stepLevel: number,
+    rejections: ReadonlyArray<ComputedCellLimitRejection>
+  ): Promise<Result<void, DomainError>> {
+    const rejectionsByColumn = new Map<string, ComputedCellLimitRejection[]>();
+    for (const rejection of rejections) {
+      const group = rejectionsByColumn.get(rejection.column);
+      if (group) group.push(rejection);
+      else rejectionsByColumn.set(rejection.column, [rejection]);
+    }
+
+    for (const [column, group] of rejectionsByColumn) {
+      const columnType = group[0]!.columnType;
+      // Cast is spliced as raw SQL; the type names come from our own column
+      // visitor, but keep an allowlist-shaped guard between them and sql.raw.
+      if (!/^[a-z][a-z ]*$/.test(columnType)) {
+        return err(
+          domainError.invariant({
+            message: `Cannot revert oversized computed cells: unexpected column type "${columnType}"`,
+            details: { tableId, column, columnType },
+          })
+        );
+      }
+      const castSuffix = sql.raw(`::${columnType}`);
+      for (const chunk of chunkArray(group, 500)) {
+        const valueRows = chunk.map(
+          (rejection) =>
+            // The RETURNING old value was parsed by the pg driver, so jsonb
+            // values are live JS arrays/objects/strings here — they must be
+            // re-serialized to JSON text before being bound as jsonb input.
+            sql`(${rejection.recordId}::text, ${encodeRevertValue(rejection)}${castSuffix})`
+        );
+        const compiled = sql`update ${sql.raw(toQualifiedIdentifierLiteral(tableName))} as "__t"
+          set ${sql.raw(quoteIdentifier(column))} = "__v"."val"
+          from (values ${sql.join(valueRows)}) as "__v"("__id", "val")
+          where "__t"."__id" = "__v"."__id"`.compile(db);
+        await this.executeComputedQuery(db, compiled, {
+          source: 'computed_limit_revert',
+          tableId,
+          tableName,
+          fieldIds: [group[0]!.fieldId],
+          stepLevel,
+        });
+      }
+      this.logger.warn('computed:update:cell_value_limit_isolated', {
+        tableId,
+        fieldId: group[0]!.fieldId,
+        rejectedCount: group.length,
+        maxAttempted: group.reduce((acc, rejection) => Math.max(acc, rejection.attempted), 0),
+        max: group[0]!.max,
+        sampleRecordIds: group.slice(0, 10).map((rejection) => rejection.recordId),
+      });
+    }
+
+    // Dependent fields computed in the same collapsed statement read the
+    // rejected value in-statement, so their stored values no longer match the
+    // reverted column. Re-dirty the affected records; the continuation stage
+    // (seeded with the rejected field ids) recomputes those dependents from
+    // the reverted stored value.
+    const dirtyRows = [...new Set(rejections.map((rejection) => rejection.recordId))].map(
+      (recordId) => ({
+        [DIRTY_TABLE_ID_COL]: tableId,
+        [DIRTY_RECORD_ID_COL]: recordId,
+      })
+    );
+    for (const chunk of chunkArray(dirtyRows, 500)) {
+      await db
+        .insertInto(DIRTY_TABLE)
+        .values([...chunk])
+        .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+        .execute();
     }
 
     return ok(undefined);
@@ -1625,17 +2716,36 @@ export class ComputedFieldUpdater {
   /**
    * Get the count of dirty records for a specific table.
    */
-  private async getDirtyCountForTable(db: Kysely<DynamicDB>, tableId: TableId): Promise<number> {
+  private async getDirtyCountForTable(
+    db: Kysely<DynamicDB>,
+    tableId: TableId
+  ): Promise<Result<number, DomainError>> {
     try {
       const result = await db
         .selectFrom(DIRTY_TABLE)
         .select(sql<number>`count(*)`.as('count'))
         .where(DIRTY_TABLE_ID_COL, '=', tableId.toString())
-        .executeTakeFirst();
-      return result ? Number(result.count) : 0;
-    } catch {
-      return 0;
+        .executeTakeFirstOrThrow();
+      return ok(Number(result.count));
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to count dirty records: ${describeError(error)}`,
+        })
+      );
     }
+  }
+
+  private warnDanglingFieldReferences(
+    builder: ComputedTableRecordQueryBuilder,
+    logContext: Record<string, unknown>
+  ): void {
+    const dangling = builder.danglingFieldReferences();
+    if (dangling.length === 0) return;
+    this.logger.warn('computed:update:dangling_field_reference_degraded', {
+      ...logContext,
+      danglingFieldReferences: dangling,
+    });
   }
 
   private async hasBoundedDistinctHostKeys(
@@ -1678,55 +2788,32 @@ export class ComputedFieldUpdater {
     }
   }
 
-  private async hasJsonTargetColumns(
-    db: Kysely<DynamicDB>,
-    tableName: string,
+  private hasJsonBackedFormulaTarget(
     table: Table,
-    fieldIds: ReadonlyArray<FieldId>
-  ): Promise<boolean> {
-    try {
-      const tableNameParts = tableName.split('.');
-      if (tableNameParts.length !== 2) return false;
-      const [schemaName, physicalTableName] = tableNameParts;
-
-      const columnNames: string[] = [];
-      for (const fieldId of fieldIds) {
-        const fieldResult = table.getField((f) => f.id().equals(fieldId));
-        if (fieldResult.isErr()) continue;
-        const dbFieldNameResult = fieldResult.value.dbFieldName().andThen((n) => n.value());
-        if (dbFieldNameResult.isErr()) continue;
-        columnNames.push(dbFieldNameResult.value);
-      }
-
-      if (columnNames.length === 0) return false;
-
-      const columns = await db
-        .selectFrom('information_schema.columns')
-        .select(['column_name', 'data_type', 'udt_name'])
-        .where('table_schema', '=', schemaName)
-        .where('table_name', '=', physicalTableName)
-        .where('column_name', 'in', columnNames)
-        .execute();
-
-      return columns.some((column) => {
-        const dataType = String(column.data_type).toLowerCase();
-        const udtName = String(column.udt_name).toLowerCase();
-        return (
-          dataType === 'json' || dataType === 'jsonb' || udtName === 'json' || udtName === 'jsonb'
-        );
-      });
-    } catch {
-      return false;
-    }
+    fieldLevels: ReadonlyArray<SameTableFieldLevel>
+  ): boolean {
+    return fieldLevels.some((level) =>
+      level.fieldIds.some((fieldId) => {
+        const fieldResult = table.getField((field) => field.id().equals(fieldId));
+        if (fieldResult.isErr()) return false;
+        return fieldResult.value
+          .dbFieldType()
+          .map((type) => type.isJson())
+          .unwrapOr(false);
+      })
+    );
   }
 
   private async getDirtyRecordIdChunks(
     db: Kysely<DynamicDB>,
-    tableId: TableId
+    tableId: TableId,
+    chunkSize = SAME_TABLE_BATCH_CHUNK_SIZE,
+    includeSingleton = false
   ): Promise<ReadonlyArray<ReadonlyArray<string>>> {
     const recordIds = await this.getDirtyRecordIdsForTable(db, tableId);
     if (recordIds.length === 0) return [];
-    return splitIntoChunks(recordIds, SAME_TABLE_BATCH_CHUNK_SIZE);
+    if (!includeSingleton && recordIds.length <= chunkSize) return [recordIds];
+    return splitIntoChunks(recordIds, chunkSize);
   }
 
   private async getDirtyRecordIdsForTable(
@@ -1869,7 +2956,17 @@ export class ComputedFieldUpdater {
    */
   async collectDirtySeedGroups(
     context: IExecutionContext,
-    tableIds: ReadonlyArray<TableId>
+    tableIds: ReadonlyArray<TableId>,
+    options?: {
+      /**
+       * 'auto' (default) switches a table to the seed-all form above seedAllThreshold;
+       * 'exact-ids' always returns record ids — required for partial-batch exclusion
+       * sets, where a seed-all form would wrongly exclude unprocessed rows.
+       */
+      representation?: 'auto' | 'exact-ids';
+      /** Row count above which 'auto' returns a table as seed-all instead of ids. */
+      seedAllThreshold?: number;
+    }
   ): Promise<Result<{ groups: ComputedSeedGroup[]; seedAllTableIds: TableId[] }, DomainError>> {
     const uniqueTableIds = [...new Set(tableIds.map((id) => id.toString()))];
     if (uniqueTableIds.length === 0) return ok({ groups: [], seedAllTableIds: [] });
@@ -1892,7 +2989,10 @@ export class ComputedFieldUpdater {
         .groupBy(DIRTY_TABLE_ID_COL)
         .execute();
 
-      const SEED_ALL_THRESHOLD = 5000;
+      const SEED_ALL_THRESHOLD =
+        options?.representation === 'exact-ids'
+          ? Number.POSITIVE_INFINITY
+          : (options?.seedAllThreshold ?? DEFAULT_SEED_ALL_THRESHOLD);
       const seedAllTableIds: TableId[] = [];
       const normalTableIds: string[] = [];
 
@@ -1953,6 +3053,176 @@ export class ComputedFieldUpdater {
         })
       );
     }
+  }
+
+  /**
+   * Push explicit seed groups onto the run ledger's frontier queue head (floor
+   * entry seed migration). Must run in the worker's stage transaction BEFORE
+   * execute so the batch seeds them as the queue's budget-bounded head.
+   */
+  async pushStageLedgerFrontierSeeds(
+    context: IExecutionContext,
+    scopeId: string,
+    groups: ReadonlyArray<{ tableId: TableId; recordIds: ReadonlyArray<RecordId> }>
+  ): Promise<Result<number, DomainError>> {
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    return pushStageLedgerFrontierHead(
+      db,
+      scopeId,
+      groups.map((group) => ({
+        tableId: group.tableId.toString(),
+        recordIds: group.recordIds.map((recordId) => recordId.toString()),
+      }))
+    );
+  }
+
+  /**
+   * Settle a partial batch entirely SQL-side, in the stage transaction, while
+   * the batch's dirty temp table is still alive:
+   * 1. retire the consumed frontier head when its propagation completed;
+   * 2. (self-referential stages) append rows NEW this batch to the queue tail;
+   * 3. add the batch's processed step-table rows to the exclusion ledger.
+   * Returns per-table processed counts for the continuation's dirty stats.
+   */
+  async settleStageLedgerPartialBatch(
+    context: IExecutionContext,
+    params: {
+      scopeId: string;
+      stepTableIds: ReadonlyArray<TableId>;
+      appendFrontier: boolean;
+      /** Highest consumed frontier seq; null when propagation truncated (no retire). */
+      retireFrontierUpToSeq: string | null;
+      /** Ledger lifecycle: 'carry-sources' while deferred edge chunks remain. */
+      settlementMode: ComputedStageLedgerSettlementMode;
+    }
+  ): Promise<
+    Result<
+      {
+        processedByTable: Array<{ tableId: string; recordCount: number }>;
+        newFrontierRows: number;
+        retiredFrontierRows: number;
+      },
+      DomainError
+    >
+  > {
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    let retiredFrontierRows = 0;
+    if (params.retireFrontierUpToSeq !== null) {
+      const retired = await retireStageLedgerFrontierHead(
+        db,
+        params.scopeId,
+        params.retireFrontierUpToSeq,
+        { preserveAsConsumed: params.settlementMode === 'carry-sources' }
+      );
+      if (retired.isErr()) return err(retired.error);
+      retiredFrontierRows = retired.value;
+    }
+    const appended = await appendStageLedgerPartialBatch(
+      db,
+      params.scopeId,
+      params.stepTableIds.map((tableId) => tableId.toString()),
+      { appendFrontier: params.appendFrontier }
+    );
+    if (appended.isErr()) return err(appended.error);
+    return ok({
+      processedByTable: appended.value.processedByTable,
+      newFrontierRows: appended.value.newFrontierRows,
+      retiredFrontierRows,
+    });
+  }
+
+  /**
+   * Collect a completed stage's dirty outputs (batch dirty rows ∪ the scope's
+   * exclusion ledger) as next-stage seed groups, entirely SQL-side: no union is
+   * materialized anywhere, per-table counts pick the representation, and the
+   * total exact ids fetched into JS are hard-capped (overflow tables convert to
+   * whole-table seeds).
+   */
+  async collectStageOutputSeedGroups(
+    context: IExecutionContext,
+    params: {
+      scopeId: string;
+      tableIds: ReadonlyArray<TableId>;
+      seedAllThreshold?: number;
+      exactIdsTotalCap: number;
+      /** Ledger lifecycle: 'carry-sources' collects preserved consumed sources. */
+      settlementMode: ComputedStageLedgerSettlementMode;
+      valueFrontierFields?: ReadonlyArray<{ tableId: string; fieldIds: ReadonlyArray<string> }>;
+      allowConsumedPruning?: boolean;
+    }
+  ): Promise<
+    Result<
+      { groups: ComputedSeedGroup[]; seedAllTableIds: TableId[]; valuePrunedTableIds?: string[] },
+      DomainError
+    >
+  > {
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const collected = await collectStageOutputSeedGroups(
+      db,
+      params.scopeId,
+      [...new Set(params.tableIds.map((tableId) => tableId.toString()))],
+      {
+        seedAllThreshold: params.seedAllThreshold ?? DEFAULT_SEED_ALL_THRESHOLD,
+        exactIdsTotalCap: params.exactIdsTotalCap,
+        includeConsumedSources: params.settlementMode === 'carry-sources',
+        valueFrontierFields: params.valueFrontierFields,
+        allowConsumedPruning: params.allowConsumedPruning,
+      }
+    );
+    if (collected.isErr()) return err(collected.error);
+    const tableIdByKey = new Map(params.tableIds.map((tableId) => [tableId.toString(), tableId]));
+    const toTableId = (key: string): Result<TableId, DomainError> => {
+      const existing = tableIdByKey.get(key);
+      return existing ? ok(existing) : TableId.create(key);
+    };
+    const groups: ComputedSeedGroup[] = [];
+    for (const group of collected.value.groups) {
+      const tableId = toTableId(group.tableId);
+      if (tableId.isErr()) return err(tableId.error);
+      const recordIds: RecordId[] = [];
+      for (const rawRecordId of group.recordIds) {
+        const recordId = RecordId.create(rawRecordId);
+        if (recordId.isErr()) return err(recordId.error);
+        recordIds.push(recordId.value);
+      }
+      groups.push({ tableId: tableId.value, recordIds });
+    }
+    const seedAllTableIds: TableId[] = [];
+    for (const key of collected.value.seedAllTableIds) {
+      const tableId = toTableId(key);
+      if (tableId.isErr()) return err(tableId.error);
+      seedAllTableIds.push(tableId.value);
+    }
+    return ok({
+      groups,
+      seedAllTableIds,
+      ...(collected.value.valuePrunedTableIds?.length
+        ? { valuePrunedTableIds: collected.value.valuePrunedTableIds }
+        : {}),
+    });
+  }
+
+  async cleanupValueFrontierOrphans(
+    context: IExecutionContext,
+    afterScope: string
+  ): Promise<Result<{ afterScope: string; deleted: number }, DomainError>> {
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      return ok(await cleanupChangeFrontierOrphans(db, afterScope));
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to clean value frontier: ${String(error)}` })
+      );
+    }
+  }
+
+  /** Drop all stage-ledger state (stage completion or chain dead-letter). */
+  async clearTaskStageLedger(
+    context: IExecutionContext,
+    scopeId: string
+  ): Promise<Result<number, DomainError>> {
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    return clearStageLedger(db, scopeId);
   }
 }
 
@@ -2046,6 +3316,39 @@ const seedDirtyRecords = async (
   }
 };
 
+/**
+ * An INSERT changes only the new rows' own fields; every other row changes only
+ * through fields this stage computes. An edge into the seed table whose sources
+ * the stage does not compute (a shared parent's name behind a link title) cannot
+ * give a pre-existing sibling a new value, yet following it dirtied every sibling
+ * of that parent and everything linked to them. Edges whose sources the stage
+ * computes (a lookup of the parent's rollup) still reach the siblings, which must
+ * then be refreshed rather than pruned.
+ */
+export const canInsertEdgeChangeTargets = (
+  plan: Pick<
+    ComputedUpdatePlan,
+    'changeType' | 'seedTableId' | 'seedRecordIds' | 'seedAllTableIds'
+  >,
+  edge: ComputedDependencyEdge,
+  stageFieldIds: ReadonlySet<string>
+): boolean => {
+  if (
+    plan.changeType !== 'insert' ||
+    (plan.seedAllTableIds?.length ?? 0) > 0 ||
+    plan.seedRecordIds.length === 0
+  ) {
+    return true;
+  }
+  if (!edge.toTableId.equals(plan.seedTableId) || edge.fromTableId.equals(plan.seedTableId)) {
+    return true;
+  }
+  // Legacy payloads lack provenance; fromFieldId alone cannot prove the path is inert.
+  const sourceFieldIds = edge.propagationSourceFieldIds;
+  if (!sourceFieldIds?.length) return true;
+  return sourceFieldIds.some((fieldId) => stageFieldIds.has(fieldId.toString()));
+};
+
 const seedExtraDirtyRecords = async (
   db: Kysely<DynamicDB>,
   extraSeedRecords: ReadonlyArray<{
@@ -2059,6 +3362,84 @@ const seedExtraDirtyRecords = async (
     if (result.isErr()) return err(result.error);
   }
   return ok(undefined);
+};
+
+/**
+ * Budget-bounded variant of full-table seeding: materializes at most `limit` rows
+ * per statement, skipping rows already dirty (earlier tables / re-seeded exclusions)
+ * and, when active, targets processed by earlier partial batches. Returns the
+ * candidate count so callers can detect truncation exactly like the propagation
+ * inserts do.
+ */
+const seedAllDirtyRecordsForTableBounded = async (
+  db: Kysely<DynamicDB>,
+  table: Table,
+  limit: number,
+  exclusionScopeId: string | undefined,
+  cursor?: string
+): Promise<Result<{ count: number; lastRecordId?: string }, DomainError>> => {
+  const tableNameResult = table.dbTableName().andThen((dbTableName) => dbTableName.value());
+  if (tableNameResult.isErr()) return err(tableNameResult.error);
+
+  try {
+    let src = db
+      .selectFrom(`${tableNameResult.value} as t` as keyof DynamicDB)
+      .select([
+        sql.lit(table.id().toString()).as(DIRTY_TABLE_ID_COL),
+        sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+        sql.lit(0).as(DIRTY_GENERATION_COL),
+      ])
+      .where(
+        sql<boolean>`not exists (
+          select 1 from ${sql.table(DIRTY_TABLE)} as existing_dirty
+          where existing_dirty.${sql.raw(DIRTY_TABLE_ID_COL)} = ${sql.lit(table.id().toString())}
+            and existing_dirty.${sql.raw(DIRTY_RECORD_ID_COL)} = t.__id
+        )`
+      );
+    if (exclusionScopeId !== undefined) {
+      src = src.where(
+        sql<boolean>`not exists (
+          select 1 from ${sql.table(STAGE_LEDGER_TABLE)} as processed_target
+          where processed_target.scope_id = ${exclusionScopeId}
+            and processed_target.kind = 'excluded'
+            and processed_target.table_id = ${sql.lit(table.id().toString())}
+            and processed_target.record_id = t.__id
+        )`
+      );
+    }
+    // Cursor resume: a PK-ordered index range scan gives O(1) durable state per
+    // table instead of a per-row exclusion ledger, and bounds the scan itself.
+    if (cursor !== undefined) {
+      src = src.where(sql<boolean>`t.__id > ${sql.lit(cursor)}`);
+    }
+    src = src.orderBy(sql.ref('t.__id')).limit(limit);
+
+    const columnList = sql.raw(
+      `${DIRTY_TABLE_ID_COL}, ${DIRTY_RECORD_ID_COL}, ${DIRTY_GENERATION_COL}`
+    );
+    const compiled = sql<{ cnt: number; last_id: string | null }>`
+      with src as materialized (${src}),
+      ins as (
+        insert into ${sql.table(DIRTY_TABLE)} (${columnList})
+        select ${columnList} from src
+        on conflict (${sql.raw(`${DIRTY_TABLE_ID_COL}, ${DIRTY_RECORD_ID_COL}`)}) do nothing
+      )
+      select count(*)::int as cnt, max(${sql.raw(DIRTY_RECORD_ID_COL)}) as last_id from src
+    `.compile(db);
+
+    const result = await db.executeQuery(compiled);
+    const row = result.rows[0] as { cnt?: number; last_id?: string | null } | undefined;
+    return ok({
+      count: Number(row?.cnt ?? 0),
+      lastRecordId: row?.last_id ?? undefined,
+    });
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to seed bounded all dirty records: ${describeError(error)}`,
+      })
+    );
+  }
 };
 
 const seedAllDirtyRecordsForTable = async (
@@ -2208,14 +3589,36 @@ const buildEdgeTraceInfo = (
 
 type DirtySelectQuery = QB;
 
+/**
+ * Materializes a propagation source relation (a pruned projection of this
+ * frontier's dirty source rows) into a temp table before the propagation
+ * select runs. Conditional filters correlate source rows against every target
+ * row; without materialization the planner may re-evaluate the source scan —
+ * including full-row before-image reconstruction — once per target row.
+ */
+type PropagationSourcePrepare = {
+  execute: (db: Kysely<DynamicDB>) => Promise<void>;
+};
+
 type BuiltPropagationSelect = {
   query: DirtySelectQuery;
   runtimeAllTargetFallbackReason?: AllTargetRecordsReason;
+  prepare?: PropagationSourcePrepare;
 };
 
 type PreparedPropagationSelect = {
   query: DirtySelectQuery;
   traceInfos: EdgeTraceInfo[];
+  prepare?: PropagationSourcePrepare;
+};
+
+const fnv1aHex = (value: string): string => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 };
 
 const propagationQueryKey = (compiled: ReturnType<DirtySelectQuery['compile']>): string =>
@@ -2229,11 +3632,310 @@ const toAffectedRowCount = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const countDirtyRecords = async (db: Kysely<DynamicDB>): Promise<number> => {
+  const result = await db
+    .selectFrom(DIRTY_TABLE)
+    .select(sql<number>`count(*)`.as('cnt'))
+    .executeTakeFirst();
+  return Number(result?.cnt ?? 0);
+};
+
+type PropagateDirtyOptions = {
+  maxDirtyRecords?: number;
+  /**
+   * 'abort': stop at the budget and report exceeded (dirty state is unusable).
+   * 'partial': stop at the budget but keep the materialized batch usable; the
+   * budget then counts only propagated rows so seed-heavy tasks still progress.
+   */
+  dirtyBudgetMode?: 'abort' | 'partial';
+  /** Ledger scope whose 'excluded' rows must be anti-joined out of targets. */
+  exclusionScopeId?: string;
+  /** When present for a source table, restrict that table's dirty scan to these ids. */
+  sourceRecordIdsByFromTable?: ReadonlyMap<string, ReadonlyArray<string>>;
+};
+
+/**
+ * Budgeted single-edge propagation insert. The CTE materializes at most `limit`
+ * candidate rows (anti-joined against the dirty table, so every counted row is
+ * genuinely new), inserts them, and returns the candidate count — no DISTINCT
+ * over a giant UNION ALL, so executor memory stays bounded by `limit` plus the
+ * edge's own join work instead of the whole fan-out.
+ */
+const runBudgetedPropagationInsert = async (
+  db: Kysely<DynamicDB>,
+  query: DirtySelectQuery,
+  generation: number,
+  limit: number,
+  exclusionScopeId: string | undefined
+): Promise<number> => {
+  let src = db
+    .selectFrom(query.as('propagated'))
+    .select([
+      sql.ref(`propagated.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL),
+      sql.ref(`propagated.${DIRTY_RECORD_ID_COL}`).as(DIRTY_RECORD_ID_COL),
+      sql.lit(generation + 1).as(DIRTY_GENERATION_COL),
+    ])
+    .where(
+      sql<boolean>`not exists (
+        select 1 from ${sql.table(DIRTY_TABLE)} as existing_dirty
+        where existing_dirty.${sql.raw(DIRTY_TABLE_ID_COL)} = propagated.${sql.raw(DIRTY_TABLE_ID_COL)}
+          and existing_dirty.${sql.raw(DIRTY_RECORD_ID_COL)} = propagated.${sql.raw(DIRTY_RECORD_ID_COL)}
+      )`
+    );
+  if (exclusionScopeId !== undefined) {
+    src = src.where(
+      sql<boolean>`not exists (
+        select 1 from ${sql.table(STAGE_LEDGER_TABLE)} as processed_target
+        where processed_target.scope_id = ${exclusionScopeId}
+          and processed_target.kind = 'excluded'
+          and processed_target.table_id = propagated.${sql.raw(DIRTY_TABLE_ID_COL)}
+          and processed_target.record_id = propagated.${sql.raw(DIRTY_RECORD_ID_COL)}
+      )`
+    );
+  }
+  src = src.limit(limit);
+
+  const columnList = sql.raw(
+    `${DIRTY_TABLE_ID_COL}, ${DIRTY_RECORD_ID_COL}, ${DIRTY_GENERATION_COL}`
+  );
+  const compiled = sql<{ cnt: number }>`
+    with src as materialized (${src}),
+    ins as (
+      insert into ${sql.table(DIRTY_TABLE)} (${columnList})
+      select ${columnList} from src
+      on conflict (${sql.raw(`${DIRTY_TABLE_ID_COL}, ${DIRTY_RECORD_ID_COL}`)}) do nothing
+    )
+    select count(*)::int as cnt from src
+  `.compile(db);
+
+  const result = await db.executeQuery(compiled);
+  return Number((result.rows[0] as { cnt?: number } | undefined)?.cnt ?? 0);
+};
+
+type QualifiedColumn = {
+  schema: string;
+  tableName: string;
+  columnName: string;
+};
+
+const qualifiedColumnKey = (column: QualifiedColumn): string =>
+  `${column.schema}.${column.tableName}.${column.columnName}`;
+
+const splitQualifiedName = (qualified: string): { schema: string; tableName: string } => {
+  const separator = qualified.indexOf('.');
+  if (separator <= 0) {
+    return { schema: 'public', tableName: qualified };
+  }
+  return {
+    schema: qualified.slice(0, separator),
+    tableName: qualified.slice(separator + 1),
+  };
+};
+
+const resolveLinkPropagationJoinColumn = (
+  linkField: LinkField,
+  sourceTableName: string,
+  targetTableName: string
+): Result<QualifiedColumn | undefined, DomainError> => {
+  return safeTry(function* () {
+    const relationship = linkField.relationship();
+    if (
+      relationship.equals(LinkRelationship.manyOne()) ||
+      relationship.equals(LinkRelationship.oneOne())
+    ) {
+      const fkHostTableName = yield* linkField.fkHostTableNameString();
+      const foreignKey = yield* linkField.foreignKeyNameString();
+      const selfKey = yield* linkField.selfKeyNameString();
+      if (fkHostTableName === targetTableName) {
+        if (foreignKey === '__id') return ok(undefined);
+        const { schema, tableName } = splitQualifiedName(targetTableName);
+        return ok({ schema, tableName, columnName: foreignKey });
+      }
+      if (selfKey === '__id') return ok(undefined);
+      const { schema, tableName } = splitQualifiedName(sourceTableName);
+      return ok({ schema, tableName, columnName: selfKey });
+    }
+
+    if (relationship.equals(LinkRelationship.oneMany())) {
+      if (linkField.isOneWay()) {
+        const fkHostTableName = yield* linkField.fkHostTableNameString();
+        const foreignKey = yield* linkField.foreignKeyNameString();
+        if (foreignKey === '__id') return ok(undefined);
+        const { schema, tableName } = splitQualifiedName(fkHostTableName);
+        return ok({ schema, tableName, columnName: foreignKey });
+      }
+      const selfKey = yield* linkField.selfKeyNameString();
+      if (selfKey === '__id') return ok(undefined);
+      const { schema, tableName } = splitQualifiedName(sourceTableName);
+      return ok({ schema, tableName, columnName: selfKey });
+    }
+
+    const fkHostTableName = yield* linkField.fkHostTableNameString();
+    const foreignKey = yield* linkField.foreignKeyNameString();
+    if (foreignKey === '__id') return ok(undefined);
+    const { schema, tableName } = splitQualifiedName(fkHostTableName);
+    return ok({ schema, tableName, columnName: foreignKey });
+  });
+};
+
+/**
+ * Physical columns a computed write for `field` needs. A structure copy or a repair that
+ * dropped a column without re-adding it leaves metadata advertising storage that is not
+ * there; the generated UPDATE would then reference a missing column and fail the whole
+ * run with 42703.
+ *
+ * Only columns whose location the generated SQL uses unambiguously are probed, so a
+ * healthy field is never skipped: the field's own value column on the host table, the
+ * `__fk_` join column of a manyOne/oneOne host link, and the junction keys of a
+ * junction-stored link.
+ */
+const resolveFieldStorageColumns = (
+  table: Table,
+  field: Field
+): Result<QualifiedColumn[], DomainError> => {
+  return safeTry<QualifiedColumn[], DomainError>(function* () {
+    const hostTableName = yield* table.dbTableName().andThen((name) => name.value());
+    const host = splitQualifiedName(hostTableName);
+    const valueColumn = yield* resolveColumnName(field);
+    const columns: QualifiedColumn[] = [
+      { schema: host.schema, tableName: host.tableName, columnName: valueColumn },
+    ];
+    if (!field.type().equals(FieldType.link())) return ok(columns);
+
+    const linkField = field as unknown as LinkField;
+    const relationship = linkField.relationship().toString();
+    const usesJunctionTable =
+      relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay());
+
+    if (usesJunctionTable) {
+      const junction = yield* linkField.fkHostTableName().split({ defaultSchema: null });
+      const junctionLocation = {
+        schema: junction.schema ?? 'public',
+        tableName: junction.tableName,
+      };
+      columns.push({ ...junctionLocation, columnName: yield* linkField.selfKeyNameString() });
+      columns.push({ ...junctionLocation, columnName: yield* linkField.foreignKeyNameString() });
+      if (linkField.hasOrderColumn()) {
+        columns.push({ ...junctionLocation, columnName: yield* linkField.orderColumnName() });
+      }
+      return ok(columns);
+    }
+
+    if (relationship === 'manyOne' || relationship === 'oneOne') {
+      const foreignKey = yield* linkField.foreignKeyNameString();
+      const fkHostTableName = yield* linkField.fkHostTableNameString();
+      // Probe only the location the generated SQL actually reads (`t.<fk>` on the host
+      // table); stale metadata pointing elsewhere stays with the original SQL so a
+      // healthy field is never skipped silently.
+      if (foreignKey !== '__id' && fkHostTableName === hostTableName) {
+        columns.push({ ...host, columnName: foreignKey });
+      }
+    }
+
+    return ok(columns);
+  });
+};
+
+const collectLinkPropagationJoinColumns = (
+  edges: ReadonlyArray<ComputedDependencyEdge>,
+  tableById: Map<string, Table>
+): Result<QualifiedColumn[], DomainError> => {
+  return safeTry(function* () {
+    const columns: QualifiedColumn[] = [];
+    const seen = new Set<string>();
+    for (const edge of edges) {
+      if (edge.propagationMode === 'allTargetRecords') continue;
+      if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) continue;
+      if (!edge.linkFieldId) continue;
+      const targetTable = tableById.get(edge.toTableId.toString());
+      const sourceTable = tableById.get(edge.fromTableId.toString());
+      if (!targetTable || !sourceTable) continue;
+      const linkFieldResult = targetTable.getField(
+        (field): field is LinkField =>
+          field.id().equals(edge.linkFieldId!) && field.type().equals(FieldType.link())
+      );
+      if (linkFieldResult.isErr()) continue;
+      const linkField = linkFieldResult.value;
+      if (!linkField.foreignTableId().equals(edge.fromTableId)) continue;
+      const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
+      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+      const join = yield* resolveLinkPropagationJoinColumn(linkField, sourceDbName, targetDbName);
+      if (!join) continue;
+      const key = qualifiedColumnKey(join);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      columns.push(join);
+    }
+    return ok(columns);
+  });
+};
+
+const loadMissingStorageColumnKeys = async (
+  db: Kysely<DynamicDB>,
+  columns: ReadonlyArray<QualifiedColumn>,
+  columnExists: Map<string, boolean>
+): Promise<Set<string>> => {
+  const missing = new Set<string>();
+  const unchecked = new Map<string, QualifiedColumn>();
+  for (const column of columns) {
+    const key = qualifiedColumnKey(column);
+    const exists = columnExists.get(key);
+    if (exists === false) missing.add(key);
+    else if (exists === undefined) unchecked.set(key, column);
+  }
+  if (unchecked.size === 0) return missing;
+
+  try {
+    const requested: RawBuilder<unknown>[] = [];
+    for (const column of unchecked.values()) {
+      requested.push(sql`(${column.schema}, ${column.tableName}, ${column.columnName})`);
+    }
+    // Read the catalog directly instead of `information_schema.columns`. This runs once per
+    // computed level plus once per propagation round, so its cost lands on every computed
+    // update: on the perf lab's fanout cases the view form measured 1.9-2.4 ms per call
+    // (28 ms per 8-level round), while the same triples through `pg_catalog` measure a few
+    // hundredths. The view also filters by privilege — a column this role cannot see would
+    // read as vanished and be skipped — where the check that matters here is physical
+    // existence, which is what `pg_attribute` answers.
+    const result = await sql<QualifiedColumn>`
+      WITH required_columns(schema_name, table_name, column_name) AS (
+        VALUES ${sql.join(requested)}
+      )
+      SELECT required.schema_name AS "schema",
+        required.table_name AS "tableName", required.column_name AS "columnName"
+      FROM required_columns AS required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_attribute AS a
+        INNER JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+        INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE n.nspname = required.schema_name
+          AND c.relname = required.table_name
+          AND a.attname = required.column_name
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+      )
+    `.execute(db);
+    for (const key of unchecked.keys()) columnExists.set(key, true);
+    for (const column of result.rows) {
+      const key = qualifiedColumnKey(column);
+      columnExists.set(key, false);
+      missing.add(key);
+    }
+  } catch {
+    // Do not cache an inspection failure. Preserve the original SQL for unchecked
+    // storage so a real database error is not replaced by a silent skip.
+  }
+  return missing;
+};
+
 const propagateDirtyRecords = async (
   db: Kysely<DynamicDB>,
   edges: ReadonlyArray<ComputedDependencyEdge>,
   tableById: Map<string, Table>,
-  context?: IExecutionContext
+  storageColumnCache: Map<string, boolean>,
+  context?: IExecutionContext,
+  options?: PropagateDirtyOptions
 ): Promise<Result<DirtyPropagationStats, DomainError>> => {
   try {
     // Build trace info for all edges once
@@ -2242,7 +3944,28 @@ const propagateDirtyRecords = async (
     const plannedAllTargetReasonSummary = summarizeAllTargetReasonCounts(
       plannedAllTargetReasonCounts
     );
+    const joinColumnsResult = collectLinkPropagationJoinColumns(edges, tableById);
+    if (joinColumnsResult.isErr()) {
+      return err(joinColumnsResult.error);
+    }
+    const missingJoinKeys = await loadMissingStorageColumnKeys(
+      db,
+      joinColumnsResult.value,
+      storageColumnCache
+    );
+
     const runtimeAllTargetFallbackReasonCounts: AllTargetReasonCounts = {};
+
+    const maxDirtyRecords =
+      options?.maxDirtyRecords !== undefined && options.maxDirtyRecords > 0
+        ? Math.trunc(options.maxDirtyRecords)
+        : undefined;
+    const partialMode = maxDirtyRecords !== undefined && options?.dirtyBudgetMode === 'partial';
+    // Abort mode budgets the full dirty set (seeds included). Partial mode budgets
+    // only rows this batch propagates, so seed-heavy tasks still make progress.
+    let dirtyRecordTotal =
+      maxDirtyRecords !== undefined && !partialMode ? await countDirtyRecords(db) : 0;
+    let dirtyBudget: DirtyPropagationStats['dirtyBudget'];
 
     let maxFrontierGenerations = 1;
 
@@ -2251,39 +3974,61 @@ const propagateDirtyRecords = async (
       frontierGeneration < maxFrontierGenerations;
       frontierGeneration += 1
     ) {
-      // Multiple computed fields can share the same dirty-propagation path. Collapse
-      // identical SELECTs for this frontier so we don't emit repeated UNION ALL branches.
       const preparedQueries = new Map<string, PreparedPropagationSelect>();
       for (const traceInfo of edgeTraceInfos) {
-        const selectResult = buildPropagationSelect(
-          db,
-          traceInfo.edge,
-          tableById,
-          frontierGeneration
-        );
-        if (selectResult.isErr()) {
-          return err(selectResult.error);
-        }
-
-        if (frontierGeneration === 0) {
-          incrementAllTargetReasonCount(
-            runtimeAllTargetFallbackReasonCounts,
-            selectResult.value.runtimeAllTargetFallbackReason
-          );
-        }
-
-        const compiled = selectResult.value.query.compile();
-        const key = propagationQueryKey(compiled);
-        const existing = preparedQueries.get(key);
-        if (existing) {
-          existing.traceInfos.push(traceInfo);
+        const fromTableId = traceInfo.edge.fromTableId.toString();
+        const edgeRestrictedIds = traceInfo.edge.restrictDirtySourceRecordIds;
+        const tableRestrictedIds = options?.sourceRecordIdsByFromTable?.get(fromTableId);
+        const restrictedIds =
+          edgeRestrictedIds !== undefined ? edgeRestrictedIds : tableRestrictedIds;
+        if (
+          edgeRestrictedIds !== undefined
+            ? edgeRestrictedIds.length === 0
+            : Boolean(options?.sourceRecordIdsByFromTable?.has(fromTableId)) &&
+              (tableRestrictedIds?.length ?? 0) === 0
+        ) {
           continue;
         }
+        const idChunks =
+          restrictedIds === undefined
+            ? [undefined]
+            : chunkArray(restrictedIds, SAME_TABLE_BATCH_CHUNK_TRIGGER);
+        for (const [chunkIndex, sourceRecordIds] of idChunks.entries()) {
+          const selectResult = buildPropagationSelect(
+            db,
+            traceInfo.edge,
+            tableById,
+            frontierGeneration,
+            // Budget mode leaves dedup to ON CONFLICT so LIMIT can stop scans early.
+            maxDirtyRecords === undefined,
+            missingJoinKeys,
+            sourceRecordIds
+          );
+          if (selectResult.isErr()) {
+            return err(selectResult.error);
+          }
 
-        preparedQueries.set(key, {
-          query: selectResult.value.query,
-          traceInfos: [traceInfo],
-        });
+          if (frontierGeneration === 0 && chunkIndex === 0) {
+            incrementAllTargetReasonCount(
+              runtimeAllTargetFallbackReasonCounts,
+              selectResult.value.runtimeAllTargetFallbackReason
+            );
+          }
+
+          const compiled = selectResult.value.query.compile();
+          const key = propagationQueryKey(compiled);
+          const existing = preparedQueries.get(key);
+          if (existing) {
+            existing.traceInfos.push(traceInfo);
+            continue;
+          }
+
+          preparedQueries.set(key, {
+            query: selectResult.value.query,
+            traceInfos: [traceInfo],
+            ...(selectResult.value.prepare ? { prepare: selectResult.value.prepare } : {}),
+          });
+        }
       }
 
       const selectQueries = [...preparedQueries.values()];
@@ -2292,6 +4037,53 @@ const propagateDirtyRecords = async (
       }
       if (selectQueries.length === 0) {
         break;
+      }
+
+      if (maxDirtyRecords !== undefined) {
+        // Budgeted path: one bounded statement per edge instead of a single giant
+        // UNION ALL — smaller executor footprint and an abort point between edges.
+        let generationInserted = 0;
+        for (const preparedSelect of selectQueries) {
+          const remaining = maxDirtyRecords - dirtyRecordTotal;
+          if (remaining <= 0) {
+            dirtyBudget = partialMode
+              ? {
+                  status: 'partial',
+                  propagatedDirtyRecords: dirtyRecordTotal,
+                  truncated: 'propagation',
+                }
+              : { status: 'exceeded', dirtyRecordsAtAbort: dirtyRecordTotal };
+            break;
+          }
+          // Abort mode probes one row past the budget to distinguish "exactly fits"
+          // from "there was more"; partial mode caps at the budget exactly.
+          const limit = partialMode ? remaining : remaining + 1;
+          if (preparedSelect.prepare) {
+            await preparedSelect.prepare.execute(db);
+          }
+          const srcCount = await runBudgetedPropagationInsert(
+            db,
+            preparedSelect.query,
+            frontierGeneration,
+            limit,
+            options?.exclusionScopeId
+          );
+          generationInserted += srcCount;
+          dirtyRecordTotal += srcCount;
+          if (srcCount >= limit) {
+            dirtyBudget = partialMode
+              ? {
+                  status: 'partial',
+                  propagatedDirtyRecords: dirtyRecordTotal,
+                  truncated: 'propagation',
+                }
+              : { status: 'exceeded', dirtyRecordsAtAbort: dirtyRecordTotal };
+            break;
+          }
+        }
+        if (dirtyBudget) break;
+        if (generationInserted === 0) break;
+        continue;
       }
 
       // Create a single span for the batched propagation
@@ -2339,6 +4131,13 @@ const propagateDirtyRecords = async (
       }
 
       const executeBatchWork = async (): Promise<number | undefined> => {
+        // Materialize conditional propagation sources before the combined
+        // statement references them.
+        for (const preparedSelect of selectQueries) {
+          if (preparedSelect.prepare) {
+            await preparedSelect.prepare.execute(db);
+          }
+        }
         // Build one UNION ALL over edges, but only from this pass's dirty frontier.
         let unionQuery = selectQueries[0].query;
         for (let i = 1; i < selectQueries.length; i++) {
@@ -2386,6 +4185,7 @@ const propagateDirtyRecords = async (
     return ok({
       plannedAllTargetReasonCounts,
       runtimeAllTargetFallbackReasonCounts,
+      ...(dirtyBudget ? { dirtyBudget } : {}),
     });
   } catch (error) {
     return err(
@@ -2405,7 +4205,23 @@ type DirtySelectParams = {
   sourceTableId: string;
   targetTableId: string;
   dirtyGeneration: number;
+  /**
+   * DISTINCT is a blocking executor node: under a dirty budget the per-edge LIMIT
+   * must be able to stop the scan early, so dedup is left to ON CONFLICT instead.
+   */
+  distinct: boolean;
+  sourceRecordIds?: ReadonlyArray<string>;
 };
+
+const restrictDirtySourceRecords = <
+  Q extends { where: (lhs: string, op: 'in', rhs: readonly string[]) => Q },
+>(
+  query: Q,
+  sourceRecordIds: ReadonlyArray<string> | undefined
+): Q =>
+  sourceRecordIds === undefined
+    ? query
+    : query.where(`d.${DIRTY_RECORD_ID_COL}`, 'in', sourceRecordIds);
 
 const buildDirtySelectQuery = (
   params: DirtySelectParams
@@ -2420,6 +4236,8 @@ const buildDirtySelectQuery = (
       sourceTableId,
       targetTableId,
       dirtyGeneration,
+      distinct,
+      sourceRecordIds,
     } = params;
 
     if (
@@ -2433,38 +4251,41 @@ const buildDirtySelectQuery = (
       // Check if target table hosts the FK
       if (fkHostTableName === targetTableName) {
         // Normal case: FK is on target table
-        // Join target table with dirty table on foreignKey
-        const select = db
-          .selectFrom(`${targetTableName} as t`)
-          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `t.${foreignKey}`)
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-          .select([
-            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
+        const select = restrictDirtySourceRecords(
+          db
+            .selectFrom(`${targetTableName} as t`)
+            .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `t.${foreignKey}`)
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+            .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+            .select([
+              sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ]),
+          sourceRecordIds
+        );
 
-        return ok(select as unknown as DirtySelectQuery);
+        return ok((distinct ? select.distinct() : select) as unknown as DirtySelectQuery);
       }
 
       // Symmetric case: FK is on source table (fkHostTable = sourceTable)
       // The link field is on the "foreign" side of the relationship.
       // Join source table with dirty table, select selfKey as target record
       // (selfKey points to the target table records via the FK in source table)
-      const select = db
-        .selectFrom(`${sourceTableName} as s`)
-        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 's.__id')
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-        .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-        .where(sql.ref(`s.${selfKey}`), 'is not', null)
-        .select([
-          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-          sql.ref(`s.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
+      const select = restrictDirtySourceRecords(
+        db
+          .selectFrom(`${sourceTableName} as s`)
+          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 's.__id')
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+          .where(sql.ref(`s.${selfKey}`), 'is not', null)
+          .select([
+            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+            sql.ref(`s.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+          ]),
+        sourceRecordIds
+      );
 
-      return ok(select as unknown as DirtySelectQuery);
+      return ok((distinct ? select.distinct() : select) as unknown as DirtySelectQuery);
     }
 
     if (relationship.equals(LinkRelationship.oneMany())) {
@@ -2472,51 +4293,57 @@ const buildDirtySelectQuery = (
         const fkHostTableName = yield* linkField.fkHostTableNameString();
         const selfKey = yield* linkField.selfKeyNameString();
         const foreignKey = yield* linkField.foreignKeyNameString();
-        const select = db
-          .selectFrom(`${fkHostTableName} as j`)
-          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-          .select([
-            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-            sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
+        const select = restrictDirtySourceRecords(
+          db
+            .selectFrom(`${fkHostTableName} as j`)
+            .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+            .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+            .select([
+              sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+              sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+            ]),
+          sourceRecordIds
+        );
 
-        return ok(select as unknown as DirtySelectQuery);
+        return ok((distinct ? select.distinct() : select) as unknown as DirtySelectQuery);
       }
 
       const selfKey = yield* linkField.selfKeyNameString();
-      const select = db
-        .selectFrom(`${sourceTableName} as f`)
-        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 'f.__id')
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-        .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-        .where(sql.ref(`f.${selfKey}`), 'is not', null)
-        .select([
-          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-          sql.ref(`f.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
+      const select = restrictDirtySourceRecords(
+        db
+          .selectFrom(`${sourceTableName} as f`)
+          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 'f.__id')
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+          .where(sql.ref(`f.${selfKey}`), 'is not', null)
+          .select([
+            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+            sql.ref(`f.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+          ]),
+        sourceRecordIds
+      );
 
-      return ok(select as unknown as DirtySelectQuery);
+      return ok((distinct ? select.distinct() : select) as unknown as DirtySelectQuery);
     }
 
     const fkHostTableName = yield* linkField.fkHostTableNameString();
     const selfKey = yield* linkField.selfKeyNameString();
     const foreignKey = yield* linkField.foreignKeyNameString();
-    const select = db
-      .selectFrom(`${fkHostTableName} as j`)
-      .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
-      .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-      .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-      .select([
-        sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-        sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-      ])
-      .distinct();
+    const select = restrictDirtySourceRecords(
+      db
+        .selectFrom(`${fkHostTableName} as j`)
+        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+        .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+        .select([
+          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+          sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+        ]),
+      sourceRecordIds
+    );
 
-    return ok(select as unknown as DirtySelectQuery);
+    return ok((distinct ? select.distinct() : select) as unknown as DirtySelectQuery);
   });
 };
 
@@ -2524,24 +4351,46 @@ const buildGatedAllTargetSelect = (
   db: Kysely<DynamicDB>,
   edge: Pick<ComputedDependencyEdge, 'fromTableId' | 'toTableId'>,
   targetDbName: string,
-  dirtyGeneration: number
+  dirtyGeneration: number,
+  distinct: boolean,
+  sourceRecordIds?: ReadonlyArray<string>
 ): DirtySelectQuery => {
-  const dirtyGate = db
-    .selectFrom(`${DIRTY_TABLE} as d`)
-    .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-    .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-    .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
+  const dirtyGate = restrictDirtySourceRecords(
+    db
+      .selectFrom(`${DIRTY_TABLE} as d`)
+      .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+      .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+      .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration),
+    sourceRecordIds
+  )
     .limit(1)
     .as('dg');
 
-  return db
+  const select = db
     .selectFrom(`${targetDbName} as t`)
     .innerJoin(dirtyGate, (join) => join.onTrue())
     .select([
       sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
       sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+    ]);
+  return (distinct ? select.distinct() : select) as unknown as DirtySelectQuery;
+};
+
+const skippedPropagationSelect = (
+  db: Kysely<DynamicDB>,
+  edge: ComputedDependencyEdge,
+  distinct: boolean
+): BuiltPropagationSelect => {
+  const select = db
+    .selectFrom(DIRTY_TABLE)
+    .select([
+      sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+      sql.ref(DIRTY_RECORD_ID_COL).as(DIRTY_RECORD_ID_COL),
     ])
-    .distinct() as unknown as DirtySelectQuery;
+    .where(sql<SqlBool>`false`);
+  return {
+    query: (distinct ? select.distinct() : select) as unknown as DirtySelectQuery,
+  };
 };
 
 /**
@@ -2552,21 +4401,30 @@ const buildPropagationSelect = (
   db: Kysely<DynamicDB>,
   edge: ComputedDependencyEdge,
   tableById: Map<string, Table>,
-  dirtyGeneration: number
+  dirtyGeneration: number,
+  distinct: boolean,
+  missingJoinKeys: ReadonlySet<string> = new Set(),
+  sourceRecordIds?: ReadonlyArray<string>
 ): Result<BuiltPropagationSelect, DomainError> => {
   return safeTry(function* () {
+    if (sourceRecordIds && sourceRecordIds.length === 0) {
+      return ok(skippedPropagationSelect(db, edge, distinct));
+    }
     const targetTable = tableById.get(edge.toTableId.toString());
     if (!targetTable) {
-      return err(
-        domainError.notFound({
-          message: `Missing target table ${edge.toTableId.toString()}`,
-        })
-      );
+      return ok(skippedPropagationSelect(db, edge, distinct));
     }
 
     if (edge.propagationMode === 'allTargetRecords') {
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-      const select = buildGatedAllTargetSelect(db, edge, targetDbName, dirtyGeneration);
+      const select = buildGatedAllTargetSelect(
+        db,
+        edge,
+        targetDbName,
+        dirtyGeneration,
+        distinct,
+        sourceRecordIds
+      );
 
       return ok({ query: select as unknown as DirtySelectQuery });
     }
@@ -2575,11 +4433,7 @@ const buildPropagationSelect = (
     if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) {
       const sourceTable = tableById.get(edge.fromTableId.toString());
       if (!sourceTable) {
-        return err(
-          domainError.notFound({
-            message: `Missing source table ${edge.fromTableId.toString()} for conditionalFiltered`,
-          })
-        );
+        return ok(skippedPropagationSelect(db, edge, distinct));
       }
 
       // Create FieldCondition from filterDto
@@ -2590,7 +4444,14 @@ const buildPropagationSelect = (
         // Fallback to allTargetRecords if filter is invalid
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
         return ok({
-          query: buildGatedAllTargetSelect(db, edge, targetDbName, dirtyGeneration),
+          query: buildGatedAllTargetSelect(
+            db,
+            edge,
+            targetDbName,
+            dirtyGeneration,
+            distinct,
+            sourceRecordIds
+          ),
           runtimeAllTargetFallbackReason: 'conditional_runtime_invalid_filter',
         });
       }
@@ -2600,7 +4461,14 @@ const buildPropagationSelect = (
         // No filter - fallback to allTargetRecords
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
         return ok({
-          query: buildGatedAllTargetSelect(db, edge, targetDbName, dirtyGeneration),
+          query: buildGatedAllTargetSelect(
+            db,
+            edge,
+            targetDbName,
+            dirtyGeneration,
+            distinct,
+            sourceRecordIds
+          ),
           runtimeAllTargetFallbackReason: 'conditional_runtime_empty_filter',
         });
       }
@@ -2614,16 +4482,29 @@ const buildPropagationSelect = (
         // fallback to allTargetRecords so the field can still be recalculated/cleared
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
         return ok({
-          query: buildGatedAllTargetSelect(db, edge, targetDbName, dirtyGeneration),
+          query: buildGatedAllTargetSelect(
+            db,
+            edge,
+            targetDbName,
+            dirtyGeneration,
+            distinct,
+            sourceRecordIds
+          ),
           runtimeAllTargetFallbackReason: 'conditional_runtime_invalid_condition_spec',
         });
       }
       const specResult = conditionSpecResult.value;
       if (!specResult) {
-        // No spec generated - fallback to allTargetRecords
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
         return ok({
-          query: buildGatedAllTargetSelect(db, edge, targetDbName, dirtyGeneration),
+          query: buildGatedAllTargetSelect(
+            db,
+            edge,
+            targetDbName,
+            dirtyGeneration,
+            distinct,
+            sourceRecordIds
+          ),
           runtimeAllTargetFallbackReason: 'conditional_runtime_missing_condition_spec',
         });
       }
@@ -2645,43 +4526,50 @@ const buildPropagationSelect = (
       const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
 
-      const currentMatchQuery = db
-        .selectFrom(`${DIRTY_TABLE} as d`)
-        .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
-        .select(sql.lit(1).as('one'))
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-        .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-        .where(filterWhere)
-        .limit(1);
+      // Project only the source columns the filter references (plus __id for
+      // record-id conditions). The wide source row is dead weight for matching,
+      // and the before-image branch otherwise reconstructs it in full — per
+      // target row — via jsonb_populate_record.
+      // referencedFieldIds() (not filterFieldIds()) because for self-table
+      // field references toRecordConditionSpec swaps the item field to the
+      // host side and puts the referenced field on the source alias; host-only
+      // field ids simply fail the source-table lookup below and are skipped.
+      const sourceColumns = new Set<string>(['__id']);
+      for (const fieldId of fieldCondition.referencedFieldIds()) {
+        const fieldResult = sourceTable.getField((f) => f.id().equals(fieldId));
+        if (fieldResult.isErr()) continue;
+        const columnResult = fieldResult.value.dbFieldName().andThen((name) => name.value());
+        if (columnResult.isErr()) continue;
+        sourceColumns.add(columnResult.value);
+      }
+      const prunedColumns = [...sourceColumns];
 
-      let matchCondition = sql<SqlBool>`exists (${currentMatchQuery})`;
+      const currentSourceRows = restrictDirtySourceRecords(
+        db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
+          .select(prunedColumns.map((column) => sql.ref(`s.${column}`).as(column)))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration),
+        sourceRecordIds
+      );
+
+      let sourceRowsQuery = currentSourceRows;
 
       if (edge.filterCondition.includeBeforeImage) {
-        const beforeImageVisitor = new TableRecordConditionWhereVisitor({
-          tableAlias: 's_before',
-          hostTableAlias: 't',
-        });
-        const beforeAcceptResult = specResult.accept(beforeImageVisitor);
-        if (beforeAcceptResult.isErr()) {
-          return err(beforeAcceptResult.error);
-        }
-        const beforeWhereResult = beforeImageVisitor.where();
-        if (beforeWhereResult.isErr()) {
-          return err(beforeWhereResult.error);
-        }
-        const beforeFilterWhere = beforeWhereResult.value as unknown as Expression<SqlBool>;
         const sourceTableTypeLiteral = toQualifiedIdentifierLiteral(sourceDbName);
 
-        const beforeImageBaseQuery = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .innerJoin(`${BEFORE_IMAGE_TABLE} as bi`, (join) =>
-            join
-              .onRef(`bi.${DIRTY_TABLE_ID_COL}`, '=', `d.${DIRTY_TABLE_ID_COL}`)
-              .onRef(`bi.${DIRTY_RECORD_ID_COL}`, '=', `d.${DIRTY_RECORD_ID_COL}`)
-          )
-          .leftJoin(`${sourceDbName} as s_current`, 's_current.__id', `d.${DIRTY_RECORD_ID_COL}`)
-          .innerJoinLateral(
-            sql<Record<string, unknown>>`(
+        const beforeImageRows = restrictDirtySourceRecords(
+          db
+            .selectFrom(`${DIRTY_TABLE} as d`)
+            .innerJoin(`${BEFORE_IMAGE_TABLE} as bi`, (join) =>
+              join
+                .onRef(`bi.${DIRTY_TABLE_ID_COL}`, '=', `d.${DIRTY_TABLE_ID_COL}`)
+                .onRef(`bi.${DIRTY_RECORD_ID_COL}`, '=', `d.${DIRTY_RECORD_ID_COL}`)
+            )
+            .leftJoin(`${sourceDbName} as s_current`, 's_current.__id', `d.${DIRTY_RECORD_ID_COL}`)
+            .innerJoinLateral(
+              sql<Record<string, unknown>>`(
               select *
               -- Reconstruct the pre-change source row by starting from the current row
               -- (or an empty JSON object for DELETE) and overlaying the captured old column values.
@@ -2691,18 +4579,45 @@ const buildPropagationSelect = (
                   || ${sql.ref(`bi.${BEFORE_IMAGE_SNAPSHOT_COL}`)}
               )
             )`.as('s_before'),
-            (join) => join.onTrue()
-          );
+              (join) => join.onTrue()
+            )
+            .select(prunedColumns.map((column) => sql.ref(`s_before.${column}`).as(column)))
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration),
+          sourceRecordIds
+        );
 
-        const beforeImageMatchQuery = beforeImageBaseQuery
-          .select(sql.lit(1).as('one'))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .where(`d.${DIRTY_GENERATION_COL}`, '=', dirtyGeneration)
-          .where(beforeFilterWhere)
-          .limit(1);
-
-        matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+        sourceRowsQuery = currentSourceRows.unionAll(
+          beforeImageRows as unknown as typeof currentSourceRows
+        ) as unknown as typeof currentSourceRows;
       }
+
+      // Materialize the (small, budget-bounded) source rows once per statement.
+      // Left as a correlated EXISTS, the planner can re-run the source scan —
+      // including the before-image full-row rebuild — once per target row,
+      // which is the O(targets × dirty) shape behind minute-long propagation
+      // statements in production.
+      const compiledSourceRows = sourceRowsQuery.compile();
+      const sourceRelationName = `tmp_computed_csrc_${fnv1aHex(
+        `${compiledSourceRows.sql}::${JSON.stringify(compiledSourceRows.parameters)}`
+      )}`;
+      const prepare: PropagationSourcePrepare = {
+        execute: async (runDb) => {
+          await sql`drop table if exists ${sql.table(`pg_temp.${sourceRelationName}`)}`.execute(
+            runDb
+          );
+          await sql`create temp table ${sql.raw(
+            quoteIdentifier(sourceRelationName)
+          )} on commit drop as ${sourceRowsQuery}`.execute(runDb);
+          await sql`analyze ${sql.table(`pg_temp.${sourceRelationName}`)}`.execute(runDb);
+        },
+      };
+
+      const matchSubquery = db
+        .selectFrom(`pg_temp.${sourceRelationName} as s`)
+        .select(sql.lit(1).as('one'))
+        .where(filterWhere)
+        .limit(1);
 
       const targetDrivenSelect = db
         .selectFrom(`${targetDbName} as t`)
@@ -2710,27 +4625,29 @@ const buildPropagationSelect = (
           sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
           sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
         ])
-        .where(matchCondition)
-        .distinct();
+        .where(sql<SqlBool>`exists (${matchSubquery})`);
 
-      return ok({ query: targetDrivenSelect as unknown as DirtySelectQuery });
+      return ok({
+        query: (distinct
+          ? targetDrivenSelect.distinct()
+          : targetDrivenSelect) as unknown as DirtySelectQuery,
+        prepare,
+      });
     }
 
     if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));
     const sourceTable = tableById.get(edge.fromTableId.toString());
     if (!sourceTable) {
-      return err(
-        domainError.notFound({
-          message: `Missing source table ${edge.fromTableId.toString()}`,
-        })
-      );
+      return ok(skippedPropagationSelect(db, edge, distinct));
     }
 
-    const linkFieldResult = targetTable.getField((field): field is LinkField =>
-      field.id().equals(edge.linkFieldId!)
+    const linkFieldResult = targetTable.getField(
+      (field): field is LinkField =>
+        field.id().equals(edge.linkFieldId!) && field.type().equals(FieldType.link())
     );
     if (linkFieldResult.isErr()) {
-      // Schema updates/undo-redo may leave transient stale edges.
+      // Schema updates/undo-redo (or a persisted plan whose linkFieldId
+      // drifted onto a lookup/rollup) may leave transient stale edges.
       // Skip them instead of failing the whole computed run.
       const select = db
         .selectFrom(DIRTY_TABLE)
@@ -2757,6 +4674,15 @@ const buildPropagationSelect = (
     const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
     const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
 
+    const joinColumn = yield* resolveLinkPropagationJoinColumn(
+      linkField,
+      sourceDbName,
+      targetDbName
+    );
+    if (joinColumn && missingJoinKeys.has(qualifiedColumnKey(joinColumn))) {
+      return ok(skippedPropagationSelect(db, edge, distinct));
+    }
+
     const relationship = linkField.relationship();
     const selectQuery = yield* buildDirtySelectQuery({
       db,
@@ -2767,6 +4693,8 @@ const buildPropagationSelect = (
       sourceTableId: edge.fromTableId.toString(),
       targetTableId: edge.toTableId.toString(),
       dirtyGeneration,
+      distinct,
+      sourceRecordIds,
     });
 
     return ok({ query: selectQuery });

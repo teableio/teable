@@ -35,8 +35,10 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import type { DomainWriteDecision, IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -64,7 +66,7 @@ import {
   type UndoRedoApplyFieldSnapshotCommandData,
   type UndoRedoDeleteFieldCommandData,
 } from '../ports/UndoRedoStore';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { PasteCommand } from './PasteCommand';
 import { PasteHandler, PasteStreamApplicationService } from './PasteHandler';
 import { PasteStreamCommand } from './PasteStreamCommand';
@@ -492,7 +494,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
     if (this.updateManyStreamErrorAtCall === this.updateCalls) {
-      return err(domainError.infrastructure({ message: 'connection exhausted' }));
+      return err(
+        domainError.infrastructure({
+          message: 'connection exhausted',
+          localization: { i18nKey: 'httpErrors.custom.linkOneManyDuplicate' },
+        })
+      );
     }
     this.updateStreamContexts.push(context);
     this.updateStreamOptions.push(options ?? {});
@@ -702,6 +709,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     return ok(spec);
@@ -709,6 +717,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplaceMany(
     _: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     return ok(specs);
@@ -726,6 +735,7 @@ class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecRe
 
   override async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     this.resolveAndReplaceCalls += 1;
@@ -734,6 +744,7 @@ class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecRe
 
   override async resolveAndReplaceMany(
     _: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     this.resolveAndReplaceManyCalls += 1;
@@ -764,6 +775,35 @@ class FakeUnitOfWork implements IUnitOfWork {
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     const transactionContext = { ...context, transaction };
     return work(transactionContext);
+  }
+}
+
+class CapturingDomainWriteTransaction implements IDomainWriteTransaction {
+  decision: DomainWriteDecision<unknown> | undefined;
+
+  constructor(private readonly inner: IDomainWriteTransaction) {}
+
+  executeStream: IDomainWriteTransaction['executeStream'] = (...args) =>
+    this.inner.executeStream(...args);
+
+  async execute<T>(
+    context: IExecutionContext,
+    work: (
+      transactionContext: IExecutionContext
+    ) => Promise<Result<DomainWriteDecision<T>, DomainError>>,
+    options?: IUnitOfWorkOptions
+  ) {
+    return this.inner.execute(
+      context,
+      async (transactionContext) => {
+        const result = await work(transactionContext);
+        if (result.isOk()) {
+          this.decision = result.value as DomainWriteDecision<unknown>;
+        }
+        return result;
+      },
+      options
+    );
   }
 }
 
@@ -817,9 +857,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -883,9 +922,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         undoRedoService as unknown as UndoRedoStackService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -943,9 +981,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         undoRedoService as unknown as UndoRedoStackService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -1003,9 +1040,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -1075,9 +1111,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -1150,9 +1185,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -1224,9 +1258,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const commandResult = PasteCommand.create({
@@ -1273,9 +1306,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1331,9 +1363,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1382,9 +1413,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1454,9 +1484,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1506,9 +1535,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const content = Array.from({ length: 501 }, (_, index) => [
@@ -1570,9 +1598,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const content = Array.from({ length: 501 }, (_, index) => [
@@ -1619,9 +1646,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        new FakeEventBus(),
         noopUndoRedoService,
-        new FakeUnitOfWork()
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
       );
 
       const command = PasteCommand.create({
@@ -1675,9 +1701,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1728,9 +1753,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -1797,9 +1821,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner([plugin]),
-        new FakeEventBus(),
         noopUndoRedoService,
-        new FakeUnitOfWork()
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
       );
 
       const command = PasteCommand.create({
@@ -1823,6 +1846,80 @@ describe('PasteHandler', () => {
       ]);
       expect(beforePersistFieldCount).toBe(2);
       expect(insertedFieldCount).toBe(3);
+    });
+
+    it('Y633 persists expanded field inside transaction and binds expanded table', async () => {
+      const baseId = BaseId.create(`bse${'c'.repeat(16)}`)._unsafeUnwrap();
+      const tableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+      const nameFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(tableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Paste Expand Bind')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(nameFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const write = new CapturingDomainWriteTransaction(
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      );
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        new FakeTableRecordRepository(),
+        new FakeTableRecordQueryRepository(),
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        noopUndoRedoService,
+        write
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['alpha', '12']],
+      });
+
+      const result = await handler.handle(createContext(), command._unsafeUnwrap());
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().createdCount).toBe(1);
+      expect(tableRepository.updated).toHaveLength(1);
+
+      const persistedFields = tableRepository.updated[0]!.getFields();
+      const added = persistedFields.find((field) => !field.id().equals(nameFieldId));
+      expect(added).toBeDefined();
+      expect(persistedFields).toHaveLength(2);
+
+      const boundTable =
+        write.decision?.kind === 'changed'
+          ? (write.decision.tables?.[0] as Table | undefined)
+          : undefined;
+      expect
+        .soft(boundTable?.getFields().map((field) => field.id().toString()))
+        .toContain(added!.id().toString());
+      expect.soft(boundTable?.getFields()).toHaveLength(2);
     });
 
     it('records undo and redo commands for auto-created paste columns', async () => {
@@ -1881,9 +1978,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         recordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        new FakeEventBus(),
         undoRedoService as unknown as UndoRedoStackService,
-        new FakeUnitOfWork()
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
       );
 
       const command = PasteCommand.create({
@@ -1948,9 +2044,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -2019,9 +2114,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -2067,9 +2161,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteCommand.create({
@@ -2139,9 +2232,8 @@ describe('PasteHandler', () => {
           guard: async () => ok(undefined),
         },
       ]),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = PasteCommand.create({
@@ -2232,9 +2324,8 @@ describe('PasteHandler', () => {
           guard: async () => ok(undefined),
         },
       ]),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = PasteCommand.create({
@@ -2293,9 +2384,8 @@ describe('PasteHandler', () => {
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner([plugin]),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = PasteCommand.create({
@@ -2355,9 +2445,8 @@ describe('PasteHandler', () => {
           guard: async () => err(blockingError),
         },
       ]),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = PasteCommand.create({
@@ -2412,9 +2501,8 @@ describe('PasteHandler', () => {
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner(),
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = PasteCommand.create({
@@ -2499,9 +2587,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         trackingUndoRedoService as unknown as UndoRedoStackService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteStreamCommand.create({
@@ -2676,9 +2763,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
       const command = PasteStreamCommand.create({
         tableId: tableId.toString(),
@@ -2709,6 +2795,7 @@ describe('PasteHandler', () => {
         processedCount: 1,
         updatedCount: 1,
         message: 'connection exhausted',
+        localization: { i18nKey: 'httpErrors.custom.linkOneManyDuplicate' },
       });
       expect(recordRepository.updateCalls).toBe(2);
     });
@@ -2751,9 +2838,8 @@ describe('PasteHandler', () => {
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteStreamCommand.create({
@@ -2840,9 +2926,8 @@ describe('PasteHandler', () => {
             },
           },
         ]),
-        eventBus,
         noopUndoRedoService,
-        unitOfWork
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
       );
 
       const command = PasteStreamCommand.create({

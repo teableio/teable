@@ -35,7 +35,7 @@ import {
 import type { Prisma, View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { isEmpty, isNull, isString, merge, snakeCase, uniq } from 'lodash';
+import { isEmpty, isNull, isString, merge, snakeCase } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
@@ -261,18 +261,44 @@ export class ViewService implements IReadonlyAdapterService {
 
   async restoreView(tableId: string, viewId: string) {
     await this.assertTableWritable(tableId);
-    await this.prismaService.$tx(async () => {
-      await this.prismaService.txClient().view.update({
+    // Callers such as operation-id trash restores and undo/redo run outside a
+    // transaction; raw ops are only flushed to ShareDB by the outermost $tx
+    await this.prismaService.$tx(async (prisma) => {
+      const viewRaw = await prisma.view.findFirst({
+        where: { id: viewId, tableId, deletedTime: { not: null } },
+        select: { version: true },
+      });
+
+      if (!viewRaw) {
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
+      }
+
+      const { version } = viewRaw;
+      await prisma.view.update({
         where: { id: viewId },
         data: {
+          version: version + 1,
           deletedTime: null,
+          lastModifiedBy: this.cls.get('user.id'),
+          lastModifiedTime: new Date().toISOString(),
         },
       });
-      const ops = ViewOpBuilder.editor.setViewProperty.build({
-        key: 'lastModifiedTime',
-        newValue: new Date().toISOString(),
-      });
-      await this.updateViewByOps(tableId, viewId, [ops]);
+
+      // deleteView removed the doc with a del op, so the restore must be a
+      // create op (mirrors TableService.restoreTable): an edit op on the
+      // revived doc is skipped by DocListQueryPollSkipStrategy and would leave
+      // view list subscriptions without the restored view
+      this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+        { docId: viewId, version },
+      ]);
     });
   }
 
@@ -383,7 +409,7 @@ export class ViewService implements IReadonlyAdapterService {
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
     const viewRaw = await this.createDbView(tableId, viewRo);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
       { docId: viewRaw.id, version: 0, data: viewRaw },
     ]);
 
@@ -434,7 +460,7 @@ export class ViewService implements IReadonlyAdapterService {
 
     await this.del(viewToDelete.version + 1, tableId, viewId);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
+    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
       { docId: viewId, version: viewToDelete.version },
     ]);
   }
@@ -482,7 +508,7 @@ export class ViewService implements IReadonlyAdapterService {
       data: { version: viewRaw.version + 1, ...updateInput },
     });
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
+    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
       {
         docId: viewId,
         version: viewRaw.version,
@@ -499,6 +525,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
     await this.assertTableWritable(tableId);
+    await this.normalizeGalleryPrimaryColumnMetaOps(tableId, opsMap);
     const { updateViewMap, updateViewKeySet } = this.getBatchUpdateViewContext(opsMap);
     if (updateViewKeySet.size === 0) {
       return;
@@ -668,6 +695,85 @@ export class ViewService implements IReadonlyAdapterService {
     return res;
   }
 
+  /**
+   * Gallery cards are titled by the primary field, so a `visible: false` patch for it
+   * leaves the view without a renderable card. Persisted column meta and emitted ops must
+   * agree, so every op that would hide the gallery primary field is rewritten to keep it
+   * visible. Only that flag is normalized: the rest of the patch, the other fields in the
+   * same batch and all other view metadata stay as requested. Undo/redo replays inverted
+   * raw ops through this same boundary, so a historical hide cannot be restored.
+   */
+  private async normalizeGalleryPrimaryColumnMetaOps(
+    tableId: string,
+    opsMap: { [viewId: string]: IOtOperation[] }
+  ) {
+    const candidateViewIds = Object.entries(opsMap)
+      .filter(([, ops]) =>
+        ops.some((op) => {
+          const context = ViewOpBuilder.detect(op);
+          return (
+            context?.name === OpName.UpdateViewColumnMeta &&
+            context.newColumnMeta != null &&
+            'visible' in context.newColumnMeta &&
+            context.newColumnMeta.visible === false
+          );
+        })
+      )
+      .map(([viewId]) => viewId);
+    if (!candidateViewIds.length) {
+      return;
+    }
+
+    const galleryViews = await this.prismaService.txClient().view.findMany({
+      where: {
+        id: { in: candidateViewIds },
+        tableId,
+        deletedTime: null,
+        type: ViewType.Gallery,
+      },
+      select: { id: true },
+    });
+    if (!galleryViews.length) {
+      return;
+    }
+
+    const primaryField = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    const primaryFieldId = primaryField?.id;
+    if (!primaryFieldId) {
+      return;
+    }
+
+    for (const { id: viewId } of galleryViews) {
+      const ops = opsMap[viewId];
+      ops.forEach((op, index) => {
+        const context = ViewOpBuilder.detect(op);
+        const newColumnMeta =
+          context?.name === OpName.UpdateViewColumnMeta ? context.newColumnMeta : null;
+
+        if (
+          context?.name !== OpName.UpdateViewColumnMeta ||
+          context.fieldId !== primaryFieldId ||
+          !newColumnMeta ||
+          !('visible' in newColumnMeta) ||
+          newColumnMeta.visible !== false
+        ) {
+          return;
+        }
+
+        // Callers emit these ops after the transaction, so the normalized op replaces the
+        // requested one in place: ShareDB then publishes exactly what was persisted.
+        ops[index] = ViewOpBuilder.editor.updateViewColumnMeta.build({
+          fieldId: context.fieldId,
+          newColumnMeta: { ...newColumnMeta, visible: true } as IColumn,
+          oldColumnMeta: context.oldColumnMeta ?? undefined,
+        });
+      });
+    }
+  }
+
   getBatchUpdateViewContext(opsMap: { [viewId: string]: IOtOperation[] }) {
     const updateViewMap: {
       [viewId: string]: {
@@ -702,10 +808,9 @@ export class ViewService implements IReadonlyAdapterService {
     originColumnMeta: IColumnMeta,
     newColumnMeta: Record<string, IColumn | null>
   ) {
-    const newColumnMetaKeys = uniq([
-      ...Object.keys(originColumnMeta),
-      ...Object.keys(newColumnMeta),
-    ]);
+    const newColumnMetaKeys = [
+      ...new Set([...Object.keys(originColumnMeta), ...Object.keys(newColumnMeta)]),
+    ];
 
     return newColumnMetaKeys.reduce(
       (acc: IColumnMeta, key) => {
@@ -776,13 +881,13 @@ export class ViewService implements IReadonlyAdapterService {
       return;
     }
 
-    const caseStatements: Record<string, { when: string; then: unknown }[]> = {};
+    const caseStatements: Record<string, { when: string; thenValue: unknown }[]> = {};
     for (const { id, values } of data) {
       for (const [key, value] of Object.entries(values)) {
         if (!caseStatements[key]) {
           caseStatements[key] = [];
         }
-        caseStatements[key].push({ when: id, then: value });
+        caseStatements[key].push({ when: id, thenValue: value });
       }
     }
 
@@ -794,9 +899,9 @@ export class ViewService implements IReadonlyAdapterService {
       const column = snakeCase(key);
       const whenClauses: string[] = [];
       const caseBindings: unknown[] = [];
-      for (const { when, then } of statements) {
+      for (const { when, thenValue } of statements) {
         whenClauses.push('WHEN ?? = ? THEN ?');
-        caseBindings.push('id', when, then);
+        caseBindings.push('id', when, thenValue);
       }
       const caseExpression = `CASE ${whenClauses.join(' ')} ELSE ?? END`;
       const rawExpression = this.knex.raw(caseExpression, [...caseBindings, column]);
@@ -994,7 +1099,7 @@ export class ViewService implements IReadonlyAdapterService {
         ops.push(columnOps);
 
         // filter
-        if (view[i].filter && view[i].filter?.includes(fieldId) && curFilter) {
+        if (view[i].filter?.includes(fieldId) && curFilter) {
           const filterOps = this.getDeleteFilterByFieldIdOps(curFilter, fieldId);
           ops.push(filterOps);
         }

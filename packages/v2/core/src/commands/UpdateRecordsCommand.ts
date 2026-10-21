@@ -4,11 +4,11 @@ import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
+import { RecordId } from '../domain/table/records/RecordId';
 import {
   RecordInsertOrder,
   recordInsertOrderSchema,
 } from '../domain/table/records/RecordInsertOrder';
-import { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
 import type { RecordWritePluginRunnerOptions } from '../ports/RecordWritePlugin';
 import { recordFilterNodeSchema, type RecordFilterNode } from '../queries/RecordFilterDto';
@@ -123,7 +123,7 @@ export class UpdateRecordsCommand {
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
       parseRecordIds(parsed.data.recordIds).andThen((recordIds) =>
-        parseRecordItems(parsed.data.records).andThen((records) =>
+        parseRecordItems(parsed.data.records, parsed.data.order !== undefined).andThen((records) =>
           parseOrder(parsed.data.order).map(
             (order) =>
               new UpdateRecordsCommand(
@@ -174,14 +174,18 @@ const parseRecordIds = (
 };
 
 const parseRecordItems = (
-  records: ReadonlyArray<z.infer<typeof updateRecordItemInputSchema>> | undefined
+  records: ReadonlyArray<z.infer<typeof updateRecordItemInputSchema>> | undefined,
+  preserveLastOccurrenceOrder: boolean
 ): Result<ReadonlyArray<IUpdateRecordsItem> | undefined, DomainError> => {
   if (!records) {
     return ok(undefined);
   }
 
-  const parsed: IUpdateRecordsItem[] = [];
-  const seenIds = new Set<string>();
+  // v1 parity: duplicate recordIds in one batch are merged field-by-field with
+  // last write winning (v1 applies ops per record in input order). The batch
+  // UPDATE ... FROM (VALUES ...) SQL requires one row per record id — feeding
+  // it duplicates would make Postgres pick an arbitrary row.
+  const mergedById = new Map<string, IUpdateRecordsItem>();
 
   for (const rawRecord of records) {
     const recordIdResult = RecordId.create(rawRecord.id);
@@ -195,23 +199,31 @@ const parseRecordItems = (
     }
 
     const recordIdText = recordIdResult.value.toString();
-    if (seenIds.has(recordIdText)) {
-      return err(
-        domainError.validation({
-          message: 'Duplicate recordId in UpdateRecordsCommand',
-          details: { recordId: recordIdText },
-        })
-      );
+    const existing = mergedById.get(recordIdText);
+    if (existing) {
+      const fieldValues = new Map(existing.fieldValues);
+      for (const [fieldKey, value] of Object.entries(rawRecord.fields)) {
+        fieldValues.set(fieldKey, value);
+      }
+      const merged = { recordId: existing.recordId, fieldValues };
+      // v1 assigns order in request order, so the final duplicate occurrence
+      // determines the record's final position. Map reinsertion models that
+      // without changing the long-standing no-order response ordering.
+      if (preserveLastOccurrenceOrder) {
+        mergedById.delete(recordIdText);
+      }
+      mergedById.set(recordIdText, merged);
+      continue;
     }
-    seenIds.add(recordIdText);
 
-    parsed.push({
+    const fieldValues = new Map(Object.entries(rawRecord.fields));
+    mergedById.set(recordIdText, {
       recordId: recordIdResult.value,
-      fieldValues: new Map(Object.entries(rawRecord.fields)),
+      fieldValues,
     });
   }
 
-  return ok(parsed as ReadonlyArray<IUpdateRecordsItem>);
+  return ok([...mergedById.values()] as ReadonlyArray<IUpdateRecordsItem>);
 };
 
 const parseOrder = (

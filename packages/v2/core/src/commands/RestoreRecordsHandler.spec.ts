@@ -20,6 +20,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import { NoopTableRecordRepository } from '../ports/defaults/NoopTableRecordRepository';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { type IFindOptions } from '../ports/RepositoryQuery';
 import type { InsertOptions } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
@@ -119,6 +120,7 @@ class CapturingTableRecordRepository extends NoopTableRecordRepository {
   cleanupTrashRecordIds: string[][] = [];
   insertedRecords: TableRecord[] = [];
   transactionKinds: Array<IExecutionContext['transaction']> = [];
+  existingIds = new Set<string>();
 
   override async insertMany(
     context: IExecutionContext,
@@ -132,6 +134,14 @@ class CapturingTableRecordRepository extends NoopTableRecordRepository {
     this.insertedRecords.push(...records);
     this.transactionKinds.push(context.transaction);
     return ok({});
+  }
+
+  override async listExistingRecordIds(
+    _context: IExecutionContext,
+    _table: Table,
+    recordIds: ReadonlyArray<string>
+  ) {
+    return ok(new Set(recordIds.filter((recordId) => this.existingIds.has(recordId))));
   }
 }
 
@@ -178,8 +188,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = RestoreRecordsCommand.create({
@@ -235,8 +244,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const records = Array.from({ length: 1001 }, (_, index) => ({
@@ -315,8 +323,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const totalRecords = 11_000;
@@ -349,5 +356,44 @@ describe('RestoreRecordsHandler', () => {
     expect(lastEvent).toBeDefined();
     expect(firstEvent!.records).toHaveLength(550);
     expect(lastEvent!.records).toHaveLength(550);
+  });
+
+  it('skips already restored records when replaying undo or redo', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new CapturingTableRecordRepository();
+    const recordId = `rec${'u'.repeat(14)}01`;
+    recordRepository.existingIds.add(recordId);
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new RestoreRecordsHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+    );
+
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records: [
+        {
+          recordId,
+          fields: {
+            [textFieldId.toString()]: 'Restored value',
+            [numberFieldId.toString()]: 8,
+          },
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      { ...createContext(), undoRedo: { mode: 'undo', operationId: 'op-restore-1' } },
+      command
+    );
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.restoredCount).toBe(0);
+    expect(recordRepository.insertedRecords).toHaveLength(0);
   });
 });

@@ -1,10 +1,20 @@
 import {
   getPostgresTransaction,
+  PostgresUnitOfWorkTransaction,
   resolvePostgresDbOrTx,
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
+  ActorId,
+  bindUnitOfWorkTransaction,
   domainError,
+  isDomainError,
+  emptyComputeReliability,
+  sameComputeReliability,
+  summarizeFieldComputeReliability,
   HIGH_COMPLEXITY_THRESHOLD,
+  type ComputeActivityPauseBlocker,
+  type ComputeReliability,
+  type ComputeActivityPauseDiagnostics,
   type DomainError,
   type FieldComputeMetaDto,
   type IComputedActivityReader,
@@ -13,20 +23,100 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Kysely } from 'kysely';
+import { sql, type Kysely, type CompiledQuery, type QueryResult, type RawBuilder } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveTableSql } from '../../../shared/sqlIdentifiers';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
+import { isComputedReliabilityVisible } from '../reliability/config';
+import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
+import {
+  computedActivityScopeKey,
+  ComputedActivityReadBudgetExceededError,
+  ComputedActivityReadCoalescer,
+} from './ComputedActivityReadCoalescer';
 import { fieldActivityRowToDto, tableActivityRowToDto } from './ComputedActivityRowMapper';
 import type { IComputedActivityProjector } from './IComputedActivityProjector';
 
 const FIELD_ACTIVITY_TABLE = 'computed_field_activity';
 const TABLE_ACTIVITY_TABLE = 'computed_table_activity';
+const PAUSE_SCOPE_TABLE = 'computed_update_pause_scope';
+
+type LoadedActivityState = {
+  projectedFields: FieldComputeMetaDto[];
+  reliabilitySummaries?: Map<string, ComputeReliability>;
+  reliabilityLoaded?: boolean;
+  reliabilityUnavailable?: boolean;
+  reliabilityEntries?: Awaited<ReturnType<PostgresComputedReliabilityStore['getFieldSummaries']>>;
+  tableReliability?: ComputeReliability | null;
+};
+
+type PauseScopeRow = {
+  id: string;
+  scope_type: 'space' | 'base' | 'table';
+  scope_id: string;
+  paused_at: Date | string;
+  paused_by: string | null;
+  resume_at: Date | string | null;
+  reason: string | null;
+};
+
+type ComputedActivityReadOptions = {
+  budgetMs?: number;
+  readableFieldIds?: readonly string[];
+  includePauseDiagnostics?: boolean;
+  heal?: boolean;
+  includeFields?: boolean;
+  /** Absolute deadline shared by the first read and a version-churn reread. Internal. */
+  deadlineAt?: number;
+  /** Coalescer key used to keep the last good snapshot for budget fallbacks. Internal. */
+  coalesceKey?: string;
+};
+
+/** A snapshot plus the projection version it was produced from; without a version it is never stored. */
+type CachedActivityRead = {
+  readonly token: string | undefined;
+  readonly result: Result<TableComputeActivitySnapshot, DomainError>;
+};
+
+// Long enough to collapse the ~2/s poll cadence per table into one reconcile
+// attempt per window, short enough that persistent drift still heals within a
+// few poll ticks after churn subsides.
+const RECONCILE_COOLDOWN_MS = 15_000;
+const RECONCILE_COOLDOWN_MAX_ENTRIES = 10_000;
+// Bound the per-scope fallback snapshots served when a budgeted read is canceled.
+const LAST_GOOD_MAX_ENTRIES = 1_000;
+
+const emptyPauseDiagnostics = (): ComputeActivityPauseDiagnostics => ({
+  effective: false,
+  blockers: [],
+  queuedTaskCount: 0,
+  oldestQueuedAt: null,
+});
+
+// SQLSTATE 57014 is the server canceling the statement at statement_timeout.
+const isBudgetFailure = (error: unknown): boolean =>
+  error instanceof ComputedActivityReadBudgetExceededError ||
+  (typeof error === 'object' && error !== null && 'code' in error && error.code === '57014');
+
+const toIsoString = (value: Date | string): string =>
+  value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+
+const toPauseBlocker = (row: PauseScopeRow): ComputeActivityPauseBlocker => ({
+  id: row.id,
+  scopeType: row.scope_type,
+  scopeId: row.scope_id,
+  pausedAt: toIsoString(row.paused_at),
+  pausedBy: row.paused_by,
+  resumeAt: row.resume_at == null ? null : toIsoString(row.resume_at),
+  reason: row.reason,
+});
 
 const buildDiagnostics = (
-  fields: ReadonlyArray<FieldComputeMetaDto>
+  fields: ReadonlyArray<FieldComputeMetaDto>,
+  pause: ComputeActivityPauseDiagnostics
 ): TableComputeActivitySnapshot['diagnostics'] => {
   const anomalies: TableComputeActivitySnapshot['diagnostics']['anomalies'] = [];
   let activeFieldCount = 0;
@@ -41,7 +131,7 @@ const buildDiagnostics = (
     }
     if (field.status === 'queued') queuedFieldCount += 1;
     if (field.status === 'running') calculatingFieldCount += 1;
-    if (field.status === 'failed') {
+    if (field.status === 'failed' || (field.reliability?.unresolvedCount ?? 0) > 0) {
       failedFieldCount += 1;
       anomalies.push({
         fieldId: field.fieldId,
@@ -68,13 +158,18 @@ const buildDiagnostics = (
   }
 
   return {
+    reliability: fields.some((field) => field.reliability)
+      ? summarizeFieldComputeReliability(fields)
+      : undefined,
     computeMode: 'server',
+    executionState: pause.effective ? 'paused' : 'running',
     activeFieldCount,
     queuedFieldCount,
     calculatingFieldCount,
     failedFieldCount,
     highComplexityFieldCount,
     anomalies,
+    pause,
   };
 };
 
@@ -84,33 +179,422 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2RecordRepositoryPostgresTokens.computedActivityProjector)
-    private readonly activityProjector: IComputedActivityProjector
+    private readonly activityProjector: IComputedActivityProjector,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
+
+  // Per-pod, per-table gate on read-time reconcile attempts. The advisory lock
+  // already makes reconcile single-flight across pods; this only spaces out how
+  // often each pod re-checks, so a table under heavy churn is not re-examined on
+  // every poll tick.
+  private readonly reconcileCooldownUntil = new Map<string, number>();
+  private readonly pendingReconciliation = new Set<string>();
+
+  // See ComputedActivityReadCoalescer: every viewer of a table polls the same
+  // shared projection, so one read per table+scope per retention window serves
+  // them all — and only while the projection token is unchanged.
+  private readonly readCoalescer = new ComputedActivityReadCoalescer<CachedActivityRead>();
+
+  // Last successful snapshot per coalescer scope. A budgeted poll that is
+  // canceled returns this snapshot marked `syncing` instead of a 500; the next
+  // poll refreshes it. Bounded so per-user field scopes cannot grow forever.
+  private readonly lastGood = new Map<string, TableComputeActivitySnapshot>();
+
+  // `computed_field_activity`/`computed_table_activity` are the only inputs whose
+  // change the client is notified about, so their version is the freshness token:
+  // a stored snapshot may be reused only while that version still matches.
+  private activityVersionRefs?: {
+    tableActivity: RawBuilder<unknown>;
+    fieldActivity: RawBuilder<unknown>;
+  };
+
+  private activityVersionRef(): {
+    tableActivity: RawBuilder<unknown>;
+    fieldActivity: RawBuilder<unknown>;
+  } {
+    if (this.activityVersionRefs === undefined) {
+      this.activityVersionRefs = {
+        tableActivity: resolveTableSql(this.db, TABLE_ACTIVITY_TABLE),
+        fieldActivity: resolveTableSql(this.db, FIELD_ACTIVITY_TABLE),
+      };
+    }
+    return this.activityVersionRefs;
+  }
+
+  private async readActivityVersion(tableId: string, deadline?: number): Promise<string> {
+    const { tableActivity, fieldActivity } = this.activityVersionRef();
+    const { rows } = await sql<{
+      table_updated_at: unknown;
+      table_generation: unknown;
+      field_row_count: unknown;
+      field_generation_sum: unknown;
+      field_updated_at: unknown;
+      field_generation: unknown;
+    }>`select
+      (select updated_at from ${tableActivity} where table_id = ${tableId}) as table_updated_at,
+      (select generation from ${tableActivity} where table_id = ${tableId}) as table_generation,
+      (select count(*) from ${fieldActivity} where table_id = ${tableId}) as field_row_count,
+      (select coalesce(sum(generation), 0) from ${fieldActivity} where table_id = ${tableId}) as field_generation_sum,
+      (select max(updated_at) from ${fieldActivity} where table_id = ${tableId}) as field_updated_at,
+      (select max(generation) from ${fieldActivity} where table_id = ${tableId}) as field_generation`.execute(
+      this.db
+    );
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new ComputedActivityReadBudgetExceededError();
+    }
+    const version = rows[0];
+    return [
+      version?.table_updated_at,
+      version?.table_generation,
+      // Row count and generation sum make the token a version of the row set, not
+      // of its maxima: a removed row, or a row whose per-field generation moves
+      // below the current maximum, must still invalidate the entry.
+      version?.field_row_count,
+      version?.field_generation_sum,
+      version?.field_updated_at,
+      version?.field_generation,
+    ]
+      .map((value) =>
+        value instanceof Date ? value.toISOString() : value == null ? '' : String(value)
+      )
+      .join('|');
+  }
+
+  private readCoalesceKey(
+    context: IExecutionContext | undefined,
+    tableId: string,
+    requestedBaseId: string | undefined,
+    options?: ComputedActivityReadOptions
+  ): string | undefined {
+    if (!this.readCoalescer.enabled) return undefined;
+    // Only the budgeted poll shape is coalesced. A caller that omits the budget
+    // owns a strict read: it must observe the projection as of now (the projector
+    // suites and internal verification flows read straight after a write).
+    if (options?.budgetMs === undefined) return undefined;
+    // A caller-owned transaction must observe its own writes.
+    if (getPostgresTransaction(context)) return undefined;
+    return [
+      tableId,
+      requestedBaseId ?? '',
+      options.heal === true ? 'heal' : 'noheal',
+      options.includePauseDiagnostics ? 'pause' : 'nopause',
+      options.includeFields === false ? 'nofields' : 'fields',
+      computedActivityScopeKey(options.readableFieldIds),
+    ].join('|');
+  }
+
+  private setReconcileCooldown(tableId: string): void {
+    const now = Date.now();
+    if (this.reconcileCooldownUntil.size >= RECONCILE_COOLDOWN_MAX_ENTRIES) {
+      for (const [key, until] of this.reconcileCooldownUntil) {
+        if (until <= now) {
+          this.reconcileCooldownUntil.delete(key);
+          this.pendingReconciliation.delete(key);
+        }
+      }
+      if (this.reconcileCooldownUntil.size >= RECONCILE_COOLDOWN_MAX_ENTRIES) {
+        this.reconcileCooldownUntil.clear();
+        this.pendingReconciliation.clear();
+      }
+    }
+    this.reconcileCooldownUntil.set(tableId, now + RECONCILE_COOLDOWN_MS);
+  }
 
   async getByTableId(
     context: IExecutionContext | undefined,
-    tableId: string
+    tableId: string,
+    requestedBaseId?: string,
+    options?: ComputedActivityReadOptions
+  ): Promise<Result<TableComputeActivitySnapshot, DomainError>> {
+    // The budget is validated before any reuse decision: a rejected budget must
+    // not be answered from a stored snapshot, and a caller waiting on another
+    // caller's read is still bounded by its own deadline below.
+    if (
+      options?.budgetMs !== undefined &&
+      (!Number.isFinite(options.budgetMs) || options.budgetMs <= 0)
+    ) {
+      return err(
+        domainError.validation({
+          message: 'A positive read budget requires a standalone transaction',
+        })
+      );
+    }
+
+    const key = this.readCoalesceKey(context, tableId, requestedBaseId, options);
+    const deadlineAt =
+      options?.budgetMs === undefined ? undefined : Date.now() + Math.min(options.budgetMs, 5000);
+    const readOptions: ComputedActivityReadOptions = {
+      ...(options ?? {}),
+      deadlineAt,
+      ...(key === undefined ? {} : { coalesceKey: key }),
+    };
+    if (key === undefined)
+      return this.readByTableId(context, tableId, requestedBaseId, readOptions);
+
+    // A table whose version cannot be read (missing relation, permissions) is read
+    // normally and never stored: the read path owns how that failure is reported.
+    const readVersion = async (): Promise<string | undefined> => {
+      try {
+        return await this.readActivityVersion(tableId, deadlineAt);
+      } catch (error) {
+        if (isBudgetFailure(error)) throw error;
+        return undefined;
+      }
+    };
+    try {
+      const cached = await this.readCoalescer.run(
+        key,
+        async () => {
+          // A snapshot may only be labeled with a version that brackets it: read the
+          // version before and after, and if it moved mid-read on a read that did
+          // not heal, read once more so neither this response nor a coalesced joiner
+          // can see pre-write rows. A healing read moves the version itself, and its
+          // result is already re-read after those writes, so it is kept unlabeled
+          // instead of being re-read (which would drop its reconciliation marker).
+          let label = await readVersion();
+          let result = await this.readByTableId(context, tableId, requestedBaseId, readOptions);
+          if (label !== undefined) {
+            let check = await readVersion();
+            if (check !== label && result.isOk() && !result.value.reconciliationPerformed) {
+              // Hot-table poll: accept the first snapshot (one write behind) rather
+              // than paying a second full transaction that can exhaust the request
+              // budget on an already-stalled event loop. The next poll refreshes it;
+              // strict (unbudgeted) and healing reads keep the old reread semantics.
+              if (options?.budgetMs !== undefined && options.heal !== true) {
+                return { token: undefined, result };
+              }
+              label = check;
+              result = await this.readByTableId(context, tableId, requestedBaseId, readOptions);
+              check = await readVersion();
+            }
+            if (check !== label) label = undefined;
+          }
+          return { token: label, result };
+        },
+        {
+          shouldCache: (value) => value.token !== undefined && value.result.isOk(),
+          // A successful read nobody could label may predate a write a joiner was
+          // already notified about, so joiners read for themselves; failures carry
+          // no rows and are shared so a broken table is not hammered once per caller.
+          shareable: (value) => !value.result.isOk() || value.token !== undefined,
+          revalidate: async (value) => (await readVersion()) === value.token,
+          ...(deadlineAt === undefined ? {} : { deadline: deadlineAt }),
+        }
+      );
+      if (cached.result.isOk()) this.rememberLastGood(key, cached.result.value);
+      return cached.result;
+    } catch (error) {
+      if (isBudgetFailure(error)) {
+        if (options?.budgetMs !== undefined && options.heal !== true) {
+          return ok(this.syncingSnapshot(key, tableId, requestedBaseId, options));
+        }
+        return err(this.readBudgetFailedError(tableId, error));
+      }
+      throw error;
+    }
+  }
+
+  private readBudgetFailedError(tableId: string, error: unknown): DomainError {
+    return domainError.infrastructure({
+      message: 'Compute activity read budget failed',
+      details: { tableId, error: error instanceof Error ? error.message : String(error) },
+    });
+  }
+
+  private syncingSnapshot(
+    key: string | undefined,
+    tableId: string,
+    requestedBaseId?: string,
+    options?: ComputedActivityReadOptions
+  ): TableComputeActivitySnapshot {
+    const cached = key === undefined ? undefined : this.lastGood.get(key);
+    if (cached) return { ...cached, observationState: 'syncing' };
+    return {
+      observedAt: new Date().toISOString(),
+      observationState: 'syncing',
+      tableId,
+      baseId: requestedBaseId ?? '',
+      table: null,
+      fields: [],
+      reliabilityIsAccessScoped: options?.readableFieldIds !== undefined,
+      diagnostics: buildDiagnostics([], emptyPauseDiagnostics()),
+    };
+  }
+
+  private rememberLastGood(key: string, snapshot: TableComputeActivitySnapshot): void {
+    if (snapshot.observationState === 'syncing') return;
+    if (!this.lastGood.has(key) && this.lastGood.size >= LAST_GOOD_MAX_ENTRIES) {
+      const oldest = this.lastGood.keys().next().value;
+      if (oldest !== undefined) this.lastGood.delete(oldest);
+    }
+    this.lastGood.set(key, snapshot);
+  }
+
+  private async readByTableId(
+    context: IExecutionContext | undefined,
+    tableId: string,
+    requestedBaseId?: string,
+    options?: ComputedActivityReadOptions
+  ): Promise<Result<TableComputeActivitySnapshot, DomainError>> {
+    if (options?.budgetMs === undefined)
+      return this.readActivity(
+        context,
+        tableId,
+        requestedBaseId,
+        false,
+        options?.readableFieldIds,
+        undefined,
+        false,
+        options?.includeFields !== false
+      );
+    if (
+      !Number.isFinite(options.budgetMs) ||
+      options.budgetMs <= 0 ||
+      getPostgresTransaction(context)
+    ) {
+      return err(
+        domainError.validation({
+          message: 'A positive read budget requires a standalone transaction',
+        })
+      );
+    }
+    const deadline = options.deadlineAt ?? Date.now() + Math.min(options.budgetMs, 5000);
+    let unit: PostgresUnitOfWorkTransaction<V1TeableDatabase> | undefined;
+    try {
+      const value = await this.db.transaction().execute(async (trx) => {
+        unit = new PostgresUnitOfWorkTransaction(trx, 'data');
+        const scopedContext = bindUnitOfWorkTransaction(
+          context ?? { actorId: ActorId.create('system')._unsafeUnwrap() },
+          unit
+        );
+        const connection = await trx.getExecutor().provideConnection(async (value) => value);
+        {
+          const original = connection.executeQuery;
+          const execute = original.bind(connection);
+          const remaining = Math.floor(deadline - Date.now());
+          if (remaining <= 0) throw new ComputedActivityReadBudgetExceededError();
+          // Set the server-side backstop once per transaction. Per-query set_config
+          // doubled every read's round trips and made an event-loop stall consume
+          // the remaining budget before the actual query ran.
+          await execute(
+            sql`select set_config('statement_timeout', ${String(remaining)}, true)`.compile(trx)
+          );
+          if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
+          // The transaction exclusively owns this connection. Restore before commit/rollback.
+          connection.executeQuery = async <R>(query: CompiledQuery): Promise<QueryResult<R>> => {
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
+            const result = await execute<R>(query);
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
+            return result;
+          };
+          try {
+            const result = await this.readActivity(
+              scopedContext,
+              tableId,
+              requestedBaseId,
+              true,
+              options.readableFieldIds,
+              options.includePauseDiagnostics ? deadline : undefined,
+              options.heal !== true,
+              options.includeFields !== false
+            );
+            if (result.isErr()) throw result.error;
+            if (Date.now() >= deadline) throw new ComputedActivityReadBudgetExceededError();
+            return result.value;
+          } finally {
+            connection.executeQuery = original;
+          }
+        }
+      });
+      await unit?.runAfterCommitHandlers();
+      return ok(value);
+    } catch (error) {
+      await unit?.runAfterRollbackHandlers();
+      if (isBudgetFailure(error)) {
+        if (options.budgetMs !== undefined && options.heal !== true) {
+          return ok(this.syncingSnapshot(options.coalesceKey, tableId, requestedBaseId, options));
+        }
+        return err(this.readBudgetFailedError(tableId, error));
+      }
+      if (isDomainError(error)) return err(error);
+      return err(
+        domainError.infrastructure({
+          message: 'Compute activity read budget failed',
+          details: { tableId, error: error instanceof Error ? error.message : String(error) },
+        })
+      );
+    }
+  }
+
+  private async readActivity(
+    context: IExecutionContext | undefined,
+    tableId: string,
+    requestedBaseId?: string,
+    budgeted = false,
+    readableFieldIds?: readonly string[],
+    pauseDeadline?: number,
+    skipHeal = false,
+    includeFields = true
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>> {
     try {
-      const initial = await this.readSnapshot(context, tableId);
+      const loaded: LoadedActivityState = { projectedFields: [] };
+      const initial = await this.readSnapshot(
+        context,
+        tableId,
+        requestedBaseId,
+        loaded,
+        budgeted && pauseDeadline === undefined,
+        readableFieldIds,
+        pauseDeadline,
+        skipHeal,
+        includeFields,
+        budgeted
+      );
       if (initial.isErr()) return err(initial.error);
+      if (skipHeal) return ok(initial.value);
 
-      const needsReconcile = await this.shouldReconcile(context, tableId, initial.value);
-      if (!needsReconcile) return ok(initial.value);
+      // Read-time healing is best-effort: drift detected here is repaired again on
+      // the next poll, so a per-pod cooldown keeps the high-frequency activity
+      // polls from re-running the drift checks and reconcile for the same table.
+      const cooldownUntil = this.reconcileCooldownUntil.get(tableId) ?? 0;
+      if (Date.now() < cooldownUntil)
+        return ok(
+          this.pendingReconciliation.has(tableId)
+            ? { ...initial.value, observationState: 'syncing' }
+            : initial.value
+        );
 
+      // Rate limit healthy checks too, not just repairs.
+      this.setReconcileCooldown(tableId);
+      const needsReconcile = await this.shouldReconcile(context, tableId, initial.value, loaded);
+      if (!needsReconcile) {
+        this.pendingReconciliation.delete(tableId);
+        return ok(initial.value);
+      }
+
+      this.setReconcileCooldown(tableId);
+      this.pendingReconciliation.add(tableId);
+      // lockTimeoutMs: 0 — if the per-table advisory lock is contended, another
+      // connection (possibly on another pod) is already reconciling; return the
+      // stale snapshot instead of parking this request's pool connection on the
+      // global lock. Waiting here once turned polling traffic into a
+      // cross-pod thundering herd that drained every pool (2026-08-14 CN outage).
       const reconciled = await this.activityProjector.reconcileTable(
         {
           tableId,
           baseId: initial.value.baseId || undefined,
+          lockTimeoutMs: 0,
         },
         context
       );
       if (reconciled.isErr()) {
+        if (budgeted) return err(reconciled.error);
         // Prefer returning the last known snapshot over failing the diagnostics endpoint.
-        return ok(initial.value);
+        return ok({ ...initial.value, observationState: 'syncing' });
       }
 
-      if (!reconciled.value) return ok(initial.value);
+      if (!reconciled.value) return ok({ ...initial.value, observationState: 'syncing' });
 
       // Push healed activity to realtime clients so connected ShareDB docs catch up.
       if (
@@ -120,10 +604,25 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         await this.activityProjector.publishActivityChanged(reconciled.value, context);
       }
 
-      const healed = await this.readSnapshot(context, tableId);
-      if (healed.isErr()) return ok(initial.value);
-      return ok(healed.value);
+      const healed = await this.readSnapshot(
+        context,
+        tableId,
+        requestedBaseId,
+        loaded,
+        budgeted && pauseDeadline === undefined,
+        readableFieldIds,
+        pauseDeadline,
+        budgeted
+      );
+      if (healed.isErr())
+        return budgeted ? err(healed.error) : ok({ ...initial.value, observationState: 'syncing' });
+      this.pendingReconciliation.delete(tableId);
+      return ok({
+        ...healed.value,
+        reconciliationPerformed: budgeted || !getPostgresTransaction(context),
+      });
     } catch (error) {
+      if (budgeted && isBudgetFailure(error)) throw error;
       return err(
         domainError.infrastructure({
           message: 'Failed to load compute activity',
@@ -139,10 +638,33 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
   private async shouldReconcile(
     context: IExecutionContext | undefined,
     tableId: string,
-    snapshot: TableComputeActivitySnapshot
+    snapshot: TableComputeActivitySnapshot,
+    loaded: LoadedActivityState
   ): Promise<boolean> {
     const db = (getPostgresTransaction(context) ??
       resolvePostgresDbOrTx(this.db, context)) as unknown as Kysely<DynamicDB>;
+
+    // Persisted issue state also needs healing after a lost projection event or
+    // manual closure. Compare against the actual projection, not our HTTP overlay.
+    if (loaded.reliabilitySummaries) {
+      const summaries = loaded.reliabilitySummaries;
+      if (
+        [...summaries.keys()].some(
+          (id) => !loaded.projectedFields.some((field) => field.fieldId === id)
+        )
+      )
+        return true;
+      if (
+        loaded.projectedFields.some(
+          (field) =>
+            !sameComputeReliability(
+              field.reliability,
+              summaries.get(field.fieldId) ?? emptyComputeReliability()
+            )
+        )
+      )
+        return true;
+    }
 
     // Cheap existence checks only (indexed table_id). Never scan on every healthy poll.
     const dangling = await db
@@ -161,6 +683,26 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       .limit(1)
       .executeTakeFirst();
     if (dangling) return true;
+
+    // A live ref whose field has no activity row at all (async-projection events
+    // lost before their first flush). The mismatch query below joins FROM the
+    // activity table, so this state is invisible to it.
+    const missingActivityRow = await db
+      .selectFrom('computed_task_field_ref as refs')
+      .select('refs.field_id')
+      .where('refs.table_id', '=', tableId)
+      .where(({ exists, not, selectFrom }) =>
+        not(
+          exists(
+            selectFrom('computed_field_activity as activity')
+              .select('activity.field_id')
+              .whereRef('activity.field_id', '=', 'refs.field_id')
+          )
+        )
+      )
+      .limit(1)
+      .executeTakeFirst();
+    if (missingActivityRow) return true;
 
     const refs = db
       .selectFrom('computed_task_field_ref')
@@ -181,7 +723,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       .select('activity.field_id')
       .where('activity.table_id', '=', tableId)
       .where(
-        sql<boolean>`
+        sql<boolean>`(
         activity.active_task_count <> COALESCE(refs.active_task_count, 0)
         OR activity.processing_task_count <> COALESCE(refs.processing_task_count, 0)
         OR activity.status <> CASE
@@ -191,40 +733,52 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
           WHEN COALESCE(refs.processing_task_count, 0) > 0 THEN 'running'
           ELSE 'queued'
         END
-      `
+      )`
       )
       .limit(1)
       .executeTakeFirst();
     if (mismatchedField) return true;
 
     // Field counters may be healthy while the table aggregate alone drifted.
-    const queuedFieldCount = snapshot.fields.filter((field) => field.status === 'queued').length;
-    const calculatingFieldCount = snapshot.fields.filter(
+    const queuedFieldCount = loaded.projectedFields.filter(
+      (field) => field.status === 'queued'
+    ).length;
+    const calculatingFieldCount = loaded.projectedFields.filter(
       (field) => field.status === 'running'
     ).length;
     const expectedTableStatus =
       queuedFieldCount + calculatingFieldCount > 0 ? 'calculating' : 'idle';
     return Boolean(
       snapshot.table &&
-        (snapshot.table.status !== expectedTableStatus ||
-          snapshot.table.queuedFieldCount !== queuedFieldCount ||
-          snapshot.table.calculatingFieldCount !== calculatingFieldCount)
+      (snapshot.table.status !== expectedTableStatus ||
+        snapshot.table.queuedFieldCount !== queuedFieldCount ||
+        snapshot.table.calculatingFieldCount !== calculatingFieldCount)
     );
   }
 
   private async readSnapshot(
     context: IExecutionContext | undefined,
-    tableId: string
+    tableId: string,
+    requestedBaseId?: string,
+    loaded?: LoadedActivityState,
+    skipPauseDiagnostics = false,
+    readableFieldIds?: readonly string[],
+    pauseDeadline?: number,
+    skipReliability = false,
+    includeFields = true,
+    budgeted = false
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>> {
     try {
       const db = (getPostgresTransaction(context) ??
         resolvePostgresDbOrTx(this.db, context)) as unknown as Kysely<DynamicDB>;
 
-      const fieldRows = await db
-        .selectFrom(FIELD_ACTIVITY_TABLE)
-        .selectAll()
-        .where('table_id', '=', tableId)
-        .execute();
+      const fieldRows = includeFields
+        ? await db
+            .selectFrom(FIELD_ACTIVITY_TABLE)
+            .selectAll()
+            .where('table_id', '=', tableId)
+            .execute()
+        : [];
 
       const tableRow = await db
         .selectFrom(TABLE_ACTIVITY_TABLE)
@@ -233,17 +787,104 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         .executeTakeFirst();
 
       const fields = fieldRows.map((row) => fieldActivityRowToDto(row as Record<string, unknown>));
-      const table = tableRow ? tableActivityRowToDto(tableRow as Record<string, unknown>) : null;
-      const baseId = table?.baseId ?? fields[0]?.baseId ?? '';
+      if (loaded) loaded.projectedFields = fields.map((field) => ({ ...field }));
+      const state = loaded ?? { projectedFields: [] };
+      const visible = isComputedReliabilityVisible(
+        requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? '')
+      );
+      if (includeFields && !skipReliability && !state.reliabilityLoaded) {
+        state.reliabilityLoaded = true;
+        const store = new PostgresComputedReliabilityStore(db);
+        if (visible) {
+          if (await store.isReady()) {
+            state.tableReliability = await store.getTableSummary(tableId, readableFieldIds, true);
+            state.reliabilityEntries = await store.getFieldSummaries(tableId, true);
+          } else {
+            state.reliabilityUnavailable = true;
+          }
+        }
+      }
 
+      if (visible && state.reliabilityEntries) {
+        const summaries = new Map(state.reliabilityEntries.map((item) => [item.fieldId, item]));
+        if (loaded)
+          loaded.reliabilitySummaries = new Map(
+            [...summaries].map(([id, item]) => [id, item.reliability])
+          );
+        for (const field of fields) {
+          const summary = summaries.get(field.fieldId);
+          field.reliability = summary?.reliability ?? emptyComputeReliability();
+
+          if (field.reliability.unresolvedCount > 0 && field.activeTaskCount === 0)
+            field.status = 'failed';
+          else if (
+            field.reliability.unresolvedCount === 0 &&
+            field.status === 'failed' &&
+            field.activeTaskCount === 0 &&
+            field.lastError?.code === 'computed.unresolved_issue'
+          ) {
+            field.status = 'idle';
+            field.lastError = null;
+          }
+
+          summaries.delete(field.fieldId);
+        }
+        for (const item of summaries.values()) {
+          fields.push({
+            fieldId: item.fieldId,
+            tableId,
+            baseId: item.baseId,
+            status: 'failed',
+            activeTaskCount: 0,
+            processingTaskCount: 0,
+            generation: 0,
+            estimatedComplexity: 0,
+            estimatedDirtyRecords: 0,
+            hasAllTargetRecords: false,
+            updatedAt: new Date().toISOString(),
+            reliability: item.reliability,
+          });
+        }
+      }
+      if (
+        !isComputedReliabilityVisible(
+          requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? '')
+        )
+      ) {
+        for (const field of fields) field.reliability = undefined;
+      }
+      const table = tableRow ? tableActivityRowToDto(tableRow as Record<string, unknown>) : null;
+      const baseId = table?.baseId ?? fields[0]?.baseId ?? requestedBaseId ?? '';
+      // Pause diagnostics are supplementary. A data database provisioned before the pause table
+      // existed, or one whose role cannot read it, must not strip computeMeta off every table read.
+      // Background budgeted snapshots omit supplemental pause data. Interactive
+      // reads cover pause SQL and the rare metadata lookup with the same deadline.
+      const pause = skipPauseDiagnostics
+        ? emptyPauseDiagnostics()
+        : pauseDeadline !== undefined
+          ? await this.readPauseDiagnostics(context, tableId, baseId, pauseDeadline)
+          : await this.readPauseDiagnostics(context, tableId, baseId).catch(() =>
+              emptyPauseDiagnostics()
+            );
+
+      const visibleFields =
+        readableFieldIds === undefined
+          ? fields
+          : fields.filter((field) => readableFieldIds.includes(field.fieldId));
+      const diagnostics = buildDiagnostics(visibleFields, pause);
+      if (state.tableReliability) diagnostics.reliability = state.tableReliability;
       return ok({
+        observedAt: new Date().toISOString(),
+        observationState: state.reliabilityUnavailable ? 'unavailable' : 'available',
         tableId,
         baseId,
         table,
-        fields,
-        diagnostics: buildDiagnostics(fields),
+        fields: visibleFields,
+        reliabilityIsAccessScoped: readableFieldIds !== undefined,
+        diagnostics,
       });
     } catch (error) {
+      if (budgeted && isBudgetFailure(error)) throw error;
       return err(
         domainError.infrastructure({
           message: 'Failed to load compute activity',
@@ -254,5 +895,89 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         })
       );
     }
+  }
+
+  private async readPauseDiagnostics(
+    context: IExecutionContext | undefined,
+    tableId: string,
+    baseId: string,
+    deadline?: number
+  ): Promise<ComputeActivityPauseDiagnostics> {
+    const db = (getPostgresTransaction(context) ??
+      resolvePostgresDbOrTx(this.db, context)) as unknown as Kysely<DynamicDB>;
+
+    // Read the pause table first. This runs on every getTableById, and in the overwhelmingly
+    // common case (no active pause) it must not cost a cross-database base lookup.
+    const candidateRows = (await db
+      .selectFrom(PAUSE_SCOPE_TABLE)
+      .select(['id', 'scope_type', 'scope_id', 'paused_at', 'paused_by', 'resume_at', 'reason'])
+      .where((eb) =>
+        eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', sql`current_timestamp`)])
+      )
+      .where((eb) =>
+        eb.or([
+          eb.and([eb('scope_type', '=', 'table'), eb('scope_id', '=', tableId)]),
+          ...(baseId ? [eb.and([eb('scope_type', '=', 'base'), eb('scope_id', '=', baseId)])] : []),
+          // Space scopes are keyed by spaceId, which is not known yet; they are filtered below
+          // once a space-scoped pause is proven to exist. Active space pauses are rare.
+          eb('scope_type', '=', 'space'),
+        ])
+      )
+      .orderBy('paused_at', 'asc')
+      .orderBy('id', 'asc')
+      .execute()) as PauseScopeRow[];
+
+    if (candidateRows.length === 0) return emptyPauseDiagnostics();
+
+    let spaceId: string | undefined;
+    if (baseId && candidateRows.some((row) => row.scope_type === 'space')) {
+      const metadataScope = this.db === this.metaDb ? 'data' : 'meta';
+      const metadataDb = resolvePostgresDbOrTx(
+        this.metaDb,
+        context,
+        metadataScope
+      ) as unknown as Kysely<DynamicDB>;
+      const lookupBase = (queryDb: Kysely<DynamicDB>) =>
+        queryDb.selectFrom('base').select('space_id').where('id', '=', baseId).executeTakeFirst();
+      const base =
+        deadline !== undefined && metadataScope === 'meta'
+          ? await metadataDb.transaction().execute(async (trx) => {
+              const remaining = Math.floor(deadline - Date.now());
+              if (remaining <= 0) throw new Error('Compute activity read budget exceeded');
+              await sql`select set_config('statement_timeout', ${String(remaining)}, true)`.execute(
+                trx
+              );
+              return lookupBase(trx);
+            })
+          : await lookupBase(metadataDb);
+      spaceId = typeof base?.space_id === 'string' ? base.space_id : undefined;
+    }
+
+    const rows = candidateRows.filter(
+      (row) => row.scope_type !== 'space' || (spaceId != null && row.scope_id === spaceId)
+    );
+
+    if (rows.length === 0) return emptyPauseDiagnostics();
+
+    const backlog = (await db
+      .selectFrom('computed_task_field_ref as refs')
+      .innerJoin('computed_update_outbox as outbox', 'outbox.id', 'refs.task_id')
+      .select([
+        sql<number>`count(distinct outbox.id)::int`.as('queued_task_count'),
+        sql<Date | string | null>`min(outbox.created_at)`.as('oldest_queued_at'),
+      ])
+      .where('refs.table_id', '=', tableId)
+      .where('outbox.status', '=', 'pending')
+      .executeTakeFirst()) as
+      | { queued_task_count: number | string; oldest_queued_at: Date | string | null }
+      | undefined;
+
+    return {
+      effective: true,
+      blockers: rows.map(toPauseBlocker),
+      queuedTaskCount: Number(backlog?.queued_task_count ?? 0),
+      oldestQueuedAt:
+        backlog?.oldest_queued_at == null ? null : toIsoString(backlog.oldest_queued_at),
+    };
   }
 }

@@ -55,6 +55,16 @@ export type SchemaOperationRunNextResult =
       originalLastError?: string | null;
     };
 
+export type SchemaOperationClaimNextResult =
+  | {
+      status: 'idle';
+      reason: 'no_handler' | 'unsupported' | 'empty';
+    }
+  | {
+      status: 'claimed';
+      operation: SchemaOperationRecord;
+    };
+
 const retryDelayMs = (attempts: number): number => Math.min(60_000, 1_000 * 2 ** attempts);
 const nonRetryableTags = new Set<DomainErrorTag>([
   'validation',
@@ -97,10 +107,13 @@ export class SchemaOperationRunnerService {
     private readonly handlers: ReadonlyArray<ISchemaOperationHandler>
   ) {}
 
-  async runNext(
+  // The runner host claims through one container and executes through another
+  // one scoped to the operation's data database (BYODB). claimNext/runOperation
+  // expose that seam; runNext keeps the single-container behavior.
+  async claimNext(
     context: IExecutionContext,
     options: SchemaOperationRunnerOptions = {}
-  ): Promise<Result<SchemaOperationRunNextResult, DomainError>> {
+  ): Promise<Result<SchemaOperationClaimNextResult, DomainError>> {
     const repository = this.schemaOperationRepository;
     if (!repository.claimNextRunnable) {
       return ok({ status: 'idle', reason: 'unsupported' });
@@ -125,6 +138,16 @@ export class SchemaOperationRunnerService {
     if (!operation) {
       return ok({ status: 'idle', reason: 'empty' });
     }
+    return ok({ status: 'claimed', operation });
+  }
+
+  async runOperation(
+    context: IExecutionContext,
+    operation: SchemaOperationRecord,
+    options: SchemaOperationRunnerOptions = {}
+  ): Promise<Result<SchemaOperationRunNextResult, DomainError>> {
+    const repository = this.schemaOperationRepository;
+    const now = options.now ?? new Date();
 
     const handler = this.handlers.find((handler) => handlerTypes(handler).includes(operation.type));
     if (!handler) {
@@ -164,6 +187,20 @@ export class SchemaOperationRunnerService {
       return err(completed.error);
     }
     return ok({ status: 'completed', operation: completed.value });
+  }
+
+  async runNext(
+    context: IExecutionContext,
+    options: SchemaOperationRunnerOptions = {}
+  ): Promise<Result<SchemaOperationRunNextResult, DomainError>> {
+    const claimed = await this.claimNext(context, options);
+    if (claimed.isErr()) {
+      return err(claimed.error);
+    }
+    if (claimed.value.status !== 'claimed') {
+      return ok(claimed.value);
+    }
+    return this.runOperation(context, claimed.value.operation, options);
   }
 }
 

@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Component, Database, Plus } from '@teable/icons';
+import { Component, LayoutGrid, Plus } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { getBaseAll, getSharedBase, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
@@ -35,6 +36,7 @@ interface IFormAccess {
 export const AccessSelect = (props: IFormAccess) => {
   const { onChange, value } = props;
   const { t } = useTranslation('token');
+  const contentDir = useContentDir();
   const [bases, setBases] = useState<string[]>(value?.baseIds || []);
   const [spaces, setSpaces] = useState<string[]>(value?.spaceIds || []);
   const [open, setOpen] = useState(false);
@@ -172,7 +174,7 @@ export const AccessSelect = (props: IFormAccess) => {
                             onChangeInner(undefined, base.id);
                           }}
                         >
-                          {base.name}
+                          <span dir={contentDir}>{base.name}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -215,7 +217,7 @@ export const AccessSelect = (props: IFormAccess) => {
                             {base.icon ? (
                               <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
                             ) : (
-                              <Database className="size-4 shrink-0" />
+                              <LayoutGrid className="size-4 shrink-0" />
                             )}
                             <div className="truncate">{base.name}</div>
                           </CommandItem>

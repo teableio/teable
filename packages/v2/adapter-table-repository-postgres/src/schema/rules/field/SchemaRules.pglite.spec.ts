@@ -49,17 +49,21 @@ import type { Result } from 'neverthrow';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ComputedFieldBackfillService } from '../../../record/computed/ComputedFieldBackfillService';
+import { executeTableSchemaStatements } from '../../../shared/db';
+import { PostgresTableSchemaFieldCreateVisitor } from '../../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { createSchemaChecker } from '../checker/SchemaChecker';
 import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
+import type { TableSchemaStatementBuilder } from '../core/ISchemaRule';
 import { createSchemaRepairer } from '../repairer/SchemaRepairer';
 import type { SchemaRepairResult } from '../repairer/SchemaRepairResult';
-import { SYSTEM_RULE_FIELD_ID } from '../table/SystemTableRules';
+import { SYSTEM_RULE_FIELD_ID, SYSTEM_TABLE_EXISTS_RULE_ID } from '../table/SystemTableRules';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';
+import { ConditionalMatchIndexRule } from './ConditionalMatchIndexRule';
 import { createFieldSchemaRules } from './FieldSchemaRulesFactory';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
@@ -460,6 +464,52 @@ const createConditionalLookupField = (
   return fieldResult;
 };
 
+const createConditionalLookupFieldWithFieldRefFilter = (
+  id: string,
+  name: string,
+  dbFieldName: string,
+  params: { foreignTableId: string; matchFieldId: string; hostFieldId: string }
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const lookupOptionsResult = ConditionalLookupOptions.create({
+    foreignTableId: params.foreignTableId,
+    lookupFieldId: createValidFieldId(`lookup_${id}`),
+    condition: {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: params.matchFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: params.hostFieldId },
+          },
+        ],
+      },
+    },
+  });
+  if (lookupOptionsResult.isErr()) return err(lookupOptionsResult.error);
+
+  const fieldResult = createConditionalLookupFieldPending({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    conditionalLookupOptions: lookupOptionsResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
 const createRealLinkField = (params: {
   id: string;
   name: string;
@@ -563,6 +613,8 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       table_id TEXT,
       tableId TEXT,
       db_field_name TEXT,
+      db_field_type TEXT,
+      is_computed BOOLEAN,
       deleted_time TIMESTAMPTZ,
       is_lookup BOOLEAN,
       meta TEXT
@@ -572,6 +624,8 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       id TEXT PRIMARY KEY,
       base_id TEXT,
       db_table_name TEXT,
+      search_index JSONB,
+      version INTEGER NOT NULL DEFAULT 1,
       deleted_time TIMESTAMPTZ
     )`.execute(db);
 
@@ -630,6 +684,17 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     tableId: tableName,
     field,
   });
+
+  const applyStatements = async (
+    statements: ReadonlyArray<TableSchemaStatementBuilder>,
+    options?: { enforceRelationAccess?: boolean }
+  ) => {
+    await executeTableSchemaStatements(db, statements, {
+      dataDb: db,
+      metaDb: db,
+      enforceRelationAccess: options?.enforceRelationAccess ?? true,
+    });
+  };
 
   const createTableAggregate = (tableName: string, field: Field): Table => {
     const tableIdResult = TableId.create(createValidTableId(`table_${tableName}`));
@@ -1359,6 +1424,199 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     });
   });
 
+  describe('ConditionalMatchIndexRule', () => {
+    const HOST_TABLE = 'cond_match_host';
+    const FOREIGN_TABLE = 'cond_match_foreign';
+
+    const seedMatchFieldMeta = async (params: {
+      fieldId: string;
+      foreignTableId: string;
+      dbFieldName?: string;
+      dbFieldType?: string;
+      isComputed?: boolean;
+    }) => {
+      await sql`DELETE FROM field WHERE id = ${params.fieldId}`.execute(db);
+      await sql`INSERT INTO field (id, name, type, db_field_name, db_field_type, is_computed)
+        VALUES (${params.fieldId}, 'Match', 'number', ${params.dbFieldName ?? 'wooid'},
+                ${params.dbFieldType ?? 'REAL'}, ${params.isComputed ?? null})`.execute(db);
+      await sql`INSERT INTO table_meta (id, db_table_name)
+        VALUES (${params.foreignTableId}, ${`${TEST_SCHEMA}.${FOREIGN_TABLE}`})
+        ON CONFLICT (id) DO NOTHING`.execute(db);
+    };
+
+    it('creates the foreign match column index resolved from metadata', async () => {
+      await createTestTable(FOREIGN_TABLE, ['wooid DOUBLE PRECISION']);
+      const matchFieldId = createValidFieldId('condmatch1');
+      const foreignTableId = createValidTableId('condforeign1');
+      await seedMatchFieldMeta({ fieldId: matchFieldId, foreignTableId });
+
+      const field = createConditionalLookupField(
+        'condm1',
+        'CondLookup',
+        'cond_lookup_col'
+      )._unsafeUnwrap();
+      const rule = ConditionalMatchIndexRule.forMatchColumn(field, matchFieldId, foreignTableId);
+      const ctx = createContext(HOST_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      await applyStatements(rule.up(ctx)._unsafeUnwrap());
+
+      const index = (
+        await introspector.getIndex(TEST_SCHEMA, `index_cond_${matchFieldId}`)
+      )._unsafeUnwrap();
+      expect(index).toMatchObject({ isUnique: false, columnNames: ['wooid'] });
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('applies match-index statements without reading table_meta or field on the data plane', async () => {
+      await createTestTable(FOREIGN_TABLE, ['wooid DOUBLE PRECISION']);
+      const matchFieldId = createValidFieldId('condmatchbyodb');
+      const foreignTableId = createValidTableId('condforeignbyodb');
+      await seedMatchFieldMeta({ fieldId: matchFieldId, foreignTableId });
+
+      const field = createConditionalLookupField(
+        'condmbyodb',
+        'CondLookup',
+        'cond_lookup_col'
+      )._unsafeUnwrap();
+      const rule = ConditionalMatchIndexRule.forMatchColumn(field, matchFieldId, foreignTableId);
+      const ctx = createContext(HOST_TABLE, field);
+      const statements = rule.up(ctx)._unsafeUnwrap();
+
+      for (const stmt of statements) {
+        const compiledSql = stmt.compile(db).sql;
+        expect(compiledSql).not.toMatch(/\btable_meta\b/i);
+        expect(compiledSql).not.toMatch(/\bfrom\s+(?:public\.)?field\b/i);
+      }
+
+      await applyStatements(statements);
+      const index = (
+        await introspector.getIndex(TEST_SCHEMA, `index_cond_${matchFieldId}`)
+      )._unsafeUnwrap();
+      expect(index).toMatchObject({ isUnique: false, columnNames: ['wooid'] });
+    });
+
+    it('skips non-scalar match columns instead of indexing them', async () => {
+      await createTestTable(FOREIGN_TABLE, ['tags JSONB']);
+      const matchFieldId = createValidFieldId('condmatch2');
+      const foreignTableId = createValidTableId('condforeign2');
+      await seedMatchFieldMeta({
+        fieldId: matchFieldId,
+        foreignTableId,
+        dbFieldName: 'tags',
+        dbFieldType: 'JSON',
+      });
+
+      const field = createConditionalLookupField(
+        'condm2',
+        'CondLookup',
+        'cond_lookup_col'
+      )._unsafeUnwrap();
+      const rule = ConditionalMatchIndexRule.forMatchColumn(field, matchFieldId, foreignTableId);
+      const ctx = createContext(HOST_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      await applyStatements(rule.up(ctx)._unsafeUnwrap());
+
+      const index = (
+        await introspector.getIndex(TEST_SCHEMA, `index_cond_${matchFieldId}`)
+      )._unsafeUnwrap();
+      expect(index).toBeNull();
+    });
+
+    it('skips computed match fields where metadata types can drift', async () => {
+      await createTestTable(FOREIGN_TABLE, ['wooid DOUBLE PRECISION']);
+      const matchFieldId = createValidFieldId('condmatch3');
+      const foreignTableId = createValidTableId('condforeign3');
+      await seedMatchFieldMeta({ fieldId: matchFieldId, foreignTableId, isComputed: true });
+
+      const field = createConditionalLookupField(
+        'condm3',
+        'CondLookup',
+        'cond_lookup_col'
+      )._unsafeUnwrap();
+      const rule = ConditionalMatchIndexRule.forMatchColumn(field, matchFieldId, foreignTableId);
+      const ctx = createContext(HOST_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      await applyStatements(rule.up(ctx)._unsafeUnwrap());
+
+      const index = (
+        await introspector.getIndex(TEST_SCHEMA, `index_cond_${matchFieldId}`)
+      )._unsafeUnwrap();
+      expect(index).toBeNull();
+    });
+
+    it('shares one index between conditional fields matching the same column and keeps it on down()', async () => {
+      await createTestTable(FOREIGN_TABLE, ['wooid DOUBLE PRECISION']);
+      const matchFieldId = createValidFieldId('condmatch4');
+      const foreignTableId = createValidTableId('condforeign4');
+      await seedMatchFieldMeta({ fieldId: matchFieldId, foreignTableId });
+
+      const fieldA = createConditionalLookupField(
+        'condm4a',
+        'CondLookupA',
+        'cond_lookup_a'
+      )._unsafeUnwrap();
+      const fieldB = createConditionalLookupField(
+        'condm4b',
+        'CondLookupB',
+        'cond_lookup_b'
+      )._unsafeUnwrap();
+      const ruleA = ConditionalMatchIndexRule.forMatchColumn(fieldA, matchFieldId, foreignTableId);
+      const ruleB = ConditionalMatchIndexRule.forMatchColumn(fieldB, matchFieldId, foreignTableId);
+      const ctx = createContext(HOST_TABLE, fieldA);
+
+      for (const rule of [ruleA, ruleB]) {
+        await applyStatements(rule.up(ctx)._unsafeUnwrap());
+      }
+
+      expect(ruleA.id).not.toBe(ruleB.id);
+      expect((await ruleA.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+      expect((await ruleB.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      for (const stmt of ruleA.down(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+      const index = (
+        await introspector.getIndex(TEST_SCHEMA, `index_cond_${matchFieldId}`)
+      )._unsafeUnwrap();
+      expect(index).not.toBeNull();
+    });
+
+    it('is emitted by the schema rules factory only for field-reference filters', async () => {
+      const foreignTableId = createValidTableId('condforeign5');
+      const matchFieldId = createValidFieldId('condmatch5');
+      const hostFieldId = createValidFieldId('condhost5');
+
+      const fieldWithRef = createConditionalLookupFieldWithFieldRefFilter(
+        'condm5a',
+        'CondLookupRef',
+        'cond_lookup_ref',
+        { foreignTableId, matchFieldId, hostFieldId }
+      )._unsafeUnwrap();
+      const fieldWithLiteral = createConditionalLookupField(
+        'condm5b',
+        'CondLookupLit',
+        'cond_lookup_lit'
+      )._unsafeUnwrap();
+
+      const factoryCtx = { schema: TEST_SCHEMA, tableName: HOST_TABLE, tableId: HOST_TABLE };
+      const refRules = createFieldSchemaRules(fieldWithRef, factoryCtx)._unsafeUnwrap();
+      const literalRules = createFieldSchemaRules(fieldWithLiteral, factoryCtx)._unsafeUnwrap();
+
+      expect(
+        refRules.some(
+          (rule) => rule.id === `cond_match_index:${fieldWithRef.id().toString()}:${matchFieldId}`
+        )
+      ).toBe(true);
+      expect(literalRules.some((rule) => rule.id.startsWith('cond_match_index:'))).toBe(false);
+    });
+  });
+
   describe('UniqueIndexRule', () => {
     const TABLE_NAME = 'test_unique_index_rule';
 
@@ -1627,11 +1885,43 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
-      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        const compiled = stmt.compile(db);
-        await db.executeQuery(compiled);
+      await applyStatements(rule.up(ctx)._unsafeUnwrap());
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('applies meta-resolved FK statements without reading table_meta on the data plane', async () => {
+      const targetTableMetaId = createValidTableId('logical_byodb_target');
+      const targetPhysicalTableName = 'students_byodb';
+
+      await createTestTable(targetPhysicalTableName);
+      await createTestTable(SOURCE_TABLE, ['fk_col TEXT']);
+      await sql`
+        INSERT INTO table_meta (id, db_table_name, deleted_time)
+        VALUES (${targetTableMetaId}, ${`${TEST_SCHEMA}.${targetPhysicalTableName}`}, NULL)
+      `.execute(db);
+
+      const fieldResult = createRealField('fkmetabydb', 'Link', 'fk_col');
+      const field = fieldResult._unsafeUnwrap();
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', targetTableMetaId);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: targetTableMetaId },
+        fkColumnRule,
+        'Students',
+        'CASCADE',
+        undefined,
+        targetTableMetaId
+      );
+      const ctx = createContext(SOURCE_TABLE, field);
+      const statements = rule.up(ctx)._unsafeUnwrap();
+
+      for (const stmt of statements) {
+        expect(stmt.compile(db).sql).not.toMatch(/\btable_meta\b/i);
       }
 
+      await applyStatements(statements);
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
@@ -1664,9 +1954,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
-      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        await db.executeQuery(stmt.compile(db));
-      }
+      await applyStatements(rule.up(ctx)._unsafeUnwrap());
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
@@ -2357,6 +2645,53 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     const TARGET_TABLE = 'test_jct_index_target';
     const JUNCTION_TABLE = 'junction_index_test';
 
+    it.each(['manyMany', 'oneMany'] as const)(
+      'should create directional indexes for a new one-way %s junction',
+      async (relationship) => {
+        const targetTableId = createValidTableId('junction_create_target');
+        await createTestTable(SOURCE_TABLE);
+        await createTestTable(TARGET_TABLE);
+
+        const field = createRealLinkField({
+          id: `jctcreate_${relationship}`,
+          name: 'One-way link',
+          dbFieldName: 'link_value',
+          relationship,
+          isOneWay: true,
+          foreignTableId: targetTableId,
+          fkHostTableName: `${TEST_SCHEMA}.${JUNCTION_TABLE}`,
+          selfKeyName: 'self_key',
+          foreignKeyName: 'foreign_key',
+        })._unsafeUnwrap();
+        const visitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
+          db,
+          schema: TEST_SCHEMA,
+          tableName: SOURCE_TABLE,
+          tableId: createValidTableId('junction_create_source'),
+          tableLocationsById: new Map([
+            [targetTableId, { schema: TEST_SCHEMA, tableName: TARGET_TABLE }],
+          ]),
+        });
+
+        await applyStatements(visitor.apply([field])._unsafeUnwrap());
+
+        expect(
+          (await introspector.getIndex(TEST_SCHEMA, 'index_foreign_key'))._unsafeUnwrap()
+        ).toMatchObject({ columnNames: ['foreign_key'], isUnique: false });
+        const selfIndex = (
+          await introspector.getIndex(TEST_SCHEMA, 'index_self_key')
+        )._unsafeUnwrap();
+        if (relationship === 'manyMany') {
+          expect(selfIndex).toMatchObject({ columnNames: ['self_key'], isUnique: false });
+        } else {
+          expect(selfIndex).toBeNull();
+        }
+        expect(
+          (await introspector.getIndex(TEST_SCHEMA, 'uniq_self_key_foreign_key'))._unsafeUnwrap()
+        ).toMatchObject({ columnNames: ['self_key', 'foreign_key'], isUnique: true });
+      }
+    );
+
     it('should return invalid when index does not exist', async () => {
       await createTestTable(SOURCE_TABLE);
       await createTestTable(TARGET_TABLE);
@@ -2598,11 +2933,11 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
-      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        const compiled = stmt.compile(db);
-        expect(compiled.sql).toContain('table_meta');
-        await db.executeQuery(compiled);
+      const statements = rule.up(ctx)._unsafeUnwrap();
+      for (const stmt of statements) {
+        expect(stmt.compile(db).sql).not.toMatch(/\btable_meta\b/i);
       }
+      await applyStatements(statements);
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
@@ -4227,6 +4562,64 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         checker.checkField(table, field.id().toString())
       );
       expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it('reports table_exists before column rules when the physical table is missing', async () => {
+      const tableName = 'test_schema_missing_relation';
+      const field = createRealField('tblmiss001', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkTable(table));
+      const tableExistsResult = results.find(
+        (result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID
+      );
+      const columnResult = results.find(
+        (result) => result.ruleId === `column:${field.id().toString()}`
+      );
+
+      expect(tableExistsResult?.status).toBe('error');
+      expect(tableExistsResult?.details?.missingItems?.[0]?.code).toBe(SYSTEM_TABLE_EXISTS_RULE_ID);
+      expect(columnResult?.status).toBe('error');
+    });
+
+    it('repairs a missing physical table then applies current field columns', async () => {
+      const tableName = 'test_schema_create_missing_table';
+      const field = createRealField('tblmiss002', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(repairer.repairTable(table));
+      expect(results.find((result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID)?.outcome).toBe(
+        'repaired'
+      );
+      expect(
+        results.find((result) => result.ruleId === `column:${field.id().toString()}`)?.outcome
+      ).toBe('repaired');
+      expect(await tableExists(tableName)).toBe(true);
+
+      const rowCount = await sql<{ cnt: string }>`
+        SELECT count(*)::text AS cnt
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(tableName)}
+      `.execute(db);
+      expect(rowCount.rows[0]?.cnt).toBe('0');
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(checker.checkTable(table));
+      expect(
+        checkResults.find((result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID)?.status
+      ).toBe('success');
+      expect(
+        checkResults.find((result) => result.ruleId === `column:${field.id().toString()}`)?.status
+      ).toBe('success');
     });
 
     it('should include repair hint metadata in check results for failing auto-repair rules', async () => {
@@ -5936,62 +6329,107 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         });
       });
 
-      it('should repair a missing junction index rule through repairRule', async () => {
-        const sourceTableName = createValidTableId('src_junction_index_rule');
-        const targetTableName = createValidTableId('tgt_junction_index_rule');
-        const junctionTableName = 'junction_index_rule';
-        const selfKeyName = '__fk_junction_index_self';
-        const foreignKeyName = '__fk_junction_index_foreign';
+      it.each([
+        { relationship: 'manyMany' as const, side: 'self', isOneWay: false },
+        { relationship: 'oneMany' as const, side: 'foreign', isOneWay: true },
+      ])(
+        'should repair a missing $side junction index for $relationship links',
+        async ({ relationship, side, isOneWay }) => {
+          const sourceTableName = createValidTableId('src_junction_index_rule');
+          const targetTableName = createValidTableId('tgt_junction_index_rule');
+          const junctionTableName = 'junction_index_rule';
+          const selfKeyName = '__fk_junction_index_self';
+          const foreignKeyName = '__fk_junction_index_foreign';
 
-        await createTestTable(sourceTableName, ['link_value JSONB']);
-        await createTestTable(targetTableName);
-        await createExplicitTestTable(junctionTableName, [
-          '__id SERIAL PRIMARY KEY',
-          `${selfKeyName} TEXT`,
-          `${foreignKeyName} TEXT`,
-          '__order DOUBLE PRECISION',
-        ]);
-        await sql
-          .raw(
-            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+          await createTestTable(sourceTableName, ['link_value JSONB']);
+          await createTestTable(targetTableName);
+          await createExplicitTestTable(junctionTableName, [
+            '__id SERIAL PRIMARY KEY',
+            `${selfKeyName} TEXT`,
+            `${foreignKeyName} TEXT`,
+            '__order DOUBLE PRECISION',
+          ]);
+          await sql
+            .raw(
+              `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
              ADD CONSTRAINT uniq_${selfKeyName}_${foreignKeyName} UNIQUE (${selfKeyName}, ${foreignKeyName})`
-          )
-          .execute(db);
-        await sql
-          .raw(
-            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+            )
+            .execute(db);
+          await sql
+            .raw(
+              `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
              ADD CONSTRAINT fk_${selfKeyName}
              FOREIGN KEY (${selfKeyName}) REFERENCES ${TEST_SCHEMA}.${sourceTableName}(__id) ON DELETE CASCADE`
-          )
-          .execute(db);
-        await sql
-          .raw(
-            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+            )
+            .execute(db);
+          await sql
+            .raw(
+              `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
              ADD CONSTRAINT fk_${foreignKeyName}
              FOREIGN KEY (${foreignKeyName}) REFERENCES ${TEST_SCHEMA}.${targetTableName}(__id) ON DELETE CASCADE`
-          )
-          .execute(db);
+            )
+            .execute(db);
+          await sql`INSERT INTO ${sql.id(TEST_SCHEMA, sourceTableName)} (__id) VALUES ('source')`.execute(
+            db
+          );
+          await sql`INSERT INTO ${sql.id(TEST_SCHEMA, targetTableName)} (__id) VALUES ('target')`.execute(
+            db
+          );
+          await sql`
+          INSERT INTO ${sql.id(TEST_SCHEMA, junctionTableName)}
+            (${sql.id(selfKeyName)}, ${sql.id(foreignKeyName)})
+          VALUES ('source', 'target')
+        `.execute(db);
 
-        const field = createRealLinkField({
-          id: 'jctidx001',
-          name: 'Junction Index Rule',
-          dbFieldName: 'link_value',
-          relationship: 'manyMany',
-          foreignTableId: targetTableName,
-          fkHostTableName: junctionTableName,
-          selfKeyName,
-          foreignKeyName,
-          hasOrderColumn: true,
-        })._unsafeUnwrap();
-        const table = createTableAggregate(sourceTableName, field);
+          const field = createRealLinkField({
+            id: 'jctidx001',
+            name: 'Junction Index Rule',
+            dbFieldName: 'link_value',
+            relationship,
+            isOneWay,
+            foreignTableId: targetTableName,
+            fkHostTableName: junctionTableName,
+            selfKeyName,
+            foreignKeyName,
+            hasOrderColumn: true,
+          })._unsafeUnwrap();
+          const table = createTableAggregate(sourceTableName, field);
 
-        await expectRuleRepairLifecycle({
-          table,
-          fieldId: field.id().toString(),
-          ruleId: `junction_index:${field.id().toString()}:self`,
-          expectedStatus: 'warn',
-        });
-      });
+          await expectRuleRepairLifecycle({
+            table,
+            fieldId: field.id().toString(),
+            ruleId: `junction_index:${field.id().toString()}:${side}`,
+            expectedStatus: 'warn',
+            verifyAfterRepair: async () => {
+              const columnName = side === 'self' ? selfKeyName : foreignKeyName;
+              expect(
+                (await introspector.getIndex(TEST_SCHEMA, `index_${columnName}`))._unsafeUnwrap()
+              ).toMatchObject({ columnNames: [columnName], isUnique: false });
+              const rows = await sql<{ source_id: string; target_id: string }>`
+              SELECT ${sql.id(selfKeyName)} AS source_id, ${sql.id(foreignKeyName)} AS target_id
+              FROM ${sql.id(TEST_SCHEMA, junctionTableName)}
+            `.execute(db);
+              expect(rows.rows).toEqual([{ source_id: 'source', target_id: 'target' }]);
+              if (relationship === 'oneMany') {
+                expect(
+                  (
+                    await introspector.indexExists(TEST_SCHEMA, `index_${selfKeyName}`)
+                  )._unsafeUnwrap()
+                ).toBe(false);
+                const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+                const results = await collectFinalResults(
+                  checker.checkField(table, field.id().toString())
+                );
+                expect(
+                  results.find(
+                    (result) => result.ruleId === `junction_index:${field.id().toString()}:self`
+                  )
+                ).toBeUndefined();
+              }
+            },
+          });
+        }
+      );
 
       it('should repair a missing junction foreign key rule through repairRule', async () => {
         const sourceTableName = createValidTableId('src_junction_fk_rule');
@@ -6188,6 +6626,112 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ]),
         });
       });
+    });
+  });
+
+  describe('required manyOne link FK action', () => {
+    it('uses RESTRICT when the link field is required', () => {
+      const field = createRealLinkField({
+        id: 'reqmanyone00001',
+        name: 'Status',
+        dbFieldName: 'Status',
+        relationship: 'manyOne',
+        foreignTableId: createValidTableId('foreignprofiles'),
+        fkHostTableName: `${TEST_SCHEMA}.host_required_link`,
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_status',
+        isOneWay: true,
+      })._unsafeUnwrap();
+      field.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+
+      const rules = createFieldSchemaRules(field, {
+        schema: TEST_SCHEMA,
+        tableName: 'host_required_link',
+        tableId: 'host_required_link',
+      })._unsafeUnwrap();
+
+      const fkRule = rules.find((rule) => rule instanceof ForeignKeyRule) as ForeignKeyRule;
+      expect(fkRule).toBeDefined();
+      expect(fkRule.description).toContain('ON DELETE RESTRICT');
+    });
+
+    it('keeps SET NULL when the link field is optional', () => {
+      const field = createRealLinkField({
+        id: 'optmanyone00001',
+        name: 'Optional Status',
+        dbFieldName: 'OptionalStatus',
+        relationship: 'manyOne',
+        foreignTableId: createValidTableId('foreignprofiles'),
+        fkHostTableName: `${TEST_SCHEMA}.host_optional_link`,
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_optional_status',
+        isOneWay: true,
+      })._unsafeUnwrap();
+
+      const rules = createFieldSchemaRules(field, {
+        schema: TEST_SCHEMA,
+        tableName: 'host_optional_link',
+        tableId: 'host_optional_link',
+      })._unsafeUnwrap();
+
+      const fkRule = rules.find((rule) => rule instanceof ForeignKeyRule) as ForeignKeyRule;
+      expect(fkRule).toBeDefined();
+      expect(fkRule.description).toContain('ON DELETE SET NULL');
+    });
+
+    it('keeps SET NULL for a required two-way oneMany link (FK protects the other side)', () => {
+      const field = createRealLinkField({
+        id: 'reqonemany00001',
+        name: 'Required Children',
+        dbFieldName: 'RequiredChildren',
+        relationship: 'oneMany',
+        foreignTableId: createValidTableId('foreignchildren'),
+        fkHostTableName: `${TEST_SCHEMA}.foreign_children_host`,
+        selfKeyName: '__fk_required_children',
+        foreignKeyName: '__id',
+        isOneWay: false,
+        symmetricFieldId: createValidFieldId('symmanyone00001'),
+      })._unsafeUnwrap();
+      field.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+
+      const rules = createFieldSchemaRules(field, {
+        schema: TEST_SCHEMA,
+        tableName: 'host_required_children',
+        tableId: 'host_required_children',
+      })._unsafeUnwrap();
+
+      const fkRule = rules.find((rule) => rule instanceof ForeignKeyRule) as ForeignKeyRule;
+      expect(fkRule).toBeDefined();
+      expect(fkRule.description).toContain('ON DELETE SET NULL');
+    });
+
+    it('emits no FK structure rules for the non-hosting side of a two-way oneOne link', () => {
+      // The non-hosting side's keyName is `__id`: it does not own a physical FK
+      // column, so it must not manage columns, indexes, or constraints on the
+      // FK host table (doing so dropped `__id` when this side was deleted).
+      const field = createRealLinkField({
+        id: 'reqoneonesym001',
+        name: 'Required Twin',
+        dbFieldName: 'RequiredTwin',
+        relationship: 'oneOne',
+        foreignTableId: createValidTableId('foreigntwin'),
+        fkHostTableName: `${TEST_SCHEMA}.foreign_twin_host`,
+        selfKeyName: '__fk_required_twin',
+        foreignKeyName: '__id',
+        isOneWay: false,
+        symmetricFieldId: createValidFieldId('symoneone000001'),
+      })._unsafeUnwrap();
+      field.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+
+      const rules = createFieldSchemaRules(field, {
+        schema: TEST_SCHEMA,
+        tableName: 'host_required_twin',
+        tableId: 'host_required_twin',
+      })._unsafeUnwrap();
+
+      expect(rules.find((rule) => rule instanceof ForeignKeyRule)).toBeUndefined();
+      expect(rules.find((rule) => rule instanceof FkColumnRule)).toBeUndefined();
+      expect(rules.find((rule) => rule instanceof UniqueIndexRule)).toBeUndefined();
     });
   });
 });

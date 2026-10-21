@@ -23,9 +23,9 @@ import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 
 export class Table extends TableCore {
-  static getAggregations = requestWrap(getAggregation);
+  static readonly getAggregations = requestWrap(getAggregation);
 
-  static getRowCount = requestWrap(getRowCount);
+  static readonly getRowCount = requestWrap(getRowCount);
 
   protected doc!: Doc<ITableVo>;
 
@@ -49,7 +49,7 @@ export class Table extends TableCore {
     return requestWrap(updateTableDescription)(this.baseId, this.id, { description });
   }
 
-  async updateIcon(icon: string) {
+  async updateIcon(icon: string | null) {
     return requestWrap(updateTableIcon)(this.baseId, this.id, { icon });
   }
 

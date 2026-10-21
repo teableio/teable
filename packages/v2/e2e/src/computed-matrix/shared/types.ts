@@ -63,23 +63,6 @@ export interface LinkConfig {
 }
 
 // =============================================================================
-// Expected Result Types
-// =============================================================================
-
-export interface ExpectedResult {
-  shouldChange: boolean;
-  shouldBeNull: boolean;
-  exactValue?: unknown;
-}
-
-export interface ExpectedSteps {
-  exact?: number;
-  minSteps?: number;
-  maxSteps?: number;
-  mustContainFields: string[];
-}
-
-// =============================================================================
 // Test Context
 // =============================================================================
 
@@ -92,24 +75,24 @@ export type { SharedTestContext as TestContext } from '../../shared/globalTestCo
 // =============================================================================
 
 export interface FormulaTestCase {
-  source: SourceFieldType;
-  transition: ValueTransition;
+  source: 'number' | 'singleLineText' | 'checkbox' | 'rating';
+  transition: Extract<ValueTransition, 'nullToValue' | 'valueToValue' | 'valueToNull'>;
   depth: number;
 }
 
 export interface LookupTestCase {
-  source: SourceFieldType;
+  source: 'number' | 'singleLineText' | 'checkbox';
   transition: ValueTransition;
   rel: LinkRelationship;
   dir: LinkDirection;
 }
 
 export interface RollupTestCase {
-  source: SourceFieldType;
+  source: 'number' | 'rating';
   transition: ValueTransition;
   rel: LinkRelationship;
   dir: LinkDirection;
-  expression: string;
+  expression: 'sum({values})' | 'count({values})' | 'average({values})';
 }
 
 export interface SelfRefTestCase {

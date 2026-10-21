@@ -6,13 +6,19 @@
  */
 import type { Field } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql } from 'kysely';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
 import { executeTableSchemaStatements } from '../../../shared/db';
 import { FieldTypeConversionVisitorFactory } from '../FieldTypeConversionVisitor';
 import { createPGliteDb } from './helpers/createPGliteDb';
-import { createTextField, createUsrField } from './helpers/fieldFactories';
+import {
+  createMultiSelField,
+  createNumField,
+  createTextField,
+  createUsrField,
+} from './helpers/fieldFactories';
 
 describe('FieldTypeConversionVisitor (PGlite)', () => {
   const DB_FIELD_NAME = 'user_text';
@@ -42,6 +48,58 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
   };
 
   describe('Text to Number', () => {
+    it('converts currency, trailing digits, and percent text while keeping other invalid strings null', async () => {
+      const { db: dataDb } = await createPGliteDb();
+      const { db: metaDb } = await createPGliteDb();
+      try {
+        await sql`CREATE TABLE records (__id text PRIMARY KEY, user_text text)`.execute(dataDb);
+        await sql`
+          INSERT INTO records (__id, user_text)
+          VALUES
+            ('rec_currency', '$1,234'),
+            ('rec_mixed', 'abc12'),
+            ('rec_percent', '50%'),
+            ('rec_plain', '45.67'),
+            ('rec_negative', '-89'),
+            ('rec_letters', 'abc'),
+            ('rec_suffix', '12abc'),
+            ('rec_scientific', '1e3'),
+            ('rec_padded', ' 12 '),
+            ('rec_empty', ''),
+            ('rec_null', NULL)
+        `.execute(dataDb);
+
+        await executeConversion(
+          dataDb,
+          metaDb,
+          createTextField('srcText', 'Source Text', DB_FIELD_NAME)._unsafeUnwrap(),
+          createNumField('tgtNum', 'Target Number', DB_FIELD_NAME)._unsafeUnwrap()
+        );
+
+        const rows = await sql<{ __id: string; user_text: number | null }>`
+          SELECT __id, user_text
+          FROM records
+          ORDER BY __id
+        `.execute(dataDb);
+
+        expect(rows.rows).toEqual([
+          { __id: 'rec_currency', user_text: 1234 },
+          { __id: 'rec_empty', user_text: null },
+          { __id: 'rec_letters', user_text: null },
+          { __id: 'rec_mixed', user_text: 12 },
+          { __id: 'rec_negative', user_text: -89 },
+          { __id: 'rec_null', user_text: null },
+          { __id: 'rec_padded', user_text: null },
+          { __id: 'rec_percent', user_text: 0.5 },
+          { __id: 'rec_plain', user_text: 45.67 },
+          { __id: 'rec_scientific', user_text: null },
+          { __id: 'rec_suffix', user_text: null },
+        ]);
+      } finally {
+        await dataDb.destroy();
+        await metaDb.destroy();
+      }
+    });
     it.todo(
       'should convert valid numeric strings to numbers'
       // Setup: Create table with text column, insert '42', '3.14', '-10'
@@ -167,7 +225,6 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
               id: 'usr_alice',
               title: 'Alice',
               email: 'alice@example.com',
-              avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
             },
           },
           { __id: 'rec_missing', user_text: null },
@@ -177,7 +234,6 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
               id: 'usr_bob',
               title: 'Bob',
               email: null,
-              avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
             },
           },
         ]);
@@ -223,13 +279,11 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
             id: 'usr_alice',
             title: 'Alice',
             email: 'alice@example.com',
-            avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
           },
           {
             id: 'usr_bob',
             title: 'Bob',
             email: null,
-            avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
           },
         ]);
       } finally {
@@ -321,6 +375,43 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
   });
 
   describe('MultipleSelect conversions', () => {
+    it('quotes choice names that contain a comma, quote, or newline when converting to text', async () => {
+      const { db: dataDb } = await createPGliteDb();
+      const { db: metaDb } = await createPGliteDb();
+      try {
+        await sql`CREATE TABLE records (__id text PRIMARY KEY, user_text jsonb)`.execute(dataDb);
+        await sql`
+          INSERT INTO records (__id, user_text)
+          VALUES
+            ('r1', ${JSON.stringify(['A', 'B, C'])}::jsonb),
+            ('r2', ${JSON.stringify(['A'])}::jsonb),
+            ('r3', ${JSON.stringify(['say "hi"', 'line\nbreak'])}::jsonb)
+        `.execute(dataDb);
+
+        await executeConversion(
+          dataDb,
+          metaDb,
+          createMultiSelField('srcMulti', 'Tags', DB_FIELD_NAME)._unsafeUnwrap(),
+          createTextField('tgtText', 'Tags Text', DB_FIELD_NAME)._unsafeUnwrap()
+        );
+
+        const rows = await sql<{ __id: string; user_text: string | null }>`
+          SELECT __id, user_text
+          FROM records
+          ORDER BY __id
+        `.execute(dataDb);
+
+        expect(rows.rows).toEqual([
+          { __id: 'r1', user_text: 'A, "B, C"' },
+          { __id: 'r2', user_text: 'A' },
+          { __id: 'r3', user_text: '"say ""hi""", "line\nbreak"' },
+        ]);
+      } finally {
+        await dataDb.destroy();
+        await metaDb.destroy();
+      }
+    });
+
     it.todo(
       'should join array elements with comma for text conversion'
       // Setup: Insert '["a", "b", "c"]' jsonb

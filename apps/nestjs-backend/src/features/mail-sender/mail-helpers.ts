@@ -3,8 +3,11 @@ import type { ConfigService } from '@nestjs/config';
 import type { ISendMailOptions as NestjsSendMailOptions } from '@nestjs-modules/mailer';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
+import type { SendMailOptions } from 'nodemailer';
 
-export type ISendMailOptions = NestjsSendMailOptions & { senderName?: string };
+// In-Reply-To is a Message-ID header: nodemailer only takes a string there, the mailer type also allows an Address
+export type ISendMailOptions = Omit<NestjsSendMailOptions, 'inReplyTo'> &
+  Pick<SendMailOptions, 'inReplyTo'> & { senderName?: string };
 
 /** Truncate a user-provided name for a mail subject; maxLength <= 0 (or NaN) disables. */
 export const truncateMailName = (value: string, maxLength: number): string => {
@@ -27,7 +30,7 @@ export const helpers = (config: ConfigService) => {
 };
 
 export const verifyTransport = async (config: IMailTransportConfig) => {
-  const transporter = createTransport(config);
+  const transporter = createTransport(config); // NOSONAR typescript:S5332 -- SMTP transport security (STARTTLS/TLS) comes from the administrator-provided config
   try {
     await transporter.verify();
   } catch (error) {

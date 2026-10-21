@@ -1,5 +1,4 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
@@ -15,9 +14,11 @@ import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
+import { registerQueryCancellation } from './query-cancellation';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
-import { ShareDbAdapter, type ComputedActivitySnapshotLoader } from './share-db.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
+import { stripInstructionlessComponents } from './utils';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 const v2ProjectionSubmitSource = '@@v2-projection';
@@ -42,7 +43,7 @@ const hasClientStream = (
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  private logger = new Logger(ShareDbService.name);
+  private readonly logger = new Logger(ShareDbService.name);
 
   constructor(
     readonly shareDbAdapter: ShareDbAdapter,
@@ -73,13 +74,18 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
+    registerQueryCancellation(this);
     authMiddleware(this, this.sessionHandleService);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(async () => {
+      // Consume both CLS slots synchronously, before the first await, so a
+      // following $tx in the same request can never see or lose them.
       const rawOpMaps = this.cls.get('tx.rawOpMaps');
       this.cls.set('tx.rawOpMaps', undefined);
+      const clearCacheKeys = this.cls.get('clearCacheKeys');
+      this.cls.set('clearCacheKeys', undefined);
 
       const ops: IRawOpMap[] = [];
       if (rawOpMaps?.length) {
@@ -87,26 +93,29 @@ export class ShareDbService extends ShareDBClass {
       }
 
       if (ops.length) {
-        await this.updateTableMetaByRawOpMap(rawOpMaps);
-        await this.publishOpsMap(rawOpMaps);
-        this.eventEmitterService.ops2Event(ops);
+        try {
+          await this.updateTableMetaByRawOpMap(rawOpMaps);
+          await this.publishOpsMap(rawOpMaps);
+          this.eventEmitterService.ops2Event(ops);
+        } catch (error) {
+          // Not awaited by $tx(): an error here would surface as an unhandled
+          // rejection and skip the cache flush below.
+          this.logger.error(
+            `Failed to broadcast ops after transaction: ${error instanceof Error ? error.message : String(error)}`,
+            error instanceof Error ? error.stack : undefined
+          );
+        }
       }
 
       // clear cache keys
-      const clearCacheKeys = this.cls.get('clearCacheKeys');
       if (clearCacheKeys?.length) {
         await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
-        this.cls.set('clearCacheKeys', undefined);
       }
     });
   }
 
   getConnection() {
     return this.connect();
-  }
-
-  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
-    this.shareDbAdapter.setComputedActivitySnapshotLoader(loader);
   }
 
   @Timing()
@@ -146,19 +155,14 @@ export class ShareDbService extends ShareDBClass {
         const data = rawOpMap[collection];
         for (const docId in data) {
           const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
-          const channels = [collection, `${collection}.${docId}`];
           rawOp.c = collection;
           rawOp.d = docId;
           const repairedOp = await this.repairAttachmentOpService.repairAttachmentOp(
             rawOp,
             repairAttachmentContext
           );
-          this.pubsub.publish(channels, repairedOp, noop);
-          publishCount++;
-
-          if (this.shouldForwardToRecordChannel(repairedOp)) {
-            const tableId = collection.split('_')[1];
-            this.forwardToRecordChannel(tableId, repairedOp);
+          if (this.publishOp(collection, docId, repairedOp)) {
+            publishCount++;
           }
         }
       }
@@ -166,6 +170,24 @@ export class ShareDbService extends ShareDBClass {
     if (publishCount > 0) {
       this.realtimeMetrics?.recordOpsPublished(publishCount);
     }
+  }
+
+  // Every subscriber applies a published op verbatim, so a json0 component it
+  // cannot read must never leave here (see utils.ts). Returns whether the op
+  // went out at all.
+  private publishOp(collection: string, docId: string, op: EditOp | CreateOp | DeleteOp): boolean {
+    const publishableOp = stripInstructionlessComponents(op);
+    if (!publishableOp) {
+      this.logger.debug(
+        `skip publishing an op without a json0 instruction: ${collection} ${docId}`
+      );
+      return false;
+    }
+    this.pubsub.publish([collection, `${collection}.${docId}`], publishableOp, noop);
+    if (this.shouldForwardToRecordChannel(publishableOp)) {
+      this.forwardToRecordChannel(collection.split('_')[1], publishableOp);
+    }
+    return true;
   }
 
   // synthetic ops that only wake record query polling, never doc subscribers
@@ -192,40 +214,35 @@ export class ShareDbService extends ShareDBClass {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
   }
 
-  private onSubmit = (
+  private readonly onSubmit = (
     context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {
-    const tracer = otelTrace.getTracer('default');
-    const currentSpan = tracer.startSpan('submitOp');
+    const submitSource =
+      ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
+        .options?.source as unknown) ??
+      ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
+        ?.source as unknown);
+    if (submitSource === v2ProjectionSubmitSource) {
+      return next();
+    }
 
-    otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
-      const submitSource =
-        ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
-          .options?.source as unknown) ??
-        ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
-          ?.source as unknown);
-      if (submitSource === v2ProjectionSubmitSource) {
-        return next();
-      }
+    const opSource = typeof context.op.src === 'string' ? context.op.src : '';
+    if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
+      return next();
+    }
 
-      const opSource = typeof context.op.src === 'string' ? context.op.src : '';
-      if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
-        return next();
-      }
+    if (!hasClientStream(context.agent)) {
+      return next();
+    }
 
-      if (!hasClientStream(context.agent)) {
-        return next();
-      }
+    const [docType] = context.collection.split('_');
 
-      const [docType] = context.collection.split('_');
-
-      if (docType !== IdPrefix.Record || !context.op.op) {
-        this.realtimeMetrics?.recordOperationError('invalid_doc_type');
-        return next(new Error('only record op can be committed'));
-      }
-      this.realtimeMetrics?.recordOperationSubmit();
-      next();
-    });
+    if (docType !== IdPrefix.Record || !context.op.op) {
+      this.realtimeMetrics?.recordOperationError('invalid_doc_type');
+      return next(new Error('only record op can be committed'));
+    }
+    this.realtimeMetrics?.recordOperationSubmit();
+    next();
   };
 }

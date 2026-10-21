@@ -5,6 +5,14 @@ import {
 import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  DataDbBaseNotFoundError,
+  DataDbBindingNotReadyError,
+  DataDbClientManager,
+} from '../../../global/data-db-client-manager.service';
+import { DataDbRuntimeCacheService } from '../../../global/data-db-runtime-cache.service';
+
+import { BullMqComputedOutboxWakeupProcessor } from './bullmq-computed-outbox-wakeup.processor';
 import { createRoleAwareWakeupPublisher } from './computed-outbox-wakeup-producer.module';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';
 
@@ -32,6 +40,7 @@ describe('ComputedOutboxWakeupHandler', () => {
   const createPublisher = (publish = vi.fn()) => ({
     publish,
     runAsConsumer: <T>(operation: () => Promise<T>) => operation(),
+    onDeliveryRecovered: vi.fn(() => vi.fn()),
   });
 
   const activePermit = { assertActive: vi.fn() };
@@ -75,6 +84,65 @@ describe('ComputedOutboxWakeupHandler', () => {
     );
     return { handler, publish };
   };
+
+  const createRoutingProcessor = (findUnique: () => Promise<null>) => {
+    const manager = new DataDbClientManager(
+      { base: { findUnique } } as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      {} as never
+    );
+    const metrics = createMetrics();
+    const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+    const publisher = createPublisher(publish);
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: async (baseId: string) => {
+          await manager.getDataDatabaseForBase(baseId);
+          throw new Error('Unexpected container resolution');
+        },
+      } as never,
+      metrics as never,
+      publisher as never,
+      createActiveAdmission()
+    );
+    const processor = new BullMqComputedOutboxWakeupProcessor(handler, metrics as never, publisher);
+    return { processor, publish };
+  };
+
+  it('completes an orphan wakeup without re-arming it when base routing finds no base', async () => {
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockResolvedValue(null));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).resolves.toEqual({ status: 'noop' });
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps routing query failures retryable even when their text resembles a missing base', async () => {
+    const queryError = new Error(`Base ${wakeup.baseId} not found`);
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockRejectedValue(queryError));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).rejects.toBe(queryError);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: wakeup.taskId, baseId: wakeup.baseId, cause: 'replay' })
+    );
+  });
+
+  it('does not acknowledge a missing-base error for a different base', async () => {
+    const routingError = new DataDbBaseNotFoundError('bse9876543210987654');
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockRejectedValue(routingError));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).rejects.toBe(routingError);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: wakeup.taskId, baseId: wakeup.baseId, cause: 'replay' })
+    );
+  });
 
   it('holds the cluster permit until processing and follow-up draining finish', async () => {
     const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
@@ -634,5 +702,313 @@ describe('ComputedOutboxWakeupHandler', () => {
 
     expect(metrics.recordConsume).toHaveBeenCalledWith('error');
     expect(metrics.recordExecutionDuration).toHaveBeenCalledWith(expect.any(Number), 'error');
+  });
+
+  it('absorbs read-only ledger failures into a per-base 1-minute sentinel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const workerError = {
+        code: 'infrastructure',
+        message:
+          'Outbox transaction failed: error: cannot execute SELECT FOR UPDATE in a read-only transaction',
+      };
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const metrics = createMetrics();
+      const handler = new ComputedOutboxWakeupHandler(
+        {
+          getContainerForBase: vi.fn().mockResolvedValue({
+            resolve: () => ({
+              runTaskById: vi.fn().mockResolvedValue({ isErr: () => true, error: workerError }),
+            }),
+          }),
+        } as never,
+        metrics as never,
+        createPublisher(publish) as never,
+        createActiveAdmission()
+      );
+
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+
+      expect(publish).toHaveBeenCalledOnce();
+      const published = publish.mock.calls[0][0] as { availableAt: Date; wakeupId: string };
+      expect(published.availableAt).toEqual(new Date('2026-01-05T12:01:00Z'));
+      expect(published.wakeupId).toBe(`cuwd-ro-${wakeup.baseId}-s0`);
+      expect(metrics.recordConsume).toHaveBeenCalledWith('deferred');
+      expect(metrics.recordConsume).not.toHaveBeenCalledWith('error');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('schedules one stepped sentinel per base from the health breaker', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const runWithPermit = vi.fn();
+      const getContainerForBase = vi.fn();
+      const changedAt = new Date('2026-01-05T12:00:00Z');
+      const dataDbHealth = {
+        getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+          state: 'read_only',
+          changedAt,
+        }),
+        probeAndRefreshForBase: vi.fn(),
+        reportWriteFailure: vi.fn(),
+      };
+      const metrics = createMetrics();
+      const handler = new ComputedOutboxWakeupHandler(
+        { getContainerForBase } as never,
+        metrics as never,
+        createPublisher(publish) as never,
+        { runWithPermit } as never,
+        dataDbHealth as never
+      );
+
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+
+      expect(dataDbHealth.getHealthSnapshotForBase).toHaveBeenCalledWith(wakeup.baseId);
+      expect(dataDbHealth.probeAndRefreshForBase).not.toHaveBeenCalled();
+      expect(runWithPermit).not.toHaveBeenCalled();
+      expect(getContainerForBase).not.toHaveBeenCalled();
+      expect(publish).toHaveBeenCalledOnce();
+      expect(publish.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          wakeupId: `cuwd-ro-${wakeup.baseId}-s0`,
+          availableAt: new Date('2026-01-05T12:01:00Z'),
+          cause: 'replay',
+        })
+      );
+      expect(dataDbHealth.reportWriteFailure).not.toHaveBeenCalled();
+      expect(metrics.recordConsume).toHaveBeenCalledWith('deferred');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('converges a second task on the same base sentinel when the job already exists', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const publish = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('Job already exists'), { name: 'JobIdAlreadyExistsError' })
+        );
+      const dataDbHealth = {
+        getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+          state: 'read_only',
+          changedAt: new Date('2026-01-05T12:00:00Z'),
+        }),
+        probeAndRefreshForBase: vi.fn(),
+        reportWriteFailure: vi.fn(),
+      };
+      const handler = new ComputedOutboxWakeupHandler(
+        { getContainerForBase: vi.fn() } as never,
+        createMetrics() as never,
+        createPublisher(publish) as never,
+        { runWithPermit: vi.fn() } as never,
+        dataDbHealth as never
+      );
+
+      await expect(handler.handle({ ...wakeup, taskId: 'cuoother0000000001' })).resolves.toEqual({
+        status: 'deferred',
+      });
+      expect(publish).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('live-probes a read_only sentinel and steps to 5 minutes while still read-only', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:01:00Z'));
+    try {
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const probeAndRefreshForBase = vi.fn().mockResolvedValue('read_only');
+      const dataDbHealth = {
+        getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+          state: 'read_only',
+          changedAt: new Date('2026-01-05T12:00:00Z'),
+        }),
+        probeAndRefreshForBase,
+        reportWriteFailure: vi.fn(),
+      };
+      const handler = new ComputedOutboxWakeupHandler(
+        { getContainerForBase: vi.fn() } as never,
+        createMetrics() as never,
+        createPublisher(publish) as never,
+        { runWithPermit: vi.fn() } as never,
+        dataDbHealth as never
+      );
+
+      await expect(
+        handler.handle({
+          ...wakeup,
+          wakeupId: `cuwd-ro-${wakeup.baseId}-s0`,
+          cause: 'replay',
+        })
+      ).resolves.toEqual({ status: 'deferred' });
+
+      expect(probeAndRefreshForBase).toHaveBeenCalledWith(wakeup.baseId);
+      expect(publish.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          wakeupId: `cuwd-ro-${wakeup.baseId}-s1`,
+          availableAt: new Date('2026-01-05T12:05:00Z'),
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resumes processing when a read_only sentinel probe finds the database writable', async () => {
+    const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
+    const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 0 });
+    const publish = vi.fn();
+    const dataDbHealth = {
+      getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+        state: 'read_only',
+        changedAt: new Date('2026-01-05T12:00:00Z'),
+      }),
+      probeAndRefreshForBase: vi.fn().mockResolvedValue('healthy'),
+      reportWriteFailure: vi.fn(),
+    };
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: () => ({ runTaskById, runOnce }),
+        }),
+      } as never,
+      createMetrics() as never,
+      createPublisher(publish) as never,
+      createActiveAdmission(),
+      dataDbHealth as never
+    );
+
+    await expect(
+      handler.handle({
+        ...wakeup,
+        wakeupId: `cuwd-ro-${wakeup.baseId}-s0`,
+        cause: 'replay',
+      })
+    ).resolves.toEqual({ status: 'processed' });
+
+    expect(runTaskById).toHaveBeenCalledOnce();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('absorbs data-db binding-not-ready into a per-base 1-minute sentinel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const bindingError = new DataDbBindingNotReadyError('spcDisabled');
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const metrics = createMetrics();
+      const handler = new ComputedOutboxWakeupHandler(
+        { getContainerForBase: vi.fn().mockRejectedValue(bindingError) } as never,
+        metrics as never,
+        createPublisher(publish) as never,
+        createActiveAdmission()
+      );
+
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+
+      expect(publish).toHaveBeenCalledOnce();
+      const published = publish.mock.calls[0][0] as { availableAt: Date; wakeupId: string };
+      expect(published.availableAt).toEqual(new Date('2026-01-05T12:01:00Z'));
+      expect(published.wakeupId).toBe(`cuwd-ro-${wakeup.baseId}-s0`);
+      expect(metrics.recordConsume).toHaveBeenCalledWith('deferred');
+      expect(metrics.recordConsume).not.toHaveBeenCalledWith('error');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not probe an unreachable connection and still schedules the base sentinel', async () => {
+    const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+    const probeAndRefreshForBase = vi.fn();
+    const runWithPermit = vi.fn();
+    const getContainerForBase = vi.fn();
+    const dataDbHealth = {
+      getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+        state: 'unreachable',
+        changedAt: new Date('2026-01-05T12:00:00Z'),
+      }),
+      probeAndRefreshForBase,
+      reportWriteFailure: vi.fn(),
+    };
+    const handler = new ComputedOutboxWakeupHandler(
+      { getContainerForBase } as never,
+      createMetrics() as never,
+      createPublisher(publish) as never,
+      { runWithPermit } as never,
+      dataDbHealth as never
+    );
+
+    await expect(
+      handler.handle({
+        ...wakeup,
+        wakeupId: `cuwd-ro-${wakeup.baseId}-s0`,
+        cause: 'replay',
+      })
+    ).resolves.toEqual({ status: 'deferred' });
+
+    expect(probeAndRefreshForBase).not.toHaveBeenCalled();
+    expect(runWithPermit).not.toHaveBeenCalled();
+    expect(getContainerForBase).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledOnce();
+  });
+
+  it('processes normally when health reports the base healthy', async () => {
+    const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
+    const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 0 });
+    const dataDbHealth = {
+      getHealthSnapshotForBase: vi.fn().mockResolvedValue({
+        state: 'healthy',
+        changedAt: null,
+      }),
+      reportWriteFailure: vi.fn(),
+    };
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: () => ({ runTaskById, runOnce }),
+        }),
+      } as never,
+      createMetrics() as never,
+      createPublisher() as never,
+      createActiveAdmission(),
+      dataDbHealth as never
+    );
+
+    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'processed' });
+    expect(runTaskById).toHaveBeenCalledOnce();
+  });
+
+  it('fails the delivery when the read-only defer wakeup cannot be published', async () => {
+    const workerError = {
+      code: 'infrastructure',
+      message: 'Outbox transaction failed: error: cannot execute UPDATE in a read-only transaction',
+    };
+    const publish = vi.fn().mockRejectedValue(new Error('redis unavailable'));
+    const metrics = createMetrics();
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: () => ({
+            runTaskById: vi.fn().mockResolvedValue({ isErr: () => true, error: workerError }),
+          }),
+        }),
+      } as never,
+      metrics as never,
+      createPublisher(publish) as never,
+      createActiveAdmission()
+    );
+
+    await expect(handler.handle(wakeup)).rejects.toBe(workerError);
+
+    expect(metrics.recordConsume).toHaveBeenCalledWith('error');
   });
 });

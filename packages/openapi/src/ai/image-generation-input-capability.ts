@@ -32,12 +32,30 @@ export const IMAGE_GENERATION_INPUT_CAPABILITY_RULES: readonly IImageGenerationI
       requiredTags: ['image-generation'],
       mode: ImageGenerationInputMode.MultimodalMessage,
     },
+    {
+      provider: 'xai',
+      modelPrefix: 'grok-imagine-image',
+      requiredTags: ['image-generation'],
+      mode: ImageGenerationInputMode.ImageEditPrompt,
+    },
+    {
+      provider: 'bytedance',
+      modelPrefix: 'seedream-5.0-pro',
+      requiredTags: ['image-generation'],
+      mode: ImageGenerationInputMode.ImageEditPrompt,
+    },
+    {
+      provider: 'meta',
+      modelPrefix: 'muse-image-',
+      requiredTags: ['image-generation'],
+      mode: ImageGenerationInputMode.ImageEditPrompt,
+    },
   ];
 
 const parseGatewayModelId = (modelId: string): { provider: string; model: string } => {
   const [provider, ...modelParts] = modelId.split('/');
   return {
-    provider,
+    provider: provider === 'spacexai' ? 'xai' : provider,
     model: modelParts.join('/'),
   };
 };

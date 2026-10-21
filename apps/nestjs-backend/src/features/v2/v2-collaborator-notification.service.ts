@@ -1,31 +1,41 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import type {
-  DomainError,
-  IEventHandler,
-  IExecutionContext,
-  RecordFieldChangeDTO,
-  RecordFieldValueDTO,
-  RecordValuesDTO,
-  Result,
-} from '@teable/v2-core';
 import {
+  FieldClipboardValueVisitor,
   ok,
+  ListTableRecordsQuery,
   ProjectionHandler,
   RecordCreated,
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordUpdated,
   scheduleExecutionContextBackgroundTask,
+  TableByIdSpec,
+  TableId,
+  v2CoreTokens,
+  type DomainError,
+  type IEventHandler,
+  type IExecutionContext,
+  type RecordCreateSource,
+  type RecordFieldChangeDTO,
+  type RecordFieldValueDTO,
+  type RecordValuesDTO,
+  type Result,
+  type ListTableRecordsResult,
+  type IQueryBus,
+  type ITableRepository,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
-import { keyBy, uniq } from 'lodash';
-import { NotificationService } from '../notification/notification.service';
-import { RecordService } from '../record/record.service';
+import { keyBy } from 'lodash';
+import {
+  maxCollaboratorNotifyRecordTitles,
+  NotificationService,
+} from '../notification/notification.service';
 import { V2ContainerService } from './v2-container.service';
+import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 type IUserField = {
@@ -45,7 +55,6 @@ type IUserFieldOptions = {
   shouldNotify?: boolean;
 };
 
-const maxRecordTitles = 10;
 const collaboratorNotificationLogger = new Logger('V2CollaboratorNotificationProjection');
 
 const scheduleCollaboratorNotificationRun = (
@@ -94,6 +103,21 @@ const changesToNewValues = (
   return result;
 };
 
+// Only "someone actively assigns you right now" notifies: direct user actions,
+// form submissions, and single/batch record duplicate (a copy is an ordinary
+// create and must notify the copied assignee — Q2-15, T7798). Paths that move
+// existing assignments around in bulk (import, table duplicate, trash restore)
+// stay silent (T6662), and undo/redo replay is silenced via the execution
+// context. Whitelist so future source variants default to silent.
+const shouldNotifyOnRecordCreate = (source: RecordCreateSource): boolean =>
+  source.type === 'user' || source.type === 'form' || source.type === 'recordDuplicate';
+
+// Undo/redo replays re-apply existing assignments through the regular update
+// handlers (source stays 'user'), so replay-ness is read off the execution
+// context instead of the event.
+const isUndoRedoReplay = (context: IExecutionContext): boolean =>
+  context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
+
 const parseUserFieldOptions = (rawOptions: unknown): IUserFieldOptions | null => {
   if (!rawOptions) {
     return null;
@@ -123,14 +147,18 @@ const getUserId = (value: unknown): string | null => {
   return typeof userId === 'string' && userId ? userId : null;
 };
 
+const hasUserCandidate = (value: unknown): boolean => {
+  const candidates = Array.isArray(value) ? value : [value];
+  return candidates.some((candidate) => getUserId(candidate) !== null);
+};
+
 @Injectable()
 export class V2CollaboratorNotificationDispatcher {
   private readonly logger = new Logger(V2CollaboratorNotificationDispatcher.name);
-
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly notificationService: NotificationService,
-    private readonly recordService: RecordService
+    private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {}
 
   async notifyUserFields(params: {
@@ -151,15 +179,18 @@ export class V2CollaboratorNotificationDispatcher {
     }
 
     const notificationData = this.extractNotificationData(records, userFieldIds);
-    const recordIdsNeedingTitles = uniq(
-      Object.values(notificationData).flatMap((data) => data.recordIds.slice(0, maxRecordTitles))
-    );
+    const recordIdsNeedingTitles = [
+      ...new Set(
+        Object.values(notificationData).flatMap((data) =>
+          data.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
+        )
+      ),
+    ];
     const recordTitles =
       recordIdsNeedingTitles.length > 0
-        ? await this.recordService.getRecordsHeadWithIds(tableId, recordIdsNeedingTitles)
+        ? await this.loadRecordTitles(tableId, recordIdsNeedingTitles)
         : [];
     const recordTitlesMap = keyBy(recordTitles, 'id');
-
     for (const userId of Object.keys(notificationData)) {
       const { fieldId, recordIds } = notificationData[userId]!;
       const field = userFields[fieldId];
@@ -167,7 +198,7 @@ export class V2CollaboratorNotificationDispatcher {
         continue;
       }
 
-      const recordIdsForTitles = recordIds.slice(0, maxRecordTitles);
+      const recordIdsForTitles = recordIds.slice(0, maxCollaboratorNotifyRecordTitles);
       await this.notificationService.sendCollaboratorNotify({
         fromUserId: actorId,
         toUserId: userId,
@@ -181,6 +212,59 @@ export class V2CollaboratorNotificationDispatcher {
         },
       });
     }
+  }
+
+  private async loadRecordTitles(
+    tableId: string,
+    recordIds: ReadonlyArray<string>
+  ): Promise<Array<{ id: string; title: string }>> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      return [];
+    }
+    const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+    const tableResult = await tableRepository.findOne(
+      context,
+      TableByIdSpec.create(tableIdResult.value)
+    );
+    if (tableResult.isErr()) {
+      return [];
+    }
+    const primaryFieldId = tableResult.value.primaryFieldId().toString();
+    const primaryFieldResult = tableResult.value.getField(
+      (field) => field.id().toString() === primaryFieldId
+    );
+    if (primaryFieldResult.isErr()) {
+      return [];
+    }
+    const queryResult = ListTableRecordsQuery.create({
+      tableId,
+      selectedRecordIds: [...recordIds],
+      projection: [primaryFieldId],
+      fieldKeyType: 'id',
+      ignoreViewQuery: true,
+    });
+    if (queryResult.isErr()) {
+      return [];
+    }
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const recordsResult = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+      context,
+      queryResult.value
+    );
+    if (recordsResult.isErr()) {
+      return [];
+    }
+    return recordsResult.value.records.map((record) => {
+      const rawValue = record.fields[primaryFieldId];
+      const titleResult = primaryFieldResult.value.accept(new FieldClipboardValueVisitor(rawValue));
+      return {
+        id: record.id,
+        title: titleResult.isOk() ? titleResult.value : String(rawValue ?? ''),
+      };
+    });
   }
 
   private hasRelevantFields(records: ReadonlyArray<IV2ChangedRecord>, userFieldIds: string[]) {
@@ -207,10 +291,12 @@ export class V2CollaboratorNotificationDispatcher {
               continue;
             }
 
-            if (!acc[userId]) {
-              acc[userId] = { fieldId, recordIds: [record.id] };
-            } else {
-              acc[userId].recordIds.push(record.id);
+            // Dedupe per user: the same record must count once even when the
+            // user appears in several notifying fields of it (e.g. coalesced
+            // edits); attribution keeps the first notifying field.
+            const entry = (acc[userId] ??= { fieldId, recordIds: [] });
+            if (!entry.recordIds.includes(record.id)) {
+              entry.recordIds.push(record.id);
             }
           }
         }
@@ -252,15 +338,17 @@ export class V2CollaboratorNotificationDispatcher {
 }
 
 @ProjectionHandler(RecordCreated)
-export class V2RecordCreatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordCreated>
-{
+export class V2RecordCreatedCollaboratorNotificationProjection implements IEventHandler<RecordCreated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordCreated
   ): Promise<Result<void, DomainError>> {
+    if (!shouldNotifyOnRecordCreate(event.source)) {
+      return ok(undefined);
+    }
+
     scheduleCollaboratorNotificationRun(
       context,
       () =>
@@ -281,15 +369,17 @@ export class V2RecordCreatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordsBatchCreated)
-export class V2RecordsBatchCreatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordsBatchCreated>
-{
+export class V2RecordsBatchCreatedCollaboratorNotificationProjection implements IEventHandler<RecordsBatchCreated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordsBatchCreated
   ): Promise<Result<void, DomainError>> {
+    if (!shouldNotifyOnRecordCreate(event.source)) {
+      return ok(undefined);
+    }
+
     scheduleCollaboratorNotificationRun(
       context,
       () =>
@@ -308,16 +398,14 @@ export class V2RecordsBatchCreatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordUpdated)
-export class V2RecordUpdatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordUpdated>
-{
+export class V2RecordUpdatedCollaboratorNotificationProjection implements IEventHandler<RecordUpdated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    if (event.source !== 'user') {
+    if (event.source !== 'user' || isUndoRedoReplay(context)) {
       return ok(undefined);
     }
 
@@ -341,16 +429,21 @@ export class V2RecordUpdatedCollaboratorNotificationProjection
 }
 
 @ProjectionHandler(RecordsBatchUpdated)
-export class V2RecordsBatchUpdatedCollaboratorNotificationProjection
-  implements IEventHandler<RecordsBatchUpdated>
-{
+export class V2RecordsBatchUpdatedCollaboratorNotificationProjection implements IEventHandler<RecordsBatchUpdated> {
   constructor(private readonly dispatcher: V2CollaboratorNotificationDispatcher) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    if (event.source !== 'user') {
+    if (event.source !== 'user' || isUndoRedoReplay(context)) {
+      return ok(undefined);
+    }
+
+    const hasCandidate = event.updates.some((update) =>
+      update.changes.some((change) => hasUserCandidate(change.newValue))
+    );
+    if (!hasCandidate) {
       return ok(undefined);
     }
 

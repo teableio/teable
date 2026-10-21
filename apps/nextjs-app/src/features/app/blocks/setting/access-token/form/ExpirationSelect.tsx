@@ -97,11 +97,11 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
               variant={'outline'}
               size={'sm'}
               className={cn(
-                'w-[240px] justify-start text-left font-normal',
+                'w-[240px] justify-start text-start font-normal',
                 !date && 'text-muted-foreground'
               )}
             >
-              <CalendarIcon className="mr-2 size-4" />
+              <CalendarIcon className="me-2 size-4" />
               {date ? (
                 new Date(date).toLocaleDateString()
               ) : (

@@ -1,5 +1,4 @@
 import {
-  FieldCreated,
   FieldDeleted,
   FieldUpdated,
   ProjectionHandler,
@@ -19,15 +18,15 @@ import type {
 } from './ports';
 import { v2TableOpsTokens } from './tokens';
 
-type SearchVectorSchemaEvent = FieldCreated | FieldUpdated | FieldDeleted;
+// Adding a field does not invalidate an existing generated document. Its
+// covered field IDs remain the table's search contract until an administrator
+// explicitly rebuilds the access path to include new eligible fields.
+type SearchVectorSchemaEvent = FieldUpdated | FieldDeleted;
 
-@ProjectionHandler(FieldCreated)
 @ProjectionHandler(FieldUpdated)
 @ProjectionHandler(FieldDeleted)
 @injectable()
-export class TableSearchVectorSchemaMaintenanceProjection
-  implements IEventHandler<SearchVectorSchemaEvent>
-{
+export class TableSearchVectorSchemaMaintenanceProjection implements IEventHandler<SearchVectorSchemaEvent> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -64,7 +63,6 @@ export class TableSearchVectorSchemaMaintenanceProjection
 const maintenanceReason = (
   event: SearchVectorSchemaEvent
 ): TableSearchVectorSchemaMaintenanceReason => {
-  if (event instanceof FieldCreated) return 'field_created';
   if (event instanceof FieldUpdated) return 'field_updated';
   return 'field_deleted';
 };

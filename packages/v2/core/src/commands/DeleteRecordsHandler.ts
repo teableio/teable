@@ -11,21 +11,26 @@ import {
 } from '../application/services/UndoRedoStackService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { generateUuid } from '../domain/shared/IdGenerator';
 import type { IDeletedRecordSnapshot } from '../domain/table/events/RecordsDeleted';
 import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
 import { RecordId } from '../domain/table/records/RecordId';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
-import * as EventBusPort from '../ports/EventBus';
+import {
+  domainWrite,
+  type IDomainWriteTransaction,
+  type NonEmptyDomainEvents,
+} from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
+import { persistDeletedTrashMarkers } from './shared/persistDeletedTrashMarkers';
 import { composeRecordConditionSpecs } from './shared/recordWriteScope';
 import { toTableRecord } from './shared/toTableRecord';
 
@@ -42,9 +47,10 @@ export class DeleteRecordsResult {
 
 @CommandHandler(DeleteRecordsCommand)
 @injectable()
-export class DeleteRecordsHandler
-  implements ICommandHandler<DeleteRecordsCommand, DeleteRecordsResult>
-{
+export class DeleteRecordsHandler implements ICommandHandler<
+  DeleteRecordsCommand,
+  DeleteRecordsResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -54,12 +60,10 @@ export class DeleteRecordsHandler
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -67,7 +71,7 @@ export class DeleteRecordsHandler
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteRecordsCommand
   ): Promise<Result<DeleteRecordsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DeleteRecordsResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
@@ -118,15 +122,17 @@ export class DeleteRecordsHandler
       const scopedDeleteSpec =
         composeRecordConditionSpecs(deleteSpec, pluginRecordSpec) ?? deleteSpec;
       let deleteReportedNotFound = false;
+      const operationId = context.requestId ?? generateUuid();
 
-      const deleteResult =
-        yield* await handler.unitOfWork.withTransaction<TableRecordRepositoryPort.DeleteManyResult>(
+      const committed =
+        yield* await handler.domainWriteTransaction.execute<TableRecordRepositoryPort.DeleteManyResult>(
           context,
           async (transactionContext) => {
             const pluginBeforePersist = await pluginExecution.beforePersist(transactionContext);
             if (pluginBeforePersist.isErr()) {
               return err(pluginBeforePersist.error);
             }
+
             const deleteResult = await handler.tableRecordRepository.deleteMany(
               transactionContext,
               table,
@@ -136,15 +142,81 @@ export class DeleteRecordsHandler
             if (deleteResult.isErr()) {
               if (isNotFoundError(deleteResult.error)) {
                 deleteReportedNotFound = true;
-                return ok<TableRecordRepositoryPort.DeleteManyResult>({});
+                return ok(domainWrite.unchanged({}));
               }
               return err(deleteResult.error);
             }
 
-            return ok(deleteResult.value);
+            const deletedRecordIds = deleteResult.value.deletedRecords?.map(
+              (record) => record.recordId
+            );
+            if (deletedRecordIds?.length) {
+              const markerResult = await persistDeletedTrashMarkers(
+                handler.tableRecordRepository,
+                transactionContext,
+                table,
+                {
+                  recordIds: deletedRecordIds,
+                  createdBy: context.actorId.toString(),
+                  createdTime: new Date().toISOString(),
+                  operationId,
+                }
+              );
+              if (markerResult.isErr()) {
+                return err(markerResult.error);
+              }
+            }
+
+            const expectedSnapshotCount = scopedSnapshots?.records.length;
+            const persistedDeletedSnapshots = deleteResult.value.deletedRecords;
+            if (expectedSnapshotCount === 0 && !persistedDeletedSnapshots) {
+              return ok(domainWrite.unchanged(deleteResult.value));
+            }
+
+            const storedSnapshotsResult = requireStoredRecordSnapshots(
+              {
+                operation: 'delete',
+                tableId: table.id().toString(),
+                ...(expectedSnapshotCount !== undefined
+                  ? { expectedCount: expectedSnapshotCount }
+                  : {}),
+              },
+              persistedDeletedSnapshots
+            );
+            if (storedSnapshotsResult.isErr()) {
+              return ok(domainWrite.unchanged(deleteResult.value));
+            }
+
+            const recordSnapshots: IDeletedRecordSnapshot[] = storedSnapshotsResult.value.map(
+              (snapshot) => buildDeletedRecordSnapshot(table, snapshot)
+            );
+            if (recordSnapshots.length === 0) {
+              return ok(domainWrite.unchanged(deleteResult.value));
+            }
+
+            const events: NonEmptyDomainEvents = [
+              RecordsDeleted.create({
+                tableId: table.id(),
+                baseId: table.baseId(),
+                recordIds: recordSnapshots.map((snapshot) =>
+                  RecordId.create(snapshot.id)._unsafeUnwrap()
+                ),
+                recordSnapshots,
+                orchestration: {
+                  operationId,
+                  totalRecordCount: recordSnapshots.length,
+                  totalChunkCount: 1,
+                  chunkIndex: 0,
+                  scope: 'operation',
+                },
+              }),
+            ];
+
+            return ok(domainWrite.changed(deleteResult.value, events));
           }
         );
 
+      const deleteResult = committed.value;
       const expectedSnapshotCount = scopedSnapshots?.records.length;
       const persistedDeletedSnapshots = deleteResult.deletedRecords;
       if (deleteReportedNotFound || (expectedSnapshotCount === 0 && !persistedDeletedSnapshots)) {
@@ -152,56 +224,32 @@ export class DeleteRecordsHandler
         return ok(DeleteRecordsResult.create([], []));
       }
 
-      const storedSnapshotsResult = requireStoredRecordSnapshots(
-        {
-          operation: 'delete',
-          tableId: table.id().toString(),
-          ...(expectedSnapshotCount !== undefined ? { expectedCount: expectedSnapshotCount } : {}),
-        },
-        persistedDeletedSnapshots
-      );
-      if (storedSnapshotsResult.isErr()) {
-        return err(storedSnapshotsResult.error);
-      }
-
-      const recordSnapshots: IDeletedRecordSnapshot[] = storedSnapshotsResult.value.map(
-        (snapshot) => buildDeletedRecordSnapshot(table, snapshot)
-      );
-      const deletedRecordIds = recordSnapshots.map((snapshot) => snapshot.id);
-
-      const events: IDomainEvent[] = [
-        RecordsDeleted.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          recordIds: deletedRecordIds.map((id) => RecordId.create(id)._unsafeUnwrap()),
-          recordSnapshots,
-          orchestration: {
-            operationId: context.requestId,
-            totalRecordCount: deletedRecordIds.length,
-            totalChunkCount: 1,
-            chunkIndex: 0,
-            scope: 'operation',
-          },
-        }),
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
+      const events = committed.events;
+      const deletedRecordIds =
+        persistedDeletedSnapshots?.map((snapshot) => snapshot.recordId) ??
+        command.recordIds.map((recordId) => recordId.toString());
+      const recordSnapshots: IDeletedRecordSnapshot[] =
+        persistedDeletedSnapshots?.map((snapshot) => buildDeletedRecordSnapshot(table, snapshot)) ??
+        [];
 
       if (recordSnapshots.length > 0) {
+        const stackRecords = recordSnapshots.map((snapshot) => ({
+          recordId: snapshot.id,
+          fields: snapshot.fields,
+          ...(snapshot.version !== undefined ? { version: snapshot.version } : {}),
+          ...(snapshot.orders ? { orders: snapshot.orders } : {}),
+          ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
+          ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
+          ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+          ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
+          ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
+        }));
+
         yield* await handler.undoRedoStackService.appendRecordDelete(
           toUndoRedoStackAppendContext(context),
           {
             tableId: table.id(),
-            deletedRecords: recordSnapshots.map((snapshot) => ({
-              recordId: snapshot.id,
-              fields: snapshot.fields,
-              ...(snapshot.version !== undefined ? { version: snapshot.version } : {}),
-              ...(snapshot.orders ? { orders: snapshot.orders } : {}),
-              ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
-              ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
-              ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
-              ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
-              ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
-            })),
+            deletedRecords: stackRecords,
           }
         );
       }

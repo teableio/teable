@@ -17,9 +17,10 @@ export type DuplicateRecordsStreamResult = AsyncIterable<DuplicateRecordsStreamE
 
 @CommandHandler(DuplicateRecordsStreamCommand)
 @injectable()
-export class DuplicateRecordsStreamHandler
-  implements ICommandHandler<DuplicateRecordsStreamCommand, DuplicateRecordsStreamResult>
-{
+export class DuplicateRecordsStreamHandler implements ICommandHandler<
+  DuplicateRecordsStreamCommand,
+  DuplicateRecordsStreamResult
+> {
   constructor(
     @inject(v2CoreTokens.duplicateRecordsApplicationService)
     private readonly duplicateRecordsApplicationService: DuplicateRecordsApplicationService

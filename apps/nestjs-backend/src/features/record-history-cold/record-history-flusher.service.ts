@@ -1,15 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { RedisNativeService } from '../../cache/redis-native.service';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../global/database-router.service';
+import { mapWithConcurrency } from '../../utils/map-with-concurrency';
+import { bucketRange, groupStatsByBucket, isBucketCovered } from '../cold-archive/bucket-coverage';
+import { markCompactionPending, wroteAnyPart } from '../cold-archive/compaction-pending';
+import { nextReadBatchLimit, READ_BATCH_PROBE_ROWS } from '../cold-archive/read-batch';
 import { BucketMergeFeeder } from './bucket-merge-feeder';
 import { approxColdRowBytes, SortMemoryBudget } from './external-sort';
 import type { IColdHistoryRow, IPartBucket, IPartStatsEntry, ITableColdStats } from './part-codec';
 import { bucketId, bucketOfDate, parsePartKey } from './part-codec';
 import { PartWriter } from './part-writer';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
-import { mapWithConcurrency, recordHistoryColdConfig } from './record-history-cold.config';
+import {
+  RECORD_HISTORY_COMPACT_PENDING_KEY,
+  recordHistoryColdConfig,
+} from './record-history-cold.config';
 
 export interface IColdFlushOptions {
   mode: 'incremental' | 'backfill';
@@ -26,6 +34,8 @@ export interface IColdFlushOptions {
   ignoreBookmarks?: boolean;
   /** override the soft per-run row budget (0 = unlimited) */
   maxRows?: number;
+  /** override the soft per-run raw-byte budget (0 = unlimited) */
+  maxBytes?: number;
 }
 
 export interface ITableFlushResult {
@@ -56,9 +66,11 @@ export interface IColdFlushRunResult {
   /** buffer rows of hard-deleted tables swept from the buffer this run */
   orphanRowsDeleted: number;
   durationMs: number;
-  /** tables discovered but deferred to the next run by the row budget */
+  /** tables discovered but deferred to the next run by the row/byte budget */
   leftoverTables: number;
   budgetExhausted: boolean;
+  /** buffer rows still older than the cutoff on the dbs this run visited */
+  backlogRows: number;
 }
 
 interface IDiscoveredGroup {
@@ -81,33 +93,9 @@ interface ITouchedBucket {
   consumedKeys: Set<string>;
 }
 
-const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
+const quoteIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-/** target bytes per buffer read batch; the row LIMIT adapts to hit this */
-const READ_BATCH_TARGET_BYTES = 8 * 1024 * 1024;
-/**
- * first batch of a table probes the row weight before trusting the full cap.
- * Kept small: a table can average 500KB/row (real on the ai fleet), so a
- * large first probe materializes hundreds of MB before the adaptive limit
- * kicks in — worse when several tables probe concurrently.
- */
-const READ_BATCH_PROBE_ROWS = 64;
-/** floor of 1: a single multi-MB row must be readable one at a time */
-const READ_BATCH_MIN_ROWS = 1;
-
-/**
- * rows for the next batch so ~READ_BATCH_TARGET_BYTES come back whatever the
- * row weight: a row-count LIMIT alone lets one fat-JSON table materialize
- * gigabytes in a single batch. The configured cap is the hard upper bound —
- * an operator who lowered readBatchSize below the fat-row floor to cut memory
- * pressure keeps that ceiling, so the floor only applies while it stays under
- * the cap.
- */
-export const nextReadBatchLimit = (batchBytes: number, batchRows: number, cap: number): number => {
-  const avgRowBytes = Math.max(1, Math.ceil(batchBytes / Math.max(1, batchRows)));
-  const target = Math.floor(READ_BATCH_TARGET_BYTES / avgRowBytes);
-  return Math.min(cap, Math.max(READ_BATCH_MIN_ROWS, target));
-};
+export { nextReadBatchLimit } from '../cold-archive/read-batch';
 
 /**
  * Flushes record_history buffer rows older than the horizon into cold parts.
@@ -127,7 +115,8 @@ export class RecordHistoryFlusherService {
     private readonly metaFallbackDataPrismaService: DataPrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly databaseRouter: DatabaseRouter,
-    private readonly coldStorage: RecordHistoryColdStorageService
+    private readonly coldStorage: RecordHistoryColdStorageService,
+    private readonly redis: RedisNativeService
   ) {}
 
   async runFlush(options: IColdFlushOptions): Promise<IColdFlushRunResult> {
@@ -140,12 +129,13 @@ export class RecordHistoryFlusherService {
     const deleteRequested =
       options.mode === 'backfill'
         ? options.deleteEnabled === true
-        : options.deleteEnabled ?? config.deleteEnabled;
+        : (options.deleteEnabled ?? config.deleteEnabled);
     // merged reads are unconditional (every process can serve cold data),
     // so deletion after verified upload is safe wherever it was requested
     const deleteEnabled = deleteRequested;
     const concurrency = options.tableConcurrency ?? config.tableConcurrency;
     const maxRows = options.maxRows ?? config.maxRowsPerRun;
+    const maxBytes = options.maxBytes ?? config.maxBytesPerRun;
     // ONE budget for the whole run: with tableConcurrency > 1 the concurrent
     // tables' bucket sorters all coexist, so a per-table budget would just
     // multiply by the concurrency again
@@ -161,7 +151,7 @@ export class RecordHistoryFlusherService {
       : await this.discoverGroups(options, cutoff, orphanCleanup);
 
     const results: ITableFlushResult[] = [];
-    const budget = { flushedRows: 0, maxRows };
+    const budget = { flushedRows: 0, flushedBytes: 0, maxRows, maxBytes };
     let leftoverTables = 0;
 
     for (const group of groups) {
@@ -201,9 +191,12 @@ export class RecordHistoryFlusherService {
 
     if (leftoverTables > 0) {
       this.logger.log(
-        `cold flush row budget reached (${budget.flushedRows} rows); ${leftoverTables} table(s) deferred to the next run`
+        `cold flush budget reached (${budget.flushedRows} rows, ${budget.flushedBytes} bytes); ${leftoverTables} table(s) deferred to the next run`
       );
     }
+
+    // a manual table list bypasses discovery, so there is no visited-db set
+    const backlogRows = options.tableIds?.length ? 0 : await this.countBacklog(groups, cutoff);
 
     return {
       startedAt: startedAt.toISOString(),
@@ -218,18 +211,54 @@ export class RecordHistoryFlusherService {
       durationMs: Date.now() - startedAt.getTime(),
       leftoverTables,
       budgetExhausted: leftoverTables > 0,
+      backlogRows,
     };
   }
 
   /**
-   * flush one discovered group slice-by-slice under the shared row budget
-   * (soft, checked between slices: an oversized single table still completes
-   * atomically); returns how many tables were deferred to the next run
+   * Archivable rows left behind. Counted only on the dbs this run already
+   * opened — waking a bookmark-pruned tenant db to count it would defeat the
+   * discovery pruning that keeps idle dbs asleep.
+   */
+  private async countBacklog(groups: IDiscoveredGroup[], cutoff: Date): Promise<number> {
+    let backlog = 0;
+    for (const group of groups) {
+      if (!group.tableIds.length) continue;
+      try {
+        const client =
+          group.kind === 'byodb' && group.spaceId
+            ? await this.dataDbClientManager.dataPrismaForSpace(group.spaceId)
+            : this.metaFallbackDataPrismaService;
+        const rows = (await this.unwrapClient(client).$queryRawUnsafe(
+          `SELECT count(*)::text AS "count" FROM "record_history"
+             WHERE "table_id" = ANY($1::text[]) AND "created_time" < $2`,
+          group.tableIds,
+          cutoff
+        )) as { count: string }[];
+        backlog += Number(rows[0]?.count ?? '0');
+      } catch (error) {
+        // a progress reading must never fail a flush that already succeeded
+        this.logger.warn(
+          `cold flush backlog count skipped for ${group.spaceId ?? 'shared'}: ${error}`
+        );
+      }
+    }
+    if (backlog > 0) {
+      this.logger.log(`record-history cold flush backlog: ${backlog} archivable row(s) remain`);
+    }
+    return backlog;
+  }
+
+  /**
+   * flush one discovered group slice-by-slice under the shared row/byte
+   * budget (soft, checked between slices: an oversized single table still
+   * completes atomically); returns how many tables were deferred to the next
+   * run
    */
   private async flushGroup(
     group: IDiscoveredGroup,
     results: ITableFlushResult[],
-    budget: { flushedRows: number; maxRows: number },
+    budget: { flushedRows: number; flushedBytes: number; maxRows: number; maxBytes: number },
     run: {
       cutoff: Date;
       mode: 'incremental' | 'backfill';
@@ -241,7 +270,11 @@ export class RecordHistoryFlusherService {
   ): Promise<number> {
     let index = 0;
     while (index < group.tableIds.length) {
-      if (budget.maxRows > 0 && budget.flushedRows >= budget.maxRows) {
+      // rows AND bytes: a payload spike trips the byte budget while barely moving rows
+      if (
+        (budget.maxRows > 0 && budget.flushedRows >= budget.maxRows) ||
+        (budget.maxBytes > 0 && budget.flushedBytes >= budget.maxBytes)
+      ) {
         return group.tableIds.length - index;
       }
       const slice = group.tableIds.slice(index, index + run.concurrency);
@@ -285,6 +318,7 @@ export class RecordHistoryFlusherService {
           (run.deleteEnabled && !item.deleteSkippedReason ? item.reconciledRows : 0),
         0
       );
+      budget.flushedBytes += sliceResults.reduce((sum, item) => sum + item.uncompressedBytes, 0);
     }
     return 0;
   }
@@ -619,7 +653,7 @@ export class RecordHistoryFlusherService {
           truncatedValues += built.truncatedCount;
           // drop the source row's reference as we go: with multi-MB rows the
           // whole batch array would otherwise stay live until the loop ends
-          (batch as unknown as (unknown | undefined)[])[i] = undefined;
+          (batch as unknown as unknown[])[i] = undefined;
           await (await feederFor(built.row.createdTime)).push(built.row);
           flushedRows += 1;
         }
@@ -659,6 +693,15 @@ export class RecordHistoryFlusherService {
     if (touched.size > 0) {
       await this.healStaleParts(tableId, touched);
       await this.updateStats(tableId, touched, allEntries);
+      if (wroteAnyPart(touched.values())) {
+        await markCompactionPending({
+          redis: this.redis,
+          key: RECORD_HISTORY_COMPACT_PENDING_KEY,
+          subsystem: 'record-history',
+          logger: this.logger,
+          id: tableId,
+        });
+      }
     }
 
     let deletedRows = 0;
@@ -740,10 +783,10 @@ export class RecordHistoryFlusherService {
     const streamRanges: { lo: Date; hi: Date }[] = [];
     for (const bucket of buckets) {
       const id = bucket.dd ? `${bucket.yyyymm}/${bucket.dd}` : `${bucket.yyyymm}/m`;
-      if (this.isBucketCovered(statsByBucket.get(id), listedByBucket.get(id), bucket)) {
+      if (isBucketCovered(statsByBucket.get(id), listedByBucket.get(id), bucket)) {
         coveredRows += Number(bucket.count);
       } else {
-        streamRanges.push(this.bucketRange(bucket, cutoff, dayWindowStart));
+        streamRanges.push(bucketRange(bucket, cutoff, dayWindowStart));
       }
     }
 
@@ -758,27 +801,14 @@ export class RecordHistoryFlusherService {
   }
 
   private groupStatsByBucket(stats: ITableColdStats) {
-    const byBucket = new Map<
-      string,
-      { keys: Set<string>; rows: number; min: string; max: string }
-    >();
-    for (const [key, entry] of Object.entries(stats.parts)) {
-      const parsed = parsePartKey(this.coldStorage.rootDir, key);
-      if (!parsed) continue;
-      const id = bucketId(parsed);
-      const agg = byBucket.get(id) ?? {
-        keys: new Set<string>(),
-        rows: 0,
-        min: entry.minCreatedTime,
-        max: entry.maxCreatedTime,
-      };
-      agg.keys.add(key);
-      agg.rows += entry.rows;
-      if (entry.minCreatedTime < agg.min) agg.min = entry.minCreatedTime;
-      if (entry.maxCreatedTime > agg.max) agg.max = entry.maxCreatedTime;
-      byBucket.set(id, agg);
-    }
-    return byBucket;
+    return groupStatsByBucket(
+      stats.parts,
+      (key) => {
+        const parsed = parsePartKey(this.coldStorage.rootDir, key);
+        return parsed ? bucketId(parsed) : undefined;
+      },
+      (entry) => ({ min: entry.minCreatedTime, max: entry.maxCreatedTime })
+    );
   }
 
   private async listPartsByBucket(tableId: string, months: string[]) {
@@ -792,45 +822,6 @@ export class RecordHistoryFlusherService {
       }
     }
     return byBucket;
-  }
-
-  private isBucketCovered(
-    agg: { keys: Set<string>; rows: number; min: string; max: string } | undefined,
-    listed: Set<string> | undefined,
-    bucket: { count: string; min: Date; max: Date }
-  ): boolean {
-    return (
-      agg !== undefined &&
-      listed !== undefined &&
-      agg.keys.size === listed.size &&
-      [...agg.keys].every((key) => listed.has(key)) &&
-      agg.rows === Number(bucket.count) &&
-      agg.min === bucket.min.toISOString() &&
-      agg.max === bucket.max.toISOString()
-    );
-  }
-
-  /** canonical time range of a bucket, clamped to the day-window boundary and cutoff */
-  private bucketRange(
-    bucket: { yyyymm: string; dd: string | null },
-    cutoff: Date,
-    dayWindowStart: Date
-  ): { lo: Date; hi: Date } {
-    const year = Number(bucket.yyyymm.slice(0, 4));
-    const month = Number(bucket.yyyymm.slice(4, 6));
-    if (bucket.dd) {
-      const dayStart = new Date(Date.UTC(year, month - 1, Number(bucket.dd)));
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      return {
-        lo: dayStart > dayWindowStart ? dayStart : dayWindowStart,
-        hi: dayEnd < cutoff ? dayEnd : cutoff,
-      };
-    }
-    const monthStart = new Date(Date.UTC(year, month - 1, 1));
-    const nextMonth = new Date(Date.UTC(year, month, 1));
-    let hi = nextMonth < dayWindowStart ? nextMonth : dayWindowStart;
-    if (cutoff < hi) hi = cutoff;
-    return { lo: monthStart, hi };
   }
 
   private async qualifiedHistoryTable(tableId: string): Promise<string> {

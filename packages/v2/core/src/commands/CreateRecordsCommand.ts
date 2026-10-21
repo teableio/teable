@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { RecordCreateSource } from '../domain/table/events/RecordFieldValuesDTO';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
 import {
   RecordInsertOrder,
@@ -34,10 +35,16 @@ export class CreateRecordsCommand {
     readonly recordsFieldValues: ReadonlyArray<RecordFieldValues>,
     readonly typecast: boolean,
     readonly fieldKeyType: FieldKeyType,
+    readonly source: RecordCreateSource,
     readonly order?: RecordInsertOrder
   ) {}
 
-  static create(raw: unknown): Result<CreateRecordsCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: {
+      source?: RecordCreateSource;
+    }
+  ): Result<CreateRecordsCommand, DomainError> {
     const parsed = createRecordsInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -54,6 +61,7 @@ export class CreateRecordsCommand {
       );
 
       // Parse order if provided
+      const source = options?.source ?? { type: 'user' };
       if (parsed.data.order) {
         return RecordInsertOrder.create(parsed.data.order).map((order) => {
           return new CreateRecordsCommand(
@@ -61,6 +69,7 @@ export class CreateRecordsCommand {
             recordsFieldValues,
             parsed.data.typecast,
             parsed.data.fieldKeyType,
+            source,
             order
           );
         });
@@ -71,7 +80,8 @@ export class CreateRecordsCommand {
           tableId,
           recordsFieldValues,
           parsed.data.typecast,
-          parsed.data.fieldKeyType
+          parsed.data.fieldKeyType,
+          source
         )
       );
     });

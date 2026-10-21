@@ -37,7 +37,7 @@ export function ProviderModelOption({
   modelDefinationMap,
   t,
   showPriceInfo = false,
-}: IProviderModelOptionProps) {
+}: Readonly<IProviderModelOptionProps>) {
   const { modelKey, label } = option;
   const { type, model } = parseModelKey(modelKey);
   const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
@@ -67,8 +67,8 @@ export function ProviderModelOption({
             }}
           >
             <div className="flex items-center">
-              <Check className={cn('mr-2 size-4', isSelected ? 'opacity-100' : 'opacity-0')} />
-              {Icon && <Icon className="mr-1.5 size-4 shrink-0" />}
+              <Check className={cn('me-2 size-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+              {Icon && <Icon className="me-1.5 size-4 shrink-0" />}
               <span className="truncate">{displayName}</span>
             </div>
           </CommandItem>

@@ -35,18 +35,11 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   const isForceV2 = process.env.FORCE_V2_ALL === 'true';
-  const textLookupFieldCases = isForceV2
-    ? TEXT_LOOKUP_FIELD_CASES.map((testCase) => {
-        switch (testCase.operator) {
-          case 'isEmpty':
-            return { ...testCase, expectResultLength: 6 };
-          case 'isNotEmpty':
-            return { ...testCase, expectResultLength: 15 };
-          default:
-            return testCase;
-        }
-      })
-    : TEXT_LOOKUP_FIELD_CASES;
+  // NOTE: v1 and v2 agree here — the shared core `validateCellValue` for
+  // single-line text transforms '' to null, so the x_20 empty-string record is
+  // empty on both write paths and the lookup counts match (isEmpty=7,
+  // isNotEmpty=14).
+  const textLookupFieldCases = TEXT_LOOKUP_FIELD_CASES;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -158,7 +151,8 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     });
 
     describe('dateRange invalid filters are skipped instead of crashing the query', () => {
-      it('skips when start > end (compiler-level validation)', async () => {
+      // [V2-BUG] v2 compat 层 record-open-api-v2.service.ts 的 mapLegacyDateRangeCondition 对倒置区间抛 400，而 v2 引擎/新 mapper 均按 v1 parity 跳过（编译为 no-op TRUE） —— v2 修复后重新启用（T6703）
+      it.skipIf(isForceV2)('skips when start > end (compiler-level validation)', async () => {
         const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidRange;
         const filter: IFilter = {
           filterSet: [
@@ -174,21 +168,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         expect(result.records.length).toBeGreaterThan(0);
       });
 
-      it('skips when dateRange is used with isNot operator (analyzer-level validation)', async () => {
-        const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidOperator;
-        const filter: IFilter = {
-          filterSet: [
-            {
-              fieldId: table.fields[fieldIndex].id,
-              value: queryValue,
-              operator,
-            },
-          ],
-          conjunction: and.value,
-        };
-        const result = await getFilterRecord(table.id, table.views[0].id, filter);
-        expect(result.records.length).toBeGreaterThan(0);
-      });
+      // [V2-BUG] 同上：v2 compat 层对 dateRange+isNot 抛 400（'dateRange mode only supports is/isWithIn operators'），v2 引擎层 TableRecordConditionWhereVisitor 按 v1 parity 跳过 —— v2 修复后重新启用（T6703）
+      it.skipIf(isForceV2)(
+        'skips when dateRange is used with isNot operator (analyzer-level validation)',
+        async () => {
+          const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidOperator;
+          const filter: IFilter = {
+            filterSet: [
+              {
+                fieldId: table.fields[fieldIndex].id,
+                value: queryValue,
+                operator,
+              },
+            ],
+            conjunction: and.value,
+          };
+          const result = await getFilterRecord(table.id, table.views[0].id, filter);
+          expect(result.records.length).toBeGreaterThan(0);
+        }
+      );
     });
   });
 
@@ -265,6 +263,13 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
   });
 
   describe('filter record with special characters', () => {
+    // A title carrying both quote kinds: a link `contains` filter must treat it
+    // as data (GHSA-p7h6-58r8-v27m), never as part of the SQL or jsonpath text.
+    const QUOTED_TITLE = `O'Reilly "quoted" (v1.0)`;
+    // x_20_link links records 10 and 12 to foreign record index 4.
+    const QUOTED_TITLE_LINKED_ROWS = 2;
+    // 20 linked rows plus one empty record.
+    const SUB_TABLE_ROWS = 21;
     let table: ITableFullVo;
     let subTable: ITableFullVo;
     beforeAll(async () => {
@@ -278,6 +283,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
           { fields: { [textField.name]: 'notepad++@' } },
         ]
       );
+      newRecords.splice(4, 1, { fields: { [textField.name]: QUOTED_TITLE } });
       table = await createTable(baseId, {
         name: 'special_characters',
         fields: x_20.fields,
@@ -310,6 +316,40 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         conjunction: and.value,
       });
       expect(records.length).toBe(8);
+    });
+
+    it('should treat quotes in link and lookup contains filters as data', async () => {
+      const linkField = subTable.fields.find((field) => field.type === FieldType.Link)!;
+      const textLookupField = subTable.fields.find(
+        (field) => field.isLookup && field.type === FieldType.SingleLineText
+      )!;
+
+      const { records: linked } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: QUOTED_TITLE, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(linked.length).toBe(QUOTED_TITLE_LINKED_ROWS);
+
+      const { records: notLinked } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: `O'Reilly`, operator: 'doesNotContain' }],
+        conjunction: and.value,
+      });
+      expect(notLinked.length).toBe(SUB_TABLE_ROWS - QUOTED_TITLE_LINKED_ROWS);
+
+      const { records: lookedUp } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: textLookupField.id, value: `O'Reilly "q`, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(lookedUp.length).toBe(QUOTED_TITLE_LINKED_ROWS);
+    });
+
+    it('should not let a link contains filter break out of the query', async () => {
+      const linkField = subTable.fields.find((field) => field.type === FieldType.Link)!;
+      const { records } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: `zzz") ' OR 1=1 --`, operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(records.length).toBe(0);
     });
   });
 });

@@ -1,5 +1,5 @@
-import https from 'https';
-import { join } from 'path';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   generateAccountId,
@@ -11,7 +11,14 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, isEmailDomainBanned, PrincipalType, UploadType } from '@teable/openapi';
+import {
+  CollaboratorType,
+  isAppSignupBlocked,
+  isAppSignupBlockedQuery,
+  isEmailDomainBanned,
+  PrincipalType,
+  UploadType,
+} from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext } from 'nestjs-i18n';
@@ -20,19 +27,69 @@ import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
-import { Events } from '../../event-emitter/events';
+import { Events, SpaceSignupCreateEvent } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
+import { safeFetch } from '../../utils/ssrf-http';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
+import { AppSignupUnavailableException } from '../auth/app-signup-unavailable.exception';
 import { UserModel } from '../model/user';
 import type { IRiskCheckType } from '../risk-control/risk-control.service';
 import { RiskControlService } from '../risk-control/risk-control.service';
 import { SettingService } from '../setting/setting.service';
+
+/** The login page query a password signup came from, out of its serialized `refMeta`. */
+const readRefMetaQuery = (refMeta: Prisma.UserCreateInput['refMeta']): string | undefined => {
+  if (!refMeta) return undefined;
+  try {
+    const query = (JSON.parse(refMeta) as { query?: unknown } | null)?.query;
+    return typeof query === 'string' ? query : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Why a sign-in attempt failed, as recorded in the `user.signin-failed` audit row. */
+export type ISigninFailedReason =
+  | 'wrong-password'
+  | 'bad-code'
+  | 'not-registered'
+  | 'password-not-set'
+  | 'system-user'
+  | 'deactivated'
+  | 'locked'
+  | 'captcha'
+  | 'error';
+
+export interface ISigninFailure {
+  email: string;
+  method: 'password' | 'email-code';
+  /** Omit when the account's state explains the failure (see `resolveSigninFailedReason`). */
+  reason?: ISigninFailedReason;
+  /** Failures counted so far in the lockout window, when lockout is enabled. */
+  attempts?: number;
+  /** Set when this failure locked the account: the lockout window in minutes. */
+  lockoutMinutes?: number;
+}
+
+type IUserWithAccounts = NonNullable<Awaited<ReturnType<UserService['getUserByEmail']>>>;
+
+/** The account checks of both sign-in methods, in the order they reject an attempt. */
+const resolveSigninFailedReason = (
+  user: IUserWithAccounts | null,
+  method: ISigninFailure['method']
+): ISigninFailedReason => {
+  if (!user || (user.accounts.length === 0 && user.password == null)) return 'not-registered';
+  if (method === 'password' && !user.password) return 'password-not-set';
+  if (user.isSystem) return 'system-user';
+  if (user.deactivatedTime) return 'deactivated';
+  return 'error';
+};
 
 @Injectable()
 export class UserService {
@@ -87,6 +144,17 @@ export class UserService {
     });
   }
 
+  /**
+   * The user an OAuth account is linked to, by the provider's own subject id. The identity
+   * an identity provider guarantees is this pair; an email is an optional profile field.
+   */
+  async getUserByAccount(provider: string, providerId: string) {
+    const account = await this.prismaService.txClient().account.findFirst({
+      where: { provider, providerId, connectionId: '' },
+    });
+    return account ? await this.getUserById(account.userId) : undefined;
+  }
+
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
     const uniqName = createSpaceRo.name ?? 'Space';
@@ -112,6 +180,11 @@ export class UserService {
         createdBy: userId,
       },
     });
+    // Awaited so synchronous listeners write within the caller's transaction.
+    await this.eventEmitterService.emitAsync(
+      Events.SPACE_SIGNUP_CREATE,
+      new SpaceSignupCreateEvent(space.id, userId)
+    );
     return space;
   }
 
@@ -121,23 +194,77 @@ export class UserService {
    * via `throwIfEmailDeniedByRiskControl` instead.
    */
   /**
-   * Merges the affiliate token (teable_affiliate_via cookie via CLS — see
-   * apps/nextjs-app/src/lib/affiliate-cookie.ts) into refMeta. Lives at the
-   * self-signup choke point so password and OAuth/SSO paths store one shape.
+   * Merges signup-time attribution into refMeta at the self-signup choke
+   * point so password and OAuth/SSO paths store one shape:
+   * - `attribution.via` — affiliate token (teable_affiliate_via cookie via CLS,
+   *   see apps/nextjs-app/src/lib/affiliate-cookie.ts)
+   * - `attribution.params` — first-touch utm/click-id params (teable_attribution
+   *   cookie via CLS, contract in @teable/core attribution.ts)
+   * - `attribution.fbp` / `fbc` — Meta pixel cookies as of signup
+   *
+   * Public because signup has TWO write paths: creation here, and the
+   * password flow CLAIMING a user pre-created by an email invitation
+   * (local-auth's existing-user update branch) — both must merge, or
+   * invitees lose their first-touch attribution.
    */
-  private withAffiliateVia(
+  applySignupAttribution(
     refMeta: Prisma.UserCreateInput['refMeta']
   ): Prisma.UserCreateInput['refMeta'] {
     const via = this.cls.get('affiliateVia');
-    if (!via) {
+    // Banner ad consent + signup IP/country: they feed the analytics event and
+    // the backend's own ad conversion uploads, so ad-platform forwarding can be
+    // scoped by consent and geo (adUserDataConsent) — none is readable at
+    // event time, hence the refMeta snapshot.
+    const adConsent = this.cls.get('marketingAdConsent');
+    const country = this.cls.get('requestCountry');
+    const origin = this.cls.get('origin');
+    const attribution = {
+      ...(via ? { via } : {}),
+      ...this.cls.get('signupAttribution'),
+      ...(adConsent ? { adConsent } : {}),
+      ...(country ? { country } : {}),
+      ...(origin?.ip ? { ip: origin.ip } : {}),
+      // UA of the signup request — forwarded to ad platforms as a match key.
+      ...(origin?.userAgent ? { ua: origin.userAgent.slice(0, 500) } : {}),
+    };
+    const hasAttribution = Object.keys(attribution).length > 0;
+    // OAuth signups have no signup-page query snapshot; the oauth state's
+    // redirectUri is the equivalent signal, stored in the same `query` shape.
+    const oauthRedirect = this.cls.get('oauthRedirectUri');
+    if (!hasAttribution && !oauthRedirect) {
       return refMeta;
     }
     try {
-      const parsed = refMeta ? JSON.parse(refMeta) : {};
-      return JSON.stringify({ ...parsed, attribution: { via } });
+      // `?? {}`: the column could hold the literal JSON "null".
+      const parsed = refMeta ? (JSON.parse(refMeta) ?? {}) : {};
+      return JSON.stringify({
+        ...parsed,
+        ...(oauthRedirect && typeof parsed.query !== 'string'
+          ? { query: `?redirect=${encodeURIComponent(oauthRedirect)}` }
+          : {}),
+        ...(hasAttribution ? { attribution } : {}),
+      });
     } catch {
       // Attribution must never break account creation — keep refMeta as-is.
       return refMeta;
+    }
+  }
+
+  /**
+   * No account is created from a sign-in the iOS app started (App Review 3.1.1): an OAuth or SSO
+   * one is recognised by its verified state's `redirect_uri`, a password signup by the login
+   * page query it was sent from (`signupQuery`, its `refMeta.query`). Only new accounts are
+   * refused: someone claiming the account a customer's invitation made for them may do it in
+   * the app, so the claim paths (`findOrCreateUser`, `LocalAuthService.signup`) never ask.
+   */
+  assertSignupAllowedHere(signupQuery?: string) {
+    const oauthRedirect = this.cls.get('oauthRedirectUri');
+    if (isAppSignupBlocked(oauthRedirect)) {
+      throw new AppSignupUnavailableException(oauthRedirect);
+    }
+    if (isAppSignupBlockedQuery(signupQuery)) {
+      const redirect = new URLSearchParams(signupQuery).get('redirect') ?? undefined;
+      throw new AppSignupUnavailableException(redirect);
     }
   }
 
@@ -148,7 +275,8 @@ export class UserService {
     inviteCode?: string,
     autoSpaceCreation: boolean = true
   ) {
-    user = { ...user, refMeta: this.withAffiliateVia(user.refMeta) };
+    this.assertSignupAllowedHere(readRefMetaQuery(user.refMeta));
+    user = { ...user, refMeta: this.applySignupAttribution(user.refMeta) };
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
       throw new CustomHttpException(
@@ -278,10 +406,17 @@ export class UserService {
       });
     }
     if (this.baseConfig.isCloud && autoSpaceCreation) {
-      await this.cls.runWith(this.cls.get(), async () => {
-        this.cls.set('user.id', id);
-        await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
-      });
+      // Run the signup space creation as the new user on a COPY of the store: runWith(cls.get())
+      // shares the caller's store object, so setting user.id there leaked the new user's id back
+      // to the caller (e.g. an inviter creating accounts by email), misattributing its audit rows
+      // and createdBy columns.
+      const store = this.cls.get();
+      await this.cls.runWith(
+        { ...store, user: { ...store.user, id } as IClsStore['user'] },
+        async () => {
+          await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
+        }
+      );
     }
     return newUser;
   }
@@ -323,6 +458,8 @@ export class UserService {
     const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(UploadType.Avatar),
     });
 
     await this.mountAttachment(id, {
@@ -384,6 +521,43 @@ export class UserService {
     });
   }
 
+  async getNotifyMeta(id: string): Promise<IUserNotifyMeta> {
+    const user = await this.prismaService.txClient().user.findUnique({
+      where: { id },
+      select: { notifyMeta: true },
+    });
+    return this.parseNotifyMeta(user?.notifyMeta);
+  }
+
+  /** Turn one OAuth app's notifications to the user off, or back on. */
+  async setAppNotificationsMuted(id: string, clientId: string, muted: boolean) {
+    await this.prismaService.$tx(async () => {
+      const [user] = await this.prismaService.txClient().$queryRaw<
+        Array<{ notifyMeta: string | null }>
+      >`
+        SELECT "notify_meta" AS "notifyMeta"
+        FROM "users"
+        WHERE "id" = ${id}
+          AND "deleted_time" IS NULL
+        FOR UPDATE
+      `;
+      const prevNotifyMeta = this.parseNotifyMeta(user?.notifyMeta);
+      const mutedApps = new Set(prevNotifyMeta.mutedApps ?? []);
+      if (muted) {
+        mutedApps.add(clientId);
+      } else {
+        mutedApps.delete(clientId);
+      }
+
+      await this.prismaService.txClient().user.update({
+        data: {
+          notifyMeta: JSON.stringify({ ...prevNotifyMeta, mutedApps: [...mutedApps] }),
+        },
+        where: { id, deletedTime: null },
+      });
+    });
+  }
+
   private parseNotifyMeta(notifyMeta?: string | null): IUserNotifyMeta {
     if (!notifyMeta) {
       return {};
@@ -438,48 +612,35 @@ export class UserService {
   }
 
   private async uploadAvatarByUrl(userId: string, url: string) {
-    return new Promise<string>((resolve, reject) => {
-      https
-        .get(url, async (response) => {
-          try {
-            // Collect the image data into a buffer
-            const chunks: Buffer[] = [];
-            for await (const chunk of response) {
-              chunks.push(chunk);
-            }
-            const imageBuffer = Buffer.concat(chunks);
-
-            // Crop the image to square and resize
-            const croppedBuffer = await this.cropAvatarBuffer(imageBuffer);
-
-            const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), userId);
-            const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-            const { hash } = await this.storageAdapter.uploadFile(
-              bucket,
-              storagePath,
-              croppedBuffer,
-              {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': AVATAR_OUTPUT_MIMETYPE,
-              }
-            );
-
-            await this.mountAttachment(userId, {
-              hash: hash,
-              size: croppedBuffer.length,
-              mimetype: AVATAR_OUTPUT_MIMETYPE,
-              token: userId,
-              path: storagePath,
-            });
-            resolve(storagePath);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
+    // The URL comes from the identity provider's profile, which a tenant-configured
+    // SSO provider controls: fetch it through the SSRF-filtering client. Self-hosted
+    // identity providers often live on the private network, so only cloud is strict.
+    const response = await safeFetch(url, undefined, {
+      allowPrivateNetwork: !this.baseConfig.isCloud,
     });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch avatar: ${response.status}`);
+    }
+    const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+    // Crop the image to square and resize
+    const croppedBuffer = await this.cropAvatarBuffer(imageBuffer);
+
+    const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+    const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+    const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedBuffer, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+    });
+
+    await this.mountAttachment(userId, {
+      hash: hash,
+      size: croppedBuffer.length,
+      mimetype: AVATAR_OUTPUT_MIMETYPE,
+      token: userId,
+      path: storagePath,
+    });
+    return storagePath;
   }
 
   /**
@@ -513,21 +674,36 @@ export class UserService {
       email: string;
       provider: string;
       providerId: string;
+      /**
+       * The identity-provider instance that issued providerId (see Account.connectionId).
+       * Omitted for instance-wide providers.
+       */
+      connectionId?: string;
       type: string;
       avatarUrl?: string;
     },
     autoSpaceCreation: boolean = true,
-    onCreateNewUser?: () => void
+    onCreateNewUser?: () => void,
+    /**
+     * A caller wrapping this method in its own transaction (space-bound SSO)
+     * must not emit USER_SIGNUP in here — listeners are awaited and read
+     * non-transactionally. It gets the id and fires recordSignup post-commit.
+     */
+    deferSignupEvent?: (userId: string) => void
   ) {
     let isNewUser = false;
+    // "Claim": the provider login that first activates a row PRE-CREATED by an
+    // email invitation / provisioning. Distinct from account-linking on an
+    // already-active user — see the existUser branch below.
+    let isClaimedSignup = false;
     // Risk control first, before the transaction — a slow risk service must
     // never hold a database connection.
     await this.throwIfEmailDeniedByRiskControl('signup', user.email);
     const res = await this.prismaService.$tx(async () => {
-      const { email, name, provider, providerId, type, avatarUrl } = user;
+      const { email, name, provider, providerId, connectionId = '', type, avatarUrl } = user;
       // account exist check
       const existAccount = await this.prismaService.txClient().account.findFirst({
-        where: { provider, providerId },
+        where: { provider, providerId, connectionId },
       });
       if (existAccount) {
         return await this.getUserById(existAccount.userId);
@@ -535,7 +711,7 @@ export class UserService {
 
       // user exist check
       const existUser = await this.getUserByEmail(email);
-      if (existUser && existUser.isSystem) {
+      if (existUser?.isSystem) {
         throw new CustomHttpException('User is system user', HttpErrorCode.UNAUTHORIZED, {
           localization: {
             i18nKey: 'httpErrors.user.systemUser',
@@ -556,20 +732,48 @@ export class UserService {
         onCreateNewUser?.();
         return await this.createUserWithSettingCheck(
           { id: userId, email, name, avatar },
-          { provider, providerId, type },
+          { provider, providerId, connectionId, type },
           undefined,
           undefined,
           autoSpaceCreation
         );
       }
 
+      // No password AND no linked provider = this row could never have
+      // authenticated before — it was pre-created (email invitation /
+      // provisioning) and THIS login is the person's real signup moment.
+      // Fire the same signup side effects the password-claim path gets
+      // (USER_SIGNUP event + audit row + first-touch attribution). A plain
+      // account-link on an already-active user (has a password or another
+      // provider) must NOT re-fire signup.
+      if (!existUser.password && existUser.accounts.length === 0) {
+        isClaimedSignup = true;
+        const mergedRefMeta = this.applySignupAttribution(existUser.refMeta);
+        if (mergedRefMeta !== existUser.refMeta) {
+          await this.prismaService.txClient().user.update({
+            where: { id: existUser.id },
+            data: { refMeta: mergedRefMeta },
+          });
+        }
+      }
       await this.prismaService.txClient().account.create({
-        data: { id: generateAccountId(), provider, providerId, type, userId: existUser.id },
+        data: {
+          id: generateAccountId(),
+          provider,
+          providerId,
+          connectionId,
+          type,
+          userId: existUser.id,
+        },
       });
       return existUser;
     });
-    if (res && isNewUser) {
-      await this.recordSignup(res.id);
+    if (res && (isNewUser || isClaimedSignup)) {
+      if (deferSignupEvent) {
+        deferSignupEvent(res.id);
+      } else {
+        await this.recordSignup(res.id);
+      }
     }
     return res;
   }
@@ -588,20 +792,66 @@ export class UserService {
     emit: true,
   })
   async recordSignup(userId: string) {
-    await this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(userId));
+    // Listener failures must neither fail an already-committed signup nor
+    // suppress the audit (@Audit emits only after this method resolves).
+    try {
+      await this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(userId));
+    } catch (err) {
+      this.logger.error(
+        `USER_SIGNUP listener failed for ${userId}: ${(err as Error)?.message ?? err}`
+      );
+    }
   }
 
-  @Audit({
-    action: Events.USER_SIGNIN,
-    resourceId: (userId: string) => userId,
-    userId: (userId: string) => userId,
-    emit: true,
-  })
+  // The `user.signin` audit row is written by SessionService.recordSignin once the session
+  // exists, so it can carry the session id.
   async refreshLastSignTime(userId: string) {
     await this.prismaService.txClient().user.update({
       where: { id: userId, deletedTime: null },
       data: { lastSignTime: new Date().toISOString() },
     });
+  }
+
+  /**
+   * One `user.signin-failed` row per failed attempt, plus `user.lockout` when the attempt locked
+   * the account. Rows belong to the targeted account when it exists; attempts on an address
+   * nobody registered go to 'anonymous' and carry only a SHA-256 of the lowercased email, never
+   * the address itself. Never throws: the caller is failing the sign-in with its own error.
+   */
+  async recordSigninFailure(failure: ISigninFailure): Promise<void> {
+    try {
+      const user = await this.getUserByEmail(failure.email);
+      const actorId = user?.id ?? 'anonymous';
+      const identity = user
+        ? {}
+        : {
+            emailHash: createHash('sha256')
+              .update(failure.email.trim().toLowerCase())
+              .digest('hex'),
+          };
+      const attempts = failure.attempts == null ? {} : { attempts: failure.attempts };
+      await this.audit.emitAtomic({
+        action: 'user.signin-failed',
+        resourceId: actorId,
+        userId: actorId,
+        params: {
+          reason: failure.reason ?? resolveSigninFailedReason(user, failure.method),
+          method: failure.method,
+          ...attempts,
+          ...identity,
+        },
+      });
+      if (failure.lockoutMinutes != null) {
+        await this.audit.emitAtomic({
+          action: 'user.lockout',
+          resourceId: actorId,
+          userId: actorId,
+          params: { lockoutMinutes: failure.lockoutMinutes, ...attempts, ...identity },
+        });
+      }
+    } catch (err) {
+      this.logger.error(`sign-in failure audit failed: ${(err as Error)?.message ?? err}`);
+    }
   }
 
   async getUserInfoList(userIds: string[]) {

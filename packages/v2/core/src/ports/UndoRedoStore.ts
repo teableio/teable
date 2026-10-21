@@ -5,6 +5,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import type { TableId } from '../domain/table/TableId';
 import type { ViewColumnMetaValue } from '../domain/table/views/ViewColumnMeta';
 import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
+import type { ViewSnapshotValue } from '../domain/table/views/ViewSnapshot';
 import type { ITableFieldInput } from '../schemas/field';
 
 /**
@@ -25,6 +26,13 @@ export type UndoRedoUpdateRecordPayload = {
   readonly fields: Record<string, unknown>;
   readonly fieldKeyType: 'id';
   readonly typecast: boolean;
+};
+
+export type UndoRedoSetButtonValuePayload = {
+  readonly tableId: string;
+  readonly recordId: string;
+  readonly fieldId: string;
+  readonly value: { readonly count: number } | null;
 };
 
 export type UndoRedoUpdateRecordsPayload = {
@@ -105,34 +113,96 @@ export type UndoRedoReplayFieldTypeConversionPayload = {
   readonly snapshot: UndoRedoFieldSnapshot;
 };
 
+export type UndoRedoApplyViewSnapshotPayload = {
+  readonly tableId: string;
+  readonly snapshot: ViewSnapshotValue;
+};
+
+export type UndoRedoDeleteViewPayload = {
+  readonly tableId: string;
+  readonly viewId: string;
+};
+
+export type UndoRedoViewShareLifecyclePayload = {
+  readonly tableId: string;
+  readonly viewId: string;
+};
+
 export type UndoRedoCommandLeafType =
   | 'UpdateRecord'
+  | 'SetButtonValue'
   | 'UpdateRecords'
   | 'DeleteRecords'
   | 'RestoreRecords'
+  | 'ArchiveRecords'
+  | 'RestoreArchivedRecords'
   | 'ApplyRecordOrders'
   | 'DeleteField'
   | 'ApplyFieldSnapshot'
-  | 'ReplayFieldTypeConversion';
+  | 'ReplayFieldTypeConversion'
+  | 'ApplyViewSnapshot'
+  | 'DeleteView'
+  | 'EnableViewShare'
+  | 'DisableViewShare';
 
 export type UndoRedoCommandType = UndoRedoCommandLeafType | 'Batch';
 
 export const undoRedoCommandVersions = {
   UpdateRecord: 1,
+  SetButtonValue: 1,
   UpdateRecords: 1,
   DeleteRecords: 1,
   RestoreRecords: 1,
+  ArchiveRecords: 1,
+  RestoreArchivedRecords: 1,
   ApplyRecordOrders: 1,
   DeleteField: 1,
   ApplyFieldSnapshot: 1,
   ReplayFieldTypeConversion: 1,
+  ApplyViewSnapshot: 1,
+  DeleteView: 1,
+  EnableViewShare: 1,
+  DisableViewShare: 1,
   Batch: 1,
 } as const satisfies Record<UndoRedoCommandType, number>;
+
+// A record_trash row (reason 'archived') carried inside the undo entry so redo can
+// re-persist the archive snapshot (write-ahead) before deleting the records again.
+// Snapshots are the normalized cellValue form produced at original archive time —
+// v2 cannot rebuild them, which is why they travel with the entry. Dates are ISO strings
+// (entries are JSON).
+export type UndoRedoArchiveTrashRow = {
+  readonly recordId: string;
+  readonly snapshot: string;
+  readonly createdBy: string;
+  readonly createdTime: string;
+  readonly operationId?: string;
+  readonly recordCreatedTime?: string;
+  readonly recordCreatedBy?: string;
+  readonly recordLastModifiedTime?: string;
+  readonly recordLastModifiedBy?: string;
+};
+
+export type UndoRedoArchiveRecordsPayload = {
+  readonly tableId: string;
+  readonly recordIds: ReadonlyArray<string>;
+  readonly archiveRows: ReadonlyArray<UndoRedoArchiveTrashRow>;
+};
+
+// Same shape as a plain restore; the dedicated type makes the replay clean up the
+// attachment reference rows kept at archive time before re-inserting the records.
+export type UndoRedoRestoreArchivedRecordsPayload = UndoRedoRestoreRecordsPayload;
 
 export type UndoRedoUpdateCommandData = {
   readonly type: 'UpdateRecord';
   readonly version: number;
   readonly payload: UndoRedoUpdateRecordPayload;
+};
+
+export type UndoRedoSetButtonValueCommandData = {
+  readonly type: 'SetButtonValue';
+  readonly version: number;
+  readonly payload: UndoRedoSetButtonValuePayload;
 };
 
 export type UndoRedoUpdateRecordsCommandData = {
@@ -151,6 +221,18 @@ export type UndoRedoRestoreRecordsCommandData = {
   readonly type: 'RestoreRecords';
   readonly version: number;
   readonly payload: UndoRedoRestoreRecordsPayload;
+};
+
+export type UndoRedoArchiveRecordsCommandData = {
+  readonly type: 'ArchiveRecords';
+  readonly version: number;
+  readonly payload: UndoRedoArchiveRecordsPayload;
+};
+
+export type UndoRedoRestoreArchivedRecordsCommandData = {
+  readonly type: 'RestoreArchivedRecords';
+  readonly version: number;
+  readonly payload: UndoRedoRestoreArchivedRecordsPayload;
 };
 
 export type UndoRedoApplyRecordOrdersCommandData = {
@@ -177,15 +259,46 @@ export type UndoRedoReplayFieldTypeConversionCommandData = {
   readonly payload: UndoRedoReplayFieldTypeConversionPayload;
 };
 
+export type UndoRedoApplyViewSnapshotCommandData = {
+  readonly type: 'ApplyViewSnapshot';
+  readonly version: number;
+  readonly payload: UndoRedoApplyViewSnapshotPayload;
+};
+
+export type UndoRedoDeleteViewCommandData = {
+  readonly type: 'DeleteView';
+  readonly version: number;
+  readonly payload: UndoRedoDeleteViewPayload;
+};
+
+export type UndoRedoEnableViewShareCommandData = {
+  readonly type: 'EnableViewShare';
+  readonly version: number;
+  readonly payload: UndoRedoViewShareLifecyclePayload;
+};
+
+export type UndoRedoDisableViewShareCommandData = {
+  readonly type: 'DisableViewShare';
+  readonly version: number;
+  readonly payload: UndoRedoViewShareLifecyclePayload;
+};
+
 export type UndoRedoCommandLeafData =
   | UndoRedoUpdateCommandData
+  | UndoRedoSetButtonValueCommandData
   | UndoRedoUpdateRecordsCommandData
   | UndoRedoDeleteRecordsCommandData
   | UndoRedoRestoreRecordsCommandData
+  | UndoRedoArchiveRecordsCommandData
+  | UndoRedoRestoreArchivedRecordsCommandData
   | UndoRedoApplyRecordOrdersCommandData
   | UndoRedoDeleteFieldCommandData
   | UndoRedoApplyFieldSnapshotCommandData
-  | UndoRedoReplayFieldTypeConversionCommandData;
+  | UndoRedoReplayFieldTypeConversionCommandData
+  | UndoRedoApplyViewSnapshotCommandData
+  | UndoRedoDeleteViewCommandData
+  | UndoRedoEnableViewShareCommandData
+  | UndoRedoDisableViewShareCommandData;
 
 export type UndoRedoBatchCommandData = {
   readonly type: 'Batch';
@@ -197,25 +310,39 @@ export type UndoRedoCommandData = UndoRedoCommandLeafData | UndoRedoBatchCommand
 
 export type UndoRedoCommandPayloadByType = {
   UpdateRecord: UndoRedoUpdateRecordPayload;
+  SetButtonValue: UndoRedoSetButtonValuePayload;
   UpdateRecords: UndoRedoUpdateRecordsPayload;
   DeleteRecords: UndoRedoDeleteRecordsPayload;
   RestoreRecords: UndoRedoRestoreRecordsPayload;
+  ArchiveRecords: UndoRedoArchiveRecordsPayload;
+  RestoreArchivedRecords: UndoRedoRestoreArchivedRecordsPayload;
   ApplyRecordOrders: UndoRedoApplyRecordOrdersPayload;
   DeleteField: UndoRedoDeleteFieldPayload;
   ApplyFieldSnapshot: UndoRedoApplyFieldSnapshotPayload;
   ReplayFieldTypeConversion: UndoRedoReplayFieldTypeConversionPayload;
+  ApplyViewSnapshot: UndoRedoApplyViewSnapshotPayload;
+  DeleteView: UndoRedoDeleteViewPayload;
+  EnableViewShare: UndoRedoViewShareLifecyclePayload;
+  DisableViewShare: UndoRedoViewShareLifecyclePayload;
   Batch: ReadonlyArray<UndoRedoCommandLeafData>;
 };
 
 export type UndoRedoCommandDataByType = {
   UpdateRecord: UndoRedoUpdateCommandData;
+  SetButtonValue: UndoRedoSetButtonValueCommandData;
   UpdateRecords: UndoRedoUpdateRecordsCommandData;
   DeleteRecords: UndoRedoDeleteRecordsCommandData;
   RestoreRecords: UndoRedoRestoreRecordsCommandData;
+  ArchiveRecords: UndoRedoArchiveRecordsCommandData;
+  RestoreArchivedRecords: UndoRedoRestoreArchivedRecordsCommandData;
   ApplyRecordOrders: UndoRedoApplyRecordOrdersCommandData;
   DeleteField: UndoRedoDeleteFieldCommandData;
   ApplyFieldSnapshot: UndoRedoApplyFieldSnapshotCommandData;
   ReplayFieldTypeConversion: UndoRedoReplayFieldTypeConversionCommandData;
+  ApplyViewSnapshot: UndoRedoApplyViewSnapshotCommandData;
+  DeleteView: UndoRedoDeleteViewCommandData;
+  EnableViewShare: UndoRedoEnableViewShareCommandData;
+  DisableViewShare: UndoRedoDisableViewShareCommandData;
   Batch: UndoRedoBatchCommandData;
 };
 
@@ -291,13 +418,47 @@ export type UndoRedoListOptions = {
  *
  * Repository adapters capture record snapshots separately; this port only
  * stores and replays already-built stack entries.
+ *
+ * `undo`/`redo` persist the cursor immediately and exist for store-level
+ * inspection. Replay goes through `reserve` → execute → `commit`/`abort`
+ * so a failed command does not skip the entry.
  */
+export type UndoRedoReplayMode = 'undo' | 'redo';
+
+export type UndoRedoReservationExecutionStatus = 'reserved' | 'succeeded';
+
+export type UndoRedoReservation = {
+  readonly token: string;
+  readonly mode: UndoRedoReplayMode;
+  readonly entry: UndoEntry;
+  readonly operationId: string;
+  readonly executionStatus: UndoRedoReservationExecutionStatus;
+  readonly executedLeafIndex: number;
+};
+
 export interface IUndoRedoStore {
-  append(scope: UndoScope, entry: UndoEntry): Promise<Result<void, DomainError>>;
+  append(
+    scope: UndoScope,
+    entry: UndoEntry,
+    expectedRevision?: number
+  ): Promise<Result<void, DomainError>>;
   undo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>>;
   redo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>>;
   list(
     scope: UndoScope,
     options?: UndoRedoListOptions
   ): Promise<Result<ReadonlyArray<UndoEntry>, DomainError>>;
+  reserve(
+    scope: UndoScope,
+    mode: UndoRedoReplayMode
+  ): Promise<Result<UndoRedoReservation | null, DomainError>>;
+  markSucceeded(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
+  markProgress(
+    scope: UndoScope,
+    token: string,
+    executedLeafIndex: number
+  ): Promise<Result<void, DomainError>>;
+  renew(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
+  commit(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
+  abort(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
 }

@@ -129,6 +129,9 @@ export class PartWriter {
     const seq = this.seq++;
     const key = buildPartKey(rootDir, tableId, bucket, seq, firstRow.recordId, this.runToken);
     const input = new PassThrough();
+    // destroy(error) below emits 'error' here; unheard it becomes an uncaught
+    // exception — the real failure surfaces via uploadPromise
+    input.on('error', () => undefined);
     const compressor = createPartCompressor();
     const compressedBytes = { value: 0 };
     const counter = new Transform({
@@ -193,8 +196,12 @@ export class PartWriter {
       maxCreatedTime: part.maxCreatedTime,
       minRecordId: part.minRecordId,
       maxRecordId: part.maxRecordId,
-      fieldIds: part.fieldIds ? [...part.fieldIds].sort() : null,
-      createdBys: part.createdBys ? [...part.createdBys].sort() : null,
+      fieldIds: part.fieldIds
+        ? [...part.fieldIds].sort((a, b) => Number(a > b) - Number(a < b))
+        : null,
+      createdBys: part.createdBys
+        ? [...part.createdBys].sort((a, b) => Number(a > b) - Number(a < b))
+        : null,
       recordBloom: buildRecordBloom(part.recordIds, part.recordIds.length),
     });
     this.metrics.parts += 1;

@@ -18,9 +18,10 @@ export type SubmitRecordResult = CreateRecordResult;
 
 @CommandHandler(SubmitRecordCommand)
 @injectable()
-export class SubmitRecordHandler
-  implements ICommandHandler<SubmitRecordCommand, SubmitRecordResult>
-{
+export class SubmitRecordHandler implements ICommandHandler<
+  SubmitRecordCommand,
+  SubmitRecordResult
+> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
@@ -33,7 +34,7 @@ export class SubmitRecordHandler
     context: ExecutionContextPort.IExecutionContext,
     command: SubmitRecordCommand
   ): Promise<Result<SubmitRecordResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SubmitRecordResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);

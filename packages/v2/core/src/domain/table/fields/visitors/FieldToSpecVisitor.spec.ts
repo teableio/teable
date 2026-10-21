@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
+import { ClearFieldValueSpec } from '../../records/specs/values/ClearFieldValueSpec';
 import { SetAttachmentValueSpec } from '../../records/specs/values/SetAttachmentValueSpec';
+import { SetButtonValueSpec } from '../../records/specs/values/SetButtonValueSpec';
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
+import { SetLongTextValueSpec } from '../../records/specs/values/SetLongTextValueSpec';
 import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
 import type { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpec';
+import { SetMultipleSelectValueSpec } from '../../records/specs/values/SetMultipleSelectValueSpec';
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
+import { SetUserValueByIdentifierSpec } from '../../records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../records/specs/values/SetUserValueSpec';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -53,10 +57,10 @@ describe('FieldToSpecVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('accepts option ID in non-typecast mode', () => {
+    it('rejects an option id that is not the choice name', () => {
       const visitor = FieldToSpecVisitor.create('opt1', false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts option name in non-typecast mode (v1 compatibility)', () => {
@@ -149,10 +153,10 @@ describe('FieldToSpecVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('accepts option IDs in non-typecast mode', () => {
+    it('rejects option ids that are not choice names', () => {
       const visitor = FieldToSpecVisitor.create(['opt1', 'opt2'], false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('accepts option names in non-typecast mode (v1 compatibility)', () => {
@@ -161,10 +165,10 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
     });
 
-    it('accepts mixed IDs and names in non-typecast mode', () => {
+    it('rejects a mix of an option id and a choice name', () => {
       const visitor = FieldToSpecVisitor.create(['opt1', 'Option Two'], false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
+      expect(result.isErr()).toBe(true);
     });
 
     it('rejects array with invalid option in non-typecast mode', () => {
@@ -198,10 +202,11 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
     });
 
-    it('accepts empty array', () => {
+    it('normalizes empty array to null', () => {
       const visitor = FieldToSpecVisitor.create([], false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetMultipleSelectValueSpec).value.toValue()).toBeNull();
     });
   });
 
@@ -269,6 +274,35 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeInstanceOf(SetUserValueSpec);
     });
+
+    it('splits comma-separated typecast identifiers for multiple user fields', () => {
+      const visitor = FieldToSpecVisitor.create('found@example.com, missing@example.com', true);
+      const spec = multipleField.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual([
+        'found@example.com',
+        'missing@example.com',
+      ]);
+    });
+
+    it('keeps only the first identifier for single user fields', () => {
+      const visitor = FieldToSpecVisitor.create('不存在的人, 李四', true);
+      const spec = field.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      // v1 parity: a single-user field only considers the first token, so
+      // resolving `不存在的人` (no collaborator match) clears the cell instead of
+      // falling back to 李四.
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual(['不存在的人']);
+    });
+
+    it('keeps a leading empty token for single user fields', () => {
+      const visitor = FieldToSpecVisitor.create(', 李四', true);
+      const spec = field.accept(visitor)._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetUserValueByIdentifierSpec);
+      // v1 parity: `cellValue[0]` is '' here, so the cell clears instead of
+      // resolving 李四 from the second token.
+      expect((spec as SetUserValueByIdentifierSpec).identifiers).toEqual(['']);
+    });
   });
 
   describe('visitButtonField', () => {
@@ -277,18 +311,19 @@ describe('FieldToSpecVisitor', () => {
       name: createFieldName('Action'),
     })._unsafeUnwrap();
 
-    it('ignores provided value in non-typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create('Click', false);
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it.each([false, true])('persists button count (typecast=%s)', (typecast) => {
+      const spec = field.accept(FieldToSpecVisitor.create({ count: 3 }, typecast))._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetButtonValueSpec);
+      expect((spec as SetButtonValueSpec).value.toValue()).toEqual({ count: 3 });
     });
 
-    it('ignores provided value in typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create('Click', true);
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    it('rejects invalid input in non-typecast mode', () => {
+      expect(field.accept(FieldToSpecVisitor.create('Click', false)).isErr()).toBe(true);
+    });
+
+    it('clears invalid input in typecast mode', () => {
+      const spec = field.accept(FieldToSpecVisitor.create('Click', true))._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(ClearFieldValueSpec);
     });
   });
 
@@ -310,6 +345,13 @@ describe('FieldToSpecVisitor', () => {
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeInstanceOf(SetSingleLineTextValueSpec);
+    });
+
+    it('normalizes empty string to null', () => {
+      const visitor = FieldToSpecVisitor.create('', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetSingleLineTextValueSpec).value.toValue()).toBeNull();
     });
 
     it('converts boolean to string', () => {
@@ -342,6 +384,38 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create(null, false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
+    });
+
+    it('trims only the ends of long text and keeps the internal newline', () => {
+      const visitor = FieldToSpecVisitor.create('  第一行\n第二行  ', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBe(
+        '第一行\n第二行'
+      );
+    });
+
+    it('keeps internal newlines and tabs while trimming the ends', () => {
+      const visitor = FieldToSpecVisitor.create('\t第一行\n\n第二行\t', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBe(
+        '第一行\n\n第二行'
+      );
+    });
+
+    it('stores an empty long text string as null', () => {
+      const visitor = FieldToSpecVisitor.create('', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBeNull();
+    });
+
+    it('stores whitespace-only long text as null', () => {
+      const visitor = FieldToSpecVisitor.create('  \n\t  ', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetLongTextValueSpec).value.toValue()).toBeNull();
     });
   });
 
@@ -402,24 +476,59 @@ describe('FieldToSpecVisitor', () => {
       name: createFieldName('Score'),
     })._unsafeUnwrap();
 
+    const ratingValue = (input: unknown, typecast: boolean) => {
+      const result = field.accept(FieldToSpecVisitor.create(input, typecast));
+      expect(result.isOk()).toBe(true);
+      return (result._unsafeUnwrap() as SetRatingValueSpec).value.toValue();
+    };
+
     it('rejects out-of-range values in non-typecast mode', () => {
       const visitor = FieldToSpecVisitor.create(9, false);
       const result = field.accept(visitor);
       expect(result.isErr()).toBe(true);
     });
 
-    it('clamps out-of-range values in typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create(9, true);
+    it('rejects non-integer values in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(2.7, false);
       const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect((result._unsafeUnwrap() as SetRatingValueSpec).value.toValue()).toBe(5);
+      expect(result.isErr()).toBe(true);
     });
 
-    it('truncates parsed string values in typecast mode', () => {
-      const visitor = FieldToSpecVisitor.create('3.6', true);
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      expect((result._unsafeUnwrap() as SetRatingValueSpec).value.toValue()).toBe(3);
+    it('accepts integer values in non-typecast mode', () => {
+      expect(ratingValue(3, false)).toBe(3);
+    });
+
+    it('clamps out-of-range values in typecast mode', () => {
+      expect(ratingValue(9, true)).toBe(5);
+      expect(ratingValue(5.5, true)).toBe(5);
+    });
+
+    it('rounds in-range fractional numbers in typecast mode', () => {
+      // Regression: previously only out-of-range values were rounded/clamped,
+      // so 2.7 was stored as-is and broke equality filters / strict rewrite.
+      expect(ratingValue(2.7, true)).toBe(3);
+      expect(ratingValue(4.6, true)).toBe(5);
+      expect(ratingValue(2.4, true)).toBe(2);
+    });
+
+    it('maps below-one values to null in typecast mode', () => {
+      // Teable ratings are null-empty; 0/negatives must not become 1 star.
+      expect(ratingValue(0, true)).toBeNull();
+      expect(ratingValue(0.4, true)).toBeNull();
+      expect(ratingValue(-3, true)).toBeNull();
+    });
+
+    it('parses and rounds string values consistently in typecast mode', () => {
+      expect(ratingValue('3', true)).toBe(3);
+      expect(ratingValue('2.7', true)).toBe(3);
+      expect(ratingValue('3.6', true)).toBe(4);
+      expect(ratingValue('abc', true)).toBeNull();
+      expect(ratingValue('', true)).toBeNull();
+    });
+
+    it('accepts null value', () => {
+      expect(ratingValue(null, true)).toBeNull();
+      expect(ratingValue(null, false)).toBeNull();
     });
   });
 
@@ -511,14 +620,26 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create('not-a-date', true);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetDateValueSpec).value.toValue()).toBeNull();
+    });
+
+    it('returns null for calendar-invalid date in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('2026-02-30', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetDateValueSpec).value.toValue()).toBeNull();
     });
 
     it('rejects invalid date in non-typecast mode', () => {
       const visitor = FieldToSpecVisitor.create('not-a-date', false);
       const result = field.accept(visitor);
-      // May reject or return null depending on parseDateValue implementation
-      // The important thing is it doesn't throw
-      expect(result.isOk() || result.isErr()).toBe(true);
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('rejects calendar-invalid date in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('2026-02-30', false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
     });
 
     it('rejects lookup arrays in non-typecast mode', () => {
@@ -580,7 +701,11 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create([{ id: 'rec' + 'a'.repeat(16) }], false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueSpec);
+      const spec = result._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetLinkValueSpec);
+      expect((spec as SetLinkValueSpec).value.toValue()).toEqual({
+        id: 'rec' + 'a'.repeat(16),
+      });
     });
 
     it('rejects non-object array in non-typecast mode', () => {
@@ -617,7 +742,11 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create('rec' + 'b'.repeat(16), false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueSpec);
+      const spec = result._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetLinkValueSpec);
+      expect((spec as SetLinkValueSpec).value.toValue()).toEqual({
+        id: 'rec' + 'b'.repeat(16),
+      });
     });
 
     it('creates title-based link specs in typecast mode', () => {
@@ -636,7 +765,9 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create(['Title1', 'Title2'], true);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueByTitleSpec);
+      const spec = result._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetLinkValueByTitleSpec);
+      expect((spec as SetLinkValueByTitleSpec).isMultiple).toBe(false);
     });
   });
 
@@ -715,6 +846,112 @@ describe('FieldToSpecVisitor', () => {
         true
       );
       expect(autoNumberField.accept(FieldToSpecVisitor.create(1, false)).isErr()).toBe(true);
+    });
+  });
+
+  // v1 stores "empty" inputs as null: "" (text), false (checkbox) and []
+  // (multi-value fields). The typecast path must match too (T6520).
+  describe('empty value normalization (v1 parity)', () => {
+    it('normalizes boolean false to null for checkbox', () => {
+      const field = CheckboxField.create({
+        id: createFieldId('h'),
+        name: createFieldName('Done'),
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create(false, false))
+        ._unsafeUnwrap() as SetCheckboxValueSpec;
+      expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('normalizes string "false" to null for checkbox in typecast mode', () => {
+      const field = CheckboxField.create({
+        id: createFieldId('h'),
+        name: createFieldName('Done'),
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create('false', true))
+        ._unsafeUnwrap() as SetCheckboxValueSpec;
+      expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('checks string "0" and keeps numeric 0 and empty string empty (T7843)', () => {
+      const field = CheckboxField.create({
+        id: createFieldId('h'),
+        name: createFieldName('Done'),
+      })._unsafeUnwrap();
+      const checked = (value: unknown) => {
+        const spec = field
+          .accept(FieldToSpecVisitor.create(value, true))
+          ._unsafeUnwrap() as SetCheckboxValueSpec;
+        expect(spec.value.isNull()).toBe(false);
+        expect(spec.value.toValue()).toBe(true);
+      };
+      const empty = (value: unknown) => {
+        const spec = field
+          .accept(FieldToSpecVisitor.create(value, true))
+          ._unsafeUnwrap() as SetCheckboxValueSpec;
+        expect(spec.value.isNull()).toBe(true);
+      };
+
+      checked('true');
+      checked('TRUE');
+      empty('false');
+      checked('0');
+      checked('no');
+      empty(0);
+      empty('');
+    });
+
+    it('normalizes "" to null for singleLineText in typecast mode', () => {
+      const field = SingleLineTextField.create({
+        id: createFieldId('f'),
+        name: createFieldName('Title'),
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create('', true))
+        ._unsafeUnwrap() as SetSingleLineTextValueSpec;
+      expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('normalizes [] to null for link', () => {
+      const config = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      })._unsafeUnwrap();
+      const field = LinkField.create({
+        id: createFieldId('l'),
+        name: createFieldName('Related'),
+        config,
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create([], false))
+        ._unsafeUnwrap() as SetLinkValueSpec;
+      expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('normalizes [] to null for multi-value user', () => {
+      const field = UserField.create({
+        id: createFieldId('u'),
+        name: createFieldName('Team'),
+        isMultiple: UserMultiplicity.multiple(),
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create([], false))
+        ._unsafeUnwrap() as SetUserValueSpec;
+      expect(spec.value.isNull()).toBe(true);
+    });
+
+    it('normalizes [] to null for attachment', () => {
+      const field = AttachmentField.create({
+        id: createFieldId('g'),
+        name: createFieldName('Files'),
+      })._unsafeUnwrap();
+      const spec = field
+        .accept(FieldToSpecVisitor.create([], false))
+        ._unsafeUnwrap() as SetAttachmentValueSpec;
+      expect(spec.value.isNull()).toBe(true);
     });
   });
 });

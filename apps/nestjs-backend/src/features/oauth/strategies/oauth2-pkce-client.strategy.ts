@@ -7,7 +7,7 @@ import type { IPkceExchangeClient } from '../types';
 
 class PkceClientPasswordStrategy extends Strategy {
   override name = 'oauth2-pkce-client';
-  private _verify: (
+  private readonly _verify: (
     clientId: string,
     codeVerifier: string | undefined,
     done: (err: unknown, client?: unknown) => void

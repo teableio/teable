@@ -396,7 +396,7 @@ describe('CreateFieldHandler', () => {
     if (!viewA || !viewB) return;
 
     const viewAMeta = viewA.columnMeta()._unsafeUnwrap().toDto();
-    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(initialTable, [
       {
         viewId: viewA.id(),
         fieldId: FieldId.create(notesFieldId)._unsafeUnwrap(),
@@ -861,7 +861,7 @@ describe('CreateFieldHandler', () => {
     }
 
     expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-    expect(result.error.message).toContain('limit:1');
+    expect(result.error.message).toBe('Table "Host" can have at most 1 fields.');
     expect(result.error.details).toMatchObject({
       tableName: 'Host',
       currentFieldCount: 1,
@@ -947,8 +947,7 @@ describe('CreateFieldHandler', () => {
     }
 
     expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-    expect(result.error.message).toContain('limit:3');
-    expect(result.error.message).toContain('table:Foreign');
+    expect(result.error.message).toBe('Table "Foreign" can have at most 3 fields.');
     expect(result.error.details).toMatchObject({
       tableName: 'Foreign',
       currentFieldCount: 3,

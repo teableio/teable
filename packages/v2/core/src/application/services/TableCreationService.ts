@@ -166,7 +166,7 @@ export class TableCreationService {
     context: ExecutionContextPort.IExecutionContext,
     input: TableCreationServiceInput
   ): Promise<Result<TableMetadataPersistenceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<TableMetadataPersistenceResult, DomainError>(async function* () {
       const { baseId, tables, referencesByTable } = input;
 
@@ -201,7 +201,7 @@ export class TableCreationService {
       persistedTables: ReadonlyArray<Table>;
     }
   ): Promise<Result<TableCreationServiceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<TableCreationServiceResult, DomainError>(async function* () {
       const { baseId, tables, externalTables, referencesByTable, persistedTables } = input;
 

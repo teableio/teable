@@ -30,6 +30,10 @@ export class NumberFieldCore extends FieldCore {
     };
   }
 
+  getNumberFormatting() {
+    return this.options?.formatting ?? defaultNumberFormatting;
+  }
+
   cellValue2String(cellValue?: unknown) {
     if (cellValue == null) {
       return '';
@@ -43,7 +47,7 @@ export class NumberFieldCore extends FieldCore {
   }
 
   item2String(value?: unknown): string {
-    return formatNumberToString(value as number, this.options.formatting);
+    return formatNumberToString(value as number, this.getNumberFormatting());
   }
 
   convertStringToCellValue(value: string): number | null {
@@ -51,7 +55,7 @@ export class NumberFieldCore extends FieldCore {
       return null;
     }
 
-    return parseStringToNumber(value, this.options.formatting);
+    return parseStringToNumber(value, this.getNumberFormatting());
   }
 
   repair(value: unknown) {

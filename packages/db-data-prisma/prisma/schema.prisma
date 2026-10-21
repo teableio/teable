@@ -12,6 +12,7 @@ datasource db {
 model ComputedUpdateOutbox {
   id                      String                     @id @default(cuid())
   baseId                  String                     @map("base_id")
+  workerLane              String                     @default("production") @map("worker_lane")
   seedTableId             String                     @map("seed_table_id")
   seedRecordIds           Json?                      @map("seed_record_ids")
   changeType              String                     @map("change_type")
@@ -34,12 +35,16 @@ model ComputedUpdateOutbox {
   affectedTableIds        String[]                   @default([]) @map("affected_table_ids")
   affectedFieldIds        String[]                   @default([]) @map("affected_field_ids")
   syncMaxLevel            Int?                       @map("sync_max_level")
+  sourceChangedAt         DateTime?                  @map("source_changed_at")
+  stageDepth              Int                        @default(0) @map("stage_depth")
+  predecessorTaskId       String?                    @map("predecessor_task_id")
   createdAt               DateTime                   @default(now()) @map("created_at")
   updatedAt               DateTime                   @updatedAt @map("updated_at")
 
   seeds ComputedUpdateOutboxSeed[]
 
   @@index([status, nextRunAt])
+  @@index([workerLane, status, nextRunAt])
   @@index([baseId, seedTableId])
   @@index([planHash])
   @@index([runId])
@@ -58,9 +63,43 @@ model ComputedUpdateOutboxSeed {
   @@map("computed_update_outbox_seed")
 }
 
+/// Actual output-value evidence; independent from continuation progress.
+model ComputedUpdateChangeFrontier {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  fieldId  String @map("field_id")
+
+  @@id([scopeId, kind, tableId, recordId, fieldId])
+  @@map("computed_update_change_frontier")
+}
+
+/// Durable per-stage state for budget-staged computed updates, keyed by the
+/// continuation chain's root task id (its scope). Rows are written once per
+/// record and never copied between continuation tasks:
+/// - kind 'excluded': processed-target exclusion ledger for partial batches;
+/// - kind 'frontier': seq-ordered queue of sources whose outgoing propagation
+///   is not finished (self-referential generations + migrated explicit seeds);
+/// - kind 'consumed': retired frontier sources preserved for deferred edge
+///   chunks, handed to the continuation as seeds at stage completion.
+/// Cleared when the chain's stage completes or the chain dead-letters.
+model ComputedUpdateStageLedger {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  seq      BigInt @default(0)
+
+  @@id([scopeId, kind, tableId, recordId])
+  @@index([scopeId, kind, seq])
+  @@map("computed_update_stage_ledger")
+}
+
 model ComputedUpdateDeadLetter {
   id                      String   @id
   baseId                  String   @map("base_id")
+  workerLane              String   @default("production") @map("worker_lane")
   seedTableId             String   @map("seed_table_id")
   seedRecordIds           Json?    @map("seed_record_ids")
   changeType              String   @map("change_type")
@@ -83,6 +122,9 @@ model ComputedUpdateDeadLetter {
   affectedTableIds        String[] @default([]) @map("affected_table_ids")
   affectedFieldIds        String[] @default([]) @map("affected_field_ids")
   syncMaxLevel            Int?     @map("sync_max_level")
+  sourceChangedAt         DateTime? @map("source_changed_at")
+  stageDepth              Int      @default(0) @map("stage_depth")
+  predecessorTaskId       String?  @map("predecessor_task_id")
   traceData               Json?    @map("trace_data")
   failedAt                DateTime @map("failed_at")
   createdAt               DateTime @map("created_at")
@@ -94,6 +136,49 @@ model ComputedUpdateDeadLetter {
   @@map("computed_update_dead_letter")
 }
 
+/// Completion ledger for computed-update outbox tasks (lineage / latency
+/// tracing). Successful tasks are hard-deleted from the outbox on markDone,
+/// so this table keeps a retention-bounded trail per completed task: the
+/// run/stage chain (runId, stageDepth, predecessorTaskId) and the timeline
+/// from source mutation to converged write (sourceChangedAt → completedAt).
+/// Observability only — the worker never reads it; rows are pruned after a
+/// retention window.
+model ComputedUpdateRunHistory {
+  taskId                  String   @id @map("task_id")
+  baseId                  String   @map("base_id")
+  seedTableId             String   @map("seed_table_id")
+  changeType              String   @map("change_type")
+  runId                   String   @map("run_id")
+  originRunIds            String[] @default([]) @map("origin_run_ids")
+  steps                   Json?
+  edges                   Json?
+  affectedTableIds        String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds        String[] @default([]) @map("affected_field_ids")
+  /// Source (changed) field ids; populated for seed tasks, where
+  /// affected_field_ids carries the trigger fields rather than targets.
+  sourceFieldIds          String[] @default([]) @map("source_field_ids")
+  seedRecordCount         Int      @default(0) @map("seed_record_count")
+  stageDepth              Int      @default(0) @map("stage_depth")
+  predecessorTaskId       String?  @map("predecessor_task_id")
+  runTotalSteps           Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int      @default(0) @map("run_completed_steps_before")
+  syncMaxLevel            Int?     @map("sync_max_level")
+  estimatedComplexity     Int      @default(0) @map("estimated_complexity")
+  attempts                Int      @default(0)
+  outcome                 String
+  sourceChangedAt         DateTime? @map("source_changed_at")
+  enqueuedAt              DateTime @map("enqueued_at")
+  startedAt               DateTime? @map("started_at")
+  completedAt             DateTime @map("completed_at")
+  durationMs              Int      @default(0) @map("duration_ms")
+
+  @@index([runId])
+  @@index([baseId, completedAt])
+  @@index([completedAt])
+  @@index([originRunIds], type: Gin, map: "computed_update_run_history_origin_run_ids_gin")
+  @@map("computed_update_run_history")
+}
+
 model ComputedUpdatePauseScope {
   id        String    @id
   scopeType String    @map("scope_type")
@@ -102,6 +187,7 @@ model ComputedUpdatePauseScope {
   pausedBy  String?   @map("paused_by")
   resumeAt  DateTime? @map("resume_at")
   reason    String?
+  writePolicy String  @default("allow_bounded") @map("write_policy")
   updatedAt DateTime  @updatedAt @map("updated_at")
   updatedBy String?   @map("updated_by")
 
@@ -193,15 +279,32 @@ model TableTrash {
 }
 
 model RecordTrash {
-  id          String   @id @default(cuid())
-  tableId     String   @map("table_id")
-  recordId    String   @map("record_id")
-  snapshot    String   @map("snapshot")
-  createdTime DateTime @default(now()) @map("created_time")
-  createdBy   String   @map("created_by")
+  id                     String    @id @default(cuid())
+  tableId                String    @map("table_id")
+  recordId               String    @map("record_id")
+  snapshot               String    @map("snapshot")
+  createdTime            DateTime  @default(now()) @map("created_time")
+  createdBy              String    @map("created_by")
+  reason                 String    @default("deleted") @map("reason")
+  recordCreatedTime      DateTime? @map("record_created_time")
+  recordCreatedBy        String?   @map("record_created_by")
+  recordLastModifiedTime DateTime? @map("record_last_modified_time")
+  recordLastModifiedBy   String?   @map("record_last_modified_by")
+  operationId            String?   @map("operation_id")
 
   @@index([tableId, recordId])
   @@map("record_trash")
+}
+
+model RecordRemovalTombstone {
+  id          String   @id
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  type        String
+  createdTime DateTime @default(now()) @map("created_time")
+
+  @@index([tableId, recordId])
+  @@map("record_removal_tombstone")
 }
 
 model Attachments {
@@ -240,4 +343,52 @@ model AttachmentsTable {
   @@index([attachmentId])
   @@index([token])
   @@map("attachments_table")
+}
+
+model DomainEventOutbox {
+  id                 String   @id
+  baseId             String   @map("base_id")
+  tableId            String?  @map("table_id")
+  messageName        String   @map("message_name")
+  schemaVersion      Int      @map("schema_version")
+  aggregateId        String?  @map("aggregate_id")
+  payload            Json
+  payloadBytes       Int      @map("payload_bytes")
+  catalogGeneration  Int      @map("catalog_generation")
+  requiredConsumers  Json     @map("required_consumers")
+  bindingId          String?  @map("binding_id")
+  storageEpoch       Int?     @map("storage_epoch")
+  unpublished        Boolean   @default(true)
+  settled            String?
+  settledAt          DateTime? @map("settled_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  @@index([baseId])
+  @@map("domain_event_outbox")
+}
+
+model DomainEventDelivery {
+  id             String    @id
+  eventId        String    @map("event_id")
+  consumerId     String    @map("consumer_id")
+  status         String
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(12) @map("max_attempts")
+  leaseToken     String?   @map("lease_token")
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@unique([eventId, consumerId])
+  @@map("domain_event_delivery")
+}
+
+model DomainEventInbox {
+  consumerId String   @map("consumer_id")
+  eventId    String   @map("event_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@id([consumerId, eventId])
+  @@index([eventId], map: "domain_event_inbox_event_id_idx")
+  @@map("domain_event_inbox")
 }

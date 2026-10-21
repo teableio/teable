@@ -5,6 +5,10 @@
     "password": "Passwort",
     "passwordTooShort": "Das Passwort muss mindestens 3 Zeichen lang sein"
   },
+  "form": {
+    "requireLoginTip": "Für dieses Formular müssen Sie sich vor dem Absenden anmelden",
+    "login": "Anmelden"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Auswählen..."
   },

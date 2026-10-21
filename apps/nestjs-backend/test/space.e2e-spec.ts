@@ -1,9 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPluginEmail, IdPrefix, Role } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateSpaceVo,
   IUserMeVo,
@@ -486,6 +487,78 @@ describe('OpenAPI SpaceController (e2e)', () => {
         expect(error?.status).toBe(400);
         expect(error?.message).toBe('Cannot delete the only owner of the space');
       });
+    });
+  });
+
+  // pentest RACE-01: two owners demoting each other at once both passed the "only owner"
+  // check against the same snapshot and left the space with no owner.
+  describe('concurrent owner changes', () => {
+    it('never leaves a space without an owner', async () => {
+      const prisma = app.get(PrismaService);
+      const ownerAId = globalThis.testConfig.userId;
+      const ownerB = await createNewUserAxios({
+        email: `owner-race-${Date.now()}@test-space.com`,
+        password: '12345678a',
+      });
+      const ownerBId = (await ownerB.get<IUserMeVo>(USER_ME)).data.id;
+      const raceSpaceId = (await apiCreateSpace({ name: 'owner race' })).data.id;
+      const setOwner = (principalId: string) =>
+        prisma.collaborator.upsert({
+          where: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            resourceType_resourceId_principalId_principalType: {
+              resourceType: CollaboratorType.Space,
+              resourceId: raceSpaceId,
+              principalId,
+              principalType: PrincipalType.User,
+            },
+          },
+          create: {
+            roleName: Role.Owner,
+            resourceType: CollaboratorType.Space,
+            resourceId: raceSpaceId,
+            principalId,
+            principalType: PrincipalType.User,
+            createdBy: ownerAId,
+          },
+          update: { roleName: Role.Owner },
+        });
+
+      try {
+        for (let round = 0; round < 3; round++) {
+          await setOwner(ownerAId);
+          await setOwner(ownerBId);
+
+          const results = await Promise.allSettled([
+            updateSpaceCollaborator({
+              spaceId: raceSpaceId,
+              updateSpaceCollaborateRo: {
+                role: Role.Editor,
+                principalId: ownerBId,
+                principalType: PrincipalType.User,
+              },
+            }),
+            ownerB.patch(urlBuilder(UPDATE_SPACE_COLLABORATE, { spaceId: raceSpaceId }), {
+              role: Role.Editor,
+              principalId: ownerAId,
+              principalType: PrincipalType.User,
+            }),
+          ]);
+
+          expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+          const owners = await prisma.collaborator.count({
+            where: {
+              resourceType: CollaboratorType.Space,
+              resourceId: raceSpaceId,
+              roleName: Role.Owner,
+            },
+          });
+          expect(owners).toBe(1);
+        }
+      } finally {
+        await setOwner(ownerAId);
+        await permanentDeleteSpace(raceSpaceId);
+      }
     });
   });
 

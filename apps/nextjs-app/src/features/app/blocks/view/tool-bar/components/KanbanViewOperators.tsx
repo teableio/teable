@@ -19,6 +19,7 @@ import {
   useTablePermission,
   usePersonalView,
 } from '@teable/sdk';
+import { useIsDrawerLayout } from '@teable/sdk/components';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
@@ -31,6 +32,10 @@ import { CoverFieldSelect } from './CoverFieldSelect';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
+  // The footer below is handed to VisibleFields and rendered inside the shared
+  // shell, which also puts it in the desktop popover - so gate on the same
+  // breakpoint the shell uses.
+  const isDrawer = useIsDrawerLayout();
   const { disabled } = props;
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
@@ -87,6 +92,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   return (
     <ScrollableToolbarGroup className="items-center">
       <FieldCreateOrSelectModal
+        responsive
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}
         description={t('table:kanban.toolbar.chooseStackingFieldDescription')}
@@ -129,6 +135,8 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
         )}
       </FieldCreateOrSelectModal>
       <VisibleFields
+        responsive
+        title={t('table:kanban.toolbar.customizeCards')}
         footer={
           <>
             <CoverFieldSelect
@@ -138,8 +146,19 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
               onCheckedChange={onCoverFitChange}
               className="border-t"
             />
-            <div className="flex h-10 items-center justify-between border-t px-4">
-              <Label htmlFor="is-field-name-hidden" className="text-sm font-normal">
+            {/* min-height instead of a fixed one so the label can wrap in
+                de/fr/ru - drawer only, since this footer also renders inside
+                the desktop popover. */}
+            <div
+              className={cn(
+                'flex h-10 items-center justify-between border-t px-4',
+                isDrawer && 'h-auto min-h-10 gap-3 py-3'
+              )}
+            >
+              <Label
+                htmlFor="is-field-name-hidden"
+                className={cn('text-sm font-normal', isDrawer && 'min-w-0')}
+              >
                 {t('table:kanban.toolbar.hideFieldName')}
               </Label>
               <Switch
@@ -164,12 +183,13 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
         )}
       </VisibleFields>
       <ViewFilter
+        responsive
         filters={view?.filter || null}
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
             <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
-              <Share2 className="mr-2 size-4 shrink-0" />
+              <Share2 className="me-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -195,7 +215,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </ToolBarButton>
         )}
       </ViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             disabled={disabled}

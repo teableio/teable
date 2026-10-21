@@ -1,6 +1,5 @@
 /**
- * Notably for storybook & independent releases
- * @link https://storybook.js.org/addons/@storybook/addon-postcss
+ * Notably for storybook (postcss-loader in .storybook/main.js) & independent releases
  */
 module.exports = {
   plugins: {

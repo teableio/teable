@@ -98,7 +98,7 @@ export const stringifyClipboardText = (content: string[][]) => {
       row
         .map((cell) =>
           cell.includes(delimiter) || cell.includes(newline)
-            ? `"${cell.replace(/"/g, '""')}"`
+            ? `"${cell.replaceAll('"', '""')}"`
             : cell
         )
         .join(delimiter)

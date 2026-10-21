@@ -82,6 +82,7 @@ export class RecordDeleteService {
         ...record,
         order: orders?.[index],
       })),
+      removalReason: this.cls.get('recordRemovalReason'),
     });
 
     return recordsForEvent;

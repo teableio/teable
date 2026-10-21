@@ -8,7 +8,8 @@ export const DELETE_BASE_SHARE = '/base/{baseId}/share/{shareId}';
 export const DeleteBaseShareRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_SHARE,
-  description: 'Delete a base share link',
+  title: 'Delete project share link',
+  description: 'Delete a project share link by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

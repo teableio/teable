@@ -116,14 +116,14 @@ describe('LinkField', () => {
       linkFieldNameResult,
       otherTableIdResult,
     ].forEach((r) => r._unsafeUnwrap());
-    baseIdResult._unsafeUnwrap();
-    tableIdResult._unsafeUnwrap();
-    tableNameResult._unsafeUnwrap();
-    lookupFieldIdResult._unsafeUnwrap();
-    lookupFieldNameResult._unsafeUnwrap();
-    linkFieldIdResult._unsafeUnwrap();
-    linkFieldNameResult._unsafeUnwrap();
-    otherTableIdResult._unsafeUnwrap();
+    expect(baseIdResult.isOk()).toBe(true);
+    expect(tableIdResult.isOk()).toBe(true);
+    expect(tableNameResult.isOk()).toBe(true);
+    expect(lookupFieldIdResult.isOk()).toBe(true);
+    expect(lookupFieldNameResult.isOk()).toBe(true);
+    expect(linkFieldIdResult.isOk()).toBe(true);
+    expect(linkFieldNameResult.isOk()).toBe(true);
+    expect(otherTableIdResult.isOk()).toBe(true);
 
     const tableBuilder = Table.builder()
       .withId(tableIdResult._unsafeUnwrap())
@@ -137,7 +137,7 @@ describe('LinkField', () => {
       .done();
     tableBuilder.view().defaultGrid().done();
     const foreignTableResult = tableBuilder.build();
-    foreignTableResult._unsafeUnwrap();
+    expect(foreignTableResult.isOk()).toBe(true);
 
     const foreignTable = ForeignTable.from(foreignTableResult._unsafeUnwrap());
 
@@ -149,17 +149,17 @@ describe('LinkField', () => {
       selfKeyName: '__id',
       foreignKeyName: '__fk_link',
     });
-    configResult._unsafeUnwrap();
+    expect(configResult.isOk()).toBe(true);
 
     const linkFieldResult = LinkField.create({
       id: linkFieldIdResult._unsafeUnwrap(),
       name: linkFieldNameResult._unsafeUnwrap(),
       config: configResult._unsafeUnwrap(),
     });
-    linkFieldResult._unsafeUnwrap();
+    expect(linkFieldResult.isOk()).toBe(true);
 
     const lookupResult = linkFieldResult._unsafeUnwrap().lookupField(foreignTable);
-    lookupResult._unsafeUnwrapErr();
+    expect(lookupResult.isErr()).toBe(true);
   });
 
   it('resolves symmetric and visible fields from foreign table', () => {
@@ -755,7 +755,7 @@ describe('LinkField', () => {
       foreignTable: ForeignTable.from(foreignTableResult._unsafeUnwrap()),
       hostTable: hostTableResult._unsafeUnwrap(),
     });
-    symmetricResult._unsafeUnwrapErr();
+    expect(symmetricResult.isErr()).toBe(true);
   });
 
   it('returns error when symmetric name cannot be generated', () => {
@@ -786,13 +786,13 @@ describe('LinkField', () => {
     ];
     for (const name of allNames) {
       const nameResult = FieldName.create(name);
-      nameResult._unsafeUnwrap();
+      expect(nameResult.isOk()).toBe(true);
 
       builder.field().singleLineText().withName(nameResult._unsafeUnwrap()).done();
     }
     builder.view().defaultGrid().done();
     const hostTableResult = builder.build();
-    hostTableResult._unsafeUnwrap();
+    expect(hostTableResult.isOk()).toBe(true);
 
     const hostTable = hostTableResult._unsafeUnwrap();
 
@@ -801,20 +801,20 @@ describe('LinkField', () => {
       foreignTableId: hostTable.id().toString(),
       lookupFieldId: primaryFieldIdResult._unsafeUnwrap().toString(),
     });
-    configResult._unsafeUnwrap();
+    expect(configResult.isOk()).toBe(true);
 
     const linkFieldResult = LinkField.create({
       id: linkFieldIdResult._unsafeUnwrap(),
       name: linkFieldNameResult._unsafeUnwrap(),
       config: configResult._unsafeUnwrap(),
     });
-    linkFieldResult._unsafeUnwrap();
+    expect(linkFieldResult.isOk()).toBe(true);
 
     const symmetricResult = linkFieldResult._unsafeUnwrap().buildSymmetricField({
       foreignTable: ForeignTable.from(hostTable),
       hostTable,
     });
-    symmetricResult._unsafeUnwrapErr();
+    expect(symmetricResult.isErr()).toBe(true);
   });
 
   it('returns error for unsupported relationship when resolving fk host table', () => {
@@ -855,7 +855,7 @@ describe('LinkField', () => {
       baseId: baseIdResult._unsafeUnwrap(),
       hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   describe('onDependencyUpdated', () => {
@@ -1378,5 +1378,42 @@ describe('LinkField.validateAutoCreateTarget', () => {
 
     const result = linkField.validateAutoCreateTarget(hostTable, foreignTable);
     expect(result).toEqual(ok(undefined));
+  });
+});
+
+// T6810: the non-hosting side of a two-way oneOne/manyOne link resolves its FK
+// key to '__id' (the referenced record id); its physical order column is the one
+// accompanying the hosting side's FK column — '__id_order' never exists.
+describe('LinkField order column resolution', () => {
+  const buildOneOneLinkField = (keys: { selfKeyName: string; foreignKeyName: string }) => {
+    const foreignTableId = createTableId('1')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('2')._unsafeUnwrap();
+    const linkFieldId = createFieldId('3')._unsafeUnwrap();
+
+    const config = LinkFieldConfig.create({
+      relationship: 'oneOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      fkHostTableName: 'schema.link_host',
+      selfKeyName: keys.selfKeyName,
+      foreignKeyName: keys.foreignKeyName,
+    })._unsafeUnwrap();
+
+    return LinkField.create({
+      id: linkFieldId,
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config,
+      meta: LinkFieldMeta.create({ hasOrderColumn: true })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+  };
+
+  it('resolves the hosting oneOne side to its FK order column', () => {
+    const hosting = buildOneOneLinkField({ selfKeyName: '__id', foreignKeyName: '__fk_link' });
+    expect(hosting.orderColumnName()._unsafeUnwrap()).toBe('__fk_link_order');
+  });
+
+  it('resolves the non-hosting oneOne side to the hosting FK order column, never __id_order', () => {
+    const symmetric = buildOneOneLinkField({ selfKeyName: '__fk_link', foreignKeyName: '__id' });
+    expect(symmetric.orderColumnName()._unsafeUnwrap()).toBe('__fk_link_order');
   });
 });

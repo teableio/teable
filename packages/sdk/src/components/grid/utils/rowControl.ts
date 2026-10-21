@@ -29,6 +29,21 @@ export const getRowControlOffsetX = (
   return leadingExtraWidth + (layoutWidth / (rowControlCount || 1)) * (rowControlIndex + 0.5);
 };
 
+// The comment badge is drawn in place of the expand icon, so it has to sit in
+// the expand control's slot. Hardcoding a slot index breaks as soon as a control
+// is missing — there is no drag handle without `view|update` (a base share, or a
+// read-only collaborator), and the badge then lands on top of the first cell.
+export const getCommentCountOffsetX = (
+  width: number,
+  theme: IGridTheme,
+  rowControlPaddingX: number | undefined,
+  rowControls: IRowControlItem[]
+) => {
+  const expandIndex = rowControls.findIndex(({ type }) => type === RowControlType.Expand);
+  if (expandIndex === -1) return null;
+  return getRowControlOffsetX(width, theme, rowControlPaddingX, rowControls.length, expandIndex);
+};
+
 export const getRowControlCheckboxOffsetX = ({
   width,
   theme,

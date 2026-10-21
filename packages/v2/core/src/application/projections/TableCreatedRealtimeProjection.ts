@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import { TableCreated } from '../../domain/table/events/TableCreated';
+import { TableRestored } from '../../domain/table/events/TableRestored';
 import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -17,9 +18,14 @@ import { ProjectionHandler } from './Projection';
 const tableCollectionPrefix = 'tbl';
 const fieldCollectionPrefix = 'fld';
 
+// TableRestored reuses the creation projection: restoring a trashed table must
+// re-ensure the Table document that TableDeletedRealtimeProjection removed,
+// otherwise subscribed collaborators keep a hole in their table list until a
+// full reload (the sidebar refetches via presence flush, the list does not).
 @ProjectionHandler(TableCreated)
+@ProjectionHandler(TableRestored)
 @injectable()
-export class TableCreatedRealtimeProjection implements IEventHandler<TableCreated> {
+export class TableCreatedRealtimeProjection implements IEventHandler<TableCreated | TableRestored> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
@@ -31,7 +37,7 @@ export class TableCreatedRealtimeProjection implements IEventHandler<TableCreate
 
   async handle(
     context: ExecutionContextPort.IExecutionContext,
-    event: TableCreated
+    event: TableCreated | TableRestored
   ): Promise<Result<void, DomainError>> {
     const { tableRepository, tableMapper, realtimeEngine } = this;
 

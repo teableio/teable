@@ -1,5 +1,5 @@
 import { BaseNodeResourceType } from '@teable/openapi';
-import { useBaseId, useView } from '@teable/sdk/hooks';
+import { useBaseId, useView, useContentDir } from '@teable/sdk/hooks';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,9 @@ const useCurrentNodeFromRoute = () => {
       case BaseNodeResourceType.Workflow:
         resourceId = baseResource.workflowId;
         break;
+      case BaseNodeResourceType.Routine:
+        resourceId = baseResource.routineId;
+        break;
       case BaseNodeResourceType.App:
         resourceId = baseResource.appId;
         break;
@@ -72,6 +75,7 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const baseId = useBaseId() as string;
   const view = useView();
+  const contentDir = useContentDir();
   const { treeItems } = useBaseNodeContext();
   const routeNode = useCurrentNodeFromRoute();
 
@@ -115,7 +119,7 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
                   <ViewIcon className="size-4 text-muted-foreground" />
                 </span>
               )}
-              <span className="truncate text-base font-medium" title={view.name}>
+              <span dir={contentDir} className="truncate text-base font-medium" title={view.name}>
                 {view.name}
               </span>
             </div>

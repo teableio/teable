@@ -51,14 +51,16 @@ export class DeleteViewOperation {
       where: { id: operationId },
     });
 
-    if (operationId && Number(count) === 0) return operation;
+    // A trash entry that has already been purged cannot be restored any more.
+    const purged = Boolean(operationId) && Number(count) === 0;
+    if (!purged) {
+      await this.viewService.restoreView(tableId, viewId);
 
-    await this.viewService.restoreView(tableId, viewId);
-
-    if (operationId) {
-      await dataPrisma.tableTrash.delete({
-        where: { id: operationId },
-      });
+      if (operationId) {
+        await dataPrisma.tableTrash.delete({
+          where: { id: operationId },
+        });
+      }
     }
     return operation;
   }

@@ -1,15 +1,34 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { promises as dnsPromises } from 'node:dns';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDataDbPreflightClient } from './data-db-preflight.service';
 import {
+  buildPinnedDataDbConnection,
   DataDbPreflightService,
   fingerprintDatabaseUrl,
   fingerprintDataDbConnection,
+  getDataDbConnectionHost,
   maskDatabaseUrl,
 } from './data-db-preflight.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
+
+// The network guard now fails closed on resolver errors, so the suite must not
+// depend on real DNS: every hostname resolves to a public address unless a test
+// overrides the mock.
+vi.mock('node:dns', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:dns')>();
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      lookup: vi.fn(async () => [{ address: '93.184.215.14', family: 4 }]),
+    },
+  };
+});
+
+const mockLookup = () => vi.mocked(dnsPromises.lookup as unknown as (...args: never[]) => unknown);
 
 type IFakeDbState = {
   schemas?: string[];
@@ -110,13 +129,22 @@ const BASELINE_TABLES = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
+  'computed_update_run_history',
   'computed_update_pause_scope',
+  'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'domain_event_outbox',
+  'domain_event_delivery',
+  'domain_event_inbox',
+  'computed_reliability_issue',
+  'computed_reliability_scope',
   'record_history',
   'table_trash',
   'record_trash',
+  'record_removal_tombstone',
   '__undo_log',
   'attachments',
   'attachments_table',
@@ -255,6 +283,35 @@ describe('DataDbPreflightService', () => {
     expect(result.ok).toBe(true);
     expect(result.classification).toBe('teable-managed-compatible');
     expect(result.errors).toEqual([]);
+  });
+
+  it('accepts a complete older data DB before the additive reliability migration', async () => {
+    const tables = BASELINE_TABLES.filter((table) => !table.startsWith('computed_reliability_'));
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...tables, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('teable-managed-compatible');
+  });
+
+  it('rejects an incomplete additive reliability migration on a complete baseline', async () => {
+    const tables = BASELINE_TABLES.filter((table) => table !== 'computed_reliability_scope');
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...tables, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
+    expect(result.ok).toBe(false);
+    expect(result.classification).toBe('teable-managed-incompatible');
+    expect(result.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
   });
 
   it('rejects a partial Teable data database as incompatible', async () => {
@@ -839,6 +896,270 @@ describe('DataDbPreflightService', () => {
           }),
         ],
       },
+    });
+  });
+});
+
+// GHSA-p7jc-ccj3-j23x: the private-network guard used a hand-rolled denylist
+// that only matched the single literal 127.0.0.1, so 127.0.0.2, any other
+// 127.0.0.0/8 host and 0.0.0.0 bypassed it. These tests pin the vetted
+// `isBlockedAddress` behaviour and use literal IP hosts so the guard runs
+// without any real DNS lookup. Protection stays enabled (env var unset).
+describe('DataDbPreflightService private-network guard', () => {
+  beforeEach(() => {
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+  });
+
+  const preflightHost = (host: string) =>
+    createService({ schemas: ['public'], tables: [] }).preflight({
+      url: `postgresql://teable:secret@${host}:5432/teable_data`,
+      targetMode: 'initialize-empty',
+    });
+
+  const expectBlocked = async (host: string) => {
+    const result = await preflightHost(host);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((error) => error.code)).toContain('PRIVATE_NETWORK_BLOCKED');
+  };
+
+  it.each([
+    '127.0.0.1',
+    '127.0.0.2',
+    '127.1.2.3',
+    '0.0.0.0',
+    '10.1.2.3',
+    '192.168.1.1',
+    '172.16.0.1',
+    '169.254.169.254',
+  ])('blocks the internal host %s', async (host) => {
+    await expectBlocked(host);
+  });
+
+  it('allows a public IP host', async () => {
+    const result = await preflightHost('8.8.8.8');
+
+    expect(result.errors.map((error) => error.code)).not.toContain('PRIVATE_NETWORK_BLOCKED');
+    expect(result.ok).toBe(true);
+  });
+
+  it('is bypassed when SSRF protection is explicitly disabled', async () => {
+    process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+
+    const result = await preflightHost('127.0.0.2');
+
+    expect(result.errors.map((error) => error.code)).not.toContain('PRIVATE_NETWORK_BLOCKED');
+  });
+});
+
+// GHSA-p7jc-ccj3-j23x / GHSA-rh8q-q9fx-pfcq follow-ups: the guard vetted the
+// URL authority host while pg dialed whatever `?host=` / `connectionString`
+// named, treated a failed lookup as "allowed", and let pg run a second,
+// unguarded lookup (DNS rebinding). Hosts are literal IPs or mocked lookups,
+// so no real DNS is involved. Protection stays enabled (env var unset).
+describe('DataDbPreflightService host override and pinning guard', () => {
+  const dataDbState = { schemas: ['public'], tables: [] };
+
+  beforeEach(() => {
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+    mockLookup().mockReset();
+    mockLookup().mockImplementation(async () => [{ address: '93.184.215.14', family: 4 }]);
+  });
+
+  afterEach(() => {
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+  });
+
+  const preflightWithFactory = (url: string) => {
+    const factory = vi.fn(
+      (_url: string, _pinnedHost?: string) => new FakePreflightClient(dataDbState)
+    );
+    const service = new DataDbPreflightService(undefined, factory);
+    return { factory, result: service.preflight({ url, targetMode: 'initialize-empty' }) };
+  };
+
+  const expectBlockedWithoutConnecting = async (url: string, code: string) => {
+    const { factory, result } = preflightWithFactory(url);
+    const preflight = await result;
+    expect(preflight.ok).toBe(false);
+    expect(preflight.errors.map((error) => error.code)).toContain(code);
+    expect(factory).not.toHaveBeenCalled();
+  };
+
+  describe('host-override connection strings', () => {
+    it.each([
+      ['?host=127.0.0.1', 'postgresql://teable:secret@8.8.8.8:5432/teable_data?host=127.0.0.1'],
+      [
+        '?host=/var/run/postgresql (unix socket)',
+        'postgresql://teable:secret@8.8.8.8:5432/teable_data?host=/var/run/postgresql',
+      ],
+      ['?hostaddr=', 'postgresql://teable:secret@8.8.8.8:5432/teable_data?hostaddr=127.0.0.1'],
+      [
+        '?connectionString=',
+        'postgresql://teable:secret@8.8.8.8:5432/teable_data?connectionString=postgresql://a:b@127.0.0.1:5432/x',
+      ],
+    ])('blocks %s before any client is created', async (_label, url) => {
+      await expectBlockedWithoutConnecting(url, 'HOST_OVERRIDE_BLOCKED');
+    });
+
+    it('rejects a percent-encoded unix socket host without connecting', async () => {
+      const { factory, result } = preflightWithFactory(
+        'postgresql://teable:secret@%2Fvar%2Frun%2Fpostgresql:5432/teable_data'
+      );
+      expect((await result).ok).toBe(false);
+      expect(factory).not.toHaveBeenCalled();
+      expect(
+        getDataDbConnectionHost('postgresql://teable:secret@%2Fvar%2Frun%2Fpostgresql:5432/db')
+      ).toBeNull();
+    });
+
+    it('derives the host the way pg does for ordinary URLs', () => {
+      expect(
+        getDataDbConnectionHost('postgresql://u:p@db.example.com:5432/db?sslmode=require')
+      ).toBe('db.example.com');
+      expect(getDataDbConnectionHost('postgresql://u:p@[2606:4700::1111]:5432/db')).toBe(
+        '2606:4700::1111'
+      );
+      expect(getDataDbConnectionHost('postgresql://u:p@example.com:5432/db?host=')).toBeNull();
+      expect(getDataDbConnectionHost('not a url')).toBeNull();
+    });
+  });
+
+  describe('resolved addresses', () => {
+    const hostnameUrl = 'postgresql://teable:secret@db.example.com:5432/teable_data';
+
+    it.each([
+      ['an IPv4-mapped private address', '::ffff:10.0.0.1'],
+      ['a NAT64-mapped link-local address', '64:ff9b::a9fe:a9fe'],
+      ['an IPv6 link-local address', 'fe80::1'],
+      ['a loopback address', '127.0.0.1'],
+    ])('blocks a hostname resolving to %s', async (_label, address) => {
+      mockLookup().mockResolvedValue([{ address, family: address.includes(':') ? 6 : 4 }]);
+      await expectBlockedWithoutConnecting(hostnameUrl, 'PRIVATE_NETWORK_BLOCKED');
+    });
+
+    it('blocks when any one of several answers is private', async () => {
+      mockLookup().mockResolvedValue([
+        { address: '8.8.8.8', family: 4 },
+        { address: '10.0.0.1', family: 4 },
+      ]);
+      await expectBlockedWithoutConnecting(hostnameUrl, 'PRIVATE_NETWORK_BLOCKED');
+    });
+
+    it('fails closed when the lookup rejects', async () => {
+      mockLookup().mockRejectedValue(
+        Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' })
+      );
+      await expectBlockedWithoutConnecting(hostnameUrl, 'HOST_RESOLUTION_FAILED');
+    });
+
+    it('fails closed when the lookup returns no address', async () => {
+      mockLookup().mockResolvedValue([]);
+      await expectBlockedWithoutConnecting(hostnameUrl, 'HOST_RESOLUTION_FAILED');
+    });
+
+    it('pins the client to the vetted address, preferring IPv4', async () => {
+      mockLookup().mockResolvedValue([
+        { address: '2606:4700:4700::1111', family: 6 },
+        { address: '1.1.1.1', family: 4 },
+      ]);
+      const { factory, result } = preflightWithFactory(hostnameUrl);
+      expect((await result).ok).toBe(true);
+      expect(factory).toHaveBeenCalledWith(hostnameUrl, '1.1.1.1');
+      expect(factory.mock.calls.every(([, pinnedHost]) => pinnedHost === '1.1.1.1')).toBe(true);
+    });
+
+    it('pins to the only address when the host is IPv6-only', async () => {
+      mockLookup().mockResolvedValue([{ address: '2606:4700:4700::1111', family: 6 }]);
+      const { factory, result } = preflightWithFactory(hostnameUrl);
+      expect((await result).ok).toBe(true);
+      expect(factory).toHaveBeenCalledWith(hostnameUrl, '2606:4700:4700::1111');
+    });
+
+    it('pins a literal IP host to itself without a lookup', async () => {
+      const url = 'postgresql://teable:secret@8.8.8.8:5432/teable_data';
+      const { factory, result } = preflightWithFactory(url);
+      expect((await result).ok).toBe(true);
+      expect(factory).toHaveBeenCalledWith(url, '8.8.8.8');
+      expect(mockLookup()).not.toHaveBeenCalled();
+    });
+
+    it('hands the raw URL through when SSRF protection is disabled', async () => {
+      process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+      const url = 'postgresql://teable:secret@127.0.0.1:5432/teable_data?host=10.0.0.1';
+      const { factory, result } = preflightWithFactory(url);
+      expect((await result).ok).toBe(true);
+      expect(factory).toHaveBeenCalledWith(url, undefined);
+    });
+  });
+
+  describe('buildPinnedDataDbConnection', () => {
+    it('replaces the dial target and keeps credentials, database and params', () => {
+      expect(
+        buildPinnedDataDbConnection(
+          'postgresql://te%40able:se%3Acret@db.example.com:5433/teable%20data?schema=public&application_name=teable',
+          '8.8.8.8'
+        )
+      ).toEqual({
+        host: '8.8.8.8',
+        port: 5433,
+        user: 'te@able',
+        password: 'se:cret',
+        database: 'teable data',
+        schema: 'public',
+        application_name: 'teable',
+      });
+    });
+
+    it('preserves TLS identity via servername when SSL is requested', () => {
+      expect(
+        buildPinnedDataDbConnection(
+          'postgresql://u:p@db.example.com:5432/db?sslmode=require',
+          '8.8.8.8'
+        ).ssl
+      ).toEqual({ servername: 'db.example.com' });
+      expect(
+        buildPinnedDataDbConnection('postgresql://u:p@db.example.com:5432/db?ssl=true', '8.8.8.8')
+          .ssl
+      ).toEqual({ servername: 'db.example.com' });
+      expect(
+        buildPinnedDataDbConnection(
+          'postgresql://u:p@db.example.com:5432/db?sslmode=no-verify',
+          '8.8.8.8'
+        ).ssl
+      ).toEqual({ rejectUnauthorized: false, servername: 'db.example.com' });
+    });
+
+    it('mirrors pg-connection-string for disabled SSL and IP-literal hosts', () => {
+      expect(
+        buildPinnedDataDbConnection(
+          'postgresql://u:p@db.example.com:5432/db?sslmode=disable',
+          '8.8.8.8'
+        ).ssl
+      ).toBe(false);
+      expect(
+        buildPinnedDataDbConnection('postgresql://u:p@8.8.8.8:5432/db?sslmode=require', '8.8.8.8')
+          .ssl
+      ).toEqual({});
+      expect(
+        'ssl' in buildPinnedDataDbConnection('postgresql://u:p@db.example.com:5432/db', '8.8.8.8')
+      ).toBe(false);
+    });
+
+    it('never reads certificate files named in the URL', () => {
+      const config = buildPinnedDataDbConnection(
+        'postgresql://u:p@db.example.com:5432/db?sslrootcert=/etc/passwd',
+        '8.8.8.8'
+      );
+      expect(config.ssl).toEqual({ servername: 'db.example.com' });
+    });
+
+    it('refuses to pin a URL that overrides its host', () => {
+      expect(() =>
+        buildPinnedDataDbConnection(
+          'postgresql://u:p@db.example.com:5432/db?host=127.0.0.1',
+          '8.8.8.8'
+        )
+      ).toThrow();
     });
   });
 });

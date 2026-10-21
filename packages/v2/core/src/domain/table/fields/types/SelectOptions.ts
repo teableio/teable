@@ -27,7 +27,7 @@ export const validateSelectOptions = (
   }
 
   const names = new Set<string>();
-  let hasDuplicateName = false;
+  let duplicateName: string | undefined;
   for (const option of options) {
     const name = option.name().toString();
     if (domainContext) {
@@ -35,14 +35,23 @@ export const validateSelectOptions = (
       if (nameLimitResult.isErr()) return err(nameLimitResult.error);
     }
     if (names.has(name)) {
-      hasDuplicateName = true;
+      duplicateName ??= name;
     } else {
       names.add(name);
     }
   }
 
-  if (hasDuplicateName)
-    return err(domainError.conflict({ message: 'SelectField options must be unique' }));
+  if (duplicateName) {
+    return err(
+      domainError.conflict({
+        message: `Choice name ${duplicateName} already exists`,
+        localization: {
+          i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
+          context: { name: duplicateName },
+        },
+      })
+    );
+  }
 
   if (defaultValue) {
     if (mode === 'single' && defaultValue.isMultiple())

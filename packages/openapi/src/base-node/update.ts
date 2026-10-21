@@ -9,7 +9,7 @@ export const UPDATE_BASE_NODE = '/base/{baseId}/node/{nodeId}';
 
 export const updateBaseNodeRoSchema = z.object({
   name: z.string().trim().min(1).optional(),
-  icon: z.string().trim().optional(),
+  icon: z.string().trim().optional().nullable(),
 });
 
 export type IUpdateBaseNodeRo = z.infer<typeof updateBaseNodeRoSchema>;
@@ -17,7 +17,8 @@ export type IUpdateBaseNodeRo = z.infer<typeof updateBaseNodeRoSchema>;
 export const UpdateBaseNodeRoute: RouteConfig = registerRoute({
   method: 'put',
   path: UPDATE_BASE_NODE,
-  description: 'Update a node for a base',
+  title: 'Update project node',
+  description: 'Update a node in a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

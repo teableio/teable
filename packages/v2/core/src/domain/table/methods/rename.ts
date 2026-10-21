@@ -10,9 +10,11 @@ export function rename(this: Table, nextName: TableName): Result<Table, DomainEr
     id: this.id(),
     baseId: this.baseId(),
     name: nextName,
+    properties: this.properties(),
     fields: this.getFields(),
     views: this.views(),
     primaryFieldId: this.primaryFieldId(),
+    searchIndex: this.searchIndex(),
   };
 
   const dbTableNameResult = this.dbTableName();

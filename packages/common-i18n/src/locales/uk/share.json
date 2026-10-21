@@ -5,6 +5,10 @@
     "password": "Пароль",
     "passwordTooShort": "Пароль повинен містити не менше 3 символів"
   },
+  "form": {
+    "requireLoginTip": "Щоб надіслати цю форму, потрібно увійти",
+    "login": "Увійти"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Виберіть..."
   },

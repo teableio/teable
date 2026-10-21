@@ -30,8 +30,12 @@ import {
   unionFieldOptionsRoSchema,
   unionFieldOptionsVoSchema,
 } from './field-unions.schema';
-import type { ILookupOptionsRo } from './lookup-options-base.schema';
-import { lookupOptionsRoSchema, lookupOptionsVoSchema } from './lookup-options-base.schema';
+import {
+  type ILookupOptionsRo,
+  lookupOptionsPatchSchema,
+  lookupOptionsRoSchema,
+  lookupOptionsVoSchema,
+} from './lookup-options-base.schema';
 import { validateFieldOptions } from './zod-error';
 
 // All union schemas and types are now imported from field-unions.schema.ts
@@ -119,6 +123,7 @@ export const fieldVoSchema = z.object({
         .object({
           code: z.string().optional(),
           message: z.string(),
+          context: z.record(z.string(), z.unknown()).optional(),
         })
         .nullable()
         .optional(),
@@ -264,6 +269,16 @@ export const getOptionsSchema = (type: FieldType) => {
   }
 };
 
+/**
+ * Option keys a field type can carry. The PATCH endpoint accepts a subset of the
+ * current field's own options, so this is the per-type allowlist that decides whether
+ * a patched option key is supported at all.
+ */
+export const getFieldOptionKeys = (type: FieldType): ReadonlyArray<string> => {
+  const schema = getOptionsSchema(type);
+  return schema instanceof z.ZodObject ? Object.keys(schema.shape) : [];
+};
+
 const refineOptions = (
   data: {
     type: FieldType;
@@ -281,6 +296,20 @@ const refineOptions = (
       code: 'custom',
       message: 'isConditionalLookup requires isLookup to be true.',
     });
+  }
+
+  if (data.type === FieldType.Button && data.options && 'maxCount' in data.options) {
+    const maxCount = data.options.maxCount;
+    if (
+      maxCount != null &&
+      (typeof maxCount !== 'number' || !Number.isSafeInteger(maxCount) || maxCount <= 0)
+    ) {
+      ctx.addIssue({
+        path: ['options', 'maxCount'],
+        code: 'custom',
+        message: 'Button maxCount must be a positive integer',
+      });
+    }
   }
 
   const validateRes = validateFieldOptions(data);
@@ -343,7 +372,7 @@ export const convertFieldRoSchema = baseFieldRoSchema
     options: baseFieldRoSchema.shape.options.nullable().optional(),
   })
   .superRefine(refineOptions);
-export const createFieldRoSchema = baseFieldRoSchema
+const createFieldRoInputSchema = baseFieldRoSchema
   .extend({
     id: z.string().startsWith(IdPrefix.Field).optional().meta({
       description:
@@ -365,11 +394,65 @@ export const createFieldRoSchema = baseFieldRoSchema
   })
   .superRefine(refineOptions);
 
-export const updateFieldRoSchema = z.object({
-  name: baseFieldRoSchema.shape.name,
-  description: baseFieldRoSchema.shape.description,
-  dbFieldName: baseFieldRoSchema.shape.dbFieldName,
-});
+export const createFieldRoSchema = z.preprocess((input) => {
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    !('type' in input) ||
+    input.type !== FieldType.ConditionalRollup ||
+    !('options' in input) ||
+    !input.options ||
+    typeof input.options !== 'object' ||
+    Array.isArray(input.options)
+  ) {
+    return input;
+  }
+  if ('expression' in input.options && input.options.expression !== undefined) {
+    return input;
+  }
+  return { ...input, options: { ...input.options, expression: 'countall({values})' } };
+}, createFieldRoInputSchema);
+
+/**
+ * Every option key any field type can carry, all optional: a PATCH may send any subset
+ * of the current field's own options. Which subset is valid is decided against the
+ * current field type in the v2 update service, so an option that field cannot carry is
+ * rejected instead of being silently dropped. Unknown keys are rejected here.
+ */
+const buildPatchableFieldOptionsShape = (): Record<string, z.ZodTypeAny> => {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const type of Object.values(FieldType)) {
+    const schema = getOptionsSchema(type);
+    if (!(schema instanceof z.ZodObject)) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(schema.shape as Record<string, z.ZodTypeAny>)) {
+      const existing = shape[key];
+      const next = value.optional();
+      shape[key] = existing ? z.union([existing, next]) : next;
+    }
+  }
+  return shape;
+};
+
+export const updateFieldOptionsRoSchema = z
+  .object({
+    ...buildPatchableFieldOptionsShape(),
+    trackedFieldIds: lastModifiedTimeFieldOptionsRoSchema.shape.trackedFieldIds,
+  })
+  .strict();
+
+export const updateFieldRoSchema = z
+  .object({
+    name: baseFieldRoSchema.shape.name,
+    description: baseFieldRoSchema.shape.description,
+    dbFieldName: baseFieldRoSchema.shape.dbFieldName,
+    unique: baseFieldRoSchema.shape.unique,
+    notNull: baseFieldRoSchema.shape.notNull,
+    lookupOptions: lookupOptionsPatchSchema.optional(),
+    options: updateFieldOptionsRoSchema.optional(),
+  })
+  .strict();
 
 export type IFieldRo = z.infer<typeof createFieldRoSchema>;
 

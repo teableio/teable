@@ -3,6 +3,7 @@ import type {
   DomainError,
   ConditionalLookupField,
   FieldId,
+  LinkField,
   LookupField,
   Table,
   TableId,
@@ -13,6 +14,7 @@ import type {
   Expression,
   ExpressionBuilder,
   Kysely,
+  RawBuilder,
   SqlBool,
   UpdateQueryBuilder,
   UpdateResult,
@@ -21,6 +23,7 @@ import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isUserCellField } from '../../shared/userAvatarUrl';
 import type { DynamicDB, QB } from '../query-builder';
 import { COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
 
@@ -97,7 +100,10 @@ export type UpdatedRecordRow = {
   [column: string]: unknown;
 };
 
-const oldValueAliasForColumn = (column: string): string => `__old_${column.replaceAll(/\W/g, '_')}`;
+// Index-based so the alias stays under Postgres' 63-byte identifier limit no
+// matter how long the column name is: a truncated alias would make the
+// RETURNING key miss `row[alias]` and read old values as undefined.
+const oldValueAliasForColumn = (columnIndex: number): string => `__old_${columnIndex}`;
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
@@ -132,7 +138,14 @@ export class UpdateFromSelectBuilder {
     );
   }
 
-  build(params: UpdateFromSelectParams): Result<CompiledQuery, DomainError> {
+  build(
+    params: UpdateFromSelectParams & {
+      /** Preserve the version increments of separate single-field backfill statements. */
+      countChangedFieldsForVersion?: boolean;
+      /** Identify changed rows for one version bump after multiple field statements. */
+      returnRecordIds?: boolean;
+    }
+  ): Result<CompiledQuery, DomainError> {
     const tableAlias = params.tableAlias ?? 'u';
     const selectAlias = params.selectAlias ?? 'c';
     const fieldIds = params.fieldIds;
@@ -157,7 +170,13 @@ export class UpdateFromSelectBuilder {
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
           .from(typedSelectQuery.as(selectAlias))
-          .set((eb) => projectionPlan.buildSetValues(tableAlias, { incrementVersion })(eb))
+          .set((eb) =>
+            projectionPlan.buildSetValues(tableAlias, {
+              incrementVersion,
+              countChangedFieldsForVersion: params.countChangedFieldsForVersion,
+              skipDistinctFilter: params.skipDistinctFilter,
+            })(eb)
+          )
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -174,7 +193,9 @@ export class UpdateFromSelectBuilder {
           query = query.where((eb) => distinctFilter(eb));
         }
 
-        return ok(query.compile());
+        return ok(
+          params.returnRecordIds ? query.returning(`${tableAlias}.__id`).compile() : query.compile()
+        );
       }
     );
   }
@@ -244,13 +265,14 @@ export class UpdateFromSelectBuilder {
           `${oldVersionExpression} as "__old_version"`,
         ];
         const oldColumnAliases = new Map<string, string>();
+        let oldAliasIndex = 0;
         for (const [column] of columnMapping) {
-          const oldAlias = oldValueAliasForColumn(column);
+          const oldAlias = oldValueAliasForColumn(oldAliasIndex++);
           oldColumnAliases.set(column, oldAlias);
           returningColumns.push(
-            `${quoteRef(oldTableAlias, column)} as ${quoteIdentifier(oldAlias)}`
+            `${quoteRef(oldTableAlias, column)} as ${quoteIdentifier(oldAlias)}`,
+            quoteRef(tableAlias, column)
           );
-          returningColumns.push(quoteRef(tableAlias, column));
         }
 
         // Use raw SQL for RETURNING since Kysely's typing doesn't support it well for updates
@@ -342,7 +364,27 @@ type FieldMapping = {
   isLookup: boolean;
   isLookupMultiValue: boolean;
   isLookupAutoNumber: boolean;
+  isUserCell: boolean;
   dbFieldType: string;
+  /**
+   * FK column of a required FK-hosting link (manyOne / hosting oneOne). A null
+   * projection must never be written to the NOT NULL display column: a missed
+   * join (orphaned FK) and a cleared FK are both stored as a null projection,
+   * and either one would 23502 if assigned. Presence of this column is the
+   * marker to COALESCE onto the existing display value instead.
+   */
+  requiredLinkFkColumn: string | null;
+};
+
+const resolveRequiredLinkFkColumn = (field: Field): string | null => {
+  if (!field.type().equals(FieldType.link())) return null;
+  if (!field.notNull().toBoolean()) return null;
+  const linkField = field as LinkField;
+  const relationship = linkField.relationship().toString();
+  if (relationship !== 'manyOne' && relationship !== 'oneOne') return null;
+  const fkColumn = linkField.foreignKeyNameString().unwrapOr('__id');
+  // '__id' means the FK column lives on the other table (symmetric oneOne side)
+  return fkColumn === '__id' ? null : fkColumn;
 };
 
 const jsonSpecResult = Field.specs().isJson().build();
@@ -373,47 +415,67 @@ const resolveDbFieldType = (
   }
 };
 
+const resolveStorageDbFieldTypeFromFieldType = (fieldType: FieldType): string | undefined => {
+  if (fieldType.equals(FieldType.autoNumber())) return 'INTEGER';
+  if (fieldType.equals(FieldType.number()) || fieldType.equals(FieldType.rating())) return 'REAL';
+  if (
+    fieldType.equals(FieldType.link()) ||
+    fieldType.equals(FieldType.user()) ||
+    fieldType.equals(FieldType.createdBy()) ||
+    fieldType.equals(FieldType.lastModifiedBy()) ||
+    fieldType.equals(FieldType.attachment()) ||
+    fieldType.equals(FieldType.button())
+  ) {
+    return 'JSON';
+  }
+  if (
+    fieldType.equals(FieldType.date()) ||
+    fieldType.equals(FieldType.createdTime()) ||
+    fieldType.equals(FieldType.lastModifiedTime())
+  ) {
+    return 'DATETIME';
+  }
+  if (fieldType.equals(FieldType.checkbox())) return 'BOOLEAN';
+  return undefined;
+};
+
+const isConcreteStorageDbFieldType = (normalized: string): boolean => {
+  return (
+    normalized === 'jsonb' ||
+    normalized === 'boolean' ||
+    isTemporalDbFieldType(normalized) ||
+    isNumericDbFieldType(normalized)
+  );
+};
+
 const resolveLookupScalarDbFieldType = (
   field: Field,
   valueType: FieldValueType
 ): Result<string, DomainError> => {
+  const persistedDbFieldType = field.dbFieldType().andThen((dbFieldType) => dbFieldType.value());
+  if (persistedDbFieldType.isOk()) {
+    const persisted = persistedDbFieldType.value;
+    const normalizedPersisted = normalizeDbFieldType(persisted);
+    if (isConcreteStorageDbFieldType(normalizedPersisted)) {
+      return ok(persisted);
+    }
+  }
   const base = resolveDbFieldType(field, valueType.cellValueType.toString(), false);
+  const pendingFallback = (): Result<string, DomainError> => ok(base);
+  const resolveFromInner = (
+    innerTypeResult: Result<FieldType, DomainError>
+  ): Result<string, DomainError> =>
+    innerTypeResult
+      .map((innerType) => resolveStorageDbFieldTypeFromFieldType(innerType) ?? base)
+      .orElse(pendingFallback);
+
   if (field.type().equals(FieldType.lookup())) {
-    return (field as LookupField)
-      .innerFieldType()
-      .map((innerType) => {
-        // V1 compatibility: AutoNumber lookups should use INTEGER, not REAL/double precision
-        if (innerType.equals(FieldType.autoNumber())) {
-          return 'INTEGER';
-        }
-        return base;
-      })
-      .orElse(() => {
-        // Fallback: If inner field isn't resolved (pending validation), infer from dbFieldType
-        // This handles V1 fields where dbFieldType might already be set correctly (e.g., INTEGER)
-        return field
-          .dbFieldType()
-          .andThen((dbFieldType) => dbFieldType.value())
-          .orElse(() => ok(base));
-      });
+    return resolveFromInner((field as LookupField).innerFieldType());
   }
   if (field.type().equals(FieldType.conditionalLookup())) {
-    return (field as ConditionalLookupField)
-      .innerFieldType()
-      .map((innerType) => {
-        if (innerType.equals(FieldType.autoNumber())) {
-          return 'INTEGER';
-        }
-        return base;
-      })
-      .orElse(() => {
-        return field
-          .dbFieldType()
-          .andThen((dbFieldType) => dbFieldType.value())
-          .orElse(() => ok(base));
-      });
+    return resolveFromInner((field as ConditionalLookupField).innerFieldType());
   }
-  return ok(base);
+  return ok(resolveStorageDbFieldTypeFromFieldType(field.type()) ?? base);
 };
 
 const normalizeDbFieldType = (value: string): string => {
@@ -506,10 +568,12 @@ const buildLookupAssignmentFromRef = (
   sourceRef: unknown,
   lookupDbFieldType: string,
   isLookupMultiValue: boolean,
-  isLookupAutoNumber: boolean
+  isLookupAutoNumber: boolean,
+  isUserCell: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
-  const refJson = buildNullableLookupSourceJson(sourceRef);
+  const sourceJson = buildNullableLookupSourceJson(sourceRef);
+  const refJson = isUserCell ? buildUserCellAssignment(sourceJson) : sourceJson;
 
   if (normalizedType === 'jsonb') {
     if (isLookupMultiValue && !isLookupAutoNumber) {
@@ -523,6 +587,25 @@ const buildLookupAssignmentFromRef = (
   END)`;
   return buildLookupScalarCast(scalarText, normalizedType);
 };
+
+// Strip presentation-only URLs at the shared persistence projection so backfill,
+// distinct comparisons and UPDATE ... RETURNING all use the same stored value.
+const buildUserCellAssignment = (expression: RawBuilder<unknown>) => sql`(CASE
+  WHEN jsonb_typeof(${expression}) = 'object' THEN ${expression} - 'avatarUrl'
+  WHEN jsonb_typeof(${expression}) = 'array' THEN (
+    SELECT COALESCE(
+      jsonb_agg(
+        CASE WHEN jsonb_typeof(member.value) = 'object'
+          THEN member.value - 'avatarUrl'
+          ELSE member.value
+        END ORDER BY member.ordinality
+      ),
+      '[]'::jsonb
+    )
+    FROM jsonb_array_elements(${expression}) WITH ORDINALITY AS member(value, ordinality)
+  )
+  ELSE ${expression}
+END)`;
 
 const buildFieldMappings = (
   table: Table,
@@ -539,9 +622,11 @@ const buildFieldMappings = (
       );
     const lastFieldIdByColumn = new Map<string, string>();
 
-    for (const fieldId of fieldIds) {
-      yield* table.getField((candidate) => candidate.id().equals(fieldId));
-    }
+    // Plans are persisted; a field can be deleted between planning and
+    // execution. A deleted field simply has nothing left to update, so skip it
+    // instead of failing the whole step (a hard error here is classified as
+    // transient and retried to dead letter). An all-deleted step degrades to a
+    // no-op via projectionPlan.isEmpty().
 
     for (const field of selectedFields) {
       const dbFieldName = yield* field.dbFieldName();
@@ -626,7 +711,9 @@ const buildFieldMappings = (
         isLookup,
         isLookupMultiValue,
         isLookupAutoNumber,
+        isUserCell: isUserCellField(field),
         dbFieldType,
+        requiredLinkFkColumn: resolveRequiredLinkFkColumn(field),
       });
     }
 
@@ -643,6 +730,7 @@ class UpdateAssignmentPlan {
   readonly fieldId: FieldId;
   readonly projectionColumnAlias: string;
   readonly strategy: UpdateAssignmentStrategy;
+  readonly requiredLinkFkColumn: string | null;
   private readonly normalizedDbType: string;
 
   private constructor(
@@ -652,6 +740,7 @@ class UpdateAssignmentPlan {
     this.column = mapping.column;
     this.fieldId = mapping.fieldId;
     this.projectionColumnAlias = projectionColumnAlias;
+    this.requiredLinkFkColumn = mapping.requiredLinkFkColumn;
     this.normalizedDbType = normalizeDbFieldType(mapping.dbFieldType);
 
     if (mapping.isLookup) {
@@ -688,15 +777,19 @@ class UpdateAssignmentPlan {
     const sourceRef = eb.ref(`${sourceAlias}.${this.column}`);
 
     switch (this.strategy) {
-      case 'lookup':
+      case 'lookup': {
         return buildLookupAssignmentFromRef(
           sourceRef,
           this.mapping.dbFieldType,
           this.mapping.isLookupMultiValue,
-          this.mapping.isLookupAutoNumber
+          this.mapping.isLookupAutoNumber,
+          this.mapping.isUserCell
         );
-      case 'json':
-        return buildNullableJsonProjectionSource(sourceRef);
+      }
+      case 'json': {
+        const expression = buildNullableJsonProjectionSource(sourceRef);
+        return this.mapping.isUserCell ? buildUserCellAssignment(expression) : expression;
+      }
       case 'numeric':
         return buildNumericCastExpression(sql`${sourceRef}`, this.normalizedDbType);
       case 'scalar':
@@ -709,6 +802,15 @@ class UpdateAssignmentPlan {
     return eb.ref(`${projectionAlias}.${this.projectionColumnAlias}`);
   }
 
+  buildSetAssignment(eb: ExpressionBuilder<DynamicDB, string>, projectionAlias: string) {
+    const projected = this.buildProjectedRef(eb, projectionAlias);
+    // PostgreSQL types UPDATE ... SET from the FROM-subquery column. Kysely's
+    // aliased projection can be inferred as text even when the SELECT expression
+    // was already jsonb/timestamptz/numeric. Recast every physical type,
+    // including jsonb, so schema backfill does not die on text→jsonb.
+    return sql`${projected}::${sql.raw(this.normalizedDbType)}`;
+  }
+
   buildDistinctCondition(
     eb: ExpressionBuilder<DynamicDB, string>,
     tableAlias: string,
@@ -717,11 +819,28 @@ class UpdateAssignmentPlan {
     const target = sql.raw(quoteRef(tableAlias, this.column));
     const projected = this.buildProjectedRef(eb, projectionAlias);
 
-    if (isTemporalDbFieldType(this.normalizedDbType)) {
-      return sql<SqlBool>`(${target})::text IS DISTINCT FROM (${projected})::text`;
+    // Always cast both sides to a shared comparable type. PostgreSQL implements
+    // IS DISTINCT FROM via `=`, so mixed physical/projection types
+    // (double precision vs text, jsonb vs text, etc.) fail hard during backfill.
+    // Temporal columns already used text; extend the same defense to every type.
+    const changed =
+      this.normalizedDbType === 'jsonb'
+        ? sql<SqlBool>`(${target})::jsonb IS DISTINCT FROM (${projected})::jsonb`
+        : isTemporalDbFieldType(this.normalizedDbType) || this.normalizedDbType === 'text'
+          ? sql<SqlBool>`(${target})::text IS DISTINCT FROM (${projected})::text`
+          : isNumericDbFieldType(this.normalizedDbType) || this.normalizedDbType === 'boolean'
+            ? sql<SqlBool>`(${target})::${sql.raw(this.normalizedDbType)} IS DISTINCT FROM (${projected})::${sql.raw(this.normalizedDbType)}`
+            : sql<SqlBool>`(${target})::text IS DISTINCT FROM (${projected})::text`;
+
+    if (!this.requiredLinkFkColumn) {
+      return changed;
     }
 
-    return sql<SqlBool>`${target} IS DISTINCT FROM ${projected}`;
+    // Never apply a null projection to a NOT NULL display column. A missed join
+    // and a cleared FK both project null; writing that null is a 23502 either
+    // way. Skip the row for this field (sibling columns in the same UPDATE can
+    // still match via OR).
+    return sql<SqlBool>`(${projected}) IS NOT NULL AND ${changed}`;
   }
 }
 
@@ -766,17 +885,33 @@ class UpdateAssignmentProjectionPlan {
 
   buildSetValues(
     tableAlias: string,
-    options?: { incrementVersion?: boolean }
+    options?: {
+      incrementVersion?: boolean;
+      countChangedFieldsForVersion?: boolean;
+      skipDistinctFilter?: boolean;
+    }
   ): (eb: ExpressionBuilder<DynamicDB, string>) => Record<string, unknown> {
     return (eb) => {
       const values: Record<string, unknown> = {};
       if (options?.incrementVersion ?? true) {
         // Increment __version for computed updates (like V1 does)
-        values['__version'] = sql.raw(`${quoteRef(tableAlias, '__version')} + 1`);
+        const increment = options?.countChangedFieldsForVersion
+          ? sql.join(
+              this.assignmentPlans.map((plan) =>
+                options.skipDistinctFilter
+                  ? sql`1`
+                  : sql`CASE WHEN ${plan.buildDistinctCondition(eb, tableAlias, this.projectionAlias)} THEN 1 ELSE 0 END`
+              ),
+              sql` + `
+            )
+          : sql`1`;
+        values['__version'] = sql`${sql.raw(quoteRef(tableAlias, '__version'))} + ${increment}`;
       }
-
       for (const plan of this.assignmentPlans) {
-        values[plan.column] = plan.buildProjectedRef(eb, this.projectionAlias);
+        const assigned = plan.buildSetAssignment(eb, this.projectionAlias);
+        values[plan.column] = plan.requiredLinkFkColumn
+          ? sql`COALESCE(${assigned}, ${sql.raw(quoteRef(tableAlias, plan.column))})`
+          : assigned;
       }
       return values;
     };

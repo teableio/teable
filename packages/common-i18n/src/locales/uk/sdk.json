@@ -3,6 +3,7 @@
     "empty": "Порожній",
     "noRecords": "Немає записів",
     "unnamedRecord": "Запис без назви",
+    "recordDeleted": "Запис видалено",
     "untitled": "Без назви",
     "cancel": "Скасувати",
     "confirm": "Підтвердити",
@@ -32,14 +33,24 @@
     "resetSuccess": "Скинуто успішно",
     "click": "Натисніть",
     "clickedCount": "{{label}}: Натиснуто {{text}} разів",
-    "atLeastOne": "Принаймні зарезервуйте {{noun}}"
+    "atLeastOne": "Принаймні зарезервуйте {{noun}}",
+    "close": "Закрити",
+    "selectField": "Виберіть поле"
   },
   "notification": {
     "title": "Сповіщення"
   },
+  "aiError": {
+    "title": "Не вдалося виконати генерацію ШІ",
+    "retry": "Повторити",
+    "dismiss": "Закрити"
+  },
   "preview": {
     "previewFileLimit": "Обмеження розміру файлу попереднього перегляду: {{size}} МБ, будь ласка, завантажте для перегляду.",
-    "loadFileError": "Не вдалося завантажити файл"
+    "loadFileError": "Не вдалося завантажити файл",
+    "previousAttachment": "Попередня",
+    "nextAttachment": "Наступна",
+    "deleteAttachment": "Видалити"
   },
   "undoRedo": {
     "undo": "Скасувати",
@@ -59,11 +70,21 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Вставте або перетягніть, щоб завантажити сюди",
-      "upload": "завантажити"
+      "upload": "завантажити",
+      "downloadAll": "Завантажити все",
+      "downloadSuccess": "Завантаження завершено",
+      "downloadFailed": "Не вдалося завантажити",
+      "downloadCancelled": "Завантаження скасовано",
+      "requireHttps": "Масове завантаження потребує HTTPS. Відкрийте через HTTPS або localhost"
     },
     "date": {
       "placeholder": "Вибрати дату",
-      "today": "Сьогодні"
+      "today": "Сьогодні",
+      "rangePlaceholder": "Виберіть діапазон дат",
+      "rangeSelected": "Вибрано",
+      "invalidTimeRange": "Час завершення має бути пізнішим за час початку",
+      "from": "Від",
+      "to": "До"
     },
     "formula": {
       "title": "Редактор формул",
@@ -140,13 +161,15 @@
   "filter": {
     "label": "Фільтр",
     "displayLabel": "Фільтрувати за ",
+    "displayLabel_one": "Фільтрувати за {{fieldName}} та {{count}} іншими полями",
+    "displayLabel_few": "Фільтрувати за {{fieldName}} та {{count}} іншими полями",
+    "displayLabel_many": "Фільтрувати за {{fieldName}} та {{count}} іншими полями",
     "displayLabel_other": "Фільтрувати за {{fieldName}} та {{count}} іншими полями",
     "addCondition": "Додати умову",
     "addConditionGroup": "Додати групу умов",
     "nestedLimitTip": "Умови фільтрації можуть бути вкладені лише на {{depth}} рівнів",
     "linkInputPlaceholder": "Введіть значення",
     "currentUser": "Я (поточний користувач)",
-    "tips": {},
     "invalidateSelected": "Недійсне значення",
     "invalidateSelectedTips": "Вибране значення видалено, виберіть ще раз",
     "invalidConditionTip": "Ця умова фільтра недійсна і буде проігнорована. Змініть значення.",
@@ -183,6 +206,17 @@
       "isAfter": "після",
       "isOnOrBefore": "на або до",
       "isOnOrAfter": "на або після",
+      "user": {
+        "is": "є",
+        "isNot": "не є",
+        "isAnyOf": "є будь-яким з",
+        "isNoneOf": "не є жодним з",
+        "hasAnyOf": "має будь-який з",
+        "hasAllOf": "має все з",
+        "isExactly": "точно",
+        "isNotExactly": "не є",
+        "hasNoneOf": "не має жодного з"
+      },
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -210,6 +244,7 @@
         "exactDate": "точна дата",
         "exactDateTime": "точні дата й час",
         "exactFormatDate": "точна дата (форматована)",
+        "dateRange": "довільний діапазон",
         "currentWeek": "поточний тиждень",
         "currentMonth": "поточний місяць",
         "currentYear": "поточний рік",
@@ -228,7 +263,11 @@
         "pastNumberOfDays": "остання кількість днів",
         "nextNumberOfDays": "наступна кількість днів"
       }
-    }
+    },
+    "selectOperator": "Виберіть оператор",
+    "selectConjunction": "Виберіть зв'язку",
+    "selectDateMode": "Виберіть спосіб задання дати",
+    "selectValue": "Виберіть значення"
   },
   "color": {
     "label": "колір"
@@ -244,10 +283,11 @@
     "title": "имени поля",
     "displayLines": "{{count}} строк"
   },
-  "share": {},
-  "extensions": {},
   "hidden": {
     "label": "Приховані поля",
+    "configLabel_one": "{{count}} прихованих поля",
+    "configLabel_few": "{{count}} прихованих поля",
+    "configLabel_many": "{{count}} прихованих поля",
     "configLabel_other": "{{count}} прихованих поля",
     "configLabel_other_visible": "{{count}} видимих ​​полів",
     "showAll": "Показати все",
@@ -257,7 +297,10 @@
   },
   "expandRecord": {
     "copy": "Копіювати в буфер обміну",
+    "previousRecord": "Попередній",
+    "nextRecord": "Наступний",
     "duplicateRecord": "Дублювати запис",
+    "addToChat": "Додати до чату",
     "copyRecordUrl": "Копіювати URL записи",
     "deleteRecord": "Видалити запис",
     "addRecordComment": "Додати коментар",
@@ -285,19 +328,25 @@
   "sort": {
     "label": "Сортування",
     "displayLabel_one": "Сортувати за {{count}} полем",
+    "displayLabel_few": "Сортувати за {{count}} полями",
+    "displayLabel_many": "Сортувати за {{count}} полями",
     "displayLabel_other": "Сортувати за {{count}} полями",
     "setTips": "Сортувати за",
     "addButton": "Додати ще одне сортування",
     "autoSort": "Автоматично сортувати записи",
     "selectASCLabel": "від першого до останнього",
-    "selectDESCLabel": "від останнього до першого"
+    "selectDESCLabel": "від останнього до першого",
+    "orderTitle": "Виберіть порядок сортування"
   },
   "group": {
     "label": "Група",
     "displayLabel_one": "Групувати по {{count}} полю",
+    "displayLabel_few": "Групувати по {{count}} полях",
+    "displayLabel_many": "Групувати по {{count}} полях",
     "displayLabel_other": "Групувати по {{count}} полях",
     "setTips": "Групувати",
-    "addButton": "Додати підгрупу"
+    "addButton": "Додати підгрупу",
+    "maxLimitTip": "Можна групувати не більше ніж за {{count}} полями"
   },
   "field": {
     "title": {
@@ -335,7 +384,7 @@
       "date": "Фіксуйте дати або час.",
       "createdTime": "Показує, коли запис був створений.",
       "lastModifiedTime": "Показує час останнього оновлення.",
-      "attachment": "Завантаження файлів або генерація зображень за допомогою ШІ, підтримує моделі типу 🍌 Nano banana pro",
+      "attachment": "Завантаження файлів або генерація зображень за допомогою ШІ, підтримує моделі типу GPT Image 2",
       "checkbox": "Перемикайте просте «так» або «ні».",
       "rollup": "Підсумовуйте пов'язані записи за формулами.",
       "conditionalRollup": "Підсумовуйте дані за умовами.",
@@ -368,15 +417,14 @@
       "spaceInviteEmail": "Запросити електронною поштою в космос",
       "spaceInviteLink": "Запросити за посиланням у просторі",
       "spaceGrantRole": "Надати роль у просторі",
-      "baseCreate": "Створити базу",
-      "baseDelete": "Видалити базу",
-      "baseRead": "Читати базу",
-      "baseReadAll": "Читати всі бази",
-      "baseUpdate": "Оновити базу",
-      "baseInviteEmail": "Запросити електронною поштою в базі",
-      "baseInviteLink": "Запросити за посиланням у базі",
+      "baseCreate": "Створити проєкт",
+      "baseDelete": "Видалити проєкт",
+      "baseRead": "Читати проєкт",
+      "baseReadAll": "Читати всі проєкти",
+      "baseUpdate": "Оновити проєкт",
+      "baseInviteEmail": "Запросити електронною поштою в проєкті",
+      "baseInviteLink": "Запросити за посиланням у проєкті",
       "baseAuthorityMatrixConfig": "Налаштувати матрицю повноважень",
-      "baseDbConnect": "Підключитися до бази даних",
       "tableCreate": "Створити таблицю",
       "tableRead": "Читати таблицю",
       "tableDelete": "Видалити таблицю",
@@ -386,6 +434,8 @@
       "tableTrashRead": "Читати кошик таблиці",
       "tableTrashUpdate": "Оновити кошик таблиці",
       "tableTrashReset": "Скинути кошик таблиці",
+      "tableArchiveRead": "Читати архів таблиці",
+      "tableArchiveManage": "Керувати архівом таблиці",
       "viewCreate": "Створити перегляд",
       "viewDelete": "Видалити перегляд",
       "viewRead": "Перегляд читання",
@@ -401,18 +451,26 @@
       "recordRead": "Прочитати запис",
       "recordUpdate": "Оновити запис",
       "recordCopy": "Copy record",
+      "recordArchive": "Архівувати запис",
       "automationCreate": "Створити автоматизацію",
       "automationDelete": "Видалити автоматизацію",
       "automationRead": "Автоматизація читання",
       "automationUpdate": "Оновити автоматизацію",
+      "routineCreate": "Створити рутину",
+      "routineDelete": "Видалити рутину",
+      "routineRead": "Читати рутину",
+      "routineUpdate": "Оновити рутину",
       "appCreate": "Створити додаток",
       "appDelete": "Видалити додаток",
       "appRead": "Читати додаток",
       "appUpdate": "Оновити додаток",
       "userEmailRead": "Прочитати електронну адресу поточного користувача",
       "userIntegrations": "Manage user integrations",
+      "userSpacesRead": "Прочитати простори поточного користувача (назва, тариф і місця)",
+      "userSelfHostedLicensesRead": "Прочитати придбані поточним користувачем ліцензії self-hosted (тариф і місця)",
+      "userNotificationsSend": "Надсилати сповіщення поточному користувачу",
       "recordHistoryRead": "Читати історію записів",
-      "baseQuery": "База запитів",
+      "baseQuery": "Запит до проєкту",
       "instanceRead": "Прочитати екземпляр",
       "instanceUpdate": "Оновити екземпляр",
       "enterpriseRead": "Читати конфігурацію підприємства",
@@ -423,10 +481,11 @@
     "table": "Таблиця",
     "view": "Перегляд",
     "space": "Простір",
-    "base": "База",
+    "base": "Проєкт",
     "field": "Поле",
     "record": "Запис",
     "automation": "Автоматизація",
+    "routine": "Рутина",
     "app": "Додаток",
     "user": "Користувач",
     "recordHistory": "Історія записів",
@@ -548,6 +607,14 @@
     "SUBSTITUTE": {
       "summary": "Замінює входження old_text на new_text.\nДодатково можна вказати номер індексу (починаючи з 1), щоб замінити лише певний екземпляр old_text. Якщо номер індексу не вказано, усі входження old_text буде замінено.",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "Повертає текст до роздільника.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "Розділяє текст за роздільником і повертає кілька текстових значень.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
     },
     "LOWER": {
       "summary": "Робить рядок нижнім регістром.",
@@ -866,7 +933,8 @@
       "editLink": "Редагувати посилання",
       "linkText": "Текст посилання",
       "enterUrl": "Введіть URL"
-    }
+    },
+    "tooManyImages": "За один раз можна додати не більше {{count}} зображень"
   },
   "memberSelector": {
     "title": "Виберіть учасників",
@@ -886,10 +954,12 @@
     "creditLimitExceeded": "Перевищено ліміт кредитів",
     "restrictedResource": "Обмежений ресурс",
     "notFound": "Не знайдено",
+    "viewNotFound": "Представлення не знайдено",
     "conflict": "Конфлікт",
     "unprocessableEntity": "Необроблюваний ресурс",
     "userLimitExceeded": "Перевищений ліміт користувача",
     "tooManyRequests": "Забагато запитів",
+    "payloadTooLarge": "Надто великий обсяг даних",
     "internalServerError": "Внутрішня помилка сервера",
     "databaseConnectionUnavailable": "Недоступна база даних",
     "gatewayTimeout": "Таймаут шлюза",
@@ -911,7 +981,13 @@
       "recordsPerMutationMax": "Ця операція змінює забагато записів. Максимум — {{max}} записів за раз.",
       "computedCellValueMaxBytes": "Обчислене значення клітинки завелике. Максимум — {{max}} байтів.",
       "formulaMaxLength": "Формула задовга. Максимум — {{max}} символів.",
-      "tablesPerBaseMax": "Ця base досягла ліміту таблиць. Максимум — {{max}} таблиць.",
+      "formulaCompileNodesMax": "Розгорнута структура формули перевищує ліміт компіляції у {{max}} вузлів. Зменште кількість повторюваних посилань або складних розгалужень. Цю зміну не збережено.",
+      "formulaCompileDepthMax": "Структура обчислень формули перевищує ліміт вкладеності у {{max}} рівнів. Зменште кількість вкладених функцій або ланцюжків операцій. Цю зміну не збережено.",
+      "formulaReferenceDepthMax": "Формула перевищує ліміт глибини посилань у {{max}} рівнів. Скоротіть ланцюжки посилань між формулами. Цю зміну не збережено.",
+      "formulaBindingsMax": "Для компіляції формули потрібно понад {{max}} прив'язок проміжних обчислень. Спростіть розгалуження формули та обчислення, на які вона посилається. Цю зміну не збережено.",
+      "formulaCompileBytesMax": "Проміжні фрагменти компіляції формули перевищують загальний ліміт у {{max}} байтів. Зменште великі константи, кількість повторюваних посилань або складних розгалужень. Цю зміну не збережено.",
+      "formulaSqlBytesMax": "Запит до бази даних, створений для формули, перевищує ліміт у {{max}} байтів. Спростіть формулу та обчислення, на які вона посилається. Цю зміну не збережено.",
+      "tablesPerBaseMax": "Цей проєкт досяг ліміту таблиць. Максимум — {{max}} таблиць.",
       "fieldsPerTableMax": "У цій таблиці забагато полів. Максимум — {{max}} полів.",
       "rowsPerTableMax": "У цій таблиці забагато записів. Максимум — {{max}} записів.",
       "viewsPerTableMax": "Ця таблиця досягла ліміту подань. Максимум — {{max}} подань.",
@@ -926,15 +1002,21 @@
       "nameMaxLength": "Назва задовга. Максимум — {{max}} символів.",
       "descriptionMaxLength": "Опис задовгий. Максимум — {{max}} символів."
     },
-    "validation": {
-      "field": {
-        "unique": "Поле повинно мати унікальне значення"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",
+      "recordFieldValueNotNull": "Поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
+      "recordFieldValueDuplicate": "Поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",
+      "recordDeleteBlockedByRequiredLink": "Неможливо видалити: обов'язкове поле зв'язку \"{{fieldName}}\" у таблиці \"{{tableName}}\" стане порожнім.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "Неможливо видалити: цей запис усе ще використовується полем зв'язку в іншій таблиці.",
+      "recordDeleteBlockedByLink": "Неможливо видалити: поле зв'язку \"{{fieldName}}\" у таблиці \"{{tableName}}\" усе ще посилається на цей запис.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускає дублікатів зв'язків з одним і тим самим запису",
+      "linkBatchDuplicate": "Неможливо пов'язати запис: у цьому ж пакеті його вже пов'язано іншим записом. У зв'язках один-до-багатьох кожен дочірній запис може належати лише одному батьківському запису.",
+      "linkOneManyDuplicate": "Неможливо пов'язати запис: його вже пов'язано з іншим записом. У зв'язках один-до-багатьох кожен дочірній запис може належати лише одному батьківському запису.",
+      "linkOneOneDuplicate": "Неможливо пов'язати запис: цільовий запис уже пов'язано іншим записом у зв'язку один-до-одного.",
+      "fieldMaxColumnLimit": "Таблиця \"{{tableName}}\" може містити не більше ніж {{maxFieldCount}} полів.",
+      "fieldRequiredExistingValues": "Не можна зробити поле \"{{fieldName}}\" обов'язковим, оскільки наявні записи містять порожні значення.",
+      "fieldUniqueExistingValues": "Не можна зробити поле \"{{fieldName}}\" унікальним, оскільки наявні записи містять повторювані значення.",
       "requestTimeout": "Текущая операция слишком велика, пожалуйста, попробуйте снова с меньшим диапазоном.",
       "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
       "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані",
@@ -998,6 +1080,7 @@
       "triggerTestFailed": "Тест тригера провалився, будь ласка, перевірте конфігурацію тригера",
       "testFailed": "Тест автоматизації не пройшов, перевірте конфігурацію автоматизації",
       "runFailed": "Виконання автоматизації не вдалося",
+      "activatorDeactivated": "Обліковий запис, який активував цю автоматизацію, деактивовано",
       "nodeParseError": "{{name}} конфігурація вузла неповна або містить помилки, будь ласка, перевірте конфігурацію вузла",
       "nodeNeedTest": "{{name}} вузол потребує тестування",
       "nodeTestOutdated": "{{name}} тест вузла застарів",
@@ -1006,26 +1089,32 @@
       "runNotFound": "Виконання автоматизації не знайдено",
       "anchorNotFound": "Опорну автоматизацію не знайдено",
       "validationError": "Помилка валідації конфігурації автоматизації",
-      "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашої бази даних",
+      "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашого проєкту",
       "alreadyActiveAndNotDraft": "Автоматизація вже активна і не є чернеткою",
       "noActiveSnapshot": "У автоматизації немає активного знімка",
       "onlyFailedRunsCanRerun": "Повторно запустити можна лише невдалі виконання",
       "workflowMustBeActiveToRerun": "Для повторного запуску робочий процес має бути активним",
       "snapshotChangedOnlyFullRerun": "Робочий процес було змінено після цього виконання. Дозволено лише повний повторний запуск.",
+      "runPayloadColdTruncated": "Частину даних цього запуску було обрізано під час холодного архівування; повторний запуск недоступний",
+      "runListOffsetTooDeep": "Ця сторінка занадто далеко в історії запусків для посторінкової навігації за зміщенням; продовжте з курсором, який повернула попередня сторінка.",
       "controlStepsMissingOnlyFullRerun": "Дані вузла керування відсутні для цього виконання. Підтримується лише повний повторний запуск.",
       "triggerNodeAlreadyExists": "У цієї автоматизації вже є вузол тригера",
+      "scheduledIntervalTooShort": "Інтервал запуску запланованих автоматизацій має бути не менше {{min}} хвилин",
+      "emailPollIntervalTooShort": "Інтервал перевірки нової пошти для поштових тригерів має бути не менше {{min}} хвилин",
+      "unSupportLogicType": "Непідтримуваний тип логіки",
       "generateLogicError": "Помилка генерації вузла логіки",
       "logicNotFound": "Вузол логіки автоматизації не знайдено",
-      "actionNotFound": "Вузол дії автоматизації не знайдено",
-      "unSupportDuplicateWorkflowNodeType": "Дублювання цього типу вузла автоматизації не підтримується",
-      "unSupportLogicType": "Непідтримуваний тип логіки",
       "groupEndNotFound": "GroupEnd не знайдено для логіки",
       "insertNodeError": "Помилка вставки вузла",
+      "actionNotFound": "Вузол дії автоматизації не знайдено",
+      "unSupportDuplicateWorkflowNodeType": "Дублювання цього типу вузла автоматизації не підтримується",
       "controlNodeNotBeTested": "Вузол керування не повинен тестуватися",
       "invalidNodeType": "Недійсний тип вузла",
       "unsupportedCategory": "Непідтримувана категорія",
       "unknownConnectionType": "Невідомий тип підключення електронної пошти",
       "imapPasswordNotConfigured": "Пароль IMAP не налаштовано",
+      "secretNotGranted": "Секрет {{alias}} не надано цій автоматизації",
+      "credentialMustBeSecret": "Облікові дані мають бути секретами, наданими цій автоматизації",
       "integrationNotFound": "Інтеграцію не знайдено або вона не має облікових даних",
       "webhookTriggerNotFound": "Тригер вебхука не знайдено",
       "emailReceivedTriggerNotFound": "Тригер отримання електронної пошти не знайдено",
@@ -1033,16 +1122,17 @@
       "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}"
     },
     "scrape": {
-      "unknownDataset": "Невідомий набір даних: {{datasetId}}",
       "apiKeyNotConfigured": "Сервіс скрейпінгу не налаштовано",
       "triggerFailed": "Помилка запуску скрейпінгу: {{detail}}",
-      "snapshotError": "Помилка знімка скрейпінгу: {{detail}}",
-      "timeout": "Час очікування скрейпінгу вичерпано після {{seconds}}с"
+      "catalogFailed": "Помилка запиту каталогу скрейпінгу: {{detail}}",
+      "creditEstimateExceeded": "Розрахункові кредити для цього збору перевищують доступні зараз",
+      "runOverLimit": "Цей збір може коштувати до {{maxCredits}} кредитів, що перевищує ліміт у {{limit}} кредитів для одного запуску."
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Підключення {{provider}} більше не підтримуються і не можуть бути надані"
     },
     "space": {
       "notFound": "Простір не знайдено",
@@ -1058,17 +1148,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "База не знайдена",
-      "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
-      "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
-      "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
+      "notFound": "Проєкт не знайдено",
+      "cannotAccess": "У вас немає дозволу на доступ до проєкту {{baseId}}",
+      "anchorNotFound": "Опорний проєкт {{anchorId}} не знайдено",
+      "baseAndSpaceMismatch": "Проєкт {{baseId}} та простір {{spaceId}} не співпадають",
       "templateNotFound": "Шаблон {{templateId}} не знайдено"
     },
     "baseNode": {
-      "baseIdIsRequired": "Базова ID обов'язкова",
+      "baseIdIsRequired": "ID проєкту обов'язковий",
       "nodeIdIsRequired": "Вузол ID обов'язковий",
       "invalidResourceType": "Недійсний тип ресурсу",
-      "notFound": "Базовий вузол не знайдено",
+      "notFound": "Вузол проєкту не знайдено",
       "parentMustBeFolder": "Батьківський елемент має бути папкою",
       "cannotDuplicateFolder": "Неможливо дублювати папку",
       "cannotDeleteEmptyFolder": "Неможливо видалити папку, оскільки вона не порожня",
@@ -1082,7 +1172,27 @@
       "folderDepthLimitExceeded": "Перевищено ліміт глибини папки",
       "folderNotFound": "Папку не знайдено",
       "anchorNotFound": "Якірний вузол не знайдено",
-      "nameAlreadyExists": "Ім'я вже існує"
+      "nameAlreadyExists": "Ім'я вже існує",
+      "targetBaseRequired": "Потрібно вказати цільовий проєкт",
+      "moveBlocked": "Не вдалося перемістити вузол до цільового проєкту ({{code}})"
+    },
+    "routine": {
+      "notFound": "Рутина не знайдена",
+      "runNotFound": "Виконання рутини не знайдено",
+      "configRequiredToActivate": "Неможливо активувати рутину без збереженої конфігурації",
+      "noFutureOccurrence": "У розкладу немає майбутніх запусків",
+      "onlyActiveCanDeactivate": "Призупинити можна лише активну рутину",
+      "configRequiredToRun": "Неможливо запустити рутину без збереженої конфігурації",
+      "runAlreadyInFlight": "Виконання цієї рутини вже триває",
+      "runNowWhileActiveEvent": "Ця рутина активна й уже отримує свої події; викличте подію, щоб побачити запуск",
+      "invalidRunCursor": "Недійсний курсор списку запусків",
+      "invalidSchedule": "Недійсний розклад рутини: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Чат не знайдено",
+      "accessDenied": "У вас немає доступу до цього чату",
+      "archived": "Чат в архіві",
+      "serverAuthoredType": "Чати типу {{type}} створює сервер"
     },
     "dashboard": {
       "notFound": "Панель управління не знайдена"
@@ -1122,7 +1232,7 @@
       "loginRequired": "Увійдіть, щоб редагувати це спільне подання"
     },
     "baseShare": {
-      "notFound": "Спільний доступ до бази не знайдено або вимкнено",
+      "notFound": "Спільний доступ до проєкту не знайдено або вимкнено",
       "alreadyExists": "Спільний доступ для цього вузла вже існує",
       "copyNotAllowed": "Цей спільний доступ не дозволяє копіювання"
     },
@@ -1138,22 +1248,17 @@
     "pluginChart": {
       "queryNotFound": "Запит діаграми плагіна не знайдено"
     },
-    "dbConnection": {
-      "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
-      "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",
-      "onlyOwnerCanCreate": "Тільки власник бази може створити підключення до бази даних для бази {{baseId}}",
-      "roleNotExist": "Роль бази даних {{role}} не існує"
-    },
     "baseQuery": {
       "queryFailed": "Запит не виконано: {{message}}",
       "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
-      "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
+      "tableNotFound": "Таблиця {{tableId}} не знайдена в проєкті {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Не дозволено виконувати SQL з ключовим словом {{keyword}}",
       "whiteListCheckError": "Сталася помилка під час перевірки доступу до таблиці: {{message}}",
       "databaseConnectionFailed": "Не вдалося підключитися до бази даних: {{message}}",
       "executeQuerySqlFailed": "Не вдалося виконати запит SQL: {{message}}",
+      "readOnlyCheckFailed": "Перевірку режиму «лише читання» не пройдено: {{message}}",
       "sqlSyntaxError": "Помилка синтаксису SQL, перевірте ваш запит"
     },
     "permission": {
@@ -1166,7 +1271,7 @@
       "accessTokenNoPermission": "Токен доступу не має необхідного дозволу",
       "invalidResource": "Ресурс недійсний",
       "notAllowedSpace": "У вас немає дозволу на доступ до цього простору",
-      "notAllowedBase": "У вас немає дозволу на доступ до цієї бази",
+      "notAllowedBase": "У вас немає дозволу на доступ до цього проєкту",
       "notAllowedTables": "У вас немає дозволу на доступ до таблиц({{tableIds}})",
       "notAllowedOperationTable": "У вас немає дозволу на операції з цією таблицею",
       "notAllowedOperationRecord": "У вас немає дозволу на операції з цим записом",
@@ -1175,7 +1280,8 @@
       "deniedByEnabledAuthorityMatrix": "Дозвіл відхилено активованою матрицею повноважень",
       "invalidRequestPath": "Шлях запиту недійсний",
       "notAllowedOperation": "У вас немає дозволу на виконання цієї операції",
-      "notAllowedDepartment": "Вам не дозволено доступ до цього відділу"
+      "notAllowedDepartment": "Вам не дозволено доступ до цього відділу",
+      "templateHeaderInvalid": "Недійсний заголовок шаблону"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Роль за замовчуванням не знайдено",
@@ -1185,7 +1291,7 @@
       "primaryFieldCannotBeDisabledForRead": "Основне поле не може бути вимкнене для читання",
       "fieldDuplicated": "Поле дублюється в конфігурації дозволів",
       "cannotSetRecordPermissionGroup": "Неможливо встановити цю комбінацію дозволів запису({{actions}})",
-      "notFoundBaseAndTable": "ID бази та ID таблиці не знайдено",
+      "notFoundBaseAndTable": "ID проєкту та ID таблиці не знайдено",
       "roleTablesShouldNotBeEmpty": "Таблиці ролей матриці повноважень не повинні бути порожніми"
     },
     "selection": {
@@ -1203,6 +1309,7 @@
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds або fromRecordIds потрібен для звичайного обчислюваного поля",
       "recordFieldsRequired": "Поля запису не визначені",
       "uniqueUnsupportedType": "Поле {{name}}[{{fieldId}}] не підтримує перевірку унікальності значення поля",
+      "optionsUnsupportedType": "Поле {{name}}[{{fieldId}}] не підтримує зміну цих параметрів: {{options}}",
       "notNullValidationWhenCreateField": "Поле {{name}}[{{fieldId}}] не підтримує перевірку не null при створенні нового поля",
       "dbFieldNameAlreadyExists": "Ім'я поля бази даних {{dbFieldName}} вже існує",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
@@ -1216,6 +1323,7 @@
       "lookupAndLinkLengthMatch": "Довжина lookupValues повинна бути такою ж, як довжина linkCellValues",
       "cycleDetected": "Виявлено цикл",
       "cycleDetectedCreateField": "Виявлено цикл, неможливо створити поле {{name}}[{{id}}]",
+      "cycleDetectedCreateFieldGeneric": "Виявлено цикл, неможливо створити поле",
       "recordMapNotFound": "Запис не знайдено в таблиці {{tableName}} для поля {{fieldName}}",
       "forbidDeletePrimaryField": "Заборонено видаляти первинне поле",
       "foreignTableIdInvalid": "Зовнішня таблиця {{foreignTableId}} недійсна",
@@ -1225,6 +1333,7 @@
       "lookupFieldIdInvalid": "Поле пошуку {{lookupFieldId}} недійсне",
       "formulaExpressionParseError": "Помилка розбору виразу формули",
       "formulaReferenceNotFound": "Поле посилання формули {{fieldIds}} не знайдено",
+      "formulaReferenceNotFieldId": "Посилання формули {{fieldIds}} не знайдено. У формулах потрібно використовувати ID полів (формат fldXXXXXXXXXXXXXXXX), а не їхні назви.",
       "rollupExpressionParseError": "Помилка розбору виразу зведення",
       "choiceNameAlreadyExists": "Ім'я вибору {{name}} вже існує",
       "symmetricFieldIdRequired": "Потрібен ідентифікатор симетричного поля",
@@ -1233,12 +1342,12 @@
       "lookupFieldTypeNotEqual": "Поточний тип поля {{fieldType}} не дорівнює типу поля пошуку {{lookupFieldType}}",
       "recordNotFound": "Запис {{recordId}} не знайдено в {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Неможливо встановити дублюючий recordId: {{recordId}} в тій самій комірці",
+      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneOneLinkCellValueCannotBeArray": "Значення поля зв'язку один-до-одного не можуть бути масивом",
       "manyOneLinkCellValueCannotBeArray": "Значення поля зв'язку багато-до-одного не можуть бути масивом",
-      "foreignKeyDuplicate": "Дублікат зовнішнього ключа",
-      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneManyLinkCellValueShouldBeArray": "Значення поля зв'язку один-до-багатьох повинні бути масивом",
       "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом",
+      "foreignKeyDuplicate": "Дублікат зовнішнього ключа",
       "onlyLinkFieldCanBeFiltered": "Тільки поля зв'язку можуть використовуватися для фільтрації",
       "notLinkedToCurrentTable": "Поле не пов'язане з поточною таблицею",
       "notAttachment": "Поле не є полем вкладення",
@@ -1261,10 +1370,13 @@
     },
     "view": {
       "notFound": "Представлення не знайдено",
+      "cannotDeleteLastView": "Не можна видалити останнє подання таблиці. Таблиця повинна мати щонайменше одне подання.",
       "defaultViewNotFound": "Представлення за замовчуванням не знайдено",
       "propertyParseError": "Не вдалося розібрати властивість представлення",
       "primaryFieldCannotBeHidden": "Первинне поле не може бути приховане",
       "filterUnsupportedFieldType": "Фільтр не підтримує тип поля",
+      "filterInvalidOperator": "У фільтрі вказано недопустимий оператор для цього типу поля",
+      "filterInvalidOperatorMode": "У фільтрі неприпустиме поєднання оператора й режиму",
       "sortUnsupportedFieldType": "Сортування не підтримує тип поля",
       "groupUnsupportedFieldType": "Групування не підтримує тип поля",
       "anchorNotFound": "Якірне представлення не знайдено",
@@ -1275,11 +1387,17 @@
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів",
+      "upgradeRequired": "Ця функція недоступна на вашому поточному тарифі. Оновіть тариф, щоб її використовувати.",
       "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}",
+      "exceedMaxAttachmentSizeLimit": "Сховище вкладень досягло ліміту вашого тарифу. Оновіть тариф або видаліть частину вкладень.",
+      "exceedMaxSystemEmailLimit": "Щомісячні надсилання листів досягли ліміту вашого тарифу. Оновіть тариф.",
       "exceedMaxAutomationRunLimit": "Досягнуто максимального місячного ліміту запусків автоматизації",
       "manualSubscriptionNotSupported": "Самостійне керування підпискою недоступне для цього простору. Для оновлення, зниження або інших змін підписки зверніться до служби підтримки Teable.",
       "appSumoSubscriptionNotSupported": "Підписки AppSumo не можуть бути змінені через цей інтерфейс. Будь ласка, керуйте підпискою на AppSumo.",
-      "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено."
+      "planNotAvailable": "Цей план більше недоступний для нових підписок.",
+      "seatLimitExceeded": "Недостатньо куплених місць. Додайте місця, щоб запросити більше співробітників.",
+      "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено.",
+      "creditAddOnRetired": "Регулярне доповнення кредитів більше недоступне. Натомість оберіть більший рівень кредитів у вашому тарифі."
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",
@@ -1300,16 +1418,21 @@
       "configurationNotSet": "Конфігурацію ШІ не встановлено",
       "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
       "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено",
+      "providerModelDuplicated": "Модель {{model}} вказана і в «{{first}}», і в «{{second}}»; модель може входити лише до одного провайдера кожного типу",
+      "gatewayApiKeyNotSet": "Ключ API AI Gateway не налаштовано",
       "testLLMFailed": "Тест підключення LLM не пройшов",
+      "providerBaseUrlBlocked": "Базова URL-адреса провайдера ШІ {{baseUrl}} вказує на приватну або нерозв'язувану мережеву адресу та була заблокована. У самостійних установках її можна дозволити через TEABLE_SSRF_TRUSTED_ORIGINS.",
       "audioNotSupported": "Ця модель {{model}} не підтримує введення аудіо",
       "imageNotSupported": "Ця модель {{model}} не підтримує введення зображень",
       "modelNotSet": "Модель ШІ не встановлено",
       "unsupportedFileType": "Непідтримуваний тип файлу {{mimetype}}",
+      "attachmentDownloadFailed": "Не вдалося завантажити вкладення: {{reason}}",
       "unsupportedModelType": "Непідтримуваний тип моделі",
       "embeddingModelNotSet": "Модель вбудовування не встановлено",
       "validateActionFailed": "Не вдалося перевірити дію AI поля",
       "generateFailed": "Не вдалося згенерувати AI",
-      "unsupportedActionType": "Непідтримуваний тип дії AI"
+      "unsupportedActionType": "Непідтримуваний тип дії AI",
+      "geminiImageNotSupportedViaGateway": "Генерація зображень Gemini не підтримується через AI Gateway. Натомість налаштуйте прямого провайдера Google."
     },
     "skill": {
       "notFound": "Навичку не знайдено",
@@ -1330,7 +1453,8 @@
       "totalSizeExceedsLimit": "Загальний розмір ресурсів перевищує обмеження в {{maxSizeMB}} МБ",
       "invalidGithubUrl": "Недійсна URL-адреса GitHub. Очікується: https://github.com/owner/repo/tree/<branch>/path/to/skill",
       "directoryTooDeep": "Каталог навички перевищує максимальну глибину {{maxDepth}} рівнів. Вкладені каталоги: {{dirs}}",
-      "importFailed": "Помилка імпорту: {{errorCode}}"
+      "importFailed": "Помилка імпорту: {{errorCode}}",
+      "alreadyInScope": "Навичка вже перебуває в цільовій області"
     },
     "sandbox": {
       "fileNotFound": "Файл не знайдено в пісочниці",
@@ -1357,9 +1481,9 @@
       "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
       "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
       "noPermissionToOperateRole": "У вас немає дозволу на управління цією роллю",
-      "alreadyExistedInBase": "Співавтор вже існує в базі даних",
+      "alreadyExistedInBase": "Співавтор вже існує в проєкті",
       "userNotFound": "Користувача не знайдено: {{userIds}}",
-      "baseNotFound": "Базу даних не знайдено",
+      "baseNotFound": "Проєкт не знайдено",
       "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю",
       "departmentNotFound": "Відділ не знайдено"
     },
@@ -1392,14 +1516,15 @@
     "pin": {
       "alreadyExists": "Вибране вже існує",
       "notFound": "Вибране не знайдено",
-      "anchorNotFound": "Якір вибраного не знайдено"
+      "anchorNotFound": "Якір вибраного не знайдено",
+      "targetNotFound": "Елемент для додавання у вибране не знайдено"
     },
     "trash": {
       "invalidResourceType": "Недійсний тип ресурсу",
       "notFound": "Елемент кошика не знайдено",
-      "parentSpaceTrashed": "Неможливо відновити цю базу, оскільки її батьківський простір також знаходиться в кошику",
-      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківська база або простір також знаходиться в кошику",
-      "parentBaseTrashed": "Неможливо відновити цей елемент, оскільки його батьківська база також знаходиться в кошику",
+      "parentSpaceTrashed": "Неможливо відновити цей проєкт, оскільки його батьківський простір також у кошику",
+      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківський проєкт або простір також знаходиться в кошику",
+      "parentBaseTrashed": "Неможливо відновити цей елемент, оскільки його батьківський проєкт також знаходиться в кошику",
       "parentNotFound": "Батьківський ресурс не знайдено",
       "tableNotFound": "Елемент кошика таблиці не знайдено"
     },
@@ -1409,20 +1534,32 @@
       "expired": "Термін дії ліцензії закінчився",
       "userLimitExceeded": "Кількість користувачів у поточному екземплярі перевищує ліміт місць ліцензії. Будь ласка, відключіть деяких користувачів або оновіть ліцензію"
     },
+    "domainVerification": {
+      "notFound": "Код підтвердження домену не знайдено",
+      "invalidCode": "Невірний код підтвердження",
+      "tooManyAttempts": "Забагато неправильних кодів. Запросіть новий код підтвердження",
+      "resendCooldown": "Будь ласка, зачекайте 1 хвилину перед запитом нового коду",
+      "alreadyVerified": "Домен уже підтверджено",
+      "requiredForSso": "Спочатку підтвердьте поштовий домен: SSO може виконувати вхід лише для користувачів, чия електронна пошта належить підтвердженому домену"
+    },
     "organization": {
       "notFound": "Організацію не знайдено",
-      "emailNotSpaceUser": "Email не є користувачем простору",
       "authenticationNotFound": "Автентифікація не знайдена",
       "spaceShouldExist": "Простір організації повинен існувати",
-      "emailsNotInOrgDomain": "Ці електронні адреси {{emails}} не знаходяться в домені організації"
+      "emailsNotInOrgDomain": "Ці електронні адреси {{emails}} не знаходяться в домені організації",
+      "emailNotSpaceUser": "Email не є користувачем простору"
+    },
+    "mail": {
+      "failedToSendEmail": "Не вдалось надіслати електронний лист"
     },
     "user": {
       "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
+      "signupUnavailableInApp": "З цим способом входу не пов'язано жодного облікового запису. Увійдіть з обліковим записом, яким ви вже користуєтеся.",
       "emailDomainBanned": "Цей поштовий домен заблоковано за порушення правил",
       "waitlistInviteCodeRequired": "Список очікування увімкнено, потрібен код запрошення",
       "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
       "systemUser": "Користувач є системним користувачем",
-      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)",
+      "soleOwnerOfSpaces": "Користувач є єдиним власником просторів, які потрібно підтвердити або передати перед видаленням облікового запису",
       "notFound": "Користувача не знайдено",
       "cannotDeleteAdmin": "Неможливо видалити користувача-адміністратора",
       "cannotDeactivateAdmin": "Неможливо вимкнути користувача-адміністратора",
@@ -1460,14 +1597,6 @@
       "takeCountTooLarge": "Кількість запитуваних шаблонів перевищує максимальний ліміт",
       "categoryLimitReached": "Досягнуто ліміт категорій шаблонів (максимум {{maxCount}})"
     },
-    "domainVerification": {
-      "notFound": "Код підтвердження домену не знайдено",
-      "invalidCode": "Невірний код підтвердження",
-      "resendCooldown": "Будь ласка, зачекайте 1 хвилину перед запитом нового коду"
-    },
-    "mail": {
-      "failedToSendEmail": "Не вдалось надіслати електронний лист"
-    },
     "department": {
       "parentNotFound": "Батьківський відділ не знайдено",
       "notFound": "Відділ не знайдено",
@@ -1485,7 +1614,16 @@
       "apiKeyNotSet": "API-ключ конструктора додатків не встановлено",
       "cannotDeployAppBeforeInitialization": "Неможливо розгорнути додаток до ініціалізації",
       "noProjectOrVersionFound": "Проект або версію не знайдено",
-      "noDeploymentUrlAvailable": "URL розгортання недоступний"
+      "noDeploymentUrlAvailable": "URL розгортання недоступний",
+      "noFilesInZip": "У ZIP-архіві файлів не знайдено",
+      "zipFileTooLarge": "Розмір ZIP-файлу перевищує ліміт 5 МБ",
+      "invalidZip": "Недійсний ZIP-файл",
+      "domainAlreadyInUse": "Цей домен уже прив’язано до іншого застосунку",
+      "domainReserved": "Цей піддомен зарезервовано",
+      "siteInfoBeforeGeneration": "Спершу згенеруйте застосунок, а потім налаштовуйте інформацію про сайт",
+      "generationEditingConflict": "Генерація ШІ зараз редагує цей застосунок. Повторіть оновлення файлу після її завершення.",
+      "siteInfoLayoutNotEditable": "Код цього застосунку не розрахований на редагування інформації про сайт тут. Натомість попросіть ШІ в чаті змінити заголовок, опис або значок сайту.",
+      "siteInfoManagedInCode": "Цей застосунок керує заголовком і описом сайту в коді. Натомість попросіть ШІ в чаті їх змінити."
     },
     "reward": {
       "notFound": "Нагороду не знайдено",
@@ -1495,6 +1633,7 @@
       "alreadyClaimedThisWeek": "Ви вже запитали нагороду для цього акаунту на цьому тижні",
       "invalidPostUrl": "Недійсний формат URL публікації",
       "postAlreadyUsed": "Ця публікація вже використовувалась для отримання нагороди",
+      "tooManyFailedAttempts": "Забагато невдалих спроб перевірки цього тижня",
       "unsupportedPlatformUrl": "Непідтримуваний URL соціальної платформи",
       "unsupportedPlatform": "Непідтримувана платформа: {{platform}}",
       "minCharCount": "Публікація повинна містити щонайменше {{count}} символів",
@@ -1507,9 +1646,37 @@
       "fetchLinkedInPostFailed": "Не вдалося отримати публікацію LinkedIn: {{error}}",
       "linkedInPostNotFound": "Публікацію LinkedIn не знайдено: {{postId}}",
       "linkedInAuthorNotFound": "Автора LinkedIn не знайдено: {{postId}}",
-      "fetchLinkedInUserFailed": "Не вдалося отримати користувача LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Цей домен вже прив'язаний до іншого додатка",
-      "domainReserved": "Піддомен зарезервований"
+      "fetchLinkedInUserFailed": "Не вдалося отримати користувача LinkedIn: {{error}}"
+    },
+    "connectorEvent": {
+      "accountNotGranted": "Тригеру події конектора потрібен підключений обліковий запис, наданий цьому ресурсу",
+      "notEnabled": "Події конектора не ввімкнено в цьому розгортанні"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "Переглянути деталі",
+    "rows": {
+      "title": "Цей простір використовує {{current}} рядків, що перевищує ліміт вашого тарифу — {{limit}}",
+      "titleIncrement": "Ця дія додасть {{increment}} рядків і перевищить ліміт вашого тарифу — {{limit}}",
+      "titleBatch": "Ця операція перевищить ліміт вашого тарифу — {{limit}} рядків",
+      "description": "Більше записів додати не можна. Підвищте тариф, щоб одразу зняти обмеження, або звільніть місце, видаливши записи.",
+      "unit": "рядків",
+      "constraint": "На поточному тарифі більше не можна додавати записи. Звільніть місце, видаливши записи."
+    },
+    "credit": {
+      "unit": "кредитів"
+    },
+    "attachments": {
+      "unit": "Вкладення"
+    },
+    "generic": {
+      "description": "Підвищте тариф, щоб зняти це обмеження."
+    },
+    "neutral": {
+      "title": "Ця дія перевищує ліміт поточного тарифу простору"
+    },
+    "seats": {
+      "unit": "місць"
     }
   }
 }

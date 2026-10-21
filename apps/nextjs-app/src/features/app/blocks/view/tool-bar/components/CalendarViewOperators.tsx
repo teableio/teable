@@ -29,7 +29,7 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
           <Settings className="size-4 text-sm" />
         </ToolBarButton>
       </CalendarConfig>
-      <VisibleFields>
+      <VisibleFields responsive>
         {(_text, _isActive) => (
           <ToolBarButton
             disabled={disabled}
@@ -42,12 +42,13 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
         )}
       </VisibleFields>
       <ViewFilter
+        responsive
         filters={view?.filter || null}
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
             <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
-              <Share2 className="mr-2 size-4 shrink-0" />
+              <Share2 className="me-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )

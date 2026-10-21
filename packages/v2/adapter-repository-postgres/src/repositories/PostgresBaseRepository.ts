@@ -74,6 +74,22 @@ export class PostgresBaseRepository implements core.IBaseRepository {
   }
 
   @core.TraceSpan()
+  async delete(
+    context: core.IExecutionContext,
+    baseId: core.BaseId
+  ): Promise<Result<void, DomainError>> {
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+      await db.deleteFrom('base').where('id', '=', baseId.toString()).execute();
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to delete base: ${describeError(error)}` })
+      );
+    }
+  }
+
+  @core.TraceSpan()
   async findOne(
     context: core.IExecutionContext,
     baseId: core.BaseId

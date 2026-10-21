@@ -17,7 +17,7 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
           case PrincipalType.User:
             return (
               <UserAvatar
-                key={collaborator.userId}
+                key={`user:${collaborator.userId}`}
                 name={collaborator.userName}
                 avatar={collaborator.avatar}
                 className="size-8 border-2 border-background dark:border-popover"
@@ -26,7 +26,7 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
           case PrincipalType.Department:
             return (
               <div
-                key={collaborator.departmentId}
+                key={`department:${collaborator.departmentId}`}
                 className="relative flex size-8 items-center justify-center rounded-full border-2 border-background bg-secondary"
               >
                 <Building2 className="size-5" />

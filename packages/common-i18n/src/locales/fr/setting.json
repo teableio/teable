@@ -1,4 +1,5 @@
 {
   "personalAccessToken": "Jetons d'accès personnel",
-  "oauthApps": "Applications OAuth"
+  "oauthApps": "Applications OAuth",
+  "plugins": "Plugins"
 }

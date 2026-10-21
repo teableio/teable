@@ -7,3 +7,4 @@ export * from './hotkey';
 export * from './measure';
 export * from './element';
 export * from './freeze';
+export * from './paste';

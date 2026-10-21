@@ -18,8 +18,8 @@
 **/*.tsbuildinfo
 **/.eslintcache
 
-# eslint
-**/.eslintrc.cjs
+# oxlint
+**/.oxlintrc.json
 **/lint-staged.config.js
 
 # npm

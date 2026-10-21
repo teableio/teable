@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { DateField } from '../types/DateField';
+import { LinkField } from '../types/LinkField';
+import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { MultipleSelectField } from '../types/MultipleSelectField';
 import { SelectOption } from '../types/SelectOption';
+import { SingleLineTextField } from '../types/SingleLineTextField';
 import { SingleSelectField } from '../types/SingleSelectField';
-import { DateField } from '../types/DateField';
 import { FieldCellValueSchemaVisitor } from './FieldCellValueSchemaVisitor';
 
 const createFieldId = (seed: string) =>
@@ -15,6 +18,26 @@ const createFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap()
 describe('FieldCellValueSchemaVisitor', () => {
   const visitor = FieldCellValueSchemaVisitor.create();
 
+  describe('visitSingleLineTextField', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('s'),
+      name: createFieldName('Text'),
+    })._unsafeUnwrap();
+
+    it('trims ends and replaces newlines and tabs with spaces', () => {
+      const schema = field.accept(visitor)._unsafeUnwrap();
+      const parsed = schema.safeParse('  第一行\n第二行\t第三列  ');
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data).toBe('第一行 第二行 第三列');
+      }
+      const blank = schema.safeParse(' \n\t ');
+      expect(blank.success).toBe(true);
+      if (blank.success) {
+        expect(blank.data).toBeNull();
+      }
+    });
+  });
   describe('visitSingleSelectField', () => {
     const options = [
       SelectOption.create({ id: 'opt1', name: 'Option One', color: 'red' })._unsafeUnwrap(),
@@ -27,13 +50,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('generates schema that accepts option IDs', () => {
+    it('generates schema that rejects option ids', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse('opt1');
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that accepts option names (v1 compatibility)', () => {
@@ -77,13 +100,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       options,
     })._unsafeUnwrap();
 
-    it('generates schema that accepts array of option IDs', () => {
+    it('generates schema that rejects an array of option ids', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse(['opt1', 'opt2']);
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that accepts array of option names (v1 compatibility)', () => {
@@ -95,13 +118,13 @@ describe('FieldCellValueSchemaVisitor', () => {
       expect(parseResult.success).toBe(true);
     });
 
-    it('generates schema that accepts mixed IDs and names', () => {
+    it('generates schema that rejects mixed ids and names', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse(['opt1', 'Option Two']);
-      expect(parseResult.success).toBe(true);
+      expect(parseResult.success).toBe(false);
     });
 
     it('generates schema that rejects array with invalid options', () => {
@@ -122,13 +145,15 @@ describe('FieldCellValueSchemaVisitor', () => {
       expect(parseResult.success).toBe(true);
     });
 
-    it('generates schema that accepts empty array', () => {
+    it('normalizes empty array to null', () => {
       const schemaResult = field.accept(visitor);
       expect(schemaResult.isOk()).toBe(true);
       const schema = schemaResult._unsafeUnwrap();
 
       const parseResult = schema.safeParse([]);
       expect(parseResult.success).toBe(true);
+      if (!parseResult.success) return;
+      expect(parseResult.data).toBeNull();
     });
   });
 
@@ -180,6 +205,64 @@ describe('FieldCellValueSchemaVisitor', () => {
 
       const parseResult = schema.safeParse('not a date');
       expect(parseResult.success).toBe(false);
+    });
+  });
+
+  describe('visitLinkField', () => {
+    const validLink = { id: 'rec123', title: 'Linked Record' };
+    const secondLink = { id: 'rec456', title: 'Second' };
+
+    const createLinkField = (relationship: 'manyOne' | 'manyMany') =>
+      LinkField.create({
+        id: createFieldId(relationship === 'manyOne' ? 'linksingle' : 'linkmulti'),
+        name: createFieldName(relationship === 'manyOne' ? 'Single Link' : 'Multi Link'),
+        config: LinkFieldConfig.create({
+          relationship,
+          foreignTableId: `tbl${'f'.repeat(16)}`,
+          lookupFieldId: `fld${'l'.repeat(16)}`,
+          isOneWay: true,
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+    it('accepts object and array for single-value link fields', () => {
+      const schema = createLinkField('manyOne').accept(visitor)._unsafeUnwrap();
+
+      expect(schema.safeParse(validLink).success).toBe(true);
+      expect(schema.safeParse(validLink).data).toEqual(validLink);
+      expect(schema.safeParse([validLink, secondLink]).success).toBe(true);
+      expect(schema.safeParse([validLink, secondLink]).data).toEqual(validLink);
+      expect(schema.safeParse([]).success).toBe(false);
+      expect(schema.safeParse(null).success).toBe(true);
+    });
+
+    it('accepts array and object for multi-value link fields', () => {
+      const schema = createLinkField('manyMany').accept(visitor)._unsafeUnwrap();
+
+      expect(schema.safeParse([validLink]).success).toBe(true);
+      expect(schema.safeParse([validLink]).data).toEqual([validLink]);
+      expect(schema.safeParse(validLink).success).toBe(true);
+      expect(schema.safeParse(validLink).data).toEqual([validLink]);
+      expect(schema.safeParse([validLink, { ...validLink }]).success).toBe(false);
+      expect(schema.safeParse(null).success).toBe(true);
+    });
+
+    it('accepts and strips null titles for single-value legacy links', () => {
+      const schema = createLinkField('manyOne').accept(visitor)._unsafeUnwrap();
+
+      expect(schema.safeParse({ id: 'rec123' }).data).toEqual({ id: 'rec123' });
+      expect(schema.safeParse({ id: 'rec123', title: undefined }).data).toEqual({ id: 'rec123' });
+      expect(schema.safeParse({ id: 'rec123', title: null }).data).toEqual({ id: 'rec123' });
+    });
+
+    it('accepts and strips null titles for multi-value legacy links', () => {
+      const schema = createLinkField('manyMany').accept(visitor)._unsafeUnwrap();
+
+      expect(
+        schema.safeParse([
+          { id: 'rec123', title: null },
+          { id: 'rec456', title: 'Named' },
+        ]).data
+      ).toEqual([{ id: 'rec123' }, { id: 'rec456', title: 'Named' }]);
     });
   });
 });

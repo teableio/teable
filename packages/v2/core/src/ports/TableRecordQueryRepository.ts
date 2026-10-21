@@ -4,12 +4,19 @@ import type { DomainError } from '../domain/shared/DomainError';
 import type { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { FieldId } from '../domain/table/fields/FieldId';
+import type { ViewCollaboratorField } from '../domain/table/methods/createViewCollaboratorsQueryPlan';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import type {
+  TableRecordAggregation,
+  TableRecordAggregationFunction,
+} from '../domain/table/records/TableRecordAggregation';
+import type { TableRecordCalendarDailyCollection } from '../domain/table/records/TableRecordCalendarDailyCollection';
 import type { Table } from '../domain/table/Table';
 import type { RecordQuerySearch } from '../queries/RecordSearch';
 import type { IExecutionContext } from './ExecutionContext';
+import type { RecordQueryFieldMask } from './RecordQueryPlugin';
 import type { TableRecordReadModel } from './TableRecordReadModel';
 import type {
   ITableRecordStreamPagination,
@@ -48,6 +55,8 @@ export type IRecordSearchAccessPath =
       readonly provider: 'pg_trgm' | 'pg_bigm';
       readonly searchScope: 'all_fields' | 'selected_fields';
       readonly coveredFieldIds: ReadonlyArray<FieldId>;
+      /** False preserves configured coverage while the physical document/index is unavailable. */
+      readonly indexUsable?: boolean;
     }
   | {
       /** Explicit lexical search. This is not substring-compatible. */
@@ -63,6 +72,9 @@ export type RecordSearchAccessPathKind = 'default' | 'generated_text' | 'generat
 export type RecordSearchAccessPathFallbackReason =
   | 'generated_text_unavailable'
   | 'generated_text_probe_too_short'
+  | 'generated_text_coverage_mismatch'
+  | 'generated_text_unsupported_projection'
+  | 'generated_text_invalid_config'
   | 'generated_tsvector_unavailable';
 
 export interface IRecordSearchAccessPathResolution {
@@ -79,9 +91,15 @@ export interface ITableRecordQueryOptions {
   readonly mode?: TableRecordQueryMode;
 
   /**
-   * Pagination options (offset-based).
+   * Pagination options (offset-based). Ignored offset when `cursor` is set.
    */
   readonly pagination?: OffsetPagination;
+
+  /**
+   * Opaque keyset cursor for the next page: it carries the order-key values of the
+   * previous page's last row. When set, the repository must not apply OFFSET.
+   */
+  readonly cursor?: string;
 
   /**
    * Sort records by fields or system columns. Supports multiple sort criteria.
@@ -105,9 +123,8 @@ export interface ITableRecordQueryOptions {
 
   /**
    * Whether to compute total count (`count(*)`) for the full filtered dataset.
-   * Defaults to true.
-   * When false, repository may skip the count query and return `records.length` as `total`.
-   * Useful for streaming/chunked read paths that don't need total rows.
+   * Defaults to false.
+   * When false, repository skips the count query and returns `records.length` as `total`.
    */
   readonly includeTotal?: boolean;
 
@@ -126,6 +143,12 @@ export interface ITableRecordQueryOptions {
   readonly search?: RecordQuerySearch;
 
   /**
+   * Optional search used only to compute per-field match metadata.
+   * Unlike `search`, this never filters the returned rows.
+   */
+  readonly searchFieldMatchesSearch?: RecordQuerySearch;
+
+  /**
    * Optional explicit search access path used by internal/admin validation flows.
    * Omitted or `default` keeps the existing v1-compatible ILIKE behavior.
    */
@@ -135,6 +158,55 @@ export interface ITableRecordQueryOptions {
    * Optional explicit read source used by permission-scoped record reads.
    */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
+
+  /**
+   * Return the exact fields matching `searchFieldMatchesSearch ?? search` for
+   * search-index projections.
+   * View identity and visible fields must already have been resolved from the
+   * Table aggregate by the application handler.
+   */
+  readonly includeSearchFieldMatches?: boolean;
+
+  /**
+   * `matched` numbers matching rows; `view` numbers the complete filtered/sorted View.
+   */
+  readonly searchIndexMode?: 'matched' | 'view';
+
+  /**
+   * Optional grouped count metadata computed from the same filter/search scope.
+   * Field order is significant and defines the group hierarchy.
+   */
+  readonly groupBy?: ReadonlyArray<FieldOrderBy>;
+  /**
+   * Conditional field visibility masks (T6997). When present, the repository
+   * evaluates ORDER BY, GROUP BY, and search over the masked value domain —
+   * `CASE WHEN <visibleWhen> THEN <value> ELSE NULL END` — instead of the raw
+   * column, so restricted cells behave as NULL without rejecting the query.
+   * The cell payload itself is still masked post-read by the core handler.
+   */
+  readonly fieldMasks?: ReadonlyArray<RecordQueryFieldMask>;
+
+  /** Maximum number of leaf group buckets returned by the repository. */
+  readonly groupLimit?: number;
+
+  /**
+   * Return record ids only: the repository selects just the record id column
+   * (filter/search/order/pagination semantics unchanged) and skips field
+   * column reads and read-model cell mapping. Rows carry empty fields and no
+   * versions. For id-resolution flows — selection materialization, delete
+   * chunk loading — where per-row read models are pure overhead.
+   */
+  readonly idsOnly?: boolean;
+
+  /** Index-only read: return the target's position in the complete query, ignoring pagination. */
+  readonly recordIndexId?: string;
+
+  /**
+   * Snapshot-style field-value reads: select `__id` plus the projected field
+   * columns and skip system columns / default `__auto_number` sort. Undo/redo
+   * field snapshots only need `{recordId, value}` pairs.
+   */
+  readonly valuesOnly?: boolean;
 }
 
 /**
@@ -143,6 +215,15 @@ export interface ITableRecordQueryOptions {
 export type FieldOrderBy = {
   readonly fieldId: FieldId;
   readonly direction: 'asc' | 'desc';
+  /**
+   * Collate this field the way its group buckets collate (set on entries
+   * derived from a view's groupBy). Grouped lists and offset-addressed range
+   * commands map group row blocks onto record pages positionally, so their
+   * record order must match the bucket order exactly — for user fields that
+   * is the {id, title} group identity, not the raw cell. Plain sorts omit
+   * this and keep the v1 collation (ties follow view row order).
+   */
+  readonly groupIdentityCollation?: boolean;
 };
 
 /**
@@ -193,6 +274,12 @@ export interface ITableRecordQueryStreamOptions {
   readonly projectionFieldIds?: ReadonlyArray<FieldId>;
 
   /**
+   * Include per-view row-order values in streamed records.
+   * Used by bulk row-order materialization to skip unchanged rows.
+   */
+  readonly includeOrders?: boolean;
+
+  /**
    * Optional stream pagination strategy.
    * When omitted, repository uses its default strategy.
    */
@@ -222,7 +309,44 @@ export interface ITableRecordQueryResult {
   readonly total: number;
   /** Actual search access path selected by the repository after SQL planning. */
   readonly searchAccessPath?: IRecordSearchAccessPathResolution;
+  /** Exact per-field search hits, present only when explicitly requested. */
+  readonly searchMatches?: ReadonlyArray<ITableRecordSearchMatch>;
+  /** Zero-based query position for index-only reads; null when the target does not match. */
+  readonly recordIndex?: number | null;
+  /** Ordered leaf group buckets for compatibility presentation layers. */
+  readonly groups?: ReadonlyArray<ITableRecordGroup>;
+  /** Opaque keyset cursor for the next page when order supports it. */
+  readonly nextCursor?: string;
+  /**
+   * Whether the page filled its limit, i.e. more rows may follow. Independent of
+   * `nextCursor`: a page can have more rows without a cursor to hand out (an unsupported
+   * order, or a cursor that would exceed the token size limit), and callers must keep
+   * paging by offset in that case.
+   */
+  readonly hasMore?: boolean;
 }
+
+export interface ITableRecordGroup {
+  readonly fields: Readonly<Record<string, unknown>>;
+  readonly count: number;
+}
+
+export interface ITableRecordSearchMatch {
+  readonly index: number;
+  readonly fieldId: FieldId;
+  readonly recordId: RecordId;
+}
+
+export type TableRecordAggregationValue = {
+  readonly fieldId: FieldId;
+  readonly statisticFunc: TableRecordAggregationFunction;
+  readonly value: number | string | null;
+  /**
+   * Present for grouped values. The array contains the raw group values in the
+   * same order as the aggregation's groupBy prefix.
+   */
+  readonly groupValues?: ReadonlyArray<unknown>;
+};
 
 export interface ITableRecordQueryRepository {
   /**
@@ -277,6 +401,97 @@ export interface ITableRecordQueryRepository {
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>>;
+}
+
+export type ITableRecordCountOptions = Pick<
+  ITableRecordQueryOptions,
+  'mode' | 'search' | 'searchAccessPath' | 'recordReadQuerySource' | 'fieldMasks'
+>;
+
+/**
+ * Count capability of the existing Table Record query repository.
+ *
+ * This shares the same repository implementation and DI token as record reads.
+ * Count runs `count(*)` for the filtered/search scope and does not fetch rows.
+ */
+export interface ITableRecordCountQueryRepository extends ITableRecordQueryRepository {
+  count(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>>;
+}
+
+/**
+ * Aggregate capability of the existing Table Record query repository.
+ *
+ * This deliberately shares the same repository implementation and DI token as
+ * record reads. It is not a View repository or a second aggregate boundary.
+ */
+export type ITableRecordAggregationOptions = {
+  readonly maxGroupPoints?: number;
+  readonly search?: RecordQuerySearch;
+  readonly searchAccessPath?: IRecordSearchAccessPath;
+  readonly pagination?: OffsetPagination;
+  readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
+  readonly fieldMasks?: ReadonlyArray<RecordQueryFieldMask>;
+  readonly recordIdsOrder?: ReadonlyArray<RecordId>;
+};
+
+export interface ITableRecordAggregationQueryRepository extends ITableRecordQueryRepository {
+  aggregate(
+    context: IExecutionContext,
+    table: Table,
+    aggregation: TableRecordAggregation,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordAggregationOptions
+  ): Promise<Result<ReadonlyArray<TableRecordAggregationValue>, DomainError>>;
+}
+
+export type TableRecordCalendarDailyCollectionEntry = {
+  readonly date: string;
+  readonly count: number;
+  readonly recordIds: ReadonlyArray<RecordId>;
+};
+
+/**
+ * Calendar read capability of the existing Table Record query repository.
+ *
+ * Calendar is a projection over records owned by a Table aggregate. It does not
+ * introduce a View or Calendar repository boundary.
+ */
+export interface ITableRecordCalendarQueryRepository extends ITableRecordQueryRepository {
+  calendarDailyCollection(
+    context: IExecutionContext,
+    table: Table,
+    calendar: TableRecordCalendarDailyCollection,
+    range: {
+      readonly startDate: string;
+      readonly endDate: string;
+    },
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: {
+      readonly search?: RecordQuerySearch;
+      readonly searchAccessPath?: IRecordSearchAccessPath;
+      readonly fieldMasks?: ReadonlyArray<RecordQueryFieldMask>;
+    }
+  ): Promise<Result<ReadonlyArray<TableRecordCalendarDailyCollectionEntry>, DomainError>>;
+}
+
+/**
+ * Collaborator lookup capability of the existing Table Record query repository.
+ *
+ * User-related values remain record data owned by Table. This is intentionally not a
+ * View, Field, or collaborator repository.
+ */
+export interface ITableRecordCollaboratorQueryRepository extends ITableRecordQueryRepository {
+  findDistinctUserIds(
+    context: IExecutionContext,
+    table: Table,
+    field: ViewCollaboratorField,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ): Promise<Result<ReadonlyArray<string>, DomainError>>;
 }
 
 /**

@@ -1,10 +1,18 @@
-import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { randomBytes } from 'node:crypto';
+import {
+  createV2PostgresDb,
+  v2DataDbTokens,
+  v2MetaDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import {
   getTablePhysicalName,
   makePhysicalTableSql,
   mergeSearchVectorCoverage,
   PostgresTableSearchVectorAdvisor,
+  PostgresTableSearchAccessPathMetadataPublisher,
   registerV2TableOpsPostgresAdapter,
+  renderGeneratedSearchTextProjectionSql,
+  ensureSearchDocumentFunctions,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -34,10 +42,12 @@ import {
   type ITableRecordQueryRepository,
   type ITableRepository,
   type ITracer,
+  type SearchFieldTextProjection,
   type Table,
 } from '@teable/v2-core';
 import {
   FormulaSqlPgTranslator,
+  defaultFormulaCompileBudgetPolicy,
   makeExpr,
   Pg16TypeValidationStrategy,
 } from '@teable/v2-formula-sql-pg';
@@ -78,7 +88,6 @@ import {
   type TableQueryOpsExecuteSearchAccessPathInput,
   type TableQueryOpsExecuteSearchAccessPathResult,
   type TableQueryOpsExecuteSearchVectorInput,
-  type TableQueryOpsExecuteSearchVectorResult,
   type TableQueryOpsExplainSavedViewsInput,
   type TableQueryOpsExplainSavedViewsResult,
   type TableQueryOpsSearchAccessPathTempTableValidationResult,
@@ -89,10 +98,8 @@ import {
   type TableQueryOpsValidateSearchAccessPathTempTableInput,
   type TableQueryOpsValidateSearchVectorTempTableInput,
   type TableQueryOpsAnalyzeSearchVectorsInput,
-  type TableQueryOpsAnalyzeSearchVectorsResult,
   type TableQueryOpsObservabilitySchemaResult,
   type TableQueryOpsSignozDashboardTemplateResult,
-  type TableQueryOpsSearchVectorRecommendationSummary,
   type TableQueryOpsFormulaEvidenceSummary,
   type TableQueryOpsCoverageReportSummary,
   type TableQueryOpsIndexCandidateSummary,
@@ -466,6 +473,27 @@ type SearchAccessPathTempQueryPathResult = {
   readonly returnedCount: number;
   readonly recordIds: readonly string[];
 };
+
+// Durable output must not carry raw record ids (customer data); a
+// deterministic set hash still lets two runs be compared for equality.
+const stableRecordIdSetHash = (recordIds: readonly string[]): string => {
+  const joined = [...recordIds].sort((a, b) => Number(a > b) - Number(a < b)).join('\n');
+  let hash = 0;
+  for (let index = 0; index < joined.length; index += 1) {
+    hash = (hash * 31 + joined.charCodeAt(index)) >>> 0; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
+  }
+  return `${recordIds.length}:${hash.toString(16).padStart(8, '0')}`;
+};
+
+const redactTempQueryPathResult = ({
+  recordIds,
+  ...rest
+}: SearchAccessPathTempQueryPathResult): Omit<SearchAccessPathTempQueryPathResult, 'recordIds'> & {
+  readonly recordIdSetHash: string;
+} => ({
+  ...rest,
+  recordIdSetHash: stableRecordIdSetHash(recordIds),
+});
 
 type SearchAccessPathTempPlanEvidence = {
   readonly explainStatus: 'validated' | 'failed';
@@ -961,7 +989,7 @@ const buildRecommendedIndexes = (
       .filter((item) => item.indexKind === 'btree' && item.accessPath === 'composite')
       .map((item) => item.optimizedFields[0])
       .filter((field): field is string => Boolean(field))
-      .map((field) => /\(([^)]+)\)/.exec(field)?.[1] ?? field.split(':')[0])
+      .map((field) => /\(([^()]+)\)/.exec(field)?.[1] ?? field.split(':')[0])
   );
 
   return summaries
@@ -969,7 +997,7 @@ const buildRecommendedIndexes = (
       if (item.indexKind !== 'btree' || item.accessPath !== 'single_field') return true;
       const field = item.optimizedFields[0];
       if (!field) return true;
-      const normalizedField = /\(([^)]+)\)/.exec(field)?.[1] ?? field.split(':')[0];
+      const normalizedField = /\(([^()]+)\)/.exec(field)?.[1] ?? field.split(':')[0];
       return !compositePrefixFields.has(normalizedField);
     })
     .sort((a, b) => b.optimizedSources.length - a.optimizedSources.length);
@@ -1346,7 +1374,7 @@ const remediationKindForRecommendedIndex = (
   return 'create_filter_index';
 };
 
-const quoteIdentifier = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 const splitPhysicalName = (
   dbTableName: string,
@@ -1413,6 +1441,11 @@ const buildFormulaExpressionIndexSql = (
     tableAlias: '',
     allowFieldNameFallback: false,
     typeValidationStrategy: new Pg16TypeValidationStrategy(),
+    compileBudget: {
+      policy: defaultFormulaCompileBudgetPolicy,
+      mode: 'enforce',
+      policyVersion: 1,
+    },
     resolveFieldSql: (field: Field) => {
       const dbFieldName = field.dbFieldName().andThen((name) => name.value());
       const columnSql = dbFieldName.isOk() ? quoteIdentifier(dbFieldName.value) : 'NULL';
@@ -1424,7 +1457,7 @@ const buildFormulaExpressionIndexSql = (
   );
   if (translated.isErr()) return undefined;
   const expressionSql = translator.renderSql(translated.value);
-  return expressionSql;
+  return expressionSql.isOk() ? expressionSql.value : undefined;
 };
 
 const explainCompiled = async (
@@ -1549,25 +1582,34 @@ const createContext = (container: {
 };
 
 const buildSearchDocumentGeneratedExpression = (
-  fields: ReadonlyArray<{ readonly fieldDbName?: string }>
+  fields: ReadonlyArray<{
+    readonly fieldDbName?: string;
+    readonly textProjection?: SearchFieldTextProjection;
+  }>
 ): string => {
   const document = fields
-    .map((field) => field.fieldDbName)
-    .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName))
-    .map((fieldDbName) => `coalesce(${quoteIdentifier(fieldDbName)}::text, '')`)
-    .join(` || E'\\n' || `);
+    .filter((field): field is { fieldDbName: string; textProjection?: SearchFieldTextProjection } =>
+      Boolean(field.fieldDbName)
+    )
+    .map(
+      (field) =>
+        `coalesce(${renderGeneratedSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+    )
+    .join(String.raw` || E'\n' || `);
   return `lower(${document || "''"})`;
 };
 
 const makeTempSearchAccessPathTableName = (): string =>
-  `${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`.slice(0, 63);
+  `${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`.slice(
+    0,
+    63
+  );
 
 const makeTempSearchAccessPathIndexName = (): string =>
-  `idx${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`.slice(0, 63);
+  `idx${SEARCH_ACCESS_PATH_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`.slice(
+    0,
+    63
+  );
 
 const cloneTableWithDbTableName = (
   table: Table,
@@ -1656,6 +1698,8 @@ const runTempSearchQuery = async (input: {
           visibleFieldIds: input.visibleFieldIds,
         },
         searchAccessPath: input.searchAccessPath,
+        // The paging loop below bounds itself on `total`, so the count must be requested.
+        includeTotal: true,
       });
       if (result.isErr()) throw result.error;
       total = result.value.total;
@@ -1663,7 +1707,11 @@ const runTempSearchQuery = async (input: {
       offsetValue += result.value.records.length;
       if (!result.value.records.length) break;
     } while (offsetValue < total);
-    runs.push({ durationMs: durationMsFrom(startedAt), total, ids: ids.sort() });
+    runs.push({
+      durationMs: durationMsFrom(startedAt),
+      total,
+      ids: ids.sort((a, b) => Number(a > b) - Number(a < b)),
+    });
   }
   const first = runs[0] ?? { durationMs: 0, total: 0, ids: [] };
   if (
@@ -1826,7 +1874,7 @@ export const TableQueryOpsLive = Layer.effect(
     const hasOpsTables = async () => {
       const result = await sql<{ enabled: boolean }>`
         SELECT (
-          to_regclass('table_query_observation_window') IS NOT NULL
+          to_regclass('table_query_observation_shard') IS NOT NULL
           AND to_regclass('table_query_recommendation') IS NOT NULL
           AND to_regclass('table_query_remediation_task') IS NOT NULL
         ) AS enabled
@@ -2256,6 +2304,10 @@ export const TableQueryOpsLive = Layer.effect(
         `.execute(dataDb);
         copiedRows = Number(countResult.rows[0]?.count ?? '0');
 
+        await ensureSearchDocumentFunctions(
+          dataDb as Kysely<UnknownPostgresDatabase>,
+          coveredFields.map((field) => field.textProjection)
+        );
         const expression = buildSearchDocumentGeneratedExpression(coveredFields);
         await sql
           .raw(
@@ -2354,9 +2406,11 @@ export const TableQueryOpsLive = Layer.effect(
           samples.push({
             searchProbeLengthBucket: searchProbeLengthBucket(search),
             probeSource: input.probeSource ?? 'manual',
-            legacyIlikePath,
-            optimizedGeneratedTextPath,
-            ...exactComparison,
+            legacyIlikePath: redactTempQueryPathResult(legacyIlikePath),
+            optimizedGeneratedTextPath: redactTempQueryPathResult(optimizedGeneratedTextPath),
+            exactResultMatch: exactComparison.exactResultMatch,
+            missingFromOptimizedCount: exactComparison.missingFromOptimized.length,
+            unexpectedFromOptimizedCount: exactComparison.unexpectedFromOptimized.length,
             totalDeltaFromLegacy: optimizedGeneratedTextPath.total - legacyIlikePath.total,
             durationDeltaPctFromLegacy: durationDeltaPct(
               legacyIlikePath.durationMs,
@@ -2442,6 +2496,37 @@ export const TableQueryOpsLive = Layer.effect(
         throw new Error('table-query-ops execute-search-access-path requires --table-id');
       }
       const dryRun = !(input.execute ?? false);
+      if (input.mode === 'drop') {
+        if (dryRun) {
+          return {
+            scope: input,
+            dryRun,
+            action: 'dry_run',
+            result: {
+              note: 'Would drop the managed search document column + GIN index and disable the table config; rerun with --execute.',
+            },
+          };
+        }
+        await ensureRegistered(input.ensureSchema ?? true);
+        const context = createContext(container);
+        const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+        const tableId = TableId.create(input.tableId);
+        if (tableId.isErr()) throw tableId.error;
+        const tableResult = await tableRepository.findOne(
+          context,
+          TableByIdSpec.create(tableId.value)
+        );
+        if (tableResult.isErr()) throw tableResult.error;
+        const reconciler = container.resolve<TableSearchVectorReconciler>(
+          v2TableOpsTokens.searchVectorReconciler
+        );
+        const dropResult = await reconciler.reconcile(context, {
+          table: tableResult.value,
+          mode: 'drop',
+        });
+        if (dropResult.isErr()) throw dropResult.error;
+        return { scope: input, dryRun, action: 'dropped', result: dropResult.value };
+      }
       const analysis = await analyzeSearchAccessPathsUnsafe({
         tableId: input.tableId,
         fieldIds: input.fieldIds,
@@ -2790,23 +2875,23 @@ export const TableQueryOpsLive = Layer.effect(
             const [summaryRows, hotTableRows, recommendationRows, taskRows] = await Promise.all([
               sql<CountRow>`
                 SELECT
-                  (SELECT count(*) FROM table_query_observation_window ow
+                  (SELECT count(DISTINCT (ow.table_id, ow.query_kind, ow.shape_hash, ow.window_start)) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS observation_window_count,
-                  (SELECT coalesce(sum(ow.request_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.request_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS request_count,
-                  (SELECT coalesce(sum(ow.slow_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.slow_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS slow_count,
-                  (SELECT coalesce(sum(ow.timeout_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.timeout_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS timeout_count,
-                  (SELECT coalesce(sum(ow.db_error_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.db_error_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS db_error_count,
@@ -2850,7 +2935,7 @@ export const TableQueryOpsLive = Layer.effect(
                   sum(ow.db_error_count) AS db_error_count,
                   max(ow.max_duration_ms) AS max_duration_ms,
                   max(ow.window_start) AS latest_window_start
-                FROM table_query_observation_window ow
+                FROM table_query_observation_shard ow
                 LEFT JOIN base b ON b.id = ow.base_id
                 LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                 WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
@@ -3000,7 +3085,7 @@ export const TableQueryOpsLive = Layer.effect(
               .map((item) => validationByKey.get(item.indexKey)?.recommendedIndex)
               .filter((item): item is TableQueryOpsRecommendedIndexSummary => Boolean(item));
             if (!baseId && candidates.length > 0) {
-              throw new Error(`No base id found for table ${input.tableId}`);
+              throw new Error(`No project ID found for table ${input.tableId}`);
             }
 
             for (const recommendedIndex of candidates) {
@@ -3187,6 +3272,33 @@ export const TableQueryOpsLive = Layer.effect(
       ): Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError> =>
         Effect.tryPromise({
           try: () => executeSearchAccessPathUnsafe(input),
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      refreshSearchAccessPath: (input: {
+        readonly tableId: string;
+        readonly dataConnection?: string;
+      }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const inspectionDb = input.dataConnection
+              ? await createV2PostgresDb<UnknownPostgresDatabase>({
+                  pg: { connectionString: input.dataConnection },
+                })
+              : container.resolve<Kysely<UnknownPostgresDatabase>>(v2DataDbTokens.db);
+            try {
+              const publisher = new PostgresTableSearchAccessPathMetadataPublisher(
+                container.resolve<Kysely<UnknownPostgresDatabase>>(v2MetaDbTokens.db),
+                inspectionDb,
+                container.resolve<ITableRepository>(v2CoreTokens.tableRepository)
+              );
+              const result = await publisher.refresh(createContext(container), input.tableId);
+              if (result.isErr()) throw result.error;
+              return { tableId: input.tableId, published: result.value !== undefined };
+            } finally {
+              if (input.dataConnection) await inspectionDb.destroy();
+            }
+          },
           catch: (error) => CliError.fromUnknown(error),
         }),
 

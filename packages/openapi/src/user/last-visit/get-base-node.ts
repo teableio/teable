@@ -19,13 +19,14 @@ export type IUserLastVisitBaseNodeVo = z.infer<typeof userLastVisitBaseNodeVoSch
 export const GetUserLastVisitBaseNodeRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_USER_LAST_VISIT_BASE_NODE,
-  description: 'Get user last visited base node',
+  title: 'Get userlast visitproject node',
+  description: 'Get user last visited project node',
   request: {
     query: getUserLastVisitBaseNodeRoSchema,
   },
   responses: {
     200: {
-      description: 'Returns data about user last visit base node.',
+      description: 'Returns data about user last visit project node.',
       content: {
         'application/json': {
           schema: userLastVisitBaseNodeVoSchema,

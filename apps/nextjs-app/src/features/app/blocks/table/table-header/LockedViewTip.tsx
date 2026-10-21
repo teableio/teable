@@ -14,7 +14,7 @@ export const LockedViewTip = () => {
     <div className="w-full @container/locked-view-tip">
       <div className="relative flex w-full items-center justify-between gap-4 px-4 py-1.5 text-xs text-gray-500 duration-500 animate-in fade-in @3xl/locked-view-tip:justify-center dark:text-gray-400">
         <div className="relative">{t('table:view.locked.tip')}</div>
-        <div className="flex @3xl/locked-view-tip:absolute @3xl/locked-view-tip:right-2 @3xl/locked-view-tip:top-1/2 @3xl/locked-view-tip:mr-0 @3xl/locked-view-tip:-translate-y-1/2">
+        <div className="flex @3xl/locked-view-tip:absolute @3xl/locked-view-tip:end-2 @3xl/locked-view-tip:top-1/2 @3xl/locked-view-tip:me-0 @3xl/locked-view-tip:-translate-y-1/2">
           <Button
             size="xs"
             className="flex h-5"
@@ -28,7 +28,7 @@ export const LockedViewTip = () => {
           <Button
             variant="ghost"
             size="xs"
-            className="ml-2 flex size-5 p-[2px]"
+            className="ms-2 flex size-5 p-[2px]"
             onClick={() => setVisible(false)}
           >
             <X className="size-4 shrink-0" />

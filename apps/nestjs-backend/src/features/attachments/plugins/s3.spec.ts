@@ -1,6 +1,12 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { createHash } from 'crypto';
+import { Readable } from 'stream';
+import { DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
 import { vi } from 'vitest';
+import StorageAdapter from './adapter';
 import { AliyunStorage } from './aliyun';
 import { S3Storage } from './s3';
 import { getFreshPreviewCacheUrl, getPreviewCacheKey, getPreviewUrlConfigSig } from './utils';
@@ -167,6 +173,56 @@ describe('preview cache config fingerprint', () => {
   });
 });
 
+describe('preview url cache-control injection', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('adds private cache-control to private-bucket preview urls (s3)', async () => {
+    const storage = new S3Storage(mockS3Config(true));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/attachment/preview', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBe(
+      StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL
+    );
+  });
+
+  it('adds private cache-control to private-bucket preview urls (aliyun)', async () => {
+    const storage = new AliyunStorage(mockS3Config(false));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/attachment/preview', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBe(
+      StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL
+    );
+  });
+
+  it('leaves public-bucket preview urls without response-cache-control', async () => {
+    vi.stubEnv('BACKEND_STORAGE_PUBLIC_BUCKET', 'public-bucket');
+    const storage = new S3Storage(mockS3Config(true));
+    const url = await storage.getPreviewUrl('public-bucket', 'template/cover', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBeNull();
+  });
+});
+
+describe('preview url response-content-type override', () => {
+  const respHeaders = {
+    'Content-Type': 'image/png',
+    'Content-Disposition': 'attachment; filename="a.png"',
+  };
+
+  it('forwards the content type override for s3', async () => {
+    const storage = new S3Storage(mockS3Config(true));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/a', 60, respHeaders);
+    expect(new URL(url).searchParams.get('response-content-type')).toBe('image/png');
+  });
+
+  it('omits response-content-type for aliyun because OSS rejects it on GET (0017-00000902)', async () => {
+    const storage = new AliyunStorage(mockS3Config(false));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/a', 60, respHeaders);
+    const params = new URL(url).searchParams;
+    expect(params.get('response-content-type')).toBeNull();
+    expect(params.get('response-content-disposition')).toBe('attachment; filename="a.png"');
+  });
+});
+
 describe('AliyunStorage forcePathStyle', () => {
   it('keeps virtual-hosted style preview url when disabled', async () => {
     const storage = new AliyunStorage(mockS3Config(false));
@@ -183,5 +239,103 @@ describe('AliyunStorage forcePathStyle', () => {
     expect(parsed.host).toBe('teable.example.com');
     expect(parsed.pathname).toBe('/oss/private-bucket/table/attachment/preview');
     expect(parsed.searchParams.get('X-Amz-Signature')).toBeTruthy();
+  });
+});
+
+describe('S3 request checksums', () => {
+  // Stops each request once headers are final, so they can be inspected without a server.
+  const captureRequests = (client: S3Client) => {
+    const requests: { command: string; headers: Record<string, string>; body: unknown }[] = [];
+    client.middlewareStack.add(
+      (_next, context) => async (args: any) => {
+        requests.push({
+          command: context.commandName as string,
+          headers: { ...args.request.headers },
+          body: args.request.body,
+        });
+        throw new Error('request captured');
+      },
+      { step: 'finalizeRequest', priority: 'low', name: 'captureRequest' }
+    );
+    return requests;
+  };
+  const checksumHeaders = (headers: Record<string, string>) =>
+    Object.keys(headers).filter((h) => /^x-amz-(?:sdk-)?checksum-|^x-amz-trailer$/i.test(h));
+  const checksumParams = (url: string) =>
+    [...new URL(url).searchParams.keys()].filter((k) => /checksum/i.test(k));
+
+  it('signs upload and preview urls without checksum parameters', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const { url } = await storage.presigned('private-bucket', 'table/attachment', {
+      contentType: 'text/plain',
+      contentLength: 10,
+    });
+    const aliyun = new AliyunStorage(mockS3Config(false));
+
+    expect(checksumParams(url)).toEqual([]);
+    expect(checksumParams(await storage.getPreviewUrl('private-bucket', 'table/a', 60))).toEqual(
+      []
+    );
+    expect(checksumParams(await aliyun.getPreviewUrl('private-bucket', 'table/a', 60))).toEqual([]);
+  });
+
+  it('uploads without checksum headers', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const requests = captureRequests((storage as any).s3ClientPrivateNetwork);
+
+    await expect(
+      storage.uploadFile('private-bucket', 'table/a', Readable.from([Buffer.from('hello')]))
+    ).rejects.toThrow('request captured');
+
+    expect(requests.map((r) => r.command)).toEqual(['PutObjectCommand']);
+    expect(checksumHeaders(requests[0].headers)).toEqual([]);
+  });
+
+  it('sends Content-MD5 instead of a CRC32 checksum on DeleteObjects', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const client: S3Client = (storage as any).s3ClientPrivateNetwork;
+    const requests = captureRequests(client);
+
+    await expect(
+      client.send(
+        new DeleteObjectsCommand({
+          Bucket: 'private-bucket',
+          Delete: { Objects: [{ Key: 'table/a' }] },
+        })
+      )
+    ).rejects.toThrow('request captured');
+
+    const [{ headers, body }] = requests;
+    expect(checksumHeaders(headers)).toEqual([]);
+    expect(headers['Content-MD5']).toBe(
+      createHash('md5')
+        .update(body as string)
+        .digest('base64')
+    );
+  });
+});
+
+describe('S3Storage getObjectMeta', () => {
+  it('still returns the object meta when sharp cannot read the image dimensions', async () => {
+    // libheif rejects some iPhone HEICs at the header ("Too many auxiliary
+    // image references"); the upload must not fail on that, the crop job has
+    // its own decoder.
+    const storage = new S3Storage(mockS3Config(false));
+    const send = vi.fn(async (command: { constructor: { name: string } }) => {
+      if (command.constructor.name === 'HeadObjectCommand') {
+        return { ContentLength: 2282614, ContentType: 'image/heic', ETag: 'etag' };
+      }
+      return { Body: Readable.from([Buffer.from('not an image at all')]) };
+    });
+    (storage as any).s3ClientPrivateNetwork = { send };
+
+    const meta = await storage.getObjectMeta('private-bucket', 'table/photo.heic');
+
+    expect(meta).toEqual({
+      hash: 'etag',
+      size: 2282614,
+      mimetype: 'image/heic',
+      url: '/private-bucket/table/photo.heic',
+    });
   });
 });

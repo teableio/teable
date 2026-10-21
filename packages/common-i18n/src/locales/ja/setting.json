@@ -1,4 +1,5 @@
 {
   "personalAccessToken": "個人アクセストークン",
-  "oauthApps": "OAuthアプリ"
+  "oauthApps": "OAuthアプリ",
+  "plugins": "プラグイン"
 }

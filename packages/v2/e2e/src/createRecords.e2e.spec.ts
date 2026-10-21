@@ -390,6 +390,49 @@ describe('v2 http createRecords (e2e)', () => {
 
       expect(records[0].fields[conditionalLookup.id]).toEqual(['Alpha', 'Beta']);
     });
+
+    /**
+     * v1 reference: record.e2e-spec.ts:701 — after repeatedly creating and
+     * deleting fields with the same name, name-keyed record creation resolves
+     * to the live field.
+     */
+    it('creates a record by name when duplicate name field is deleted', async () => {
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: 'Batch Duplicate Name Field',
+        fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const fieldName = 'test-field';
+
+      for (let i = 0; i < 10; i += 1) {
+        const field = await createField(table.id, { type: 'singleLineText', name: fieldName });
+        await ctx.deleteField({ tableId: table.id, fieldId: field.id });
+      }
+      const liveField = await createField(table.id, { type: 'singleLineText', name: fieldName });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/createRecords`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fieldKeyType: 'name',
+          typecast: true,
+          records: [{ fields: { [fieldName]: 'test' } }],
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const rawBody = await response.json();
+      const parsed = createRecordsOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      expect(parsed.data.data.records[0].fields[fieldName]).toBe('test');
+
+      const stored = await listRecords(table.id);
+      expect(stored.some((r) => r.fields[liveField.id] === 'test')).toBe(true);
+    });
   });
 
   describe('link fields - manyMany', () => {
@@ -519,6 +562,111 @@ describe('v2 http createRecords (e2e)', () => {
         );
       }
     });
+
+    /**
+     * v1 reference: record.e2e-spec.ts:1016 — concurrent batch creates with
+     * link values must not collide on internal ops/row indexes.
+     */
+    it('creates records concurrently with link values without index conflicts', async () => {
+      const makeBatch = () =>
+        createRecords(mainTableId, [
+          {
+            fields: {
+              [mainTitleFieldId]: 'Concurrent A',
+              [linkFieldId]: [{ id: foreignRecordId1 }],
+            },
+          },
+          {
+            fields: {
+              [mainTitleFieldId]: 'Concurrent B',
+              [linkFieldId]: [{ id: foreignRecordId2 }],
+            },
+          },
+          {
+            fields: {
+              [mainTitleFieldId]: 'Concurrent C',
+              [linkFieldId]: [{ id: foreignRecordId3 }],
+            },
+          },
+        ]);
+
+      const [firstBatch, secondBatch] = await Promise.all([makeBatch(), makeBatch()]);
+
+      expect(firstBatch.length).toBe(3);
+      expect(secondBatch.length).toBe(3);
+
+      await processOutbox();
+      const allRecords = await listRecords(mainTableId);
+      const createdIds = [...firstBatch, ...secondBatch].map((record) => record.id);
+      expect(createdIds.filter((id) => allRecords.some((r) => r.id === id)).length).toBe(6);
+    });
+
+    /**
+     * v1 reference: record.e2e-spec.ts:1631 — the create response contains the
+     * rollup computed over the linked record set immediately.
+     */
+    it('creates with link and computes rollup immediately', async () => {
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'Rollup On Create Foreign',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const nameFieldId = foreign.fields.find((f) => f.isPrimary)?.id ?? '';
+      const valueFieldId = foreign.fields.find((f) => f.name === 'Value')?.id ?? '';
+      const target1 = await createRecord(foreign.id, {
+        [nameFieldId]: 'Eleven',
+        [valueFieldId]: 11,
+      });
+      const target2 = await createRecord(foreign.id, {
+        [nameFieldId]: 'Nine',
+        [valueFieldId]: 9,
+      });
+
+      const main = await createTable({
+        baseId: ctx.baseId,
+        name: 'Rollup On Create Main',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Links',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: nameFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const mainLinkFieldId = main.fields.find((f) => f.name === 'Links')?.id ?? '';
+
+      const rollupField = await createField(main.id, {
+        type: 'rollup',
+        name: 'Sum',
+        options: { expression: 'sum({values})' },
+        config: {
+          linkFieldId: mainLinkFieldId,
+          foreignTableId: foreign.id,
+          lookupFieldId: valueFieldId,
+        },
+      });
+
+      const records = await createRecords(main.id, [
+        {
+          fields: {
+            [mainLinkFieldId]: [{ id: target1.id }, { id: target2.id }],
+          },
+        },
+      ]);
+
+      expect(records[0].fields[rollupField.id]).toBe(20);
+    });
   });
 
   describe('link fields - manyOne', () => {
@@ -597,6 +745,59 @@ describe('v2 http createRecords (e2e)', () => {
       `.execute(ctx.testContainer.db);
 
       expect(parseInt(result.rows[0].count, 10)).toBeGreaterThanOrEqual(3);
+    });
+
+    /**
+     * v1 reference: record.e2e-spec.ts:1596 — the create response contains the
+     * lookup computed from the linked record immediately.
+     */
+    it('creates with link and computes lookup immediately', async () => {
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'Lookup On Create Foreign',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const nameFieldId = foreign.fields.find((f) => f.isPrimary)?.id ?? '';
+      const target = await createRecord(foreign.id, { [nameFieldId]: 'LABEL_A' });
+
+      const main = await createTable({
+        baseId: ctx.baseId,
+        name: 'Lookup On Create Main',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Parent',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreign.id,
+              lookupFieldId: nameFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const mainLinkFieldId = main.fields.find((f) => f.name === 'Parent')?.id ?? '';
+
+      const lookupField = await createField(main.id, {
+        type: 'lookup',
+        name: 'Name Lookup',
+        options: {
+          linkFieldId: mainLinkFieldId,
+          foreignTableId: foreign.id,
+          lookupFieldId: nameFieldId,
+        },
+      });
+
+      const records = await createRecords(main.id, [
+        { fields: { [mainLinkFieldId]: { id: target.id } } },
+      ]);
+
+      const lookupValue = records[0].fields[lookupField.id];
+      // assert the computed value without pinning the single/array lookup shape
+      expect(Array.isArray(lookupValue) ? lookupValue : [lookupValue]).toEqual(['LABEL_A']);
     });
   });
 
@@ -894,8 +1095,10 @@ describe('v2 http createRecords (e2e)', () => {
         }),
       });
 
-      // FK constraint violation should result in 500
-      expect(response.status).toBe(500);
+      // FK constraint violation is a data validation problem, not a server fault
+      expect(response.status).toBe(400);
+      const body = (await response.json()) as { error?: { code?: string } };
+      expect(body.error?.code).toBe('validation.link.invalid_reference');
     });
   });
 
@@ -907,9 +1110,6 @@ describe('v2 http createRecords (e2e)', () => {
     let dateFieldId: string;
     let singleSelectFieldId: string;
     let multiSelectFieldId: string;
-    // Store choice IDs for select fields
-    let singleSelectChoices: Array<{ id: string; name: string }>;
-    let multiSelectChoices: Array<{ id: string; name: string }>;
 
     beforeAll(async () => {
       const table = await createTable({
@@ -938,32 +1138,12 @@ describe('v2 http createRecords (e2e)', () => {
       numberFieldId = table.fields.find((f) => f.name === 'Number')?.id ?? '';
       checkboxFieldId = table.fields.find((f) => f.name === 'Checkbox')?.id ?? '';
       dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
-
-      const singleSelectField = table.fields.find((f) => f.name === 'SingleSelect');
-      singleSelectFieldId = singleSelectField?.id ?? '';
-      singleSelectChoices =
-        (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })
-          ?.choices ?? [];
-
-      const multiSelectField = table.fields.find((f) => f.name === 'MultiSelect');
-      multiSelectFieldId = multiSelectField?.id ?? '';
-      multiSelectChoices =
-        (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
-        [];
+      singleSelectFieldId = table.fields.find((f) => f.name === 'SingleSelect')?.id ?? '';
+      multiSelectFieldId = table.fields.find((f) => f.name === 'MultiSelect')?.id ?? '';
     });
 
     it('creates records with all field types', async () => {
       const now = new Date().toISOString();
-
-      // Get choice IDs by name
-      const optionA = singleSelectChoices.find((c) => c.name === 'Option A');
-      const optionB = singleSelectChoices.find((c) => c.name === 'Option B');
-      const optionAId = optionA?.id ?? '';
-      const optionBId = optionB?.id ?? '';
-      const optionAName = optionA?.name ?? '';
-      const tag1Id = multiSelectChoices.find((c) => c.name === 'Tag 1')?.id ?? '';
-      const tag2Id = multiSelectChoices.find((c) => c.name === 'Tag 2')?.id ?? '';
-      const tag3Id = multiSelectChoices.find((c) => c.name === 'Tag 3')?.id ?? '';
 
       const records = await createRecords(tableId, [
         {
@@ -972,8 +1152,8 @@ describe('v2 http createRecords (e2e)', () => {
             [numberFieldId]: 100,
             [checkboxFieldId]: true,
             [dateFieldId]: now,
-            [singleSelectFieldId]: optionAId,
-            [multiSelectFieldId]: [tag1Id, tag2Id],
+            [singleSelectFieldId]: 'Option A',
+            [multiSelectFieldId]: ['Tag 1', 'Tag 2'],
           },
         },
         {
@@ -982,8 +1162,8 @@ describe('v2 http createRecords (e2e)', () => {
             [numberFieldId]: 200,
             [checkboxFieldId]: false,
             [dateFieldId]: now,
-            [singleSelectFieldId]: optionBId,
-            [multiSelectFieldId]: [tag2Id, tag3Id],
+            [singleSelectFieldId]: 'Option B',
+            [multiSelectFieldId]: ['Tag 2', 'Tag 3'],
           },
         },
       ]);
@@ -1000,7 +1180,7 @@ describe('v2 http createRecords (e2e)', () => {
       expect(record1).toBeDefined();
       expect(record1?.fields[numberFieldId]).toBe(100);
       expect(record1?.fields[checkboxFieldId]).toBe(true);
-      expect(record1?.fields[singleSelectFieldId]).toBe(optionAName);
+      expect(record1?.fields[singleSelectFieldId]).toBe('Option A');
     });
   });
 
@@ -1263,6 +1443,58 @@ describe('v2 http createRecords (e2e)', () => {
           { id: foreignRecordIdB, title: 'Known Title B' },
           { id: foreignRecordIdC, title: 'Known Title C' },
         ]);
+      });
+
+      it('returns a scalar object for manyOne typecast instead of an array', async () => {
+        const foreignTable = await createTable({
+          baseId: ctx.baseId,
+          name: 'Typecast ManyOne Foreign',
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+        const foreignTitleId =
+          foreignTable.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const foreignRecord = await createRecord(foreignTable.id, { [foreignTitleId]: 'Owner A' });
+
+        const mainTable = await createTable({
+          baseId: ctx.baseId,
+          name: 'Typecast ManyOne Main',
+          fields: [
+            { type: 'singleLineText', name: 'Title', isPrimary: true },
+            {
+              type: 'link',
+              name: 'Owner',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignTitleId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const mainTitleId = mainTable.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const ownerFieldId = mainTable.fields.find((field) => field.name === 'Owner')?.id ?? '';
+
+        const response = await fetch(`${ctx.baseUrl}/tables/createRecords`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: mainTable.id,
+            records: [{ fields: { [mainTitleId]: 'Task', [ownerFieldId]: 'Owner A' } }],
+            typecast: true,
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordsOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return;
+
+        expect(parsed.data.data.records[0]?.fields[ownerFieldId]).toEqual({
+          id: foreignRecord.id,
+          title: 'Owner A',
+        });
       });
 
       it('rejects string array for link field when typecast is false', async () => {

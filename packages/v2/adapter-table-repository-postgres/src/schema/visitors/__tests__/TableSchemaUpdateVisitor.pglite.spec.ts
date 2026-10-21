@@ -5,13 +5,86 @@
  * against a real PostgreSQL-compatible database using PGlite.
  */
 import { PGlite } from '@electric-sql/pglite';
-import { DbFieldName, FieldId, LinkFieldConfig, UpdateLinkRelationshipSpec } from '@teable/v2-core';
+import {
+  BaseId,
+  DbFieldName,
+  FieldId,
+  FieldName,
+  LinkFieldConfig,
+  Table,
+  TableId,
+  TableName,
+  TableRemoveFieldSpec,
+  UpdateLinkRelationshipSpec,
+} from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { CompiledQuery } from 'kysely';
 import { Kysely, sql } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { TableSchemaUpdateVisitor } from '../TableSchemaUpdateVisitor';
 import { PGliteDialect } from './helpers/createPGliteDb';
+import { createTextField } from './helpers/fieldFactories';
+
+/**
+ * The schema executors run a statement through its custom `execute` hook when it
+ * has one, otherwise through its compiled SQL. These tests mirror that contract
+ * so a statement that reads the metadata plane and writes the data plane is
+ * exercised the same way production does.
+ */
+type SchemaStatementHandles = {
+  readonly dataDb: Kysely<V1TeableDatabase>;
+  readonly metaDb: Kysely<V1TeableDatabase>;
+};
+
+type ExecutableSchemaStatement = {
+  readonly scope: 'data' | 'meta';
+  readonly execute?: (handles: {
+    readonly scopedDb: Kysely<V1TeableDatabase>;
+    readonly dataDb: Kysely<V1TeableDatabase>;
+    readonly metaDb: Kysely<V1TeableDatabase>;
+  }) => Promise<void>;
+  readonly compile: (db: Kysely<V1TeableDatabase>) => CompiledQuery;
+};
+
+/** Mirrors the executor: a statement runs on the handle its scope selects. */
+const executeSchemaStatement = async (
+  statement: ExecutableSchemaStatement,
+  handles: SchemaStatementHandles
+): Promise<void> => {
+  const scopedDb = statement.scope === 'meta' ? handles.metaDb : handles.dataDb;
+  if (statement.execute) {
+    await statement.execute({ scopedDb, dataDb: handles.dataDb, metaDb: handles.metaDb });
+    return;
+  }
+
+  await scopedDb.executeQuery(statement.compile(scopedDb));
+};
+
+/**
+ * The managed-search statements read their coverage contract from the query-ops
+ * management tables, which live in the metadata database (`public` in tests).
+ */
+const ensureSearchMetadataTables = async (db: Kysely<V1TeableDatabase>): Promise<void> => {
+  await sql`
+    CREATE TABLE IF NOT EXISTS public.table_meta (
+      "id" text PRIMARY KEY,
+      "search_index" jsonb,
+      "version" integer NOT NULL DEFAULT 0
+    )
+  `.execute(db);
+  await sql`
+    CREATE TABLE IF NOT EXISTS public.table_query_search_vector_config (
+      "table_id" text NOT NULL,
+      "candidate_key" text NOT NULL,
+      "status" text NOT NULL,
+      "field_ids" jsonb,
+      "last_inspection" jsonb,
+      "last_modified_time" timestamp with time zone,
+      PRIMARY KEY ("table_id", "candidate_key")
+    )
+  `.execute(db);
+};
 
 describe('TableSchemaUpdateVisitor (PGlite)', () => {
   describe('NOT NULL constraint', () => {
@@ -1021,5 +1094,540 @@ describe('Link relationship conversion (PGlite)', () => {
         { self_key: 'rec3', foreign_key: 'fRec3' },
       ]);
     });
+  });
+});
+
+describe('Managed search vector column drop (PGlite)', () => {
+  const SCHEMA = 'test_search_vector_schema';
+  const TABLE_ID = `tbl${'d'.repeat(16)}`;
+  const FIELD_ID = `fld${'d'.repeat(16)}`;
+
+  let pglite: PGlite;
+  let db: Kysely<V1TeableDatabase>;
+
+  beforeAll(async () => {
+    pglite = new PGlite();
+    await pglite.waitReady;
+    db = new Kysely<V1TeableDatabase>({ dialect: new PGliteDialect(pglite) });
+    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(SCHEMA)}`.execute(db);
+    await ensureSearchMetadataTables(db);
+  });
+
+  afterAll(async () => {
+    await sql`DROP SCHEMA IF EXISTS ${sql.id(SCHEMA)} CASCADE`.execute(db);
+    await db.destroy();
+  });
+
+  // The maintenance statements only run for a field that a configured document
+  // covers; these tests pin the physical DDL itself, so they configure the
+  // document to cover the field under test.
+  const seedConfiguredDocument = async (fieldIds: readonly string[]): Promise<void> => {
+    await sql`DELETE FROM public.table_query_search_vector_config`.execute(db);
+    await sql`
+      INSERT INTO public.table_query_search_vector_config (
+        "table_id", "candidate_key", "status", "field_ids", "last_modified_time"
+      )
+      VALUES (${TABLE_ID}, 'candidate:pg_bigm', 'ready', ${JSON.stringify(fieldIds)}::jsonb, now())
+    `.execute(db);
+  };
+
+  const buildVisitor = (tableName: string): TableSchemaUpdateVisitor => {
+    const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(TableId.create(TABLE_ID)._unsafeUnwrap())
+      .withBaseId(BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Search Vector Drop')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(fieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    return new TableSchemaUpdateVisitor({
+      db,
+      schema: SCHEMA,
+      tableName,
+      tableId: table.id().toString(),
+      table,
+    });
+  };
+
+  const executeDropStatement = async (
+    visitor: TableSchemaUpdateVisitor,
+    fieldId: string
+  ): Promise<void> =>
+    executeSchemaStatement(
+      (
+        visitor as unknown as {
+          dropManagedSearchVectorColumnsStatement(fieldId: string): ExecutableSchemaStatement;
+        }
+      ).dropManagedSearchVectorColumnsStatement(fieldId),
+      { dataDb: db, metaDb: db }
+    );
+
+  it('is a no-op on tables without managed search columns', async () => {
+    // Regression: the string_agg form always returns one row, and format()
+    // renders a NULL %s as '', so testing the fully-formatted statement for
+    // NULL executed a bare "ALTER TABLE schema.table " (42601) on every
+    // table without managed columns — breaking field delete outright.
+    await seedConfiguredDocument([FIELD_ID]);
+    await sql`CREATE TABLE ${sql.id(SCHEMA)}."tbl_plain" ("__id" text PRIMARY KEY, "name" text)`.execute(
+      db
+    );
+
+    await expect(
+      executeDropStatement(buildVisitor('tbl_plain'), FIELD_ID)
+    ).resolves.toBeUndefined();
+
+    const columns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${SCHEMA} AND table_name = 'tbl_plain'
+    `.execute(db);
+    expect(columns.rows.map((row) => row.column_name).sort()).toEqual(['__id', 'name']);
+  });
+
+  it('drops every managed generated search column and keeps user columns', async () => {
+    await seedConfiguredDocument([FIELD_ID]);
+    await sql`
+      CREATE TABLE ${sql.id(SCHEMA)}."tbl_managed" (
+        "__id" text PRIMARY KEY,
+        "name" text,
+        "__tqops_tsv_doc1" tsvector GENERATED ALWAYS AS (to_tsvector('simple', coalesce("name", ''))) STORED,
+        "__tqops_search_doc2" text GENERATED ALWAYS AS (coalesce("name", '')) STORED,
+        "user_generated" text GENERATED ALWAYS AS (upper("name")) STORED
+      )
+    `.execute(db);
+
+    await executeDropStatement(buildVisitor('tbl_managed'), FIELD_ID);
+
+    const columns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${SCHEMA} AND table_name = 'tbl_managed'
+    `.execute(db);
+    expect(columns.rows.map((row) => row.column_name).sort()).toEqual([
+      '__id',
+      'name',
+      'user_generated',
+    ]);
+  });
+
+  it('keeps managed columns when no configured document covers the field', async () => {
+    await seedConfiguredDocument([`fld${'f'.repeat(16)}`]);
+    await sql`
+      CREATE TABLE ${sql.id(SCHEMA)}."tbl_unrelated" (
+        "__id" text PRIMARY KEY,
+        "name" text,
+        "__tqops_search_doc" text GENERATED ALWAYS AS (coalesce("name", '')) STORED
+      )
+    `.execute(db);
+
+    await executeDropStatement(buildVisitor('tbl_unrelated'), FIELD_ID);
+
+    const columns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${SCHEMA} AND table_name = 'tbl_unrelated'
+    `.execute(db);
+    expect(columns.rows.map((row) => row.column_name).sort()).toEqual([
+      '__id',
+      '__tqops_search_doc',
+      'name',
+    ]);
+  });
+});
+
+describe('Search document survives removing a field outside its contract (PGlite)', () => {
+  const SCHEMA = 'test_search_vector_field_removal';
+  const TABLE_NAME = `tbl_${'c'.repeat(16)}`;
+  const TABLE_ID = `tbl${'c'.repeat(16)}`;
+  const BASE_ID = `bse${'c'.repeat(16)}`;
+  const COVERED_FIELD = createTextField('c', 'Name', 'Name')._unsafeUnwrap();
+  const OTHER_FIELD = createTextField('e', 'Note', 'Note')._unsafeUnwrap();
+  const COVERED_FIELD_ID = COVERED_FIELD.id().toString();
+  const OTHER_FIELD_ID = OTHER_FIELD.id().toString();
+
+  let pglite: PGlite;
+  let db: Kysely<V1TeableDatabase>;
+
+  beforeAll(async () => {
+    pglite = new PGlite();
+    await pglite.waitReady;
+    db = new Kysely<V1TeableDatabase>({ dialect: new PGliteDialect(pglite) });
+    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(SCHEMA)}`.execute(db);
+    await ensureSearchMetadataTables(db);
+  });
+
+  afterAll(async () => {
+    await sql`DROP SCHEMA IF EXISTS ${sql.id(SCHEMA)} CASCADE`.execute(db);
+    await sql`DROP TABLE IF EXISTS public.table_query_search_vector_config`.execute(db);
+    await sql`DROP TABLE IF EXISTS public.table_meta`.execute(db);
+    await db.destroy();
+  });
+
+  const buildTable = (): Table =>
+    Table.rehydrate({
+      id: TableId.create(TABLE_ID)._unsafeUnwrap(),
+      baseId: BaseId.create(BASE_ID)._unsafeUnwrap(),
+      name: TableName.create('Field Removal')._unsafeUnwrap(),
+      fields: [COVERED_FIELD, OTHER_FIELD],
+      views: [],
+      primaryFieldId: FieldId.create(COVERED_FIELD_ID)._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+  const createPhysicalTable = async (documentSource: 'Name' | 'Note'): Promise<void> => {
+    await sql`DROP TABLE IF EXISTS ${sql.id(SCHEMA)}.${sql.id(TABLE_NAME)}`.execute(db);
+    await sql`
+      CREATE TABLE ${sql.id(SCHEMA)}.${sql.id(TABLE_NAME)} (
+        "__id" text PRIMARY KEY,
+        "Name" text,
+        "Note" text,
+        "__tqops_search_doc" text GENERATED ALWAYS AS
+          (coalesce(${sql.raw(`"${documentSource}"`)}, '')) STORED
+      )
+    `.execute(db);
+  };
+
+  const seedServingMetadata = async (
+    configuredFieldIds: readonly string[] | null
+  ): Promise<void> => {
+    await sql`DELETE FROM public.table_meta`.execute(db);
+    await sql`DELETE FROM public.table_query_search_vector_config`.execute(db);
+    await sql`
+      INSERT INTO public.table_meta ("id", "search_index", "version")
+      VALUES (
+        ${TABLE_ID},
+        ${JSON.stringify({ version: 1, indexUsable: true, provider: 'pg_bigm' })}::jsonb,
+        7
+      )
+    `.execute(db);
+    await sql`
+      INSERT INTO public.table_query_search_vector_config (
+        "table_id", "candidate_key", "status", "field_ids", "last_modified_time"
+      )
+      VALUES (
+        ${TABLE_ID},
+        'candidate:pg_bigm',
+        'ready',
+        ${
+          configuredFieldIds === null
+            ? sql`NULL`
+            : sql`${JSON.stringify(configuredFieldIds)}::jsonb`
+        },
+        now()
+      )
+    `.execute(db);
+  };
+
+  const removeField = async (
+    fieldId: string,
+    metaDb: Kysely<V1TeableDatabase> = db
+  ): Promise<void> => {
+    const table = buildTable();
+    const removedResult = table.getField((candidate) => candidate.id().toString() === fieldId);
+    if (removedResult.isErr()) {
+      throw new Error(`getField failed: ${JSON.stringify(removedResult.error)}`);
+    }
+    const visitor = new TableSchemaUpdateVisitor({
+      db,
+      schema: SCHEMA,
+      tableName: TABLE_NAME,
+      tableId: TABLE_ID,
+      table,
+    });
+    const statementsResult = visitor.visitTableRemoveField(
+      TableRemoveFieldSpec.create(removedResult.value)
+    );
+    if (statementsResult.isErr()) {
+      throw new Error(`visitTableRemoveField failed: ${JSON.stringify(statementsResult.error)}`);
+    }
+    for (const statement of statementsResult.value) {
+      await executeSchemaStatement(statement as unknown as ExecutableSchemaStatement, {
+        dataDb: db,
+        metaDb,
+      });
+    }
+  };
+
+  const managedDocumentColumns = async (): Promise<string[]> => {
+    const result = await sql<{ attname: string }>`
+      SELECT a.attname
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = ${SCHEMA}
+        AND c.relname = ${TABLE_NAME}
+        AND a.attgenerated = 's'
+        AND a.attname LIKE '%tqops%'
+    `.execute(db);
+    return result.rows.map((row) => row.attname);
+  };
+
+  const readServingMetadata = async (): Promise<{
+    searchIndex: unknown;
+    version: number;
+    status: string;
+    lastInspection: unknown;
+  }> => {
+    const meta = await sql<{ search_index: unknown; version: number }>`
+      SELECT "search_index", "version" FROM public.table_meta WHERE "id" = ${TABLE_ID}
+    `.execute(db);
+    const config = await sql<{ status: string; last_inspection: unknown }>`
+      SELECT "status", "last_inspection"
+      FROM public.table_query_search_vector_config
+      WHERE "table_id" = ${TABLE_ID}
+    `.execute(db);
+    return {
+      searchIndex: meta.rows[0]?.search_index ?? null,
+      version: Number(meta.rows[0]?.version ?? 0),
+      status: config.rows[0]?.status ?? '',
+      lastInspection: config.rows[0]?.last_inspection ?? null,
+    };
+  };
+
+  it('keeps the document and its serving metadata when the removed field is not covered', async () => {
+    // Regression: a field added after the document was built is outside the
+    // document's coverage, yet removing it used to drop the whole document and
+    // unpublish the serving snapshot, pushing search back to ILIKE.
+    await createPhysicalTable('Name');
+    await seedServingMetadata([COVERED_FIELD_ID]);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual(['__tqops_search_doc']);
+    const metadata = await readServingMetadata();
+    expect(metadata.searchIndex).not.toBeNull();
+    expect(metadata.version).toBe(7);
+    expect(metadata.status).toBe('ready');
+  });
+
+  it('drops the document and unpublishes serving metadata when the removed field is covered', async () => {
+    await createPhysicalTable('Note');
+    await seedServingMetadata([OTHER_FIELD_ID]);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual([]);
+    const metadata = await readServingMetadata();
+    expect(metadata.searchIndex).toBeNull();
+    expect(metadata.version).toBe(8);
+    expect(metadata.status).toBe('rebuild_pending');
+    expect(metadata.lastInspection).toMatchObject({
+      state: 'rebuild_pending',
+      staleReasons: ['source_field_removed'],
+    });
+  });
+
+  it('retires the document when the recorded coverage is an empty field list', async () => {
+    // An empty list cannot prove the document is unrelated to the field, so the
+    // conservative path retires it.
+    await createPhysicalTable('Name');
+    await seedServingMetadata([]);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual([]);
+    const metadata = await readServingMetadata();
+    expect(metadata.searchIndex).toBeNull();
+    expect(metadata.version).toBe(8);
+  });
+
+  it('retires the document when the table has no recorded search configuration', async () => {
+    // No contract means nothing proves the document is unrelated to the field,
+    // so the conservative path still retires it (and unpublishes it).
+    await createPhysicalTable('Name');
+    await seedServingMetadata([COVERED_FIELD_ID]);
+    await sql`DELETE FROM public.table_query_search_vector_config`.execute(db);
+
+    await expect(removeField(OTHER_FIELD_ID)).resolves.toBeUndefined();
+
+    expect(await managedDocumentColumns()).toEqual([]);
+    const metadata = await readServingMetadata();
+    expect(metadata.searchIndex).toBeNull();
+    expect(metadata.version).toBe(8);
+  });
+
+  it('retires the document when the recorded coverage is unknown', async () => {
+    // Unknown coverage (no recorded field ids) falls back to the conservative
+    // retire-and-rebuild path instead of assuming no document depends on the
+    // column.
+    await createPhysicalTable('Name');
+    await seedServingMetadata(null);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual([]);
+    const metadata = await readServingMetadata();
+    expect(metadata.searchIndex).toBeNull();
+    expect(metadata.status).toBe('rebuild_pending');
+  });
+
+  it('keeps the legacy retire path when the configuration table does not exist', async () => {
+    // The contract cannot be read, so the document is retired as before instead
+    // of assuming no document depends on the removed field's column.
+    await createPhysicalTable('Name');
+    await seedServingMetadata([COVERED_FIELD_ID]);
+    await sql`ALTER TABLE public.table_query_search_vector_config RENAME TO table_query_search_vector_config_hidden`.execute(
+      db
+    );
+    try {
+      await expect(removeField(OTHER_FIELD_ID)).resolves.toBeUndefined();
+
+      expect(await managedDocumentColumns()).toEqual([]);
+      const meta = await sql<{ search_index: unknown; version: number }>`
+        SELECT "search_index", "version" FROM public.table_meta WHERE "id" = ${TABLE_ID}
+      `.execute(db);
+      expect(meta.rows[0]?.search_index).toBeNull();
+      expect(Number(meta.rows[0]?.version)).toBe(8);
+    } finally {
+      await sql`ALTER TABLE table_query_search_vector_config_hidden RENAME TO table_query_search_vector_config`.execute(
+        db
+      );
+    }
+  });
+});
+
+describe('Managed search document across separate metadata and data planes (PGlite)', () => {
+  const SCHEMA = 'test_search_vector_split_plane';
+  const TABLE_NAME = `tbl_${'a'.repeat(16)}`;
+  const TABLE_ID = `tbl${'a'.repeat(16)}`;
+  const BASE_ID = `bse${'a'.repeat(16)}`;
+  const COVERED_FIELD = createTextField('a', 'Name', 'Name')._unsafeUnwrap();
+  const OTHER_FIELD = createTextField('b', 'Note', 'Note')._unsafeUnwrap();
+  const COVERED_FIELD_ID = COVERED_FIELD.id().toString();
+  const OTHER_FIELD_ID = OTHER_FIELD.id().toString();
+
+  let dataPglite: PGlite;
+  let metaPglite: PGlite;
+  let dataDb: Kysely<V1TeableDatabase>;
+  let metaDb: Kysely<V1TeableDatabase>;
+
+  beforeAll(async () => {
+    dataPglite = new PGlite();
+    metaPglite = new PGlite();
+    await Promise.all([dataPglite.waitReady, metaPglite.waitReady]);
+    dataDb = new Kysely<V1TeableDatabase>({ dialect: new PGliteDialect(dataPglite) });
+    metaDb = new Kysely<V1TeableDatabase>({ dialect: new PGliteDialect(metaPglite) });
+    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(SCHEMA)}`.execute(dataDb);
+    // The data plane never holds the management tables; byodb spaces split them.
+    await ensureSearchMetadataTables(metaDb);
+  });
+
+  afterAll(async () => {
+    await sql`DROP SCHEMA IF EXISTS ${sql.id(SCHEMA)} CASCADE`.execute(dataDb);
+    await dataDb.destroy();
+    await sql`DROP TABLE IF EXISTS public.table_query_search_vector_config`.execute(metaDb);
+    await sql`DROP TABLE IF EXISTS public.table_meta`.execute(metaDb);
+    await metaDb.destroy();
+  });
+
+  const createPhysicalTable = async (documentSource: 'Name' | 'Note'): Promise<void> => {
+    await sql`DROP TABLE IF EXISTS ${sql.id(SCHEMA)}.${sql.id(TABLE_NAME)}`.execute(dataDb);
+    await sql`
+      CREATE TABLE ${sql.id(SCHEMA)}.${sql.id(TABLE_NAME)} (
+        "__id" text PRIMARY KEY,
+        "Name" text,
+        "Note" text,
+        "__tqops_search_doc" text GENERATED ALWAYS AS
+          (coalesce(${sql.raw(`"${documentSource}"`)}, '')) STORED
+      )
+    `.execute(dataDb);
+  };
+
+  const seedServingMetadata = async (configuredFieldIds: readonly string[]): Promise<void> => {
+    await sql`DELETE FROM public.table_meta`.execute(metaDb);
+    await sql`DELETE FROM public.table_query_search_vector_config`.execute(metaDb);
+    await sql`
+      INSERT INTO public.table_meta ("id", "search_index", "version")
+      VALUES (
+        ${TABLE_ID},
+        ${JSON.stringify({ version: 1, indexUsable: true, provider: 'pg_bigm' })}::jsonb,
+        7
+      )
+    `.execute(metaDb);
+    await sql`
+      INSERT INTO public.table_query_search_vector_config (
+        "table_id", "candidate_key", "status", "field_ids", "last_modified_time"
+      )
+      VALUES (${TABLE_ID}, 'candidate:pg_bigm', 'ready', ${JSON.stringify(
+        configuredFieldIds
+      )}::jsonb, now())
+    `.execute(metaDb);
+  };
+
+  const removeField = async (fieldId: string): Promise<void> => {
+    const table = Table.rehydrate({
+      id: TableId.create(TABLE_ID)._unsafeUnwrap(),
+      baseId: BaseId.create(BASE_ID)._unsafeUnwrap(),
+      name: TableName.create('Split Plane')._unsafeUnwrap(),
+      fields: [COVERED_FIELD, OTHER_FIELD],
+      views: [],
+      primaryFieldId: FieldId.create(COVERED_FIELD_ID)._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const removed = table
+      .getField((candidate) => candidate.id().toString() === fieldId)
+      ._unsafeUnwrap();
+    const visitor = new TableSchemaUpdateVisitor({
+      db: dataDb,
+      schema: SCHEMA,
+      tableName: TABLE_NAME,
+      tableId: TABLE_ID,
+      table,
+    });
+    const statements = visitor
+      .visitTableRemoveField(TableRemoveFieldSpec.create(removed))
+      ._unsafeUnwrap();
+    for (const statement of statements) {
+      await executeSchemaStatement(statement as unknown as ExecutableSchemaStatement, {
+        dataDb,
+        metaDb,
+      });
+    }
+  };
+
+  const managedDocumentColumns = async (): Promise<string[]> => {
+    const result = await sql<{ attname: string }>`
+      SELECT a.attname
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = ${SCHEMA}
+        AND c.relname = ${TABLE_NAME}
+        AND a.attgenerated = 's'
+        AND a.attname LIKE '%tqops%'
+    `.execute(dataDb);
+    return result.rows.map((row) => row.attname);
+  };
+
+  const servingSnapshot = async (): Promise<unknown> =>
+    (
+      await sql<{ search_index: unknown }>`
+        SELECT search_index FROM public.table_meta WHERE id = ${TABLE_ID}
+      `.execute(metaDb)
+    ).rows[0]?.search_index ?? null;
+
+  it('keeps the document when the data plane cannot see the metadata contract', async () => {
+    // Regression: reading coverage on the data handle made a byodb data plane
+    // (no management tables) fall back to the unconditional drop while the
+    // metadata plane kept the published snapshot, leaving search queries
+    // pointing at a dropped column.
+    await createPhysicalTable('Name');
+    await seedServingMetadata([COVERED_FIELD_ID]);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual(['__tqops_search_doc']);
+    expect(await servingSnapshot()).toMatchObject({ indexUsable: true, provider: 'pg_bigm' });
+  });
+
+  it('retires the document and the snapshot when a covered field is removed', async () => {
+    await createPhysicalTable('Note');
+    await seedServingMetadata([OTHER_FIELD_ID]);
+
+    await removeField(OTHER_FIELD_ID);
+
+    expect(await managedDocumentColumns()).toEqual([]);
+    expect(await servingSnapshot()).toBeNull();
   });
 });

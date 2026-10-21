@@ -2,17 +2,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Info,
   Copy,
-  Database,
+  LayoutGrid,
   Download,
   Export,
   Loader2,
+  Lock,
   Pencil,
+  Settings,
   Share2,
   Trash2,
   ArrowRight,
+  UserPlus,
 } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import {
+  BillingProductLevel,
   cancelBaseDataDbMoveJob,
   exportBaseStream,
   getBaseDataDbMoveJob,
@@ -30,6 +33,7 @@ import type {
   IMoveBaseDataDbCheck,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useTheme } from '@teable/ui-lib';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Accordion,
@@ -50,9 +54,13 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { Recycle } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { useUpgradeAction } from '@/features/app/components/billing/UpgradeWrapper';
+import { BaseInviteDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
 import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
@@ -83,10 +91,52 @@ interface IBaseActionTrigger {
   showExport: boolean;
   showMove: boolean;
   showShare?: boolean;
+  showInvite?: boolean;
+  showAuthorityMatrix?: boolean;
+  showDesign?: boolean;
+  showTrash?: boolean;
   onRename?: () => void;
   onDelete?: (permanent?: boolean) => void;
   align?: 'center' | 'end' | 'start';
 }
+
+const PageLinkItem = ({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+}) => (
+  <DropdownMenuItem asChild>
+    <Link href={href}>
+      {icon}
+      {label}
+    </Link>
+  </DropdownMenuItem>
+);
+
+const AuthorityMatrixItem = ({ base }: { base: IGetBaseVo }) => {
+  const { t } = useTranslation('common');
+  const { badge, needsUpgrade, handleUpgradeClick } = useUpgradeAction({
+    spaceId: base.spaceId,
+    targetBillingLevel: BillingProductLevel.Business,
+  });
+  const icon = <Lock className="me-2" />;
+  const label = t('noun.authorityMatrix');
+
+  if (!needsUpgrade) {
+    return <PageLinkItem href={`/base/${base.id}/authority-matrix`} icon={icon} label={label} />;
+  }
+  return (
+    <DropdownMenuItem onClick={handleUpgradeClick}>
+      {icon}
+      {label}
+      <span className="pointer-events-none ms-auto flex items-center ps-2">{badge}</span>
+    </DropdownMenuItem>
+  );
+};
 
 export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrigger>> = (props) => {
   const {
@@ -98,15 +148,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showExport,
     showMove,
     showShare,
+    showInvite,
+    showAuthorityMatrix,
+    showDesign,
+    showTrash,
     onDelete,
     onRename,
     align = 'end',
   } = props;
-  const { t } = useTranslation(['common', 'space']);
+  const { t } = useTranslation(['common', 'space', 'sdk']);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [inviteOpen, setInviteOpen] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
   const [exportState, setExportState] = React.useState<'idle' | 'loading' | 'done'>('idle');
   const [exportDownloadUrl, setExportDownloadUrl] = React.useState<string | null>(null);
@@ -307,7 +362,15 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     [tAny]
   );
 
-  if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove && !showShare) {
+  // The menu's groups, by what they act on: the project itself, who can reach it, its data and
+  // pages, and deleting it. A separator falls only between groups that show an item.
+  const groupShown = {
+    edit: Boolean(showRename || showDuplicate || showMove),
+    access: Boolean(showShare || showInvite || showAuthorityMatrix),
+    data: Boolean(showExport || showDesign || showTrash),
+    danger: Boolean(showDelete),
+  };
+  if (!Object.values(groupShown).some(Boolean)) {
     return null;
   }
 
@@ -364,62 +427,106 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     </div>
   );
 
+  const allGroups: { key: keyof typeof groupShown; items: React.ReactNode }[] = [
+    {
+      key: 'edit',
+      items: (
+        <>
+          {showRename && (
+            <DropdownMenuItem onClick={onRename}>
+              <Pencil className="me-2" />
+              {t('actions.rename')}
+            </DropdownMenuItem>
+          )}
+          {showDuplicate && (
+            <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
+              <Copy className="me-2" />
+              {t('actions.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {showMove && (
+            <DropdownMenuItem onClick={() => setMoveConfirm(true)}>
+              <ArrowRight className="me-2 size-4" />
+              {t('actions.move')}
+            </DropdownMenuItem>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'access',
+      items: (
+        <>
+          {showShare && (
+            <DropdownMenuItem onClick={() => setShareOpen(true)}>
+              <Share2 className="me-2" />
+              {t('actions.share')}
+            </DropdownMenuItem>
+          )}
+          {showInvite && (
+            <DropdownMenuItem onClick={() => setInviteOpen(true)}>
+              <UserPlus className="me-2" />
+              {t('space:action.invite')}
+            </DropdownMenuItem>
+          )}
+          {showAuthorityMatrix && <AuthorityMatrixItem base={base} />}
+        </>
+      ),
+    },
+    {
+      key: 'data',
+      items: (
+        <>
+          {showExport && (
+            <DropdownMenuItem onClick={() => setExportConfirm(true)}>
+              <Export className="me-2 size-4" />
+              {t('actions.export')}
+            </DropdownMenuItem>
+          )}
+          {showDesign && (
+            <PageLinkItem
+              href={`/base/${base.id}/design`}
+              icon={<Settings className="me-2" />}
+              label={t('noun.design')}
+            />
+          )}
+          {showTrash && (
+            <PageLinkItem
+              href={`/base/${base.id}/trash`}
+              icon={<Recycle className="me-2 size-4" />}
+              label={t('noun.trash')}
+            />
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'danger',
+      items: showDelete && (
+        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
+          <Trash2 className="me-2" />
+          {t('sdk:permission.actionDescription.baseDelete')}
+        </DropdownMenuItem>
+      ),
+    },
+  ];
+  const menuGroups = allGroups.filter((group) => groupShown[group.key]);
+
   return (
     <>
       <DropdownMenu modal>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent
           align={align}
-          className="w-[160px]"
+          className="min-w-[160px]"
           onClick={(e) => e.stopPropagation()}
         >
-          {showRename && (
-            <DropdownMenuItem onClick={onRename}>
-              <Pencil className="mr-2" />
-              {t('actions.rename')}
-            </DropdownMenuItem>
-          )}
-          {showDuplicate && (
-            <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
-              <Copy className="mr-2" />
-              {t('actions.duplicate')}
-            </DropdownMenuItem>
-          )}
-          {showShare && (
-            <DropdownMenuItem onClick={() => setShareOpen(true)}>
-              <Share2 className="mr-2" />
-              {t('actions.share')}
-            </DropdownMenuItem>
-          )}
-          {showExport && (
-            <DropdownMenuItem
-              onClick={() => {
-                setExportConfirm(true);
-              }}
-            >
-              <Export className="mr-2 size-4" />
-              {t('actions.export')}
-            </DropdownMenuItem>
-          )}
-          {showMove && (
-            <DropdownMenuItem
-              onClick={() => {
-                setMoveConfirm(true);
-              }}
-            >
-              <ArrowRight className="mr-2 size-4" />
-              {t('actions.move')}
-            </DropdownMenuItem>
-          )}
-          {showDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-                <Trash2 className="mr-2" />
-                {t('actions.delete')}
-              </DropdownMenuItem>
-            </>
-          )}
+          {menuGroups.map((group, index) => (
+            <React.Fragment key={group.key}>
+              {index > 0 && <DropdownMenuSeparator />}
+              {group.items}
+            </React.Fragment>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -454,9 +561,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           closeable
         >
           <DialogHeader className="overflow-hidden">
-            <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
+            <DialogTitle className="flex min-w-0 items-center gap-2 pe-6">
               <span className="shrink-0">{t('space:tip.exportTitle')}</span>
-              <Database className="size-5 shrink-0" />
+              <LayoutGrid className="size-5 shrink-0" />
               <span className="truncate">{base.name}</span>
             </DialogTitle>
           </DialogHeader>
@@ -612,20 +719,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                         })}
                         className="px-3 py-2 text-xs font-normal transition-colors data-[state=open]:bg-muted/70 hover:bg-muted/60 hover:no-underline"
                       >
-                        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-                          <Database className="size-3.5 shrink-0 text-muted-foreground/70" />
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-start">
+                          <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground/70" />
                           <span className="truncate font-medium text-foreground">
                             {group.baseName}
                           </span>
                           <span className="shrink-0 text-muted-foreground/40">/</span>
                           <span className="truncate text-muted-foreground">{group.tableName}</span>
-                          <span className="ml-1 shrink-0 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
+                          <span className="ms-1 shrink-0 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
                             {group.fields.length}
                           </span>
                         </span>
                       </AccordionTrigger>
                       <AccordionContent innerClassName="px-3 pb-2.5 pt-0">
-                        <div className="flex flex-wrap gap-1 pl-[1.375rem]">
+                        <div className="flex flex-wrap gap-1 ps-[1.375rem]">
                           {group.fields.map((f) => (
                             <span
                               key={f.fieldId}
@@ -715,6 +822,10 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         open={shareOpen}
         onOpenChange={setShareOpen}
       />
+
+      {showInvite && (
+        <BaseInviteDialog base={base} open={inviteOpen} onOpenChange={setInviteOpen} />
+      )}
     </>
   );
 };

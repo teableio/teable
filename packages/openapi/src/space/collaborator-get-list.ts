@@ -15,6 +15,8 @@ export const listSpaceCollaboratorRoSchema = z.object({
   search: z.string().optional(),
   type: z.enum(PrincipalType).optional(),
   orderBy: z.enum(['desc', 'asc']).optional(),
+  // Restrict rows to one principal, e.g. to expand a grouped collaborator's permissions
+  principalId: z.string().optional(),
 });
 
 export type ListSpaceCollaboratorRo = z.infer<typeof listSpaceCollaboratorRoSchema>;

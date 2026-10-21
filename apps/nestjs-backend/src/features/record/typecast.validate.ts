@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import type {
   FieldCore,
   IAttachmentCellValueRo,
@@ -31,6 +30,7 @@ import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../field/model/field-dto/multiple-select-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
+import type { CrossBaseLinkAccessService } from './cross-base-link-access.service';
 import type { RecordService } from './record.service';
 
 interface IServices {
@@ -40,6 +40,7 @@ interface IServices {
   attachmentsStorageService: AttachmentsStorageService;
   collaboratorService: CollaboratorService;
   dataLoaderService: DataLoaderService;
+  crossBaseLinkAccess: CrossBaseLinkAccessService;
 }
 
 interface IObjectType {
@@ -84,7 +85,7 @@ export class TypeCastAndValidate {
   private readonly field: FieldCore;
   private readonly tableId: string;
   private readonly typecast?: boolean;
-  private cache: Record<string, unknown> = {};
+  private readonly cache: Record<string, unknown> = {};
 
   constructor({
     services,
@@ -175,7 +176,9 @@ export class TypeCastAndValidate {
       if (this.field.type === FieldType.SingleLineText || this.field.type === FieldType.LongText) {
         return this.field.convertStringToCellValue(validate.data as string);
       }
-      return validate.data == null ? null : validateBusinessRules?.(validate.data) ?? validate.data;
+      return validate.data == null
+        ? null
+        : (validateBusinessRules?.(validate.data) ?? validate.data);
     });
   }
 
@@ -238,7 +241,7 @@ export class TypeCastAndValidate {
     );
 
     await this.services.fieldConvertingService.stageAlter(this.tableId, newField, this.field);
-    await this.services.dataLoaderService.field.clear();
+    this.services.dataLoaderService.field.clear();
   }
 
   /**
@@ -326,6 +329,13 @@ export class TypeCastAndValidate {
    * Try to find the rows with matching titles from the link table and write them to the cell.
    */
   private async castToLink(cellValues: unknown[]): Promise<unknown[]> {
+    // Resolving or writing a link cell reads the foreign table (its primary
+    // field, and the symmetric cell it writes back); for a cross-base link that
+    // read is not covered by the caller's role on the host base. Require it on
+    // every link write, not only the typecast title-lookup branch below — a
+    // structured id write (`typecast=false`) reaches the foreign table just the
+    // same.
+    await this.assertForeignTableReadable();
     const linkRecordMap = this.typecast ? await this.getLinkTableRecordMap(cellValues) : {};
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       return this.castToLinkOne(cellValue, linkRecordMap);
@@ -459,7 +469,7 @@ export class TypeCastAndValidate {
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
     const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
     const attachmentCvMap = await this.getAttachmentCvMapByCv(cellValues);
-    const unsignedValues = this.mapFieldsCellValuesWithValidate(
+    return this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
         const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
@@ -499,17 +509,6 @@ export class TypeCastAndValidate {
         });
       }
     );
-
-    return unsignedValues.map((cellValues) => {
-      const attachmentCellValue = cellValues as (IAttachmentItem & {
-        thumbnailPath?: { sm?: string; lg?: string };
-      })[];
-      if (!attachmentCellValue) {
-        return attachmentCellValue;
-      }
-
-      return attachmentCellValue;
-    });
   }
 
   /**
@@ -520,16 +519,16 @@ export class TypeCastAndValidate {
     const titles = cellValues
       .flat()
       .filter((v) => v != null && typeof v !== 'object')
-      .map((v) =>
+      .flatMap((v) =>
         typeof v === 'string' && this.field.isMultipleCellValue
           ? v.split(',').map((t) => t.trim())
           : (v as string)
-      )
-      .flat();
-
+      );
     if (titles.length === 0) {
       return {};
     }
+
+    // The foreign-table read check now runs unconditionally in castToLink.
 
     // id[]
     if (typeof titles[0] === 'string' && titles[0].startsWith('rec')) {
@@ -547,6 +546,16 @@ export class TypeCastAndValidate {
     );
 
     return keyBy(linkRecords, 'title');
+  }
+
+  /**
+   * Resolving titles or ids against the foreign table reads its primary field;
+   * for a cross-base link the caller must be able to read that table.
+   */
+  private async assertForeignTableReadable() {
+    await this.services.crossBaseLinkAccess.assertForeignTablesReadable(this.tableId, [
+      this.field.id,
+    ]);
   }
 
   private async getAttachmentItemMap(

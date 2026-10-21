@@ -2,8 +2,9 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
-import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
+import type { ITemplateCoverRo, ITemplateVo, IUpdateTemplateRo } from '@teable/openapi';
 import {
+  TemplateKind,
   deleteTemplate,
   getTemplateList,
   pinTopTemplate,
@@ -49,7 +50,11 @@ import { TextEditorDialog } from './TextEditorDialog';
 
 const PAGE_SIZE = 20;
 
-export const TemplateTable = () => {
+export const TemplateTable = ({
+  renderRequirements,
+}: {
+  renderRequirements?: (template: ITemplateVo) => React.ReactNode;
+}) => {
   const { t } = useTranslation(['common']);
 
   const isHydrated = useIsHydrated();
@@ -71,7 +76,7 @@ export const TemplateTable = () => {
   });
 
   const displayedData = useMemo(() => {
-    return data?.pages.flatMap((page) => page) ?? [];
+    return data?.pages.flat() ?? [];
   }, [data]);
 
   const [innerTemplates, setInnerTemplates] = useState(displayedData);
@@ -103,6 +108,13 @@ export const TemplateTable = () => {
 
   const handleFeaturedTemplate = (templateId: string, featured: boolean) => {
     updateTemplateFn({ templateId, updateRo: { featured } });
+  };
+
+  const handleSolutionTemplate = (templateId: string, isSolution: boolean) => {
+    updateTemplateFn({
+      templateId,
+      updateRo: { kind: isSolution ? TemplateKind.Solution : TemplateKind.Template },
+    });
   };
 
   const onChangeTemplateName = (templateId: string, name: string) => {
@@ -179,7 +191,7 @@ export const TemplateTable = () => {
     return (
       <>
         <TableCell
-          className="sticky left-16 w-[140px] min-w-[140px] bg-background"
+          className="sticky start-16 w-[140px] min-w-[140px] bg-background"
           style={{ zIndex: 2 }}
         >
           <TemplateCover
@@ -190,7 +202,7 @@ export const TemplateTable = () => {
           />
         </TableCell>
         <TableCell
-          className="sticky left-[204px] min-w-48 bg-background after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
+          className="sticky start-[204px] min-w-48 bg-background after:pointer-events-none after:absolute after:end-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
           style={{ zIndex: 2 }}
         >
           <TextEditor
@@ -244,6 +256,18 @@ export const TemplateTable = () => {
             </div>
           </TemplateTooltips>
         </TableCell>
+        <TableCell className="align-middle">{renderRequirements?.(row)}</TableCell>
+        <TableCell className="text-center align-middle">
+          <div title={t('settings.templateAdmin.tips.solution')}>
+            <Switch
+              className="scale-80"
+              defaultChecked={row.kind === TemplateKind.Solution}
+              onCheckedChange={(checked: boolean) => {
+                handleSolutionTemplate(row.id, checked);
+              }}
+            />
+          </div>
+        </TableCell>
         <TableCell className="text-center align-middle">
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needSnapshot')}
@@ -269,7 +293,7 @@ export const TemplateTable = () => {
           )}
         </TableCell>
         <TableCell>
-          {row.createdBy && row.createdBy.name ? (
+          {row.createdBy?.name ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -299,7 +323,7 @@ export const TemplateTable = () => {
           )}
         </TableCell>
         <TableCell
-          className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+          className="sticky bg-background text-center before:pointer-events-none before:absolute before:start-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
           style={{ zIndex: 2, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
         >
           {row.usageCount ?? 0}/{row.visitCount ?? 0}
@@ -376,20 +400,20 @@ export const TemplateTable = () => {
   return (
     <div className="h-full overflow-auto">
       <Table className="relative w-max min-w-full scroll-smooth rounded-sm">
-        <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
+        <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:start-0 after:h-px after:w-full after:bg-border after:content-['']">
           <TableRow className="h-16 bg-background" style={{ zIndex: 2 }}>
             <TableHead
-              className="sticky left-0 w-16 min-w-16 bg-background"
+              className="sticky start-0 w-16 min-w-16 bg-background"
               style={{ zIndex: 3 }}
             ></TableHead>
             <TableHead
-              className="sticky left-16 w-[140px] min-w-[140px] bg-background"
+              className="sticky start-16 w-[140px] min-w-[140px] bg-background"
               style={{ zIndex: 3 }}
             >
               {t('settings.templateAdmin.header.cover')}
             </TableHead>
             <TableHead
-              className="sticky left-[204px] min-w-48 shrink-0 bg-background after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
+              className="sticky start-[204px] min-w-48 shrink-0 bg-background after:pointer-events-none after:absolute after:end-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
               style={{ zIndex: 3 }}
             >
               {t('settings.templateAdmin.header.name')}
@@ -409,6 +433,12 @@ export const TemplateTable = () => {
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.featured')}
             </TableHead>
+            <TableHead className="min-w-32">
+              {t('settings.templateAdmin.header.requirements')}
+            </TableHead>
+            <TableHead className="min-w-24 text-center">
+              {t('settings.templateAdmin.header.solution')}
+            </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}
             </TableHead>
@@ -419,7 +449,7 @@ export const TemplateTable = () => {
               {t('settings.templateAdmin.header.createdBy')}
             </TableHead>
             <TableHead
-              className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+              className="sticky bg-background text-center before:pointer-events-none before:absolute before:start-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
               style={{ zIndex: 3, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
             >
               {t('settings.templateAdmin.header.usage')}/{t('settings.templateAdmin.header.visit')}
@@ -455,7 +485,7 @@ export const TemplateTable = () => {
                           })}
                         >
                           <TableCell
-                            className="sticky left-0 w-16 min-w-16 cursor-grab bg-background active:cursor-grabbing"
+                            className="sticky start-0 w-16 min-w-16 cursor-grab bg-background active:cursor-grabbing"
                             style={{ zIndex: 2 }}
                             {...draggableProvided.dragHandleProps}
                           >
@@ -483,7 +513,7 @@ export const TemplateTable = () => {
             {innerTemplates?.map((row) => (
               <TableRow key={row.id} className="max-h-24">
                 <TableCell
-                  className="sticky left-0 w-16 min-w-16 bg-background"
+                  className="sticky start-0 w-16 min-w-16 bg-background"
                   style={{ zIndex: 2 }}
                 ></TableCell>
                 {renderTableRow(row)}

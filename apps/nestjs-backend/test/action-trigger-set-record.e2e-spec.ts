@@ -18,8 +18,13 @@ describe('Action trigger setRecord presence (e2e)', () => {
   let shareDbService: ShareDbService;
   const tableIds = new Set<string>();
   const baseId = globalThis.testConfig.baseId;
+  // The v1/v2 legs are selected via the x-canary header; FORCE_V2_ALL has
+  // higher priority than the header and would force every leg onto v2.
+  let previousForceV2All: string | undefined;
 
   beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'false';
     const appCtx = await initApp();
     app = appCtx.app;
     cookie = appCtx.cookie;
@@ -28,6 +33,11 @@ describe('Action trigger setRecord presence (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
     for (const tableId of [...tableIds].reverse()) {
       await permanentDeleteTable(baseId, tableId);
     }

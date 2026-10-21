@@ -15,8 +15,8 @@ export const PluginDetail = (props: {
   const dayjs = useLanDayjs();
   const { t } = useTranslation(['common']);
   return (
-    <div className="absolute left-0 top-0 flex size-full flex-col rounded bg-background">
-      <Button className="ml-2 mt-2 w-20" variant={'ghost'} size={'sm'} onClick={onBack}>
+    <div className="absolute start-0 top-0 flex size-full flex-col rounded bg-background">
+      <Button className="ms-2 mt-2 w-20" variant={'ghost'} size={'sm'} onClick={onBack}>
         <ArrowLeft className="size-4 shrink-0" />
         {t('common:actions.back')}
       </Button>

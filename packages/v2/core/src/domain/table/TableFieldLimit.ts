@@ -1,4 +1,4 @@
-import { tableI18nKeys } from '@teable/i18n-keys';
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -44,23 +44,10 @@ export const buildTableFieldLimitFallbackMessage = (
   maxFieldCount = DEFAULT_MAX_TABLE_FIELD_COUNT
 ): string => `Table "${tableName}" can have at most ${maxFieldCount} fields.`;
 
-export const buildTableFieldLimitMessage = (
-  details: TableFieldLimitErrorDetails,
-  domainContext?: IDomainContext
-): string => {
-  if (!domainContext?.t) {
-    return buildTableFieldLimitFallbackMessage(details.tableName, details.maxFieldCount);
-  }
-
-  try {
-    return domainContext.t(tableI18nKeys.validation.field.maxColumnLimit, {
-      tableName: details.tableName,
-      maxFieldCount: details.maxFieldCount,
-    });
-  } catch {
-    return buildTableFieldLimitFallbackMessage(details.tableName, details.maxFieldCount);
-  }
-};
+const buildTableFieldLimitLocalization = (details: TableFieldLimitErrorDetails) => ({
+  i18nKey: sdkErrorI18nKeys.custom.fieldMaxColumnLimit,
+  context: { tableName: details.tableName, maxFieldCount: details.maxFieldCount },
+});
 
 export const ensureTableFieldCountWithinLimit = (
   table: Table,
@@ -81,8 +68,9 @@ export const ensureTableFieldCountWithinLimit = (
   return err(
     domainError.validation({
       code: TABLE_FIELD_LIMIT_ERROR_CODE,
-      message: buildTableFieldLimitMessage(details, options?.domainContext),
+      message: buildTableFieldLimitFallbackMessage(details.tableName, details.maxFieldCount),
       details,
+      localization: buildTableFieldLimitLocalization(details),
     })
   );
 };
@@ -102,7 +90,10 @@ export const createTableFieldLimitExceededError = (
   );
   return domainError.validation({
     code: TABLE_FIELD_LIMIT_ERROR_CODE,
-    message: options?.message ?? buildTableFieldLimitMessage(details, options?.domainContext),
+    message:
+      options?.message ??
+      buildTableFieldLimitFallbackMessage(details.tableName, details.maxFieldCount),
     details,
+    localization: buildTableFieldLimitLocalization(details),
   });
 };

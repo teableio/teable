@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { useState, useEffect, useRef } from 'react';
 
-export const useInView = (options = {}): [RefObject<HTMLDivElement>, boolean] => {
+export const useInView = (options = {}): [RefObject<HTMLDivElement | null>, boolean] => {
   const [isInView, setIsInView] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

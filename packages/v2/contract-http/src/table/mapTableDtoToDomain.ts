@@ -33,10 +33,12 @@ import {
   SelectAutoNewOptions,
   SelectDefaultValue,
   SelectOption,
+  LongTextShowAs,
   SingleLineTextShowAs,
   Table,
   TableId,
   TableName,
+  TableProperties,
   TextDefaultValue,
   UserDefaultValue,
   UserMultiplicity,
@@ -216,8 +218,10 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'longText': {
-        return optional(dto.options?.defaultValue, TextDefaultValue.create).andThen(
-          (defaultValue) => createLongTextField({ id, name, defaultValue })
+        return optional(dto.options?.showAs, LongTextShowAs.create).andThen((showAs) =>
+          optional(dto.options?.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+            createLongTextField({ id, name, showAs, defaultValue })
+          )
         );
       }
       case 'number': {
@@ -480,16 +484,22 @@ export const mapTableDtoToDomain = (table: ITableDto): Result<Table, DomainError
           sequenceResults(table.fields.map(mapFieldDtoToDomain)).andThen((fields) =>
             sequenceResults(table.views.map(mapViewDtoToDomain)).andThen((views) =>
               optional(table.dbTableName, DbTableName.rehydrate).andThen((dbTableName) => {
-                const props = {
-                  id,
-                  baseId,
-                  name,
-                  primaryFieldId,
-                  fields,
-                  views,
-                  ...(dbTableName ? { dbTableName } : {}),
-                };
-                return Table.rehydrate(props);
+                return TableProperties.create({
+                  ...(table.description !== undefined ? { description: table.description } : {}),
+                  ...(table.icon !== undefined ? { icon: table.icon } : {}),
+                }).andThen((properties) => {
+                  const props = {
+                    id,
+                    baseId,
+                    name,
+                    properties,
+                    primaryFieldId,
+                    fields,
+                    views,
+                    ...(dbTableName ? { dbTableName } : {}),
+                  };
+                  return Table.rehydrate(props);
+                });
               })
             )
           )

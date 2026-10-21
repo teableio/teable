@@ -190,6 +190,8 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
         <ConditionalRollupOptions
           fieldId={id}
           options={options as IConditionalRollupFieldOptions}
+          cellValueType={normalizedFieldCellValueType}
+          isMultipleCellValue={isMultipleCellValue}
           onChange={onChange}
         />
       );

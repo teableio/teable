@@ -292,7 +292,7 @@ describe('DeleteTableHandler', () => {
     result._unsafeUnwrap();
 
     expect(schemaRepo.deleted).toHaveLength(0);
-    expect(sideEffectService.calls).toBe(0);
+    expect(sideEffectService.calls).toBe(1);
     expect(schemaRepo.deleteModes).toEqual(['soft']);
     expect(repo.deleted).toHaveLength(1);
     expect(repo.deleteModes).toEqual(['soft']);
@@ -491,7 +491,7 @@ describe('DeleteTableHandler', () => {
     expect(sideEffectResult._unsafeUnwrapErr().message).toBe('side effect failed');
     expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
       'deleting',
-      'error',
+      'ready',
     ]);
 
     sideEffectService.failExecute = undefined;
@@ -501,7 +501,7 @@ describe('DeleteTableHandler', () => {
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema delete failed');
     expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
       'deleting',
-      'error',
+      'ready',
     ]);
 
     schemaRepo.failDelete = undefined;
@@ -512,6 +512,19 @@ describe('DeleteTableHandler', () => {
     expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
       'deleting',
       'error',
+    ]);
+
+    const softCommand = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      mode: 'soft',
+    })._unsafeUnwrap();
+    repo.provisionStateChanges = [];
+    const softMetaResult = await handler.handle(createContext(), softCommand);
+    expect(softMetaResult._unsafeUnwrapErr().message).toBe('repo delete failed');
+    expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
+      'deleting',
+      'ready',
     ]);
 
     repo.failDelete = undefined;

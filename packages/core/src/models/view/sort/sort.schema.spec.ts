@@ -1,5 +1,5 @@
 import type { ISort, ISortItem } from './sort';
-import { sortSchema, mergeWithDefaultSort } from './sort';
+import { sortSchema, mergeWithDefaultSort, stripSortByReadableFieldIds } from './sort';
 import { SortFunc } from './sort-func.enum';
 
 describe('Sort Parse', () => {
@@ -62,5 +62,40 @@ describe('Sort mergeWithDefaultSort function test', () => {
       { fieldId: 'fld2xxx', order: 'desc' },
     ];
     expect(mergedSort).toEqual(presetSort);
+  });
+});
+
+describe('stripSortByReadableFieldIds', () => {
+  const readable = new Set(['fldA', 'fldB']);
+
+  it('passes the sort through when the readable set is undefined', () => {
+    const sort: ISort = { sortObjs: [{ fieldId: 'fldC', order: SortFunc.Asc }] };
+
+    expect(stripSortByReadableFieldIds(sort, undefined)).toBe(sort);
+  });
+
+  it('drops sort items on unreadable fields and keeps the rest in order', () => {
+    const sort: ISort = {
+      sortObjs: [
+        { fieldId: 'fldC', order: SortFunc.Desc },
+        { fieldId: 'fldA', order: SortFunc.Asc },
+        { fieldId: 'fldB', order: SortFunc.Desc },
+      ],
+      manualSort: true,
+    };
+
+    expect(stripSortByReadableFieldIds(sort, readable)).toEqual({
+      sortObjs: [
+        { fieldId: 'fldA', order: SortFunc.Asc },
+        { fieldId: 'fldB', order: SortFunc.Desc },
+      ],
+      manualSort: true,
+    });
+  });
+
+  it('returns undefined when every sort item is stripped', () => {
+    const sort: ISort = { sortObjs: [{ fieldId: 'fldC', order: SortFunc.Asc }] };
+
+    expect(stripSortByReadableFieldIds(sort, readable)).toBeUndefined();
   });
 });

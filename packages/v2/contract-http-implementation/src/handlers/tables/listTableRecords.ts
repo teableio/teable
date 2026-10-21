@@ -11,11 +11,16 @@ import type {
   IRecordReadQuerySource,
   IRecordSearchAccessPath,
   ListTableRecordsResult,
+  RecordQueryPluginScope,
+  Table,
 } from '@teable/v2-core';
 
 export interface IListTableRecordsEndpointOptions {
+  readonly queryScope?: RecordQueryPluginScope;
+  /** @deprecated Prefer queryScope */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
   readonly recordSearchAccessPath?: IRecordSearchAccessPath;
+  readonly table?: Table;
 }
 
 export const executeListTableRecordsEndpoint = async (

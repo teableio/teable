@@ -1,0 +1,72 @@
+{
+  "add": "תוספים חדשים",
+  "title": {
+    "add": "תוספים חדשים",
+    "edit": "עריכת תוספים"
+  },
+  "pluginUser": {
+    "name": "משתמש תוסף",
+    "description": "משתמש תוסף שנוצר אוטומטית על ידי המערכת עבור התוסף"
+  },
+  "secret": "סוד",
+  "regenerateSecret": "יצירת סוד חדש",
+  "form": {
+    "name": {
+      "label": "שם",
+      "description": "שם התוסף"
+    },
+    "description": {
+      "label": "תיאור",
+      "description": "תיאור התוסף"
+    },
+    "detailDesc": {
+      "label": "תיאור מפורט",
+      "description": "תיאור מפורט של התוסף"
+    },
+    "logo": {
+      "label": "לוגו",
+      "description": "הלוגו של התוסף, ניתן להעלות תמונה או להשתמש בכתובת URL",
+      "upload": "העלאה",
+      "clear": "ניקוי",
+      "placeholder": "ניתן לגרור את הלוגו לכאן או ללחוץ להעלאה",
+      "lengthError": "ניתן להעלות קובץ אחד בלבד.",
+      "typeError": "ניתן להעלות קובצי תמונה בלבד."
+    },
+    "helpUrl": {
+      "label": "כתובת URL לעזרה",
+      "description": "כתובת ה-URL של מסמך העזרה של התוסף"
+    },
+    "positions": {
+      "label": "מיקומים",
+      "description": "מיקומי התוסף"
+    },
+    "i18n": {
+      "label": "I18n",
+      "description": "I18n של התוסף, כולל (שם, תיאור, תיאור מפורט)"
+    },
+    "url": {
+      "label": "URL",
+      "description": "כתובת ה-URL של התוסף"
+    },
+    "autoCreateMember": {
+      "label": "יצירת חבר אוטומטית",
+      "description": "יצירת חבר אוטומטית עבור התוסף"
+    },
+    "config": {
+      "label": "תצורה",
+      "description": "תצורת התוסף"
+    }
+  },
+  "markdown": {
+    "write": "כתיבה",
+    "preview": "תצוגה מקדימה"
+  },
+  "status": {
+    "reviewing": "בבדיקה",
+    "published": "פורסם",
+    "developing": "בפיתוח"
+  },
+  "button": {
+    "submitApproved": "שליחה לאישור"
+  }
+}

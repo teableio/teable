@@ -2,7 +2,7 @@
 import { BaseQueryColumnType } from '@teable/openapi';
 import type { IQueryAggregation, IBaseQuerySelect, IBaseQueryGroupBy } from '@teable/openapi';
 import type { Knex } from 'knex';
-import { cloneDeep, isEmpty } from 'lodash';
+import { cloneDeep } from 'lodash';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { isUserOrLink } from '../../../../utils/is-user-or-link';
 import type { IFieldInstance } from '../../../field/model/factory';
@@ -45,13 +45,21 @@ export class QuerySelect {
     }
 
     const aggregationColumn = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
+    // Snapshot each column's validated dbFieldName before the loop below rewrites
+    // dbFieldName to the (user-controlled) alias for nested-query reference. A column
+    // can be selected more than once; without this snapshot the second pass would read
+    // the first pass's alias and interpolate it raw — an SQL injection (T7688). The
+    // dbFieldName is an already-quoted / qualified identifier, so it stays raw here (a
+    // `??` bind would double-quote it); only the alias is bound via `??`.
+    const originalDbFieldName = Object.fromEntries(
+      Object.entries(currentFieldMap).map(([key, value]) => [key, value.dbFieldName])
+    );
     if (select) {
       select.forEach((cur) => {
         const field = currentFieldMap[cur.column];
         if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
-          const alias = (cur.alias ? cur.alias : field.id).replace(/\?/g, '_');
-          // Use raw to avoid knex double-quoting an already quoted identifier
-          queryBuilder.select(knex.raw(`${field.dbFieldName} as ??`, [alias]));
+          const alias = (cur.alias ? cur.alias : field.id).replaceAll('?', '_');
+          queryBuilder.select(knex.raw(`${originalDbFieldName[cur.column]} as ??`, [alias]));
           currentFieldMap[cur.column].name = alias;
           currentFieldMap[cur.column].dbFieldName = alias;
         } else if (field && !aggregationColumn.includes(cur.column)) {
@@ -80,7 +88,7 @@ export class QuerySelect {
     // tips: The current query has an aggregation and cannot be deleted. ( select * count(fld) as fld_count from xxxxx) => fld_count cannot be deleted
     if (select) {
       Object.keys(currentFieldMap).forEach((key) => {
-        if (!select.find((s) => s.column === key)) {
+        if (!select.some((s) => s.column === key)) {
           if (aggregationColumn.includes(key)) {
             // aggregation field id as alias
             currentFieldMap[key].dbFieldName = key;

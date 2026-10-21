@@ -1,5 +1,6 @@
 import { cn } from '@teable/ui-lib';
 import React from 'react';
+import { useContentDir } from '../../../hooks/use-content-dir';
 
 export interface ISelectTag {
   label: string;
@@ -10,6 +11,7 @@ export interface ISelectTag {
 
 export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) => {
   const { label, color, backgroundColor, className, children } = props;
+  const contentDir = useContentDir();
   return (
     <div
       className={cn(
@@ -19,7 +21,9 @@ export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) 
       style={{ color, backgroundColor }}
       title={label}
     >
-      <span className="min-w-0 truncate">{label}</span>
+      <span dir={contentDir} className="min-w-0 truncate">
+        {label}
+      </span>
       {children}
     </div>
   );

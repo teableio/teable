@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../eslint-config-bases/src/bases/typescript.json",
+    "../eslint-config-bases/src/bases/sonar.json",
+    "../eslint-config-bases/src/bases/regexp.json",
+    "../eslint-config-bases/src/bases/jest.json",
+    "../eslint-config-bases/src/bases/rtl.json",
+    "../eslint-config-bases/src/bases/react.json",
+    "../eslint-config-bases/src/bases/tailwind.json"
+  ],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "overrides": [
+    {
+      "files": ["src/components/**", "src/context/**"],
+      "rules": {
+        "teable/naming-convention": "off"
+      }
+    },
+    {
+      // oxlint's ARIA data counts `toolbar` as interactive, so it must be focusable;
+      // eslint-plugin-jsx-a11y did not.
+      "files": ["src/components/comment/comment-editor/LinkToolbar.tsx"],
+      "rules": {
+        "jsx-a11y/interactive-supports-focus": "warn"
+      }
+    }
+  ]
+}

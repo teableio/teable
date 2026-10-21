@@ -156,7 +156,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               className="absolute inset-0 size-full object-cover"
             />
           )}
-          <div className="absolute right-3 top-3 flex gap-2">
+          <div className="absolute end-3 top-3 flex gap-2">
             <Button
               variant={'ghost'}
               size={'icon-sm'}
@@ -185,7 +185,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           </div>
         </div>
 
-        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20 rounded-lg bg-muted">
+        <div className="group absolute start-1/2 top-[104px] ms-[-40px] size-20 rounded-lg bg-muted">
           {logoUrl ? (
             <>
               <img
@@ -196,7 +196,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               <Button
                 variant={'ghost'}
                 size={'icon'}
-                className="absolute left-0 top-0 size-full font-normal opacity-0 group-hover:opacity-100 hover:bg-black/50"
+                className="absolute start-0 top-0 size-full font-normal opacity-0 group-hover:opacity-100 hover:bg-black/50"
                 onClick={() => logoInput.current?.click()}
               >
                 <Pencil className="size-6 text-white" />
@@ -204,7 +204,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               <Button
                 variant={'ghost'}
                 size={'icon-xs'}
-                className="absolute -right-1 -top-1 size-6 bg-accent font-normal opacity-0 group-hover:opacity-100"
+                className="absolute -end-1 -top-1 size-6 bg-accent font-normal opacity-0 group-hover:opacity-100"
                 onClick={onLogoReset}
               >
                 <Undo2 className="size-4" />
@@ -300,7 +300,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         </div>
 
         <div className="mb-12 mt-8 flex w-full items-center justify-center sm:mb-0 sm:px-12">
-          <Button className="mr-2 w-full text-base sm:w-56" size={'lg'}>
+          <Button className="me-2 w-full text-base sm:w-56" size={'lg'}>
             {submitLabel ?? t('common:actions.submit')}
           </Button>
           <Popover>

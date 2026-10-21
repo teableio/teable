@@ -13,9 +13,10 @@ interface ISpaceAvatarProps {
   name: string;
   avatar?: string | null;
   className?: string;
+  fallbackClassName?: string;
 }
 
-export const SpaceAvatar = ({ name, avatar, className }: ISpaceAvatarProps) => {
+export const SpaceAvatar = ({ name, avatar, className, fallbackClassName }: ISpaceAvatarProps) => {
   const initial = name?.charAt(0).toUpperCase() || '?';
   const { value: displayAvatar } = useAsync(async () => {
     if (!avatar) {
@@ -28,7 +29,9 @@ export const SpaceAvatar = ({ name, avatar, className }: ISpaceAvatarProps) => {
   return (
     <Avatar className={cn('shrink-0 rounded border', className)}>
       <AvatarImage src={displayAvatar || undefined} alt={name} />
-      <AvatarFallback className={cn('rounded bg-background text-foreground font-medium ')}>
+      <AvatarFallback
+        className={cn('rounded bg-background text-foreground font-medium', fallbackClassName)}
+      >
         {initial}
       </AvatarFallback>
     </Avatar>

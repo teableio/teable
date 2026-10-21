@@ -4,8 +4,8 @@ import type { IGatewayModelAPI } from './types';
 // Helper to format USD price for display
 export function formatUsdPriceShort(price: string | undefined): string {
   if (!price) return '-';
-  const num = parseFloat(price);
-  if (isNaN(num) || num === 0) return 'Free';
+  const num = Number.parseFloat(price);
+  if (Number.isNaN(num) || num === 0) return 'Free';
   // Convert to per-million rate for readability
   // e.g., "0.000003" -> "$3/M"
   const perMillion = num * 1_000_000;
@@ -21,7 +21,7 @@ export function generateLabelFromId(modelId: string, apiName?: string): string {
   const modelName = parts[parts.length - 1];
   return modelName
     .replace(/-\d{8}$/, '')
-    .replace(/-/g, ' ')
+    .replaceAll('-', ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 

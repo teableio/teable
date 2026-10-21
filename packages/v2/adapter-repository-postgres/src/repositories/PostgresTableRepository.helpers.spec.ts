@@ -75,11 +75,18 @@ describe('PostgresTableRepository helpers', () => {
       sort: [{ fieldId: 'fld1', order: 'asc' }],
       manualSort: true,
     });
+    expect(repo.parseViewSort(JSON.stringify({ sortObjs: [] }))).toEqual({
+      sort: [],
+      manualSort: undefined,
+    });
     expect(repo.parseViewSort('invalid json')).toEqual({});
     expect(repo.parseViewGroup(JSON.stringify([{ fieldId: 'fld1', order: 'desc' }]))).toEqual([
       { fieldId: 'fld1', order: 'desc' },
     ]);
+    expect(repo.parseViewGroup('[]')).toEqual([]);
     expect(repo.parseViewGroup('"oops"')).toBeUndefined();
+    expect(repo.serializeViewQuery({ query: { group: [] } }).group).toBe('[]');
+    expect(repo.serializeViewQuery({ query: {} }).group).toBeNull();
     expect(repo.parseJsonValue('{"a":1}')).toEqual({ a: 1 });
     expect(repo.parseJsonValue('oops')).toBeUndefined();
   });

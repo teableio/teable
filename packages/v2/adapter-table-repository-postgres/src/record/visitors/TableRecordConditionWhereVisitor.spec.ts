@@ -4,6 +4,7 @@ import {
   CheckboxConditionSpec,
   DateTimeFormatting,
   DbFieldName,
+  DbFieldType,
   type Field,
   FieldId,
   FieldName,
@@ -378,6 +379,51 @@ const createScalarNumberLookupReferenceFields = () => {
   return { lookupField, scoreField };
 };
 
+const createScalarSingleSelectLookupField = () => {
+  const { statusField } = createTestTable();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: `fld${'k'.repeat(16)}`,
+    lookupFieldId: statusField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Status')._unsafeUnwrap(),
+    innerField: statusField,
+    lookupOptions,
+    isMultipleCellValue: false,
+  })._unsafeUnwrap();
+
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_status')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return lookupField;
+};
+
+const createScalarNumericLookupField = (dbFieldType?: 'REAL' | 'JSON') => {
+  const { scoreField } = createTestTable();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: `fld${'k'.repeat(16)}`,
+    lookupFieldId: scoreField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Product')._unsafeUnwrap(),
+    innerField: scoreField,
+    lookupOptions,
+    isMultipleCellValue: false,
+  })._unsafeUnwrap();
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_product')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  if (dbFieldType) {
+    lookupField.setDbFieldType(DbFieldType.rehydrate(dbFieldType)._unsafeUnwrap())._unsafeUnwrap();
+  }
+  return lookupField;
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -470,6 +516,20 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(parameters).toEqual(['Closed', 'Archived']);
     });
 
+    test('scalar single-select lookup isNoneOf normalizes its TEXT column before JSON operators', () => {
+      const lookupField = createScalarSingleSelectLookupField();
+      const value = RecordConditionLiteralListValue.create(['Closed', 'Archived'])._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'isNoneOf', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toContain(`WHEN to_jsonb("t"."col_lookup_status") IS NULL THEN '[]'::jsonb`);
+      expect(sql).toContain('END ?| array[$1, $2])');
+      expect(sql).not.toContain(`coalesce("t"."col_lookup_status", '[]'::jsonb)`);
+      expect(parameters).toEqual(['Closed', 'Archived']);
+    });
+
     test('singleSelect isAnyOf does NOT use COALESCE (standard IN)', () => {
       const value = RecordConditionLiteralListValue.create(['Open', 'Active'])._unsafeUnwrap();
       const spec = SingleSelectConditionSpec.create(statusField, 'isAnyOf', value);
@@ -477,6 +537,81 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       expect(sql).toMatchInlineSnapshot(`""t"."col_status" in ($1, $2)"`);
       expect(parameters).toEqual(['Open', 'Active']);
+    });
+  });
+
+  // ---- scalar-stored lookup comparisons ----
+
+  describe('scalar-stored lookup comparisons', () => {
+    test('canonical numeric lookup is compares the bare column', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create('42')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toBe('"t"."col_lookup_product" = $1');
+      expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([42]);
+    });
+
+    test('canonical numeric lookup isNot compares the bare column', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'isNot', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toBe('"t"."col_lookup_product" is distinct from $1');
+      expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([42]);
+    });
+
+    test('non-canonical numeric spelling keeps the legacy text comparison', () => {
+      const lookupField = createScalarNumericLookupField('REAL');
+      const value = RecordConditionLiteralValue.create('042')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('JSON-stored lookup keeps array membership', () => {
+      const lookupField = createScalarNumericLookupField('JSON');
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('lookup without persisted storage metadata keeps array membership', () => {
+      const lookupField = createScalarNumericLookupField();
+      const value = RecordConditionLiteralValue.create(42)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_array_elements_text');
+    });
+
+    test('multiple lookup is still compared through its jsonb array', () => {
+      const { lookupField } = createLookupLinkTitleReferenceFields();
+      const value = RecordConditionLiteralValue.create('alpha')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('jsonb_path_query_array');
+      expect(sql).not.toContain('"t"."col_lookup_tags" = $1');
     });
   });
 
@@ -525,7 +660,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
   });
 
   describe('date field reference comparisons', () => {
-    test('scalar number lookup is scalar number field reference uses direct equality', () => {
+    test('scalar number lookup is scalar number field reference uses drift-safe jsonb equality', () => {
       const { lookupField, scoreField } = createScalarNumberLookupReferenceFields();
       const value = RecordConditionFieldReferenceValue.create(scoreField)._unsafeUnwrap();
       const spec = lookupField.spec().create({ operator: 'is', value });
@@ -543,8 +678,173 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       if (where.isErr()) return;
 
       const { sql, parameters } = compileWhere(db, where.value);
-      expect(sql).toBe('"f"."col_lookup_score" = "h"."col_score"');
+      // to_jsonb keeps numeric equality semantics while tolerating v1-era
+      // metadata drift where a scalar-typed field sits on a jsonb column.
+      expect(sql).toBe('to_jsonb("f"."col_lookup_score") = to_jsonb("h"."col_score")');
       expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field is field reference keeps the filtered column bare (T6821)', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      // The filtered column stays bare so its index remains usable; only the
+      // reference side is normalized through jsonb for drift tolerance.
+      expect(sql).toBe(`"f"."col_score" = (to_jsonb("h"."col_score") #>> '{}')::double precision`);
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field isNot field reference keeps the filtered column bare (T6821)', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isNot', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe(
+        `"f"."col_score" is distinct from (to_jsonb("h"."col_score") #>> '{}')::double precision`
+      );
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain text field is field reference keeps the filtered column bare (T6821)', () => {
+      const { nameField, notesField } = createTestTable();
+      nameField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(notesField)._unsafeUnwrap();
+      const spec = SingleLineTextConditionSpec.create(nameField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe(`"f"."col_name" = (to_jsonb("h"."col_notes") #>> '{}')::text`);
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain text field is matching-text field reference compares columns bare', () => {
+      const { nameField, notesField } = createTestTable();
+      nameField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      notesField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(notesField)._unsafeUnwrap();
+      const spec = SingleLineTextConditionSpec.create(nameField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_name" = "h"."col_notes"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain text field isNot matching-text field reference compares columns bare', () => {
+      const { nameField, notesField } = createTestTable();
+      nameField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      notesField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(notesField)._unsafeUnwrap();
+      const spec = SingleLineTextConditionSpec.create(nameField, 'isNot', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_name" is distinct from "h"."col_notes"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field matching-REAL field reference compares columns bare', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      hostScoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_score" = "h"."col_score"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field isNot matching-REAL field reference compares columns bare', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      hostScoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isNot', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_score" is distinct from "h"."col_score"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain checkbox field matching-BOOLEAN field reference compares columns bare', () => {
+      const { doneField } = createTestTable();
+      const { doneField: hostDoneField } = createTestTable();
+      doneField.setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())._unsafeUnwrap();
+      hostDoneField
+        .setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostDoneField)._unsafeUnwrap();
+      const spec = CheckboxConditionSpec.create(doneField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_done" = "h"."col_done"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field vs lookup host wraps only the drift-prone host', () => {
+      const { lookupField, scoreField } = createScalarNumberLookupReferenceFields();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(lookupField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe(
+        `"f"."col_score" = (to_jsonb("h"."col_lookup_score") #>> '{}')::double precision`
+      );
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field without persisted db type keeps drift-safe jsonb equality', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('to_jsonb("f"."col_score") = to_jsonb("h"."col_score")');
       expect(parameters).toEqual([]);
     });
 
@@ -631,6 +931,27 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(parameters).toEqual([]);
     });
 
+    test('lookup of link contains matches titles in json array payloads', () => {
+      const { lookupField } = createLookupLinkTitleReferenceFields();
+      const value = RecordConditionLiteralValue.create('alpha')._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'contains', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't' });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      // T7305: the jsonpath travels as a bound parameter, never inlined.
+      expect(sql).toContain('::jsonpath');
+      expect(sql).not.toContain('like_regex');
+      expect(parameters).toEqual([`$[*].title ? (@ like_regex "alpha" flag "i")`]);
+    });
+
     test('date isBefore with field reference uses host table alias', () => {
       const value = RecordConditionFieldReferenceValue.create(cutoffDateField)._unsafeUnwrap();
       const spec = dueDateField.spec().create({ operator: 'isBefore', value });
@@ -704,6 +1025,22 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('"t"."col_due_at" between $1 and $2');
       expect(parameters).toEqual(['2025-12-15T11:00:00.000Z', '2025-12-15T11:00:00.000Z']);
     });
+
+    test('datetime dateRange preserves the requested time bounds', () => {
+      const value = RecordConditionDateValue.create({
+        mode: 'dateRange',
+        exactDate: '2025-12-15T09:00:00.000Z',
+        exactDateEnd: '2025-12-15T17:00:00.000Z',
+        timeZone: 'utc',
+      })._unsafeUnwrap();
+      const spec = dueAtField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('"t"."col_due_at" between $1 and $2');
+      expect(parameters).toEqual(['2025-12-15T09:00:00.000Z', '2025-12-15T17:00:00.000Z']);
+    });
   });
 
   describe('incoming link selection specs', () => {
@@ -720,6 +1057,53 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('from "public"."link_host" as h');
       expect(sql).toContain('"h"."__foreign_id" = "t"."__id"');
       expect(parameters).toEqual([]);
+    });
+
+    test('incoming selected host references nest the host condition under the host alias', () => {
+      const hostCondition = SingleLineTextConditionSpec.create(
+        nameField,
+        'is',
+        RecordConditionLiteralValue.create('visible')._unsafeUnwrap()
+      );
+      const spec = IncomingLinkSelectedSpec.create({
+        mode: 'hostReferenceExists',
+        selfKeyName: '__host_id',
+        fkHostTableName: 'public.link_junction',
+        foreignKeyName: '__foreign_id',
+        hostTableName: 'public.link_host',
+        hostCondition,
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('from "public"."link_junction" as h');
+      expect(sql).toContain('join "public"."link_host" as "hs"');
+      expect(sql).toContain('"hs"."__id" = "h"."__host_id"');
+      expect(sql).toContain('"h"."__foreign_id" = "t"."__id"');
+      expect(sql).toContain('"hs"."col_name" = $1');
+      expect(parameters).toEqual(['visible']);
+    });
+
+    test('incoming selected current column nests the host condition on the referenced host row', () => {
+      const hostCondition = SingleLineTextConditionSpec.create(
+        nameField,
+        'is',
+        RecordConditionLiteralValue.create('visible')._unsafeUnwrap()
+      );
+      const spec = IncomingLinkSelectedSpec.create({
+        mode: 'currentColumnNotNull',
+        selfKeyName: '__host_id',
+        hostTableName: 'public.link_host',
+        hostCondition,
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('from "public"."link_host" as "hs"');
+      expect(sql).toContain('"hs"."__id" = "t"."__host_id"');
+      expect(sql).toContain('"hs"."col_name" = $1');
+      expect(sql).not.toContain('is not null');
+      expect(parameters).toEqual(['visible']);
     });
 
     test('incoming candidate current-column availability keeps current host record selectable', () => {
@@ -806,6 +1190,15 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
   describe('comparison operators', () => {
     test('isGreater uses standard comparison (no COALESCE)', () => {
       const value = RecordConditionLiteralValue.create(50)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isGreater', value);
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toMatchInlineSnapshot(`""t"."col_score" > $1"`);
+      expect(parameters).toEqual([50]);
+    });
+
+    test('isGreater coerces numeric string literals from autoNumber filter UI', () => {
+      const value = RecordConditionLiteralValue.create('50')._unsafeUnwrap();
       const spec = NumberConditionSpec.create(scoreField, 'isGreater', value);
       const { sql, parameters } = buildWhereFor(db, spec);
 
@@ -910,7 +1303,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: labelsField,
         value: textListValue,
         assert: (sql: string) => {
-          expect(sql).toContain(`to_jsonb(coalesce("t"."col_labels", '[]'::jsonb))`);
+          expect(sql).toContain(`WHEN to_jsonb("t"."col_labels") IS NULL THEN '[]'::jsonb`);
           expect(sql).toContain('not ((');
         },
       },
@@ -959,8 +1352,10 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: tagField,
         value: textValue,
         assert: (sql: string, parameters: unknown[]) => {
-          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-          expect(parameters).toEqual([]);
+          // T7305: the jsonpath travels as a bound parameter, never inlined.
+          expect(sql).toContain('::jsonpath');
+          expect(sql).not.toContain('like_regex');
+          expect(parameters).toEqual([`$.title ? (@ like_regex "alpha" flag "i")`]);
         },
       },
       {
@@ -970,8 +1365,10 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         value: textValue,
         assert: (sql: string, parameters: unknown[]) => {
           expect(sql).toContain('NOT jsonb_path_exists');
-          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-          expect(parameters).toEqual([]);
+          // T7305: the jsonpath travels as a bound parameter, never inlined.
+          expect(sql).toContain('::jsonpath');
+          expect(sql).not.toContain('like_regex');
+          expect(parameters).toEqual([`$.title ? (@ like_regex "alpha" flag "i")`]);
         },
       },
       {
@@ -1156,9 +1553,8 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: labelsField,
         value: textListValue,
         assert: (sql: string, parameters: unknown[]) => {
-          expect(sql).toContain(
-            `not (to_jsonb(coalesce("t"."col_labels", '[]'::jsonb)) ?| array[$1, $2])`
-          );
+          expect(sql).toContain(`WHEN to_jsonb("t"."col_labels") IS NULL THEN '[]'::jsonb`);
+          expect(sql).toContain('END ?| array[$1, $2])');
           expect(parameters).toEqual(['alpha', 'beta']);
         },
       },
@@ -1189,9 +1585,8 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: labelsField,
         value: textListValue,
         assert: (sql: string, parameters: unknown[]) => {
-          expect(sql).toContain(
-            `not (to_jsonb(coalesce("t"."col_labels", '[]'::jsonb)) ?| array[$1, $2])`
-          );
+          expect(sql).toContain(`WHEN to_jsonb("t"."col_labels") IS NULL THEN '[]'::jsonb`);
+          expect(sql).toContain('END ?| array[$1, $2])');
           expect(parameters).toEqual(['alpha', 'beta']);
         },
       },
@@ -1201,7 +1596,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: labelsField,
         value: textListValue,
         assert: (sql: string) => {
-          expect(sql).toContain(`to_jsonb(coalesce("t"."col_labels", '[]'::jsonb))`);
+          expect(sql).toContain(`WHEN to_jsonb("t"."col_labels") IS NULL THEN '[]'::jsonb`);
           expect(sql).toContain('not ((');
         },
       },

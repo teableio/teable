@@ -8,6 +8,76 @@ describe('envValidationSchema', () => {
     ...overrides,
   });
 
+  it.each<[string | undefined, boolean]>([
+    [undefined, false],
+    ['false', false],
+    ['true', true],
+    ['1', true],
+    ['0', false],
+    ['yes', true],
+    ['no', false],
+    ['on', true],
+    ['off', false],
+    [' TRUE ', true],
+    [' OFF ', false],
+  ])('requires explicit data-query opt-in: %s', (flag, enabled) => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_ENABLED: flag,
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_DATA_QUERY_ENABLED).toBe(enabled);
+  });
+
+  it('rejects invalid data-query opt-in values', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_ENABLED: 'enabled',
+      })
+    );
+    expect(error).toBeDefined();
+  });
+
+  it.each<[string | undefined, boolean]>([
+    [undefined, false],
+    ['true', true],
+    ['1', true],
+    ['off', false],
+    [' ON ', true],
+  ])('parses the data-query runtime flag: %s', (flag, enabled) => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_EXECUTE_ENABLED: flag,
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_DATA_QUERY_EXECUTE_ENABLED).toBe(enabled);
+  });
+
+  it('rejects invalid data-query runtime values', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_DATA_QUERY_EXECUTE_ENABLED: 'enabled',
+      })
+    );
+    expect(error).toBeDefined();
+  });
+
+  it('defaults computed concurrency to two before config factories read validated env', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY).toBe(2);
+  });
+
   it('accepts legacy single-db env', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({
@@ -82,6 +152,46 @@ describe('envValidationSchema', () => {
 
     expect(error).toBeUndefined();
     expect(value.V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS).toBe(30_000);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE).toBe(2);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE).toBe(1);
+    expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(60_000);
+    expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(60_000);
+    expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(500);
+  });
+
+  it('accepts computed task timeout, claim concurrency, and field-backfill overrides', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: '0',
+        V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: '15000',
+        V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: '4',
+        V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: '2',
+        V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: '250',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(0);
+    expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(15_000);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE).toBe(4);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE).toBe(2);
+    expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(250);
+  });
+
+  // A Joi default on BACKEND_CACHE_PROVIDER is written back into process.env by
+  // ConfigModule.forRoot before the registerAs factories run, which would shadow
+  // the URI-aware provider resolution in cache.config.ts and silently downgrade
+  // Redis deployments to the sqlite cache.
+  it('leaves the cache provider unset so cache.config can derive it', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.BACKEND_CACHE_PROVIDER).toBeUndefined();
   });
 
   it('rejects disabling both BullMQ roles', () => {
@@ -121,5 +231,88 @@ describe('envValidationSchema', () => {
     );
 
     expect(error?.message).toContain(key);
+  });
+
+  it('accepts sign-in lockout overrides', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        SIGNIN_ACCOUNT_LOCKOUT_ENABLED: 'false',
+        SIGNIN_MAX_LOGIN_ATTEMPTS: '10',
+        SIGNIN_ACCOUNT_LOCKOUT_MINUTES: '30',
+      })
+    );
+    expect(error).toBeUndefined();
+  });
+
+  it.each([
+    ['SIGNIN_ACCOUNT_LOCKOUT_ENABLED', 'off'],
+    ['SIGNIN_MAX_LOGIN_ATTEMPTS', '0'],
+    ['SIGNIN_ACCOUNT_LOCKOUT_MINUTES', '1.5'],
+  ])('rejects an invalid %s', (name, value) => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        [name]: value,
+      })
+    );
+    expect(error?.message).toContain(name);
+  });
+
+  it('requires the Sign in with Apple credentials once the provider is enabled', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        SOCIAL_AUTH_PROVIDERS: 'google,apple',
+        BACKEND_APPLE_CLIENT: 'ai.teable.signin:ABCDE12345:FGHIJ67890',
+      }),
+      { allowUnknown: true }
+    );
+
+    expect(error?.message).toContain(
+      'The `BACKEND_APPLE_PRIVATE_KEY` is required when `SOCIAL_AUTH_PROVIDERS` includes `apple`'
+    );
+  });
+
+  it('spells out the BACKEND_APPLE_CLIENT format when it is not the id triple', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        SOCIAL_AUTH_PROVIDERS: 'apple',
+        BACKEND_APPLE_CLIENT: 'ai.teable.signin',
+        BACKEND_APPLE_PRIVATE_KEY: 'key',
+      }),
+      { allowUnknown: true }
+    );
+
+    expect(error?.message).toContain('must be `<Services ID>:<Team ID>:<Key ID>`');
+  });
+
+  it('accepts a complete Sign in with Apple configuration', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        SOCIAL_AUTH_PROVIDERS: 'apple',
+        BACKEND_APPLE_CLIENT: 'ai.teable.signin:ABCDE12345:FGHIJ67890',
+        BACKEND_APPLE_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----',
+      }),
+      { allowUnknown: true }
+    );
+
+    expect(error).toBeUndefined();
+  });
+
+  it('does not ask for Apple credentials while the provider is off', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        SOCIAL_AUTH_PROVIDERS: 'github,google',
+        BACKEND_GITHUB_CLIENT_ID: 'github_client_id',
+        BACKEND_GITHUB_CLIENT_SECRET: 'github_client_secret',
+      }),
+      { allowUnknown: true }
+    );
+
+    expect(error).toBeUndefined();
   });
 });

@@ -28,6 +28,10 @@ class FakeBaseRepository implements IBaseRepository {
     return ok(base as never);
   }
 
+  async delete(_context: IExecutionContext, _baseId: BaseId) {
+    return ok(undefined);
+  }
+
   async findOne(_context: IExecutionContext, _baseId: BaseId) {
     return ok<Base | null, DomainError>(null);
   }

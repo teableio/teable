@@ -85,6 +85,9 @@ export const importOptionRoSchema = z.object({
   fileType: z.enum(SUPPORTEDTYPE),
   notification: z.boolean().optional(),
   tz: timeZoneStringSchema,
+  folderId: z.string().optional().meta({
+    description: 'Target folder (node id or folder id); tables land at root when omitted.',
+  }),
 });
 
 export const inplaceImportOptionRoSchema = z.object({

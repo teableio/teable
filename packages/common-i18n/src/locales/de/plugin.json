@@ -47,10 +47,26 @@
     "url": {
       "label": "Url",
       "description": "URL des Plugins"
+    },
+    "autoCreateMember": {
+      "label": "Mitglied automatisch erstellen",
+      "description": "Mitglied für das Plugin automatisch erstellen"
+    },
+    "config": {
+      "label": "Konfiguration",
+      "description": "Konfiguration des Plugins"
     }
   },
   "markdown": {
     "write": "Schreiben",
     "preview": "Vorschau"
+  },
+  "status": {
+    "reviewing": "In Prüfung",
+    "published": "Veröffentlicht",
+    "developing": "In Entwicklung"
+  },
+  "button": {
+    "submitApproved": "Zur Freigabe einreichen"
   }
 }

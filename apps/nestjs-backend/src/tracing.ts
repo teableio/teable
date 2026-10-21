@@ -16,6 +16,7 @@
  * | OTEL_LOG_LEVEL                     | SDK diagnostic log level       | (disabled)       | (disabled)   |
  * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
  * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
+ * | OTEL_SLOW_TRACE_THRESHOLD_MS       | Slow-trace promotion (ms)      | 1000             | 1000         |
  * | OTEL_BSP_MAX_QUEUE_SIZE            | Trace BSP max queue size       | 2048             | 2048         |
  * | OTEL_BSP_MAX_EXPORT_BATCH_SIZE     | Trace BSP max export batch     | 512              | 512          |
  * | OTEL_BSP_SCHEDULE_DELAY            | Trace BSP delay (ms)           | 5000             | 5000         |
@@ -33,6 +34,12 @@
  * - Smart export always sends errors and HTTP 5xx responses (regardless of ratio) and promotes
  *   their whole trace so it arrives complete; everything else follows the trace-level
  *   OTEL_EXPORT_RATIO (see tracing-span-export.ts)
+ * - Smart export also promotes a trace complete when any span ends at or above
+ *   OTEL_SLOW_TRACE_THRESHOLD_MS (default 1000 ms, non-positive/invalid values fall back to
+ *   the default), so slow successful requests keep their internal spans. With the default
+ *   OTEL_EXPORT_RATIO of 0.1 this raises retention above 10% for slow traffic only.
+ * - Any single trace is truncated past TRACE_EXPORT_SPAN_CAP detail spans, so a leaked
+ *   context cannot funnel a pod's whole lifetime into one unbounded trace
  */
 import { Logger } from '@nestjs/common';
 import { metrics, SpanKind } from '@opentelemetry/api';
@@ -43,7 +50,6 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
-import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
@@ -53,9 +59,17 @@ import { NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import { wrapContextManagerClass } from '@sentry/opentelemetry';
-import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
-import { createSmartSpanProcessor } from './tracing-span-export';
+import { databaseHealthSpanProcessor } from './observability/database-health/database-health.metrics';
+import {
+  redactTeablePgQuerySpan,
+  setTeableDbSpanAttributes,
+  setTeableDbSpanAttributesFromSpan,
+} from './tracing-db-context';
+import {
+  createSmartSpanProcessor,
+  DEFAULT_SLOW_TRACE_THRESHOLD_MS,
+  normalizeSlowTraceThresholdMs,
+} from './tracing-span-export';
 
 // Use webpack's special require that bypasses bundling, falling back to standard require
 // This is needed because webpack transforms import.meta.url and createRequire in ways
@@ -83,6 +97,7 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '1.0',
+    OTEL_SLOW_TRACE_THRESHOLD_MS: '1000',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -96,6 +111,7 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '0.1',
+    OTEL_SLOW_TRACE_THRESHOLD_MS: '1000',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -151,6 +167,9 @@ const logEndpoint = getConfig('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT');
 const metricsEndpoint = getConfig('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT');
 const serviceName = getConfig('OTEL_SERVICE_NAME') || 'teable';
 const exportRatio = Math.max(0, Math.min(1, parseNumber(getConfig('OTEL_EXPORT_RATIO'), 0.1)));
+const slowTraceThresholdMs = normalizeSlowTraceThresholdMs(
+  parseNumber(getConfig('OTEL_SLOW_TRACE_THRESHOLD_MS'), DEFAULT_SLOW_TRACE_THRESHOLD_MS)
+);
 const traceBatchMaxQueueSize = parseIntegerConfig('OTEL_BSP_MAX_QUEUE_SIZE', 2048, 1);
 const traceBatchMaxExportBatchSize = Math.min(
   traceBatchMaxQueueSize,
@@ -184,13 +203,18 @@ const metricsExporter = metricsEndpoint
   : undefined;
 
 // Strip high-cardinality resource attributes from metrics only.
-// Traces and logs keep these for debugging; metrics drop them to prevent
-// cardinality explosion (each restart = new host.name + pid; each deploy =
-// new service.version build tag, so the unique metric series count would grow
-// unbounded over time as releases accumulate).
+// Traces and logs keep these for debugging; metrics drop them to limit series
+// churn (each restart = new pid + service.instance.id; each deploy = new
+// service.version build tag, so the unique metric series count grows with
+// every release).
+//
+// host.name (= pod name) is deliberately KEPT: it is the only per-pod series
+// identity. Without it every pod's cumulative counter merges into one series,
+// and the interleaved samples read as endless counter resets — rate()-based
+// panels inflate by orders of magnitude (observed ~1000x). Its churn (pod
+// count × deploys) is acceptable on self-hosted SigNoz.
 if (metricsExporter) {
   const dropFromMetricResource = new Set([
-    'host.name',
     'host.arch',
     'os.type',
     'os.description',
@@ -245,9 +269,21 @@ const httpClientActiveRequestsProcessor: SpanProcessor = {
 
 const teableDbSpanAttributeProcessor: SpanProcessor = {
   onStart(span): void {
-    const attributes = (span as unknown as { attributes?: Record<string, unknown> }).attributes;
-    const dbSystem = attributes?.['db.system'];
-    if (dbSystem !== 'postgresql' && dbSystem !== 'postgres') {
+    const observed = span as unknown as { attributes?: Record<string, unknown>; name?: string };
+    const attributes = observed.attributes;
+    // instrumentation-pg >=0.73 emits stable semconv (db.system.name); older
+    // pods in a rolling deploy still emit db.system, so accept both.
+    const dbSystem = attributes?.['db.system.name'] ?? attributes?.['db.system'];
+    // `pg-pool.connect` spans are built from the pool options, so they carry only
+    // server.address: with no database name there is nothing to resolve a meta/data role
+    // against, and a guessed role on a per-instance series is worse than an unknown one —
+    // they are left without `teable.db.role` on purpose. When a pool does expose a database
+    // name, the same resolution as for query spans applies.
+    const hasDatabaseName =
+      typeof attributes?.['db.namespace'] === 'string' ||
+      typeof attributes?.['db.name'] === 'string';
+    const isPostgres = dbSystem === 'postgresql' || dbSystem === 'postgres';
+    if (!isPostgres && !(observed.name === 'pg-pool.connect' && hasDatabaseName)) {
       return;
     }
 
@@ -272,6 +308,7 @@ const spanProcessors = [
           new OTLPTraceExporter(createExporterOptions(traceEndpoint)),
           {
             exportRatio,
+            slowTraceThresholdMs,
             maxQueueSize: traceBatchMaxQueueSize,
             maxExportBatchSize: traceBatchMaxExportBatchSize,
             scheduledDelayMillis: traceBatchScheduledDelayMillis,
@@ -283,14 +320,10 @@ const spanProcessors = [
     : [new NoopSpanProcessor()]),
   httpClientActiveRequestsProcessor,
   teableDbSpanAttributeProcessor,
+  // Unsampled per-instance database health: reads ended spans only, never creates or
+  // mutates them, and never throws into the SDK.
+  databaseHealthSpanProcessor,
 ];
-
-// Keep SentryContextManager even in error-only mode: it forks Sentry scopes per
-// OTEL context so concurrent requests don't leak breadcrumbs/tags into each
-// other's error reports.
-const SentryContextManager = hasSentry
-  ? wrapContextManagerClass(AsyncLocalStorageContextManager)
-  : undefined;
 
 const ignorePaths = [
   '/favicon.ico',
@@ -333,18 +366,24 @@ const metricViews: opentelemetry.metrics.ViewOptions[] = [
   // Reduce high-cardinality auto-instrumented histograms from 16 → 6 series per label set.
   // Boundaries are in seconds: 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow.
   // Keep only operation name + system; drop db.namespace, server.address/port, error.type.
+  // db.system (old semconv) kept alongside db.system.name so mixed fleets during
+  // a rolling deploy don't lose the dimension.
   {
     instrumentName: 'db.client.operation.duration',
     aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
-    attributesProcessors: [createAllowListAttributesProcessor(['db.operation.name', 'db.system'])],
+    attributesProcessors: [
+      createAllowListAttributesProcessor(['db.operation.name', 'db.system', 'db.system.name']),
+    ],
   },
 ];
 
 const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
-  logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
+  logRecordProcessors: logExporter ? [new BatchLogRecordProcessor({ exporter: logExporter })] : [],
   sampler: new AlwaysOnSampler(),
-  contextManager: SentryContextManager ? new SentryContextManager() : undefined,
+  // Sentry 11 keeps its scopes in its own AsyncLocalStorage and no longer wraps the OTEL
+  // context manager; instrument.ts links events to the active span instead.
+  contextManager: new AsyncLocalStorageContextManager(),
   textMapPropagator: undefined,
   views: metricViews,
   metricReader: metricsExporter
@@ -360,13 +399,21 @@ const otelSDK = new opentelemetry.NodeSDK({
     new ExpressInstrumentation({
       ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
     }),
-    new NestInstrumentation(),
+    // NestInstrumentation is deliberately absent. Its controller-handler span wrapped
+    // the same work as the HTTP SERVER span (2ms apart) and RouteTracingInterceptor
+    // renamed it to the route, so every request shipped two near-identical spans that
+    // both bypassed sampling — a quarter of all exported spans. Its `Create Nest App`
+    // span was also the bootstrap context that long-lived listeners leaked into.
+    // What it uniquely provided is replaced: the route/controller/handler attributes by
+    // RouteTracingInterceptor, the exception recording by GlobalExceptionFilter.
+    // new NestInstrumentation(),
     new PrismaInstrumentation(),
     new PgInstrumentation({
       enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
       requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
       requestHook: (span, queryInfo) => {
         setTeableDbSpanAttributes(span, queryInfo.connection);
+        redactTeablePgQuerySpan(span);
       },
     }),
     new PinoInstrumentation(),
@@ -384,7 +431,7 @@ const otelSDK = new opentelemetry.NodeSDK({
 // Log configuration on startup
 otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
-    `exportRatio=${exportRatio * 100}%, ` +
+    `exportRatio=${exportRatio * 100}%, slowTraceThreshold=${slowTraceThresholdMs}ms, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +

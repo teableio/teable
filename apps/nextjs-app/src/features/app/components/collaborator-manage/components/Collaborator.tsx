@@ -1,4 +1,4 @@
-import { BillableRoles, type IRole } from '@teable/core';
+import { isBillableRole, type IRole } from '@teable/core';
 import { Building2 } from '@teable/icons';
 import { PrincipalType } from '@teable/openapi';
 import {
@@ -100,15 +100,13 @@ export const OverflowText = (props: { text: string; className?: string }) => {
 const BillableBadge = (props: { role?: IRole }) => {
   const { role } = props;
   const { t } = useTranslation('common');
-  const isBillableRole = role ? (BillableRoles as readonly IRole[]).includes(role) : true;
-
   const badge = (
     <Badge className="shrink-0 border-none bg-blue-100 font-normal text-blue-500 hover:bg-blue-100/80 dark:bg-blue-500/20 dark:hover:bg-blue-500/30">
       {t('billing.billable')}
     </Badge>
   );
 
-  if (isBillableRole) {
+  if (!role || isBillableRole(role)) {
     return badge;
   }
 
@@ -139,7 +137,7 @@ export const Collaborator = (props: ICollaboratorProps) => {
           <Building2 className="size-4" />
         </div>
       )}
-      <div className="ml-3 flex min-w-0 flex-1 flex-col space-y-1 overflow-hidden">
+      <div className="ms-3 flex min-w-0 flex-1 flex-col space-y-1 overflow-hidden">
         <div className="min-w-0 text-sm font-medium">
           <div className="flex min-w-0 items-center gap-2">
             <OverflowText text={item.name} />

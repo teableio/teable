@@ -28,7 +28,21 @@ const createFieldId = () => {
   return `fld${suffix}`;
 };
 
-describe('update-field: singleSelect property updates', () => {
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getDomainEventName = (event: unknown): string | undefined => {
+  if (!isObjectRecord(event)) {
+    return undefined;
+  }
+  const name = event['name'];
+  if (!isObjectRecord(name) || typeof name.toString !== 'function') {
+    return undefined;
+  }
+  return name.toString();
+};
+
+describe('[D01][F05][S01] update-field: singleSelect property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;
@@ -471,6 +485,72 @@ describe('update-field: singleSelect property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
+  test('should not recompute dependent fields when only defaultValue changes', async () => {
+    // V1 parity: field-converting.e2e-spec.ts
+    // "should not recompute dependent fields when only defaultValue changes"
+    const fieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+    const optionTodo = { id: 'choTodo', name: 'Todo', color: 'blueBright' };
+    const optionDone = { id: 'choDone', name: 'Done', color: 'greenBright' };
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'singleSelect',
+        id: fieldId,
+        name: 'Status Default Only',
+        options: { choices: [optionTodo, optionDone], defaultValue: 'Todo' },
+      },
+    });
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        id: formulaFieldId,
+        name: 'Status Default Only Formula',
+        options: { expression: `{${fieldId}}` },
+      },
+    });
+
+    const record = await ctx.createRecord(tableId, { [fieldId]: 'Todo' });
+    await ctx.drainOutbox();
+
+    const beforeEventCount = ctx.testContainer.eventBus.events().length;
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: {
+        type: 'singleSelect',
+        options: { choices: [optionTodo, optionDone], defaultValue: 'Done' },
+      },
+    });
+    await ctx.drainOutbox();
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(getSelectOptions(updatedField).defaultValue).toBe('Done');
+
+    // No record recomputation should have happened
+    const newEvents = ctx.testContainer.eventBus.events().slice(beforeEventCount);
+    const newEventNames = newEvents
+      .map((event) => getDomainEventName(event))
+      .filter((eventName): eventName is string => Boolean(eventName));
+    expect(newEventNames).not.toContain('RecordUpdated');
+    expect(newEventNames).not.toContain('RecordsBatchUpdated');
+
+    // Existing record and dependent formula values stay unchanged
+    const records = await ctx.listRecords(tableId);
+    const row = records.find((r) => r.id === record.id);
+    expect(row?.fields[fieldId]).toBe('Todo');
+    expect(row?.fields[formulaFieldId]).toBe('Todo');
+
+    // Cleanup
+    await ctx.deleteField({ tableId, fieldId: formulaFieldId });
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [record.id]);
+  });
+
   test('should clear defaultValue T6107', async () => {
     const fieldId = createFieldId();
     const optionA = { id: 'choA', name: 'A', color: 'blueBright' };
@@ -534,7 +614,7 @@ describe('update-field: singleSelect property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
-  test('should reject deleting option used as defaultValue', async () => {
+  test('should clear defaultValue when its option is deleted', async () => {
     // Setup: Create singleSelect with options: ["A", "B"], defaultValue: "B"
     const fieldId = createFieldId();
     const optionA = { id: 'choA', name: 'A', color: 'blueBright' };
@@ -551,14 +631,15 @@ describe('update-field: singleSelect property updates', () => {
     });
 
     // Action: Update options to ["A"]
-    await expect(
-      ctx.updateField({
-        baseId: ctx.baseId,
-        tableId,
-        fieldId,
-        field: { options: { choices: [optionA] } },
-      })
-    ).rejects.toThrow();
+    await ctx.updateField({
+      baseId: ctx.baseId,
+      tableId,
+      fieldId,
+      field: { options: { choices: [optionA] } },
+    });
+    const table = await ctx.getTableById(tableId);
+    const field = table.fields.find((item) => item.id === fieldId);
+    expect((field?.options as { defaultValue?: string } | undefined)?.defaultValue).toBeUndefined();
 
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });

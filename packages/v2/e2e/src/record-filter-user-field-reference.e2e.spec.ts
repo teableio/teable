@@ -88,6 +88,12 @@ describe('v2 listRecords user field reference filter (e2e)', () => {
       on conflict (id) do nothing
     `.execute(ctx.testContainer.db);
 
+    await sql`
+      insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+      values ('col' || ${bob.id}, 'base', ${ctx.baseId}, ${bob.id}, 'user')
+      on conflict (id) do nothing
+    `.execute(ctx.testContainer.db);
+
     await ctx.createRecords(tableId, [
       {
         fields: {
@@ -139,5 +145,33 @@ describe('v2 listRecords user field reference filter (e2e)', () => {
 
     expect(records).toHaveLength(1);
     expect(records[0]?.fields[nameFieldId]).toBe('Alpha');
+  });
+
+  /**
+   * v1 reference: link-view-user-filter.e2e-spec (T6522 list) — the dynamic
+   * 'Me' value must resolve to the requesting actor for user field filters.
+   */
+  it("resolves the dynamic 'Me' value against single user fields", async () => {
+    const records = await listRecordsWithFilter({
+      fieldId: ownerFieldId,
+      operator: 'is',
+      value: 'Me',
+    });
+
+    expect(records.map((record) => record.fields[nameFieldId]).sort()).toEqual(['Alpha', 'Beta']);
+  });
+
+  it("resolves the dynamic 'Me' value against multi user fields", async () => {
+    const records = await listRecordsWithFilter({
+      fieldId: assigneesFieldId,
+      operator: 'hasAnyOf',
+      value: ['Me'],
+    });
+
+    expect(records.map((record) => record.fields[nameFieldId]).sort()).toEqual([
+      'Alpha',
+      'Beta',
+      'Gamma',
+    ]);
   });
 });

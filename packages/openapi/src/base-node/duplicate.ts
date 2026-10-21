@@ -24,7 +24,8 @@ export type IDuplicateBaseNodeRo = z.infer<typeof duplicateBaseNodeRoSchema>;
 export const DuplicateBaseNodeRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DUPLICATE_BASE_NODE,
-  description: 'Duplicate a node for a base',
+  title: 'Duplicate project node',
+  description: 'Create a copy of a node in a project.',
   request: {
     params: z.object({
       baseId: z.string(),

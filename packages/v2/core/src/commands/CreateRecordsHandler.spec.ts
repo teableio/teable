@@ -31,6 +31,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -105,9 +106,8 @@ const createHandler = (
     new RecordWriteSideEffectService(),
     noopRecordWriteUndoRedoPlanService,
     tableUpdateFlow,
-    eventBus,
-    undoRedoStackService,
-    unitOfWork
+    new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+    undoRedoStackService
   );
 
 class FakeTableRepository implements ITableRepository {
@@ -396,6 +396,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplace(
     _context: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     this.resolveCalls.push(spec);
@@ -826,6 +827,42 @@ describe('CreateRecordsHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
+  });
+
+  it('publishes batch created events with an explicit recordDuplicate source', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create(
+      {
+        tableId,
+        records: [{ fields: { [textFieldId]: 'A' } }, { fields: { [textFieldId]: 'B' } }],
+      },
+      { source: { type: 'recordDuplicate' } }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    const publishedBatchEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+    expect(publishedBatchEvent?.source).toEqual({ type: 'recordDuplicate' });
   });
 
   it('returns error when table not found', async () => {
@@ -1423,7 +1460,7 @@ describe('CreateRecordsHandler', () => {
       expect(multiNames).toContain('Tag B');
     });
 
-    it('rejects auto-created select options whose names exceed the configured limit', async () => {
+    it('creates records without auto-created select options whose names exceed the configured limit', async () => {
       const { table, textFieldId, singleSelectFieldId } = createTestTable(baseId, tableId);
 
       const tableRepository = new FakeTableRepository();
@@ -1463,8 +1500,8 @@ describe('CreateRecordsHandler', () => {
         commandResult._unsafeUnwrap()
       );
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().code).toBe('validation.limit.select_choice_name_max_length');
+      expect(result.isOk()).toBe(true);
+      expect(recordRepository.records).toHaveLength(1);
       expect(tableRepository.updated).toHaveLength(0);
     });
 

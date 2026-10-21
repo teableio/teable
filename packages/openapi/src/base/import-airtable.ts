@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
 
@@ -94,6 +95,24 @@ export const importAirtableAnalyzeVoSchema = z.object({
           name: z.string(),
           fieldCount: z.number(),
           viewCount: z.number(),
+          /** Whatever the base's author wrote about this table, if anything. */
+          description: z.string().optional(),
+          /**
+           * Schema only — names, Airtable types and the author's own field
+           * notes, never a single cell of record data. Cheap to produce (the
+           * base schema is already fetched to count the fields) and enough to
+           * describe the base to a model without shipping anyone's rows to it.
+           * The descriptions carry the semantics names alone can't: "Status"
+           * says nothing, "Status — set by the weekly sync, blocks invoicing"
+           * says everything.
+           */
+          fields: z.array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              description: z.string().optional(),
+            })
+          ),
         })
       ),
       issues: z.array(importAirtableIssueSchema),
@@ -110,22 +129,26 @@ export const importAirtableRoSchema = z
       .optional()
       .meta({
         description:
-          'Target space for the new base. Required only when baseId is omitted; when importing ' +
-          "into an existing base the base's own space is used and spaceId is ignored.",
+          'Target space for the new project. Required only when baseId is omitted; when importing ' +
+          "into an existing project the project's own space is used and spaceId is ignored.",
       }),
     baseId: z
       .string()
       .optional()
       .meta({
         description:
-          'Import into this existing base (add its tables) instead of creating a new one. ' +
-          'When omitted, a new base named baseName is created in spaceId.',
+          'Import into this existing project (add its tables) instead of creating a new one. ' +
+          'When omitted, a new project named baseName is created in spaceId.',
       }),
+    folderId: z.string().optional().meta({
+      description:
+        'Target folder (node id or folder id); requires baseId, tables land at root when omitted.',
+    }),
     ...airtableCredentialsShape,
     airtableBaseId: z.string().min(1),
     baseName: z.string().min(1).optional().meta({
       description:
-        'Name for the created base (normally the Airtable base name). Required unless baseId is set.',
+        'Name for the created project (normally the Airtable base name). Required unless baseId is set.',
     }),
     importRecords: z.boolean().optional().meta({
       description: 'Import record data (default true). When false only the structure is created.',
@@ -167,6 +190,13 @@ export const importAirtableRoSchema = z
         message: 'spaceId is required when baseId is not provided.',
       });
     }
+    if (value.folderId && !value.baseId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['folderId'],
+        message: 'folderId is only supported when importing into an existing project (baseId).',
+      });
+    }
   });
 
 export type IImportAirtableRo = z.infer<typeof importAirtableRoSchema>;
@@ -204,6 +234,7 @@ export type IImportAirtableSSEEvent =
 export const ImportAirtableAnalyzeRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_AIRTABLE_ANALYZE,
+  title: 'Analyze Airtable import source',
   description: 'List accessible Airtable bases or summarize one base schema before import',
   summary: 'analyze an Airtable import source',
   request: {
@@ -231,6 +262,7 @@ export const ImportAirtableAnalyzeRoute: RouteConfig = registerRoute({
 export const ImportAirtableStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_AIRTABLE_STREAM,
+  title: 'Import Airtable base with progress',
   description: 'import an Airtable base with SSE progress stream',
   summary: 'import an Airtable base with SSE progress events',
   request: {
@@ -319,7 +351,7 @@ export const importAirtableStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Import from Airtable failed: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, 'Import from Airtable failed');
   }
 
   const reader = response.body?.getReader();

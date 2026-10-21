@@ -6,6 +6,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Field subtypes and type-specific value objects/config.
 - Validate with ValueObject + Result and expose serialization helpers.
+- Formula deletion errors propagate through formula chains and invalidated lookup/rollup dependencies. Reuse each dependency's deletion reaction so non-error repairs do not invalidate consumers; see `FormulaField.onFieldDeleted`.
+- Conditional rollup creation and updates discard sort/limit for order-insensitive aggregations
+  such as SUM. ARRAY_COMPACT, ARRAY_UNIQUE, ARRAY_JOIN and CONCATENATE retain them; scalar
+  result multiplicity alone does not determine whether ordering is supported.
+- Ordinary and conditional lookups reject button source fields during foreign-table validation,
+  before create or update can persist the lookup configuration.
 
 ## Files
 
@@ -19,6 +25,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ButtonWorkflow.ts` - Role: value object; Purpose: workflow linkage config.
 - `CheckboxDefaultValue.ts` - Role: value object; Purpose: checkbox default.
 - `CheckboxField.ts` - Role: field subtype; Purpose: checkbox field entity.
+- `ConditionalLookupField.ts` - Role: field subtype; Purpose: condition-filtered lookup without a link field.
+- `ConditionalLookupField.spec.ts` - Role: field tests; Purpose: verify conditional lookup options including optional cross-base id.
+- `ConditionalLookupOptions.ts` - Role: value object; Purpose: foreign table/field/condition and optional BaseId for cross-base lookups.
+- `ConditionalRollupConfig.ts` - Role: value object; Purpose: foreign table/field/condition and optional BaseId for cross-base rollups.
+- `ConditionalRollupField.ts` - Role: field subtype; Purpose: condition-filtered rollup without a link field.
+- `ConditionalRollupField.spec.ts` - Role: field tests; Purpose: verify conditional rollup config including optional cross-base id.
 - `CreatedByField.ts` - Role: field subtype; Purpose: system created-by field entity.
 - `CreatedTimeField.ts` - Role: field subtype; Purpose: system created-time field entity.
 - `DateDefaultValue.ts` - Role: value object; Purpose: date default config.

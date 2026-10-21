@@ -11,10 +11,11 @@ import {
   CollaboratorType,
   createSpaceInvitationLink,
   deleteBaseCollaborator,
+  deleteSpaceBaseCollaborators,
   deleteSpaceCollaborator,
   deleteSpaceInvitationLink,
   emailSpaceInvitation,
-  getSpaceCollaboratorList,
+  getSpaceUniqueCollaboratorList,
   listSpaceInvitationLink,
   PrincipalType,
   updateBaseCollaborator,
@@ -23,13 +24,13 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
-import { Badge } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { useSeatConfirm } from '../../../hooks/useSeatConfirm';
 import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
-import { OverflowText } from '../../collaborator-manage/components/Collaborator';
 import { useFilteredRoleStatic } from '../../collaborator-manage/space/useFilteredRoleStatic';
+import { uniqueCollaboratorToSpaceItem } from '../../collaborator-manage/utils';
 import { CollaboratorsDialog } from '../share/CollaboratorsDialog';
 import { CollaboratorButton } from '../share/common/CollaboratorButton';
 import { CollaboratorTable } from '../share/common/CollaboratorTable';
@@ -50,6 +51,13 @@ interface IInviteSpaceContentProps {
   onSubPageChange: (isSubPage: boolean) => void;
 }
 
+interface IDeleteCollaboratorContext {
+  resourceId: string;
+  principalId: string;
+  principalType: PrincipalType;
+  isBase: boolean;
+}
+
 const MEMBERS_PER_PAGE = 50;
 
 const inviteLinkQueryKey = (spaceId: string) => ['space-invite-link-list', spaceId] as const;
@@ -59,6 +67,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   const { t } = useTranslation('common');
   const { user } = useSession();
   const [tabType, setTabType] = useState<'email' | 'organization' | 'link' | 'collaborators'>();
+  const confirmSeat = useSeatConfirm({ spaceId });
 
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -68,14 +77,11 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     fetchNextPage,
     isLoading: isListLoading,
   } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, {
-      search,
-      includeBase: true,
-    }),
+    queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId, { search }),
     staleTime: 1000,
     refetchOnWindowFocus: false,
     queryFn: ({ queryKey, pageParam }) =>
-      getSpaceCollaboratorList(queryKey[1], {
+      getSpaceUniqueCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
@@ -89,8 +95,12 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
 
   const total = data?.pages?.[0]?.total || 0;
   const collaborators = useMemo(() => {
-    return data?.pages.flatMap((page) => page.collaborators);
+    return data?.pages.flatMap((page) => page.collaborators) || [];
   }, [data]);
+  const previewCollaborators = useMemo(
+    () => collaborators.slice(0, 4).map(uniqueCollaboratorToSpaceItem),
+    [collaborators]
+  );
 
   const hasInviteLinkPermission = hasPermission(userRole, 'space|invite_link');
   const { data: linkList } = useQuery({
@@ -104,6 +114,9 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
       });
       toast.success(t('invite.sendInvitationSuccess'));
     },
@@ -131,17 +144,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   });
 
   const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
-    mutationFn: ({
-      resourceId,
-      principalId,
-      principalType,
-      isBase,
-    }: {
-      resourceId: string;
-      principalId: string;
-      principalType: PrincipalType;
-      isBase: boolean;
-    }) =>
+    mutationFn: ({ resourceId, principalId, principalType, isBase }: IDeleteCollaboratorContext) =>
       isBase
         ? deleteBaseCollaborator({
             baseId: resourceId,
@@ -153,6 +156,29 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
           }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
+    },
+  });
+
+  const { mutate: deletePrincipalBaseGrants, isPending: deletePrincipalLoading } = useMutation({
+    mutationFn: ({
+      principalId,
+      principalType,
+    }: {
+      principalId: string;
+      principalType: PrincipalType;
+    }) =>
+      deleteSpaceBaseCollaborators({
+        spaceId,
+        deleteSpaceCollaboratorRo: { principalId, principalType },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
     },
   });
 
@@ -177,6 +203,9 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
           }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
     },
   });
 
@@ -207,6 +236,9 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
       onClose();
       toast.success(t('invite.sendInvitationSuccess'));
     },
@@ -230,19 +262,23 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
         isCreateLoading={createInviteLinkLoading}
         isUpdateLoading={updateInviteLinkLoading}
         isDeleteLoading={deleteInviteLinkLoading}
-        onCreate={(role) =>
-          createInviteLinkRequest({
-            spaceId,
-            createSpaceInvitationLinkRo: { role: role as IBaseRole },
-          })
-        }
-        onUpdate={(invitationId, role) =>
-          updateInviteLink({
-            invitationId,
-            updateSpaceInvitationLinkRo: { role: role as IBaseRole },
-            spaceId,
-          })
-        }
+        onCreate={async (role) => {
+          if (await confirmSeat({ role, count: 1, action: 'link' })) {
+            createInviteLinkRequest({
+              spaceId,
+              createSpaceInvitationLinkRo: { role: role as IBaseRole },
+            });
+          }
+        }}
+        onUpdate={async (invitationId, role) => {
+          if (await confirmSeat({ role, count: 1, action: 'link' })) {
+            updateInviteLink({
+              invitationId,
+              updateSpaceInvitationLinkRo: { role: role as IBaseRole },
+              spaceId,
+            });
+          }
+        }}
         onDelete={(invitationId) => deleteInviteLink({ invitationId, spaceId })}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
@@ -259,7 +295,11 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
         defaultRole={defaultRole}
         isCreateLoading={emailInvitationLoading}
         onCreate={async (ro) => {
+          if (!(await confirmSeat({ role: ro.role, count: ro.emails.length, action: 'invite' }))) {
+            return false;
+          }
           await emailInvitation({ spaceId, emailSpaceInvitationRo: ro });
+          return true;
         }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
@@ -273,9 +313,12 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
       <OrgContent
         defaultRole={defaultRole}
         isCreateLoading={addCollaboratorsLoading}
-        onCreate={(role, members) =>
-          addCollaborators({ role: role as IRole, collaborators: members })
-        }
+        onCreate={async (role, members) => {
+          const userCount = members.filter((m) => m.principalType === PrincipalType.User).length;
+          if (await confirmSeat({ role: role as IRole, count: userCount, action: 'invite' })) {
+            addCollaborators({ role: role as IRole, collaborators: members });
+          }
+        }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
       />
@@ -335,29 +378,29 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
           <p className="text-sm font-semibold">{t('invite.dialog.spaceTitle')}</p>
           <CollaboratorsDialog
             title={t('invite.dialog.spaceTitleWithCount', { count: total })}
-            list={collaborators || []}
-            total={total}
-            hasNextPage={hasNextPage}
-            fetchNextPage={fetchNextPage}
-            isLoading={false}
             content={
               <div className="flex flex-1 flex-col gap-2 overflow-hidden">
                 <DebounceInput
                   value={search}
                   onChange={(value) => setSearch(value)}
-                  placeholder={t('invite.base.collaboratorSearchPlaceholder')}
+                  placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
                 />
                 <CollaboratorTable
-                  className="flex-1 overflow-y-auto rounded-md border"
-                  list={collaborators || []}
+                  groupByPrincipal
+                  uniqueList={collaborators}
+                  spaceId={spaceId}
                   total={total}
                   hasNextPage={hasNextPage}
                   fetchNextPage={fetchNextPage}
                   isLoading={isListLoading}
                   updateRoleLoading={updateCollaboratorLoading}
-                  deleteLoading={deleteCollaboratorLoading}
+                  deleteLoading={deleteCollaboratorLoading || deletePrincipalLoading}
                   getFilteredRoleStatic={getFilteredRoleStatic}
-                  onUpdateRole={(role, item) => {
+                  onUpdateRole={async (role, item) => {
+                    const addedSeats = item.type === PrincipalType.User && !item.billable ? 1 : 0;
+                    if (!(await confirmSeat({ role, count: addedSeats, action: 'roleChange' }))) {
+                      return;
+                    }
                     updateCollaborator({
                       resourceId: item.base?.id || spaceId,
                       isBase: item.resourceType === CollaboratorType.Base,
@@ -379,18 +422,12 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
                     });
                   }}
                   getPermissions={getPermissions}
-                  renderTips={(item) => {
-                    return (
-                      item.resourceType === CollaboratorType.Base &&
-                      item.base?.name && (
-                        <Badge
-                          className="px-2 max-w-24 shrink-0 whitespace-nowrap text-xs font-normal"
-                          variant={'outline'}
-                        >
-                          <OverflowText text={item.base.name} />
-                        </Badge>
-                      )
-                    );
+                  onDeletePrincipal={(item) => {
+                    deletePrincipalBaseGrants({
+                      principalId:
+                        item.type === PrincipalType.User ? item.userId : item.departmentId,
+                      principalType: item.type,
+                    });
                   }}
                 />
               </div>
@@ -398,7 +435,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
           >
             <CollaboratorButton
               className="box-content -translate-x-2 px-2 py-0"
-              collaborators={collaborators?.slice(0, 4) || []}
+              collaborators={previewCollaborators}
               total={total}
               onClick={() => changeTabType('collaborators')}
             />

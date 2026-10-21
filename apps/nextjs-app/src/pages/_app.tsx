@@ -9,10 +9,12 @@ import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
+import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { Guide } from '@/components/Guide';
-import { GoogleAnalytics, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
+import { GoogleAnalytics, MetaPixel, PostHog, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
+import { useMobileServiceWorker } from '@/features/app/hooks/useMobileServiceWorker';
 import { HttpErrorPage } from '@/features/system/pages';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
@@ -64,6 +66,9 @@ const MyApp = (appProps: AppPropsWithLayout) => {
     Sentry.setUser(user ? { id: user.id, email: user.email } : null);
   }, [user]);
 
+  // Mobile app-shell service worker: only inside the native app's WebView.
+  useMobileServiceWorker();
+
   return (
     <>
       <AppProviders env={env}>
@@ -74,10 +79,17 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
+        <CookieConsentBanner enabled={Boolean(env.posthogKey || env.gaId || env.metaPixelId)} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <GoogleAnalytics gaId={env.gaId} user={user} />
-        <PostHog posthogKey={env.posthogKey} posthogHost={env.posthogHost} user={user} />
+        <PostHog
+          posthogKey={env.posthogKey}
+          posthogHost={env.posthogHost}
+          posthogWebHost={env.posthogWebHost}
+          posthogUiHost={env.posthogUiHost}
+          user={user}
+        />
+        <MetaPixel metaPixelId={env.metaPixelId} />
         <SideBarScript />
         <script
           dangerouslySetInnerHTML={{

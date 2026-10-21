@@ -17,11 +17,12 @@ import type {
   IUserFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { temporaryPaste } from '@teable/openapi';
+import { useTheme } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId, useTablePermission } from '../../hooks';
 import type { ButtonField } from '../../model/field/button.field';
+import { NumberField } from '../../model/field/number.field';
 import { ensureSelectChoice } from '../../utils';
 import { transformSelectOptions } from '../cell-value';
 import {
@@ -128,13 +129,16 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       );
     }
     case FieldType.Number: {
+      const formatting = field instanceof NumberField ? field.options.formatting : undefined;
       return (
         <NumberEditor
+          key={formatting?.type ?? 'plain'}
           ref={editorRef}
           className={className}
           value={cellValue as INumberCellValue}
           onChange={onChange}
           readonly={readonly}
+          formatting={formatting}
         />
       );
     }

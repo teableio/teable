@@ -7,6 +7,10 @@ import {
   SetAttachmentValueSpec,
   type AttachmentItem,
 } from '../../records/specs/values/SetAttachmentValueSpec';
+import {
+  SetButtonValueSpec,
+  type ButtonCellValue,
+} from '../../records/specs/values/SetButtonValueSpec';
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueSpec, type LinkItem } from '../../records/specs/values/SetLinkValueSpec';
@@ -17,7 +21,6 @@ import { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpe
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
 import { SetUserValueSpec, type UserItem } from '../../records/specs/values/SetUserValueSpec';
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import { CellValue } from '../../records/values/CellValue';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
@@ -56,11 +59,13 @@ import { parseDateValue } from './dateValueParser';
  * ```
  */
 export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellValueSpec> {
-  private value: unknown;
+  private readonly value: unknown;
+  private readonly options: { requireUserCollaborator?: boolean };
 
-  constructor(value: unknown) {
+  constructor(value: unknown, options: { requireUserCollaborator?: boolean } = {}) {
     super();
     this.value = value;
+    this.options = options;
   }
 
   /**
@@ -68,16 +73,32 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
    * Useful for fluent API patterns.
    */
   withValue(value: unknown): SetFieldValueSpecFactoryVisitor {
-    return new SetFieldValueSpecFactoryVisitor(value);
+    return new SetFieldValueSpecFactoryVisitor(value, this.options);
+  }
+
+  /**
+   * v1 stores "empty" inputs as null: "" (text), false (checkbox) and []
+   * (multi-value fields) are all normalized before hitting storage.
+   * v2 must match, otherwise the same API call diverges by engine (T6520).
+   */
+  private emptyStringToNull(): string | null {
+    return this.value === '' ? null : (this.value as string | null);
+  }
+
+  private emptyArrayToNull<T>(): T[] | null {
+    if (Array.isArray(this.value) && this.value.length === 0) {
+      return null;
+    }
+    return this.value as T[] | null;
   }
 
   visitSingleLineTextField(field: SingleLineTextField): Result<ICellValueSpec, DomainError> {
-    const cellValue = CellValue.fromValidated<string>(this.value as string | null);
+    const cellValue = CellValue.fromValidated<string>(this.emptyStringToNull());
     return ok(new SetSingleLineTextValueSpec(field.id(), cellValue));
   }
 
   visitLongTextField(field: LongTextField): Result<ICellValueSpec, DomainError> {
-    const cellValue = CellValue.fromValidated<string>(this.value as string | null);
+    const cellValue = CellValue.fromValidated<string>(this.emptyStringToNull());
     return ok(new SetLongTextValueSpec(field.id(), cellValue));
   }
 
@@ -107,12 +128,13 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<ICellValueSpec, DomainError> {
-    const cellValue = CellValue.fromValidated<string[]>(this.value as string[] | null);
+    const cellValue = CellValue.fromValidated<string[]>(this.emptyArrayToNull<string>());
     return ok(new SetMultipleSelectValueSpec(field.id(), cellValue));
   }
 
   visitCheckboxField(field: CheckboxField): Result<ICellValueSpec, DomainError> {
-    if (this.value == null) {
+    // v1 contract: a checkbox is either true or null — false is stored as null
+    if (this.value == null || this.value === false) {
       return ok(new SetCheckboxValueSpec(field.id(), CellValue.null()));
     }
 
@@ -126,7 +148,7 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
 
   visitAttachmentField(field: AttachmentField): Result<ICellValueSpec, DomainError> {
     const cellValue = CellValue.fromValidated<AttachmentItem[]>(
-      this.value as AttachmentItem[] | null
+      this.emptyArrayToNull<AttachmentItem>()
     );
     return ok(new SetAttachmentValueSpec(field.id(), cellValue));
   }
@@ -151,8 +173,13 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
   }
 
   visitUserField(field: UserField): Result<ICellValueSpec, DomainError> {
-    const cellValue = CellValue.fromValidated<UserItem[]>(this.value as UserItem[] | null);
-    return ok(new SetUserValueSpec(field.id(), cellValue));
+    const normalized = Array.isArray(this.value)
+      ? this.emptyArrayToNull<UserItem>()
+      : (this.value as UserItem[] | null);
+    const cellValue = CellValue.fromValidated<UserItem[]>(normalized);
+    return ok(
+      new SetUserValueSpec(field.id(), cellValue, this.options.requireUserCollaborator ?? false)
+    );
   }
 
   visitCreatedByField(_field: CreatedByField): Result<ICellValueSpec, DomainError> {
@@ -170,13 +197,18 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
     return err(domainError.validation({ message: 'Cannot set value for auto number field' }));
   }
 
-  visitButtonField(_field: ButtonField): Result<ICellValueSpec, DomainError> {
-    // Button field doesn't store values - ignore any provided input
-    return ok(NoopCellValueSpec.create());
+  visitButtonField(field: ButtonField): Result<ICellValueSpec, DomainError> {
+    const cellValue = CellValue.fromValidated<ButtonCellValue>(
+      this.value as ButtonCellValue | null
+    );
+    return ok(new SetButtonValueSpec(field.id(), cellValue));
   }
 
   visitLinkField(field: LinkField): Result<ICellValueSpec, DomainError> {
-    const cellValue = CellValue.fromValidated<LinkItem[]>(this.value as LinkItem[] | null);
+    const normalized = Array.isArray(this.value)
+      ? this.emptyArrayToNull<LinkItem>()
+      : (this.value as LinkItem[] | null);
+    const cellValue = CellValue.fromValidated<LinkItem[]>(normalized);
     return ok(new SetLinkValueSpec(field.id(), cellValue, field.foreignTableId()));
   }
 

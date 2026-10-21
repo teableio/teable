@@ -39,7 +39,10 @@ export const buildComputedUpdateLockInfo = (params: {
     };
   }
 
-  const lockPlan = buildComputedUpdateLockPlan(params.plan, config);
+  const writeTableIds = [...new Set(params.plan.steps.map((step) => step.tableId.toString()))];
+  const lockPlan = buildComputedUpdateLockPlan(params.plan, config, {
+    writeTableIds: writeTableIds.length > 0 ? writeTableIds : undefined,
+  });
   const getTableName = (tableId: string): string => {
     const table = params.tableById.get(tableId);
     return table ? table.name().toString() : tableId;

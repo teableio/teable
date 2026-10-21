@@ -226,7 +226,7 @@ export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
                 <Plus className="size-4 shrink-0" />
                 <span className="truncate" title={searchValue}>
                   {t('settings.templateAdmin.actions.addCategory')}
-                  <span className="ml-2 text-sm text-gray-500">
+                  <span className="ms-2 text-sm text-gray-500">
                     {searchValue ? `"${searchValue}"` : ''}
                   </span>
                 </span>

@@ -2,7 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { FieldType, IdPrefix, ViewType } from '@teable/core';
 import { axios } from '../axios';
 import { userCollaboratorItem } from '../space';
-import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { TrashType, TableTrashType } from './types';
@@ -94,11 +93,15 @@ export const trashItemVoSchema = z.object({
   resourceType: z.enum(TrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),
+  isByodb: z.boolean().optional(),
 });
 
 export const tableTrashItemVoSchema = z.object({
   id: z.string(),
+  // Preview only: a bulk deletion can reference tens of thousands of resources, so the
+  // list returns the first few ids; the full set is paged through the item records endpoint.
   resourceIds: z.array(z.string()),
+  totalResourceCount: z.number(),
   resourceType: z.enum(TableTrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),
@@ -119,7 +122,7 @@ export type ITrashVo = z.infer<typeof trashVoSchema>;
 export const GetTrashRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_TRASH,
-  description: 'Get trash list for spaces or bases',
+  description: 'Get trash list for spaces or projects',
   request: {
     query: trashRoSchema,
   },

@@ -176,6 +176,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     getV2CrossBaseLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
     getV2DisconnectedLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
     getV2InternalLinkRelationTableMap: (...args: unknown[]) => Promise<Record<string, unknown[]>>;
+    getV2BulkCopySourceLinkFields: (...args: unknown[]) => Promise<unknown[]>;
     getDisconnectedLinkFieldIds: (...args: unknown[]) => Promise<string[]>;
     normalizeDuplicateStructureForV2: (structure: unknown) => unknown;
     createDuplicateBaseSource: (...args: unknown[]) => {
@@ -281,12 +282,13 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       structure,
       {},
       sourceDbTableNameByTableId,
-      {}
+      {},
+      []
     );
     expect(commandBus.execute).toHaveBeenCalledWith(context, expect.any(Object));
   });
 
-  it('should copy direct duplicate records through bulk SQL after v2 structure creation', async () => {
+  it('should delegate record copying to the v2 command and recompute computed columns after a bulk copy', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
     const tableIdMap = { tblSource: 'tblTarget' };
@@ -316,7 +318,8 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
             tableIdMap,
             fieldIdMap,
             viewIdMap,
-            recordsLength: 0,
+            recordsLength: 12,
+            recordCopyMode: 'bulk',
           };
         })(),
       }),
@@ -374,6 +377,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       mergedLinkFieldTableMap
     );
     vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
     vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue(['fldDisconnected']);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
@@ -392,22 +396,13 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: boolean;
       batchSize: number;
     };
-    expect(executedCommand.withRecords).toBe(false);
+    // The command owns record copying end to end; the host no longer drives the
+    // legacy bulk helpers and only recomputes computed columns when the handler
+    // reports a physical bulk copy.
+    expect(executedCommand.withRecords).toBe(true);
     expect(executedCommand.batchSize).toBe(500);
-    expect(internals.duplicateTableData).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      mergedLinkFieldTableMap
-    );
-    expect(internals.duplicateLinkJunction).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap,
-      true,
-      ['fldDisconnected']
-    );
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
     expect(persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledWith([
       targetTableId,
     ]);
@@ -449,6 +444,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
             fieldIdMap,
             viewIdMap,
             recordsLength: 7,
+            recordCopyMode: 'stream',
           };
         })(),
       }),
@@ -501,6 +497,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
     vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
@@ -515,12 +512,8 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: true,
     });
 
-    expect(dataDbClientManager.getDataDatabaseForBase).toHaveBeenCalledWith('bseSource', {
-      useTransaction: true,
-    });
-    expect(dataDbClientManager.getDataDatabaseForBase).toHaveBeenCalledWith(targetBaseId, {
-      useTransaction: true,
-    });
+    // The same-database precheck moved into the v2 bulk copier port, so the
+    // host no longer compares data databases here.
     expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
       true
     );
@@ -638,6 +631,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
     vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
@@ -656,12 +650,12 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    // Same-DB + withRecords uses bulk SQL even when a progress callback is provided
-    // (stream API still gets coarse progress around bulk copy).
-    expect(internals.duplicateTableData).toHaveBeenCalled();
-    expect(internals.duplicateLinkJunction).toHaveBeenCalled();
+    // Record copying runs inside the command now; its progress events are
+    // forwarded to the caller as-is, in both bulk and stream modes.
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
     expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
-      false
+      true
     );
     expect(progressEvents).toEqual(
       expect.arrayContaining([

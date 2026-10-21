@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { DbTableName } from '../domain/table/DbTableName';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { RecordId } from '../domain/table/records/RecordId';
 import { Table } from '../domain/table/Table';
@@ -204,6 +205,21 @@ export class CreateTableCommand {
       );
 
     const primaryIndex = primaryIndexes[0] ?? 0;
+
+    // v1 parity (T6520): the primary field type is restricted at creation just
+    // like on conversion — a checkbox/attachment/... first field is rejected
+    // instead of being silently promoted to primary.
+    const primaryFieldInput = fieldsToUse[primaryIndex];
+    if (primaryFieldInput) {
+      const primaryTypeResult = FieldType.create(primaryFieldInput.type);
+      if (primaryTypeResult.isOk() && !primaryTypeResult.value.isPrimarySupported()) {
+        return err(
+          domainError.validation({
+            message: `Field type ${primaryFieldInput.type} is not supported as primary field`,
+          })
+        );
+      }
+    }
 
     const fieldsWithPrimaryFlag = fieldsToUse.map((field, index) =>
       index === primaryIndex && field.isPrimary !== true ? { ...field, isPrimary: true } : field

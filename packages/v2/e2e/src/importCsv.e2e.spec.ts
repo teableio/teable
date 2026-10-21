@@ -2,6 +2,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -279,6 +280,54 @@ Jane,,555-1234
     }
   });
 
+  it('returns 504 for a cut create-table CSV source without leaving a table', async () => {
+    const tableName = 'Cut URL Import';
+    const payload = `Title,Note\n${Array.from(
+      { length: 25_000 },
+      (_, index) => `row-${index},${'x'.repeat(40)}`
+    ).join('\n')}\n`;
+    const delivered = payload.slice(0, 1_200_000);
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8' });
+      res.write(delivered, () => {
+        setTimeout(() => res.destroy(new Error('source cut')), 10);
+      });
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`${ctx.baseUrl}/tables/importCsv`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          csvUrl: `http://127.0.0.1:${port}/import.csv`,
+          tableName,
+        }),
+      });
+
+      expect(response.status).toBe(504);
+      expect(await response.json()).toMatchObject({
+        ok: false,
+        error: {
+          code: 'csv.source_interrupted',
+          details: { retryable: true, maxBytes: 512 * 1024 * 1024 },
+        },
+      });
+      expect(
+        (await ctx.listTables({ q: tableName })).some((table) => table.name === tableName)
+      ).toBe(false);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  }, 60_000);
+
   it('returns 400 for empty CSV', async () => {
     const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
 
@@ -342,5 +391,41 @@ Jane,,555-1234
 
     expect(body.data.table.views.length).toBeGreaterThan(0);
     expect(body.data.table.views[0].type).toBe('grid');
+  });
+
+  it('T6720 T6711 closes cleaned-up CSV import schema operations as dead instead of leaving them pending', async () => {
+    const tableName = 'T6720 Csv Import Cleanup';
+    await expect(
+      ctx.importCsv({
+        baseId: ctx.baseId,
+        csvData: 'Name,Age\nAlice,25\nBob,30',
+        tableName,
+        maxRowCount: 1,
+      })
+    ).rejects.toThrow(/Failed to import csv/);
+
+    const tables = await ctx.listTables({ q: tableName });
+    expect(tables.some((table) => table.name === tableName)).toBe(false);
+
+    const operations = await sql<{
+      status: string;
+      last_error: string | null;
+      payload: { source?: string } | null;
+    }>`
+      SELECT status, last_error, payload
+      FROM schema_operation
+      WHERE base_id = ${ctx.baseId}
+        AND type = 'table.import'
+        AND last_error LIKE 'Exceed max row limit:%'
+      ORDER BY created_time DESC
+      LIMIT 5
+    `.execute(ctx.testContainer.db);
+
+    expect(operations.rows.length).toBeGreaterThan(0);
+    expect(operations.rows.every((row) => row.status === 'dead')).toBe(true);
+    expect(operations.rows.every((row) => row.payload?.source === 'csv')).toBe(true);
+    expect(operations.rows.every((row) => row.status !== 'pending' && row.status !== 'error')).toBe(
+      true
+    );
   });
 });

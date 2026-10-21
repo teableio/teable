@@ -40,7 +40,7 @@ export class ListBasesHandler implements IQueryHandler<ListBasesQuery, ListBases
     context: IExecutionContext,
     query: ListBasesQuery
   ): Promise<Result<ListBasesResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ListBasesResult, DomainError>(async function* () {
       const result = yield* await handler.baseRepository.find(context, query.pagination);
       return ok(

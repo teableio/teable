@@ -4,6 +4,7 @@ import type { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
 import {
   domainError,
+  type SchemaOperationClaimNextResult,
   type SchemaOperationRecord,
   type SchemaOperationRunNextResult,
   v2CoreTokens,
@@ -16,6 +17,7 @@ import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.ser
 
 const sentryScope = {
   setContext: vi.fn(),
+  setFingerprint: vi.fn(),
   setLevel: vi.fn(),
   setTag: vi.fn(),
 };
@@ -25,7 +27,10 @@ vi.mock('@sentry/nestjs', () => ({
   withScope: vi.fn((callback: (scope: typeof sentryScope) => void) => callback(sentryScope)),
 }));
 
-const operation = (id: string): SchemaOperationRecord =>
+const operation = (
+  id: string,
+  baseId: string | null = 'bseSchemaOpRunner'
+): SchemaOperationRecord =>
   ({
     id,
     type: 'table.create',
@@ -34,7 +39,7 @@ const operation = (id: string): SchemaOperationRecord =>
     target: {
       resourceType: 'table',
       resourceId: 'tblSchemaOpRunner',
-      baseId: 'bseSchemaOpRunner',
+      baseId,
       tableId: 'tblSchemaOpRunner',
     },
     idempotencyKey: `schema-op:${id}`,
@@ -45,42 +50,78 @@ const operation = (id: string): SchemaOperationRecord =>
     createdBy: 'system',
   }) as SchemaOperationRecord;
 
-const okResult = (value: SchemaOperationRunNextResult) => ({
-  isErr: () => false as const,
+type OkResult<T> = {
+  isErr: () => false;
+  value: T;
+};
+
+const okClaim = (
+  value: SchemaOperationClaimNextResult
+): OkResult<SchemaOperationClaimNextResult> => ({
+  isErr: () => false,
   value,
 });
+
+const okRun = (value: SchemaOperationRunNextResult): OkResult<SchemaOperationRunNextResult> => ({
+  isErr: () => false,
+  value,
+});
+
+const idleClaim = okClaim({ status: 'idle', reason: 'empty' });
 
 const createService = ({
   config = {},
   registered = true,
-  results = [okResult({ status: 'idle', reason: 'empty' })],
+  scopedRegistered = true,
+  claimResults = [],
+  runResults = [],
 }: {
   config?: Record<string, unknown>;
   registered?: boolean;
-  results?: ReturnType<typeof okResult>[];
+  scopedRegistered?: boolean;
+  claimResults?: OkResult<SchemaOperationClaimNextResult>[];
+  runResults?: OkResult<SchemaOperationRunNextResult>[];
 } = {}) => {
   const runner = {
-    runNext: vi.fn(),
+    claimNext: vi.fn(),
+    runOperation: vi.fn(),
   };
-  for (const result of results) {
-    runner.runNext.mockResolvedValueOnce(result);
+  for (const result of claimResults) {
+    runner.claimNext.mockResolvedValueOnce(result);
   }
-  runner.runNext.mockResolvedValue(okResult({ status: 'idle', reason: 'empty' }));
+  runner.claimNext.mockResolvedValue(idleClaim);
 
-  const container = {
-    isRegistered: vi.fn(
-      (token: symbol) => token === v2CoreTokens.schemaOperationRunnerService && registered
-    ),
-    resolve: vi.fn((token: symbol) => {
-      if (token === v2CoreTokens.schemaOperationRunnerService) {
-        return runner;
-      }
-      throw new Error(`Unexpected token: ${String(token)}`);
-    }),
-  } as unknown as DependencyContainer;
+  const scopedRunner = {
+    claimNext: vi.fn(),
+    runOperation: vi.fn(),
+  };
+  for (const result of runResults) {
+    scopedRunner.runOperation.mockResolvedValueOnce(result);
+  }
+  scopedRunner.runOperation.mockResolvedValue(okRun({ status: 'idle', reason: 'no_handler' }));
+
+  const createContainer = (
+    resolvedRunner: typeof runner,
+    isRegistered: boolean
+  ): DependencyContainer =>
+    ({
+      isRegistered: vi.fn(
+        (token: symbol) => token === v2CoreTokens.schemaOperationRunnerService && isRegistered
+      ),
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.schemaOperationRunnerService) {
+          return resolvedRunner;
+        }
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }),
+    }) as unknown as DependencyContainer;
+
+  const container = createContainer(runner, registered);
+  const scopedContainer = createContainer(scopedRunner, scopedRegistered);
 
   const v2ContainerService = {
     getContainer: vi.fn().mockResolvedValue(container),
+    getContainerForBase: vi.fn().mockResolvedValue(scopedContainer),
   } as unknown as V2ContainerService;
   const configService = {
     get: vi.fn((key: string) => config[key]),
@@ -90,7 +131,9 @@ const createService = ({
     service: new V2SchemaOperationRunnerService(v2ContainerService, configService),
     v2ContainerService,
     container,
+    scopedContainer,
     runner,
+    scopedRunner,
   };
 };
 
@@ -100,6 +143,7 @@ describe('V2SchemaOperationRunnerService', () => {
     vi.mocked(Sentry.captureException).mockClear();
     vi.mocked(Sentry.withScope).mockClear();
     sentryScope.setContext.mockClear();
+    sentryScope.setFingerprint.mockClear();
     sentryScope.setLevel.mockClear();
     sentryScope.setTag.mockClear();
   });
@@ -110,36 +154,44 @@ describe('V2SchemaOperationRunnerService', () => {
 
   it('starts on bootstrap and drains runnable schema operations until idle', async () => {
     const failure = domainError.infrastructure({ message: 'repair failed' });
-    const { service, runner } = createService({
-      results: [
-        okResult({
+    const { service, runner, scopedRunner, v2ContainerService } = createService({
+      claimResults: [
+        okClaim({ status: 'claimed', operation: operation('sgoCompleted') }),
+        okClaim({ status: 'claimed', operation: operation('sgoFailed') }),
+        idleClaim,
+      ],
+      runResults: [
+        okRun({
           status: 'completed',
           operation: operation('sgoCompleted'),
         }),
-        okResult({
+        okRun({
           status: 'failed',
           operation: operation('sgoFailed'),
           terminal: false,
           retryable: true,
           error: failure,
         }),
-        okResult({ status: 'idle', reason: 'empty' }),
       ],
     });
 
     await service.onApplicationBootstrap();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(runner.runNext).toHaveBeenCalledTimes(3);
-    expect(runner.runNext.mock.calls[0][0].actorId.toString()).toBe('system');
-    expect(runner.runNext.mock.calls[0][0].requestId).toMatch(/^schema-operation-/);
-    expect(runner.runNext.mock.calls[0][1]).toEqual(
+    expect(runner.claimNext).toHaveBeenCalledTimes(3);
+    expect(runner.claimNext.mock.calls[0][0].actorId.toString()).toBe('system');
+    expect(runner.claimNext.mock.calls[0][0].requestId).toMatch(/^schema-operation-/);
+    expect(runner.claimNext.mock.calls[0][1]).toEqual(
       expect.objectContaining({
         workerId: expect.stringMatching(/^schema-operation-/),
         now: expect.any(Date),
         staleRunningBefore: expect.any(Date),
       })
     );
+    // Execution happens on the container scoped to the operation's base.
+    expect(v2ContainerService.getContainerForBase).toHaveBeenCalledWith('bseSchemaOpRunner');
+    expect(scopedRunner.runOperation).toHaveBeenCalledTimes(2);
+    expect(runner.runOperation).not.toHaveBeenCalled();
 
     service.onModuleDestroy();
   });
@@ -150,8 +202,9 @@ describe('V2SchemaOperationRunnerService', () => {
       message: 'Only missing-column table updates can be repaired automatically',
     });
     const { service } = createService({
-      results: [
-        okResult({
+      claimResults: [okClaim({ status: 'claimed', operation: operation('sgoTerminal') })],
+      runResults: [
+        okRun({
           status: 'failed',
           operation: {
             ...operation('sgoTerminal'),
@@ -165,7 +218,6 @@ describe('V2SchemaOperationRunnerService', () => {
           error: failure,
           originalLastError: 'Unexpected unit of work error: error: too many range table entries',
         }),
-        okResult({ status: 'idle', reason: 'empty' }),
       ],
     });
 
@@ -173,17 +225,83 @@ describe('V2SchemaOperationRunnerService', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'V2SchemaOperationFailure',
+        message:
+          'Only missing-column table updates can be repaired automatically | original: Unexpected unit of work error: error: too many range table entries',
+      })
+    );
     expect(sentryScope.setTag).toHaveBeenCalledWith('feature', 'v2-schema-operation-runner');
     expect(sentryScope.setTag).toHaveBeenCalledWith('table.id', 'tblSchemaOpRunner');
     expect(sentryScope.setTag).toHaveBeenCalledWith('schema_operation.id', 'sgoTerminal');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('schema_operation.created_by', 'system');
+    expect(sentryScope.setFingerprint).toHaveBeenCalledWith([
+      'v2-schema-operation-runner',
+      'table.create',
+      'Unexpected unit of work error: error: too many range table entries',
+    ]);
     expect(sentryScope.setContext).toHaveBeenCalledWith(
       'schema_operation',
       expect.objectContaining({
         id: 'sgoTerminal',
+        createdBy: 'system',
         originalLastError: 'Unexpected unit of work error: error: too many range table entries',
         runnerError: 'Only missing-column table updates can be repaired automatically',
       })
     );
+
+    service.onModuleDestroy();
+  });
+
+  it('falls back to the default container when the operation has no base id', async () => {
+    const { service, runner, scopedRunner, v2ContainerService } = createService({
+      claimResults: [okClaim({ status: 'claimed', operation: operation('sgoNoBase', null) })],
+      runResults: [],
+    });
+    runner.runOperation.mockResolvedValueOnce(
+      okRun({ status: 'completed', operation: operation('sgoNoBase', null) })
+    );
+
+    await service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(v2ContainerService.getContainerForBase).not.toHaveBeenCalled();
+    expect(runner.runOperation).toHaveBeenCalledTimes(1);
+    expect(scopedRunner.runOperation).not.toHaveBeenCalled();
+
+    service.onModuleDestroy();
+  });
+
+  it('leaves the claimed operation for the stale reclaimer when the scoped container is unavailable', async () => {
+    const { service, runner, scopedRunner, v2ContainerService } = createService({
+      claimResults: [okClaim({ status: 'claimed', operation: operation('sgoNoContainer') })],
+    });
+    vi.mocked(v2ContainerService.getContainerForBase).mockRejectedValueOnce(
+      new Error('binding lookup failed')
+    );
+
+    await service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(scopedRunner.runOperation).not.toHaveBeenCalled();
+    expect(runner.runOperation).not.toHaveBeenCalled();
+    // The tick keeps draining after the skipped operation.
+    expect(runner.claimNext).toHaveBeenCalledTimes(2);
+
+    service.onModuleDestroy();
+  });
+
+  it('skips execution when the scoped container has no runner registered', async () => {
+    const { service, scopedRunner } = createService({
+      scopedRegistered: false,
+      claimResults: [okClaim({ status: 'claimed', operation: operation('sgoUnregistered') })],
+    });
+
+    await service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(scopedRunner.runOperation).not.toHaveBeenCalled();
 
     service.onModuleDestroy();
   });
@@ -197,7 +315,7 @@ describe('V2SchemaOperationRunnerService', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(v2ContainerService.getContainer).not.toHaveBeenCalled();
-    expect(runner.runNext).not.toHaveBeenCalled();
+    expect(runner.claimNext).not.toHaveBeenCalled();
   });
 
   it('does not run a scheduled tick after module destroy', async () => {
@@ -207,7 +325,7 @@ describe('V2SchemaOperationRunnerService', () => {
     service.onModuleDestroy();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(runner.runNext).not.toHaveBeenCalled();
+    expect(runner.claimNext).not.toHaveBeenCalled();
   });
 
   it('reschedules idle checks using the configured poll interval', async () => {
@@ -217,13 +335,13 @@ describe('V2SchemaOperationRunnerService', () => {
 
     await service.onApplicationBootstrap();
     await vi.advanceTimersByTimeAsync(0);
-    expect(runner.runNext).toHaveBeenCalledTimes(1);
+    expect(runner.claimNext).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(24);
-    expect(runner.runNext).toHaveBeenCalledTimes(1);
+    expect(runner.claimNext).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(runner.runNext).toHaveBeenCalledTimes(2);
+    expect(runner.claimNext).toHaveBeenCalledTimes(2);
 
     service.onModuleDestroy();
   });

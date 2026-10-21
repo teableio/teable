@@ -57,7 +57,7 @@ export const TypeSelector = (props: {
           {options.find((o) => o.value === type)?.label ?? (
             <span className="text-muted-foreground">{t('form.chartType.placeholder')}</span>
           )}
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent>

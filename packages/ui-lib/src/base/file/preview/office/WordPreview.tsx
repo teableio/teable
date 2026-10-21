@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '../../../../shadcn';
 import { Spin } from '../../../spin/Spin';
 import type { IFileItemInner } from '../FilePreviewContext';
+import { sanitizePreviewLinks } from '../utils';
 import { getBlobFromUrl } from './utils';
 
 interface WordPreviewProps extends IFileItemInner {}
@@ -16,11 +17,14 @@ export const WordPreview: React.FC<WordPreviewProps> = ({ src }) => {
       const docx = await docxPromise();
 
       if (previewRef.current && src) {
+        const container = previewRef.current;
         const blob = await getBlobFromUrl(src);
-        docx.renderAsync(blob, previewRef.current, undefined, {
+        const rendering = docx.renderAsync(blob, container, undefined, {
           useBase64URL: true,
         });
         setLoading(false);
+        await rendering;
+        sanitizePreviewLinks(container);
       }
     };
 

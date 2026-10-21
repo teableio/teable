@@ -200,3 +200,16 @@ body[data-teable-top-banner='visible'] #portal .min-h-screen {
 .ui-attention-pulse {
   animation: ui-attention-pulse 700ms ease-in-out 2;
 }
+
+/*
+ * Directional icons mirror only where the reading direction is actually RTL.
+ * `:dir()` resolves the *computed* direction, so icons inside the grid — which
+ * pins itself back to dir="ltr" — keep pointing the way the grid still reads.
+ */
+[data-rtl-flip]:dir(rtl),
+:is(.lucide-chevron-left, .lucide-chevron-right, .lucide-arrow-left, .lucide-arrow-right):dir(rtl) {
+  /* The standalone `scale` property rather than `transform: scaleX(-1)`: the
+     latter is one property and would wipe out any translate/rotate utility the
+     icon already carries, while `scale` composes with them. */
+  scale: -1 1;
+}

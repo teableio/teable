@@ -1,12 +1,15 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
-import { HttpErrorCode } from '@teable/core';
-import { sonner } from '@teable/ui-lib';
 import {
-  UsageLimitModalType,
-  useUsageLimitModalStore,
-} from '../../components/billing/store/usage-limit-modal';
+  getUnauthenticatedAuthPath,
+  HttpErrorCode,
+  RETURNING_USER_COOKIE_NAME,
+} from '@teable/core';
+import { sonner } from '@teable/ui-lib';
+import { openUsageLimitModalFromError } from '../../components/billing/store/usage-limit-modal';
 import type { ILocaleFunction, TKey } from './i18n';
+
+import { isTableProvisionPending } from './tableProvisionError';
 
 const { toast } = sonner;
 
@@ -35,48 +38,6 @@ export function toCamelCaseErrorCode(errorCode: string): string {
     .join('');
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const getValidationLimitMessage = (
-  data: ICustomHttpExceptionData | undefined,
-  t: ILocaleFunction,
-  prefix?: string
-) => {
-  const domainCode = data?.domainCode;
-  if (typeof domainCode !== 'string' || !domainCode.startsWith('validation.limit.')) {
-    return;
-  }
-
-  const limitKey = toCamelCaseErrorCode(domainCode.slice('validation.limit.'.length));
-  const key = `httpErrors.limit.${limitKey}`;
-  const prefixedKey = prefix ? `${prefix}:${key}` : key;
-  const details = isRecord(data?.details) ? data.details : {};
-  const message = t(prefixedKey as TKey, details);
-  return typeof message === 'string' && message !== prefixedKey && message !== key
-    ? message
-    : undefined;
-};
-
-const getDomainCodeMessage = (
-  data: ICustomHttpExceptionData | undefined,
-  t: ILocaleFunction,
-  prefix?: string
-) => {
-  const domainCode = data?.domainCode;
-  if (typeof domainCode !== 'string') {
-    return;
-  }
-
-  const key = `httpErrors.${domainCode}`;
-  const prefixedKey = prefix ? `${prefix}:${key}` : key;
-  const details = isRecord(data?.details) ? data.details : {};
-  const message = t(prefixedKey as TKey, details);
-  return typeof message === 'string' && message !== prefixedKey && message !== key
-    ? message
-    : undefined;
-};
-
 export const getLocalizationMessage = (
   localization: ILocalization,
   t: ILocaleFunction,
@@ -89,30 +50,20 @@ export const getLocalizationMessage = (
 
 export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?: string) => {
   const { message, data } = error as IHttpError;
-  const customData = (data as ICustomHttpExceptionData) || {};
-  const limitMessage = getValidationLimitMessage(customData, t, prefix);
-  if (limitMessage) return limitMessage;
-
-  const { localization } = customData;
-  if (localization) return getLocalizationMessage(localization, t, prefix);
-
-  const domainCodeMessage = getDomainCodeMessage(customData, t, prefix);
-  if (domainCodeMessage) return domainCodeMessage;
-
-  return message;
+  const { localization } = (data as ICustomHttpExceptionData) || {};
+  return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 
-const handleNetworkError = (t?: ILocaleFunction): boolean => {
+const handleNetworkError = (t?: ILocaleFunction): void => {
   const now = Date.now();
   if (now - lastNetworkErrorTime < NETWORK_ERROR_COOLDOWN_MS) {
-    return true;
+    return;
   }
   lastNetworkErrorTime = now;
   toast.warning(t ? t('httpErrors.networkError') : 'Network connection issue', {
     id: NETWORK_ERROR_TOAST_ID,
     duration: 3000,
   });
-  return true;
 };
 
 const dedupeValidationError = (message: string): boolean => {
@@ -135,20 +86,25 @@ const dedupeValidationError = (message: string): boolean => {
   return false;
 };
 
-const handleStatusRedirect = (status: number): boolean => {
+/**
+ * Leaves for the sign-in page (or sign-up, for a browser that has never signed in), coming
+ * back here afterwards. What a 401 does; also what a revoked session does the moment the
+ * server says so, without waiting for a request to be refused.
+ */
+export const redirectToUnauthenticatedAuth = () => {
+  const isReturning = document.cookie
+    .split(';')
+    .some((part) => part.trim().startsWith(`${RETURNING_USER_COOKIE_NAME}=`));
+  window.location.href = getUnauthenticatedAuthPath(isReturning, window.location.href);
+};
+
+const handleStatusRedirect = (error: unknown): boolean => {
+  const { status } = error as IHttpError;
   if (status === 401) {
-    window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
+    redirectToUnauthenticatedAuth();
     return true;
   }
-  if (status === 402) {
-    useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.Upgrade, modalOpen: true });
-    return true;
-  }
-  if (status === 460) {
-    useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.User, modalOpen: true });
-    return true;
-  }
-  return false;
+  return openUsageLimitModalFromError(error);
 };
 
 export const errorRequestHandler = (
@@ -156,6 +112,17 @@ export const errorRequestHandler = (
   t?: ILocaleFunction,
   options?: { isQuery?: boolean }
 ) => {
+  if (isTableProvisionPending(error)) {
+    toast.info(
+      t
+        ? t('httpErrors.tableProvisionPending' as TKey)
+        : 'Table structure is updating. Please try again shortly.',
+      {
+        id: 'table-provision-pending',
+      }
+    );
+    return;
+  }
   const { code, message, status } = error as IHttpError;
 
   if (code === HttpErrorCode.NETWORK_ERROR) {
@@ -167,7 +134,7 @@ export const errorRequestHandler = (
     return;
   }
 
-  if (handleStatusRedirect(status)) {
+  if (handleStatusRedirect(error)) {
     return;
   }
 
@@ -208,7 +175,8 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 10 * 1000,
-        retry: false,
+        retry: (failureCount, error) => isTableProvisionPending(error) && failureCount < 3,
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
         networkMode: 'always',
       },
       mutations: {

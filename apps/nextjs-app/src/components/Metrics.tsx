@@ -1,7 +1,14 @@
-import { ANONYMOUS_USER_ID } from '@teable/core';
+import {
+  ANONYMOUS_USER_ID,
+  CONSENT_REGION_COOKIE_NAME,
+  MARKETING_CONSENT_COOKIE_NAME,
+  isConsentGranted,
+} from '@teable/core';
+import { useRouter } from 'next/router';
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
 import { syncMarketingAttributionFromUrl } from '@/lib/marketing-attribution';
+import { useMarketingConsent } from '@/lib/marketing-consent';
 
 const GOOGLE_LINKER_DOMAINS = ['teable.ai', 'app.teable.ai'];
 
@@ -19,6 +26,8 @@ interface IPostHog {
   capture: (event: string, properties?: Record<string, unknown>) => void;
   identify: (distinctId: string, properties?: Record<string, unknown>) => void;
   reset: () => void;
+  opt_in_capturing?: (options?: { captureEventName?: string | null }) => void;
+  opt_out_capturing?: () => void;
   /**
    * Real SDK only — absent on the pre-load stub, which is how we detect that
    * array.js has loaded. Reads the persisted `$user_state` (covers both
@@ -30,6 +39,40 @@ interface IPostHog {
   get_property?: (propertyName: string) => unknown;
 }
 
+/**
+ * Inline-script twin of lib/marketing-consent: the GA and PostHog init
+ * snippets run before React effects, so they read the consent cookies
+ * themselves. Opt-out regions default to granted unless denied; opt-in
+ * regions (and unknown) need an explicit grant.
+ */
+const CONSENT_STATE_JS = `
+  function __teableConsentState() {
+    var cookies = document.cookie.split('; ');
+    function read(name) {
+      for (var i = 0; i < cookies.length; i++) {
+        if (cookies[i].indexOf(name + '=') === 0) return cookies[i].slice(name.length + 1);
+      }
+    }
+    var row = read(${JSON.stringify(CONSENT_REGION_COOKIE_NAME)}) === 'row';
+    var raw = read(${JSON.stringify(MARKETING_CONSENT_COOKIE_NAME)});
+    var choice = {};
+    for (var n = 0; raw && n < 3; n++) {
+      try { choice = JSON.parse(raw) || {}; break; } catch (e) {
+        try { raw = decodeURIComponent(raw); } catch (e2) { break; }
+      }
+    }
+    function granted(category) {
+      return row ? choice[category] !== 'denied' : choice[category] === 'granted';
+    }
+    return {
+      analytics: granted('analytics_storage'),
+      ads: granted('ad_storage'),
+      adUserData: granted('ad_user_data'),
+      adPersonalization: granted('ad_personalization')
+    };
+  }
+`;
+
 const isPosthogSdkLoaded = (posthog?: IPostHog): boolean =>
   // eslint-disable-next-line no-underscore-dangle
   !!posthog && typeof posthog._isIdentified === 'function';
@@ -39,7 +82,7 @@ const isPosthogSdkLoaded = (posthog?: IPostHog): boolean =>
 // 'anonymous' (case-insensitive, matching PostHog's reserved distinct_id
 // semantics) are excluded.
 //
-// Shared by EVERY analytics tool in this file (Clarity, Umami, GA, PostHog):
+// Shared by EVERY analytics tool in this file (Umami, GA, PostHog):
 // signed-out visitors on ensureLogin pages (/auth/login, /auth/signup via
 // re-export, /invite, ...) get pageProps.user set to the backend's
 // ANONYMOUS_USER, which carries a non-empty name ('Anonymous') and email
@@ -80,69 +123,18 @@ declare global {
     gtag?: (command: string, targetId: string | Date, config?: Record<string, unknown>) => void;
     dataLayer?: unknown[];
     posthog?: IPostHog;
-    /** Clarity queue/API — defined synchronously by the init snippet. */
-    clarity?: (command: string, ...args: string[]) => void;
+    fbq?: (...args: unknown[]) => void;
     /**
      * Hook invoked by the posthog init snippet's `loaded` callback with the
      * real SDK instance, before the event dispatch and the initial $pageview.
      */
     // eslint-disable-next-line @typescript-eslint/naming-convention
     __teablePosthogOnLoaded?: (posthog: IPostHog) => void;
+    /** Set by the PostHog init snippet: true when it started cookieless. */
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __teablePosthogCookieless?: boolean;
   }
 }
-
-export const MicrosoftClarity = ({
-  clarityId,
-  user,
-}: {
-  clarityId?: string;
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-  };
-}) => {
-  const userId = user?.id;
-  const userEmail = user?.email;
-  const [isClarityReady, setIsClarityReady] = useState(false);
-
-  // Identify from an effect, not a one-shot inline script: login goes through
-  // a client-side router.push, which keeps this component mounted and would
-  // never re-run a script tag — the session would stay unidentified until a
-  // full page load. The effect re-runs whenever the user id changes (initial
-  // load, login, account switch alike). Clarity has no reset API, so
-  // anonymous/invalid users simply skip identification and stay on Clarity's
-  // own per-device session id.
-  useEffect(() => {
-    if (!isClarityReady || !isIdentifiableUserId(userId)) {
-      return;
-    }
-    window.clarity?.('identify', userEmail || userId);
-  }, [isClarityReady, userId, userEmail]);
-
-  if (!clarityId) {
-    return null;
-  }
-
-  return (
-    <Script
-      id="microsoft-clarity-init"
-      strategy="afterInteractive"
-      // The snippet defines the window.clarity queue synchronously, so the
-      // identify effect can call it as soon as onReady fires.
-      onReady={() => setIsClarityReady(true)}
-      dangerouslySetInnerHTML={{
-        __html: `
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "${clarityId}");
-        `,
-      }}
-    />
-  );
-};
 
 export const Umami = ({
   umamiWebSiteId,
@@ -193,12 +185,10 @@ export const Umami = ({
 
 export const GoogleAnalytics = ({
   gaId,
-  googleAdsId,
   marketingGaId,
   user,
 }: {
   gaId?: string;
-  googleAdsId?: string;
   marketingGaId?: string;
   user?: {
     id?: string;
@@ -206,16 +196,34 @@ export const GoogleAnalytics = ({
     email?: string;
   };
 }) => {
-  const scriptId = gaId ?? googleAdsId ?? marketingGaId;
+  const scriptId = gaId ?? marketingGaId;
   const userId = user?.id;
   const userEmail = user?.email;
   const [isGtagReady, setIsGtagReady] = useState(false);
+  const { analyticsGranted, adsGranted, consent, region } = useMarketingConsent();
+
+  // Consent Mode: the init snippet sets the defaults from the cookies; later
+  // choices (banner / Cookie settings) update them in place. Without consent
+  // Google still receives cookieless pings for modelled conversions.
+  useEffect(() => {
+    if (!isGtagReady || !window.gtag) {
+      return;
+    }
+    const status = (category: 'ad_user_data' | 'ad_personalization') =>
+      isConsentGranted(region, consent, category) ? 'granted' : 'denied';
+    window.gtag('consent', 'update', {
+      analytics_storage: analyticsGranted ? 'granted' : 'denied',
+      ad_storage: adsGranted ? 'granted' : 'denied',
+      ad_user_data: status('ad_user_data'),
+      ad_personalization: status('ad_personalization'),
+    });
+  }, [isGtagReady, analyticsGranted, adsGranted, consent, region]);
 
   // Last user id this page session sent to GA via config. _app stays mounted
   // across client-side navigations (logout does router.push('/auth/login')),
   // so the gtag session survives logout and an identified -> anonymous
   // transition is observable here (same pattern as the PostHog effect).
-  const lastIdentifiedIdRef = useRef<string>();
+  const lastIdentifiedIdRef = useRef<string>(undefined);
 
   useEffect(() => {
     if (!isGtagReady || !window.gtag) {
@@ -252,20 +260,25 @@ export const GoogleAnalytics = ({
       window.gtag('config', gaId, identity);
     }
 
-    if (googleAdsId) {
-      window.gtag('config', googleAdsId, { linker });
-    }
-
     if (marketingGaId) {
       window.gtag('config', marketingGaId, { linker });
     }
-  }, [gaId, googleAdsId, isGtagReady, marketingGaId, userId]);
+  }, [gaId, isGtagReady, marketingGaId, userId]);
 
   useEffect(() => {
     // Gate on the id, not just the email: ANONYMOUS_USER carries a non-empty
     // email (anonymous@system.teable.ai), which would otherwise fire a fake
     // 'login' event for every signed-out visitor on ensureLogin pages.
-    if (!isGtagReady || !window.gtag || !gaId || !userEmail || !isIdentifiableUserId(userId)) {
+    if (
+      !isGtagReady ||
+      !window.gtag ||
+      !gaId ||
+      !userEmail ||
+      !isIdentifiableUserId(userId) ||
+      // The email dimension rides only on consented (cookie) hits, never on
+      // the cookieless pings Consent Mode sends without consent.
+      !analyticsGranted
+    ) {
       return;
     }
 
@@ -273,7 +286,7 @@ export const GoogleAnalytics = ({
       send_to: gaId,
       custom_dimension_1: userEmail,
     });
-  }, [gaId, isGtagReady, userEmail, userId]);
+  }, [gaId, isGtagReady, userEmail, userId, analyticsGranted]);
 
   if (!scriptId) {
     return null;
@@ -294,6 +307,15 @@ export const GoogleAnalytics = ({
           __html: `
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
+            ${CONSENT_STATE_JS}
+            var consentState = __teableConsentState();
+            gtag('consent', 'default', {
+              analytics_storage: consentState.analytics ? 'granted' : 'denied',
+              ad_storage: consentState.ads ? 'granted' : 'denied',
+              ad_user_data: consentState.adUserData ? 'granted' : 'denied',
+              ad_personalization: consentState.adPersonalization ? 'granted' : 'denied',
+              wait_for_update: 500
+            });
             gtag('js', new Date());
           `,
         }}
@@ -305,26 +327,38 @@ export const GoogleAnalytics = ({
 export const PostHog = ({
   posthogKey,
   posthogHost,
+  posthogWebHost,
+  posthogUiHost,
   user,
 }: {
   posthogKey?: string;
   posthogHost?: string;
+  posthogWebHost?: string;
+  posthogUiHost?: string;
   user?: {
     id?: string;
     name?: string;
     email?: string;
   };
 }) => {
-  const apiHost = posthogHost || POSTHOG_DEFAULT_HOST;
+  // POSTHOG_WEB_HOST is the browser-only reverse proxy (ad-blocker evasion);
+  // server-side ingest keeps reading POSTHOG_HOST and never follows it.
+  const apiHost = posthogWebHost || posthogHost || POSTHOG_DEFAULT_HOST;
+  // On a reverse-proxy api_host the SDK can't infer the PostHog web-app
+  // origin (toolbar, links back into the app) — proxied deployments must set
+  // POSTHOG_UI_HOST explicitly. null keeps the SDK default (infer/api_host),
+  // which is correct for direct cloud and self-hosted PostHog alike.
+  const uiHost = posthogUiHost || null;
   const userId = user?.id;
   const userEmail = user?.email;
   const userName = user?.name;
   const [isReady, setIsReady] = useState(false);
+  const { analyticsGranted } = useMarketingConsent();
 
   // Last user id this page session identified with. _app stays mounted across
   // client-side navigations (logout does router.push('/auth/login')), so an
   // in-session account switch is observable here even before the SDK loads.
-  const lastIdentifiedIdRef = useRef<string>();
+  const lastIdentifiedIdRef = useRef<string>(undefined);
 
   // Mirror the newest user id into module scope for handlePosthogLoaded (the
   // snippet renders once; a closure captured in it would go stale). Effects
@@ -378,9 +412,32 @@ export const PostHog = ({
   //   anonymous id, and reset() would rotate that id and wipe persistence,
   //   permanently detaching landing/UTM events from the person created when
   //   the visitor signs up and identifies.
+  // Consent changes after load. A cookieless start (opt-in region, no
+  // choice yet) switches to cookie persistence on grant — posthog-js
+  // cookieless_mode 'on_reject' semantics. Withdrawing a grant stops capture
+  // for the rest of this page; the next load starts cookieless again.
+  useEffect(() => {
+    const posthog = window.posthog;
+    if (!isSdkLoaded || !posthog) {
+      return;
+    }
+    const cookieless = window.__teablePosthogCookieless === true;
+    if (analyticsGranted && cookieless) {
+      posthog.opt_in_capturing?.({ captureEventName: null });
+      window.__teablePosthogCookieless = false;
+    } else if (!analyticsGranted && !cookieless) {
+      posthog.opt_out_capturing?.();
+    }
+  }, [isSdkLoaded, analyticsGranted]);
+
   useEffect(() => {
     const posthog = window.posthog;
     if (!isReady || !posthog) {
+      return;
+    }
+    if (!analyticsGranted) {
+      // Cookieless mode has no persistent identity: person profiles and
+      // identify() need consent.
       return;
     }
     const previousId = lastIdentifiedIdRef.current;
@@ -414,7 +471,7 @@ export const PostHog = ({
     if (isIdentified) {
       posthog.reset();
     }
-  }, [isReady, isSdkLoaded, userId, userEmail, userName]);
+  }, [isReady, isSdkLoaded, userId, userEmail, userName, analyticsGranted]);
 
   if (!posthogKey) {
     return null;
@@ -428,14 +485,38 @@ export const PostHog = ({
       dangerouslySetInnerHTML={{
         __html: `
           !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+          ${CONSENT_STATE_JS}
+          // Without analytics consent (opt-in regions until they accept)
+          // PostHog runs cookieless: events are still counted, but nothing is
+          // stored on the device and no session is recorded. Elsewhere the
+          // config is unchanged.
+          var cookieless = !__teableConsentState().analytics;
+          window.__teablePosthogCookieless = cookieless;
           posthog.init(${JSON.stringify(posthogKey)}, {
+            cookieless_mode: cookieless ? 'on_reject' : undefined,
+            disable_session_recording: cookieless,
             api_host: ${JSON.stringify(apiHost)},
+            ui_host: ${JSON.stringify(uiHost)},
             capture_pageview: 'history_change',
             capture_pageleave: 'if_capture_pageview',
             // web_vitals off: fires several $web_vitals events per page load and
             // we don't act on them yet — growth events are the priority for quota.
             capture_performance: { web_vitals: false },
             autocapture: { css_selector_allowlist: ['[data-attr]'] },
+            // Code-level privacy backstop for session replay. These mirror the
+            // PostHog project's "Privacy and masking" settings; init options
+            // take precedence over the remote ones, so a project-settings
+            // change can never start recording text, inputs or media.
+            session_recording: {
+              maskAllInputs: true,
+              maskTextSelector: '*',
+              blockSelector: 'img, video',
+            },
+            // Console output can carry tokens, emails or record data. An
+            // explicit false wins over the remote "capture console logs"
+            // toggle (undefined would fall back to it).
+            enable_recording_console_log: false,
+            logs: { captureConsoleLogs: false },
             person_profiles: 'identified_only',
             persistence: 'localStorage+cookie',
             // Runs synchronously BEFORE posthog schedules the initial $pageview
@@ -445,6 +526,16 @@ export const PostHog = ({
             // React layer the real SDK replaced the stub (identity state is only
             // readable from here on).
             loaded: function (ph) {
+              // Line PostHog's own consent state up with ours before the
+              // initial $pageview. In cookieless_mode 'on_reject' nothing is
+              // captured until a decision exists, and opting out is what
+              // switches capture to cookieless. A stale opt-out stored by an
+              // earlier visit must not silence a visitor who has since agreed.
+              if (cookieless) {
+                ph.opt_out_capturing();
+              } else if (ph.has_opted_out_capturing()) {
+                ph.opt_in_capturing({ captureEventName: null });
+              }
               if (window.__teablePosthogOnLoaded) {
                 try { window.__teablePosthogOnLoaded(ph); } catch (e) {}
               }
@@ -455,6 +546,80 @@ export const PostHog = ({
           // PostHog project's replay settings, which link recording to the
           // 'new-user-session-replay' feature flag (signup_at within last 7 days).
           // Anonymous visitors never match the flag, so nothing records for them.
+          // Masking, by contrast, is pinned above in session_recording.
+        `,
+      }}
+    />
+  );
+};
+
+interface IMetaPixelProps {
+  metaPixelId?: string;
+}
+
+// Whether the init snippet's own PageView already covered an auth view this
+// page load — module scope: it must survive the component unmount/remount of
+// an auth → product → auth SPA round trip, exactly like the script itself.
+let initialAuthViewTracked = false;
+
+/**
+ * Pre-auth (/auth/*) only: plants _fbp for direct-to-app ad landings;
+ * conversions go server-side (CAPI). Product pages never FIRE it — a script
+ * loaded on /auth/* survives SPA navigation (unloading a <script> tag cannot
+ * unload the runtime), but nothing is sent outside /auth/*.
+ * Consent: ad_storage via lib/marketing-consent — opt-in regions need an
+ * explicit grant (the app shows its own banner to direct visitors); other
+ * regions load unless the visitor rejected.
+ */
+export const MetaPixel = ({ metaPixelId }: IMetaPixelProps) => {
+  const router = useRouter();
+  const isPreAuth = router.pathname.startsWith('/auth/');
+  const { adsGranted } = useMarketingConsent();
+  // null until mounted: the server snapshot can't see the consent cookies.
+  const [blocked, setBlocked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isPreAuth || !metaPixelId) {
+      return;
+    }
+    setBlocked(!adsGranted);
+  }, [isPreAuth, metaPixelId, adsGranted]);
+
+  // One PageView per auth-page view. The init snippet covers only the very
+  // first (script injection is once per full page load), so every later auth
+  // view — path change or SPA re-entry after leaving — fires from here.
+  const trackedPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (blocked !== false || !isPreAuth) {
+      trackedPathRef.current = null;
+      return;
+    }
+    if (!initialAuthViewTracked) {
+      initialAuthViewTracked = true;
+    } else if (trackedPathRef.current !== router.pathname) {
+      window.fbq?.('track', 'PageView');
+    }
+    trackedPathRef.current = router.pathname;
+  }, [blocked, isPreAuth, router.pathname]);
+
+  if (!metaPixelId || !isPreAuth || blocked !== false) {
+    return null;
+  }
+
+  return (
+    <Script
+      id="meta-pixel-init"
+      strategy="afterInteractive"
+      dangerouslySetInnerHTML={{
+        __html: `
+          !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){
+          n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];
+          t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window,document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+          fbq('init', ${JSON.stringify(metaPixelId)});
+          fbq('track', 'PageView');
         `,
       }}
     />

@@ -1,4 +1,4 @@
-import { CONDITIONAL_QUERY_DEFAULT_LIMIT, type IConditionalLookupOptions } from '@teable/core';
+import type { IConditionalLookupOptions } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
@@ -6,6 +6,7 @@ import { Trans } from 'next-i18next';
 import { useCallback } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
+import { LookupUniqueValuesSwitch } from '../lookup-options/LookupUniqueValuesSwitch';
 import { LinkedRecordSortLimitConfig } from './LinkedRecordSortLimitConfig';
 import { SelectTable } from './LinkOptions/SelectTable';
 
@@ -81,6 +82,10 @@ export const ConditionalLookupOptions = ({
             onSortLimitDisable={handleSortLimitDisable}
             sourceTableId={sourceTableId}
           />
+          <LookupUniqueValuesSwitch
+            checked={effectiveOptions.isUnique ?? false}
+            onCheckedChange={(isUnique) => onOptionsChange({ isUnique })}
+          />
         </StandaloneViewProvider>
       ) : null}
     </div>
@@ -149,7 +154,6 @@ const ConditionalLookupForeignSection = ({
         limit={limit}
         onSortChange={onSortChange}
         onLimitChange={onLimitChange}
-        defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
         toggleTestId="conditional-lookup-sort-limit-toggle"
         onDisable={onSortLimitDisable}
       />

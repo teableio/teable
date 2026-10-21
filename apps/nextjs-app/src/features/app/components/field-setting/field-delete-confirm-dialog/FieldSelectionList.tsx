@@ -70,7 +70,7 @@ export const FieldSelectionList = ({
     <div className="flex flex-col gap-4">
       {riskFields.length > 0 && (
         <div>
-          <p className="mb-1.5 pl-2 text-xs font-medium text-muted-foreground">
+          <p className="mb-1.5 ps-2 text-xs font-medium text-muted-foreground">
             {t('table:field.editor.deleteField.riskIdentified', { count: riskFields.length })}
           </p>
           <ul className="space-y-0.5">{riskFields.map(renderFieldItem)}</ul>
@@ -78,7 +78,7 @@ export const FieldSelectionList = ({
       )}
       {safeFields.length > 0 && (
         <div>
-          <p className="mb-1.5 pl-2 text-xs font-medium text-muted-foreground">
+          <p className="mb-1.5 ps-2 text-xs font-medium text-muted-foreground">
             {t('table:field.editor.deleteField.noDependencies', { count: safeFields.length })}
           </p>
           <ul className="space-y-0.5">{safeFields.map(renderFieldItem)}</ul>

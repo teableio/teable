@@ -18,12 +18,12 @@ import { BaseNodeModule } from './features/base-node/base-node.module';
 import { BaseShareModule } from './features/base-share/base-share.module';
 import { BuiltinAssetsInitModule } from './features/builtin-assets-init';
 import { CanaryModule } from './features/canary';
-import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
+import { GoogleSheetImportModule } from './features/google-sheet-import/google-sheet-import.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { IntegrityModule } from './features/integrity/integrity.module';
@@ -31,6 +31,7 @@ import { InvitationModule } from './features/invitation/invitation.module';
 import { MailSenderOpenApiModule } from './features/mail-sender/open-api/mail-sender-open-api.module';
 import { MailSenderMergeModule } from './features/mail-sender/open-api/mail-sender.merge.module';
 import { NextModule } from './features/next/next.module';
+import { NotificationCleanupModule } from './features/notification/cleanup/notification-cleanup.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
 import { OrganizationModule } from './features/organization/organization.module';
@@ -40,6 +41,7 @@ import { PluginModule } from './features/plugin/plugin.module';
 import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
 import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { RecordHistoryColdModule } from './features/record-history-cold/record-history-cold.module';
+import { RecordRemovalColdModule } from './features/record-removal-cold/record-removal-cold.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
@@ -51,6 +53,9 @@ import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
 import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
+import { DomainEventWakeupConsumerModule } from './features/v2/domain-event-outbox-trigger/domain-event-wakeup-consumer.module';
+import { V2DataQueryModule } from './features/v2/v2-data-query.module';
+import { V2DataQueryExplainModule } from './features/v2/v2-data-query-explain.module';
 import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -71,7 +76,6 @@ export const appModules = {
     BaseModule,
     BaseNodeModule,
     IntegrityModule,
-    ChatModule,
     AttachmentsModule,
     WsModule,
     SelectionModule,
@@ -86,9 +90,11 @@ export const appModules = {
     ShortLinkModule,
     BaseShareModule,
     NotificationModule,
+    NotificationCleanupModule,
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,
+    GoogleSheetImportModule,
     ExportOpenApiModule,
     PinModule,
     AdminOpenApiModule,
@@ -102,16 +108,20 @@ export const appModules = {
     AiModule,
     PluginModule,
     PluginPanelModule,
-    // the ONLY mount of the cold queue CONSUMER: feature modules import
-    // RecordHistoryColdCoreModule (services only), so auxiliary entrypoints
-    // composing them never become competing cold-queue workers
+    // the ONLY mount of the cold queue CONSUMERS: feature modules import
+    // the Core modules (services only), so auxiliary entrypoints composing
+    // them never become competing cold-queue workers
     RecordHistoryColdModule,
+    RecordRemovalColdModule,
     PluginContextMenuModule,
     PluginChartModule,
     ObservabilityModule,
     BuiltinAssetsInitModule,
     V2Module,
+    V2DataQueryModule.register(),
+    V2DataQueryExplainModule.register(),
     ComputedOutboxWakeupConsumerModule.register(),
+    DomainEventWakeupConsumerModule,
   ],
   providers: [InitBootstrapProvider],
 };

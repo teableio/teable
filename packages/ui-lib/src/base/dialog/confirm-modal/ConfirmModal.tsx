@@ -70,16 +70,18 @@ export const ConfirmModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
             </DialogHeader>
           )}
           <DialogFooter>
-            <Button size="sm" variant="ghost" onClick={handleCancel} disabled={loading}>
-              {options.cancelText}
-            </Button>
+            {options.cancelText && (
+              <Button size="sm" variant="ghost" onClick={handleCancel} disabled={loading}>
+                {options.cancelText}
+              </Button>
+            )}
             <Button
               size="sm"
               variant={options.confirmButtonVariant || 'default'}
               onClick={handleConfirm}
               disabled={loading}
             >
-              {loading && <Spin className="mr-2" />}
+              {loading && <Spin className="me-2" />}
               {options.confirmText}
             </Button>
           </DialogFooter>

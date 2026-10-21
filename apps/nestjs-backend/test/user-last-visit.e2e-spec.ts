@@ -9,6 +9,8 @@ import {
   createView,
   deleteBase,
   deleteView,
+  GET_USER_LAST_VISIT,
+  GET_USER_LAST_VISIT_MAP,
   getUserLastVisit,
   getUserLastVisitBaseNode,
   getUserLastVisitListBase,
@@ -18,6 +20,7 @@ import {
   userLastVisitListBaseVoSchema,
 } from '@teable/openapi';
 import { isEmpty } from 'lodash';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getViews, initApp, permanentDeleteBase, permanentDeleteTable } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
@@ -218,28 +221,63 @@ describe('OpenAPI OAuthController (e2e)', () => {
         resourceId: base.id,
       });
     }
+    const unrelatedBase = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'unrelated_base',
+    }).then((res) => res.data);
 
     const res = await getUserLastVisitListBase();
+    expect(res.data.list.some(({ resource }) => resource.id === unrelatedBase.id)).toEqual(true);
+    const createdBaseIds = new Set(base_21.map(({ id }) => id));
+    const createdBaseVisits = res.data.list.filter(({ resource }) =>
+      createdBaseIds.has(resource.id)
+    );
 
-    for (const base of base_21) {
+    for (const base of [...base_21, unrelatedBase]) {
       await permanentDeleteBase(base.id);
     }
     expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
-    expect(res.data.list.length).toEqual(21);
-    expect(res.data.total).toEqual(21);
-    expect(res.data.list[0].resource.id).toEqual(base_21[20].id);
-    expect(res.data.list[20].resource.id).toEqual(base_21[0].id);
+    expect(res.data.total).toEqual(res.data.list.length);
+    expect(createdBaseVisits.length).toEqual(21);
+    expect(createdBaseVisits[0].resource.id).toEqual(base_21[20].id);
+    expect(createdBaseVisits[20].resource.id).toEqual(base_21[0].id);
 
     const res2 = await getUserLastVisitListBase();
 
-    expect(res2.data.list.length).toEqual(0);
+    expect(res2.data.list.filter(({ resource }) => createdBaseIds.has(resource.id)).length).toEqual(
+      0
+    );
 
     const userLastVisit = await prisma.userLastVisit.findMany({
       where: {
-        parentResourceId: base_21[0].spaceId,
+        resourceType: LastVisitResourceType.Base,
+        resourceId: { in: [...createdBaseIds] },
       },
     });
     expect(userLastVisit.length).toEqual(0);
+  });
+
+  // pentest IDOR-VULN-03: with no visit of their own, the lookups used to fall back to the
+  // first table/view under any base or table id, including another tenant's.
+  it('answers nothing about a base or table the caller cannot open', async () => {
+    const outsider = await createNewUserAxios({
+      email: `last-visit-outsider-${Date.now()}@test-last-visit.com`,
+      password: '12345678a',
+    });
+    const lookups = [
+      { resourceType: LastVisitResourceType.Table, parentResourceId: base.id },
+      { resourceType: LastVisitResourceType.Dashboard, parentResourceId: base.id },
+      { resourceType: LastVisitResourceType.View, parentResourceId: table1.id },
+    ];
+    for (const params of lookups) {
+      const res = await outsider.get(GET_USER_LAST_VISIT, { params });
+      expect(res.status).toBe(200);
+      expect(isEmpty(res.data)).toBe(true);
+    }
+    const map = await outsider.get(GET_USER_LAST_VISIT_MAP, {
+      params: { resourceType: LastVisitResourceType.Table, parentResourceId: base.id },
+    });
+    expect(map.data).toEqual({});
   });
 
   describe('getUserLastVisitBaseNode', () => {

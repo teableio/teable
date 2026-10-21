@@ -207,6 +207,48 @@ describe('field reference filters', () => {
     expect(sql).toMatch(expectedSql);
   });
 
+  it('degrades unsupported field-reference operators to match-all when opted in', () => {
+    // AJ regression (T6526 preview validation): a conditional filter using
+    // 'contains' against another field made EVERY record write on the host
+    // table fail with 400 via ensureLiteralValue -> handleCompilerError.
+    // Assert the handler branch directly: default rethrows; the affected-set
+    // opt-in degrades to match-all (compiled as TRUE by the caller).
+    const field = createTextField('fldsourcetext0001', 'source_text');
+    const value = { type: 'field', fieldId: 'fldreftext0000001' };
+    const error = new Error("Operator 'contains' does not support comparing against another field");
+    class ExposedFilterQuery extends FilterQueryPostgres {
+      handle(): 'match-all' | undefined {
+        return (
+          this as unknown as {
+            handleCompilerError: (
+              e: unknown,
+              f: FieldCore,
+              o: string,
+              v: unknown
+            ) => 'match-all' | undefined;
+          }
+        ).handleCompilerError(error, field, 'contains', value);
+      }
+    }
+    const build = (behavior?: 'match-all') =>
+      new ExposedFilterQuery(
+        knexBuilder('main'),
+        { [field.id]: field },
+        undefined,
+        undefined,
+        dbProviderStub,
+        {
+          selectionMap: new Map(),
+          ...(behavior ? { unsupportedFieldReferenceBehavior: behavior } : {}),
+        }
+      );
+
+    // Default stays strict: user-issued queries must not silently change meaning.
+    expect(() => build().handle()).toThrow(/does not support comparing against another field/);
+    // Opted-in degradation reports match-all instead of failing the write.
+    expect(build('match-all').handle()).toBe('match-all');
+  });
+
   it('supports hasAnyOf against multi-user field references', () => {
     const field = createUserField('fld_multi_user', 'multi_user_col', true);
     const reference = createUserField('fld_multi_user_ref', 'multi_user_ref_col', true);

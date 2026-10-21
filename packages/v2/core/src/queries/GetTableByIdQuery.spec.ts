@@ -23,7 +23,7 @@ describe('GetTableByIdQuery', () => {
   });
 
   it('rejects invalid input', () => {
-    GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' })._unsafeUnwrapErr();
-    GetTableByIdQuery.create({ baseId: 'bse' + 'a'.repeat(16) })._unsafeUnwrapErr();
+    expect(GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' }).isErr()).toBe(true);
+    expect(GetTableByIdQuery.create({ baseId: 'bse' + 'a'.repeat(16) }).isErr()).toBe(true);
   });
 });

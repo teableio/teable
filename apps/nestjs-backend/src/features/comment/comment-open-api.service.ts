@@ -13,7 +13,6 @@ import type {
   IUpdateCommentRo,
   IGetCommentListQueryRo,
   ICommentContent,
-  IGetRecordsRo,
   IParagraphCommentContent,
   ICommentReaction,
 } from '@teable/openapi';
@@ -32,12 +31,19 @@ import {
   getPreviewCacheKey,
   getPublicFullStorageUrl,
 } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { NotificationService } from '../notification/notification.service';
 import { RecordService } from '../record/record.service';
 
+// What the comment upload flow produces: the comment directory plus the upload token.
+const COMMENT_IMAGE_PATH = /^comment\/[A-Za-z0-9]+$/;
+
+const getCommentImageKey = (author: string, path: string) => `${author}:${path}`;
+
 @Injectable()
 export class CommentOpenApiService {
-  private logger = new Logger(CommentOpenApiService.name);
+  private readonly logger = new Logger(CommentOpenApiService.name);
   constructor(
     private readonly notificationService: NotificationService,
     private readonly recordService: RecordService,
@@ -45,7 +51,9 @@ export class CommentOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly shareDbService: ShareDbService,
     private readonly cacheService: CacheService,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly audit: AuditScope,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   private async collectionsContext(comment: ICommentContent | null) {
@@ -101,40 +109,94 @@ export class CommentOpenApiService {
     );
   }
 
-  private async getPresignedUrlMap(paths: string[]) {
+  /**
+   * Image paths in comment content come from the client. Only a comment upload made by
+   * the comment's author may be signed: anything else in the private bucket (table
+   * attachments, exports, another user's comment images) must not get a URL through a
+   * comment. Returns the signable images keyed by `getCommentImageKey`.
+   */
+  private async resolveSignableImages(images: { path: string; author: string }[]) {
+    const candidates = images.filter(({ path }) => COMMENT_IMAGE_PATH.test(path));
+    const signable = new Map<string, { path: string; token: string }>();
+    if (!candidates.length) {
+      return signable;
+    }
+    const rows = await this.prismaService.attachments.findMany({
+      where: { token: { in: uniq(candidates.map(({ path }) => path.split('/')[1])) } },
+      select: { token: true, path: true, createdBy: true },
+    });
+    const rowByToken = new Map(rows.map((row) => [row.token, row]));
+    for (const { path, author } of candidates) {
+      const row = rowByToken.get(path.split('/')[1]);
+      if (row && row.path === path && row.createdBy === author) {
+        signable.set(getCommentImageKey(author, path), { path, token: row.token });
+      }
+    }
+    return signable;
+  }
+
+  private async getPresignedUrlMap(images: { path: string; author: string }[]) {
     const bucket = StorageAdapter.getBucket(UploadType.Comment);
-    const tokens = paths.map((path) => path.split('/').pop());
-    let urls: string[] = [];
-    if (tokens.length) {
+    const signable = await this.resolveSignableImages(images);
+    const entries = Array.from(signable.entries());
+    let urls: (string | undefined)[] = [];
+    if (entries.length) {
       const cacheUrls = await this.cacheService.getMany(
-        tokens.map((token) => getPreviewCacheKey(token ?? ''))
+        entries.map(([, { token }]) => getPreviewCacheKey(token))
       );
-      urls = cacheUrls.map((cacheValue) => getFreshPreviewCacheUrl(cacheValue)) as string[];
+      urls = cacheUrls.map((cacheValue) => getFreshPreviewCacheUrl(cacheValue));
     }
     const presignedUrls = await Promise.all(
-      urls.map(async (url, index) => {
-        if (!url) {
-          return this.attachmentsStorageService.getPreviewUrlByPath(
-            bucket,
-            paths[index],
-            tokens[index]!
-          );
+      entries.map(async ([, { path, token }], index) => {
+        if (!urls[index]) {
+          return this.attachmentsStorageService.getPreviewUrlByPath(bucket, path, token);
         }
-        return url;
+        return urls[index] as string;
       })
     );
     return presignedUrls.reduce(
       (acc, url, index) => {
-        acc[paths[index]] = url;
+        acc[entries[index][0]] = url;
         return acc;
       },
       {} as Record<string, string>
     );
   }
 
+  async getAttachmentPresignedUrl(tableId: string, recordId: string, path: string) {
+    const throwNotFound = (): never => {
+      throw new CustomHttpException('Attachment not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.notFound',
+        },
+      });
+    };
+    if (!COMMENT_IMAGE_PATH.test(path) || !(await this.isRecordAlive(tableId, recordId))) {
+      return throwNotFound();
+    }
+    // Only an image that a comment on this record shows: the route's permission is
+    // checked against this table, so the path must not reach beyond it.
+    const rawComments = await this.prismaService.comment.findMany({
+      where: { tableId, recordId, deletedTime: null, content: { contains: path } },
+      select: { content: true, createdBy: true },
+    });
+    const author = rawComments.find(({ content }) => {
+      const parsed = (content ? JSON.parse(content) : null) as ICommentContent | null;
+      return parsed?.some((item) => item.type === CommentNodeType.Img && item.path === path);
+    })?.createdBy;
+    if (!author) {
+      return throwNotFound();
+    }
+    const url = (await this.getPresignedUrlMap([{ path, author }]))[
+      getCommentImageKey(author, path)
+    ];
+    return url ?? throwNotFound();
+  }
+
   private async additionalContentContext(
     comment: ICommentContent | null,
     context: {
+      author: string;
       imagePathMap: Record<string, string>;
       mentionUserMap: Record<string, { id: string; name: string; avatar: string | undefined }>;
     }
@@ -142,13 +204,13 @@ export class CommentOpenApiService {
     if (!comment) {
       return null;
     }
-    const { imagePathMap, mentionUserMap } = context;
+    const { author, imagePathMap, mentionUserMap } = context;
     return comment.map((item) => {
       switch (item.type) {
         case CommentNodeType.Img:
           return {
             ...item,
-            url: imagePathMap[item.path],
+            url: imagePathMap[getCommentImageKey(author, item.path)],
           };
         case CommentNodeType.Paragraph:
           return {
@@ -191,6 +253,23 @@ export class CommentOpenApiService {
     throw new CustomHttpException('Comment not found', HttpErrorCode.NOT_FOUND);
   }
 
+  // Comments outlive a deleted/archived record so a restore brings them back; until
+  // then the thread is unreachable, like the record itself.
+  private async isRecordAlive(tableId: string, recordId: string) {
+    const existingIds = await this.recordService.getExistingRecordIds(tableId, [recordId]);
+    return existingIds.has(recordId);
+  }
+
+  private async assertRecordAlive(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      throw new CustomHttpException('Record not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
+    }
+  }
+
   private async validateQuoteId(tableId: string, recordId: string, quoteId?: string | null) {
     if (!quoteId) {
       return;
@@ -213,6 +292,10 @@ export class CommentOpenApiService {
     recordId: string,
     commentId: string
   ): Promise<ICommentVo | null> {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return null;
+    }
+
     const rawComment = await this.prismaService.comment.findFirst({
       where: this.getCommentScopeWhere(tableId, recordId, commentId),
       select: {
@@ -234,13 +317,16 @@ export class CommentOpenApiService {
     const content = (rawContent ? JSON.parse(rawContent) : null) as ICommentContent;
     const reaction = rawReaction ? (JSON.parse(rawReaction) as ICommentReaction) : [];
     const { imagePaths, mentionUserIds } = await this.collectionsContext(content);
-    const imagePathMap = await this.getPresignedUrlMap(imagePaths);
+    const imagePathMap = await this.getPresignedUrlMap(
+      imagePaths.map((path) => ({ path, author: rawComment.createdBy }))
+    );
     const mentionUserMap = await this.getUserInfoMap(
       Array.from(
         new Set([...mentionUserIds, rawComment.createdBy, ...reaction.flatMap((item) => item.user)])
       )
     );
     const commentContent = await this.additionalContentContext(content, {
+      author: rawComment.createdBy,
       imagePathMap,
       mentionUserMap,
     });
@@ -281,6 +367,10 @@ export class CommentOpenApiService {
       );
     }
 
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return { comments: [], nextCursor: null };
+    }
+
     const takeWithDirection = direction === 'forward' ? -(take + 1) : take + 1;
 
     const rawComments = await this.prismaService.comment.findMany({
@@ -318,20 +408,20 @@ export class CommentOpenApiService {
       reaction: comment.reaction ? (JSON.parse(comment.reaction) as ICommentReaction) : null,
     }));
 
-    const imagePaths: Set<string> = new Set();
+    const images: { path: string; author: string }[] = [];
     const mentionUserIds: Set<string> = new Set();
 
     for (let i = 0; i < parsedComments.length; i++) {
       const { content, reaction, createdBy } = parsedComments[i];
       const context = await this.collectionsContext(content);
       mentionUserIds.add(createdBy);
-      context.imagePaths.forEach((path) => imagePaths.add(path));
+      context.imagePaths.forEach((path) => images.push({ path, author: createdBy }));
       context.mentionUserIds.forEach((id) => mentionUserIds.add(id));
       reaction?.forEach((item) => {
         item.user.forEach((id) => mentionUserIds.add(id));
       });
     }
-    const imagePathMap = await this.getPresignedUrlMap(Array.from(imagePaths));
+    const imagePathMap = await this.getPresignedUrlMap(images);
     const mentionUserMap = await this.getUserInfoMap(Array.from(mentionUserIds));
     const comments: ICommentVo[] = [];
     for (let i = 0; i < parsedComments.length; i++) {
@@ -339,6 +429,7 @@ export class CommentOpenApiService {
         parsedComments[i];
       const fullContent =
         (await this.additionalContentContext(content, {
+          author: parsedComments[i].createdBy,
           imagePathMap,
           mentionUserMap,
         })) || [];
@@ -388,6 +479,7 @@ export class CommentOpenApiService {
   }
 
   async createComment(tableId: string, recordId: string, createCommentRo: ICreateCommentRo) {
+    await this.assertRecordAlive(tableId, recordId);
     await this.validateQuoteId(tableId, recordId, createCommentRo.quoteId);
 
     const id = generateCommentId();
@@ -411,6 +503,17 @@ export class CommentOpenApiService {
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateComment, result);
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.CreateComment);
+    // Comment rows name the comment, never its text.
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.create',
+      resourceId: id,
+      params: {
+        tableId,
+        recordId,
+        commentId: id,
+        ...(createCommentRo.quoteId ? { quoteId: createCommentRo.quoteId } : {}),
+      },
+    });
 
     return {
       ...result,
@@ -424,6 +527,7 @@ export class CommentOpenApiService {
     commentId: string,
     updateCommentRo: IUpdateCommentRo
   ) {
+    await this.assertRecordAlive(tableId, recordId);
     const updateResult = await this.prismaService.comment.updateMany({
       where: {
         ...this.getCommentScopeWhere(tableId, recordId, commentId),
@@ -457,6 +561,11 @@ export class CommentOpenApiService {
       quoteId: result.quoteId,
       content: result.content,
     });
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.update',
+      resourceId: commentId,
+      params: { tableId, recordId, commentId },
+    });
   }
 
   async deleteComment(tableId: string, recordId: string, commentId: string) {
@@ -476,6 +585,11 @@ export class CommentOpenApiService {
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteComment, { id: commentId });
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.delete',
+      resourceId: commentId,
+      params: { tableId, recordId, commentId },
+    });
   }
 
   async deleteCommentReaction(
@@ -530,6 +644,7 @@ export class CommentOpenApiService {
     commentId: string,
     reactionRo: { reaction: string }
   ) {
+    await this.assertRecordAlive(tableId, recordId);
     const commentRaw = await this.getCommentReactionById(tableId, recordId, commentId);
     if (!commentRaw) {
       this.throwCommentNotFound();
@@ -544,7 +659,8 @@ export class CommentOpenApiService {
       if (index > -1) {
         emojis.splice(index, 1, {
           reaction,
-          user: uniq([...emojis[index].user, this.cls.get('user.id')]),
+          // Sonar S8907: lodash's uniq typing keeps this union assignable to the reaction user list
+          user: uniq([...emojis[index].user, this.cls.get('user.id')]), // NOSONAR typescript:S8907
         });
       } else {
         emojis.push({
@@ -584,9 +700,13 @@ export class CommentOpenApiService {
   }
 
   async getSubscribeDetail(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return null;
+    }
+
     return this.prismaService.commentSubscription.findUnique({
       where: {
-        // eslint-disable-next-line
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         tableId_recordId: {
           tableId,
           recordId,
@@ -601,6 +721,7 @@ export class CommentOpenApiService {
   }
 
   async subscribeComment(tableId: string, recordId: string) {
+    await this.assertRecordAlive(tableId, recordId);
     await this.prismaService.commentSubscription.create({
       data: {
         tableId,
@@ -613,7 +734,7 @@ export class CommentOpenApiService {
   async unsubscribeComment(tableId: string, recordId: string) {
     await this.prismaService.commentSubscription.delete({
       where: {
-        // eslint-disable-next-line
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         tableId_recordId: {
           tableId,
           recordId,
@@ -622,15 +743,16 @@ export class CommentOpenApiService {
     });
   }
 
-  async getTableCommentCount(tableId: string, query: IGetRecordsRo) {
-    const docResult = await this.recordService.getDocIdsByQuery(tableId, query, true);
-    const recordsId = docResult.ids;
+  async getTableCommentCount(tableId: string, recordIds: string[]) {
+    if (!recordIds.length) {
+      return [];
+    }
 
     const result = await this.prismaService.comment.groupBy({
       by: ['recordId'],
       where: {
         recordId: {
-          in: recordsId,
+          in: recordIds,
         },
         tableId,
         deletedTime: null,
@@ -647,6 +769,10 @@ export class CommentOpenApiService {
   }
 
   async getRecordCommentCount(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return { count: 0 };
+    }
+
     const result = await this.prismaService.comment.count({
       where: {
         tableId,
@@ -746,9 +872,22 @@ export class CommentOpenApiService {
       },
     });
 
-    const subscribeUsersIds = Array.from(
+    const candidateUserIds = Array.from(
       new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
     ).filter((userId) => userId !== fromUserId);
+
+    if (!candidateUserIds.length) {
+      return;
+    }
+
+    // Mentions carry raw user ids from the client and the message embeds the
+    // record's primary value, so only people who can see the record (base or
+    // space collaborators) may be notified.
+    const collaborators = await this.collaboratorService.getUserCollaboratorsByTableId(tableId, {
+      containsIn: { keys: ['id'], values: candidateUserIds },
+    });
+    const collaboratorIds = new Set(collaborators.map(({ id }) => id));
+    const subscribeUsersIds = candidateUserIds.filter((userId) => collaboratorIds.has(userId));
 
     const message: ILocalization<I18nPath> = {
       i18nKey: 'common.email.templates.notify.recordComment.message',

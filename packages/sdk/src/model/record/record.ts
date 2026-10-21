@@ -7,6 +7,7 @@ import { isEqual, isEmpty } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
 import { getHttpErrorMessage } from '../../context';
 import type { ILocaleFunction } from '../../context/app/i18n';
+import { normalizeCellValueForDisplay } from '../../utils/normalize-cell-value';
 import type { IFieldInstance } from '../field/factory';
 
 const { toast } = sonner;
@@ -27,22 +28,7 @@ export class Record extends RecordCore {
       return cellValue;
     }
 
-    if (cellValue == null) {
-      return cellValue;
-    }
-
-    const validated = field.validateCellValue(cellValue);
-    if (validated?.success) {
-      return validated.data;
-    }
-
-    try {
-      const repaired = field.repair(cellValue);
-      const repairedValidated = field.validateCellValue(repaired);
-      return repairedValidated?.success ? repairedValidated.data : repaired;
-    } catch {
-      return cellValue;
-    }
+    return normalizeCellValueForDisplay(field, cellValue);
   }
 
   constructor(
@@ -50,6 +36,11 @@ export class Record extends RecordCore {
     protected fieldMap: { [fieldId: string]: IFieldInstance }
   ) {
     super(fieldMap);
+  }
+
+  /** ShareDB doc identity for viewport fill invalidation. */
+  get docSource(): object | undefined {
+    return this.doc;
   }
 
   get title() {
@@ -139,7 +130,7 @@ export class Record extends RecordCore {
     );
   }
 
-  private updateComputedField = async (fieldIds: string[], record: IRecord) => {
+  private readonly updateComputedField = async (fieldIds: string[], record: IRecord) => {
     const changeCellFieldIds = fieldIds.filter((fieldId) => {
       // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
       // This prevents clearing computed fields that will be updated via ShareDB op

@@ -34,7 +34,9 @@ export const ComboYAxisDisplayEditor = (props: {
             className="text-[13px]"
             size="sm"
             value={min ?? ''}
-            onChange={(e) => setMin(e.target.value.length ? parseFloat(e.target.value) : undefined)}
+            onChange={(e) =>
+              setMin(e.target.value.length ? Number.parseFloat(e.target.value) : undefined)
+            }
             onBlur={() => {
               onChange({
                 ...value,
@@ -45,7 +47,7 @@ export const ComboYAxisDisplayEditor = (props: {
               });
             }}
           />
-          <span className="ml-2 whitespace-nowrap text-muted-foreground">
+          <span className="ms-2 whitespace-nowrap text-muted-foreground">
             {t('form.combo.range.max')}
           </span>
           <Input
@@ -53,7 +55,9 @@ export const ComboYAxisDisplayEditor = (props: {
             className="text-[13px]"
             size="sm"
             value={max ?? ''}
-            onChange={(e) => setMax(e.target.value.length ? parseFloat(e.target.value) : undefined)}
+            onChange={(e) =>
+              setMax(e.target.value.length ? Number.parseFloat(e.target.value) : undefined)
+            }
             onBlur={() => {
               onChange({
                 ...value,

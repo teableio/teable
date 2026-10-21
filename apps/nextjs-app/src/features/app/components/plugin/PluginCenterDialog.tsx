@@ -89,7 +89,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                   }
                 >
                   <img src={plugin.logo} alt={name} className="size-14 object-contain" />
-                  <div className="flex-auto text-left">
+                  <div className="flex-auto text-start">
                     <div>{name}</div>
                     <div
                       className="line-clamp-2 break-words text-[13px] text-muted-foreground"

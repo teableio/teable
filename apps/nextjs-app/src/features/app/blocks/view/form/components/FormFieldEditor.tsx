@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { DraggableHandle, EyeOff } from '@teable/icons';
 import { CellEditor } from '@teable/sdk/components';
-import { useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
+import { useFieldStaticGetter, useTableId, useView, useContentDir } from '@teable/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Label,
@@ -26,6 +26,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const contentDir = useContentDir();
 
   if (!view || !tableId) return null;
 
@@ -68,7 +69,9 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
           <div className="flex h-6 shrink-0 items-center">
             <Icon className="size-4 shrink-0" />
           </div>
-          <h3 className="mx-1">{name}</h3>
+          <h3 dir={contentDir} className="mx-1">
+            {name}
+          </h3>
         </div>
         <div className="flex items-center">
           {!isComputed && (
@@ -83,7 +86,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
                       <span className="flex items-center">
                         <Switch
                           id="form-field-required"
-                          className="ml-2 mr-3 cursor-not-allowed"
+                          className="me-3 ms-2 cursor-not-allowed"
                           checked={required}
                           disabled={isProtected}
                         />
@@ -98,7 +101,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
               ) : (
                 <Switch
                   id="form-field-required"
-                  className="ml-2 mr-3"
+                  className="me-3 ms-2"
                   checked={required}
                   onCheckedChange={onRequiredChange}
                 />
@@ -123,11 +126,13 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
         </div>
       </div>
       {description && (
-        <div className="mb-2 whitespace-pre-line text-xs text-slate-400">{description}</div>
+        <div dir={contentDir} className="mb-2 whitespace-pre-line text-xs text-slate-400">
+          {description}
+        </div>
       )}
       <CellEditor field={field} wrapClassName="pointer-events-none" />
-      {required && <span className="absolute left-[22px] top-5 text-red-500">*</span>}
-      <DraggableHandle className="absolute left-1 top-6" />
+      {required && <span className="absolute start-[22px] top-5 text-red-500">*</span>}
+      <DraggableHandle className="absolute start-1 top-6" />
     </div>
   );
 };

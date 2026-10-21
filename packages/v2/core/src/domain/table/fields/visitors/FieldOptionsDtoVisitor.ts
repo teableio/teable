@@ -137,8 +137,8 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
     const options: Record<string, unknown> = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto(),
+      trackedFieldIds,
     };
-    if (trackedFieldIds.length > 0) options.trackedFieldIds = trackedFieldIds;
     return ok(options);
   }
 
@@ -158,9 +158,7 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
 
   visitLastModifiedByField(field: LastModifiedByField): Result<unknown, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
-    const options: Record<string, unknown> = {};
-    if (trackedFieldIds.length > 0) options.trackedFieldIds = trackedFieldIds;
-    return ok(options);
+    return ok({ trackedFieldIds });
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<unknown, DomainError> {

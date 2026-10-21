@@ -77,6 +77,34 @@ export const resolveVisibleRowSearch = (
   };
 };
 
+/**
+ * Field ids a search row filter may match.
+ *
+ * View field visibility is not a query default: `ignoreViewQuery` only marks a
+ * request whose client already inlined the view's filter/sort, so a request
+ * that still carries `viewId` keeps the view's visible-field scope and never
+ * matches a cell of a field hidden in that view (v1 `getSearchFields` drops
+ * view-hidden fields for the same request shape). No `viewId` means the whole
+ * table, and an unresolvable view id degrades to it the same way the inlined
+ * view query defaults are ignored.
+ */
+export const resolveSearchRowScopeFieldIds = (
+  table: Table,
+  viewId: string | undefined,
+  ignoreViewQuery: boolean | undefined
+): Result<ReadonlyArray<FieldId>, DomainError> => {
+  if (!viewId) {
+    return ok(table.fieldIds());
+  }
+
+  const orderedVisibleFieldIds = table.getOrderedVisibleFieldIds(viewId);
+  if (orderedVisibleFieldIds.isErr()) {
+    return ignoreViewQuery ? ok(table.fieldIds()) : err(orderedVisibleFieldIds.error);
+  }
+
+  return ok(orderedVisibleFieldIds.value);
+};
+
 export class RecordSearch {
   private readonly fieldKeysValue: ReadonlyArray<string> | undefined;
 
@@ -201,8 +229,24 @@ export class RecordSearch {
     });
   }
 
-  private resolveField(table: Table, fieldKey: string): Result<Field, DomainError> {
-    const field = table.getFields().find((candidate) => this.matchesFieldKey(candidate, fieldKey));
+  /**
+   * Resolve a search field key against a table field.
+   * Accepts field id, name, or dbFieldName — single source of truth for all
+   * callers (search execution, masked-field reject, etc.).
+   */
+  static matchesFieldKey(field: Field, fieldKey: string): boolean {
+    if (field.id().toString() === fieldKey || field.name().toString() === fieldKey) {
+      return true;
+    }
+
+    const dbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+    return dbFieldNameResult.isOk() && dbFieldNameResult.value === fieldKey;
+  }
+
+  static resolveFieldKey(table: Table, fieldKey: string): Result<Field, DomainError> {
+    const field = table
+      .getFields()
+      .find((candidate) => RecordSearch.matchesFieldKey(candidate, fieldKey));
 
     if (!field) {
       return err(
@@ -214,6 +258,10 @@ export class RecordSearch {
     }
 
     return ok(field);
+  }
+
+  private resolveField(table: Table, fieldKey: string): Result<Field, DomainError> {
+    return RecordSearch.resolveFieldKey(table, fieldKey);
   }
 
   private buildFieldCondition(
@@ -253,14 +301,5 @@ export class RecordSearch {
     }
 
     return ok(getValidRecordConditionOperators(field, valueTypeResult.value).includes('contains'));
-  }
-
-  private matchesFieldKey(field: Field, fieldKey: string): boolean {
-    if (field.id().toString() === fieldKey || field.name().toString() === fieldKey) {
-      return true;
-    }
-
-    const dbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
-    return dbFieldNameResult.isOk() && dbFieldNameResult.value === fieldKey;
   }
 }

@@ -46,7 +46,7 @@ export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
             <span className="font-medium" title={name}>
               {name}
             </span>
-            <span className="pl-2 text-xs text-muted-foreground">
+            <span className="ps-2 text-xs text-muted-foreground">
               {id === user.id ? `(${t('noun.you')})` : null}
             </span>
           </div>

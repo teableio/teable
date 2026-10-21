@@ -1,11 +1,11 @@
 // @ts-check
 
-const path = require('path');
+const path = require('node:path');
 const escape = require('shell-quote').quote;
 
 const isWin = process.platform === 'win32';
 
-const eslintGlobalRulesForFix = [
+const oxlintGlobalAllowedRules = [
   // react-hooks/eslint and react in general is very strict about exhaustively
   // declaring the dependencies when using the useEffect, useCallback... hooks.
   //
@@ -13,10 +13,10 @@ const eslintGlobalRulesForFix = [
   // by the developer, leading to some exceptions in the code. That said it should be avoided.
   //
   // While the 'react-hooks/exhaustive-deps' rule is a good rule of thumb, it's not recommended to
-  // automatically fix it from lint-staged as it can potentially break a legit intent.
+  // enforce it from lint-staged as it can potentially break a legit intent.
   //
   // Reminder that a good practice is to always declare the dependencies when using the hooks,
-  // and if not applicable, add an eslint disable comment to the useEffect, useCallback... such as:
+  // and if not applicable, add a disable comment to the useEffect, useCallback... such as:
   //
   //    // eslint-disable-next-line react-hooks/exhaustive-deps
   //
@@ -24,67 +24,46 @@ const eslintGlobalRulesForFix = [
   // shallow rendering limitations.
   //
   // @see https://reactjs.org/docs/hooks-rules.html
-  // @see https://eslint.org/docs/2.13.1/user-guide/configuring#disabling-rules-with-inline-comments
-  'react-hooks/exhaustive-deps: off',
+  'react-hooks/exhaustive-deps',
 ];
 
 /**
- * Lint-staged command for running eslint in packages or apps.
- * @param {{cwd: string, files: string[], fix: boolean, fixType?: ('problem'|'suggestion'|'layout'|'directive')[], cache: boolean, rules?: string[], maxWarnings?: number}} params
+ * Lint-staged commands for code files in packages or apps: oxfmt formats them,
+ * then oxlint reports. Lint problems are not auto-fixed, since a fix that
+ * changes the AST should not land unreviewed from a commit hook.
+ * @param {{cwd: string, files: string[], maxWarnings?: number}} params
  */
-const getEslintFixCmd = ({
-  cwd,
-  files,
-  rules,
-  fix,
-  fixType,
-  cache,
-  maxWarnings,
-}) => {
-  const cliRules = [...(rules ?? []), ...eslintGlobalRulesForFix]
-    .filter((rule) => rule.trim().length > 0)
-    .map((r) => `"${r.trim()}"`);
-
-  // For lint-staged it's safer to not apply the fix command if it changes the AST
-  // @see https://eslint.org/docs/user-guide/command-line-interface#--fix-type
-  const cliFixType = [...(fixType ?? ['layout'])].filter(
-    (type) => type.trim().length > 0
-  );
-
-  const args = [
-    cache ? '--cache' : '',
-    fix ? '--fix' : '',
-    cliFixType.length > 0 ? `--fix-type ${cliFixType.join(',')}` : '',
+const getOxcCmds = ({ cwd, files, maxWarnings }) => {
+  // makes output cleaner by removing absolute paths from filenames
+  const cliFiles = files.map((f) => `"./${path.relative(cwd, f)}"`).join(' ');
+  // A staged file can sit under the package's ignorePatterns; that is not a failure.
+  const report = [
+    '--no-error-on-unmatched-pattern',
+    ...oxlintGlobalAllowedRules.map((rule) => `--allow ${rule}`),
     maxWarnings !== undefined ? `--max-warnings=${maxWarnings}` : '',
-    cliRules.length > 0 ? `--rule ${cliRules.join('--rule ')}` : '',
-    files
-      // makes output cleaner by removing absolute paths from filenames
-      .map((f) => `"./${path.relative(cwd, f)}"`)
-      .join(' '),
-  ].join(' ');
-  return `eslint ${args}`;
+    cliFiles,
+  ]
+    .filter((arg) => arg.length > 0)
+    .join(' ');
+  return [`oxfmt --no-error-on-unmatched-pattern ${cliFiles}`, `oxlint ${report}`];
 };
 
 /**
- * Concatenate and escape a list of filenames that can be passed as args to prettier cli
+ * Concatenate and escape a list of filenames that can be passed as args to oxfmt cli
  *
- * Prettier has an issue with special characters in filenames,
- * such as the ones uses for nextjs dynamic routes (ie: [id].tsx...)
- *
- * @link https://github.com/okonet/lint-staged/issues/676
+ * Filenames can hold glob characters, such as the ones used for nextjs dynamic
+ * routes (ie: [id].tsx...)
  *
  * @param {string[]} filenames
  * @returns {string} Return concatenated and escaped filenames
  */
-const concatFilesForPrettier = (filenames) =>
-  filenames
-    .map((filename) => `"${isWin ? filename : escape([filename])}"`)
-    .join(' ');
+const concatFilesForOxfmt = (filenames) =>
+  filenames.map((filename) => `"${isWin ? filename : escape([filename])}"`).join(' ');
 
-const concatFilesForStylelint = concatFilesForPrettier;
+const concatFilesForStylelint = concatFilesForOxfmt;
 
 module.exports = {
-  concatFilesForPrettier,
+  concatFilesForOxfmt,
   concatFilesForStylelint,
-  getEslintFixCmd,
+  getOxcCmds,
 };

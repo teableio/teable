@@ -45,14 +45,14 @@ export const ModelSelectTrigger = forwardRef<HTMLButtonElement, IModelSelectTrig
             </span>
           ) : (
             <>
-              {Icon && <Icon className="mr-1.5 size-4 shrink-0" />}
+              {Icon && <Icon className="me-1.5 size-4 shrink-0" />}
               <span className="truncate" title={model}>
                 {displayName}
               </span>
             </>
           )}
         </div>
-        <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+        <ChevronDown className="ms-2 size-4 shrink-0 opacity-50" />
       </Button>
     );
   }

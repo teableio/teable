@@ -18,6 +18,7 @@ import {
   DefaultTableMapper,
   buildRecordConditionSpec,
   domainError,
+  err,
   ok,
 } from '@teable/v2-core';
 import type {
@@ -237,6 +238,7 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         needsBeforeImage: false,
         requiredFieldIds: [],
       }),
+    hasWritableComputedWork: () => true,
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -528,7 +530,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "inactive",
             "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("col_amount" > $1)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
         {
           "parameters": [
@@ -602,7 +604,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "inactive",
             "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" in ($1, $2))) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
         {
           "parameters": [
@@ -741,7 +743,6 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       id: ACTOR_ID,
       title: 'Resolved User',
       email: 'resolved@example.com',
-      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
     });
 
     const { db, driver } = createRecordingDb((compiledQuery) => {
@@ -767,7 +768,6 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         id: ACTOR_ID,
         title: ACTOR_ID,
         email: null,
-        avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
       })
     );
 
@@ -1788,19 +1788,183 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const { db } = createRecordingDb();
     const repo = createRepository(db, table);
 
+    const sourceError = domainError.validation({ message: 'insert stream exploded' });
+    const close = vi.fn(async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+      throw new Error('source close failed');
+    });
     const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
       [Symbol.asyncIterator]() {
         return {
           next: async () => {
-            throw domainError.validation({ message: 'insert stream exploded' });
+            throw sourceError;
+          },
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    expect(result._unsafeUnwrapErr()).toBe(sourceError);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifies a source stream failure with the progress it observed', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SourceInterruptedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const record = TableRecord.fromRawFieldValues({
+      id: RECORD_ID,
+      tableId,
+      fields: { [nameFieldId.toString()]: 'Alice' },
+    })._unsafeUnwrap();
+    vi.spyOn(repo, 'insertMany').mockResolvedValue(ok({}));
+
+    const sourceError = new TypeError(
+      'fetch failed for https://bucket.example/source.csv?X-Amz-Signature=secret'
+    );
+    let served = 0;
+    const close = vi.fn(
+      async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
+        done: true,
+        value: undefined,
+      })
+    );
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+            served += 1;
+            if (served === 1) return { done: false, value: [record] };
+            throw sourceError;
+          },
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('record.insert_many_stream.source_interrupted');
+    expect(error.tags).toContain('infrastructure');
+    expect(error.message).toContain('interrupted after 1 row(s) in 1 batch(es)');
+    expect(error.message).not.toContain('X-Amz-Signature');
+    expect(error.details).toMatchObject({
+      insertedRows: 1,
+      insertedBatches: 1,
+      retryable: true,
+    });
+    expect(error.details).not.toHaveProperty('cause');
+    expect(error.cause).toBe(sourceError);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the stream once when a write fails and cleanup also throws', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('WriteFailedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const writeError = domainError.infrastructure({
+      code: 'record.write_failed',
+      message: 'write failed',
+    });
+    const insertMany = vi.spyOn(repo, 'insertMany').mockResolvedValue(err(writeError));
+    const close = vi.fn(async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => {
+      throw new Error('source close failed');
+    });
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
+            done: false,
+            value: [],
+          }),
+          return: close,
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    expect(result._unsafeUnwrapErr()).toBe(writeError);
+    expect(insertMany).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a thrown non-Error source failure instead of treating it as completion', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('ValuelessSourceFailureTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async () => {
+            // An interrupted source is not required to throw an Error instance.
+            throw undefined;
           },
         };
       },
     };
 
     const result = await repo.insertManyStream({ actorId }, table, batches);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('insert stream exploded');
+    const error = result._unsafeUnwrapErr();
+    expect(error.code).toBe('record.insert_many_stream.source_interrupted');
+    expect(error.details).toMatchObject({
+      insertedRows: 0,
+      insertedBatches: 0,
+      retryable: true,
+    });
   });
 
   it('skips changed-field returning for restore-style insert streams', async () => {
@@ -1957,7 +2121,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 });
 
 // =============================================================================
-// Tests: hybrid/async mode skips planStage in transaction
+// Tests: hybrid/async computed update routing
 // =============================================================================
 
 const createHybridRepository = (
@@ -2228,13 +2392,14 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     vi.useRealTimers();
   });
 
-  it('skips planStage and enqueues seed task directly in hybrid mode for updateManyStream', async () => {
+  it('plans and executes hybrid policy for updateManyStream when work is not deferred', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
     const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
     const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
     const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const computedFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
     const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
 
@@ -2249,6 +2414,14 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       .withName(FieldName.create('Name')._unsafeUnwrap())
       .primary()
       .done();
+    builder
+      .field()
+      .formula()
+      .withId(computedFieldId)
+      .withName(FieldName.create('Computed Name')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`{${textFieldId.toString()}} & ""`)._unsafeUnwrap())
+      .withDependencies([textFieldId])
+      .done();
     builder.view().defaultGrid().done();
 
     const table = builder.build()._unsafeUnwrap();
@@ -2257,13 +2430,33 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       ._unsafeUnwrap()
       .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
       ._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(computedFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_computed_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
 
     const updateResult = table
       .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Alice']]))
       ._unsafeUnwrap();
 
-    const planStageSpy = vi.fn();
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordIdA],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        changedFieldIds: [textFieldId],
+        changeType: 'update' as const,
+        steps: [{ tableId, fieldIds: [computedFieldId], level: 0 }],
+        edges: [],
+        estimatedComplexity: 1,
+        sameTableBatches: [],
+      })
+    );
     const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-1', merged: false }));
+    const executeSpy = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
     const scheduleDispatchSpy = vi.fn();
 
     const computedUpdatePlanner = {
@@ -2281,7 +2474,7 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const computedUpdateStrategy = {
       mode: 'hybrid' as const,
       name: 'hybrid',
-      execute: async () => ok(undefined),
+      execute: executeSpy,
       scheduleDispatch: scheduleDispatchSpy,
     };
 
@@ -2309,20 +2502,160 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const result = await repo.updateManyStream({ actorId }, table, batches());
     expect(result.isOk()).toBe(true);
 
-    // planStage must NOT be called in hybrid mode
-    expect(planStageSpy).not.toHaveBeenCalled();
-
-    // enqueueSeedTask must be called with the seed data
-    expect(enqueueSeedTaskSpy).toHaveBeenCalledTimes(1);
-    const seedTask = enqueueSeedTaskSpy.mock.calls[0][0];
-    expect(seedTask.seedTableId).toBe(tableId.toString());
-    expect(seedTask.seedRecordIds).toContain(recordIdA.toString());
-    expect(seedTask.changeType).toBe('update');
-
-    // scheduleDispatch must be called
-    expect(scheduleDispatchSpy).toHaveBeenCalledTimes(1);
+    expect(planStageSpy).toHaveBeenCalledTimes(1);
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+    expect(scheduleDispatchSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
+  });
+
+  it('keeps multi-record hybrid batches on the plan-free outbox path', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridMultiRecordTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi
+      .fn()
+      .mockResolvedValue(ok({ taskId: 'seed-many', merged: false }));
+    const scheduleDispatchSpy = vi.fn();
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+      hasWritableComputedWork: () => true,
+    } as unknown as ComputedUpdatePlanner;
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+    const repo = createHybridRepository(createRecordingDb().db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy: {
+        mode: 'hybrid',
+        name: 'hybrid',
+        execute: vi.fn(),
+        scheduleDispatch: scheduleDispatchSpy,
+      },
+    });
+
+    const result = await (
+      repo as unknown as {
+        runComputedUpdateManyByIds(
+          context: { actorId: ActorId },
+          table: Table,
+          recordIds: ReadonlyArray<RecordId>,
+          impact: {
+            valueFieldIds: ReadonlyArray<FieldId>;
+            linkFieldIds: ReadonlyArray<FieldId>;
+          }
+        ): Promise<{ isOk(): boolean }>;
+      }
+    ).runComputedUpdateManyByIds({ actorId }, table, [recordIdA, recordIdB], {
+      valueFieldIds: [textFieldId],
+      linkFieldIds: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(enqueueSeedTaskSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy.mock.calls[0][0].seedRecordIds).toEqual([
+      recordIdA.toString(),
+      recordIdB.toString(),
+    ]);
+    expect(scheduleDispatchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips plan-free hybrid seeds when the change has no computed work', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridNoComputedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi
+      .fn()
+      .mockResolvedValue(ok({ taskId: 'seed-many', merged: false }));
+    const scheduleDispatchSpy = vi.fn();
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+      hasWritableComputedWork: () => false,
+    } as unknown as ComputedUpdatePlanner;
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+    const repo = createHybridRepository(createRecordingDb().db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy: {
+        mode: 'hybrid',
+        name: 'hybrid',
+        execute: vi.fn(),
+        scheduleDispatch: scheduleDispatchSpy,
+      },
+    });
+
+    const result = await (
+      repo as unknown as {
+        runComputedUpdateManyByIds(
+          context: { actorId: ActorId },
+          table: Table,
+          recordIds: ReadonlyArray<RecordId>,
+          impact: {
+            valueFieldIds: ReadonlyArray<FieldId>;
+            linkFieldIds: ReadonlyArray<FieldId>;
+          }
+        ): Promise<{ isOk(): boolean }>;
+      }
+    ).runComputedUpdateManyByIds({ actorId }, table, [recordIdA, recordIdB], {
+      valueFieldIds: [textFieldId],
+      linkFieldIds: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+    expect(scheduleDispatchSpy).not.toHaveBeenCalled();
   });
 
   it('still calls planStage in sync mode for updateManyStream', async () => {
@@ -2570,7 +2903,7 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     vi.useRealTimers();
   });
 
-  it('does not call planStage in hybrid mode for updateMany (non-computed fields skip early)', async () => {
+  it('plans hybrid updateMany and exits when there are no computed steps', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -2609,7 +2942,21 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       value: 'pending',
     })._unsafeUnwrap();
 
-    const planStageSpy = vi.fn();
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        changedFieldIds: [textFieldId],
+        changeType: 'update' as const,
+        steps: [],
+        edges: [],
+        estimatedComplexity: 0,
+        sameTableBatches: [],
+      })
+    );
     const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-2', merged: false }));
 
     const computedUpdatePlanner = {
@@ -2647,88 +2994,9 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const result = await repo.updateMany({ actorId }, table, filterSpec, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    // planStage must NOT be called in hybrid mode — even if no computed fields
-    // exist, the code path should branch on strategy.mode before calling planStage
-    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(planStageSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
-  });
-});
-
-describe('PostgresTableRecordRepository deferred computed scheduling', () => {
-  it('enqueues deferred computed work in the row transaction and dispatches after commit', async () => {
-    const afterCommitHandlers: Array<() => void> = [];
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create('system')._unsafeUnwrap();
-    const transaction = {
-      kind: 'unitOfWorkTransaction' as const,
-      afterCommit: vi.fn((handler: () => void) => {
-        afterCommitHandlers.push(handler);
-      }),
-    };
-
-    const tableBuilder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeferredComputedTable')._unsafeUnwrap());
-    tableBuilder
-      .field()
-      .singleLineText()
-      .withId(textFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    tableBuilder.view().defaultGrid().done();
-    const table = tableBuilder.build()._unsafeUnwrap();
-    const record = TableRecord.fromRawFieldValues({
-      id: RECORD_ID,
-      tableId,
-      fields: { [NAME_FIELD_ID]: 'Alice' },
-    })._unsafeUnwrap();
-
-    const enqueueSeedTask = vi.fn(async () => ok({ taskId: 'cuo_deferred', merged: false }));
-    const scheduleDispatch = vi.fn();
-    const repositoryLike = {
-      computedUpdateOutbox: { enqueueSeedTask },
-      computedUpdateStrategy: { scheduleDispatch },
-      expandComputedSeedFieldIds: vi.fn(() => [textFieldId]),
-      hasher: { sha256: () => 'computed-seed-hash' },
-    };
-
-    const result = await (
-      PostgresTableRecordRepository.prototype as unknown as {
-        enqueueDeferredComputedUpdateMany: (
-          context: unknown,
-          table: unknown,
-          records: ReadonlyArray<unknown>
-        ) => Promise<ReturnType<typeof ok>>;
-      }
-    ).enqueueDeferredComputedUpdateMany.call(
-      repositoryLike,
-      { actorId, requestId: 'req-deferred-computed', transaction },
-      table,
-      [record]
-    );
-
-    expect(result.isOk()).toBe(true);
-    expect(enqueueSeedTask).toHaveBeenCalledTimes(1);
-    expect(enqueueSeedTask.mock.calls[0]?.[1]).toMatchObject({
-      actorId,
-      requestId: 'req-deferred-computed',
-      transaction,
-    });
-    expect(transaction.afterCommit).toHaveBeenCalledTimes(1);
-    expect(scheduleDispatch).not.toHaveBeenCalled();
-
-    afterCommitHandlers[0]!();
-
-    expect(scheduleDispatch).toHaveBeenCalledTimes(1);
-    expect(scheduleDispatch.mock.calls[0]?.[0]).toMatchObject({
-      actorId,
-      requestId: 'req-deferred-computed',
-    });
-    expect(scheduleDispatch.mock.calls[0]?.[0]).not.toHaveProperty('transaction');
   });
 });

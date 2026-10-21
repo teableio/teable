@@ -53,6 +53,21 @@ describe('ssrf-http wrappers', () => {
       ).rejects.toThrow();
     });
 
+    it('reaches the loopback server for a private-network peer (self-hosted)', async () => {
+      const res = await safeFetch(`http://127.0.0.1:${port}/`, undefined, {
+        allowPrivateNetwork: true,
+      });
+      expect(res.status).toBe(200);
+    });
+
+    it('still rejects the cloud-metadata address for a private-network peer', async () => {
+      await expect(
+        safeFetch('http://169.254.169.254/latest/meta-data/', undefined, {
+          allowPrivateNetwork: true,
+        })
+      ).rejects.toThrow();
+    });
+
     it('reaches the loopback server when SSRF protection is disabled (env parity)', async () => {
       process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
       const res = await safeFetch(`http://127.0.0.1:${port}/`);

@@ -43,8 +43,7 @@ type LookupRootShapeKey = (typeof lookupRootShapeKeys)[number];
 type DynamicShapeSnapshot = Record<DynamicShapeKey, unknown> &
   Partial<Record<LookupRootShapeKey, unknown>>;
 
-const hasOwn = (value: object, key: string): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
+const hasOwn = (value: object, key: string): boolean => Object.hasOwn(value, key);
 
 const emptyDynamicShapeSnapshot = (): DynamicShapeSnapshot => ({
   isComputed: null,
@@ -230,7 +229,7 @@ export const buildFieldShapeRefreshChanges = (
       continue;
     }
     const rawValue = snapshot[key];
-    const value = key === 'options' ? rawValue ?? {} : rawValue;
+    const value = key === 'options' ? (rawValue ?? {}) : rawValue;
     if (value == null) {
       continue;
     }

@@ -79,6 +79,7 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         needsBeforeImage: false,
         requiredFieldIds: [],
       }),
+    hasWritableComputedWork: () => true,
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -240,9 +241,7 @@ const createWideTableWithStorage = async (
   const table = builder.build()._unsafeUnwrap();
   const fields = table.getFields();
   for (let i = 0; i < fields.length; i++) {
-    fields[i]!
-      .setDbFieldName(DbFieldName.rehydrate(`col_${i}`)._unsafeUnwrap())
-      ._unsafeUnwrap();
+    fields[i]!.setDbFieldName(DbFieldName.rehydrate(`col_${i}`)._unsafeUnwrap())._unsafeUnwrap();
   }
 
   const schemaName = baseId.toString();

@@ -218,7 +218,7 @@ describe('InvitationService', () => {
           emails: ['notfound@example.com'],
           role: Role.Creator,
         })
-      ).rejects.toThrow('Base not found');
+      ).rejects.toThrow('Project not found');
     });
 
     it('should send invitation email correctly', async () => {
@@ -536,6 +536,109 @@ describe('InvitationService', () => {
         skipEvent: true,
       });
       expect(result.spaceId).toEqual(mockInvitation.spaceId);
+    });
+  });
+
+  describe('invitation link audit', () => {
+    const mockBaseId = 'bsexxxxxxxxx';
+    const auditRows = () =>
+      emitAsync.mock.calls
+        .filter(([event]: unknown[]) => event === Events.AUDIT_LOG_EMIT)
+        .map(([, row]: unknown[]) => row);
+    const runAsOwner = <T>(fn: () => Promise<T>) =>
+      clsService.runWith({ ...defaultCls, permissions: getPermissions(Role.Owner) }, fn);
+
+    it('writes invitation.link.delete with the removed link role', async () => {
+      prismaService.invitation.update.mockResolvedValue({
+        id: mockInvitationId,
+        role: Role.Editor,
+      } as any);
+
+      await runAsOwner(() =>
+        invitationService.deleteInvitationLink({
+          invitationId: mockInvitationId,
+          resourceId: mockSpace.id,
+          resourceType: CollaboratorType.Space,
+        })
+      );
+
+      expect(auditRows()).toEqual([
+        expect.objectContaining({
+          action: Events.INVITATION_LINK_DELETE,
+          resourceId: mockSpace.id,
+          params: {
+            resourceType: CollaboratorType.Space,
+            invitationId: mockInvitationId,
+            role: Role.Editor,
+            spaceId: mockSpace.id,
+          },
+        }),
+      ]);
+    });
+
+    it('does not audit a link delete that fails', async () => {
+      prismaService.invitation.update.mockRejectedValue(new Error('Record not found'));
+
+      await expect(
+        runAsOwner(() =>
+          invitationService.deleteInvitationLink({
+            invitationId: mockInvitationId,
+            resourceId: mockBaseId,
+            resourceType: CollaboratorType.Base,
+          })
+        )
+      ).rejects.toThrow('Record not found');
+      expect(auditRows()).toEqual([]);
+    });
+
+    it('writes invitation.link.update with oldRole and newRole', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue({ role: Role.Editor } as any);
+      prismaService.invitation.update.mockResolvedValue({ id: mockInvitationId } as any);
+
+      const result = await runAsOwner(() =>
+        invitationService.updateInvitationLink({
+          invitationId: mockInvitationId,
+          role: Role.Viewer,
+          resourceId: mockBaseId,
+          resourceType: CollaboratorType.Base,
+        })
+      );
+
+      expect(result).toEqual({ invitationId: mockInvitationId, role: Role.Viewer });
+      expect(prismaService.invitation.findFirst).toHaveBeenCalledWith({
+        where: { id: mockInvitationId, type: 'link', baseId: mockBaseId },
+        select: { role: true },
+      });
+      expect(auditRows()).toEqual([
+        expect.objectContaining({
+          action: Events.INVITATION_LINK_UPDATE,
+          resourceId: mockBaseId,
+          params: {
+            resourceType: CollaboratorType.Base,
+            invitationId: mockInvitationId,
+            oldRole: Role.Editor,
+            newRole: Role.Viewer,
+            baseId: mockBaseId,
+          },
+        }),
+      ]);
+    });
+
+    it('does not audit a same-role link update', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue({ role: Role.Editor } as any);
+      prismaService.invitation.update.mockResolvedValue({ id: mockInvitationId } as any);
+
+      await runAsOwner(() =>
+        invitationService.updateInvitationLink({
+          invitationId: mockInvitationId,
+          role: Role.Editor,
+          resourceId: mockSpace.id,
+          resourceType: CollaboratorType.Space,
+        })
+      );
+
+      expect(prismaService.invitation.update).toHaveBeenCalled();
+      expect(auditRows()).toEqual([]);
     });
   });
 });

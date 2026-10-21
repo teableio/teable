@@ -20,6 +20,12 @@ export enum UploadType {
   Automation = 14,
   RecordHistory = 15,
   SpaceAvatar = 16,
+  RecordRemoval = 17,
+  WorkflowRunCold = 18,
+  AuditLogCold = 19,
+  Artifact = 20,
+  // One archive of everything a user owns, mailed to them before an account or space goes.
+  UserDataExport = 21,
 }
 
 export const signatureRoSchema = z.object({

@@ -6,7 +6,11 @@ import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../fields/FieldId';
 import { Table } from '../Table';
 import type { View } from '../views/View';
-import { ViewColumnMeta } from '../views/ViewColumnMeta';
+import {
+  keepPrimaryFieldVisible,
+  ViewColumnMeta,
+  type ViewColumnMetaChange,
+} from '../views/ViewColumnMeta';
 import type { ViewId } from '../views/ViewId';
 import { CloneViewVisitor } from '../views/visitors/CloneViewVisitor';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
@@ -15,7 +19,14 @@ export type TableViewColumnMetaUpdate = {
   viewId: ViewId;
   fieldId: FieldId;
   columnMeta: ViewColumnMeta;
+  changes?: ReadonlyArray<ViewColumnMetaChange>;
+  previousOptions?: unknown;
+  nextOptions?: unknown;
+  optionsChanged?: boolean;
 };
+
+// Every producer builds this spec through `create(table, updates)`, so the persisted
+// payload and the mutated aggregate both carry invariant-preserving metadata.
 
 export class TableUpdateViewColumnMetaSpec<
   V extends ITableSpecVisitor = ITableSpecVisitor,
@@ -24,8 +35,42 @@ export class TableUpdateViewColumnMetaSpec<
     super();
   }
 
-  static create(updates: ReadonlyArray<TableViewColumnMetaUpdate>): TableUpdateViewColumnMetaSpec {
-    return new TableUpdateViewColumnMetaSpec(updates);
+  static create(
+    table: Table,
+    updates: ReadonlyArray<TableViewColumnMetaUpdate>
+  ): TableUpdateViewColumnMetaSpec {
+    return new TableUpdateViewColumnMetaSpec(
+      updates.map((update) => TableUpdateViewColumnMetaSpec.normalizeUpdate(table, update))
+    );
+  }
+
+  /**
+   * A gallery primary column is never hidden in persisted metadata. The value object
+   * owns the rule; this method only applies it to the payload and to the reported
+   * changes so events and rows stay identical.
+   */
+  private static normalizeUpdate(
+    table: Table,
+    update: TableViewColumnMetaUpdate
+  ): TableViewColumnMetaUpdate {
+    const view = table.getView(update.viewId);
+    if (view.isErr()) return update;
+
+    const viewType = view.value.type();
+    const primaryFieldId = table.primaryFieldId();
+    const columnMeta = update.columnMeta.withPrimaryFieldVisible(viewType, primaryFieldId);
+    const changes = update.changes
+      ?.map((change) =>
+        change.fieldId.equals(primaryFieldId)
+          ? { ...change, nextColumnMeta: keepPrimaryFieldVisible(viewType, change.nextColumnMeta) }
+          : change
+      )
+      .filter(
+        (change) =>
+          JSON.stringify(change.previousColumnMeta) !== JSON.stringify(change.nextColumnMeta)
+      );
+
+    return { ...update, columnMeta, ...(changes ? { changes } : {}) };
   }
 
   static fromTableWithFieldId(
@@ -55,7 +100,7 @@ export class TableUpdateViewColumnMetaSpec<
             return ViewColumnMeta.create({
               ...update.columnMeta.toDto(),
               [fieldKey]: {
-                ...(update.columnMeta.toDto()[fieldKey] ?? {}),
+                ...update.columnMeta.toDto()[fieldKey],
                 order,
               },
             }).map((columnMeta) => [
@@ -69,7 +114,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-      return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+      return updatesResult.map((updates) => this.create(table, updates));
     });
   }
 
@@ -98,7 +143,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-    return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+    return updatesResult.map((updates) => this.create(table, updates));
   }
 
   static forDuplicatePlacement(params: {
@@ -138,7 +183,7 @@ export class TableUpdateViewColumnMetaSpec<
               const nextMetaResult = ViewColumnMeta.create({
                 ...raw,
                 [newFieldKey]: {
-                  ...(raw[newFieldKey] ?? {}),
+                  ...raw[newFieldKey],
                   order: targetOrder,
                 },
               });
@@ -155,7 +200,7 @@ export class TableUpdateViewColumnMetaSpec<
         ok([])
       );
 
-    return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+    return updatesResult.map((updates) => this.create(table, updates));
   }
 
   updates(): ReadonlyArray<TableViewColumnMetaUpdate> {
@@ -167,26 +212,28 @@ export class TableUpdateViewColumnMetaSpec<
       return ok(t);
     }
 
-    const updatesByViewId = new Map<string, ViewColumnMeta>();
+    const updatesByViewId = new Map<string, TableViewColumnMetaUpdate>();
     for (const update of this.updatesValue) {
-      updatesByViewId.set(update.viewId.toString(), update.columnMeta);
+      updatesByViewId.set(update.viewId.toString(), update);
     }
 
     const nextViews: View[] = [];
     for (const view of t.views()) {
-      const nextColumnMeta = updatesByViewId.get(view.id().toString());
-      if (!nextColumnMeta) {
+      const update = updatesByViewId.get(view.id().toString());
+      if (!update) {
         nextViews.push(view);
         continue;
       }
 
-      const cloneResult = view.accept(new CloneViewVisitor());
+      const cloneResult = view.accept(
+        new CloneViewVisitor(update.optionsChanged ? { options: update.nextOptions } : undefined)
+      );
       if (cloneResult.isErr()) {
         return err(cloneResult.error);
       }
 
       const clone = cloneResult.value;
-      const setColumnMetaResult = clone.setColumnMeta(nextColumnMeta);
+      const setColumnMetaResult = clone.setColumnMeta(update.columnMeta);
       if (setColumnMetaResult.isErr()) {
         return err(setColumnMetaResult.error);
       }
@@ -201,32 +248,29 @@ export class TableUpdateViewColumnMetaSpec<
         return err(setQueryDefaultsResult.error);
       }
 
+      const auditMetadataResult = view.auditMetadata();
+      if (auditMetadataResult.isOk()) {
+        const setAuditMetadataResult = clone.setAuditMetadata(auditMetadataResult.value);
+        if (setAuditMetadataResult.isErr()) {
+          return err(setAuditMetadataResult.error);
+        }
+      }
+
       nextViews.push(clone);
     }
 
-    const nextTableResult = Table.rehydrate({
+    const dbTableNameResult = t.dbTableName();
+    return Table.rehydrate({
       id: t.id(),
       baseId: t.baseId(),
       name: t.name(),
+      properties: t.properties(),
       fields: t.getFields(),
       views: nextViews,
       primaryFieldId: t.primaryFieldId(),
+      searchIndex: t.searchIndex(),
+      dbTableName: dbTableNameResult.isOk() ? dbTableNameResult.value : undefined,
     });
-    if (nextTableResult.isErr()) {
-      return nextTableResult;
-    }
-
-    const dbTableNameResult = t.dbTableName();
-    if (dbTableNameResult.isErr()) {
-      return ok(nextTableResult.value);
-    }
-
-    const setDbTableNameResult = nextTableResult.value.setDbTableName(dbTableNameResult.value);
-    if (setDbTableNameResult.isErr()) {
-      return err(setDbTableNameResult.error);
-    }
-
-    return ok(nextTableResult.value);
   }
 
   accept(v: V): Result<void, DomainError> {

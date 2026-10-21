@@ -1,9 +1,35 @@
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { CellValueType, DbFieldType, getDefaultFormatting, type IFieldVo } from '@teable/core';
-import { v2CoreTokens } from '@teable/v2-core';
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+import {
+  CellValueType,
+  DbFieldType,
+  FieldType,
+  getDefaultFormatting,
+  type IFieldVo,
+} from '@teable/core';
+import type * as V2ContractHttp from '@teable/v2-contract-http';
+import { tableProvisionPendingError, v2CoreTokens } from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
+
+// Mapping tests inject their service dependencies explicitly; keep database and
+// application bootstrap code outside this unit test boundary.
+vi.mock('@teable/db-main-prisma', () => ({ PrismaService: class PrismaService {} }));
+vi.mock('../../data-loader/data-loader.service', () => ({
+  DataLoaderService: class DataLoaderService {},
+}));
+vi.mock('../../v2/v2-container.service', () => ({
+  V2ContainerService: class V2ContainerService {},
+}));
+vi.mock('../../v2/v2-execution-context.factory', () => ({
+  V2ExecutionContextFactory: class V2ExecutionContextFactory {},
+}));
+vi.mock('../field-calculate/field-supplement.service', () => ({
+  FieldSupplementService: class FieldSupplementService {},
+}));
 
 const {
   executeDeleteFieldEndpoint,
@@ -23,6 +49,18 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
   executeUpdateFieldEndpoint,
   executeUpdateRecordEndpoint,
 }));
+
+vi.mock('@teable/v2-contract-http', async (importOriginal) => {
+  const original = await importOriginal<typeof V2ContractHttp>();
+  return {
+    ...original,
+    mapFieldToDto: (field: unknown, primaryFieldId?: unknown) => {
+      const testDto = (field as { __testDto?: Record<string, unknown> }).__testDto;
+      if (testDto) return { isErr: () => false, value: testDto };
+      return original.mapFieldToDto(field as never, primaryFieldId as never);
+    },
+  };
+});
 
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 
@@ -96,7 +134,6 @@ const createService = () =>
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -134,6 +171,7 @@ const createV2ContainerService = (commandBus: unknown, tableQueryService: unknow
 
 const createFieldSupplementService = () => ({
   assertSameSpaceLinkTarget: vi.fn(),
+  assertNewForeignTableAllowed: vi.fn(),
 });
 
 describe('FieldOpenApiV2Service deleteField', () => {
@@ -177,7 +215,6 @@ describe('FieldOpenApiV2Service deleteField', () => {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
       dataLoaderService as never,
-      {} as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -197,6 +234,665 @@ describe('FieldOpenApiV2Service deleteField', () => {
       commandBus
     );
     expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([tableId]);
+  });
+});
+
+describe('FieldOpenApiV2Service getSnapshotBulk', () => {
+  const createSnapshotField = (fieldId: string, dto: IFieldVo, version = 9) => ({
+    id: () => ({ toString: () => fieldId }),
+    isProvisionPending: () => false,
+    version: () => ({
+      isErr: () => false,
+      isOk: () => true,
+      value: { toNumber: () => version },
+    }),
+    get __testDto() {
+      return dto;
+    },
+  });
+
+  it('maps GetFieldSnapshots without a Prisma reread', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const currentField = { id: fieldId, name: 'Current name' } as IFieldVo;
+    const field = createSnapshotField(fieldId, currentField);
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [{ id: fieldId, version: 9, field }],
+        fields: [field],
+        primaryFieldId: { equals: () => false },
+      },
+    }));
+    const prismaService = {
+      txClient: vi.fn(),
+    };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prismaService as never,
+      {} as never
+    );
+
+    const snapshots = await service.getSnapshotBulk(tableId, [fieldId]);
+    expect(snapshots).toEqual([
+      {
+        id: fieldId,
+        v: 9,
+        type: 'json0',
+        data: expect.objectContaining({ id: fieldId, name: 'Current name' }),
+      },
+    ]);
+    expect(prismaService.txClient).not.toHaveBeenCalled();
+    expect(
+      execute.mock.calls[0]?.[1].fieldIds?.map((id: { toString(): string }) => id.toString())
+    ).toEqual([fieldId]);
+  });
+
+  it('returns an empty bulk when GetFieldSnapshots omits version-less fields', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [],
+        fields: [],
+      },
+    }));
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { txClient: vi.fn() } as never,
+      {} as never
+    );
+
+    await expect(service.getSnapshotBulk(tableId, [fieldId])).resolves.toEqual([]);
+  });
+
+  it('fills missing cross-base baseId on conditional snapshots without listing host fields', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const hostBaseId = `bse${'a'.repeat(16)}`;
+    const foreignBaseId = `bse${'b'.repeat(16)}`;
+    const fieldId = `fld${'c'.repeat(16)}`;
+    const currentField = {
+      id: fieldId,
+      name: 'Cross-base rollup',
+      type: FieldType.ConditionalRollup,
+      options: { foreignTableId, expression: 'countall({values})' },
+    } as IFieldVo;
+    const field = createSnapshotField(fieldId, currentField);
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [{ id: fieldId, version: 9, field }],
+        fields: [field],
+        primaryFieldId: { equals: () => false },
+      },
+    }));
+    const tableMeta = {
+      findUnique: vi.fn(async () => ({ baseId: hostBaseId })),
+      findMany: vi.fn(async () => [{ id: foreignTableId, baseId: foreignBaseId }]),
+    };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { txClient: () => ({ tableMeta }) } as never,
+      {} as never
+    );
+
+    const snapshots = await service.getSnapshotBulk(tableId, [fieldId]);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]?.data.options).toMatchObject({ baseId: foreignBaseId, foreignTableId });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(tableMeta.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates lookup snapshot choices from the source field once per foreign table', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let sourceChoices = [{ id: 'choBefore', name: 'Before', color: 'blueBright' }];
+    const lookupFields = Array.from({ length: 22 }, (_, index) => ({
+      id: `fld${String(index).padStart(16, '0')}`,
+      name: `Lookup ${index}`,
+      type: 'singleLineText',
+      isLookup: true,
+      lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+      options: { choices: [{ name: 'Before' }] },
+    }));
+    const execute = vi.fn(
+      async (
+        _context: unknown,
+        query: { tableId: { toString(): string }; fieldIds?: ReadonlyArray<{ toString(): string }> }
+      ) => {
+        const id = query.tableId.toString();
+        if (id === tableId) {
+          const fields = lookupFields.map((dto) => createSnapshotField(dto.id, dto as IFieldVo));
+          return {
+            isErr: () => false,
+            value: {
+              snapshots: fields.map((field, index) => ({
+                id: lookupFields[index]!.id,
+                version: 1,
+                field,
+              })),
+              fields,
+              primaryFieldId: { equals: () => false },
+            },
+          };
+        }
+        return {
+          isErr: () => false,
+          value: {
+            fields: [
+              createSnapshotField(sourceFieldId, {
+                id: sourceFieldId,
+                name: 'Status',
+                type: 'singleSelect',
+                options: { choices: sourceChoices },
+              } as IFieldVo),
+            ],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+    );
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const before = await service.getSnapshotBulk(
+      tableId,
+      lookupFields.map((field) => field.id)
+    );
+    expect(before).toHaveLength(22);
+    expect(before[0]?.data).toMatchObject({
+      type: 'singleSelect',
+      options: { choices: [{ name: 'Before' }] },
+    });
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      tableId,
+      foreignTableId,
+      tableId,
+    ]);
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+
+    sourceChoices = [
+      { id: 'choBefore', name: 'Before', color: 'blueBright' },
+      { id: 'choAfter', name: 'After', color: 'greenBright' },
+    ];
+    const after = await service.getSnapshotBulk(
+      tableId,
+      lookupFields.map((field) => field.id)
+    );
+    expect(after[0]?.data.options).toMatchObject({
+      choices: [{ name: 'Before' }, { name: 'After' }],
+    });
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('retries snapshot bulk when host lookup version changes during source hydration', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const lookupId = `fld${'0'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let hostVersion = 1;
+    const hostDto = (): IFieldVo =>
+      ({
+        id: lookupId,
+        name: 'Lookup',
+        isLookup: true,
+        type: hostVersion === 1 ? 'singleLineText' : 'number',
+        cellValueType: hostVersion === 1 ? 'string' : 'number',
+        lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+        options: {},
+      }) as IFieldVo;
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      if (id === tableId) {
+        const field = createSnapshotField(lookupId, hostDto(), hostVersion);
+        return {
+          isErr: () => false,
+          value: {
+            snapshots: [{ id: lookupId, version: hostVersion, field }],
+            fields: [field],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+      hostVersion = 2;
+      return {
+        isErr: () => false,
+        value: {
+          fields: [
+            createSnapshotField(sourceFieldId, {
+              id: sourceFieldId,
+              name: 'Amount',
+              type: 'number',
+              cellValueType: 'number',
+              options: {},
+            } as IFieldVo),
+          ],
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const snapshots = await service.getSnapshotBulk(tableId, [lookupId]);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({
+      id: lookupId,
+      v: 2,
+      data: { type: 'number', cellValueType: 'number' },
+    });
+  });
+
+  it('rejects snapshot bulk with conflict when host versions never stabilize', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const lookupId = `fld${'0'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let hostVersion = 1;
+    const hostDto = (): IFieldVo =>
+      ({
+        id: lookupId,
+        name: 'Lookup',
+        isLookup: true,
+        type: hostVersion === 1 ? 'singleLineText' : 'number',
+        cellValueType: hostVersion === 1 ? 'string' : 'number',
+        lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+        options: {},
+      }) as IFieldVo;
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      if (id === tableId) {
+        const field = createSnapshotField(lookupId, hostDto(), hostVersion);
+        return {
+          isErr: () => false,
+          value: {
+            snapshots: [{ id: lookupId, version: hostVersion, field }],
+            fields: [field],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+      hostVersion += 1;
+      return {
+        isErr: () => false,
+        value: {
+          fields: [
+            createSnapshotField(sourceFieldId, {
+              id: sourceFieldId,
+              name: 'Amount',
+              type: 'number',
+              cellValueType: 'number',
+              options: {},
+            } as IFieldVo),
+          ],
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const error = await service.getSnapshotBulk(tableId, [lookupId]).catch((caught) => caught);
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(HttpStatus.CONFLICT);
+    expect(error).toMatchObject({ message: 'Field snapshot changed during hydration' });
+  });
+});
+
+describe('FieldOpenApiV2Service lookup metadata reads (T7180)', () => {
+  const hostTableId = `tbl${'a'.repeat(16)}`;
+  const foreignTableId = `tbl${'b'.repeat(16)}`;
+  const otherTableId = `tbl${'c'.repeat(16)}`;
+  const sourceFieldId = `fld${'d'.repeat(16)}`;
+  const otherSourceFieldId = `fld${'e'.repeat(16)}`;
+  const lookupFields = Array.from({ length: 22 }, (_, index) => ({
+    id: `fld${String(index).padStart(16, '0')}`,
+    name: `Lookup ${index}`,
+    type: 'singleLineText',
+    isLookup: true,
+    lookupOptions: {
+      foreignTableId: index === 21 ? otherTableId : foreignTableId,
+      lookupFieldId: index === 21 ? otherSourceFieldId : sourceFieldId,
+    },
+    options: {},
+  }));
+
+  const setup = (nestedSource = false) => {
+    let sourceChoices = [{ id: 'choFirst', name: 'First', color: 'redBright' }];
+    let failForeign = false;
+    let requestId = 0;
+    let mappedFields = 0;
+    const execute = vi.fn(
+      async (
+        _context: unknown,
+        query: {
+          tableId: { toString(): string };
+          fieldIds?: ReadonlyArray<{ toString(): string }>;
+        }
+      ) => {
+        const id = query.tableId.toString();
+        if (id === foreignTableId && failForeign) throw new Error('Foreign metadata unavailable');
+        const dtos =
+          id === hostTableId
+            ? lookupFields
+            : [
+                {
+                  id: id === otherTableId ? otherSourceFieldId : sourceFieldId,
+                  name: 'Source',
+                  ...(nestedSource && id === foreignTableId
+                    ? {
+                        isLookup: true,
+                        lookupOptions: {
+                          foreignTableId: otherTableId,
+                          lookupFieldId: otherSourceFieldId,
+                        },
+                      }
+                    : {}),
+                  type: id === otherTableId ? 'number' : 'singleSelect',
+                  options:
+                    id === otherTableId
+                      ? { formatting: { type: 'decimal', precision: 3 } }
+                      : { choices: sourceChoices },
+                },
+              ];
+        return {
+          isErr: () => false,
+          value: {
+            fields: dtos.map((dto) => ({
+              id: () => ({ toString: () => dto.id }),
+              version: () => ({
+                isErr: () => false,
+                isOk: () => true,
+                value: { toNumber: () => 1 },
+              }),
+              get __testDto() {
+                mappedFields++;
+                return dto;
+              },
+            })),
+            primaryFieldId: undefined,
+            view: undefined,
+          },
+        };
+      }
+    );
+    const contextFactory = { createContext: vi.fn(async () => ({ requestId: ++requestId })) };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      contextFactory as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => lookupFields.map(({ id }) => ({ id, version: 1 })) },
+        }),
+      } as never,
+      {} as never
+    );
+    return {
+      service,
+      execute,
+      contextFactory,
+      mappedFieldCount: () => mappedFields,
+      changeSource: () => {
+        sourceChoices = [{ id: 'choSecond', name: 'Second', color: 'blueBright' }];
+      },
+      failSource: (fail: boolean) => {
+        failForeign = fail;
+      },
+    };
+  };
+
+  it('loads each foreign table once for a 22-lookup field list, preserving distinct field results', async () => {
+    const { service, execute, contextFactory, mappedFieldCount } = setup();
+    const fields = await service.getFields(hostTableId);
+    expect(fields).toHaveLength(22);
+    expect(mappedFieldCount()).toBe(24);
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      hostTableId,
+      foreignTableId,
+      otherTableId,
+    ]);
+    expect(execute.mock.calls[0]?.[1].fieldIds).toBeUndefined();
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+    expect(execute.mock.calls[2]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      otherSourceFieldId,
+    ]);
+    expect(contextFactory.createContext).toHaveBeenCalledTimes(1);
+    const context = execute.mock.calls[0][0];
+    expect(execute.mock.calls.every(([queryContext]) => queryContext === context)).toBe(true);
+    expect(fields[0]).toMatchObject({
+      type: 'singleSelect',
+      options: { choices: [{ name: 'First' }] },
+    });
+    expect(fields[21]).toMatchObject({
+      type: 'number',
+      options: { formatting: { precision: 3 } },
+    });
+    expect(fields[0].options).not.toBe(fields[1].options);
+  });
+
+  it('shares reads through nested lookup hydration as well as direct references', async () => {
+    const { service, execute } = setup(true);
+    const fields = await service.getFields(hostTableId);
+    expect(fields.every((field) => field.type === 'number')).toBe(true);
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      hostTableId,
+      foreignTableId,
+      otherTableId,
+    ]);
+    expect(execute.mock.calls[0]?.[1].fieldIds).toBeUndefined();
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+    expect(execute.mock.calls[2]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      otherSourceFieldId,
+    ]);
+  });
+
+  it('reuses an in-flight foreign field read when nested hydration requests the same field', async () => {
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const tableA = `tbl${'a'.repeat(16)}`;
+    const tableB = `tbl${'b'.repeat(16)}`;
+    const fieldA = `fld${'a'.repeat(16)}`;
+    const fieldB = `fld${'b'.repeat(16)}`;
+    const hostDirectId = `fld${'1'.padStart(16, '0')}`;
+    const hostNestedId = `fld${'2'.padStart(16, '0')}`;
+    let releaseB = () => undefined as void;
+    const bGate = new Promise<void>((resolve) => {
+      releaseB = resolve;
+    });
+    let bQueries = 0;
+    let bStarted = () => undefined as void;
+    const bStartedAt = new Promise<void>((resolve) => {
+      bStarted = resolve;
+    });
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      const dto =
+        id === hostTableId
+          ? [
+              {
+                id: hostDirectId,
+                isLookup: true,
+                lookupOptions: { foreignTableId: tableB, lookupFieldId: fieldB },
+                type: 'singleLineText',
+                options: {},
+              },
+              {
+                id: hostNestedId,
+                isLookup: true,
+                lookupOptions: { foreignTableId: tableA, lookupFieldId: fieldA },
+                type: 'singleLineText',
+                options: {},
+              },
+            ]
+          : id === tableA
+            ? [
+                {
+                  id: fieldA,
+                  isLookup: true,
+                  lookupOptions: { foreignTableId: tableB, lookupFieldId: fieldB },
+                  type: 'singleLineText',
+                  options: {},
+                },
+              ]
+            : [
+                {
+                  id: fieldB,
+                  type: 'number',
+                  cellValueType: 'number',
+                  options: {},
+                },
+              ];
+      if (id === tableB) {
+        bQueries++;
+        bStarted();
+        await bGate;
+      }
+      return {
+        isErr: () => false,
+        value: {
+          fields: dto.map((field) => ({
+            id: () => ({ toString: () => field.id }),
+            get __testDto() {
+              return field;
+            },
+          })),
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const pending = service.getFields(hostTableId);
+    await bStartedAt;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(bQueries).toBe(1);
+    releaseB();
+    const fields = await pending;
+    expect(bQueries).toBe(1);
+    expect(fields).toHaveLength(2);
+    expect(fields.every((field) => field.type === 'number')).toBe(true);
+  });
+
+  it('reads changed foreign metadata on the next operation even for the same service instance', async () => {
+    const { service, execute, changeSource } = setup();
+    await service.getFields(hostTableId);
+    changeSource();
+    const fields = await service.getFields(hostTableId);
+    expect(fields[0]).toMatchObject({ options: { choices: [{ name: 'Second' }] } });
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('shares a rejected foreign read for one operation and retries it on the next operation', async () => {
+    const { service, execute, failSource } = setup();
+    failSource(true);
+    const fields = await service.getFields(hostTableId);
+    expect(fields[0].type).toBe('singleLineText');
+    expect(fields[21].type).toBe('number');
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(1);
+    failSource(false);
+    const recovered = await service.getFields(hostTableId);
+    expect(recovered[0].type).toBe('singleSelect');
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('does not coalesce concurrent operations with different execution contexts', async () => {
+    const { service, execute, contextFactory } = setup();
+    await Promise.all([service.getFields(hostTableId), service.getFields(hostTableId)]);
+    expect(contextFactory.createContext).toHaveBeenCalledTimes(2);
+    const foreignCalls = execute.mock.calls.filter(
+      ([, query]) => query.tableId.toString() === foreignTableId
+    );
+    expect(foreignCalls).toHaveLength(2);
+    expect(foreignCalls[0][0]).not.toBe(foreignCalls[1][0]);
   });
 });
 
@@ -222,25 +918,24 @@ describe('FieldOpenApiV2Service updateField', () => {
       body: { ok: true },
     });
     const commandBus = {};
-    const tableQueryService = {
-      getById: vi.fn().mockResolvedValue({
-        isErr: () => false,
-        value: {},
-      }),
+    const domainField = {
+      id: () => ({ toString: () => fieldId }),
+      __testDto: fieldDto,
     };
-    const tableMapper = {
-      toDTO: vi.fn().mockReturnValue({
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
         isErr: () => false,
         value: {
-          fields: [fieldDto],
+          fields: [domainField],
+          primaryFieldId: undefined,
+          view: undefined,
         },
       }),
     };
     const container = {
       resolve: vi.fn((token: symbol) => {
         if (token === v2CoreTokens.commandBus) return commandBus;
-        if (token === v2CoreTokens.tableQueryService) return tableQueryService;
-        if (token === v2CoreTokens.tableMapper) return tableMapper;
+        if (token === v2CoreTokens.queryBus) return queryBus;
         throw new Error(`Unexpected token ${String(token)}`);
       }),
     };
@@ -257,7 +952,6 @@ describe('FieldOpenApiV2Service updateField', () => {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
       dataLoaderService as never,
-      {} as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -282,6 +976,81 @@ describe('FieldOpenApiV2Service updateField', () => {
       tableId,
       foreignTableId,
     ]);
+  });
+
+  it('asserts the foreign table of a patched link field is allowed', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const otherForeignTableId = `tbl${'c'.repeat(16)}`;
+    const fieldId = `fld${'d'.repeat(16)}`;
+    const context: Record<string, unknown> = {};
+    const fieldDto = {
+      id: fieldId,
+      type: 'link',
+      name: 'Linked table',
+      options: {
+        relationship: 'manyMany',
+        foreignTableId,
+        lookupFieldId: `fld${'e'.repeat(16)}`,
+      },
+    };
+    executeUpdateFieldEndpoint.mockResolvedValue({
+      status: 200,
+      body: { ok: true },
+    });
+    const commandBus = {};
+    const domainField = {
+      id: () => ({ toString: () => fieldId }),
+      __testDto: fieldDto,
+    };
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          fields: [domainField],
+          primaryFieldId: undefined,
+          view: undefined,
+        },
+      }),
+    };
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.commandBus) return commandBus;
+        if (token === v2CoreTokens.queryBus) return queryBus;
+        throw new Error(`Unexpected token ${String(token)}`);
+      }),
+    };
+    const fieldSupplementService = createFieldSupplementService();
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainerForTable: vi.fn().mockResolvedValue(container),
+      } as never,
+      {
+        createContext: vi.fn().mockResolvedValue(context),
+      } as never,
+      { field: { invalidateTables: vi.fn() } } as never,
+      { get: vi.fn(() => undefined) } as never,
+      fieldSupplementService as never,
+      {} as never
+    );
+
+    await service.updateField(tableId, fieldId, {
+      options: { foreignTableId: otherForeignTableId },
+    });
+
+    expect(fieldSupplementService.assertNewForeignTableAllowed).toHaveBeenCalledWith(
+      tableId,
+      otherForeignTableId
+    );
+    // An unchanged foreign table stays on the cheaper same-space check.
+    fieldSupplementService.assertNewForeignTableAllowed.mockClear();
+    fieldSupplementService.assertSameSpaceLinkTarget.mockClear();
+    await service.updateField(tableId, fieldId, { options: { foreignTableId } });
+    expect(fieldSupplementService.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
+      tableId,
+      foreignTableId
+    );
+    expect(fieldSupplementService.assertNewForeignTableAllowed).not.toHaveBeenCalled();
   });
 });
 
@@ -634,6 +1403,59 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('preserves cross-base id on conditionalRollup convert (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2({
+      type: 'conditionalRollup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        expression: 'sum({values})',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalRollup',
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
+  it('preserves cross-base id on conditional lookup convert (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2({
+      type: 'number',
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalLookup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
   it('omits incomplete conditionalRollup result type in convert payload', () => {
     const service = createService();
     const mapped = service.mapConvertFieldToV2({
@@ -893,6 +1715,64 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('routes lookup display options to innerOptions and link config to options', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: {
+          formatting: { type: 'decimal', precision: 3 },
+          showAs: { type: 'bar', color: 'green', showValue: true, maxValue: 100 },
+        },
+        lookupOptions: { lookupFieldId: 'fldLookup0000000000' },
+      },
+      {
+        type: 'number',
+        isLookup: true,
+        options: { formatting: { type: 'decimal', precision: 0 } },
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000000',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { lookupFieldId: 'fldLookup0000000000' },
+      innerOptions: {
+        formatting: { type: 'decimal', precision: 3 },
+        showAs: { type: 'bar', color: 'green', showValue: true, maxValue: 100 },
+      },
+    });
+  });
+
+  it('merges rollup lookupOptions into the v2 link config', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: { expression: 'max({values})' },
+        lookupOptions: { lookupFieldId: 'fldStock00000000000' },
+      },
+      {
+        type: 'rollup',
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000000',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { expression: 'max({values})' },
+      config: {
+        linkFieldId: 'fldLink000000000000',
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+      },
+    });
+  });
+
   it('marks singleLineText showAs for clearing on update mapping', () => {
     const service = createService();
     const mapped = service.mapLegacyUpdateFieldToV2(
@@ -912,6 +1792,91 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
       type: 'singleLineText',
       options: {
         showAs: null,
+      },
+    });
+  });
+
+  it('routes conditional lookup display options into options.innerOptions', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: { formatting: { type: 'decimal', precision: 3 } },
+      },
+      {
+        type: 'number',
+        isLookup: true,
+        isConditionalLookup: true,
+        options: { formatting: { type: 'decimal', precision: 0 } },
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldPrice00000000000',
+        filter: { conjunction: 'and', filterSet: [] },
+        innerOptions: { formatting: { type: 'decimal', precision: 3 } },
+      },
+    });
+  });
+
+  it('maps conditional rollup flat options onto the v2 config', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        options: {
+          expression: 'max({values})',
+          lookupFieldId: 'fldStock00000000000',
+        },
+      },
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'sum({values})',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      options: { expression: 'max({values})' },
+      config: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+        condition: { filter: { conjunction: 'and', filterSet: [] } },
+      },
+    });
+  });
+
+  it('merges a conditional rollup lookupOptions patch over the current flat options', () => {
+    const service = createService();
+    const mapped = service.mapLegacyUpdateFieldToV2(
+      {
+        lookupOptions: { lookupFieldId: 'fldStock00000000000' },
+      },
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'sum({values})',
+          foreignTableId: 'tblForeign00000000',
+          lookupFieldId: 'fldPrice00000000000',
+          filter: { conjunction: 'and', filterSet: [] },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      config: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldStock00000000000',
+        condition: { filter: { conjunction: 'and', filterSet: [] } },
       },
     });
   });
@@ -1157,6 +2122,45 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
     });
   });
 
+  it('T6901 maps convert of a select lookup onto a number lookup target', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2(
+      {
+        type: 'number',
+        isLookup: true,
+        options: {
+          formatting: { type: 'decimal', precision: 0 },
+        },
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldNumber0000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      },
+      {
+        type: 'singleSelect',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldSelect0000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      type: 'lookup',
+      options: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldNumber0000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+      innerOptions: {
+        formatting: { type: 'decimal', precision: 0 },
+      },
+    });
+  });
+
   it('maps conditional lookup create payload to v2 conditionalLookup input', () => {
     const service = createService();
     const mapped = service.mapLegacyCreateFieldToV2({
@@ -1227,6 +2231,59 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
             filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
           },
         },
+      },
+    });
+  });
+
+  it('preserves cross-base id on conditional lookup create (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapLegacyCreateFieldToV2({
+      type: 'number',
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalLookup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
+  it('preserves cross-base id on conditionalRollup create (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapLegacyCreateFieldToV2({
+      type: 'conditionalRollup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        expression: 'sum({values})',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalRollup',
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
       },
     });
   });
@@ -1421,7 +2478,6 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
 describe('FieldOpenApiV2Service normalizeFieldVo', () => {
   const createNormalizeService = () =>
     new FieldOpenApiV2Service(
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -1732,6 +2788,62 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
     expect(vo.cellValueType).toBe(CellValueType.Number);
   });
 
+  it('flattens cross-base id onto conditionalRollup options (T7064)', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldCondRollup0000001',
+      name: 'Cross Base Rollup',
+      type: 'conditionalRollup',
+      options: { expression: 'sum({values})' },
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+          },
+        },
+      },
+    });
+
+    expect(vo.options).toMatchObject({
+      baseId: 'bseForeign000000001',
+      foreignTableId: 'tblForeign00000001',
+      lookupFieldId: 'fldLookup000000001',
+      expression: 'sum({values})',
+    });
+  });
+
+  it('flattens cross-base id onto conditional lookup options (T7064)', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldCondLookup0000001',
+      name: 'Cross Base Lookup',
+      type: 'conditionalLookup',
+      innerType: 'number',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+          },
+        },
+      },
+    });
+
+    expect(vo.isConditionalLookup).toBe(true);
+    expect(vo.lookupOptions).toMatchObject({
+      baseId: 'bseForeign000000001',
+      foreignTableId: 'tblForeign00000001',
+      lookupFieldId: 'fldLookup000000001',
+    });
+  });
+
   it('normalizes lookup options to empty object when source options are null', () => {
     const service = createNormalizeService();
     const vo = service.normalizeFieldVo({
@@ -1750,39 +2862,60 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
     expect(vo.options).toEqual({});
   });
 
-  it('extracts field vo directly from returned table dto and preserves lookup link metadata', async () => {
-    const service = createNormalizeService();
-    const vo = await service.extractFieldVoFromTableDto(
+  it('reads a field through the v2 field list and preserves lookup link metadata', async () => {
+    const fieldDtos = [
       {
-        fields: [
-          {
-            id: 'fldLink000000000001',
-            name: 'Link',
-            type: 'link',
-            options: {
-              relationship: 'manyMany',
-              foreignTableId: 'tblForeign00000001',
-              fkHostTableName: 'bseBase.tblJunction',
-              selfKeyName: '__fk_self',
-              foreignKeyName: '__fk_foreign',
-            },
-          },
-          {
-            id: 'fldLookup000000001',
-            name: 'Lookup',
-            type: 'singleLineText',
-            isLookup: true,
-            lookupOptions: {
-              linkFieldId: 'fldLink000000000001',
-              foreignTableId: 'tblForeign00000001',
-              lookupFieldId: 'fldSource000000001',
-            },
-            options: null,
-          },
-        ],
+        id: 'fldLink000000000001',
+        name: 'Link',
+        type: 'link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId: 'tblForeign00000001',
+          fkHostTableName: 'bseBase.tblJunction',
+          selfKeyName: '__fk_self',
+          foreignKeyName: '__fk_foreign',
+        },
       },
-      'fldLookup000000001'
-    );
+      {
+        id: 'fldLookup000000001',
+        name: 'Lookup',
+        type: 'singleLineText',
+        isLookup: true,
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldSource000000001',
+        },
+        options: null,
+      },
+    ];
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          fields: fieldDtos.map((dto) => ({
+            id: () => ({ toString: () => dto.id }),
+            __testDto: dto,
+          })),
+          primaryFieldId: undefined,
+          view: undefined,
+        },
+      }),
+    };
+    const container = { resolve: vi.fn(() => queryBus) };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never,
+      {} as never,
+      {} as never,
+      createFieldSupplementService() as never,
+      {} as never
+    ) as unknown as ITestFieldOpenApiV2Service;
+    const vo = await (
+      service as unknown as {
+        getFieldFromV2: (tableId: string, fieldId: string) => Promise<IFieldVo>;
+      }
+    ).getFieldFromV2('tbl3sYKYH4tDz0IEg91', 'fldLookup000000001');
 
     expect(vo.lookupOptions).toMatchObject({
       linkFieldId: 'fldLink000000000001',
@@ -1792,6 +2925,29 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       selfKeyName: '__fk_self',
       foreignKeyName: '__fk_foreign',
     });
+  });
+
+  it('preserves oneMany lookup-of-user multiplicity from the DTO', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldLookupUser000001',
+      name: 'Owners',
+      type: 'user',
+      isLookup: true,
+      isComputed: true,
+      isMultipleCellValue: true,
+      dbFieldType: 'JSON',
+      options: { isMultiple: false, shouldNotify: false },
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000001',
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldOwner0000000001',
+        relationship: 'oneMany',
+      },
+    });
+
+    expect(vo.isMultipleCellValue).toBe(true);
+    expect(vo.dbFieldType).toBe(DbFieldType.Json);
   });
 });
 
@@ -1820,7 +2976,6 @@ describe('FieldOpenApiV2Service createField', () => {
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
-      {} as never,
       createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
@@ -1837,11 +2992,6 @@ describe('FieldOpenApiV2Service createField', () => {
         name: 'Created Field',
         type: 'singleLineText',
       } as IFieldVo);
-    const extractFieldVoFromTableDto = vi.spyOn(
-      service as object,
-      'extractFieldVoFromTableDto' as never
-    );
-
     const createdField = await service.createField('tbl3sYKYH4tDz0IEg91', {
       type: 'singleLineText',
       name: 'Created Field',
@@ -1858,7 +3008,6 @@ describe('FieldOpenApiV2Service createField', () => {
       expect.stringMatching(/^fld/),
       { requestId: 'reqTestId' }
     );
-    expect(extractFieldVoFromTableDto).not.toHaveBeenCalled();
   });
 
   it('falls back to v2 field read for lookup fields to preserve legacy response shape', async () => {
@@ -1884,7 +3033,6 @@ describe('FieldOpenApiV2Service createField', () => {
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
-      {} as never,
       {} as never,
       createFieldSupplementService() as never,
       {} as never
@@ -1966,7 +3114,6 @@ describe('FieldOpenApiV2Service createFields', () => {
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
-      {} as never,
       {} as never,
       createFieldSupplementService() as never,
       {} as never
@@ -2072,5 +3219,198 @@ describe('FieldOpenApiV2Service hasDuplicatedDbFieldName', () => {
     };
 
     expect(service.hasDuplicatedDbFieldName(table, 'fld_missing_db_name')).toBe(false);
+  });
+});
+
+describe('overlayStoredPendingState (T6581)', () => {
+  type IOverlayTestService = {
+    overlayStoredPendingState: (vos: Array<Record<string, unknown>>) => Promise<void>;
+  };
+
+  const createServiceWithFieldRows = (rows: Array<{ id: string; isPending: boolean | null }>) => {
+    const findMany = vi.fn(async () => rows);
+    const prismaService = { txClient: () => ({ field: { findMany } }) };
+    const service = new FieldOpenApiV2Service(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prismaService as never
+    ) as unknown as IOverlayTestService;
+    return { service, findMany };
+  };
+
+  it('replaces the forced pending default with the stored state', async () => {
+    const { service, findMany } = createServiceWithFieldRows([
+      { id: 'fldFormula00000000', isPending: null },
+      { id: 'fldRollup000000000', isPending: true },
+    ]);
+    const formulaVo = { id: 'fldFormula00000000', isComputed: true, isPending: true };
+    const rollupVo = { id: 'fldRollup000000000', isComputed: true, isPending: true };
+    const textVo = { id: 'fldText0000000000', type: 'singleLineText' };
+
+    await service.overlayStoredPendingState([formulaVo, rollupVo, textVo]);
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['fldFormula00000000', 'fldRollup000000000'] } },
+      select: { id: true, isPending: true },
+    });
+    expect(formulaVo).not.toHaveProperty('isPending');
+    expect(rollupVo.isPending).toBe(true);
+    expect(textVo).not.toHaveProperty('isPending');
+  });
+
+  it('skips the query when no computed fields are present', async () => {
+    const { service, findMany } = createServiceWithFieldRows([]);
+    const textVo = { id: 'fldText0000000000', type: 'singleLineText' };
+
+    await service.overlayStoredPendingState([textVo]);
+
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('clears pending for computed fields missing a stored row', async () => {
+    const { service } = createServiceWithFieldRows([]);
+    const formulaVo = { id: 'fldFormula00000000', isComputed: true, isPending: true };
+
+    await service.overlayStoredPendingState([formulaVo]);
+
+    expect(formulaVo).not.toHaveProperty('isPending');
+  });
+});
+
+describe('T7141 lookup unique legacy boundary', () => {
+  const references = {
+    foreignTableId: 'tblForeign00000001',
+    lookupFieldId: 'fldLookup000000001',
+  };
+  const filter = {
+    conjunction: 'and',
+    filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+  };
+
+  it.each([true, false])(
+    'preserves regular lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject({
+        type: 'lookup',
+        options: { ...ro.lookupOptions },
+      });
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject({ type: 'lookup', options: { ...ro.lookupOptions } });
+    }
+  );
+
+  it.each([true, false])(
+    'preserves conditional lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: { ...references, filter, isUnique },
+      };
+      const expected = {
+        type: 'conditionalLookup',
+        options: { ...references, isUnique, condition: { filter } },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject(expected);
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject(expected);
+    }
+  );
+
+  it.each([true, false])(
+    'preserves regular and both conditional DTO shapes on read: %s',
+    (isUnique) => {
+      const service = new FieldOpenApiV2Service(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        createFieldSupplementService() as never,
+        {} as never
+      ) as unknown as ITestFieldOpenApiV2Service;
+      const common = {
+        id: 'fldLookup000000001',
+        name: 'Lookup',
+        isLookup: true,
+        isMultipleCellValue: true,
+      };
+      const regular = service.normalizeFieldVo({
+        ...common,
+        type: 'user',
+        options: { isMultiple: true },
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      });
+      expect(regular.lookupOptions).toMatchObject({ ...references, isUnique });
+      for (const dto of [
+        {
+          ...common,
+          type: 'conditionalLookup',
+          innerType: 'user',
+          innerOptions: { isMultiple: true },
+          options: { ...references, isUnique, condition: { filter } },
+        },
+        {
+          ...common,
+          type: 'user',
+          options: { isMultiple: true },
+          conditionalLookupOptions: { ...references, isUnique, condition: { filter } },
+        },
+      ]) {
+        const conditional = service.normalizeFieldVo(dto);
+        expect(conditional.isConditionalLookup).toBe(true);
+        expect(conditional.lookupOptions).toMatchObject({ ...references, isUnique, filter });
+      }
+    }
+  );
+});
+
+describe('FieldOpenApiV2Service pending propagation', () => {
+  it('returns 503 when bulk deletion becomes pending after the initial table load', async () => {
+    const commandBus = { execute: vi.fn().mockResolvedValue(err(tableProvisionPendingError())) };
+    const tableQueryService = {
+      getById: vi
+        .fn()
+        .mockResolvedValue(ok({ baseId: () => ({ toString: () => 'bse3sYKYH4tDz0IEg91' }) })),
+    };
+    const container = {
+      resolve: vi.fn((token) =>
+        token === v2CoreTokens.commandBus ? commandBus : tableQueryService
+      ),
+    };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never,
+      {} as never,
+      {} as never,
+      createFieldSupplementService() as never,
+      {} as never
+    );
+    await expect(
+      service.deleteFields('tbl3sYKYH4tDz0IEg91', ['fld3sYKYH4tDz0IEg91'])
+    ).rejects.toMatchObject({
+      status: 503,
+      data: { domainCode: 'table.provision_pending' },
+    });
+    expect(tableQueryService.getById).toHaveBeenCalledOnce();
+    expect(commandBus.execute).toHaveBeenCalledOnce();
   });
 });

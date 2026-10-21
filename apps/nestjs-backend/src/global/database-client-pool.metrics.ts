@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import type { ObservableCallback, ObservableGauge } from '@opentelemetry/api';
@@ -76,6 +77,8 @@ export class DatabaseClientPoolMetrics implements OnModuleDestroy {
     return {
       'db.namespace': snapshot.database,
       'server.address': snapshot.host,
+      'db.client.application.name': snapshot.applicationName,
+      'teable.database.pool.name': snapshot.poolName ?? 'shared',
       ...(snapshot.port ? { 'server.port': snapshot.port } : {}),
     };
   }

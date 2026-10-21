@@ -25,7 +25,7 @@ const createFieldId = () => {
 const getSelectOptions = (field?: { options?: unknown }): SelectFieldOptions =>
   (field?.options as SelectFieldOptions | undefined) ?? {};
 
-describe('update-field: multipleSelect property updates', () => {
+describe('[D01][F06][S01] update-field: multipleSelect property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;
@@ -301,6 +301,41 @@ describe('update-field: multipleSelect property updates', () => {
         tableId,
         fieldId,
         field: { options: { defaultValue: ['A', 'X'] } },
+      })
+    ).rejects.toThrow();
+
+    await ctx.deleteField({ tableId, fieldId });
+  });
+
+  test('should not accept duplicated name choices', async () => {
+    // V1 parity: field-converting.e2e-spec.ts "should not accept duplicated name choices"
+    const fieldId = createFieldId();
+    const optionX = { id: 'choX', name: 'x', color: Colors.CyanBright };
+    const optionY = { id: 'choY', name: 'y', color: Colors.BlueBright };
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'multipleSelect',
+        id: fieldId,
+        name: 'Duplicated Choice Names',
+        options: { choices: [optionX, optionY] },
+      },
+    });
+
+    await expect(
+      ctx.updateField({
+        tableId,
+        fieldId,
+        field: {
+          type: 'multipleSelect',
+          options: {
+            choices: [
+              { id: 'choX', name: 'y', color: Colors.CyanBright },
+              { id: 'choY', name: 'y', color: Colors.BlueBright },
+            ],
+          },
+        },
       })
     ).rejects.toThrow();
 

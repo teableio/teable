@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { TableId } from '../domain/table/TableId';
@@ -12,18 +12,20 @@ describe('RenameTableCommand', () => {
     const baseIdResult = createBaseId('a');
     const tableIdResult = createTableId('a');
     [baseIdResult, tableIdResult].forEach((r) => r._unsafeUnwrap());
-    baseIdResult._unsafeUnwrap();
-    tableIdResult._unsafeUnwrap();
+    expect(baseIdResult.isOk()).toBe(true);
+    expect(tableIdResult.isOk()).toBe(true);
 
     const commandResult = RenameTableCommand.create({
       baseId: baseIdResult._unsafeUnwrap().toString(),
       tableId: tableIdResult._unsafeUnwrap().toString(),
       name: 'Renamed',
     });
-    commandResult._unsafeUnwrap();
+    expect(commandResult.isOk()).toBe(true);
   });
 
   it('rejects invalid input', () => {
-    RenameTableCommand.create({ baseId: 'bad', tableId: 'bad', name: '' })._unsafeUnwrapErr();
+    expect(RenameTableCommand.create({ baseId: 'bad', tableId: 'bad', name: '' }).isErr()).toBe(
+      true
+    );
   });
 });

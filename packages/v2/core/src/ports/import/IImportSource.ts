@@ -30,12 +30,17 @@ export interface IImportParseResult {
   readonly headers: ReadonlyArray<string>;
   /** Synchronous row iterator (for in-memory data) */
   readonly rows?: Iterable<ReadonlyArray<unknown>>;
-  /** Asynchronous row iterator (for streaming/URL sources) */
+  /** Async row iterator for incremental parsing; consumers close it when stopping early. */
   readonly rowsAsync?: AsyncIterable<ReadonlyArray<unknown>>;
   /** Available sheets (for Excel files) */
   readonly sheets?: ReadonlyArray<{ name: string; index: number }>;
   /** Currently selected sheet */
   readonly currentSheet?: string;
+  /**
+   * Number of rows in `rows` / `rowsAsync` when known up front.
+   * Includes a header row when the adapter yields it as the first row.
+   */
+  readonly rowCount?: number;
 }
 
 /**
@@ -45,6 +50,8 @@ export interface IImportProgress {
   phase: 'parsing' | 'inserting' | 'completed' | 'failed';
   processedRows: number;
   currentBatch: number;
+  /** Total data rows for this table/sheet when known. */
+  totalRows?: number;
   error?: string;
 }
 
@@ -66,6 +73,11 @@ export interface IImportOptions {
   delimiter?: string;
   /** Enable type casting (default: true) */
   typecast?: boolean;
+  /**
+   * Stage a URL source before parsing (default: true). Bounded previews set
+   * false so they read only the sample and cancel the response body.
+   */
+  snapshotSource?: boolean;
 }
 
 /**

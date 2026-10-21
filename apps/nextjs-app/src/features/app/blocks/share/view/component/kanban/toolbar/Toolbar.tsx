@@ -38,7 +38,7 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
       >
         <Layers className="size-4 text-sm" />
       </ToolBarButton>
-      <ShareViewFilter filters={view?.filter || null} onChange={onFilterChange}>
+      <ShareViewFilter responsive filters={view?.filter || null} onChange={onFilterChange}>
         {(text, isActive, hasWarning) => (
           <ToolBarButton
             disabled={disabled}
@@ -59,7 +59,7 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </ShareViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             isActive={isActive}

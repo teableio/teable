@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { createServer, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -176,12 +178,13 @@ describe('v2 http importRecords (e2e)', () => {
 
       expect(result.totalImported).toBe(4);
 
-      // Verify checkbox values
+      // Checkbox false is normalized to an empty cell for v1 storage parity.
       const records = await ctx.listRecords(table.id);
       const task1 = records.find((r) => r.fields[taskFieldId] === 'Task1');
       const task2 = records.find((r) => r.fields[taskFieldId] === 'Task2');
       expect(task1!.fields[completedFieldId]).toBe(true);
-      expect(task2!.fields[completedFieldId]).toBe(false);
+      // v1 contract: unchecked is stored as null, never false
+      expect(task2!.fields[completedFieldId] == null).toBe(true);
     });
   });
 
@@ -438,4 +441,122 @@ describe('v2 http importRecords (e2e)', () => {
       }
     });
   });
+});
+
+describe('v2 http importRecords source streaming (e2e)', () => {
+  let ctx: SharedTestContext;
+
+  beforeAll(async () => {
+    ctx = await getSharedTestContext();
+  });
+
+  const serveCsv = async (
+    respond: string | ((response: ServerResponse) => void)
+  ): Promise<{ url: string; close: () => Promise<void> }> => {
+    const server = createServer((_request, response) => {
+      if (typeof respond === 'string') {
+        response.writeHead(200, { 'content-type': 'text/csv' });
+        response.end(respond);
+        return;
+      }
+      respond(response);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    return {
+      url: `http://127.0.0.1:${port}/import.csv`,
+      close: async () => {
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => (error ? reject(error) : resolve()));
+        });
+      },
+    };
+  };
+
+  const importFromUrl = async (tableId: string, fieldId: string, url: string) => {
+    const response = await fetch(`${ctx.baseUrl}/tables/importRecords`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId,
+        fileType: 'csv',
+        sourceColumnMap: { [fieldId]: 0 },
+        url,
+      }),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+
+  const paddedRow = (index: number) => `row-${index},${'x'.repeat(40)}`;
+  const paddedCsv = (rowCount: number) =>
+    `Name,Note\n${Array.from({ length: rowCount }, (_, index) => paddedRow(index)).join('\n')}\n`;
+
+  it('reports a cut source body as a retryable error before writing any row', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'ImportSourceCut',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    const fieldId = table.fields[0].id;
+    // The payload is larger than the parser's 1 MiB format sample, so an
+    // implementation that starts writing while reading would insert rows before
+    // the socket is cut. Delivering more than 1 MiB first keeps that distinction
+    // deterministic instead of failing before insertion on both versions.
+    const payload = paddedCsv(25_000);
+    const delivered = payload.slice(0, 1_200_000);
+    const server = await serveCsv((response) => {
+      response.writeHead(200, { 'content-type': 'text/csv' });
+      response.write(delivered, () => {
+        setTimeout(() => response.destroy(new Error('source cut')), 10);
+      });
+    });
+
+    try {
+      const result = await importFromUrl(table.id, fieldId, server.url);
+
+      // The source read is a dependency failure the caller can retry, not an
+      // internal error, and it happens before the write transaction opens.
+      expect(result.status).toBe(504);
+      expect(result.body).toMatchObject({
+        ok: false,
+        error: {
+          code: 'csv.source_interrupted',
+          details: { retryable: true, maxBytes: 512 * 1024 * 1024 },
+        },
+      });
+      expect(result.body.error.message).toContain('512 MiB single-file limit');
+      expect(result.body.error.details.retryable).toBe(true);
+      expect(await ctx.listRecords(table.id)).toEqual([]);
+    } finally {
+      await server.close();
+      await ctx.deleteTable(table.id, { mode: 'permanent' });
+    }
+  }, 60_000);
+
+  it('imports a 30,000-row CSV file above the sample size without truncation', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'ImportThirtyThousand',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    const fieldId = table.fields[0].id;
+    const payload = paddedCsv(30_000);
+    // ASCII payload, so string length is the byte count the parser reads.
+    expect(payload.length).toBeGreaterThan(1024 * 1024);
+    const server = await serveCsv(payload);
+
+    try {
+      const result = await importFromUrl(table.id, fieldId, server.url);
+
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ ok: true, data: { totalImported: 30_000 } });
+      const tail = await ctx.listRecordsWithPagination(table.id, { limit: 1, offset: 29_999 });
+      expect(tail.records).toHaveLength(1);
+      expect(tail.records[0].fields[fieldId]).toBe('row-29999');
+    } finally {
+      await server.close();
+      await ctx.deleteTable(table.id, { mode: 'permanent' });
+    }
+  }, 240_000);
 });

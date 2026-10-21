@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
-import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
+import type { Dispatch, ForwardRefRenderFunction, RefObject, SetStateAction } from 'react';
 import {
   useState,
   useRef,
@@ -57,24 +57,24 @@ import {
   SelectableType,
 } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager, CombinedSelection } from './managers';
-import { CellRegionType, getCellRenderer } from './renderers';
+import type { IBaseCellRenderer, ICell } from './renderers';
+import { CellRegionType, CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
 
-export interface IInteractionLayerProps
-  extends Omit<
-    IGridProps,
-    | 'freezeColumnCount'
-    | 'rowCount'
-    | 'rowHeight'
-    | 'style'
-    | 'smoothScrollX'
-    | 'smoothScrollY'
-    | 'onVisibleRegionChanged'
-  > {
+export interface IInteractionLayerProps extends Omit<
+  IGridProps,
+  | 'freezeColumnCount'
+  | 'rowCount'
+  | 'rowHeight'
+  | 'style'
+  | 'smoothScrollX'
+  | 'smoothScrollY'
+  | 'onVisibleRegionChanged'
+> {
   theme: IGridTheme;
   width: number;
   height: number;
@@ -101,6 +101,18 @@ export interface IInteractionLayerRef {
   resetState: () => void;
   setSelection: (selection: CombinedSelection) => void;
 }
+
+// Renderers may opt into hover-position tracking per cell, so only cells with
+// clickable parts (e.g. text containing links) trigger repaints on mouse move
+const needsHoverPositionFor = (
+  renderer: Pick<IBaseCellRenderer<never>, 'needsHoverPosition'>,
+  cell: ICell
+) => {
+  const { needsHoverPosition } = renderer;
+  return typeof needsHoverPosition === 'function'
+    ? needsHoverPosition(cell as never)
+    : Boolean(needsHoverPosition);
+};
 
 export const InteractionLayerBase: ForwardRefRenderFunction<
   IInteractionLayerRef,
@@ -211,7 +223,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const isFillingRef = useRef(false);
   const fillSelectionRef = useRef<CombinedSelection | null>(null);
 
-  const mousePosition = useMouse(stageRef);
+  // react-use types the ref as non-nullable while React 19 useRef(null) yields RefObject<T | null>
+  const mousePosition = useMouse(stageRef as RefObject<Element>);
   const [cellScrollTop, setCellScrollTop] = useState(0);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
   const [cursor, setCursor] = useState('default');
@@ -272,9 +285,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const isInteracting = isSelecting || isDragging || isResizing || isFreezing;
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
 
-  const getPosition = () => {
-    const x = mousePosition.elX;
-    const y = mousePosition.elY;
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const getPosition = (point?: { x: number; y: number }) => {
+    const x = point?.x ?? mousePosition.elX;
+    const y = point?.y ?? mousePosition.elY;
     const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, columnCount } =
       coordInstance;
     const rowIndex =
@@ -303,7 +317,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       const cellRenderer = getCellRenderer(cell.type);
 
       if (
-        cellRenderer.needsHoverPosition ||
+        needsHoverPositionFor(cellRenderer, cell) ||
         (cellRenderer.needsHoverPositionWhenActive &&
           activeCell &&
           isEqual(activeCell, [columnIndex, realIndex]))
@@ -331,8 +345,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     };
   }, [_activeCellBound, cellScrollTop]);
 
-  const getMouseState = () => {
-    const position = getPosition();
+  const getMouseState = (point?: { x: number; y: number }) => {
+    const position = getPosition(point);
     const { x, y } = position;
     const { totalHeight, totalWidth } = coordInstance;
     const isOutOfBounds =
@@ -425,10 +439,19 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const mouseState = getMouseState({
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    });
     onSelectionClick(event, mouseState);
     const { type, rowIndex: hoverRowIndex, columnIndex } = mouseState;
-    if (regionType !== type) return;
+    const isCellRegion = type === RegionType.Cell || type === RegionType.ActiveCell;
+    const wasCellRegion = regionType === RegionType.Cell || regionType === RegionType.ActiveCell;
+    // A held click selects the cell before mouseup, so the click sees ActiveCell while the
+    // last committed mouse region is still Cell. Rating and checkbox icons must apply anyway.
+    const selectionCaughtUp = isCellRegion && wasCellRegion && regionType !== type;
+    if (regionType !== type && !selectionCaughtUp) return;
 
     const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
 
@@ -480,14 +503,30 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           isEqual(prevActiveCellRef.current, activeCell) &&
           isEqual(activeCell, [columnIndex, rowIndex]);
 
-        if (onCellClick && hoverCellPosition) {
+        // A held press selects the cell before this click sees the committed region.
+        // Rating, checkbox, and detected text URLs still have to apply on that press.
+        const textHasLink =
+          cell.type === CellType.Text && 'links' in cell && Boolean(cell.links?.length);
+        if (
+          selectionCaughtUp &&
+          cell.type !== CellType.Boolean &&
+          cell.type !== CellType.Rating &&
+          !textHasLink
+        ) {
+          return;
+        }
+
+        // The move that precedes a click may not have flushed hoverCellPosition yet.
+        // Rating and checkbox icons still have to hit-test this click's coordinates.
+        const clickCellPosition = getHoverCellPosition(mouseState) ?? hoverCellPosition;
+        if (onCellClick && clickCellPosition) {
           onCellClick(
             cell as never,
             {
               width: coordInstance.getColumnWidth(columnIndex),
               height: coordInstance.getRowHeight(hoverRowIndex),
               theme,
-              hoverCellPosition,
+              hoverCellPosition: clickCellPosition,
               activeCellBound,
               isActive,
             },
@@ -616,8 +655,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { realIndex } = getLinearRow(rowIndex);
     const cell = getCellContent([columnIndex, realIndex]);
     const cellRenderer = getCellRenderer(cell.type);
-    const { needsHover, needsHoverPosition, needsHoverWhenActive, needsHoverPositionWhenActive } =
-      cellRenderer;
+    const { needsHover, needsHoverWhenActive, needsHoverPositionWhenActive } = cellRenderer;
+    const needsHoverPosition = needsHoverPositionFor(cellRenderer, cell);
     const isActive = type === RegionType.ActiveCell;
     if ((needsHoverPosition || (needsHoverPositionWhenActive && isActive)) && hoverCellPosition) {
       const region = cellRenderer.checkRegion?.(cell as never, {
@@ -785,6 +824,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
+  const onEditorContextMenu = () => {
+    const { x, y } = getPosition();
+    onContextMenu?.(selection, { x, y });
+  };
+
   const resetState = () => {
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
@@ -923,6 +967,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowExpand={onRowExpand}
+        onContextMenu={onEditorContextMenu}
         setEditing={setEditing}
         setSelection={setSelection}
         setActiveCell={setActiveCell}

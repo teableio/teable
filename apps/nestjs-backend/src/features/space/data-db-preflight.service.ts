@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { createHash } from 'crypto';
-import { promises as dns } from 'dns';
-import { isIP } from 'net';
+import { createHash } from 'node:crypto';
+import { promises as dns } from 'node:dns';
+import { isIP } from 'node:net';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { parseDsn } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -11,6 +11,7 @@ import type {
   IDataDbPreflightRo,
   IDataDbPreflightVo,
 } from '@teable/openapi';
+import { isBlockedAddress } from '@teable/v2-utils';
 import type { Knex } from 'knex';
 import createKnex from 'knex';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
@@ -41,29 +42,48 @@ export interface IDataDbDatabaseIdentity {
   databaseName: string;
 }
 
-export type IDataDbPreflightClientFactory = (url: string) => IDataDbPreflightClient;
+/**
+ * `pinnedHost`, when given, is the vetted IP address the connection must dial
+ * instead of the URL host (see `DataDbPreflightService.resolveConnectionTarget`).
+ */
+export type IDataDbPreflightClientFactory = (
+  url: string,
+  pinnedHost?: string
+) => IDataDbPreflightClient;
 export const DATA_DB_PREFLIGHT_CLIENT_FACTORY = Symbol('DATA_DB_PREFLIGHT_CLIENT_FACTORY');
 
 const DATA_PLANE_TABLES = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
+  'computed_update_run_history',
   'computed_update_pause_scope',
+  'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'domain_event_outbox',
+  'domain_event_delivery',
+  'domain_event_inbox',
   'record_history',
   'table_trash',
   'record_trash',
+  'record_removal_tombstone',
   '__undo_log',
   'attachments',
   'attachments_table',
 ];
 
+// Additive migrations may be entirely absent on an otherwise complete older data DB.
+// A partially applied group is still incompatible and must be repaired before adoption.
+const ADDITIVE_DATA_PLANE_TABLES = ['computed_reliability_issue', 'computed_reliability_scope'];
+
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 const DATA_PLANE_FUNCTIONS = ['__teable_capture_undo_row'];
 const ALLOWED_INTERNAL_TABLES = new Set([
   ...DATA_PLANE_TABLES,
+  ...ADDITIVE_DATA_PLANE_TABLES,
   DATA_SCHEMA_MIGRATION_TABLE,
   '_prisma_migrations',
 ]);
@@ -82,6 +102,19 @@ const PRIVATE_NETWORK_ERROR: IPreflightError = {
   code: 'PRIVATE_NETWORK_BLOCKED',
   message: 'Private network database hosts are blocked by default',
   remediation: 'Set TEABLE_SSRF_PROTECTION_DISABLED=true only in trusted self-hosted deployments.',
+};
+
+const HOST_OVERRIDE_BLOCKED_ERROR: IPreflightError = {
+  code: 'HOST_OVERRIDE_BLOCKED',
+  message:
+    'The connection URL must name the database host in its authority; host-override query parameters (host, hostaddr, connectionString), Unix-socket paths and empty hosts are not allowed',
+  remediation: 'Put the hostname in the URL itself and remove the overriding parameter.',
+};
+
+const HOST_RESOLUTION_FAILED_ERROR: IPreflightError = {
+  code: 'HOST_RESOLUTION_FAILED',
+  message: 'The database host could not be resolved',
+  remediation: 'Check the hostname; it must resolve to a public address before Teable connects.',
 };
 
 const IPV6_NETWORK_UNREACHABLE_ERROR: IPreflightError = {
@@ -164,27 +197,106 @@ export const replaceDatabaseUrlDatabase = (url: string, database: string): strin
 
 const isPrivateNetworkAllowed = () => process.env.TEABLE_SSRF_PROTECTION_DISABLED === 'true';
 
-const isPrivateIp = (address: string): boolean => {
-  if (address === '127.0.0.1' || address === '::1') {
-    return true;
+/**
+ * Query parameters that can point pg at a different endpoint than the URL
+ * authority names: `pg-connection-string` (which knex hands the URL to) lets
+ * `?host=` win over the authority host and copies `connectionString` into the
+ * config, which pg then re-parses; `hostaddr` is libpq's equivalent. Any of
+ * them would make the network guard vet one host while pg dials another
+ * (GHSA-p7jc-ccj3-j23x / GHSA-rh8q-q9fx-pfcq).
+ */
+const HOST_OVERRIDE_QUERY_PARAMS = ['host', 'hostaddr', 'connectionString'] as const;
+
+/**
+ * The host pg would dial for `url`, derived the way `pg-connection-string`
+ * does (percent-decoded authority host, IPv6 brackets stripped), or `null`
+ * when the URL can steer the connection elsewhere: a host-override query
+ * parameter, a Unix-socket path (`/run/...` or `%2Frun%2F...`), or an empty
+ * host (pg would fall back to PGHOST / localhost).
+ */
+export const getDataDbConnectionHost = (url: string): string | null => {
+  let parsed: URL;
+  let hostname: string;
+  try {
+    parsed = new URL(url);
+    hostname = decodeURIComponent(parsed.hostname);
+  } catch {
+    return null;
   }
-  if (address.startsWith('10.') || address.startsWith('192.168.')) {
-    return true;
+  if (HOST_OVERRIDE_QUERY_PARAMS.some((param) => parsed.searchParams.has(param))) {
+    return null;
   }
-  if (address.startsWith('169.254.')) {
-    return true;
+  if (!hostname || hostname.startsWith('/')) {
+    return null;
   }
-  const parts = address.split('.').map((part) => Number(part));
-  if (parts.length === 4 && parts.every((part) => Number.isInteger(part))) {
-    return parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31;
-  }
-  return address.toLowerCase().startsWith('fc') || address.toLowerCase().startsWith('fd');
+  return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 };
 
-export const dataDbKnexClientFactory: IDataDbPreflightClientFactory = (url) => {
+/**
+ * pg connection config for `url` whose TCP target is `pinnedHost`, an address
+ * `resolveConnectionTarget` already vetted. Built as an object so no string is
+ * re-parsed on the way to the socket (knex re-parses URL strings, pg re-parses
+ * `connectionString`). Mirrors what `pg-connection-string` derives from a URL:
+ * percent-decoded credentials and database, every query parameter copied
+ * through, `ssl` / `sslmode` mapped. The `sslcert` / `sslkey` / `sslrootcert`
+ * file paths are deliberately left inert — honouring them would read local
+ * files on the caller's behalf, and pg itself ignores the raw keys.
+ */
+export const buildPinnedDataDbConnection = (
+  url: string,
+  pinnedHost: string
+): Knex.PgConnectionConfig => {
+  const hostname = getDataDbConnectionHost(url);
+  if (!hostname) {
+    throw new Error('Cannot pin a connection whose URL does not name its host');
+  }
+  const parsed = new URL(url);
+  const query: Record<string, string> = {};
+  for (const [key, value] of parsed.searchParams.entries()) {
+    query[key] = value;
+  }
+  const config: Record<string, unknown> = { ...query, host: pinnedHost };
+  config.user = query.user || decodeURIComponent(parsed.username);
+  config.password = query.password || decodeURIComponent(parsed.password);
+  const port = Number.parseInt(query.port || parsed.port, 10);
+  if (!Number.isNaN(port)) {
+    config.port = port;
+  }
+  const database = parsed.pathname.slice(1);
+  if (database) {
+    config.database = decodeURI(database);
+  }
+
+  let ssl: unknown = query.ssl;
+  if (ssl === 'true' || ssl === '1') {
+    ssl = true;
+  } else if (ssl === '0') {
+    ssl = false;
+  }
+  if (query.sslcert || query.sslkey || query.sslrootcert || query.sslmode) {
+    ssl = {};
+  }
+  if (query.sslmode === 'disable') {
+    ssl = false;
+  } else if (query.sslmode === 'no-verify') {
+    ssl = { rejectUnauthorized: false };
+  }
+  if (ssl && !isIP(hostname)) {
+    // pg only derives SNI and certificate identity from `host` when it is not
+    // an IP literal; dialing the pinned address must still verify the
+    // certificate against the hostname the user configured.
+    ssl = { ...(typeof ssl === 'object' ? ssl : {}), servername: hostname };
+  }
+  if (ssl !== undefined) {
+    config.ssl = ssl;
+  }
+  return config as Knex.PgConnectionConfig;
+};
+
+export const dataDbKnexClientFactory: IDataDbPreflightClientFactory = (url, pinnedHost) => {
   const client: Knex = createKnex({
     client: 'pg',
-    connection: url,
+    connection: pinnedHost ? buildPinnedDataDbConnection(url, pinnedHost) : url,
     // min:0 惰性建连，单查询的 preflight 场景不受影响；上限 16 支撑迁移校验的
     // 表级并发（行数+内容哈希按表并行），acquire 超时同步放宽避免排队误报。
     pool: { min: 0, max: 16 },
@@ -258,9 +370,9 @@ export class DataDbPreflightService {
       });
     }
 
-    const privateNetworkError = await this.validateNetwork(input.url);
-    if (privateNetworkError) {
-      errors.push(privateNetworkError);
+    const { pinnedHost, error: networkError } = await this.resolveConnectionTarget(input.url);
+    if (networkError) {
+      errors.push(networkError);
       return this.buildResult({
         errors,
         maskedUrl,
@@ -273,7 +385,7 @@ export class DataDbPreflightService {
     }
 
     if (!displayDatabase) {
-      const databaseResult = await this.inspectServerDatabases(input.url);
+      const databaseResult = await this.inspectServerDatabases(input.url, pinnedHost);
       return this.buildResult({
         errors,
         maskedUrl,
@@ -288,7 +400,7 @@ export class DataDbPreflightService {
       });
     }
 
-    const client = this.clientFactory(input.url);
+    const client = this.clientFactory(input.url, pinnedHost);
     try {
       const serverVersion = await this.getServerVersion(client);
       const availableDatabases = await this.listAvailableDatabases(client).catch(() => undefined);
@@ -309,7 +421,7 @@ export class DataDbPreflightService {
       });
     } catch (error) {
       const missingDatabaseResult = this.isMissingDatabaseError(error)
-        ? await this.inspectServerDatabases(input.url)
+        ? await this.inspectServerDatabases(input.url, pinnedHost)
         : undefined;
       errors.push({
         ...(this.isIpv6NetworkUnreachableError(error)
@@ -337,7 +449,11 @@ export class DataDbPreflightService {
   }
 
   async inspectDatabaseIdentity(url: string): Promise<IDataDbDatabaseIdentity> {
-    const client = this.clientFactory(url);
+    const { pinnedHost, error: networkError } = await this.resolveConnectionTarget(url);
+    if (networkError) {
+      throw new Error(networkError.message);
+    }
+    const client = this.clientFactory(url, pinnedHost);
     try {
       const rows = normalizeRawRows<IDataDbDatabaseIdentity>(
         await client.raw<IDataDbDatabaseIdentity>(`
@@ -400,6 +516,12 @@ export class DataDbPreflightService {
           capabilities: binding.dataDbConnection.capabilities as
             | IDataDbConnectionSummaryVo['capabilities']
             | undefined,
+          health: {
+            state: binding.dataDbConnection.healthState,
+            reason: binding.dataDbConnection.healthReason,
+            changedAt: binding.dataDbConnection.healthChangedAt?.toISOString(),
+            lastCheckAt: binding.dataDbConnection.lastHealthCheckAt?.toISOString(),
+          },
           ...(relatedSpaces ? { relatedSpaces } : {}),
         };
       }
@@ -595,20 +717,49 @@ export class DataDbPreflightService {
     );
   }
 
-  private async validateNetwork(url: string): Promise<IPreflightError | null> {
+  /**
+   * Vets the host the URL names and returns the single address pg must dial.
+   * Fails closed: an override-able host, a resolver error and an empty answer
+   * are all errors (they used to fall through as "allowed", leaving pg to run
+   * its own unguarded lookup), and the vetted address is pinned so a DNS
+   * rebind between this lookup and pg's cannot re-point the connection.
+   * `pinnedHost` is undefined only when protection is disabled by env.
+   */
+  private async resolveConnectionTarget(
+    url: string
+  ): Promise<{ pinnedHost?: string; error?: IPreflightError }> {
     if (isPrivateNetworkAllowed()) {
-      return null;
+      return {};
     }
 
-    const { hostname } = new URL(url);
-    const addresses = isIP(hostname)
-      ? [{ address: hostname }]
-      : await dns.lookup(hostname, { all: true }).catch(() => []);
-
-    if (addresses.some(({ address }) => isPrivateIp(address))) {
-      return PRIVATE_NETWORK_ERROR;
+    const hostname = getDataDbConnectionHost(url);
+    if (!hostname) {
+      return { error: HOST_OVERRIDE_BLOCKED_ERROR };
     }
-    return null;
+    // Resolve to every candidate address, then reject with the vetted
+    // `isBlockedAddress` (ipaddr.js: anything whose range() !== 'unicast').
+    // This covers all of 127.0.0.0/8, 0.0.0.0, 100.64.0.0/10, link-local, ULA
+    // and DNS-resolved private ranges — the hand-rolled denylist only caught
+    // the single literal 127.0.0.1 (GHSA-p7jc-ccj3-j23x).
+    let addresses: string[];
+    if (isIP(hostname)) {
+      addresses = [hostname];
+    } else {
+      try {
+        addresses = (await dns.lookup(hostname, { all: true })).map(({ address }) => address);
+      } catch {
+        addresses = [];
+      }
+    }
+    if (addresses.length === 0) {
+      return { error: HOST_RESOLUTION_FAILED_ERROR };
+    }
+    if (addresses.some((address) => isBlockedAddress(address))) {
+      return { error: PRIVATE_NETWORK_ERROR };
+    }
+    // Prefer IPv4: dialing a literal forfeits Node's happy-eyeballs fallback,
+    // and IPv4-only egress is the common deployment shape.
+    return { pinnedHost: addresses.find((address) => isIP(address) === 4) ?? addresses[0] };
   }
 
   private async getServerVersion(client: IDataDbPreflightClient) {
@@ -650,9 +801,9 @@ export class DataDbPreflightService {
     return [...new Set(candidates)].map((database) => replaceDatabaseUrlDatabase(url, database));
   }
 
-  private async inspectServerDatabases(url: string) {
+  private async inspectServerDatabases(url: string, pinnedHost?: string) {
     for (const maintenanceUrl of this.getMaintenanceDatabaseUrls(url)) {
-      const client = this.clientFactory(maintenanceUrl);
+      const client = this.clientFactory(maintenanceUrl, pinnedHost);
       try {
         const serverVersion = await this.getServerVersion(client).catch(() => undefined);
         const availableDatabases = await this.listAvailableDatabases(client).catch(() => []);
@@ -820,7 +971,13 @@ export class DataDbPreflightService {
     );
     const managedTables = internalTables.filter((table) => DATA_PLANE_TABLES.includes(table));
     const managedFunctions = functions.filter((name) => DATA_PLANE_FUNCTIONS.includes(name));
-    const hasManagedObjects = managedTables.length > 0 || managedFunctions.length > 0;
+    const additiveTables = internalTables.filter((table) =>
+      ADDITIVE_DATA_PLANE_TABLES.includes(table)
+    );
+    const hasManagedObjects =
+      managedTables.length > 0 || managedFunctions.length > 0 || additiveTables.length > 0;
+    const hasCompleteAdditiveGroup =
+      additiveTables.length === 0 || additiveTables.length === ADDITIVE_DATA_PLANE_TABLES.length;
     const hasAllBaselineObjects =
       DATA_PLANE_TABLES.every((table) => managedTables.includes(table)) &&
       DATA_PLANE_FUNCTIONS.every((func) => managedFunctions.includes(func));
@@ -838,7 +995,7 @@ export class DataDbPreflightService {
       return 'non-empty-unknown';
     }
 
-    if (hasAllBaselineObjects) {
+    if (hasAllBaselineObjects && hasCompleteAdditiveGroup) {
       return 'teable-managed-compatible';
     }
 

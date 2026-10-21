@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { tableFieldInputSchema, type ITableFieldInput } from '../schemas/field';
 
 const LOOKUP_INPUT_OPTION_KEYS = [
+  'isUnique',
   'linkFieldId',
   'foreignTableId',
   'lookupFieldId',
@@ -103,10 +104,34 @@ export const toRestoreFieldCreateInput = (
     }
 
     if (field.isLookup === true && field.lookupOptions) {
+      const lookupOptions = field.lookupOptions as Record<string, unknown>;
+
+      // v1 snapshots store conditional lookups as the inner type (e.g. singleLineText)
+      // with isLookup and link-less lookupOptions; the lookup input schema requires
+      // linkFieldId, so they must be normalized to a conditionalLookup input instead.
+      if (field.isConditionalLookup === true || lookupOptions.linkFieldId == null) {
+        return defined({
+          ...common,
+          type: 'conditionalLookup',
+          options: {
+            foreignTableId: lookupOptions.foreignTableId,
+            lookupFieldId: lookupOptions.lookupFieldId,
+            isUnique: lookupOptions.isUnique,
+            condition: defined({
+              filter: lookupOptions.filter,
+              sort: lookupOptions.sort,
+              limit: lookupOptions.limit,
+            }),
+          },
+          innerOptions: field.options,
+          isMultipleCellValue: field.isMultipleCellValue,
+        });
+      }
+
       return defined({
         ...common,
         type: 'lookup',
-        options: normalizeLookupOptions(field.lookupOptions),
+        options: normalizeLookupOptions(lookupOptions),
         innerOptions: field.options,
         isMultipleCellValue: field.isMultipleCellValue,
       });

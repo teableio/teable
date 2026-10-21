@@ -21,6 +21,7 @@ import { RecordModule } from '../record.module';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
+import { RecordRestoreService } from './record-restore.service';
 
 @Module({
   imports: [
@@ -44,7 +45,12 @@ import { RecordOpenApiService } from './record-open-api.service';
     forwardRef(() => SelectionModule),
   ],
   controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService, RecordOpenApiV2Service, TableQuerySearchVectorRuntimeService],
-  exports: [RecordOpenApiService, RecordOpenApiV2Service],
+  providers: [
+    RecordOpenApiService,
+    RecordOpenApiV2Service,
+    RecordRestoreService,
+    TableQuerySearchVectorRuntimeService,
+  ],
+  exports: [RecordOpenApiService, RecordOpenApiV2Service, RecordRestoreService],
 })
 export class RecordOpenApiModule {}

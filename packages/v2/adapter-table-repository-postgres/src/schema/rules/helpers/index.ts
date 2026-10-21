@@ -11,5 +11,7 @@ export {
   dropIndexStatement,
   dropTableStatement,
   metaStatement,
+  parseDbTableName,
+  resolveTableIdentifierFromMeta,
   type TableIdentifier,
 } from './StatementBuilders';

@@ -11,6 +11,7 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../domain/table/fields/types/CellValueType';
 import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
+import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import type { ClearFieldValueSpec } from '../../domain/table/records/specs/values/ClearFieldValueSpec';
@@ -19,6 +20,7 @@ import type {
   ICellValueSpecVisitor,
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
+import type { SetButtonValueSpec } from '../../domain/table/records/specs/values/SetButtonValueSpec';
 import type { SetCheckboxValueSpec } from '../../domain/table/records/specs/values/SetCheckboxValueSpec';
 import type { SetDateValueSpec } from '../../domain/table/records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
@@ -99,6 +101,9 @@ class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   visitSetAttachmentValue(_spec: SetAttachmentValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
+  visitSetButtonValue(_spec: SetButtonValueSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
 
   visitSetUserValue(_spec: SetUserValueSpec): Result<void, DomainError> {
     return ok(undefined);
@@ -167,7 +172,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     requests: ReadonlyArray<LinkTitleResolveRequest>
   ): Promise<Result<ReadonlyArray<LinkTitleResolveResult>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<LinkTitleResolveResult>, DomainError>(async function* () {
       if (requests.length === 0) {
@@ -259,7 +264,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     primaryFieldId: FieldId,
     titles: ReadonlyArray<string>
   ): Promise<Result<Map<string, string>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<Map<string, string>, DomainError>(async function* () {
       const primaryFieldResult = table.getField((f) => f.id().equals(primaryFieldId));
@@ -290,7 +295,22 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         );
       }
 
-      const querySpec = yield* service.buildTitleQuerySpec(primaryField, titles);
+      const queryTitles = new Set<string>();
+      const requestedTitles: string[] = [];
+      for (const title of titles) {
+        if (!title) continue;
+        requestedTitles.push(title);
+        // A nonempty original title stays eligible for an exact match, even when
+        // normalization yields nothing (for example a tab-only primary).
+        queryTitles.add(title);
+        const key = titleKeyForPrimaryField(primaryField, title);
+        if (key) queryTitles.add(key);
+      }
+      if (queryTitles.size === 0) {
+        return ok(new Map());
+      }
+
+      const querySpec = yield* service.buildTitleQuerySpec(primaryField, [...queryTitles]);
       const queryResult = yield* await service.recordQueryRepository.find(
         context,
         table,
@@ -298,16 +318,27 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         { mode: 'stored' }
       );
 
-      const titlesSet = new Set(titles);
-      const titleToId = new Map<string, string>();
+      const exactRecordId = new Map<string, string>();
+      const normalizedRecordId = new Map<string, string>();
       for (const record of queryResult.records) {
         const primaryValue = record.fields[primaryFieldId.toString()];
-        if (primaryValue !== null && primaryValue !== undefined) {
-          const titleStr = String(primaryValue);
-          if (titlesSet.has(titleStr) && !titleToId.has(titleStr)) {
-            titleToId.set(titleStr, record.id);
-          }
+        if (primaryValue === null || primaryValue === undefined) continue;
+        const stored = String(primaryValue);
+        if (!exactRecordId.has(stored)) exactRecordId.set(stored, record.id);
+        const key = titleKeyForPrimaryField(primaryField, stored);
+        if (key && !normalizedRecordId.has(key)) normalizedRecordId.set(key, record.id);
+      }
+
+      const titleToId = new Map<string, string>();
+      for (const title of requestedTitles) {
+        const exact = exactRecordId.get(title);
+        if (exact) {
+          titleToId.set(title, exact);
+          continue;
         }
+        const key = titleKeyForPrimaryField(primaryField, title);
+        const normalized = key ? normalizedRecordId.get(key) : undefined;
+        if (normalized) titleToId.set(title, normalized);
       }
 
       return ok(titleToId);
@@ -359,9 +390,10 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
 
   async resolveSpecs(
     context: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<SetLinkValueByTitleSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       if (specs.length === 0) {
         return ok([]);
@@ -401,17 +433,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       for (let i = 0; i < specs.length; i++) {
         const spec = specs[i]!;
         const resolved = resolvedBySpecIndex[i];
-        if (!resolved || resolved.resolvedIds.length === 0) {
-          replacements.push(
-            new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null))
-          );
-          continue;
-        }
-        const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
-          id: entry.id,
-          title: entry.title,
-        }));
-        replacements.push(new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems)));
+        replacements.push(toResolvedLinkValueSpec(spec, resolved));
       }
 
       return ok(replacements);
@@ -422,7 +444,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ICellValueSpec, DomainError>(async function* () {
       const titleSpecs = yield* service.extractLinkTitleSpecs(spec);
@@ -476,18 +498,26 @@ function replaceSpecs(
   }
 
   if (spec instanceof SetLinkValueByTitleSpec) {
-    const resolved = resolvedMap.get(spec);
-
-    if (!resolved || resolved.resolvedIds.length === 0) {
-      return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
-    }
-
-    const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-    }));
-    return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems));
+    return toResolvedLinkValueSpec(spec, resolvedMap.get(spec));
   }
 
   return spec;
+}
+
+function toResolvedLinkValueSpec(
+  spec: SetLinkValueByTitleSpec,
+  resolved: LinkTitleResolveResult | undefined
+): SetLinkValueSpec {
+  if (!resolved || resolved.resolvedIds.length === 0) {
+    return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
+  }
+
+  const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+  }));
+  return new SetLinkValueSpec(
+    spec.fieldId,
+    CellValue.fromValidated(spec.isMultiple ? linkItems : linkItems[0])
+  );
 }

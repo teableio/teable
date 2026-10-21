@@ -22,6 +22,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -450,9 +451,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = ClearCommand.create({
@@ -504,9 +504,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       new FakeTableRecordRepository(recordQueryRepository),
       recordQueryRepository,
-      eventBus,
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const command = ClearCommand.create({
@@ -559,9 +558,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
-      eventBus,
       undoRedoService as unknown as UndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const command = ClearCommand.create({
@@ -614,9 +612,8 @@ describe('ClearHandler', () => {
       ]),
       recordRepository,
       recordQueryRepository,
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearCommand.create({
@@ -685,9 +682,8 @@ describe('ClearHandler', () => {
       ]),
       recordRepository,
       recordQueryRepository,
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearCommand.create({
@@ -738,9 +734,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner([plugin]),
       recordRepository,
       recordQueryRepository,
-      eventBus,
       noopUndoRedoService,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = ClearCommand.create({
@@ -777,9 +772,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       new FakeTableRecordQueryRepository(),
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearCommand.create({
@@ -822,9 +816,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearCommand.create({
@@ -870,9 +863,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       recordQueryRepository,
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearCommand.create({
@@ -922,9 +914,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       new FakeTableRecordRepository(recordQueryRepository),
       recordQueryRepository,
-      eventBus,
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const command = ClearStreamCommand.create({
@@ -987,9 +978,8 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
-      new FakeEventBus(),
       noopUndoRedoService,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ClearStreamCommand.create({

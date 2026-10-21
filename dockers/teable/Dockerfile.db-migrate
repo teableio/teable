@@ -1,2 +1,3 @@
 FROM alpine:3.19
-CMD echo "[DEPRECATED] db-migrate image is deprecated and no longer needed. This image will be removed in v2.0.0." && exit 0
+USER 65534
+CMD ["echo", "[DEPRECATED] db-migrate image is deprecated and no longer needed. This image will be removed in v2.0.0."]

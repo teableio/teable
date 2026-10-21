@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage, cn } from '@teable/ui-lib';
 import { useMemo, isValidElement } from 'react';
+import { useContentDir } from '../../../hooks/use-content-dir';
 
 interface IUserTagProps {
   className?: string;
@@ -10,6 +11,7 @@ interface IUserTagProps {
 
 export const UserOption = (props: IUserTagProps) => {
   const { className, name, email, avatar } = props;
+  const contentDir = useContentDir();
   const avatarCom = useMemo(() => {
     if (isValidElement(avatar)) {
       return avatar;
@@ -26,7 +28,7 @@ export const UserOption = (props: IUserTagProps) => {
     <div className={cn('flex items-center gap-4', className)}>
       <Avatar className="box-content size-7 cursor-pointer border">{avatarCom}</Avatar>
       <div className="flex-1 truncate">
-        <p className="truncate text-sm font-medium leading-none" title={name}>
+        <p dir={contentDir} className="truncate text-sm font-medium leading-none" title={name}>
           {name}
         </p>
         {email && (

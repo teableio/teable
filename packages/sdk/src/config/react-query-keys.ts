@@ -14,6 +14,7 @@ import type {
   IGroupPointsRo,
   IQueryBaseRo,
   ListSpaceCollaboratorRo,
+  ListSpaceUniqueCollaboratorRo,
   IGetRecordsRo,
   ListBaseCollaboratorRo,
   ICalendarDailyCollectionRo,
@@ -26,7 +27,10 @@ import type {
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
   IRecordGetCollaboratorsRo,
+  IGetArchiveItemsQuery,
   IGetRecordHistoryQuery,
+  IGetTrashItemRecordsQuery,
+  ITableTrashItemsFilter,
   TrashType,
 } from '@teable/openapi';
 
@@ -57,7 +61,8 @@ export const ReactQueryKeys = {
     return parts;
   },
 
-  baseList: (spaceId: string) => ['base-list', spaceId] as const,
+  baseList: (spaceId: string, params?: { orderBy: 'personal' }) =>
+    params ? (['base-list', spaceId, params] as const) : (['base-list', spaceId] as const),
 
   pinList: () => ['pin-list'] as const,
 
@@ -65,15 +70,18 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
-  tableSeed: (tableId: string, viewId: string) => ['table-seed', tableId, viewId] as const,
+  // the seed's group structure and row set depend on the local collapse
+  // state, so that state is part of the identity
+  tableSeed: (tableId: string, viewId: string, collapsedGroupIds?: readonly string[]) =>
+    ['table-seed', tableId, viewId, collapsedGroupIds ?? null] as const,
 
   recordCommentCount: (tableId: string, recordId: string) =>
     ['record-comment-count', tableId, recordId] as const,
 
   commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
 
-  commentCount: (tableId: string, query?: IGetRecordsRo) =>
-    ['comment-count', tableId, query] as const,
+  commentCount: (tableId: string, recordIds: string[]) =>
+    ['comment-count', tableId, recordIds] as const,
 
   commentDetail: (tableId: string, recordId: string, commentId: string) =>
     ['comment-detail', tableId, recordId, commentId] as const,
@@ -94,6 +102,11 @@ export const ReactQueryKeys = {
     options
       ? (['space-collaborator-list', spaceId, options] as const)
       : (['space-collaborator-list', spaceId] as const),
+
+  spaceUniqueCollaboratorList: (spaceId: string, options?: ListSpaceUniqueCollaboratorRo) =>
+    options
+      ? (['space-unique-collaborator-list', spaceId, options] as const)
+      : (['space-unique-collaborator-list', spaceId] as const),
 
   baseCollaboratorList: (baseId: string, options?: ListBaseCollaboratorRo) =>
     options
@@ -204,7 +217,22 @@ export const ReactQueryKeys = {
   getSpaceTrash: (resourceType: TrashType, spaceId?: string) =>
     ['space-trash', resourceType, spaceId] as const,
 
-  getTrashItems: (resourceId: string) => ['trash-items', resourceId] as const,
+  // Without `query` the key is a prefix that matches every filter variant — use it for
+  // invalidation.
+  getTrashItemRecords: (trashId: string, query?: Omit<IGetTrashItemRecordsQuery, 'cursor'>) =>
+    query
+      ? (['trash-item-records', trashId, query] as const)
+      : (['trash-item-records', trashId] as const),
+
+  // Without `query` the key is a prefix that matches every query variant — use it for
+  // invalidation.
+  getTrashItems: (resourceId: string, query?: ITableTrashItemsFilter) =>
+    query ? (['trash-items', resourceId, query] as const) : (['trash-items', resourceId] as const),
+
+  // Without `query` the key is a prefix that matches every query variant — use it for
+  // invalidation.
+  getArchiveItems: (tableId: string, query?: IGetArchiveItemsQuery) =>
+    query ? (['archive-items', tableId, query] as const) : (['archive-items', tableId] as const),
 
   getDashboardList: (baseId: string) => ['dashboard-list', baseId] as const,
 
@@ -246,9 +274,18 @@ export const ReactQueryKeys = {
 
   userLastVisitMap: (baseId: string) => ['user-last-visit-map', baseId] as const,
 
+  // prefix-matched by ['base-entry-map'] in useEnterBase — keep the first
+  // segment stable
+  baseEntryMap: (spaceId: string) => ['base-entry-map', spaceId] as const,
+
+  pinEntryMap: () => ['pin-entry-map'] as const,
+
   getTaskStatusCollection: (tableId: string) => ['task-status-collection', tableId] as const,
 
-  chatHistory: (baseId: string) => ['chat-history', baseId] as const,
+  /** A base's chat list; a narrowed list (types, window) hangs under the same prefix so one invalidation refreshes every list. */
+  chatHistory: (baseId: string, params?: Record<string, unknown>) =>
+    params ? (['chat-history', baseId, params] as const) : (['chat-history', baseId] as const),
+  chatArchivedList: () => ['chat-archived-list'] as const,
 
   chatMessage: (chatId: string) => ['chat-message', chatId] as const,
 
@@ -269,6 +306,8 @@ export const ReactQueryKeys = {
 
   workflowItem: (baseId: string, workflowId: string) =>
     ['workflow-item', baseId, workflowId] as const,
+
+  routineItem: (baseId: string, routineId: string) => ['routine', baseId, routineId] as const,
 
   getApp: (baseId: string, appId: string) => ['app', baseId, appId] as const,
 

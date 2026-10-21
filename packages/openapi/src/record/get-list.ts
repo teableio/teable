@@ -192,7 +192,7 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
     .optional()
     .meta({
       description:
-        'Whether to include grouped query extra metadata such as group points. Projected record reads may skip this metadata unless explicitly enabled.',
+        'Whether to include query extra metadata such as group points and search hit indexes. Group metadata defaults to enabled; optimized generated-index searches require explicit opt-in for search hit indexes.',
     }),
 });
 
@@ -224,8 +224,11 @@ export const getRecordsRoSchema = getRecordQuerySchema.extend(contentQueryBaseSc
       example: 0,
       description: 'The records count you want to skip',
     }),
+  cursor: z.string().min(1).optional().meta({
+    description:
+      'Opaque keyset cursor for the next page. Use the nextCursor returned by the previous page; it encodes the last row position for the current order. Cannot be combined with skip > 0.',
+  }),
 });
-
 export type IGetRecordsRo = z.infer<typeof getRecordsRoSchema>;
 
 export const recordsSchema = recordSchema.array().meta({
@@ -272,6 +275,9 @@ export const recordsVoSchema = z.object({
         .meta({
           description: 'The index of the records that match the search, highlight the records',
         }),
+      nextCursor: z.string().min(1).optional().meta({
+        description: 'Keyset cursor for fetching the next page without OFFSET',
+      }),
     })
     .optional(),
 });

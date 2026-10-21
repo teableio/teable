@@ -1,7 +1,7 @@
 import type { IAttachmentCellValue } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
-import { isSystemFileIcon, getFileCover } from '@teable/sdk/components';
 import { useAttachmentPreviewI18Map } from '@teable/sdk/components/hooks';
+import { FileCover } from '@teable/sdk/components/upload/FileCover';
+import { isImage } from '@teable/ui-lib';
 import { FilePreviewProvider, FilePreviewItem } from '@teable/ui-lib/base';
 import {
   Carousel,
@@ -21,7 +21,6 @@ interface ICardCarouselProps {
 export const CardCarousel = (props: ICardCarouselProps) => {
   const { value, isCoverFit } = props;
   const i18nMap = useAttachmentPreviewI18Map();
-  const { resolvedTheme } = useTheme();
   return (
     <FilePreviewProvider i18nMap={i18nMap}>
       <Carousel
@@ -32,33 +31,30 @@ export const CardCarousel = (props: ICardCarouselProps) => {
         }}
         className="border-b"
       >
-        <CarouselContent className="ml-0">
+        <CarouselContent className="ms-0">
           {value.map(({ id, name, size, mimetype, presignedUrl, lgThumbnailUrl }) => {
-            const isSystemFile = isSystemFileIcon(mimetype);
-            const url =
-              lgThumbnailUrl ??
-              getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
             return (
               <CarouselItem
                 key={id}
                 style={{ height: CARD_COVER_HEIGHT }}
-                className="relative size-full pl-0"
+                className="relative size-full ps-0"
               >
                 <FilePreviewItem
                   key={id}
                   className="flex size-full cursor-pointer items-center justify-center"
                   src={presignedUrl || ''}
+                  thumb={lgThumbnailUrl}
                   name={name}
                   mimetype={mimetype}
                   size={size}
                 >
-                  <img
-                    src={url}
-                    alt="card cover"
-                    className={isSystemFile ? 'size-20' : 'size-full'}
-                    style={{
-                      objectFit: isCoverFit ? 'contain' : 'cover',
-                    }}
+                  <FileCover
+                    className="size-full"
+                    style={{ objectFit: isCoverFit ? 'contain' : 'cover' }}
+                    iconClassName="size-20"
+                    mimetype={mimetype}
+                    url={lgThumbnailUrl ?? (isImage(mimetype) ? presignedUrl : undefined)}
+                    name="card cover"
                   />
                 </FilePreviewItem>
               </CarouselItem>
@@ -67,8 +63,8 @@ export const CardCarousel = (props: ICardCarouselProps) => {
         </CarouselContent>
         {value.length > 1 && (
           <Fragment>
-            <CarouselPrevious className="left-1 size-7" onClick={(e) => e.stopPropagation()} />
-            <CarouselNext className="right-1 size-7" onClick={(e) => e.stopPropagation()} />
+            <CarouselPrevious className="start-1 size-7" onClick={(e) => e.stopPropagation()} />
+            <CarouselNext className="end-1 size-7" onClick={(e) => e.stopPropagation()} />
           </Fragment>
         )}
       </Carousel>

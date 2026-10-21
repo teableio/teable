@@ -55,7 +55,7 @@ export const OrgContent = ({
                 {selectedMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex h-6 items-center gap-1 rounded-full border bg-secondary pr-2 text-[13px]"
+                    className="flex h-6 items-center gap-1 rounded-full border bg-secondary pe-2 text-[13px]"
                   >
                     {member.data.type === TreeNodeType.USER ? (
                       <UserAvatar
@@ -86,7 +86,7 @@ export const OrgContent = ({
           <Button
             size={'sm'}
             variant={'outline'}
-            className="absolute bottom-1 right-1 h-auto p-1"
+            className="absolute bottom-1 end-1 h-auto p-1"
             disabled={isCreateLoading}
             onClick={() => {
               memberSelectorRef.current?.open();

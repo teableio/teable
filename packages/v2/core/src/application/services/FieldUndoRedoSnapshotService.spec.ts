@@ -171,6 +171,12 @@ describe('FieldUndoRedoSnapshotService', () => {
       { recordId: `rec${'2'.repeat(16)}`, value: null },
     ]);
     expect(repository.calls).toBe(1);
+    expect(repository.options[0]).toEqual({
+      mode: 'stored',
+      includeTotal: false,
+      projectionFieldIds: [targetFieldId],
+      valuesOnly: true,
+    });
   });
 
   it('captures multiple stored field snapshots with one projected record query', async () => {
@@ -202,6 +208,7 @@ describe('FieldUndoRedoSnapshotService', () => {
     expect(repository.options[0]?.projectionFieldIds?.map((fieldId) => fieldId.toString())).toEqual(
       [titleFieldId.toString(), targetFieldId.toString()]
     );
+    expect(repository.options[0]?.valuesOnly).toBe(true);
     expect(snapshots.map((snapshot) => snapshot.field.id)).toEqual([
       titleFieldId.toString(),
       targetFieldId.toString(),
@@ -289,6 +296,7 @@ describe('FieldUndoRedoSnapshotService', () => {
           linkFieldId: linkFieldId.toString(),
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: foreignTargetFieldId.toString(),
+          isUnique: true,
         })._unsafeUnwrap()
       )
       .withIsMultipleCellValue(false)
@@ -311,6 +319,7 @@ describe('FieldUndoRedoSnapshotService', () => {
       linkFieldId: linkFieldId.toString(),
       foreignTableId: foreignTableId.toString(),
       lookupFieldId: foreignTargetFieldId.toString(),
+      isUnique: true,
     });
     expect(options).not.toHaveProperty('fkHostTableName');
     expect(options).not.toHaveProperty('relationship');

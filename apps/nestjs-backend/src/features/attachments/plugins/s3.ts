@@ -1,10 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import http from 'http';
-import https from 'https';
+import { createHash } from 'node:crypto';
+import http from 'node:http';
+import https from 'node:https';
+import { join, resolve } from 'node:path';
+import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { join, resolve } from 'path';
-import type { Readable } from 'stream';
 import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
@@ -26,6 +27,7 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
+import { resolveThumbnailMimetype } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IPresignParams,
@@ -36,14 +38,41 @@ import type {
   IListObjectsResult,
 } from './types';
 
+// The SDK adds CRC checksums to requests and presigned URLs by default (since 3.729), which many
+// S3-compatible services reject, so only send a checksum where the operation requires one.
+export const s3ChecksumConfig = {
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+} as const;
+
+// DeleteObjects always requires a checksum: the SDK now sends CRC32, while S3-compatible services
+// (e.g. OSS) still expect the Content-MD5 the SDK used to send. This follows AWS's MD5 fallback
+// guide, but is placed by step: its addRelativeTo(flexibleChecksumsMiddleware) makes every command
+// without that middleware (HeadObject, ListObjectsV2, ...) throw on a shared client.
+const sendContentMd5ForDeleteObjects = (client: S3Client) => {
+  client.middlewareStack.add(
+    (next, context) => async (args) => {
+      const request = args.request as { headers: Record<string, string>; body?: unknown };
+      if (context.commandName === 'DeleteObjectsCommand' && typeof request.body === 'string') {
+        for (const header of Object.keys(request.headers)) {
+          if (/^x-amz-(?:sdk-)?checksum-/i.test(header)) delete request.headers[header];
+        }
+        request.headers['Content-MD5'] = createHash('md5').update(request.body).digest('base64');
+      }
+      return next(args);
+    },
+    { step: 'build', priority: 'low', name: 'deleteObjectsContentMd5' }
+  );
+};
+
 @Injectable()
 export class S3Storage implements StorageAdapter {
-  private s3Client: S3Client;
-  private s3ClientPrivateNetwork: S3Client;
-  private httpAgent: http.Agent;
-  private httpsAgent: https.Agent;
-  private s3ClientPreSigner: S3Client;
-  private logger = new Logger(S3Storage.name);
+  private readonly s3Client: S3Client;
+  private readonly s3ClientPrivateNetwork: S3Client;
+  private readonly httpAgent: http.Agent;
+  private readonly httpsAgent: https.Agent;
+  private readonly s3ClientPreSigner: S3Client;
+  private readonly logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const {
@@ -75,6 +104,7 @@ export class S3Storage implements StorageAdapter {
         })
       : undefined;
     this.s3Client = new S3Client({
+      ...s3ChecksumConfig,
       region,
       endpoint,
       forcePathStyle,
@@ -95,6 +125,7 @@ export class S3Storage implements StorageAdapter {
     this.s3ClientPrivateNetwork =
       internalEndpoint || internalPathStyle !== forcePathStyle
         ? new S3Client({
+            ...s3ChecksumConfig,
             region,
             endpoint: internalEndpoint ?? endpoint,
             forcePathStyle: internalPathStyle,
@@ -105,10 +136,12 @@ export class S3Storage implements StorageAdapter {
             },
           })
         : this.s3Client;
+    sendContentMd5ForDeleteObjects(this.s3ClientPrivateNetwork);
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
 
     this.s3ClientPreSigner = this.config.privateBucketEndpoint
       ? new S3Client({
+          ...s3ChecksumConfig,
           region,
           endpoint,
           bucketEndpoint: true,
@@ -237,7 +270,7 @@ export class S3Storage implements StorageAdapter {
   async presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes> {
     try {
       const { tokenExpireIn, uploadMethod } = this.config;
-      const { expiresIn, contentLength, contentType, hash, internal } = params;
+      const { expiresIn, contentLength, contentType, hash, internal, cacheControl } = params;
 
       const token = getRandomString(12);
       const filename = hash ?? token;
@@ -248,6 +281,7 @@ export class S3Storage implements StorageAdapter {
         Key: path,
         ContentType: contentType,
         ContentLength: contentLength,
+        CacheControl: cacheControl,
       });
 
       const url = await getSignedUrl(
@@ -258,9 +292,14 @@ export class S3Storage implements StorageAdapter {
         }
       );
 
+      // Cache-Control is NOT signature-enforced (SigV4 treats it as
+      // unsignable), so storing it relies on the client echoing
+      // requestHeaders on PUT — both first-party upload clients do. A client
+      // that omits or alters it only affects its own object's metadata.
       const requestHeaders = {
         'Content-Type': contentType,
         'Content-Length': contentLength,
+        ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
       };
 
       return {
@@ -335,15 +374,11 @@ export class S3Storage implements StorageAdapter {
         ...normalizeImageDimensions(metadata),
       };
     } catch (error) {
-      throw new CustomHttpException(
-        `Calculate image size failed: ${(error as Error).message}`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.calculateImageSizeFailed',
-          },
-        }
-      );
+      // Dimensions are a nice-to-have (grid aspect ratio); an image sharp cannot
+      // parse, e.g. a HEIC libheif rejects, must still upload. Thumbnails are
+      // handled downstream by the crop job, which has its own decoders.
+      this.logger.warn(`Calculate image size failed for ${path}: ${(error as Error).message}`);
+      return { hash, url, size, mimetype };
     } finally {
       stream?.destroy();
     }
@@ -358,6 +393,13 @@ export class S3Storage implements StorageAdapter {
       Bucket: this.replaceBucketEndpoint(bucket),
       Key: path,
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
+      // Objects uploaded via browser presigned PUT may carry an empty
+      // Content-Type; without an explicit override Safari content-sniffs the
+      // download and auto-extracts archive-like files (e.g. zip-based formats).
+      ResponseContentType: respHeaders?.['Content-Type'] || undefined,
+      ResponseCacheControl: StorageAdapter.isPublicBucket(bucket)
+        ? undefined
+        : StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,
     });
 
     return getSignedUrl(this.s3ClientPreSigner, command, {
@@ -381,6 +423,7 @@ export class S3Storage implements StorageAdapter {
       ContentEncoding: metadata['Content-Encoding'] as string,
       ContentLanguage: metadata['Content-Language'] as string,
       ContentMD5: metadata['Content-MD5'] as string,
+      CacheControl: metadata['Cache-Control'] as string,
     });
     return this.s3ClientPrivateNetwork
       .send(command)
@@ -421,6 +464,7 @@ export class S3Storage implements StorageAdapter {
         ContentEncoding: metadata?.['Content-Encoding'] as string,
         ContentLanguage: metadata?.['Content-Language'] as string,
         ContentMD5: metadata?.['Content-MD5'] as string,
+        CacheControl: metadata?.['Cache-Control'] as string,
       },
     });
 
@@ -517,7 +561,7 @@ export class S3Storage implements StorageAdapter {
         .resize(width, height);
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': mimetype,
+        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
       });
       return upload.path;
     } finally {
@@ -554,7 +598,7 @@ export class S3Storage implements StorageAdapter {
   ) {
     for (const obj of page.Contents ?? []) {
       if (obj.Key) {
-        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replace(/"/g, '') });
+        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replaceAll('"', '') });
       }
     }
     for (const common of page.CommonPrefixes ?? []) {

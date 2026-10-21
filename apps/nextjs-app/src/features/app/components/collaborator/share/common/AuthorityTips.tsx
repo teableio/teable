@@ -14,8 +14,8 @@ export const AuthorityTips = (props: IAuthorityTipsProps) => {
         <ShieldHalf size={16} />
         <p className="text-sm font-medium">{t('invite.authority.title')}</p>
       </div>
-      <p className="pl-6 text-xs text-muted-foreground">{t('invite.authority.description')}</p>
-      <Button variant="outline" size="xs" className="absolute right-4 top-2" onClick={onViewDetail}>
+      <p className="ps-6 text-xs text-muted-foreground">{t('invite.authority.description')}</p>
+      <Button variant="outline" size="xs" className="absolute end-4 top-2" onClick={onViewDetail}>
         {t('invite.authority.viewDetail')}
       </Button>
     </div>

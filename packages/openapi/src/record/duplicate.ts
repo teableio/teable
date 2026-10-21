@@ -18,7 +18,8 @@ export const duplicateRoute = registerRoute({
   method: 'post',
   path: DUPLICATE_URL,
   summary: 'Duplicate record',
-  description: 'Create a copy of an existing record with optional custom positioning in the view.',
+  description:
+    'Create a copy of an existing record with optional custom positioning in the view. In v2, button click state is cleared on the copy; the source record is unchanged.',
   request: {
     params: z.object({
       tableId: z.string(),

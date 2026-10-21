@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-devtools (run from source)",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@teable/v2-*": ["../*/src"],
+      "@teable/v2-utils/fetch": ["../utils/src/ssrf/registry.ts"],
+      "@teable/v2-contract-http-express/table-query-ops": [
+        "../contract-http-express/src/tableQueryOps.ts"
+      ],
+      "@teable/v2-contract-http-implementation/table-query-ops": [
+        "../contract-http-implementation/src/tableQueryOpsRouter.ts"
+      ]
+    }
+  },
+  "include": ["bin", "src", "../*/src"],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/__tests__/**",
+    "**/testkit/**"
+  ]
+}

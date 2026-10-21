@@ -41,7 +41,7 @@ export function replaceStringByMap(
   config: unknown,
   maps: Record<string, Record<string, string>>,
   returnJSONString: boolean = true
-): string | undefined | unknown {
+): unknown {
   if (!config) {
     return;
   }
@@ -151,6 +151,21 @@ export function adaptStructureTimeZone(structure: IBaseJson, timeZone: string): 
           ...node,
           config: replaceWorkflowTimeZoneDeep((node as { config?: unknown }).config, timeZone),
         })),
+      };
+    });
+  }
+
+  // EE structures also carry routines; a schedule's zone lives in config.trigger.timezone.
+  const routines = (structure as { routines?: unknown }).routines;
+  if (Array.isArray(routines)) {
+    (adapted as { routines?: unknown }).routines = routines.map((routine) => {
+      const config = (routine as { config?: { trigger?: object } | null }).config;
+      if (!config?.trigger) {
+        return routine;
+      }
+      return {
+        ...routine,
+        config: { ...config, trigger: { ...config.trigger, timezone: timeZone } },
       };
     });
   }

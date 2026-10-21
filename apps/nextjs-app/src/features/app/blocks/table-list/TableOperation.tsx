@@ -18,17 +18,20 @@ import {
   Switch,
   Label,
   Input,
-  DialogFooter,
-  Button,
 } from '@teable/ui-lib/shadcn';
 import { CopyPlus, Pen, Trash } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
+import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../hooks/useDownLoad';
 import { TableImport } from '../import-table';
+import {
+  markTableDeletedLocally,
+  unmarkTableDeletedLocally,
+} from '../table/hooks/stale-table-fallback';
 
 interface ITableOperationProps {
   className?: string;
@@ -41,6 +44,7 @@ interface ITableOperationProps {
 export const TableOperation = (props: ITableOperationProps) => {
   const { table, className, onRename, open, setOpen } = props;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
@@ -80,16 +84,30 @@ export const TableOperation = (props: ITableOperationProps) => {
   const deleteTable = async (permanent?: boolean) => {
     const tableId = table?.id;
 
-    if (!tableId) return;
+    if (!tableId || isDeleting) return;
 
-    await base.deleteTable(tableId, permanent);
-    setDeleteConfirm(false);
+    setIsDeleting(true);
+    // Before the request, not after: the realtime deletion op can reach this
+    // window ahead of the HTTP response, and stale-table recovery must know
+    // the deletion is ours (see stale-table-fallback).
+    markTableDeletedLocally(tableId);
+    try {
+      await base.deleteTable(tableId, permanent);
+      setDeleteConfirm(false);
 
-    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
 
-    const firstTableId = tables.find((t) => t.id !== tableId)?.id;
-    if (routerTableId === tableId) {
-      router.push(firstTableId ? `/base/${baseId}/table/${firstTableId}` : `/base/${baseId}`);
+      const firstTableId = tables.find((t) => t.id !== tableId)?.id;
+      if (routerTableId === tableId) {
+        // replace, not push: the deleted table's URL must not stay in history
+        // as the next Back target.
+        router.replace(firstTableId ? `/base/${baseId}/table/${firstTableId}` : `/base/${baseId}`);
+      }
+    } catch {
+      // Keep the dialog open so the deletion can be retried.
+      unmarkTableDeletedLocally(tableId);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -152,7 +170,7 @@ export const TableOperation = (props: ITableOperationProps) => {
         >
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pen className="mr-2 size-4" />
+              <Pen className="me-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
@@ -164,7 +182,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               }}
               title={t('common:noun.design')}
             >
-              <Settings className="mr-2 size-4" />
+              <Settings className="me-2 size-4" />
               {t('common:noun.design')}
             </Link>
           </DropdownMenuItem>
@@ -176,7 +194,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                 void handleDuplicateClick();
               }}
             >
-              <CopyPlus className="mr-2 size-4" />
+              <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
@@ -186,14 +204,14 @@ export const TableOperation = (props: ITableOperationProps) => {
                 trigger?.();
               }}
             >
-              <Export className="mr-2 size-4" />
+              <Export className="me-2 size-4" />
               {t('table:import.menu.downAsCsv')}
             </DropdownMenuItem>
           )}
           {menuPermission.importTable && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <Import className="mr-2 size-4" />
+                <Import className="me-2 size-4" />
                 <span>{t('table:import.menu.importData')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -204,7 +222,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.CSV);
                     }}
                   >
-                    <FileCsv className="mr-2 size-4" />
+                    <FileCsv className="me-2 size-4" />
                     <span>{t('table:import.menu.csvFile')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -213,7 +231,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.EXCEL);
                     }}
                   >
-                    <FileExcel className="mr-2 size-4" />
+                    <FileExcel className="me-2 size-4" />
                     <span>{t('table:import.menu.excelFile')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
@@ -222,7 +240,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           )}
           {menuPermission.deleteTable && (
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-              <Trash className="mr-2 size-4" />
+              <Trash className="me-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}
@@ -238,26 +256,13 @@ export const TableOperation = (props: ITableOperationProps) => {
         ></TableImport>
       )}
 
-      <ConfirmDialog
+      <TableDeleteConfirmDialog
         open={deleteConfirm}
+        tableId={table.id}
+        tableName={table?.name}
+        isDeleting={isDeleting}
         onOpenChange={setDeleteConfirm}
-        title={t('table:table.deleteConfirm', { tableName: table?.name })}
-        content={
-          <>
-            <div className="space-y-2 text-sm">
-              <p>{t('table:table.deleteTip1')}</p>
-              <p>{t('common:trash.description')}</p>
-            </div>
-            <DialogFooter>
-              <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
-                {t('common:actions.cancel')}
-              </Button>
-              <Button size={'sm'} onClick={() => deleteTable()}>
-                {t('common:trash.addToTrash')}
-              </Button>
-            </DialogFooter>
-          </>
-        }
+        onConfirm={() => deleteTable()}
       />
 
       <ConfirmDialog

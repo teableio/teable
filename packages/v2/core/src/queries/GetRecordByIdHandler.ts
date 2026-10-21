@@ -23,9 +23,10 @@ export class GetRecordByIdResult {
 
 @QueryHandler(GetRecordByIdQuery)
 @injectable()
-export class GetRecordByIdHandler
-  implements IQueryHandler<GetRecordByIdQuery, GetRecordByIdResult>
-{
+export class GetRecordByIdHandler implements IQueryHandler<
+  GetRecordByIdQuery,
+  GetRecordByIdResult
+> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,

@@ -174,7 +174,7 @@ export const CodingModels = ({
           <span>{t('admin.setting.ai.chatModel')}</span>
           <div className="h-4 text-red-500">*</div>
         </div>
-        <div className="text-left text-xs text-muted-foreground">
+        <div className="text-start text-xs text-muted-foreground">
           {t('admin.setting.ai.chatModelDescription')}
         </div>
 
@@ -220,7 +220,7 @@ export const CodingModels = ({
                       )}
                       <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
                       {supportDetails && (
-                        <span className="ml-0.5 opacity-70">({supportDetails})</span>
+                        <span className="ms-0.5 opacity-70">({supportDetails})</span>
                       )}
                     </div>
                   );
@@ -274,7 +274,7 @@ export const CodingModels = ({
             />
             <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
             {!tiersOpen && (
-              <span className="ml-1 text-xs opacity-60">
+              <span className="ms-1 text-xs opacity-60">
                 {customizedCount > 0
                   ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
                   : t('admin.setting.ai.chatModels.allInheriting')}

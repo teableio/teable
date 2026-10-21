@@ -99,7 +99,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
 
     // Handle wrapped casts like ((7)::double precision)
-    const wrappedCastMatch = trimmed.match(/^\((.+)\)$/);
+    const wrappedCastMatch = /^\((.+)\)$/.exec(trimmed);
     if (wrappedCastMatch) {
       return this.isNumericLiteral(wrappedCastMatch[1]);
     }
@@ -162,7 +162,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const cleaned = `NULLIF(${sanitized}, '')`;
     const collatedClean = `${cleaned} COLLATE "C"`;
     // Avoid "?" in the regex so knex.raw doesn't misinterpret it as a binding placeholder.
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     return `(CASE
       WHEN ${expr} IS NULL THEN NULL
@@ -175,7 +175,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private numericFromJson(expr: string): string {
     const jsonExpr = `to_jsonb(${expr})`;
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     const arraySum = `(SELECT SUM(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN elem.value::double precision ELSE NULL END) FROM jsonb_array_elements_text(${jsonExpr}) AS elem(value))`;
     return `(CASE
@@ -187,7 +187,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private numericFromText(expr: string): string {
     const textExpr = `((${expr})::text) COLLATE "C"`;
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     const collatedPattern = `${numericPattern} COLLATE "C"`;
     return `(CASE
       WHEN ${expr} IS NULL THEN NULL
@@ -326,7 +326,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private getExpressionFieldType(value: string): DbFieldType | undefined {
     const trimmed = this.stripOuterParentheses(value);
-    const columnMatch = trimmed.match(/^"([^"]+)"$/) ?? trimmed.match(/^"[^"]+"\."([^"]+)"$/);
+    const columnMatch = /^"([^"]+)"$/.exec(trimmed) ?? /^"[^"]+"\."([^"]+)"$/.exec(trimmed);
     if (!columnMatch || columnMatch.length < 2) {
       return undefined;
     }
@@ -595,7 +595,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const stringTypes = "('text','character varying','character','varchar','unknown')";
     const wrappedText = `(${wrapped})::text`;
     const booleanTruthyScore = `CASE WHEN LOWER(${wrappedText}) IN ('t','true','1') THEN 1 ELSE 0 END`;
-    const numericTruthyScore = `CASE WHEN ${wrappedText} ~ '^\\s*[+-]{0,1}0*(\\.0*){0,1}\\s*$' THEN 0 ELSE 1 END`;
+    const numericTruthyScore = String.raw`CASE WHEN ${wrappedText} ~ '^\s*[+-]{0,1}0*(\.0*){0,1}\s*$' THEN 0 ELSE 1 END`;
     const fallbackTruthyScore = `CASE
       WHEN COALESCE(${wrappedText}, '') = '' THEN 0
       WHEN LOWER(${wrappedText}) = 'null' THEN 0
@@ -1218,7 +1218,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
         const literal = trimmed.slice(1, -1);
         const normalized = this.normalizeTruncateUnit(literal);
-        const safeUnit = normalized.replace(/'/g, "''");
+        const safeUnit = normalized.replaceAll("'", "''");
         return `DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(
           date1,
           0
@@ -1537,7 +1537,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   protected escapeIdentifier(identifier: string): string {
-    return `"${identifier.replace(/"/g, '""')}"`;
+    return `"${identifier.replaceAll('"', '""')}"`;
   }
 
   private guardDefaultDatetimeParse(valueExpr: string): string {
@@ -1555,7 +1555,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const pattern = getDefaultDatetimeParsePattern();
     const hasClockTime = `(${sanitizedExpr} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
     const hasExplicitTimeZone = `(${sanitizedExpr} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
-    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const safeTz = (this.context?.timeZone ?? 'UTC').replaceAll("'", "''");
     const localTimestampExpr = `(${sanitizedExpr})::timestamp AT TIME ZONE '${safeTz}'`;
     const explicitZoneExpr = `(${sanitizedExpr})::timestamptz`;
 
@@ -1578,7 +1578,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   ): string {
     const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr);
     const toTimestampExpr = `TO_TIMESTAMP(${textExpr}::text, ${normalizedFormat})`;
-    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const safeTz = (this.context?.timeZone ?? 'UTC').replaceAll("'", "''");
     const hasTimezoneToken = hasDatetimeTimezoneToken(formatExpr);
     const parsedExpr =
       hasTimezoneToken === false
@@ -1588,7 +1588,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     if (!guardPattern) {
       return parsedExpr;
     }
-    const escapedPattern = guardPattern.replace(/'/g, "''");
+    const escapedPattern = guardPattern.replaceAll("'", "''");
     return `(CASE WHEN ${nullGuardExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${parsedExpr} ELSE NULL END)`;
   }
   private castToTimestamp(date: string, metadataIndex?: number): string {

@@ -39,7 +39,42 @@ describe('update-field: number → checkbox conversion', () => {
     }
   });
 
-  test('should convert 0 to false', async () => {
+  test('T7844 Y2697 converts 0, 5, and -1 to true and leaves empty empty', async () => {
+    const fieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'number', id: fieldId, name: 'Quantity' },
+    });
+    const zero = await ctx.createRecord(tableId, { [fieldId]: 0 });
+    const five = await ctx.createRecord(tableId, { [fieldId]: 5 });
+    const negative = await ctx.createRecord(tableId, { [fieldId]: -1 });
+    const empty = await ctx.createRecord(tableId, { [primaryFieldId]: 'empty' });
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { type: 'checkbox' },
+    });
+
+    expect(updatedTable.fields.find((f) => f.id === fieldId)?.type).toBe('checkbox');
+
+    const records = await ctx.listRecords(tableId);
+    const zeroValue = records.find((r) => r.id === zero.id)?.fields[fieldId];
+    const fiveValue = records.find((r) => r.id === five.id)?.fields[fieldId];
+    const negativeValue = records.find((r) => r.id === negative.id)?.fields[fieldId];
+    const emptyValue = records.find((r) => r.id === empty.id)?.fields[fieldId];
+    expect(zeroValue).toBe(true);
+    expect(fiveValue).toBe(true);
+    expect(negativeValue).toBe(true);
+    expect(emptyValue).toBeNull();
+    expect(records.map((r) => r.fields[fieldId])).not.toContain(false);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [zero.id, five.id, negative.id, empty.id]);
+  });
+
+  test('should convert 0 to true', async () => {
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -59,7 +94,7 @@ describe('update-field: number → checkbox conversion', () => {
 
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
-    expect(rec1?.fields[fieldId]).toBe(false);
+    expect(rec1?.fields[fieldId]).toBe(true);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);

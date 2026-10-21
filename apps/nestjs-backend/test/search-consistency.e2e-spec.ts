@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import {
   Colors,
@@ -260,7 +260,9 @@ describe('Search consistency between server and client (e2e)', () => {
     const search: [string, string, boolean] = [keyword, scope?.() ?? '', false];
     const serverHits = await fetchServerHits(search);
     const clientHits = await computeClientHits(search);
-    expect([...clientHits].sort()).toEqual([...serverHits].sort());
+    expect([...clientHits].sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+      [...serverHits].sort((a, b) => Number(a > b) - Number(a < b))
+    );
   });
   // attachments are excluded from search on both sides (AttachmentFieldCore
   // isSearchable returns false; the server consumes the same predicate):

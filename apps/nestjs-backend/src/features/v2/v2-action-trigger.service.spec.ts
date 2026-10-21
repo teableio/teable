@@ -11,6 +11,9 @@ import {
   RecordsDeleted,
   TableActionTriggerRequested,
   TableId,
+  ViewColumnMetaUpdated,
+  ViewFilterUpdated,
+  ViewGroupUpdated,
   ViewId,
   type IExecutionContext,
   type IEventHandler,
@@ -60,6 +63,7 @@ const createIds = () => {
     baseId: BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap(),
     tableId: TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap(),
     fieldId: FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap(),
+    viewId: ViewId.create(`viw${'d'.repeat(16)}`)._unsafeUnwrap(),
   };
 };
 
@@ -921,5 +925,208 @@ describe('V2ActionTriggerService', () => {
         },
       ],
     ]);
+  });
+
+  it('emits applyViewFilter through the v2 action-trigger sink', async () => {
+    let channelSubmitted: string | undefined;
+    let submitted: IPresencePayload | undefined;
+    const shareDbService = {
+      connect: () => ({
+        getPresence: (channel: string) => {
+          channelSubmitted = channel;
+          return {
+            create: () => ({
+              submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+                submitted = data;
+                cb?.();
+              },
+            }),
+          };
+        },
+      }),
+    } as unknown as ShareDbService;
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+    new V2ActionTriggerService(shareDbService).registerProjections(container);
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2ViewFilterUpdatedActionTriggerProjection'
+    )?.instance as IEventHandler<ViewFilterUpdated> | undefined;
+    const { baseId, tableId, fieldId, viewId } = createIds();
+
+    const result = await projection?.handle(
+      {} as IExecutionContext,
+      ViewFilterUpdated.create({
+        baseId,
+        tableId,
+        viewId,
+        previousFilter: null,
+        nextFilter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: fieldId.toString(), operator: 'is', value: 'active' }],
+        },
+      })
+    );
+    await waitForPresenceFlush();
+
+    expect(result?.isOk()).toBe(true);
+    expect(channelSubmitted).toBe(getActionTriggerChannel(viewId.toString()));
+    expect(submitted).toEqual([{ actionKey: 'applyViewFilter' }]);
+  });
+
+  it('emits applyViewGroup through the v2 action-trigger sink', async () => {
+    let channelSubmitted: string | undefined;
+    let submitted: IPresencePayload | undefined;
+    const shareDbService = {
+      connect: () => ({
+        getPresence: (channel: string) => {
+          channelSubmitted = channel;
+          return {
+            create: () => ({
+              submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+                submitted = data;
+                cb?.();
+              },
+            }),
+          };
+        },
+      }),
+    } as unknown as ShareDbService;
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+    new V2ActionTriggerService(shareDbService).registerProjections(container);
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2ViewGroupUpdatedActionTriggerProjection'
+    )?.instance as IEventHandler<ViewGroupUpdated> | undefined;
+    const { baseId, tableId, fieldId, viewId } = createIds();
+
+    const result = await projection?.handle(
+      {} as IExecutionContext,
+      ViewGroupUpdated.create({
+        baseId,
+        tableId,
+        viewId,
+        previousGroup: null,
+        nextGroup: [{ fieldId: fieldId.toString(), order: 'asc' }],
+      })
+    );
+    await waitForPresenceFlush();
+
+    expect(result?.isOk()).toBe(true);
+    expect(channelSubmitted).toBe(getActionTriggerChannel(viewId.toString()));
+    expect(submitted).toEqual([{ actionKey: 'applyViewGroup' }]);
+  });
+
+  it('derives View column actions from v2 column metadata changes', async () => {
+    let submitted: IPresencePayload | undefined;
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({
+            submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+              submitted = data;
+              cb?.();
+            },
+          }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+    new V2ActionTriggerService(shareDbService).registerProjections(container);
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2ViewColumnMetaUpdatedActionTriggerProjection'
+    )?.instance as IEventHandler<ViewColumnMetaUpdated> | undefined;
+    const { baseId, tableId, fieldId, viewId } = createIds();
+
+    const result = await projection?.handle(
+      {} as IExecutionContext,
+      ViewColumnMetaUpdated.create({
+        baseId,
+        tableId,
+        viewId,
+        fieldId,
+        changes: [
+          {
+            fieldId,
+            previousColumnMeta: { hidden: true, statisticFunc: 'sum' },
+            nextColumnMeta: { hidden: false, statisticFunc: 'average' },
+          },
+        ],
+      })
+    );
+    await waitForPresenceFlush();
+
+    expect(result?.isOk()).toBe(true);
+    expect(submitted).toEqual([
+      { actionKey: 'showViewField' },
+      { actionKey: 'applyViewStatisticFunc' },
+    ]);
+  });
+
+  it('skips View column actions when visibility and statistic behavior do not change', async () => {
+    const submit = vi.fn();
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({ submit }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+    new V2ActionTriggerService(shareDbService).registerProjections(container);
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2ViewColumnMetaUpdatedActionTriggerProjection'
+    )?.instance as IEventHandler<ViewColumnMetaUpdated> | undefined;
+    const { baseId, tableId, fieldId, viewId } = createIds();
+
+    const result = await projection?.handle(
+      {} as IExecutionContext,
+      ViewColumnMetaUpdated.create({
+        baseId,
+        tableId,
+        viewId,
+        fieldId,
+        changes: [
+          {
+            fieldId,
+            previousColumnMeta: { hidden: true, statisticFunc: 'sum', width: 120 },
+            nextColumnMeta: { hidden: true, statisticFunc: 'sum', width: 240 },
+          },
+        ],
+      })
+    );
+    await waitForPresenceFlush();
+
+    expect(result?.isOk()).toBe(true);
+    expect(submit).not.toHaveBeenCalled();
   });
 });

@@ -8,12 +8,13 @@ import type {
   IDatetimeFormatting,
   ILinkCellValue,
   ISelectFieldOptions,
-  SingleLineTextDisplayType,
+  ISingleLineTextShowAs,
   IButtonFieldCellValue,
   IButtonFieldOptions,
 } from '@teable/core';
-import { CellValueType, FieldType } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
+import { CellValueType, FieldType, getTextActionType } from '@teable/core';
+import { useTheme } from '@teable/ui-lib';
+import type { JSX } from 'react';
 import type { IFieldInstance } from '../../model';
 import { isMarkdownShowAs, normalizeMarkdownValue, stripMarkdown } from '../editor/long-text/utils';
 import { CellAttachment } from './cell-attachment';
@@ -35,6 +36,8 @@ interface ICellValueContainer extends ICellValue<unknown> {
   itemClassName?: string;
   readonly?: boolean;
   plainLongText?: boolean;
+  // link only: ids whose referenced record has been deleted (e.g. record history)
+  deletedRecordIds?: string[];
 }
 
 interface RenderContext {
@@ -48,6 +51,7 @@ interface RenderContext {
   readonly?: boolean;
   plainLongText?: boolean;
   theme?: string;
+  deletedRecordIds?: string[];
 }
 
 type RenderFn = (ctx: RenderContext) => JSX.Element;
@@ -74,12 +78,13 @@ const renderLongText: RenderFn = ({ value, className, plainLongText, options }) 
   return <CellText value={strValue} className={className} />;
 };
 
-const renderSingleLineText: RenderFn = ({ value, className, ellipsis, options }) => (
+// Multi-value lookups arrive as arrays; the field joins them the same way the grid does
+const renderSingleLineText: RenderFn = ({ value, className, ellipsis, options, field }) => (
   <CellText
-    value={value as string}
+    value={field.cellValue2String(value)}
     className={className}
     ellipsis={ellipsis}
-    displayType={(options as { showAs?: { type?: SingleLineTextDisplayType } })?.showAs?.type}
+    actionType={getTextActionType((options as { showAs?: ISingleLineTextShowAs })?.showAs)}
   />
 );
 
@@ -209,20 +214,21 @@ const renderFormulaLike: RenderFn = ({ value, className, ellipsis, options, fiel
 
   return (
     <CellText
-      value={value as string}
+      value={field.cellValue2String(value)}
       className={className}
       ellipsis={ellipsis}
-      displayType={(options as { showAs?: { type?: SingleLineTextDisplayType } })?.showAs?.type}
+      actionType={getTextActionType((options as { showAs?: ISingleLineTextShowAs })?.showAs)}
     />
   );
 };
 
-const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis }) => (
+const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis, deletedRecordIds }) => (
   <CellLink
     value={value as ILinkCellValue | ILinkCellValue[]}
     className={className}
     itemClassName={itemClassName}
     ellipsis={ellipsis}
+    deletedRecordIds={deletedRecordIds}
   />
 );
 
@@ -260,6 +266,7 @@ export const CellValue = (props: ICellValueContainer) => {
     formatImageUrl,
     readonly,
     plainLongText,
+    deletedRecordIds,
   } = props;
   const options = (field.options ?? {}) as Record<string, unknown>;
   const renderer = typeRenderers[field.type];
@@ -279,5 +286,6 @@ export const CellValue = (props: ICellValueContainer) => {
     readonly,
     plainLongText,
     theme: resolvedTheme,
+    deletedRecordIds,
   });
 };

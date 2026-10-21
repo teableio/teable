@@ -5,6 +5,10 @@
     "password": "Contraseña",
     "passwordTooShort": "La contraseña debe tener al menos 3 caracteres"
   },
+  "form": {
+    "requireLoginTip": "Este formulario requiere que inicies sesión antes de enviarlo",
+    "login": "Iniciar sesión"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seleccionar..."
   },

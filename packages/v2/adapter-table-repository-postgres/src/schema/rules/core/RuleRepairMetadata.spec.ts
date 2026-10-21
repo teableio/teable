@@ -107,32 +107,29 @@ describe('RuleRepairMetadata', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain(
-        'Unsupported manual repair schema property "count"'
+        'Unsupported manual repair schema property "count" (number)'
       );
     });
 
-    it('should support zod default metadata stored as a direct value', () => {
-      const resolution = z.enum(['keep', 'drop']).default('keep');
-      const defaultSchema = resolution as typeof resolution & {
-        _def: typeof resolution._def & { defaultValue: string };
-      };
-      defaultSchema._def.defaultValue = 'keep';
-
+    it('should resolve a function-valued default to its value', () => {
       const schema = z.object({
-        resolution: withManualRepairFieldMeta(defaultSchema, {
-          widget: 'select',
-          title: { fallback: 'Resolution' },
-          options: {
-            keep: {
-              value: 'keep',
-              label: { fallback: 'Keep current' },
+        resolution: withManualRepairFieldMeta(
+          z.enum(['keep', 'drop']).default(() => 'keep'),
+          {
+            widget: 'select',
+            title: { fallback: 'Resolution' },
+            options: {
+              keep: {
+                value: 'keep',
+                label: { fallback: 'Keep current' },
+              },
+              drop: {
+                value: 'drop',
+                label: { fallback: 'Drop duplicate' },
+              },
             },
-            drop: {
-              value: 'drop',
-              label: { fallback: 'Drop duplicate' },
-            },
-          },
-        }),
+          }
+        ),
       });
 
       const result = serializeManualRepairSchema(schema);

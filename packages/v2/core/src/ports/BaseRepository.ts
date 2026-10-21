@@ -13,6 +13,7 @@ export interface IFindBasesResult {
 
 export interface IBaseRepository {
   insert(context: IExecutionContext, base: Base): Promise<Result<Base, DomainError>>;
+  delete(context: IExecutionContext, baseId: BaseId): Promise<Result<void, DomainError>>;
   findOne(context: IExecutionContext, baseId: BaseId): Promise<Result<Base | null, DomainError>>;
   find(
     context: IExecutionContext,

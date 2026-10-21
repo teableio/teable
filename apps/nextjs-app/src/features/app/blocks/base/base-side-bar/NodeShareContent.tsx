@@ -15,6 +15,7 @@ import {
   updateBaseShare,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useBasePermission, useContentDir } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import {
   Button,
@@ -47,6 +48,7 @@ export const getShareUrl = (shareId: string, origin: string) => {
 };
 
 export const NodeShareHeader = ({ node }: { node: TreeItemData }) => {
+  const contentDir = useContentDir();
   const { t } = useTranslation(['common', 'table']);
   const nodeName = getNodeName(node);
   const nodeIcon = getNodeIcon(node);
@@ -62,7 +64,7 @@ export const NodeShareHeader = ({ node }: { node: TreeItemData }) => {
           NodeTypeIcon && <NodeTypeIcon className="size-4 text-muted-foreground" />
         )}
       </span>
-      <span className="truncate text-base font-medium" title={nodeName}>
+      <span dir={contentDir} className="truncate text-base font-medium" title={nodeName}>
         {nodeName}
       </span>
     </div>
@@ -97,7 +99,7 @@ const AppNodeShareContent = ({
         name: (node.resourceMeta as IBaseNodeAppResourceMeta)?.name || '',
         resourceId: node.resourceId,
       });
-      queryClient.invalidateQueries({ queryKey: ['baseNodeTree', baseId] });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNodeTree(baseId) });
       toast.success(t('table:baseShare.publishSuccess'));
     } catch {
       toast.error(t('table:baseShare.publishFailed'));
@@ -114,7 +116,7 @@ const AppNodeShareContent = ({
         <div className="flex flex-col gap-2">
           <Label className="text-sm font-semibold">{t('table:baseShare.appPublicLink')}</Label>
           <div className="flex items-center gap-2">
-            <div className="flex h-9 min-w-0 flex-1 items-center rounded-md border bg-card p-2 pl-3">
+            <div className="flex h-9 min-w-0 flex-1 items-center rounded-md border bg-card p-2 ps-3">
               <span className="truncate text-sm text-muted-foreground">{appPublicUrl}</span>
             </div>
             <TooltipProvider>
@@ -152,7 +154,7 @@ const AppNodeShareContent = ({
             {t('table:baseShare.appNotPublished')}
           </p>
           <Button onClick={handlePublishApp} disabled={isPublishing || !publishApp}>
-            {isPublishing && <Spin className="mr-2 size-4" />}
+            {isPublishing && <Spin className="me-2 size-4" />}
             {t('table:baseShare.goToPublish')}
           </Button>
         </div>
@@ -174,6 +176,8 @@ export const NodeShareContent = ({
 }) => {
   const { t } = useTranslation(['common', 'table']);
   const queryClient = useQueryClient();
+  const basePermission = useBasePermission();
+  const canManageShare = Boolean(basePermission?.['base|update']);
 
   const { sharedNodeIds } = useSharedNodeIds();
   const isNodeShared = sharedNodeIds.has(nodeId);
@@ -218,7 +222,7 @@ export const NodeShareContent = ({
     },
   });
 
-  const { mutate: updateShare } = useMutation({
+  const { mutateAsync: updateShare, isPending: isUpdateLoading } = useMutation({
     mutationFn: (data: IUpdateBaseShareRo) => updateBaseShare(baseId, share!.shareId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -260,9 +264,13 @@ export const NodeShareContent = ({
     },
   });
 
-  const handleUpdateSetting = (data: Record<string, unknown>) => {
-    if (!share) return;
-    updateShare(data as IUpdateBaseShareRo);
+  // Resolves whether the update was saved; failures are already toasted by onError
+  const handleUpdateSetting = async (data: Record<string, unknown>) => {
+    if (!share) return false;
+    return updateShare(data as IUpdateBaseShareRo).then(
+      () => true,
+      () => false
+    );
   };
 
   const showEdit =
@@ -271,7 +279,7 @@ export const NodeShareContent = ({
 
   const permissionOptions = useBaseSharePermissionOptions({
     share,
-    onUpdate: handleUpdateSetting,
+    onUpdate: (data) => void handleUpdateSetting(data),
     showEdit,
   });
 
@@ -299,6 +307,8 @@ export const NodeShareContent = ({
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}
+      isUpdateLoading={isUpdateLoading}
+      disabled={!canManageShare}
       permissionOptions={permissionOptions}
       onToggleShare={() => createShare({ nodeId })}
       onUpdateSetting={handleUpdateSetting}

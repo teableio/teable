@@ -13,6 +13,13 @@ import type { CliError } from '../errors';
 export type RecordQuerySearchAccessPathOption =
   | { readonly kind: 'default' }
   | {
+      readonly kind: 'generated_text';
+      readonly generatedColumnName: string;
+      readonly provider: 'pg_bigm' | 'pg_trgm';
+      readonly searchScope: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: readonly string[];
+    }
+  | {
       readonly kind: 'generated_tsvector';
       readonly generatedColumnName: string;
       readonly languageConfig: string;
@@ -34,6 +41,12 @@ export interface RecordQueryOptions {
 export interface RecordQueryResult {
   readonly records: ReadonlyArray<RecordReadModel>;
   readonly total: number;
+  /** How the repository resolved the requested search access path. */
+  readonly searchAccessPath?: {
+    readonly requested: string;
+    readonly used: string;
+    readonly fallbackReason?: string;
+  };
 }
 
 /** Single record read model from application layer */

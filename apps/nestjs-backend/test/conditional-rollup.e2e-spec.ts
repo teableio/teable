@@ -11,6 +11,7 @@ import type {
   IFilter,
   IFilterItem,
   IUserFieldOptions,
+  IHttpError,
 } from '@teable/core';
 import {
   CellValueType,
@@ -25,7 +26,14 @@ import {
   SortFunc,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { DELETE_URL, RangeType, X_CANARY_HEADER, axios, urlBuilder } from '@teable/openapi';
+import {
+  CONVERT_FIELD,
+  DELETE_URL,
+  RangeType,
+  X_CANARY_HEADER,
+  axios,
+  urlBuilder,
+} from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
@@ -178,12 +186,24 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
           if (Array.isArray(expected)) {
             expect(Array.isArray(value)).toBe(true);
-            const sortedExpected = [...expected].sort();
-            const sortedValue = [...(value as unknown[])].sort();
+            const sortedExpected = [...expected].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
+            const sortedValue = [...(value as unknown[])].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
             expect(sortedValue).toEqual(sortedExpected);
           } else if (typeof expected === 'string') {
             if (expected.includes(', ')) {
-              expect((value as string).split(', ').sort()).toEqual(expected.split(', ').sort());
+              expect(
+                (value as string)
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              ).toEqual(
+                expected
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              );
             } else {
               expect(value).toEqual(expected);
             }
@@ -200,6 +220,106 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         }
       }
     );
+  });
+
+  const withForceV2All = async <T>(callback: () => Promise<T>) => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+    try {
+      return await callback();
+    } finally {
+      if (previousForceV2All === undefined) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    }
+  };
+
+  describe('create-time compatibility T7087', () => {
+    it.each([
+      {
+        name: 'button + counta',
+        foreignFields: [
+          { name: 'MatchKey', type: FieldType.SingleLineText },
+          {
+            name: 'Action',
+            type: FieldType.Button,
+            options: { label: 'Run', color: Colors.Teal },
+          },
+        ],
+        lookupName: 'Action',
+        expression: 'counta({values})',
+      },
+      {
+        name: 'number + and',
+        foreignFields: [
+          { name: 'MatchKey', type: FieldType.SingleLineText },
+          { name: 'Amount', type: FieldType.Number },
+        ],
+        lookupName: 'Amount',
+        expression: 'and({values})',
+      },
+      {
+        name: 'checkbox + sum',
+        foreignFields: [
+          { name: 'MatchKey', type: FieldType.SingleLineText },
+          { name: 'Flag', type: FieldType.Checkbox },
+        ],
+        lookupName: 'Flag',
+        expression: 'sum({values})',
+      },
+    ])('rejects incompatible conditional rollup create via API: $name', async (testCase) => {
+      await withForceV2All(async () => {
+        const foreign = await createTable(baseId, {
+          name: `CondRollupRejectForeign ${testCase.name}`,
+          fields: testCase.foreignFields as IFieldRo[],
+        });
+        const host = await createTable(baseId, {
+          name: `CondRollupRejectHost ${testCase.name}`,
+          fields: [{ name: 'MatchKey', type: FieldType.SingleLineText } as IFieldRo],
+        });
+        const lookupFieldId = foreign.fields.find(
+          (field) => field.name === testCase.lookupName
+        )!.id;
+        const matchKeyFieldId = foreign.fields.find((field) => field.name === 'MatchKey')!.id;
+        const hostMatchKeyFieldId = host.fields.find((field) => field.name === 'MatchKey')!.id;
+
+        try {
+          await createField(
+            host.id,
+            {
+              name: 'Illegal Conditional Rollup',
+              type: FieldType.ConditionalRollup,
+              options: {
+                foreignTableId: foreign.id,
+                lookupFieldId,
+                expression: testCase.expression,
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: matchKeyFieldId,
+                      operator: 'is',
+                      value: { type: 'field', fieldId: hostMatchKeyFieldId },
+                    },
+                  ],
+                },
+              } as IConditionalRollupFieldOptions,
+            } as IFieldRo,
+            400
+          );
+
+          const fields = await getFields(host.id);
+          expect(
+            fields.find((field) => field.name === 'Illegal Conditional Rollup')
+          ).toBeUndefined();
+        } finally {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      });
+    });
   });
 
   describe('table and field retrieval', () => {
@@ -287,6 +407,62 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(first.fields[lookupField.id]).toEqual(2);
       expect(second.fields[lookupField.id]).toEqual(1);
     });
+  });
+
+  describe('v1 unsupported field references', () => {
+    const itV1 = isForceV2 ? it.skip : it;
+
+    itV1(
+      'keeps record writes available when a conditional rollup contains a field reference',
+      async () => {
+        let foreign: ITableFullVo | undefined;
+        let host: ITableFullVo | undefined;
+
+        try {
+          foreign = await createTable(baseId, {
+            name: 'ConditionalRollup_ContainsReference_Foreign',
+            fields: [{ name: 'Text', type: FieldType.SingleLineText } as IFieldRo],
+            records: [{ fields: { Text: 'alpha' } }, { fields: { Text: 'beta' } }],
+          });
+          const foreignTextId = foreign.fields.find((field) => field.name === 'Text')!.id;
+
+          host = await createTable(baseId, {
+            name: 'ConditionalRollup_ContainsReference_Host',
+            fields: [{ name: 'Needle', type: FieldType.SingleLineText } as IFieldRo],
+            records: [{ fields: { Needle: 'alpha' } }],
+          });
+          const needleId = host.fields.find((field) => field.name === 'Needle')!.id;
+
+          const rollup = await createField(host.id, {
+            name: 'Matching rows',
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignTextId,
+              expression: 'count({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignTextId,
+                    operator: 'contains',
+                    value: { type: 'field', fieldId: needleId },
+                  },
+                ],
+              },
+            } as IConditionalRollupFieldOptions,
+          } as IFieldRo);
+
+          await updateRecordByApi(host.id, host.records[0].id, needleId, 'missing');
+
+          const record = await getRecord(host.id, host.records[0].id);
+          expect(record.fields[rollup.id]).toEqual(2);
+        } finally {
+          if (host) await permanentDeleteTable(baseId, host.id);
+          if (foreign) await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    );
   });
 
   describe('limit enforcement', () => {
@@ -755,7 +931,9 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         const unsortedActive = unsortedRecords.records.find(
           (record) => record.id === activeRecordId
         )!;
-        const unsortedTitles = [...(unsortedActive.fields[rollupField.id] as string[])].sort();
+        const unsortedTitles = [...(unsortedActive.fields[rollupField.id] as string[])].sort(
+          (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+        );
         expect(unsortedTitles).toEqual(['Alpha', 'Beta', 'Gamma']);
 
         closedRecord = unsortedRecords.records.find((record) => record.id === closedRecordId)!;
@@ -1527,7 +1705,16 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         } as IFieldRo);
 
         const saved = await getField(host.id, rollupField.id);
-        expect((saved.options as IConditionalRollupFieldOptions).filter).toEqual(filter);
+        // V2 canonicalizes filter timeZone casing on read ('utc' -> 'UTC').
+        const expectedFilter = (
+          isForceV2
+            ? {
+                ...filter,
+                filterSet: [{ ...filter.filterSet[0], value: { mode: 'today', timeZone: 'UTC' } }],
+              }
+            : filter
+        ) as IFilter;
+        expect((saved.options as IConditionalRollupFieldOptions).filter).toEqual(expectedFilter);
 
         record = await getRecord(host.id, host.records[0].id);
         expect(record.fields[rollupField.id]).toEqual(5);
@@ -2244,15 +2431,27 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       const row1 = records.records.find((record) => record.id === hostRow1Id)!;
       const row2 = records.records.find((record) => record.id === hostRow2Id)!;
 
-      const namesRow1 = (row1.fields[concatNameField.id] as string).split(', ').sort();
-      const namesRow2 = (row2.fields[concatNameField.id] as string).split(', ').sort();
-      const expectedNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].sort();
+      const namesRow1 = (row1.fields[concatNameField.id] as string)
+        .split(', ')
+        .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
+      const namesRow2 = (row2.fields[concatNameField.id] as string)
+        .split(', ')
+        .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
+      const expectedNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].sort(
+        (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+      );
       expect(namesRow1).toEqual(expectedNames);
       expect(namesRow2).toEqual(expectedNames);
 
-      const uniqueTierList = [...(row1.fields[uniqueTierField.id] as string[])].sort();
+      const uniqueTierList = [...(row1.fields[uniqueTierField.id] as string[])].sort(
+        (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+      );
       expect(uniqueTierList).toEqual(['Basic', 'Enterprise', 'Pro']);
-      expect((row2.fields[uniqueTierField.id] as string[]).sort()).toEqual(uniqueTierList);
+      expect(
+        (row2.fields[uniqueTierField.id] as string[]).sort(
+          (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+        )
+      ).toEqual(uniqueTierList);
     });
 
     it('should remove null values when compacting arrays', async () => {
@@ -3047,6 +3246,12 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(hardwareRecord.fields[crossBaseRollup.id]).toEqual(150);
       expect(softwareRecord.fields[crossBaseRollup.id]).toEqual(70);
     });
+
+    it('returns the foreign base id so field settings can reopen the table (T7064)', async () => {
+      const fields = await getFields(host.id);
+      const field = fields.find((candidate) => candidate.id === crossBaseRollup.id);
+      expect(field?.options).toMatchObject({ baseId: foreignBaseId });
+    });
   });
 
   describe('conditional rollup aggregating formula fields', () => {
@@ -3302,6 +3507,86 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       }
     });
 
+    it('sums every matching row when created with stale ordering options', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalRollup_SumCreate_Source',
+          fields: [
+            { name: 'Label', type: FieldType.SingleLineText },
+            { name: 'Amount', type: FieldType.Number },
+          ],
+          records: [
+            { fields: { Label: 'First', Amount: 10 } },
+            { fields: { Label: 'Second', Amount: 20 } },
+            { fields: { Label: 'Third', Amount: 30 } },
+          ],
+        });
+        const amountId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+        host = await createTable(baseId, {
+          name: 'ConditionalRollup_SumCreate_Host',
+          fields: [{ name: 'Label', type: FieldType.SingleLineText }],
+          records: ['One', 'Two', 'Three'].map((Label) => ({ fields: { Label } })),
+        });
+        const options: IConditionalRollupFieldOptions = {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: amountId, operator: isGreater.value, value: 0 }],
+          },
+          sort: { fieldId: amountId, order: SortFunc.Desc },
+          limit: 1,
+        };
+        const field = await createField(host.id, {
+          name: 'Matching Total',
+          type: FieldType.ConditionalRollup,
+          options,
+        });
+        const stored = await getField(host.id, field.id);
+        const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        expect.soft((stored.options as IConditionalRollupFieldOptions).sort).toBeUndefined();
+        expect.soft((stored.options as IConditionalRollupFieldOptions).limit).toBeUndefined();
+        expect(records.records.map((record) => record.fields[field.id])).toEqual([60, 60, 60]);
+
+        await convertField(host.id, field.id, {
+          type: FieldType.ConditionalRollup,
+          options: { ...options, limit: 2 },
+        });
+        const updated = await getField(host.id, field.id);
+        expect((updated.options as IConditionalRollupFieldOptions).sort).toBeUndefined();
+        expect((updated.options as IConditionalRollupFieldOptions).limit).toBeUndefined();
+        expect((await getRecord(host.id, host.records[0].id)).fields[field.id]).toBe(60);
+
+        for (const expression of [
+          'array_compact({values})',
+          'array_unique({values})',
+          'array_join({values})',
+          'concatenate({values})',
+        ] as const) {
+          await convertField(host.id, field.id, {
+            type: FieldType.ConditionalRollup,
+            options: { ...options, expression, limit: 2 },
+          });
+          const ordered = await getField(host.id, field.id);
+          expect((ordered.options as IConditionalRollupFieldOptions).sort).toEqual(options.sort);
+          expect((ordered.options as IConditionalRollupFieldOptions).limit).toBe(2);
+          const value = (await getRecord(host.id, host.records[0].id)).fields[field.id];
+          expect(value).toEqual(
+            expression === 'array_compact({values})' || expression === 'array_unique({values})'
+              ? [30, 20]
+              : '30, 20'
+          );
+        }
+      } finally {
+        if (host) await permanentDeleteTable(baseId, host.id);
+        if (foreign) await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
     it('drops ordering when converting an array rollup to a sum aggregation', async () => {
       let foreign: ITableFullVo | undefined;
       let host: ITableFullVo | undefined;
@@ -3483,6 +3768,96 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
   });
 
   describe('circular dependency detection', () => {
+    it('localizes a v2 conditional rollup filter cycle without changing the field', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'FilterCycle_Source',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Amount', type: FieldType.Number },
+          ],
+          records: [{ fields: { Name: 'Sample', Amount: 10 } }],
+        });
+        host = await createTable(baseId, {
+          name: 'FilterCycle_Host',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Threshold', type: FieldType.Number },
+          ],
+          records: [{ fields: { Name: 'Sample', Threshold: 0 } }],
+        });
+        const amountId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+        const thresholdId = host.fields.find((field) => field.name === 'Threshold')!.id;
+        const options: IConditionalRollupFieldOptions = {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: amountId,
+                operator: 'isGreaterEqual',
+                value: { type: 'field', fieldId: thresholdId },
+              },
+            ],
+          },
+        };
+        const rollup = await createField(host.id, {
+          name: 'Total',
+          type: FieldType.ConditionalRollup,
+          options,
+        });
+        const formula = await createField(host.id, {
+          name: 'Derived',
+          type: FieldType.Formula,
+          options: { expression: `{${rollup.id}} + 1` },
+        });
+        const before = await getField(host.id, rollup.id);
+
+        const response = await axios.put<IHttpError>(
+          urlBuilder(CONVERT_FIELD, { tableId: host.id, fieldId: rollup.id }),
+          {
+            type: FieldType.ConditionalRollup,
+            options: {
+              ...options,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: amountId,
+                    operator: 'isGreaterEqual',
+                    value: { type: 'field', fieldId: formula.id },
+                  },
+                ],
+              },
+            },
+          },
+          { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
+        );
+
+        expect(response.status).toBe(400);
+        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.data).toMatchObject({
+          code: 'validation_error',
+          data: {
+            localization: { i18nKey: 'httpErrors.field.cycleDetectedCreateFieldGeneric' },
+          },
+        });
+        expect(await getField(host.id, rollup.id)).toEqual(before);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+
     it('rejects converting conditional rollups into a cycle', async () => {
       let alpha: ITableFullVo | undefined;
       let beta: ITableFullVo | undefined;

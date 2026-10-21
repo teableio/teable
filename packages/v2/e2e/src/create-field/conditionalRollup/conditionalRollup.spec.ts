@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import {
+  createFieldErrorResponseSchema,
+  getTableByIdOkResponseSchema,
+} from '@teable/v2-contract-http';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
@@ -10,6 +14,74 @@ describe('create-field: conditionalRollup v1 parity', () => {
 
   beforeAll(async () => {
     ctx = await getSharedTestContext();
+  });
+
+  test('sums all matches and removes stale ordering on create', async () => {
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+    try {
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('sum-source'),
+        fields: [
+          { type: 'singleLineText', name: 'Label', isPrimary: true },
+          { type: 'number', name: 'Amount' },
+        ],
+      });
+      foreignTableId = source.id;
+      const amountId = source.fields.find((field) => field.name === 'Amount')?.id;
+      if (!amountId) throw new Error('Missing amount field');
+      for (const amount of [10, 20, 30]) {
+        await ctx.createRecord(source.id, { Label: `Item ${amount}`, Amount: amount });
+      }
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('sum-host'),
+        fields: [{ type: 'singleLineText', name: 'Label', isPrimary: true }],
+      });
+      hostTableId = host.id;
+      for (const label of ['One', 'Two', 'Three']) {
+        await ctx.createRecord(host.id, { Label: label });
+      }
+      const created = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          type: 'conditionalRollup',
+          name: 'Matching Total',
+          options: { expression: 'sum({values})' },
+          config: {
+            foreignTableId: source.id,
+            lookupFieldId: amountId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: amountId, operator: 'isGreater', value: 0 }],
+              },
+              sort: { fieldId: amountId, order: 'desc' },
+              limit: 1,
+            },
+          },
+        },
+      });
+      const field = created.fields.find((candidate) => candidate.type === 'conditionalRollup');
+      if (!field || field.type !== 'conditionalRollup') throw new Error('Missing rollup');
+      await ctx.drainOutbox();
+      const response = await fetch(
+        `${ctx.baseUrl}/tables/get?baseId=${ctx.baseId}&tableId=${host.id}`
+      );
+      const stored = getTableByIdOkResponseSchema.parse(await response.json());
+      if (!stored.ok) throw new Error('Failed to retrieve persisted table');
+      const persisted = stored.data.table.fields.find((candidate) => candidate.id === field.id);
+      if (!persisted || persisted.type !== 'conditionalRollup') throw new Error('Missing rollup');
+      expect.soft(persisted.config.condition.sort).toBeUndefined();
+      expect.soft(persisted.config.condition.limit).toBeUndefined();
+      const records = await ctx.listRecords(host.id);
+      expect(records.map((record) => record.fields[field.id])).toEqual([60, 60, 60]);
+    } finally {
+      if (hostTableId) await ctx.deleteTable(hostTableId).catch(() => undefined);
+      if (foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
+    }
   });
 
   test('evaluates equality filter comparing link titles to host text', async () => {
@@ -313,6 +385,100 @@ describe('create-field: conditionalRollup v1 parity', () => {
       if (refundsTableId) await ctx.deleteTable(refundsTableId).catch(() => undefined);
       if (accountsTableId) await ctx.deleteTable(accountsTableId).catch(() => undefined);
       if (unitsTableId) await ctx.deleteTable(unitsTableId).catch(() => undefined);
+    }
+  });
+
+  test.each([
+    {
+      name: 'button + counta',
+      lookup: { type: 'button' as const, name: 'Action' },
+      expression: 'counta({values})',
+    },
+    {
+      name: 'number + and',
+      lookup: { type: 'number' as const, name: 'Amount' },
+      expression: 'and({values})',
+    },
+    {
+      name: 'checkbox + sum',
+      lookup: { type: 'checkbox' as const, name: 'Flag' },
+      expression: 'sum({values})',
+    },
+  ])('rejects incompatible create $name T7087', async ({ lookup, expression }) => {
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName(`v2-create-reject-foreign-${lookup.name}`),
+        fields: [{ type: 'singleLineText', name: 'MatchKey', isPrimary: true }, lookup],
+      });
+      foreignTableId = foreignTable.id;
+      const foreignMatchKeyId = foreignTable.fields.find((field) => field.name === 'MatchKey')?.id;
+      const lookupFieldId = foreignTable.fields.find((field) => field.name === lookup.name)?.id;
+      if (!foreignMatchKeyId || !lookupFieldId) throw new Error('Missing foreign fields');
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName(`v2-create-reject-host-${lookup.name}`),
+        fields: [{ type: 'singleLineText', name: 'MatchKey', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+      const hostMatchKeyId = hostTable.fields.find((field) => field.name === 'MatchKey')?.id;
+      if (!hostMatchKeyId) throw new Error('Missing host match key');
+
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'conditionalRollup',
+            name: 'Illegal Conditional Rollup',
+            options: { expression },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignMatchKeyId,
+                      operator: 'is',
+                      value: hostMatchKeyId,
+                      isSymbol: true,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        }),
+      });
+      const rawBody = await response.json();
+      expect(response.status).toBe(400);
+      expect(createFieldErrorResponseSchema.safeParse(rawBody).success).toBe(true);
+
+      const tableResponse = await fetch(
+        `${ctx.baseUrl}/tables/get?baseId=${ctx.baseId}&tableId=${hostTable.id}`,
+        { method: 'GET' }
+      );
+      expect(tableResponse.status).toBe(200);
+      const tableRaw = await tableResponse.json();
+      const parsedTable = getTableByIdOkResponseSchema.safeParse(tableRaw);
+      expect(parsedTable.success).toBe(true);
+      if (!parsedTable.success || !parsedTable.data.ok) return;
+      expect(
+        parsedTable.data.data.table.fields.find(
+          (field) => field.name === 'Illegal Conditional Rollup'
+        )
+      ).toBeUndefined();
+    } finally {
+      if (hostTableId) await ctx.deleteTable(hostTableId).catch(() => undefined);
+      if (foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
     }
   });
 });

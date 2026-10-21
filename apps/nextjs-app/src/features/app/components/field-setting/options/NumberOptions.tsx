@@ -42,7 +42,7 @@ export const NumberOptions = (props: {
           <Input
             size="lg"
             type="number"
-            value={options?.defaultValue ? options.defaultValue : ''}
+            value={options?.defaultValue ?? ''}
             onChange={(e) => {
               const value = e.target.value;
               onDefaultValueChange(value === '' ? null : Number(value));

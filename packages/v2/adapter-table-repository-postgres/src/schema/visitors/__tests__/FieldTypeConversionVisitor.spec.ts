@@ -7,12 +7,15 @@
 import {
   BaseId,
   DbFieldName,
+  DbFieldType,
   FieldId,
   FieldName,
   type LinkField,
   FormulaExpression,
   LinkFieldConfig,
   LinkRelationship,
+  LookupField,
+  LookupOptions,
   TableId,
   createLinkField,
   createFormulaField,
@@ -271,11 +274,12 @@ describe('FieldTypeConversionVisitor', () => {
     });
 
     describe('text -> rating', () => {
-      it('should generate SQL to parse and clamp values to max rating', () => {
+      it('should generate SQL to round and normalize values to the valid rating range', () => {
         const sqls = getVisitorSqls(mkTextField(), mkRatField(5));
         expect(sqls).toHaveLength(1);
-        expect(sqls[0]).toContain('GREATEST(0');
-        expect(sqls[0]).toContain('LEAST(FLOOR');
+        expect(sqls[0]).toContain('ROUND');
+        expect(sqls[0]).toContain('< 1 THEN NULL');
+        expect(sqls[0]).toContain('LEAST');
       });
 
       it('should respect the rating max from field configuration', () => {
@@ -320,6 +324,36 @@ describe('FieldTypeConversionVisitor', () => {
         expect(sqls[0]).toContain('ELSE NULL END');
         // Regex checks for ISO date pattern
         expect(sqls[0]).toMatch(/\[0-9\]\{4\}.*\[0-9\]\{2\}.*\[0-9\]\{2\}/);
+      });
+
+      it('parses the field date format in the field timezone', () => {
+        const formatting = DateTimeFormatting.create({
+          date: DateFormattingPreset.European,
+          time: TimeFormatting.None,
+          timeZone: 'Asia/Shanghai',
+        })._unsafeUnwrap();
+        const sql = getVisitorSqls(
+          mkTextField(),
+          createDtField('tgtEu', 'European Date', DB_FIELD_NAME, formatting)._unsafeUnwrap()
+        )[0];
+        expect(sql).toContain('regexp_match');
+        expect(sql).toContain('Asia/Shanghai');
+        expect(sql).toContain('([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})$');
+      });
+
+      it('interprets a timezone-less timestamp in the field timezone', () => {
+        const formatting = DateTimeFormatting.create({
+          date: DateFormattingPreset.ISO,
+          time: TimeFormatting.Hour24,
+          timeZone: 'Asia/Tokyo',
+        })._unsafeUnwrap();
+        const sql = getVisitorSqls(
+          mkTextField(),
+          createDtField('tgtIso', 'ISO Date', DB_FIELD_NAME, formatting)._unsafeUnwrap()
+        )[0];
+        expect(sql).toContain('[T ]');
+        expect(sql).toContain('Asia/Tokyo');
+        expect(sql).toContain('::timestamp AT TIME ZONE');
       });
 
       it('should require the whole text value to be an ISO date before casting', () => {
@@ -441,6 +475,21 @@ describe('FieldTypeConversionVisitor', () => {
         expect(sqls[0]).toContain('999999990');
         expect(sqls[0]).not.toContain('D00');
       });
+
+      it('T7853 groups currency digits when converting to text', () => {
+        const sqls = getVisitorSqls(
+          mkSrcNumFieldWithFormatting({
+            type: NumberFormattingType.Currency,
+            precision: 2,
+            symbol: '$',
+          }),
+          mkTextField()
+        );
+        expect(sqls).toHaveLength(1);
+        expect(sqls[0]).toContain("'$'");
+        expect(sqls[0]).toContain('regexp_replace');
+        expect(sqls[0]).toContain('999999990D00');
+      });
     });
 
     describe('rating -> text', () => {
@@ -454,27 +503,28 @@ describe('FieldTypeConversionVisitor', () => {
     });
 
     describe('number -> rating', () => {
-      it('should generate SQL to clamp values to rating max', () => {
+      it('should generate SQL to round and normalize values to the valid rating range', () => {
         const sqls = getVisitorSqls(mkSrcNumField(), mkRatField(5));
         expect(sqls).toHaveLength(1);
         const sql = sqls[0];
         expect(sql).toContain('UPDATE');
-        expect(sql).toContain('GREATEST(0');
-        expect(sql).toContain('LEAST(FLOOR');
-        expect(sql).toContain('$1');
+        expect(sql).toContain('ROUND');
+        expect(sql).toContain('< 1 THEN NULL');
+        expect(sql).toContain('LEAST');
       });
     });
 
     describe('number -> checkbox', () => {
-      it('should generate SQL where 0 becomes FALSE and non-zero becomes TRUE', () => {
+      it('T7844 should convert every non-empty number including 0 to TRUE and leave NULL empty', () => {
         const sqls = getVisitorSqls(mkSrcNumField(), mkCheckField());
         expect(sqls).toHaveLength(1);
         const sql = sqls[0];
         expect(sql).toContain('TYPE boolean');
         expect(sql).toContain('CASE WHEN');
-        expect(sql).toContain('= 0 THEN FALSE');
         expect(sql).toContain('IS NOT NULL THEN TRUE');
         expect(sql).toContain('ELSE NULL END');
+        expect(sql).not.toContain('FALSE');
+        expect(sql).not.toContain('= 0');
       });
     });
 
@@ -540,19 +590,22 @@ describe('FieldTypeConversionVisitor', () => {
     });
 
     describe('checkbox -> rating', () => {
-      it('should generate SQL to convert TRUE to max rating and FALSE to 0', () => {
+      it('should convert checked to 1 and leave unchecked empty', () => {
         const sqls = getVisitorSqls(mkSrcCheckField(), mkRatField(5));
         expect(sqls).toHaveLength(1);
         const sql = sqls[0];
         expect(sql).toContain('TYPE double precision');
-        expect(sql).toContain('= TRUE THEN 5');
-        expect(sql).toContain('= FALSE THEN 0');
+        expect(sql).toContain('= TRUE THEN 1');
+        expect(sql).not.toContain('THEN 5');
+        expect(sql).not.toContain('THEN 0');
         expect(sql).toContain('ELSE NULL END');
       });
 
-      it('should use the correct max value for different rating configurations', () => {
+      it('should map checked to 1 regardless of rating max', () => {
         const sqls = getVisitorSqls(mkSrcCheckField(), mkRatField(10));
-        expect(sqls[0]).toContain('= TRUE THEN 10');
+        expect(sqls[0]).toContain('= TRUE THEN 1');
+        expect(sqls[0]).not.toContain('THEN 10');
+        expect(sqls[0]).not.toContain('THEN 0');
       });
     });
 
@@ -594,11 +647,12 @@ describe('FieldTypeConversionVisitor', () => {
 
   describe('DateFieldConversionVisitor', () => {
     describe('date -> text', () => {
-      it('should generate SQL to cast to text (ISO format)', () => {
+      it('should generate SQL to format the field timezone instead of casting the raw instant', () => {
         const sqls = getVisitorSqls(mkSrcDateField(), mkTextField());
         expect(sqls).toHaveLength(1);
         expect(sqls[0]).toContain('TYPE text');
-        expect(sqls[0]).toContain('::text');
+        expect(sqls[0]).toContain('to_char');
+        expect(sqls[0]).not.toContain('::text');
       });
     });
 
@@ -646,12 +700,12 @@ describe('FieldTypeConversionVisitor', () => {
 
   describe('MultipleSelectFieldConversionVisitor', () => {
     describe('multipleSelect -> text', () => {
-      it('should generate SQL to join array elements with comma', () => {
+      it('should generate SQL to join array elements with comma and quote special names', () => {
         const sqls = getVisitorSqls(mkSrcMultiSelField(), mkTextField());
-        expect(sqls).toHaveLength(1);
-        expect(sqls[0]).toContain('TYPE text');
-        expect(sqls[0]).toContain('btrim');
-        expect(sqls[0]).toContain('replace');
+        expect(sqls).toHaveLength(2);
+        expect(sqls[0]).toContain('string_agg');
+        expect(sqls[0]).toContain(`replace(elem, '"', '""')`);
+        expect(sqls[1]).toContain('TYPE text');
       });
     });
 
@@ -894,6 +948,11 @@ describe('FieldTypeConversionVisitor', () => {
         expect(sqls[0]).toContain('TYPE double precision');
       });
 
+      it('casts the source column to text before ~ so number storage cannot fail', () => {
+        const sqls = getConversionSqls(mkTextField(), mkNumField());
+        expect(sqls[0]).toMatch(/::text\s*~/);
+      });
+
       it('should use conversion visitor for checkbox -> text', () => {
         const sqls = getConversionSqls(mkSrcCheckField(), mkTextField());
         expect(sqls).toHaveLength(1);
@@ -974,6 +1033,15 @@ describe('FieldTypeConversionVisitor', () => {
         expect(mappingSql).toContain('string_agg(title');
         expect(mappingSql).not.toContain('tmp_computed_dirty');
         expect(mappingSql).not.toContain('record_id');
+      });
+
+      it('skips renaming a missing link display column during link -> text conversion', () => {
+        const sqls = getConversionSqls(mkManyOneLinkField(), mkTextField());
+        expect(sqls[0]).toContain('$v2_rename_col_if_exists$');
+        expect(sqls[0]).toContain('RENAME COLUMN');
+        expect(sqls[0]).toContain('pg_attribute');
+        const mappingSql = sqls.find((sql) => sql.includes('DO $v2_link_to_text$'));
+        expect(mappingSql).toContain('attisdropped');
       });
 
       it('should preserve title-based mapping for link -> link when foreign table changes', () => {
@@ -1284,6 +1352,18 @@ describe('FieldTypeConversionVisitor', () => {
       expect(migrateSql).not.toContain('::text');
     });
 
+    it('should round and normalize number formula values to the valid rating range', () => {
+      const formulaField = mkFormulaNumberField();
+      const ratingField = mkRatField(5);
+      const sqls = getConversionSqls(formulaField, ratingField);
+
+      const migrateSql = sqls.find((s) => s.includes('UPDATE') && s.includes('__tmp_formula_src_'));
+      expect(migrateSql).toContain('ROUND');
+      expect(migrateSql).toContain('< 1 THEN NULL');
+      expect(migrateSql).toContain('LEAST');
+      expect(migrateSql).toContain('5');
+    });
+
     it('should produce NULL for datetime formula → number (incompatible)', () => {
       const formulaField = mkFormulaDateTimeField();
       const numField = mkNumField();
@@ -1338,6 +1418,84 @@ describe('FieldTypeConversionVisitor', () => {
       expect(sqls[0]).toContain('RENAME COLUMN');
       const migrateSql = sqls.find((s) => s.includes('jsonb_build_array'));
       expect(migrateSql).toBeDefined();
+    });
+  });
+
+  describe('lookup → basic field', () => {
+    it('migrates scalar TEXT lookup storage without jsonb_typeof when multiplicity is unset', () => {
+      const lookupField = LookupField.createPending({
+        id: FieldId.create(createValidFieldId('lookSrc'))._unsafeUnwrap(),
+        name: FieldName.create('Lookup Source')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: createValidFieldId('linkSrc'),
+          lookupFieldId: createValidFieldId('lookTgt'),
+          foreignTableId: `tbl${'f'.repeat(16)}`,
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      lookupField
+        .setDbFieldName(DbFieldName.rehydrate(DB_FIELD_NAME)._unsafeUnwrap())
+        ._unsafeUnwrap();
+      lookupField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+
+      const sqls = getConversionSqls(lookupField, mkTextField());
+      const migrateSql = sqls.find((statement) => statement.includes('UPDATE'));
+
+      expect(sqls[0]).toContain('RENAME COLUMN');
+      expect(migrateSql).toBeDefined();
+      expect(migrateSql).toContain('::text');
+      expect(migrateSql).not.toContain('jsonb_typeof');
+    });
+
+    it('keeps the scalar path when multiplicity is explicitly false despite JSON storage', () => {
+      // Single-valued lookups of JSON-object fields (user/link/attachment) persist
+      // db_field_type = 'JSON' with is_multiple_cell_value = false; the explicit
+      // override must win or the array path collapses the object to NULL.
+      const lookupField = LookupField.createPending({
+        id: FieldId.create(createValidFieldId('lookSgl'))._unsafeUnwrap(),
+        name: FieldName.create('Single JSON Lookup')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: createValidFieldId('linkSgl'),
+          lookupFieldId: createValidFieldId('lookTgt'),
+          foreignTableId: `tbl${'f'.repeat(16)}`,
+        })._unsafeUnwrap(),
+        isMultipleCellValue: false,
+      })._unsafeUnwrap();
+      lookupField
+        .setDbFieldName(DbFieldName.rehydrate(DB_FIELD_NAME)._unsafeUnwrap())
+        ._unsafeUnwrap();
+      lookupField.setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())._unsafeUnwrap();
+
+      const sqls = getConversionSqls(lookupField, mkTextField());
+      const migrateSql = sqls.find((statement) => statement.includes('UPDATE'));
+
+      expect(migrateSql).toBeDefined();
+      expect(migrateSql).toContain('::text');
+      expect(migrateSql).not.toContain('jsonb_typeof');
+    });
+
+    it('keeps the array path when multiplicity is explicitly true despite scalar storage', () => {
+      // Multi-valued autoNumber lookups reach the domain with a rewritten scalar
+      // dbFieldType ('INTEGER') but an explicit is_multiple_cell_value = true.
+      const lookupField = LookupField.createPending({
+        id: FieldId.create(createValidFieldId('lookMul'))._unsafeUnwrap(),
+        name: FieldName.create('Multi Scalar Lookup')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: createValidFieldId('linkMul'),
+          lookupFieldId: createValidFieldId('lookTgt'),
+          foreignTableId: `tbl${'f'.repeat(16)}`,
+        })._unsafeUnwrap(),
+        isMultipleCellValue: true,
+      })._unsafeUnwrap();
+      lookupField
+        .setDbFieldName(DbFieldName.rehydrate(DB_FIELD_NAME)._unsafeUnwrap())
+        ._unsafeUnwrap();
+      lookupField.setDbFieldType(DbFieldType.rehydrate('INTEGER')._unsafeUnwrap())._unsafeUnwrap();
+
+      const sqls = getConversionSqls(lookupField, mkTextField());
+      const migrateSql = sqls.find((statement) => statement.includes('UPDATE'));
+
+      expect(migrateSql).toBeDefined();
+      expect(migrateSql).toContain('jsonb_typeof');
     });
   });
 });

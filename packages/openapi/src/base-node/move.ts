@@ -10,6 +10,19 @@ export const moveBaseNodeRoSchema = z.object({
   parentId: z.string().nullable().optional(),
   anchorId: z.string().optional(),
   position: z.enum(['before', 'after']).optional(),
+  /**
+   * Move the node (and, for folders, its whole subtree) into another project of
+   * the same space. When set, parentId/anchorId are resolved against the target
+   * project; omitting both places the node at the target root.
+   */
+  targetBaseId: z.string().optional(),
+  /**
+   * Extra nodes of the source project to move in the same operation, so a
+   * resource and the things it is connected to arrive together. Only
+   * meaningful alongside targetBaseId; each lands at the same destination as
+   * the node being moved.
+   */
+  additionalNodeIds: z.array(z.string()).optional(),
 });
 
 export type IMoveBaseNodeRo = z.infer<typeof moveBaseNodeRoSchema>;
@@ -17,7 +30,9 @@ export type IMoveBaseNodeRo = z.infer<typeof moveBaseNodeRoSchema>;
 export const MoveBaseNodeRoute: RouteConfig = registerRoute({
   method: 'put',
   path: MOVE_BASE_NODE,
-  description: 'Move or reorder a node',
+  title: 'Move project node',
+  description:
+    'Move or reorder a node within a project hierarchy, or move it into another project of the same space via targetBaseId.',
   request: {
     params: z.object({
       baseId: z.string(),

@@ -8,7 +8,7 @@ import type { ICellEditor, IEditorRef } from '../type';
 
 const toDisplayStr = (value: number | null | undefined, isPercent: boolean): string => {
   if (!isNumber(value)) return '';
-  return isPercent ? parseFloat((value * 100).toPrecision(15)).toString() : value.toString();
+  return isPercent ? Number.parseFloat((value * 100).toPrecision(15)).toString() : value.toString();
 };
 
 export const NumberEditorBase: ForwardRefRenderFunction<
@@ -58,7 +58,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
     <Input
       ref={inputRef}
       style={style}
-      className={cn('h-10 sm:h-8', className)}
+      className={cn('h-8', className)}
       value={str || ''}
       onChange={onChangeHandler}
       onBlur={() => saveOnBlur && !saveOnChange && saveValue()}

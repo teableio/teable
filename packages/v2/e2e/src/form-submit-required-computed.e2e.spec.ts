@@ -9,7 +9,7 @@ const createFieldId = () => {
   return `fld${nextId.toString(36).padStart(16, '0')}`;
 };
 
-describe('v2 http form submit required computed field regression (e2e)', () => {
+describe('[B12] v2 http form submit required computed field regression (e2e)', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {

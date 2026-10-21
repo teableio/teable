@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { join, resolve } from 'node:path';
 import type { Readable as ReadableStream } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { join, resolve } from 'path';
 import { Injectable } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import * as fse from 'fs-extra';
@@ -11,6 +11,7 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
+import { resolveThumbnailMimetype } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IListObjectsOptions,
@@ -55,7 +56,7 @@ export class MinioStorage implements StorageAdapter {
     presignedParams: IPresignParams
   ): Promise<IPresignRes> {
     const { tokenExpireIn, uploadMethod } = this.config;
-    const { expiresIn, contentLength, contentType, hash, internal } = presignedParams;
+    const { expiresIn, contentLength, contentType, hash, internal, cacheControl } = presignedParams;
     const token = getRandomString(12);
     const filename = hash ?? token;
     const path = join(dir, filename);
@@ -63,6 +64,11 @@ export class MinioStorage implements StorageAdapter {
       'Content-Type': contentType,
       'Content-Length': contentLength,
       'response-cache-control': 'max-age=31536000, immutable',
+      // stored as object metadata on PUT. Also baked into the signed url
+      // query, which MinIO itself applies as metadata even when the client
+      // does not echo the header (verified against a live server) — so the
+      // query entry is load-bearing here, do not strip it as dead weight.
+      ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
     };
     try {
       const client = internal ? this.minioClientPrivateNetwork : this.minioClient;
@@ -102,7 +108,7 @@ export class MinioStorage implements StorageAdapter {
       const metadata = await sharpReader.metadata();
 
       return normalizeImageDimensions(metadata);
-    } catch (e) {
+    } catch {
       return {};
     } finally {
       stream.removeAllListeners();
@@ -143,10 +149,18 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
+    const {
+      'Content-Disposition': contentDisposition,
+      'Content-Type': contentType,
+      ...headers
+    } = respHeaders ?? {};
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
       ...headers,
       'response-content-disposition': contentDisposition,
+      ...(contentType ? { 'response-content-type': contentType } : {}),
+      ...(StorageAdapter.isPublicBucket(bucket)
+        ? {}
+        : { 'response-cache-control': StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL }),
     });
   }
 
@@ -248,7 +262,7 @@ export class MinioStorage implements StorageAdapter {
         .resize(width, height);
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': mimetype,
+        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
       });
       return upload.path;
     } finally {

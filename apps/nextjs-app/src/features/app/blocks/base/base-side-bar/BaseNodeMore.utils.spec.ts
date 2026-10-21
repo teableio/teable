@@ -1,3 +1,4 @@
+import { getBasePermission, Role } from '@teable/core';
 import { describe, expect, it } from 'vitest';
 import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
 
@@ -116,5 +117,36 @@ describe('getTableOperationMenuPermission', () => {
       shareTable: true,
       apiTable: true,
     });
+  });
+
+  // The table node menu reads the table permission map the API derives from the
+  // caller's role, so the entry must be reachable for the editor role and stay
+  // hidden for a viewer.
+  it('shows the import entry for an editor and hides it from a viewer', () => {
+    const editorPermission: Record<string, boolean | undefined> = {
+      ...getBasePermission(Role.Editor),
+    };
+    expect(
+      getTableOperationMenuPermission({
+        table: { permission: editorPermission },
+        nodeExists: true,
+        basePermission: editorPermission,
+        canTableRecordHistoryRead: true,
+        canTableTrashRead: true,
+      })
+    ).toMatchObject({ importTable: true, exportTable: true });
+
+    const viewerPermission: Record<string, boolean | undefined> = {
+      ...getBasePermission(Role.Viewer),
+    };
+    expect(
+      getTableOperationMenuPermission({
+        table: { permission: viewerPermission },
+        nodeExists: true,
+        basePermission: viewerPermission,
+        canTableRecordHistoryRead: true,
+        canTableTrashRead: true,
+      })
+    ).toMatchObject({ importTable: false, exportTable: true });
   });
 });

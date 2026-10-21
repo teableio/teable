@@ -3,5 +3,6 @@ export interface IGalleryPermission {
   cardEditable: boolean;
   cardDeletable: boolean;
   cardDraggable: boolean;
+  cardCommentReadable: boolean;
   cardCommentCreatable: boolean;
 }

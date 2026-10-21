@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { ThemeProvider } from '@teable/next-themes';
 import { Bell, CheckCircle2, Loader2, Play, RotateCcw, Trash2, XCircle } from 'lucide-react';
 import * as React from 'react';
 import type { ExternalToast, ToasterProps } from 'sonner';
+import { ThemeProvider } from '../../base/theme';
 import { Button } from './button';
 import { Toaster, toast } from './sonner';
 
@@ -628,7 +628,7 @@ const ScenarioPicker = ({
               type="button"
               aria-pressed={selected}
               onClick={() => onSelect(scenario.id)}
-              className="flex min-h-10 min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60 aria-pressed:border-primary aria-pressed:bg-primary/10"
+              className="flex min-h-10 min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-start text-sm transition-colors hover:bg-muted/60 aria-pressed:border-primary aria-pressed:bg-primary/10"
             >
               <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                 {scenario.method}
@@ -836,10 +836,6 @@ const SonnerStory = (args: SonnerStoryArgs) => {
       attribute="class"
       defaultTheme={args.theme}
       forcedTheme={args.theme === 'system' ? undefined : args.theme}
-      themeColor={{
-        light: '#ffffff',
-        dark: '#09090b',
-      }}
     >
       <div className="min-h-screen bg-background p-5 text-foreground">
         <main className="mx-auto flex w-full max-w-6xl flex-col gap-4">

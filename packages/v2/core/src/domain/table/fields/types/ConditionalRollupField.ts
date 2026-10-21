@@ -1,6 +1,8 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
@@ -48,7 +50,6 @@ import {
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
-import { FieldHasError } from './FieldHasError';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -82,7 +83,7 @@ type ConditionalRollupValuesType = {
  * Key differences from RollupField:
  * - No linkFieldId - uses condition instead
  * - Queries foreign table directly based on condition
- * - Supports filter, sort, and limit in the condition
+ * - Sort and limit apply only to ordering-aware array/join aggregations
  */
 export class ConditionalRollupField
   extends Field
@@ -95,7 +96,7 @@ export class ConditionalRollupField
   private constructor(
     id: FieldId,
     name: FieldName,
-    private configValue: ConditionalRollupConfig,
+    private readonly configValue: ConditionalRollupConfig,
     private expressionValue: RollupExpression,
     private readonly timeZoneValue: TimeZone | undefined,
     private formattingValue: ConditionalRollupFormatting | undefined,
@@ -128,10 +129,12 @@ export class ConditionalRollupField
     showAs?: ConditionalRollupShowAs;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<ConditionalRollupField, DomainError> {
+    const config = ConditionalRollupField.normalizeConfig(params.config, params.expression);
+    if (config.isErr()) return err(config.error);
     const field = new ConditionalRollupField(
       params.id,
       params.name,
-      params.config,
+      config.value,
       params.expression,
       params.timeZone,
       params.formatting,
@@ -168,10 +171,12 @@ export class ConditionalRollupField
     resultType?: ConditionalRollupResultType;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<ConditionalRollupField, DomainError> {
+    const config = ConditionalRollupField.normalizeConfig(params.config, params.expression);
+    if (config.isErr()) return err(config.error);
     const field = new ConditionalRollupField(
       params.id,
       params.name,
-      params.config,
+      config.value,
       params.expression,
       params.timeZone,
       params.formatting,
@@ -185,6 +190,27 @@ export class ConditionalRollupField
       if (setResult.isErr()) return err(setResult.error);
     }
     return ok(field);
+  }
+
+  private static normalizeConfig(
+    config: ConditionalRollupConfig,
+    expression: RollupExpression
+  ): Result<ConditionalRollupConfig, DomainError> {
+    switch (expression.toString()) {
+      case 'array_join({values})':
+      case 'array_compact({values})':
+      case 'array_unique({values})':
+      case 'concatenate({values})':
+        return ok(config);
+      default: {
+        const condition = config.condition();
+        if (!condition.hasSort() && !condition.hasLimit()) return ok(config);
+        return ConditionalRollupConfig.create({
+          ...config.toDto(),
+          condition: { filter: condition.toDto().filter },
+        });
+      }
+    }
   }
 
   /**
@@ -324,6 +350,10 @@ export class ConditionalRollupField
     return this.configValue.foreignTableId();
   }
 
+  baseId(): BaseId | undefined {
+    return this.configValue.baseId();
+  }
+
   lookupFieldId(): FieldId {
     return this.configValue.lookupFieldId();
   }
@@ -417,21 +447,44 @@ export class ConditionalRollupField
     const lookupField = ForeignTable.from(foreignTable)
       .fieldById(this.lookupFieldId())
       .mapErr(() =>
-        domainError.notFound({ message: 'ConditionalRollupField lookup field not found' })
+        // The configured source field is user-supplied input, so a field that
+        // lives in another table (or does not exist) is a request-validation
+        // error, not a missing resource.
+        domainError.validation({
+          message:
+            'ConditionalRollupField lookup field does not belong to the configured foreign table',
+          code: 'conditional_rollup.lookup_field_foreign_table_mismatch',
+          details: {
+            lookupFieldId: this.lookupFieldId().toString(),
+            foreignTableId: this.foreignTableId().toString(),
+          },
+          localization: {
+            i18nKey: sdkErrorI18nKeys.field.lookupFieldNotBelongToTable,
+            context: {
+              lookupFieldId: this.lookupFieldId().toString(),
+              foreignTableId: this.foreignTableId().toString(),
+            },
+          },
+        })
       );
     if (lookupField.isErr()) return err(lookupField.error);
 
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);
 
-    if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
+    const isPendingResultType = !this.cellValueTypeValue || !this.isMultipleCellValueValue;
+    if (isPendingResultType && lookupField.value.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a rollup source' })
+      );
+    }
+
+    if (isPendingResultType) {
       const resolveResult = this.resolveResultType({
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) {
-        this.setHasError(FieldHasError.error());
-      }
+      if (resolveResult.isErr()) return err(resolveResult.error);
     }
 
     // Dependencies include host fields referenced by condition value expressions.

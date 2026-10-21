@@ -6,14 +6,17 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Put,
 } from '@nestjs/common';
 import {
+  IUpdateAuthorizedNotificationsRo,
   OAuthCreateRo,
   OAuthUpdateRo,
   oauthCreateRoSchema,
   oauthUpdateRoSchema,
+  updateAuthorizedNotificationsRoSchema,
 } from '@teable/openapi';
 import type {
   AuthorizedVo,
@@ -103,5 +106,14 @@ export class OAuthController {
   @Get('authorized/list')
   async getAuthorizedList(): Promise<AuthorizedVo[]> {
     return this.oauthService.getAuthorizedList();
+  }
+
+  @Patch(':clientId/authorized/notifications')
+  async updateAuthorizedNotifications(
+    @Param('clientId') clientId: string,
+    @Body(new ZodValidationPipe(updateAuthorizedNotificationsRoSchema))
+    ro: IUpdateAuthorizedNotificationsRo
+  ): Promise<void> {
+    return this.oauthService.updateAuthorizedNotifications(clientId, ro.muted);
   }
 }

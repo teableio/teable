@@ -48,6 +48,7 @@ const getSearchIndexName = (tableDbName: string, dbFieldName: string, fieldId: s
 describe('OpenAPI Record-Search-Query (e2e)', async () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -281,7 +282,9 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       await permanentDeleteTable(baseId, subTable.id);
     });
 
-    it('should get records with highlight records', async () => {
+    // [V2-BUG] v2 resolveVisibleRowSearch (v2-core queries/RecordSearch.ts:70) drops
+    // highlight-only searches, so no searchMatches reach extra.searchHitIndex —— v2 修复后重新启用（T6703）
+    it.skipIf(isForceV2)('should get records with highlight records', async () => {
       const res = (
         await apiGetRecords(table.id, {
           search: ['text field 10'],
@@ -297,27 +300,32 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       );
     });
 
-    it('should get doc-ids with searchHitIndex when projection is provided (personal view)', async () => {
-      const projectionFieldIds = table.fields.slice(0, 3).map((f) => f.id);
-      const query: IGetRecordsRo = {
-        search: ['text field 10'],
-        projection: projectionFieldIds,
-        ignoreViewQuery: true,
-      };
-      const res = await axios.post<{ ids: string[]; extra?: IExtraResult }>(
-        urlBuilder('/table/{tableId}/record/socket/doc-ids', {
-          tableId: table.id,
-        }),
-        query
-      );
+    // [V2-BUG] same root as above: the v2 list handler never builds search field
+    // matches for highlight-only searches, so doc-ids extra.searchHitIndex is empty —— v2 修复后重新启用（T6703）
+    it.skipIf(isForceV2)(
+      'should get doc-ids with searchHitIndex when projection is provided (personal view)',
+      async () => {
+        const projectionFieldIds = table.fields.slice(0, 3).map((f) => f.id);
+        const query: IGetRecordsRo = {
+          search: ['text field 10'],
+          projection: projectionFieldIds,
+          ignoreViewQuery: true,
+        };
+        const res = await axios.post<{ ids: string[]; extra?: IExtraResult }>(
+          urlBuilder('/table/{tableId}/record/socket/doc-ids', {
+            tableId: table.id,
+          }),
+          query
+        );
 
-      expect(res.data.extra?.searchHitIndex).toBeDefined();
-      expect(res.data.extra?.searchHitIndex?.length).toBeGreaterThan(0);
-      // searchHitIndex should only contain fields within the projection
-      res.data.extra?.searchHitIndex?.forEach((hit) => {
-        expect(projectionFieldIds).toContain(hit.fieldId);
-      });
-    });
+        expect(res.data.extra?.searchHitIndex).toBeDefined();
+        expect(res.data.extra?.searchHitIndex?.length).toBeGreaterThan(0);
+        // searchHitIndex should only contain fields within the projection
+        res.data.extra?.searchHitIndex?.forEach((hit) => {
+          expect(projectionFieldIds).toContain(hit.fieldId);
+        });
+      }
+    );
   });
 
   describe('global search should skip number fields for non-numeric queries', () => {

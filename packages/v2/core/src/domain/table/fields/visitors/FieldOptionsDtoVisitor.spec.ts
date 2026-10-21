@@ -432,6 +432,7 @@ describe('FieldOptionsDtoVisitor', () => {
     expect(visit(minimalLastModifiedTimeField)).toEqual({
       expression: minimalLastModifiedTimeField.expression().toString(),
       formatting: DateTimeFormatting.default().toDto(),
+      trackedFieldIds: [],
     });
     expect(visit(userField)).toEqual({
       isMultiple: true,
@@ -440,12 +441,12 @@ describe('FieldOptionsDtoVisitor', () => {
     });
     expect(visit(minimalUserField)).toEqual({
       isMultiple: false,
-      shouldNotify: true,
+      shouldNotify: false,
     });
     expect(visit(lastModifiedByField)).toEqual({
       trackedFieldIds: [trackedFieldId.toString()],
     });
-    expect(visit(minimalLastModifiedByField)).toEqual({});
+    expect(visit(minimalLastModifiedByField)).toEqual({ trackedFieldIds: [] });
   });
 
   it('serializes simple passthrough and empty-option field types', () => {

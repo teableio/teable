@@ -6,91 +6,51 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { Selector } from '@/components/Selector';
+import {
+  friendlyFormatStrings,
+  getFormatStringForLanguage,
+  localFormatStrings,
+} from './date-format-strings';
 import { TimeZoneFormatting } from './TimeZoneFormatting';
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-// | Locale | Date Format | Notes |
-// |--------|-------------|-------|
-// | en-US  | M/D/YYYY    | U.S. English (United States), e.g., 12/31/2023 |
-// | en-GB  | D/M/YYYY    | British English (United Kingdom, European), e.g., 31/12/2023 |
-// | fr-FR  | DD/MM/YYYY  | French (France), e.g., 31/12/2023 |
-// | de-DE  | DD.MM.YYYY  | German (Germany), e.g., 31.12.2023 |
-// | ja-JP  | YYYY/MM/DD  | Japanese (Japan), e.g., 2023/12/31 |
-// | zh-CN  | YYYY-MM-DD  | Simplified Chinese (China), e.g., 2023-12-31 |
-// | ko-KR  | YYYY.MM.DD  | Korean (South Korea), e.g., 2023.12.31 |
-export const localFormatStrings: { [key: string]: string } = {
-  en: 'M/D/YYYY',
-  'en-GB': 'D/M/YYYY',
-  fr: 'DD/MM/YYYY',
-  de: 'DD.MM.YYYY',
-  ja: 'YYYY/MM/DD',
-  zh: 'YYYY-MM-DD',
-  ko: 'YYYY.MM.DD',
-};
-
-export const friendlyFormatStrings: { [key: string]: string } = {
-  en: 'MMMM D, YYYY', // English
-  'en-GB': 'D MMMM YYYY', // English GB
-  zh: 'YYYY 年 M 月 D 日', // Chinese
-  fr: 'D MMM YYYY', // French
-  de: 'D. MMM YYYY', // German
-  es: 'D de MMM de YYYY', // Spanish
-  ru: 'D MMM YYYY г.', // Russian
-  ja: 'YYYY 年 M 月 D 日', // Japanese
-  ar: 'D MMMM, YYYY', // Arabic
-  pt: 'D de MMMM de YYYY', // Portuguese
-  hi: 'D MMMM, YYYY', // Hindi
-  bn: 'D MMMM, YYYY', // Bengali
-  jv: 'D MMMM YYYY', // Javanese
-  pa: 'D MMMM YYYY', // Punjabi
-  mr: 'D MMMM, YYYY', // Marathi
-  ta: 'D MMMM, YYYY', // Tamil
-};
-
-export function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
-  // If the full language tag is not found, fallback to the base language
-  const baseLanguage = language.split('-')[0];
-  return preset[language] || preset[baseLanguage] || preset['en']; // Default to 'en'
-}
 
 const useSelectInfoMap = (currentDateFormatting: string) => {
   const { t, i18n } = useTranslation(['common', 'table']);
   const friendlyDateFormatting = getFormatStringForLanguage(i18n.language, friendlyFormatStrings);
   const localDateFormatting = getFormatStringForLanguage(i18n.language, localFormatStrings);
 
-  const optionsWithExample = (text: string, formatting: string) => {
+  const optionsWithExample = (text: string, formatting: string, id = formatting) => {
     return {
+      id,
       text: `${text} (${dayjs().format(formatting)})`,
       value: formatting,
     };
   };
 
   const dateFormattingPresetOptions = [
-    optionsWithExample(t('table:field.default.date.local'), localDateFormatting),
-    optionsWithExample(t('table:field.default.date.friendly'), friendlyDateFormatting),
+    optionsWithExample(t('table:field.default.date.local'), localDateFormatting, 'local'),
+    optionsWithExample(t('table:field.default.date.friendly'), friendlyDateFormatting, 'friendly'),
     optionsWithExample(t('table:field.default.date.us'), DateFormattingPreset.US),
     optionsWithExample(t('table:field.default.date.european'), DateFormattingPreset.European),
     optionsWithExample(t('table:field.default.date.asia'), DateFormattingPreset.Asian),
-  ];
-  if (localDateFormatting !== DateFormattingPreset.ISO) {
-    dateFormattingPresetOptions.push(optionsWithExample('ISO', DateFormattingPreset.ISO));
-  }
-  dateFormattingPresetOptions.push(
+    optionsWithExample('ISO', DateFormattingPreset.ISO),
     optionsWithExample(t('table:field.default.date.yearMonth'), DateFormattingPreset.YM),
     optionsWithExample(t('table:field.default.date.monthDay'), DateFormattingPreset.MD),
     optionsWithExample(t('table:field.default.date.year'), DateFormattingPreset.Y),
     optionsWithExample(t('table:field.default.date.month'), DateFormattingPreset.M),
-    optionsWithExample(t('table:field.default.date.day'), DateFormattingPreset.D)
-  );
+    optionsWithExample(t('table:field.default.date.day'), DateFormattingPreset.D),
+  ];
 
   // add [Custom] option if currentDateFormatting not in the list
-  if (!dateFormattingPresetOptions.find((option) => option.value === currentDateFormatting)) {
+  if (!dateFormattingPresetOptions.some((option) => option.value === currentDateFormatting)) {
     dateFormattingPresetOptions.push(
-      optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting)
+      optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting, 'custom')
     );
   }
 
@@ -135,7 +95,15 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange, cla
     timeZone: formatting?.timeZone || systemTimeZone,
   };
 
-  const { date, time } = useSelectInfoMap(formatting.date);
+  const currentDateFormatting = formatting.date;
+  const { date, time } = useSelectInfoMap(currentDateFormatting);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>();
+  // Only the format is persisted. Reopening uses the first matching preset (Local
+  // when equivalent); within this editor, keep the explicitly selected identity.
+  const selectedDatePreset =
+    date.list.find(
+      (item) => item.id === selectedPresetId && item.value === currentDateFormatting
+    ) ?? date.list.find((item) => item.value === currentDateFormatting);
 
   const onFormattingChange = (value: string, typeKey: string) => {
     onChange?.({
@@ -150,9 +118,15 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange, cla
         <Label className="text-sm font-medium">{date.label}</Label>
         <Selector
           className="w-full"
-          candidates={date.list.map((item) => ({ id: item.value, name: item.text }))}
-          selectedId={formatting.date}
-          onChange={(value) => onFormattingChange(value, 'date')}
+          candidates={date.list.map((item) => ({ id: item.id, name: item.text }))}
+          selectedId={selectedDatePreset?.id}
+          onChange={(id) => {
+            const preset = date.list.find((item) => item.id === id);
+            if (preset) {
+              setSelectedPresetId(id);
+              onFormattingChange(preset.value, 'date');
+            }
+          }}
         />
       </div>
       <div className="space-y-2">

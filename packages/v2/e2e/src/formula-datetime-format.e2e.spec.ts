@@ -54,7 +54,7 @@ const DATETIME_FORMAT_SPECIFIER_CASES = [
   { token: 'llll', expected: 'Thu, Feb 12, 2026 3:04 PM' },
 ] as const;
 
-describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
+describe('[C10] v2 http formula DATETIME_FORMAT (e2e)', () => {
   let ctx: SharedTestContext;
   const uniqueName = (prefix: string) =>
     `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2)}`;

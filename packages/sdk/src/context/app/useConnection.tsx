@@ -1,9 +1,9 @@
-import { HttpError, HttpErrorCode } from '@teable/core';
-import { toast } from '@teable/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
 import { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
+import { useTranslation } from './i18n';
+import { handleShareDbReceive, handleShareDbError } from './shareDbErrorHandler';
 import { isConnected, useConnectionAutoManage } from './useConnectionAutoManage';
 
 export function getWsPath() {
@@ -11,25 +11,8 @@ export function getWsPath() {
   return `${window.location.origin}/socket`;
 }
 
-const ignoreErrorCodes = [HttpErrorCode.VIEW_NOT_FOUND];
-const shareDbErrorHandler = (error: unknown) => {
-  const httpError = new HttpError(error as string, 500);
-  const { code, message } = httpError;
-  if (code === HttpErrorCode.UNAUTHORIZED) {
-    window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
-    return;
-  }
-  if (code === HttpErrorCode.UNAUTHORIZED_SHARE) {
-    window.location.reload();
-    return;
-  }
-  if (ignoreErrorCodes) {
-    return;
-  }
-  toast({ title: 'Socket Error', variant: 'destructive', description: `${code}: ${message}` });
-};
-
 export const useConnection = (path?: string) => {
+  const { t } = useTranslation();
   const [connected, setConnected] = useState(false);
   const [connection, setConnection] = useState<Connection>();
   const [socket, setSocket] = useState<ReconnectingSockJS | null>(null);
@@ -69,16 +52,15 @@ export const useConnection = (path?: string) => {
       setConnected(false);
       pingInterval && clearInterval(pingInterval);
     };
+    const onShareDbError = (error: unknown) => handleShareDbError(error, t);
     const onReceive = (request: ConnectionReceiveRequest) => {
-      if (request.data.error) {
-        shareDbErrorHandler(request.data.error);
-      }
+      handleShareDbReceive(request, t);
     };
 
     connection.on('connected', onConnected);
     connection.on('disconnected', onDisconnected);
     connection.on('closed', onDisconnected);
-    connection.on('error', shareDbErrorHandler);
+    connection.on('error', onShareDbError);
     connection.on('receive', onReceive);
 
     return () => {
@@ -86,7 +68,7 @@ export const useConnection = (path?: string) => {
       connection.removeListener('connected', onConnected);
       connection.removeListener('disconnected', onDisconnected);
       connection.removeListener('closed', onDisconnected);
-      connection.removeListener('error', shareDbErrorHandler);
+      connection.removeListener('error', onShareDbError);
       connection.removeListener('receive', onReceive);
       if (connection) {
         isConnected(socket) && connection.close();
@@ -94,7 +76,7 @@ export const useConnection = (path?: string) => {
         (connection as any).bindToSocket({});
       }
     };
-  }, [path, socket]);
+  }, [path, socket, t]);
 
   return useMemo(() => {
     return { connection, connected };

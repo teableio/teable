@@ -17,7 +17,7 @@ export const GalleryToolbar: React.FC<{ disabled?: boolean }> = (props) => {
 
   return (
     <div className="flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
-      <ShareViewFilter filters={view?.filter || null} onChange={onFilterChange}>
+      <ShareViewFilter responsive filters={view?.filter || null} onChange={onFilterChange}>
         {(text, isActive) => (
           <ToolBarButton
             disabled={disabled}
@@ -34,7 +34,7 @@ export const GalleryToolbar: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </ShareViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             isActive={isActive}

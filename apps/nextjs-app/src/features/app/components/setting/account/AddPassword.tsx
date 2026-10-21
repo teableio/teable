@@ -103,9 +103,9 @@ export const AddPassword = () => {
           </div>
           <Error error={error} />
         </div>
-        <DialogFooter className="flex-col space-y-2 sm:flex-col sm:space-x-0">
+        <DialogFooter className="flex-col space-y-2 sm:flex-col sm:space-x-0 rtl:space-x-reverse">
           <Button size={'sm'} className="w-full" type="submit" onClick={handleSubmit}>
-            {isLoading && <Spin className="mr-1 size-4" />}
+            {isLoading && <Spin className="me-1 size-4" />}
             {t('settings.account.addPassword.title')}
           </Button>
         </DialogFooter>

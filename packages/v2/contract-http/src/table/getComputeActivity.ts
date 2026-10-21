@@ -1,5 +1,7 @@
 import {
   getFieldComputeBatchProgress,
+  computeReliabilitySchema,
+  publicComputeError,
   type DomainError,
   type IGetComputeActivityQueryInput,
   type TableComputeActivitySnapshot,
@@ -9,7 +11,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -28,16 +29,38 @@ export const computeActivityAnomalySchema = z.object({
 });
 
 export const computeActivityDiagnosticsSchema = z.object({
+  reliability: computeReliabilitySchema.optional(),
   computeMode: z.literal('server'),
+  executionState: z.enum(['running', 'paused']).optional(),
   activeFieldCount: z.number(),
   queuedFieldCount: z.number(),
   calculatingFieldCount: z.number(),
   failedFieldCount: z.number(),
   highComplexityFieldCount: z.number(),
   anomalies: z.array(computeActivityAnomalySchema),
+  pause: z
+    .object({
+      effective: z.boolean(),
+      blockers: z.array(
+        z.object({
+          id: z.string(),
+          scopeType: z.enum(['space', 'base', 'table']),
+          scopeId: z.string(),
+          pausedAt: z.string(),
+          pausedBy: z.string().nullable(),
+          resumeAt: z.string().nullable(),
+          reason: z.string().nullable(),
+        })
+      ),
+      queuedTaskCount: z.number().int().nonnegative(),
+      oldestQueuedAt: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const getComputeActivityResponseDataSchema = z.object({
+  observedAt: z.string().datetime().optional(),
+  observationState: z.enum(['available', 'syncing', 'unavailable']).optional(),
   tableId: z.string(),
   baseId: z.string(),
   table: tableComputeMetaDtoSchema
@@ -85,12 +108,14 @@ export type IGetComputeActivityEndpointResult =
 export const getComputeActivityOkResponseSchema = apiOkResponseDtoSchema(
   getComputeActivityResponseDataSchema
 );
-export const getComputeActivityErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as getComputeActivityErrorResponseSchema } from '../shared/http';
 
 export const mapComputeActivitySnapshotToDto = (
   snapshot: TableComputeActivitySnapshot
 ): Result<IGetComputeActivityResponseDataDto, DomainError> => {
   return ok({
+    observedAt: snapshot.observedAt,
+    observationState: snapshot.observationState,
     tableId: snapshot.tableId,
     baseId: snapshot.baseId,
     table: snapshot.table
@@ -114,7 +139,8 @@ export const mapComputeActivitySnapshotToDto = (
       estimatedDirtyRecords: field.estimatedDirtyRecords || undefined,
       startedAt: field.startedAt ?? undefined,
       lastDurationMs: field.lastDurationMs ?? undefined,
-      lastError: field.lastError,
+      lastError: publicComputeError(field.lastError),
+      reliability: field.reliability,
       activeTaskCount: field.activeTaskCount,
       processingTaskCount: field.processingTaskCount,
       generation: field.generation,
@@ -124,6 +150,15 @@ export const mapComputeActivitySnapshotToDto = (
       lastCompletedAt: field.lastCompletedAt,
       batchProgress: getFieldComputeBatchProgress(field),
     })),
-    diagnostics: snapshot.diagnostics,
+    diagnostics: {
+      ...snapshot.diagnostics,
+      anomalies: snapshot.diagnostics.anomalies.map((item) =>
+        item.kind === 'failed'
+          ? { ...item, message: 'Computed results have not been updated' }
+          : item
+      ),
+      executionState: snapshot.diagnostics.executionState,
+      pause: snapshot.diagnostics.pause,
+    },
   });
 };

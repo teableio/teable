@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { assertNever } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -12,9 +12,16 @@ import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.se
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
+import { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
+import type { IArchiveUndoService } from '../operations/archive-records.operation';
+import {
+  ARCHIVE_UNDO_SERVICE,
+  ArchiveRecordsOperation,
+  IArchiveRecordsPayload,
+} from '../operations/archive-records.operation';
 import { ConvertFieldV2Operation } from '../operations/convert-field-v2.operation';
 import { ConvertFieldOperation, IConvertFieldPayload } from '../operations/convert-field.operation';
 import { CreateFieldsOperation, ICreateFieldsPayload } from '../operations/create-fields.operation';
@@ -47,6 +54,7 @@ import { UndoRedoStackService } from './undo-redo-stack.service';
 export class UndoRedoOperationService {
   createRecords: CreateRecordsOperation;
   deleteRecords: DeleteRecordsOperation;
+  archiveRecords: ArchiveRecordsOperation;
   updateRecords: UpdateRecordsOperation;
   updateRecordsOrder: UpdateRecordsOrderOperation;
   createFields: CreateFieldsOperation;
@@ -69,6 +77,11 @@ export class UndoRedoOperationService {
     private readonly prismaService: PrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly tableDomainQueryService: TableDomainQueryService,
+    private readonly recordRemovalTombstoneService: RecordRemovalTombstoneService,
+    // Enterprise-only: provided by the EE ArchiveModule (@Global); undefined on community.
+    @Optional()
+    @Inject(ARCHIVE_UNDO_SERVICE)
+    private readonly archiveService: IArchiveUndoService | undefined,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
     this.createRecords = new CreateRecordsOperation(
@@ -79,8 +92,10 @@ export class UndoRedoOperationService {
     this.deleteRecords = new DeleteRecordsOperation(
       this.recordOpenApiService,
       this.thresholdConfig,
-      this.dataDbClientManager
+      this.dataDbClientManager,
+      this.recordRemovalTombstoneService
     );
+    this.archiveRecords = new ArchiveRecordsOperation(this.archiveService);
     this.updateRecords = new UpdateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.updateRecordsOrder = new UpdateRecordsOrderOperation(this.viewOpenApiService);
     this.createFields = new CreateFieldsOperation(
@@ -117,6 +132,8 @@ export class UndoRedoOperationService {
         return this.createRecords.undo(operation);
       case OperationName.DeleteRecords:
         return this.deleteRecords.undo(operation);
+      case OperationName.ArchiveRecords:
+        return this.archiveRecords.undo(operation);
       case OperationName.UpdateRecords:
         return this.updateRecords.undo(operation);
       case OperationName.UpdateRecordsOrder:
@@ -148,6 +165,8 @@ export class UndoRedoOperationService {
         return this.createRecords.redo(operation);
       case OperationName.DeleteRecords:
         return this.deleteRecords.redo(operation);
+      case OperationName.ArchiveRecords:
+        return this.archiveRecords.redo(operation);
       case OperationName.UpdateRecords:
         return this.updateRecords.redo(operation);
       case OperationName.UpdateRecordsOrder:
@@ -184,10 +203,22 @@ export class UndoRedoOperationService {
     await this.undoRedoStackService.push(userId, operation.params.tableId, windowId, operation);
   }
 
-  @OnEvent(Events.OPERATION_RECORDS_DELETE)
-  private async onDeleteRecords(payload: IDeleteRecordsPayload) {
+  @OnEvent(Events.OPERATION_RECORDS_ARCHIVE)
+  private async onArchiveRecords(payload: IArchiveRecordsPayload) {
     const { windowId, userId, tableId } = payload;
     if (!windowId || !userId) {
+      return;
+    }
+
+    const operation = await this.archiveRecords.event2Operation(payload);
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_RECORDS_DELETE)
+  private async onDeleteRecords(payload: IDeleteRecordsPayload) {
+    const { windowId, userId, tableId, removalReason } = payload;
+    // Archived removals are not undoable: the archive keeps the only snapshot.
+    if (!windowId || !userId || removalReason === 'archived') {
       return;
     }
 

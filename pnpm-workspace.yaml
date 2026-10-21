@@ -4,3 +4,47 @@ packages:
   - 'packages/v2/*'
   - 'plugins'
   - '!apps/electron'
+
+engineStrict: true
+strictPeerDependencies: false
+autoInstallPeers: true
+lockfile: true
+savePrefix: ''
+
+# pnpm 10-12 changed these defaults; pinned to what pnpm 9 did so the upgrade changes nothing else.
+dangerouslyAllowAllBuilds: true
+minimumReleaseAge: 0
+blockExoticSubdeps: false
+optimisticRepeatInstall: false
+verifyDepsBeforeRun: false
+trustLockfile: true
+ignoreWorkspaceCycles: true
+publicHoistPattern:
+  - '*eslint*'
+  - '*prettier*'
+pmOnFail: ignore
+
+overrides:
+  i18next-fs-backend: ^2.6.6
+  hono: ^4.13.7
+  jsonwebtoken>jws: ^3.2.3
+  '@orpc/client': ^1.13.6
+  fast-xml-parser: ^5.7.0
+  handlebars: ^4.7.10
+  websocket-driver: ^0.7.5
+  protobufjs: ^7.5.5
+  shell-quote: ^1.11.0
+  katex: ^0.18.2
+  sqlite3>tar: ^7.5.22
+  sqlite3>node-gyp: ^12.4.0
+  '@storybook/builder-webpack5>webpack-dev-middleware': ^7.4.6
+  rollup-plugin-terser>serialize-javascript: ^7.1.2
+  rollup-plugin-postcss>cssnano: ^7.1.9
+  sockjs>uuid: ^11.1.1
+  istanbul-lib-processinfo>uuid: ^11.1.1
+  '@storybook/addon-actions>uuid': ^11.1.1
+  dockerode>uuid: ^11.1.1
+  '@smithy/middleware-retry>uuid': ^11.1.1
+  tailwindcss>postcss-selector-parser: ^7.1.6
+  postcss-nested>postcss-selector-parser: ^7.1.6
+  figma-js>axios: ^1.20.0

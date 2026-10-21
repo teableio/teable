@@ -131,7 +131,7 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
         <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {isLoading ? (
-            <CommandItem className="flex items-center space-x-4">
+            <CommandItem className="flex items-center space-x-4 rtl:space-x-reverse">
               <Skeleton className="size-7 rounded-full" />
               <Skeleton className="h-4 w-32" />
             </CommandItem>
@@ -145,7 +145,7 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
               >
                 <UserOption name={userName} email={email} avatar={avatar} />
                 <Check
-                  className={cn('ml-2 h-4 w-4', activeStatus(userId) ? 'opacity-100' : 'opacity-0')}
+                  className={cn('ms-2 h-4 w-4', activeStatus(userId) ? 'opacity-100' : 'opacity-0')}
                 />
               </CommandItem>
             ))

@@ -24,7 +24,8 @@ export type ListBaseInvitationLinkVo = z.infer<typeof listBaseInvitationLinkVoSc
 export const ListBaseInvitationLinkRoute: RouteConfig = registerRoute({
   method: 'get',
   path: LIST_BASE_INVITATION_LINK,
-  description: 'List a invitation link to your',
+  title: 'List project invitation links',
+  description: 'List invitation links for a project.',
   request: {
     params: z.object({
       baseId: z.string(),

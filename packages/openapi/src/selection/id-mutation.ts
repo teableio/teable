@@ -13,24 +13,18 @@ import {
 } from './clear-stream';
 import { deleteVoSchema, type IDeleteVo } from './delete';
 import {
-  type IDeleteSelectionStreamDoneEvent,
-  type IDeleteSelectionStreamErrorEvent,
-  type IDeleteSelectionStreamEvent,
-  type IDeleteSelectionStreamProgressEvent,
-} from './delete-stream';
-import {
   type IPasteSelectionStreamDoneEvent,
   type IPasteSelectionStreamErrorEvent,
   type IPasteSelectionStreamEvent,
   type IPasteSelectionStreamProgressEvent,
 } from './paste-stream';
+import { createSelectionStreamError } from './stream-error';
 
 export const CLEAR_BY_ID_URL = '/table/{tableId}/selection/clear-by-id';
 export const CLEAR_BY_ID_STREAM_URL = `${CLEAR_BY_ID_URL}-stream`;
 export const PASTE_BY_ID_URL = '/table/{tableId}/selection/paste-by-id';
 export const PASTE_BY_ID_STREAM_URL = `${PASTE_BY_ID_URL}-stream`;
 export const DELETE_BY_ID_URL = '/table/{tableId}/selection/delete-by-id';
-export const DELETE_BY_ID_STREAM_URL = `${DELETE_BY_ID_URL}-stream`;
 
 const recordIdsSchema = z.array(z.string().startsWith(IdPrefix.Record));
 const fieldIdsSchema = z.array(z.string().startsWith(IdPrefix.Field));
@@ -245,29 +239,6 @@ export const PasteByIdStreamRoute: RouteConfig = registerRoute({
   tags: ['selection'],
 });
 
-export const DeleteByIdStreamRoute: RouteConfig = registerRoute({
-  method: 'post',
-  path: DELETE_BY_ID_STREAM_URL,
-  summary: 'Delete selected records by id with SSE progress',
-  description: 'Delete selected records by id and stream realtime progress.',
-  request: {
-    params: z.object({ tableId: z.string() }),
-    body: {
-      content: {
-        'application/json': {
-          schema: deleteByIdRoSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      description: 'SSE stream with deletion progress events and final result',
-    },
-  },
-  tags: ['selection'],
-});
-
 export const clearById = async (tableId: string, clearRo: IClearByIdRo) => {
   return axios.patch<null>(urlBuilder(CLEAR_BY_ID_URL, { tableId }), clearRo);
 };
@@ -335,7 +306,10 @@ export const clearByIdSelectionStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Clear selection by id stream ended without result');
+    if (lastError) {
+      throw createSelectionStreamError(lastError);
+    }
+    throw new Error('Clear selection by id stream ended without result');
   }
 
   return { data: null, done: doneEvent, errors };
@@ -396,7 +370,10 @@ export const pasteByIdSelectionStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Paste selection by id stream ended without result');
+    if (lastError) {
+      throw createSelectionStreamError(lastError);
+    }
+    throw new Error('Paste selection by id stream ended without result');
   }
 
   const finalDoneEvent = doneEvent as IPasteSelectionStreamDoneEvent;
@@ -423,67 +400,4 @@ export const pasteByIdSelectionStream = async (
       }
     : null;
   return { data, done: finalDoneEvent, errors };
-};
-
-export const deleteByIdSelectionStream = async (
-  tableId: string,
-  deleteRo: IDeleteByIdRo,
-  options?: {
-    onProgress?: (event: IDeleteSelectionStreamProgressEvent) => void;
-    onError?: (event: IDeleteSelectionStreamErrorEvent) => void;
-    signal?: AbortSignal;
-    headers?: RequestInit['headers'];
-  }
-): Promise<{
-  data: IDeleteVo;
-  done: IDeleteSelectionStreamDoneEvent;
-  errors: IDeleteSelectionStreamErrorEvent[];
-}> => {
-  const url = axios.getUri({
-    baseURL: axios.defaults.baseURL || '/api',
-    url: urlBuilder(DELETE_BY_ID_STREAM_URL, { tableId }),
-  });
-  let finalResult: IDeleteVo | null = null;
-  let doneEvent: IDeleteSelectionStreamDoneEvent | null = null;
-  const errors: IDeleteSelectionStreamErrorEvent[] = [];
-
-  ensureUndoRedoWindowIdHeader();
-
-  await streamSSE<IDeleteSelectionStreamEvent>(
-    url,
-    {
-      method: 'POST',
-      signal: options?.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      body: JSON.stringify(deleteRo),
-    },
-    {
-      errorPrefix: 'Delete selection by id stream failed',
-      onResult: (result) => {
-        switch (result.id) {
-          case 'progress':
-            options?.onProgress?.(result);
-            return;
-          case 'done':
-            doneEvent = result;
-            finalResult = deleteVoSchema.parse({ ids: result.data.deletedRecordIds });
-            return;
-          case 'error':
-            errors.push(result);
-            options?.onError?.(result);
-            return;
-        }
-      },
-    }
-  );
-
-  if (!finalResult || !doneEvent) {
-    const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Delete selection by id stream ended without result');
-  }
-
-  return { data: finalResult, done: doneEvent, errors };
 };

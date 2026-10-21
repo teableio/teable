@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Database, LayoutTemplate } from '@teable/icons';
+import { LayoutGrid, LayoutTemplate } from '@teable/icons';
 import { createBase } from '@teable/openapi';
 import {
   Button,
@@ -60,7 +60,7 @@ export const CreateBaseModalTrigger = ({
               }}
               disabled={createBaseLoading}
             >
-              <Database className="size-8" />
+              <LayoutGrid className="size-8" />
               {t('space:baseModal.fromScratch')}
             </Button>
             <TemplateContext.Provider value={{ spaceId }}>

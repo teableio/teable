@@ -7,9 +7,9 @@ import type { ISpecification } from '../../shared/specification/ISpecification';
 import type { Table } from '../Table';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
-export class TableByBaseIdSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
-  implements ISpecification<Table, V>
-{
+export class TableByBaseIdSpec<
+  V extends ITableSpecVisitor = ITableSpecVisitor,
+> implements ISpecification<Table, V> {
   private constructor(private readonly baseIdValue: BaseId) {}
 
   static create(baseId: BaseId): TableByBaseIdSpec {

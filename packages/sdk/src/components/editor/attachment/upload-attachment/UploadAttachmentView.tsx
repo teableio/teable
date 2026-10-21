@@ -3,7 +3,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -14,7 +15,6 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { Button, FilePreviewProvider, ScrollArea, cn } from '@teable/ui-lib';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -22,7 +22,6 @@ import { useIsMobile } from '../../../../hooks';
 import { useDownloadAttachmentsStore } from '../../../../store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { FileZone } from '../../../upload/FileZone';
-import { getFileCover } from '../utils';
 import AttachmentItem from './AttachmentItem';
 import type { UploadAttachmentViewProps, UploadAttachmentViewRef } from './types';
 import { UploadingFile } from './UploadingFile';
@@ -41,7 +40,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       onCancelUpload,
     } = props;
     const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
-    const { resolvedTheme } = useTheme();
     const [sortData, setSortData] = useState<IAttachmentCellValue>(attachments);
     const listRef = useRef<HTMLDivElement>(null);
     const { t } = useTranslation();
@@ -49,7 +47,13 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
     const fileInput = useRef<HTMLInputElement>(null);
     const isMobile = useIsMobile();
     const sensors = useSensors(
-      useSensor(PointerSensor, {
+      useSensor(TouchSensor, {
+        activationConstraint: {
+          delay: 250,
+          tolerance: 5,
+        },
+      }),
+      useSensor(MouseSensor, {
         activationConstraint: { distance: 5 },
       }),
       useSensor(KeyboardSensor, {
@@ -119,20 +123,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       [onUpload, scheduleScrollBottom]
     );
 
-    const fileCover = useCallback(
-      ({
-        mimetype,
-        presignedUrl,
-        lgThumbnailUrl,
-      }: Pick<IAttachmentItem, 'mimetype' | 'presignedUrl' | 'lgThumbnailUrl'>) => {
-        if (!presignedUrl) return '';
-        return (
-          lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark')
-        );
-      },
-      [resolvedTheme]
-    );
-
     const handleDragEnd = useCallback(
       (event: DragEndEvent) => {
         const { active, over } = event;
@@ -167,7 +157,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
         {attachments.length > 0 && showDownloadAll && (
-          <div className="absolute bottom-0 right-0 z-10">
+          <div className="absolute bottom-0 end-0 z-10">
             <Button
               className="font-normal opacity-50"
               variant="link"
@@ -210,7 +200,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
             />
             {totalCount > 0 && (
               <ScrollArea className="h-full flex-1" ref={listRef}>
-                <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
+                <ul className="-end-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
                   <FilePreviewProvider i18nMap={i18nMap}>
                     <DndContext
                       sensors={sensors}
@@ -229,7 +219,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
                             onDelete={onDelete}
                             onRename={onRename}
                             downloadFile={downloadFile}
-                            fileCover={fileCover}
                             readonly={readonly}
                           />
                         ))}

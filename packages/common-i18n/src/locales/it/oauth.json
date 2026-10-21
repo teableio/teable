@@ -2,7 +2,8 @@
   "add": "Nuove App OAuth",
   "title": {
     "add": "Nuove App OAuth",
-    "edit": "Modifica App OAuth"
+    "edit": "Modifica App OAuth",
+    "description": "Le app Teable possono agire per proprio conto ed eseguire operazioni direttamente tramite l’API, senza impersonare un utente. Consulta la nostra <a>documentazione</a> per maggiori informazioni."
   },
   "form": {
     "name": {
@@ -54,5 +55,24 @@
     "scopes": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:",
     "redirectDescription": "L'autorizzazione reindirizzerà a",
     "authorize": "Autorizza"
+  },
+  "mcpDecision": {
+    "title": "Connetti Teable MCP",
+    "subtitle": "Concedi a <b>{{name}}</b> l'accesso a Teable",
+    "capabilities": "Tramite Teable MCP, <b>{{name}}</b> potrà:",
+    "ability1": "Visualizzare e modificare tabelle, campi, viste, record, automazioni e app in base alle tue autorizzazioni in ciascun progetto",
+    "ability2": "Agire per tuo conto; le azioni vengono registrate a nome di questa applicazione",
+    "ability3": "Usare tutti i progetti a cui hai accesso",
+    "redirectTitle": "Verrai reindirizzato a:",
+    "trustRedirect": "Riconosco questo URL e mi fido",
+    "continue": "Continua"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "Scopri di più"
+  },
+  "deleteConfirm": {
+    "title": "Elimina app OAuth",
+    "description": "Vuoi davvero eliminare l’app OAuth {{name}}? L’operazione non può essere annullata."
   }
 }

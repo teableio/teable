@@ -9,6 +9,7 @@ import type {
   FieldDeletionReaction,
   OnTeableFieldDeleted,
 } from '../../OnTeableFieldDeleted';
+import { implementsOnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
 import { UpdateUserMultiplicitySpec } from '../../specs/field-updates/UpdateUserMultiplicitySpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
@@ -29,7 +30,7 @@ import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
 import { FormulaExpression } from './FormulaExpression';
-import type { FormulaMeta } from './FormulaMeta';
+import { FormulaMeta } from './FormulaMeta';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -54,7 +55,7 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
     private readonly timeZoneValue: TimeZone | undefined,
     private formattingValue: FormulaFormatting | undefined,
     private readonly showAsValue: FormulaShowAs | undefined,
-    private readonly metaValue: FormulaMeta | undefined,
+    private metaValue: FormulaMeta | undefined,
     private cellValueTypeValue: CellValueType | undefined,
     private isMultipleCellValueValue: CellValueMultiplicity | undefined,
     dependencies: ReadonlyArray<FieldId>
@@ -166,6 +167,28 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
   isPersistedAsGeneratedColumn(): Result<boolean, DomainError> {
     if (!this.metaValue) return ok(false);
     return this.metaValue.persistedAsGeneratedColumn();
+  }
+
+  formulaSafetyVersion(): Result<number | undefined, DomainError> {
+    return this.metaValue ? this.metaValue.formulaSafetyVersion() : ok(undefined);
+  }
+
+  enableFormulaSafety(version: 1): Result<void, DomainError> {
+    return this.formulaSafetyVersion().andThen((currentVersion) => {
+      if (version !== 1 || (currentVersion !== undefined && currentVersion !== version)) {
+        return err(
+          domainError.validation({ message: 'Unsupported formula safety policy version' })
+        );
+      }
+      if (currentVersion === version) return ok(undefined);
+      return this.isPersistedAsGeneratedColumn().andThen((persistedAsGeneratedColumn) =>
+        FormulaMeta.rehydrate({ persistedAsGeneratedColumn, formulaSafetyVersion: version }).map(
+          (meta) => {
+            this.metaValue = meta;
+          }
+        )
+      );
+    });
   }
 
   cellValueType(): Result<CellValueType, DomainError> {
@@ -363,8 +386,9 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
       return ok(undefined);
     }
 
-    const shouldSetError = this.dependsOnDeletedField(deletedField.id(), context.table, new Set());
-    if (!shouldSetError) {
+    const shouldSetError = this.dependsOnDeletedField(deletedField, context, new Set());
+    if (shouldSetError.isErr()) return err(shouldSetError.error);
+    if (!shouldSetError.value) {
       return ok(undefined);
     }
 
@@ -375,32 +399,48 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
   }
 
   private dependsOnDeletedField(
-    deletedFieldId: FieldId,
-    table: Table,
+    deletedField: Field,
+    context: FieldDeletionContext,
     visitedFormulaIds: Set<string>
-  ): boolean {
+  ): Result<boolean, DomainError> {
     const currentFormulaId = this.id().toString();
     if (visitedFormulaIds.has(currentFormulaId)) {
-      return false;
+      return ok(false);
     }
     visitedFormulaIds.add(currentFormulaId);
 
     const referencedFieldIds = this.referencedFieldIdsForDeleteCheck();
-    if (referencedFieldIds.some((fieldId) => fieldId.equals(deletedFieldId))) {
-      return true;
+    if (referencedFieldIds.some((fieldId) => fieldId.equals(deletedField.id()))) {
+      return ok(true);
     }
 
     for (const referencedFieldId of referencedFieldIds) {
-      const referencedField = table.getFields((field) => field.id().equals(referencedFieldId))[0];
-      if (!(referencedField instanceof FormulaField)) {
-        continue;
-      }
-      if (referencedField.dependsOnDeletedField(deletedFieldId, table, visitedFormulaIds)) {
-        return true;
+      const referencedField = context.table.getFields((field) =>
+        field.id().equals(referencedFieldId)
+      )[0];
+      if (referencedField instanceof FormulaField) {
+        const dependsOnDeleted = referencedField.dependsOnDeletedField(
+          deletedField,
+          context,
+          visitedFormulaIds
+        );
+        if (dependsOnDeleted.isErr()) return err(dependsOnDeleted.error);
+        if (dependsOnDeleted.value) return ok(true);
+      } else if (implementsOnTeableFieldDeleted(referencedField)) {
+        // Reuse the dependency's deletion semantics: a link display fallback or
+        // an optional sort cleanup does not invalidate the consuming formula.
+        const reaction = referencedField.onFieldDeleted(deletedField, context);
+        if (reaction.isErr()) return err(reaction.error);
+        if (
+          reaction.value?.spec instanceof TableUpdateFieldHasErrorSpec &&
+          reaction.value.spec.isSettingError()
+        ) {
+          return ok(true);
+        }
       }
     }
 
-    return false;
+    return ok(false);
   }
 
   private referencedFieldIdsForDeleteCheck(): ReadonlyArray<FieldId> {

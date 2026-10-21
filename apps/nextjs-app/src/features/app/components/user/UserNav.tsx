@@ -14,7 +14,9 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { UserNavExtras } from '@overridable/UserNavExtras';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { PersonalSettingTab, useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
@@ -27,6 +29,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
     mutationFn: signout,
   });
   const isCloud = useIsCloud();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
 
   const loginOutClick = async () => {
     await loginOut();
@@ -59,16 +62,13 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           </a>
         </DropdownMenuItem>
         <DropdownMenuItem className="flex gap-2" asChild>
-          <a
-            href="https://app.teable.ai/share/shrX1qxpciRUj1Jww2b/view"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href="https://community.teable.ai/report" target="_blank" rel="noopener noreferrer">
             <MessageSquare className="size-4 shrink-0" />
             {t('settings.nav.contactSupport')}
           </a>
         </DropdownMenuItem>
-        {isCloud && (
+        {/* License purchase: not inside the native mobile WebView */}
+        {isCloud && upgradeCtaEnabled && (
           <DropdownMenuItem
             className="flex gap-2"
             onClick={() => {
@@ -88,6 +88,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           <Key className="size-4 shrink-0" />
           {t('setting:personalAccessToken')}
         </DropdownMenuItem>
+        <UserNavExtras />
         <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
           <ExitIcon className="size-4 shrink-0" />
           {t('settings.nav.logout')}

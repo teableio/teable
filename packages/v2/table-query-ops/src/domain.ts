@@ -55,6 +55,7 @@ export const executablePhase1RemediationKindValues = [
   'create_search_index',
   'create_search_access_path',
   'rebuild_search_access_path',
+  'drop_search_access_path',
   'create_search_vector',
   'rebuild_search_vector',
   'create_filter_index',
@@ -483,7 +484,9 @@ export class TableQueryShape {
     if (!searchShape?.searchedFieldIds) {
       return ok(new TableQueryShape(parsed.data));
     }
-    const searchedFieldIds = Array.from(new Set(searchShape.searchedFieldIds)).sort();
+    const searchedFieldIds = Array.from(new Set(searchShape.searchedFieldIds)).sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     return ok(
       new TableQueryShape({
         ...parsed.data,
@@ -642,11 +645,8 @@ export class TableQueryObservationWindow {
 }
 
 export type TablePhysicalStatsInput = {
-  readonly estimatedRows: number;
+  readonly estimatedRows: number | null;
   readonly totalBytes: number;
-  readonly seqScanCount?: number;
-  readonly indexScanCount?: number;
-  readonly lastAnalyzeAt?: Date;
 };
 
 export class TablePhysicalStats {
@@ -655,11 +655,8 @@ export class TablePhysicalStats {
   static create(raw: TablePhysicalStatsInput): Result<TablePhysicalStats, DomainError> {
     const parsed = z
       .object({
-        estimatedRows: z.number().nonnegative(),
+        estimatedRows: z.number().nonnegative().nullable(),
         totalBytes: z.number().nonnegative(),
-        seqScanCount: z.number().nonnegative().optional(),
-        indexScanCount: z.number().nonnegative().optional(),
-        lastAnalyzeAt: z.date().optional(),
       })
       .safeParse(raw);
     if (!parsed.success) {
@@ -668,7 +665,7 @@ export class TablePhysicalStats {
     return ok(new TablePhysicalStats(parsed.data));
   }
 
-  estimatedRows(): number {
+  estimatedRows(): number | null {
     return this.props.estimatedRows;
   }
 
@@ -771,8 +768,16 @@ export class TableQueryIndexInspection {
             fieldId: z.string().optional(),
             fieldDbName: z.string().optional(),
             fields: z.array(tableQueryIndexFieldSchema).optional(),
-            kind: z.enum(['btree', 'gin_trgm']),
-            accessPath: z.enum(['single_field', 'composite', 'expression']).optional(),
+            kind: z.enum(['btree', 'gin_trgm', 'gin_bigm', 'gin_tsvector']),
+            accessPath: z
+              .enum([
+                'single_field',
+                'composite',
+                'expression',
+                'generated_text',
+                'generated_tsvector',
+              ])
+              .optional(),
             valid: z.boolean(),
             name: z.string().optional(),
           })
@@ -782,8 +787,16 @@ export class TableQueryIndexInspection {
             fieldId: z.string().optional(),
             fieldDbName: z.string().optional(),
             fields: z.array(tableQueryIndexFieldSchema).optional(),
-            kind: z.enum(['btree', 'gin_trgm']),
-            accessPath: z.enum(['single_field', 'composite', 'expression']).optional(),
+            kind: z.enum(['btree', 'gin_trgm', 'gin_bigm', 'gin_tsvector']),
+            accessPath: z
+              .enum([
+                'single_field',
+                'composite',
+                'expression',
+                'generated_text',
+                'generated_tsvector',
+              ])
+              .optional(),
             reason: z.string(),
           })
         ),
@@ -802,6 +815,12 @@ export class TableQueryIndexInspection {
 
   hasAbnormalIndex(): boolean {
     return this.props.abnormalIndexes.length > 0 || this.props.state === 'invalid';
+  }
+
+  hasGeneratedTextAccessPath(): boolean {
+    return this.props.usefulIndexes.some(
+      (index) => index.accessPath === 'generated_text' && index.valid
+    );
   }
 
   snapshot(): TableQueryIndexInspectionInput {
@@ -891,6 +910,8 @@ export const defaultTableQueryRiskPolicyConfig: TableQueryRiskPolicyConfig = {
   policyVersion: 'table-query-risk-v1',
 };
 
+export const SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH = 'search_access_path';
+
 export type TableQueryRiskReasonCode =
   | 'high_latency'
   | 'critical_latency'
@@ -916,6 +937,7 @@ export type TableQueryRemediationCandidate = {
 
 export type TableQueryRiskReportInput = {
   readonly policyVersion: string;
+  readonly workloadHot: boolean;
   readonly level: TableQueryRiskLevel;
   readonly score: number;
   readonly reasonCodes: ReadonlyArray<TableQueryRiskReasonCode>;
@@ -951,6 +973,7 @@ export class TableQueryRiskReport {
   snapshot() {
     return {
       policyVersion: this.props.policyVersion,
+      workloadHot: this.props.workloadHot,
       level: this.props.level,
       score: this.props.score,
       reasonCodes: this.props.reasonCodes,
@@ -968,6 +991,10 @@ export class TableQueryRiskPolicy {
     private readonly config: TableQueryRiskPolicyConfig = defaultTableQueryRiskPolicyConfig
   ) {}
 
+  wideSearchFields(): number {
+    return this.config.wideSearchFields;
+  }
+
   evaluate(input: {
     readonly observation: TableQueryObservationWindow;
     readonly physicalStats: TablePhysicalStats;
@@ -975,6 +1002,7 @@ export class TableQueryRiskPolicy {
     readonly planValidation?: TableQueryPlanValidation;
   }): Result<TableQueryRiskReport, DomainError> {
     const shape = input.observation.shape().snapshot();
+    const estimatedRows = input.physicalStats.estimatedRows();
     const sortFieldCount =
       shape.orderShape?.fields.filter((field) => field.source !== 'tieBreaker').length ?? 0;
     const matchedRules = [
@@ -995,7 +1023,7 @@ export class TableQueryRiskPolicy {
         25
       ),
       riskRule(
-        input.physicalStats.estimatedRows() >= this.config.largeTableEstimatedRows,
+        estimatedRows != null && estimatedRows >= this.config.largeTableEstimatedRows,
         'large_table',
         15
       ),
@@ -1015,7 +1043,13 @@ export class TableQueryRiskPolicy {
         'aggregation_fanout',
         10
       ),
-      riskRule(input.indexInspection.hasMissingUsefulIndex(), 'missing_useful_index', 20),
+      riskRule(
+        input.indexInspection.hasMissingUsefulIndex() ||
+          (wantsGeneratedTextSearchAccessPath(shape, this.config) &&
+            !input.indexInspection.hasGeneratedTextAccessPath()),
+        'missing_useful_index',
+        20
+      ),
       riskRule(input.indexInspection.hasAbnormalIndex(), 'abnormal_index', 20),
     ].filter((rule): rule is TableQueryRiskRule => rule != null);
     const reasons = matchedRules.map((rule) => rule.reason);
@@ -1025,10 +1059,11 @@ export class TableQueryRiskPolicy {
     const level = riskLevelFromScore(cappedScore);
     return TableQueryRiskReport.create({
       policyVersion: this.config.policyVersion,
+      workloadHot: input.observation.requestCount() >= this.config.minRequestsPerWindow,
       level,
       score: cappedScore,
       reasonCodes: Array.from(new Set(reasons)),
-      remediationCandidates: buildRemediationCandidates(shape, input.indexInspection),
+      remediationCandidates: buildRemediationCandidates(shape, input.indexInspection, this.config),
       ...input,
     });
   }
@@ -1077,7 +1112,7 @@ export class TableQueryRecommendation {
         tableId: input.observation.tableId(),
         baseId: input.observation.baseId(),
         spaceId: input.observation.snapshot().spaceId,
-        shapeHash: input.observation.shapeHash(),
+        shapeHash: recommendationShapeHash(input.observation, report.remediationCandidates),
         policyVersion: report.policyVersion,
         status: 'open',
         riskLevel: report.level,
@@ -1141,6 +1176,7 @@ export class TableQueryRemediationTask {
   ) {}
 
   static createQueued(input: {
+    readonly id?: string;
     readonly recommendation?: TableQueryRecommendation;
     readonly tableId: string;
     readonly baseId: string;
@@ -1150,7 +1186,7 @@ export class TableQueryRemediationTask {
   }): Result<TableQueryRemediationTask, DomainError> {
     return ok(
       new TableQueryRemediationTask({
-        id: `tqt_${nanoid(16)}`,
+        id: input.id ?? `tqt_${nanoid(16)}`,
         recommendationId: input.recommendation?.snapshot().id,
         tableId: input.tableId,
         baseId: input.baseId,
@@ -1275,7 +1311,7 @@ export class TableQueryShapeFactory {
               ? {
                   searchedFieldIds: input.search.fieldIds
                     .map((fieldId) => fieldId.toString())
-                    .sort(),
+                    .sort((a, b) => Number(a > b) - Number(a < b)),
                 }
               : {}),
             valueLengthBucket: bucketSearchValueLength(input.search.valueLength ?? 0),
@@ -1314,29 +1350,40 @@ const riskLevelFromScore = (score: number): TableQueryRiskLevel => {
   return 'none';
 };
 
+const wantsGeneratedTextSearchAccessPath = (
+  shape: TableQueryShapeInput,
+  config: TableQueryRiskPolicyConfig
+): boolean =>
+  shape.queryKind === 'search' &&
+  Boolean(shape.searchShape) &&
+  (Boolean(shape.searchShape?.allFields) ||
+    (shape.searchShape?.fieldCount ?? 0) >= config.wideSearchFields);
+
+const recommendationShapeHash = (
+  observation: TableQueryObservationWindow,
+  candidates: ReadonlyArray<TableQueryRemediationCandidate>
+): string =>
+  candidates.some((candidate) => candidate.kind === 'create_search_access_path')
+    ? SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH
+    : observation.shapeHash();
+
 const buildRemediationCandidates = (
   shape: TableQueryShapeInput,
-  inspection: TableQueryIndexInspection
+  inspection: TableQueryIndexInspection,
+  config: TableQueryRiskPolicyConfig
 ): ReadonlyArray<TableQueryRemediationCandidate> => {
   const candidates: TableQueryRemediationCandidate[] = [];
-  for (const missing of inspection.snapshot().missingIndexCandidates) {
-    const kind: ExecutablePhase1RemediationKind =
-      missing.kind === 'gin_trgm'
-        ? 'create_search_index'
-        : shape.orderShape?.fields.some((field) => field.fieldId === missing.fieldId)
-          ? 'create_sort_index'
-          : 'create_filter_index';
+  const preferGeneratedText = wantsGeneratedTextSearchAccessPath(shape, config);
+  if (preferGeneratedText && !inspection.hasGeneratedTextAccessPath()) {
     candidates.push({
-      kind,
-      fieldId: missing.fieldId,
-      fieldDbName: missing.fieldDbName,
-      indexKind: missing.kind,
-      ...(missing.fields ? { fields: missing.fields } : {}),
-      ...(missing.accessPath ? { accessPath: missing.accessPath } : {}),
-      reason: missing.reason,
-      executableInPhase1: true,
+      kind: 'create_search_access_path',
+      indexKind: 'gin_trgm',
+      accessPath: 'generated_text',
+      reason: 'Wide substring search can use a generated-text GIN access path',
+      executableInPhase1: false,
     });
   }
+  appendMissingIndexCandidates(candidates, shape, inspection, preferGeneratedText);
   if (inspection.hasAbnormalIndex()) {
     candidates.push({
       kind: 'repair_index',
@@ -1354,11 +1401,41 @@ const buildRemediationCandidates = (
   return candidates;
 };
 
+const appendMissingIndexCandidates = (
+  candidates: TableQueryRemediationCandidate[],
+  shape: TableQueryShapeInput,
+  inspection: TableQueryIndexInspection,
+  preferGeneratedText: boolean
+): void => {
+  for (const missing of inspection.snapshot().missingIndexCandidates) {
+    if (preferGeneratedText && missing.kind === 'gin_trgm') continue;
+    const isSortCandidate = shape.orderShape?.fields.some(
+      (field) => field.fieldId === missing.fieldId || field.systemColumn === missing.fieldDbName
+    );
+    const kind: ExecutablePhase1RemediationKind =
+      missing.kind === 'gin_trgm'
+        ? 'create_search_index'
+        : isSortCandidate
+          ? 'create_sort_index'
+          : 'create_filter_index';
+    candidates.push({
+      kind,
+      fieldId: missing.fieldId,
+      fieldDbName: missing.fieldDbName,
+      indexKind: missing.kind,
+      ...(missing.fields ? { fields: missing.fields } : {}),
+      ...(missing.accessPath ? { accessPath: missing.accessPath } : {}),
+      reason: missing.reason,
+      executableInPhase1: true,
+    });
+  }
+};
+
 export const stableHash = (input: unknown): string => {
   const sorted = JSON.stringify(sortDeep(input));
   let hash = 0;
   for (let i = 0; i < sorted.length; i += 1) {
-    hash = (hash * 31 + sorted.charCodeAt(i)) >>> 0;
+    hash = (hash * 31 + sorted.charCodeAt(i)) >>> 0; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   }
   return hash.toString(16).padStart(8, '0');
 };

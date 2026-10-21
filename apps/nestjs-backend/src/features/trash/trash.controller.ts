@@ -1,18 +1,29 @@
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
-import type { IRestoreFieldTrashStreamEvent, ITrashVo, V2Feature } from '@teable/openapi';
+import type {
+  IDeleteTrashQuery,
+  IGetTrashItemRecordsVo,
+  IRestoreFieldTrashStreamEvent,
+  ITrashVo,
+  V2Feature,
+} from '@teable/openapi';
 import {
+  deleteTrashQuerySchema,
   ITrashRo,
   trashItemsRoSchema,
   trashRoSchema,
   ITrashItemsRo,
   resetTrashItemsRoSchema,
   IResetTrashItemsRo,
+  getTrashItemRecordsQuerySchema,
+  IGetTrashItemRecordsQuery,
 } from '@teable/openapi';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import {
   X_TEABLE_V2_FEATURE_HEADER,
@@ -43,6 +54,15 @@ export class TrashController {
     return await this.trashService.getTrashItems(query);
   }
 
+  @Get(':trashId/records')
+  @TokenAccess()
+  async getTrashItemRecords(
+    @Param('trashId') trashId: string,
+    @Query(new ZodValidationPipe(getTrashItemRecordsQuerySchema)) query: IGetTrashItemRecordsQuery
+  ): Promise<IGetTrashItemRecordsVo> {
+    return await this.trashService.getTableTrashItemRecords(trashId, query);
+  }
+
   @Post('restore/:trashId')
   @TokenAccess()
   async restoreTrash(
@@ -61,6 +81,8 @@ export class TrashController {
   }
 
   @Post('restore-field/:trashId/stream')
+  @Permissions('table|trash_update')
+  @ResourceMeta('tableId', 'query')
   @TokenAccess()
   async restoreFieldTrashStream(
     @Param('trashId') trashId: string,
@@ -82,8 +104,11 @@ export class TrashController {
 
   @Delete(':trashId')
   @TokenAccess()
-  async delete(@Param('trashId') trashId: string): Promise<void> {
-    return await this.trashService.delete(trashId);
+  async delete(
+    @Param('trashId') trashId: string,
+    @Query(new ZodValidationPipe(deleteTrashQuerySchema)) query: IDeleteTrashQuery
+  ): Promise<void> {
+    return await this.trashService.delete(trashId, false, query);
   }
 
   protected async prepareRestoreTableCanary(

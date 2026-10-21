@@ -36,6 +36,13 @@ export const subscriptionSummaryVoSchema = z.object({
   status: z.enum(SubscriptionStatus),
   level: z.enum(BillingProductLevel),
   appSumoTier: appSumoTierSchema.optional(),
+  // Fixed-seat (AppSumo/manual) subscriptions only: the purchased seat cap and
+  // the billable collaborators currently occupying it. Exceeding the cap is
+  // not blocked — the space degrades after a grace period — so clients warn
+  // before adding billable members. Absent for Stripe-billed subscriptions,
+  // whose seat limit is hard-enforced server-side.
+  fixedSeatQuantity: z.number().optional(),
+  fixedSeatUsage: z.number().optional(),
 });
 
 export type ISubscriptionSummaryVo = z.infer<typeof subscriptionSummaryVoSchema>;

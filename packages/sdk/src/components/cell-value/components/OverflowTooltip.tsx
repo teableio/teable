@@ -7,9 +7,12 @@ import {
   cn,
 } from '@teable/ui-lib';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useContentDir } from '../../../hooks/use-content-dir';
 
 interface IOverflowTooltipProps {
   text?: string;
+  // Rendered in place of text inline; the tooltip itself always shows text
+  content?: React.ReactNode;
   ellipsis?: boolean;
   className?: string;
   tooltipClassName?: string;
@@ -18,14 +21,15 @@ interface IOverflowTooltipProps {
 }
 
 export const OverflowTooltip = (props: IOverflowTooltipProps) => {
-  const { text = '', ellipsis = false, className, tooltipClassName, onClick } = props;
+  const { text = '', content, ellipsis = false, className, tooltipClassName, onClick } = props;
+  const contentDir = useContentDir();
   const [isOverflow, setOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const checkOverflow = useCallback(() => {
     if (contentRef.current && ellipsis) {
       const element = contentRef.current;
-      const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
+      const lineHeight = Number.parseInt(window.getComputedStyle(element).lineHeight);
       const isOverflow = element.scrollHeight > lineHeight;
       setOverflow(isOverflow);
     }
@@ -53,6 +57,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const Content = (
     <div
       ref={contentRef}
+      dir={contentDir}
       className={cn('overflow-hidden whitespace-pre-wrap break-all line-clamp-6', className)}
       onClick={(e) => {
         if (onClick) {
@@ -69,7 +74,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       tabIndex={onClick ? 0 : undefined}
       title={text}
     >
-      {text}
+      {content ?? text}
     </div>
   );
 
@@ -87,21 +92,22 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
               onClick();
             }
           }}
-          className="w-full text-left"
+          className="w-full text-start"
         >
           <div
+            dir={contentDir}
             className={cn(className, 'overflow-hidden')}
             style={{
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
-            {text}
+            {content ?? text}
           </div>
         </TooltipTrigger>
         <TooltipPortal>
           <TooltipContent className={cn('max-w-60 break-all', tooltipClassName)}>
-            <p>{text}</p>
+            <p dir={contentDir}>{text}</p>
           </TooltipContent>
         </TooltipPortal>
       </Tooltip>

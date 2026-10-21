@@ -19,7 +19,7 @@ const OAUTH_POPUP_PATHS: RegExp[] = [
   // redirect_uri) and the consent form POST (302 to client redirect_uri).
   /^\/api\/oauth\/(authorize|decision)\/?$/,
   // Social sign-in entries and IdP callbacks (302 hops inside the popup).
-  /^\/api\/auth\/(github|google|oidc)(\/callback)?\/?$/,
+  /^\/api\/auth\/(github|google|apple|oidc)(\/callback)?\/?$/,
   // EE dynamic enterprise SSO providers (same shape, provider id from DB).
   /^\/api\/auth\/authentication\/[^/]+(\/callback)?\/?$/,
   // EE app-builder login broker callbacks (302 back to the generated app).
@@ -28,7 +28,7 @@ const OAUTH_POPUP_PATHS: RegExp[] = [
   // configured headers after this middleware and overwrites COOP, so the
   // authoritative page-side fix lives in both next.config.js headers() blocks;
   // these entries only cover responses served before Next takes over.
-  /^\/auth\/login\/?$/,
+  /^\/auth\/(login|signup)\/?$/,
   /^\/oauth\/decision\/?$/,
 ];
 

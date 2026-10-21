@@ -7,7 +7,7 @@ import type {
   Table,
   TableId,
 } from '@teable/v2-core';
-import { v2CoreTokens } from '@teable/v2-core';
+import { listTablesInTransactionScope, v2CoreTokens } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -24,6 +24,7 @@ export type CascadeInput = {
   selfBackfillFieldIds: ReadonlyArray<FieldId>;
   valueChangedFieldIds: ReadonlyArray<FieldId>;
   deferredBackfillFieldIds?: ReadonlyArray<FieldId>;
+  preserveStoredFieldIds?: ReadonlyArray<FieldId>;
   /**
    * True when a field conversion changed the underlying DB column type
    * (cellValueType or isMultipleCellValue changed).  Dependent computed
@@ -56,16 +57,22 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
     context: IExecutionContext,
     input: CascadeInput
   ): Promise<Result<void, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       const {
         table,
         selfBackfillFieldIds,
         valueChangedFieldIds,
         deferredBackfillFieldIds = [],
+        preserveStoredFieldIds = [],
         hasDbStorageTypeChange,
       } = input;
       const backfilledFieldIdSet = new Set<string>();
+      // Only explicit same-type configuration changes preserve history. A
+      // deferred type-conversion replay must still initialize its new columns.
+      const preservedStoredFieldIdSet = new Set(
+        preserveStoredFieldIds.map((fieldId) => fieldId.toString())
+      );
       const deferredFieldIdSet = new Set(
         deferredBackfillFieldIds.map((fieldId) => fieldId.toString())
       );
@@ -77,7 +84,11 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         fields.filter((field) => !deferredFieldIdSet.has(field.id().toString()));
 
       const filterAlreadyBackfilledFields = (fields: ReadonlyArray<Field>): Field[] =>
-        fields.filter((field) => !backfilledFieldIdSet.has(field.id().toString()));
+        fields.filter(
+          (field) =>
+            !backfilledFieldIdSet.has(field.id().toString()) &&
+            !preservedStoredFieldIdSet.has(field.id().toString())
+        );
 
       const markBackfilled = (fields: ReadonlyArray<Field>): void => {
         for (const field of fields) {
@@ -113,6 +124,27 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
       ]);
       if (allChangedFieldIds.length === 0) return ok(undefined);
 
+      // Tables updated earlier in this transaction (e.g. the foreign side of a link
+      // conversion) are still provision_state='pending' and invisible to regular reads.
+      const scopedTablesById = new Map(
+        listTablesInTransactionScope(context).map((scopedTable) => [
+          scopedTable.id().toString(),
+          scopedTable,
+        ])
+      );
+      scopedTablesById.set(table.id().toString(), table);
+
+      const loadTable = async (tableId: TableId): Promise<Table | undefined> => {
+        const scopedTable = scopedTablesById.get(tableId.toString());
+        if (scopedTable) return scopedTable;
+        const { TableByIdSpec } = await import('@teable/v2-core');
+        const findResult = await service.tableRepository.findOne(
+          context,
+          TableByIdSpec.create(tableId)
+        );
+        return findResult.isOk() ? findResult.value : undefined;
+      };
+
       {
         const changedFieldIdsByString = new Map(
           allChangedFieldIds.map((fieldId) => [fieldId.toString(), fieldId])
@@ -143,7 +175,6 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         }
 
         if (unresolvedFieldIdSet.size > 0) {
-          const { TableByIdSpec } = await import('@teable/v2-core');
           const linkFields = table
             .getFields()
             .filter((field) => field.type().toString() === 'link') as Array<
@@ -158,14 +189,9 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
             const symmetricFieldId = linkField.symmetricFieldId();
             if (!symmetricFieldId) continue;
 
-            const foreignTableSpec = TableByIdSpec.create(linkField.foreignTableId());
-            const foreignTableResult = await service.tableRepository.findOne(
-              context,
-              foreignTableSpec
-            );
-            if (foreignTableResult.isErr()) continue;
+            const foreignTable = await loadTable(linkField.foreignTableId());
+            if (!foreignTable) continue;
 
-            const foreignTable = foreignTableResult.value;
             const symmetricFields = filterAlreadyBackfilledFields(
               resolveFieldsByIds(foreignTable, [symmetricFieldId])
             );
@@ -194,24 +220,23 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         context,
         {
           tableProvisionStates: ['ready', 'deleting'],
-          scopedPendingTableIds: [table.id()],
+          scopedPendingTableIds: [...scopedTablesById.values()].map((scopedTable) =>
+            scopedTable.id()
+          ),
           includeComputedSeedFields: true,
         }
       );
+      // Steps-only by design: this cascade executes per-step backfills (no
+      // propagation machinery), and its planner always includes the altered
+      // table's own step (includeComputedSeedFields) — steps.length === 0 truly
+      // means no work, unlike the strategy/worker paths where edge-only plans
+      // are executable.
       if (plan.steps.length === 0) return ok(undefined);
 
       const sortedSteps = [...plan.steps].sort((a, b) => a.level - b.level);
       for (const step of sortedSteps) {
-        let targetTable: Table;
-        if (step.tableId.equals(table.id())) {
-          targetTable = table;
-        } else {
-          const { TableByIdSpec } = await import('@teable/v2-core');
-          const spec = TableByIdSpec.create(step.tableId);
-          const findResult = await service.tableRepository.findOne(context, spec);
-          if (findResult.isErr()) continue;
-          targetTable = findResult.value;
-        }
+        const targetTable = await loadTable(step.tableId);
+        if (!targetTable) continue;
 
         const fields = filterAlreadyBackfilledFields(
           filterDeferredFields(resolveFieldsByIds(targetTable, step.fieldIds))

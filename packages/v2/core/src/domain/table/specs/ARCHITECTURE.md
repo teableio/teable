@@ -15,6 +15,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ITableSpecVisitor.ts` - Role: visitor interface; Purpose: generic table-specific visit methods for query/update translation payloads.
 - `TableAddFieldSpec.ts` - Role: mutate spec; Purpose: append a field to a table.
 - `TableRemoveFieldSpec.ts` - Role: mutate spec; Purpose: remove a field from a table.
+- `TableRemoveViewSpec.ts` - Role: mutate spec; Purpose: remove an owned View from a Table aggregate.
+- `TableEnsureViewRowOrderSpec.ts` - Role: schema intent spec; Purpose: ensure physical row-order
+  storage for an existing aggregate-owned Grid View without adding or mutating that View.
 - `TableUpdateViewColumnMetaSpec.ts` - Role: mutate spec; Purpose: carry view column meta updates during table mutations.
 - `TableByBaseIdSpec.ts` - Role: spec; Purpose: filter by BaseId.
 - `TableByIdSpec.ts` - Role: spec; Purpose: filter by TableId.
@@ -24,6 +27,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableSpecBuilder.spec.ts` - Role: spec builder tests; Purpose: verify and/or/not composition.
 - `TableSpecBuilder.ts` - Role: spec builder; Purpose: fluent table spec construction.
 - `TableSpecs.spec.ts` - Role: spec tests; Purpose: verify isSatisfiedBy per spec.
+- `TableWithFieldIdsSpec.ts` - Role: query hydration spec; Purpose: narrow Field children loaded for a Table without changing the Table match.
 
 ## Examples
 

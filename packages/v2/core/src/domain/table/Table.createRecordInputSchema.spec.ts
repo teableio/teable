@@ -121,6 +121,28 @@ describe('Table.createRecordInputSchema', () => {
       expect(schema.safeParse({ [fieldId]: 'Content' }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(false);
     });
+
+    it('trims only the ends of long text and keeps the internal newline', () => {
+      const result = buildTableWith((b) => {
+        b.field()
+          .longText()
+          .withName(createFieldName('Description'))
+          .withNotNull(FieldNotNull.optional())
+          .done();
+      });
+      const table = result._unsafeUnwrap();
+      const schema = table.createRecordInputSchema()._unsafeUnwrap();
+      const fieldId = table.getFields()[0].id().toString();
+
+      expect(schema.parse({ [fieldId]: '  第一行\n第二行  ' })).toEqual({
+        [fieldId]: '第一行\n第二行',
+      });
+      expect(schema.parse({ [fieldId]: '第一行\n\n\t第二行' })).toEqual({
+        [fieldId]: '第一行\n\n\t第二行',
+      });
+      expect(schema.parse({ [fieldId]: '' })).toEqual({ [fieldId]: null });
+      expect(schema.parse({ [fieldId]: '  \n  ' })).toEqual({ [fieldId]: null });
+    });
   });
 
   // ============================================================
@@ -264,15 +286,11 @@ describe('Table.createRecordInputSchema', () => {
       const schema = schemaResult._unsafeUnwrap();
       const fieldId = table.getFields()[0].id().toString();
 
-      // Valid values - must be option IDs
-      const optId1 = opt1.id().toString();
-      const optId2 = opt2.id().toString();
-      const optId3 = opt3.id().toString();
-      expect(schema.safeParse({ [fieldId]: optId1 }).success).toBe(true);
-      expect(schema.safeParse({ [fieldId]: optId2 }).success).toBe(true);
-      expect(schema.safeParse({ [fieldId]: optId3 }).success).toBe(true);
-      // Accept option names to match v1 behavior.
+      // Cell values are choice names, not option ids.
       expect(schema.safeParse({ [fieldId]: 'Option 1' }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: 'Option 2' }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: 'Option 3' }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: opt1.id().toString() }).success).toBe(false);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
 
       // Invalid values - unknown option ID or non-string
@@ -297,8 +315,8 @@ describe('Table.createRecordInputSchema', () => {
       const schema = schemaResult._unsafeUnwrap();
       const fieldId = table.getFields()[0].id().toString();
 
-      const optId1 = opt1.id().toString();
-      expect(schema.safeParse({ [fieldId]: optId1 }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: 'A' }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: opt1.id().toString() }).success).toBe(false);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(false);
     });
 
@@ -346,18 +364,15 @@ describe('Table.createRecordInputSchema', () => {
       const schema = schemaResult._unsafeUnwrap();
       const fieldId = table.getFields()[0].id().toString();
 
-      const optId1 = opt1.id().toString();
-      const optId2 = opt2.id().toString();
-
-      // Valid values - array of option IDs
       expect(schema.safeParse({ [fieldId]: [] }).success).toBe(true);
-      expect(schema.safeParse({ [fieldId]: [optId1] }).success).toBe(true);
-      expect(schema.safeParse({ [fieldId]: [optId1, optId2] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: ['Tag A'] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: ['Tag A', 'Tag B'] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: [opt1.id().toString()] }).success).toBe(false);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
 
       // Invalid values
       expect(schema.safeParse({ [fieldId]: ['unknown'] }).success).toBe(false); // unknown option
-      expect(schema.safeParse({ [fieldId]: optId1 }).success).toBe(false); // not array
+      expect(schema.safeParse({ [fieldId]: opt1.id().toString() }).success).toBe(false); // not array
       expect(schema.safeParse({ [fieldId]: [123] }).success).toBe(false);
     });
 
@@ -377,8 +392,8 @@ describe('Table.createRecordInputSchema', () => {
       const schema = schemaResult._unsafeUnwrap();
       const fieldId = table.getFields()[0].id().toString();
 
-      const optId1 = opt1.id().toString();
-      expect(schema.safeParse({ [fieldId]: [optId1] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: ['Category 1'] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: [opt1.id().toString()] }).success).toBe(false);
       expect(schema.safeParse({ [fieldId]: [] }).success).toBe(true); // empty array is valid
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(false);
     });
@@ -599,7 +614,9 @@ describe('Table.createRecordInputSchema', () => {
 
       // Invalid values
       expect(schema.safeParse({ [fieldId]: [validUser] }).success).toBe(false); // array not allowed
-      expect(schema.safeParse({ [fieldId]: { id: 'only-id' } }).success).toBe(false); // missing title
+      // A bare id reference is accepted; it resolves against the table's collaborators at write time.
+      expect(schema.safeParse({ [fieldId]: { id: 'only-id' } }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: { title: 'no-id' } }).success).toBe(false); // id required
     });
 
     it('generates schema for required single user field', () => {
@@ -713,9 +730,9 @@ describe('Table.createRecordInputSchema', () => {
       expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: linkWithoutTitle }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
-
-      // Invalid values
-      expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(false); // array not allowed
+      // V1 compatibility: array input is accepted and normalized to the first item
+      expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: [validLink] }).data?.[fieldId]).toEqual(validLink);
       expect(schema.safeParse({ [fieldId]: { title: 'No ID' } }).success).toBe(false);
     });
 
@@ -746,9 +763,9 @@ describe('Table.createRecordInputSchema', () => {
       expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: [validLink, linkWithoutTitle] }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
-
-      // Invalid values
-      expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(false); // not array
+      // V1 compatibility: single object input is accepted and wrapped as an array
+      expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: validLink }).data?.[fieldId]).toEqual([validLink]);
     });
 
     it('generates schema for required link field', () => {
@@ -950,11 +967,10 @@ describe('Table.createRecordInputSchema', () => {
       const activeField = fields.find((f) => f.name().toString() === 'Active')!;
 
       // Valid complete record
-      const opt1Id = opt1.id().toString();
       const validRecord = {
         [nameField.id().toString()]: 'John',
         [ageField.id().toString()]: 25,
-        [statusField.id().toString()]: opt1Id,
+        [statusField.id().toString()]: 'Active',
         [activeField.id().toString()]: true,
       };
       expect(schema.safeParse(validRecord).success).toBe(true);
@@ -963,7 +979,7 @@ describe('Table.createRecordInputSchema', () => {
       const recordWithNulls = {
         [nameField.id().toString()]: 'Jane',
         [ageField.id().toString()]: null,
-        [statusField.id().toString()]: opt1Id,
+        [statusField.id().toString()]: 'Active',
         [activeField.id().toString()]: null,
       };
       expect(schema.safeParse(recordWithNulls).success).toBe(true);
@@ -972,7 +988,7 @@ describe('Table.createRecordInputSchema', () => {
       const invalidRecord = {
         [nameField.id().toString()]: null, // required!
         [ageField.id().toString()]: 30,
-        [statusField.id().toString()]: opt1Id,
+        [statusField.id().toString()]: 'Active',
         [activeField.id().toString()]: false,
       };
       expect(schema.safeParse(invalidRecord).success).toBe(false);

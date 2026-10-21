@@ -6,7 +6,7 @@ export const TEMPLATE_SPACE_ID = `${IdPrefix.Space}DefaultTempSpcId`;
 
 @Injectable()
 export class TemplateSpaceInitService implements OnModuleInit {
-  private logger = new Logger(TemplateSpaceInitService.name);
+  private readonly logger = new Logger(TemplateSpaceInitService.name);
 
   constructor(private readonly prismaService: PrismaService) {}
 

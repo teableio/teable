@@ -3,10 +3,11 @@ import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Button, Dialog, DialogContent, DialogTrigger, sonner } from '@teable/ui-lib';
-import { useState, useRef, useMemo, useCallback } from 'react';
-import { LinkViewProvider, RowCountProvider } from '../../../context';
+import { useContext, useState, useRef, useMemo, useCallback } from 'react';
+import { LinkViewProvider, RowCountProvider, ShareViewContext } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
+import { useIsTouchDevice } from '../../../hooks/use-is-touch-device';
 import { ExpandRecorder, isLinkedRecordOpen } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
@@ -15,6 +16,7 @@ import { LinkCard } from './LinkCard';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
 import { buildLinkRecordQueryBase } from './LinkRecordQuery';
+import { LinkTag } from './LinkTag';
 
 const { toast } = sonner;
 interface ILinkEditorProps {
@@ -32,6 +34,7 @@ interface ILinkEditorProps {
 export enum LinkDisplayType {
   Grid = 'grid',
   List = 'list',
+  Tags = 'tags',
 }
 
 export const LinkEditor = (props: ILinkEditorProps) => {
@@ -46,9 +49,12 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   } = props;
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const isTouchDevice = useIsTouchDevice();
   const [isEditing, setEditing] = useState<boolean>(false);
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { t } = useTranslation();
+  const { shareId } = useContext(ShareViewContext);
 
   const { foreignTableId, relationship } = options;
   const isMultiple = isMultiValueLink(relationship);
@@ -138,6 +144,19 @@ export const LinkEditor = (props: ILinkEditorProps) => {
               </LinkFilterProvider>
             </LinkViewProvider>
           </div>
+        ) : displayType === LinkDisplayType.Tags ? (
+          <div className="flex flex-wrap gap-1">
+            {cvArray?.map(({ id, title }) => (
+              <LinkTag
+                key={id}
+                id={id}
+                title={title}
+                readonly={readonly}
+                onClick={() => onRecordExpand(id)}
+                onDelete={() => onRecordDelete(id)}
+              />
+            ))}
+          </div>
         ) : (
           cvArray?.map(({ id, title }) => (
             <LinkCard
@@ -150,34 +169,48 @@ export const LinkEditor = (props: ILinkEditorProps) => {
           ))
         ))}
       {!readonly && (
-        <>
-          <div className="flex justify-between">
-            <Dialog open={isEditing} onOpenChange={onOpenChange}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size={'sm'} className={className}>
-                  <Plus className="size-4 shrink-0" />
-                  {t('editor.link.selectRecord')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="flex h-[520px] max-w-4xl flex-col p-4">
-                <LinkEditorMain
-                  {...props}
-                  ref={linkEditorMainRef}
-                  isEditing={isEditing}
-                  setEditing={setEditing}
-                />
-              </DialogContent>
-            </Dialog>
-          </div>
-          <ExpandRecorder
-            tableId={foreignTableId}
-            recordId={expandRecordId}
-            recordIds={recordIds}
-            isLinkedRecord
-            onUpdateRecordIdCallback={updateExpandRecordId}
-            onClose={() => updateExpandRecordId(undefined)}
-          />
-        </>
+        <div className="flex justify-between">
+          <Dialog open={isEditing} onOpenChange={onOpenChange}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size={'sm'} className={className}>
+                <Plus className="size-4 shrink-0" />
+                {t('editor.link.selectRecord')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent
+              ref={dialogContentRef}
+              tabIndex={-1}
+              className="flex h-[520px] max-w-4xl flex-col p-4"
+              // Under a finger the picker opens onto its list, not its search field:
+              // focusing the field would raise the keyboard over the records to pick.
+              // The dialog itself takes focus, so its keys and dismissal still work.
+              onOpenAutoFocus={(event) => {
+                if (!isTouchDevice) return;
+                event.preventDefault();
+                dialogContentRef.current?.focus({ preventScroll: true });
+              }}
+            >
+              <LinkEditorMain
+                {...props}
+                ref={linkEditorMainRef}
+                isEditing={isEditing}
+                setEditing={setEditing}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+      {/* The child table's rows open their linked records, read-only ones included. A share
+          view cannot hydrate another table's records, so its read-only cells keep the list. */}
+      {(!readonly || !shareId) && (
+        <ExpandRecorder
+          tableId={foreignTableId}
+          recordId={expandRecordId}
+          recordIds={recordIds}
+          isLinkedRecord
+          onUpdateRecordIdCallback={updateExpandRecordId}
+          onClose={() => updateExpandRecordId()}
+        />
       )}
     </div>
   );

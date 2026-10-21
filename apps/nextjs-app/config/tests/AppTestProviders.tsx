@@ -20,7 +20,7 @@ export const createAppContext = (context: Partial<IAppContext> = {}) => {
 const MockProvider = createAppContext();
 
 export const AppTestProviders: FC<PropsWithChildren> = ({ children }) => {
-  const queryClientRef = useRef<QueryClient>();
+  const queryClientRef = useRef<QueryClient>(undefined);
 
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({

@@ -26,6 +26,7 @@ export const oauthGetVoSchema = z.object({
   logo: z.string().url().optional(),
   homepage: z.string().url(),
   redirectUris: z.array(z.string().url()),
+  allowDeviceFlow: z.boolean().optional(),
 });
 
 export type OAuthGetVo = z.infer<typeof oauthGetVoSchema>;

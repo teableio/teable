@@ -15,6 +15,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `base/` - Base domain concepts.
 - `table/` - Table aggregate with fields/views/specs/events.
 - `formula/` - Formula parsing/type inference helpers for domain use.
+- `computed/` - Computed activity and outbox maintenance domain types.
 
 ## Files
 

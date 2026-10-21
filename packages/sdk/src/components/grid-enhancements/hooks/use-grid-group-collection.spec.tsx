@@ -3,6 +3,8 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { ButtonField } from '../../../model/field/button.field';
+import { CellType } from '../../grid/renderers';
 import { useGridGroupCollection } from './use-grid-group-collection';
 
 vi.mock('../../../hooks', () => ({
@@ -14,7 +16,8 @@ vi.mock('../../../context/app/i18n/useTranslation', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@teable/next-themes', () => ({
+vi.mock('@teable/ui-lib', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   useTheme: () => ({ resolvedTheme: 'light' }),
 }));
 
@@ -35,6 +38,14 @@ const createDateField = (id: string, isMultipleCellValue: boolean) =>
     getDatetimeFormatting: () => formatting,
   }) as unknown as IFieldInstance;
 
+const createSelectField = (id: string, name: string, canReadFieldRecord: boolean) =>
+  ({
+    id,
+    name,
+    type: FieldType.SingleSelect,
+    canReadFieldRecord,
+  }) as unknown as IFieldInstance;
+
 const setup = (field: IFieldInstance) => {
   mockedUseView.mockReturnValue({
     group: [{ fieldId: field.id }],
@@ -46,6 +57,24 @@ const setup = (field: IFieldInstance) => {
 };
 
 describe('useGridGroupCollection getGroupCell', () => {
+  it.each([0, 1, 2, 10, null])(
+    'renders button click count %s without a loading header',
+    (count) => {
+      const field = Object.assign(new ButtonField(), {
+        id: 'fldButtonCount',
+        name: 'Action',
+        type: FieldType.Button,
+        cellValueType: CellValueType.String,
+        options: { label: 'Run', color: 'teal' },
+      });
+      const getGroupCell = setup(field);
+      expect(getGroupCell(count === null ? null : { count }, 0)).toMatchObject({
+        data: count === null ? '(Empty)' : count,
+        displayData: count === null ? '(Empty)' : String(count),
+      });
+    }
+  );
+
   it('renders group value of a multi-value lookup date field instead of (Empty)', () => {
     const getGroupCell = setup(createDateField('fldLookupDateMulti', true));
 
@@ -64,11 +93,55 @@ describe('useGridGroupCollection getGroupCell', () => {
     expect(cell.displayData).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   });
 
+  it('does not render a plain showAs url group value as a link (T7834)', () => {
+    const field = {
+      id: 'fldShowAsUrl',
+      name: 'Website',
+      type: FieldType.SingleLineText,
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+      options: { showAs: { type: 'url' } },
+      validateCellValue: (value: unknown) => ({ success: true, data: value }),
+      cellValue2String: (value: unknown) => (value == null ? '' : String(value)),
+    } as unknown as IFieldInstance;
+    const getGroupCell = setup(field);
+
+    const plain = getGroupCell('hello', 0) as {
+      type: string;
+      links?: { url: string }[];
+    };
+    const url = getGroupCell('https://teable.io', 0) as {
+      type: string;
+      links?: { url: string }[];
+    };
+
+    expect(plain.type).toBe(CellType.Text);
+    expect(plain.links ?? []).toEqual([]);
+    expect(url.links?.map(({ url }) => url)).toEqual(['https://teable.io']);
+  });
+
   it('renders (Empty) for null group value', () => {
     const getGroupCell = setup(createDateField('fldLookupDateNull', true));
 
     const cell = getGroupCell(null, 0) as { displayData: string };
 
     expect(cell.displayData).toBe('(Empty)');
+  });
+});
+
+describe('useGridGroupCollection group columns (T6993)', () => {
+  it('uses the readable status field for depth zero when category is unreadable', () => {
+    const category = createSelectField('fldCategory', 'Category', false);
+    const status = createSelectField('fldStatus', 'Status', true);
+    mockedUseView.mockReturnValue({
+      group: [{ fieldId: category.id }, { fieldId: status.id }],
+    } as unknown as ReturnType<typeof useView>);
+    mockedUseFields.mockReturnValue([category, status]);
+
+    const { result } = renderHook(() => useGridGroupCollection());
+
+    expect(result.current.groupColumns.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: status.id, name: status.name },
+    ]);
   });
 });

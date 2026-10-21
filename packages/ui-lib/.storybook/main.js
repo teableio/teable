@@ -50,18 +50,11 @@ module.exports = {
         },
       ],
     });
+    const cssRule = config.module.rules.find(
+      (rule) => rule?.test instanceof RegExp && rule.test.test('.css')
+    );
+    cssRule.use.push(require.resolve('postcss-loader'));
     return config;
   },
-  addons: [
-    '@storybook/addon-links',
-    '@storybook/addon-essentials',
-    {
-      name: '@storybook/addon-postcss',
-      options: {
-        postcssLoaderOptions: {
-          implementation: require('postcss'),
-        },
-      },
-    },
-  ],
+  addons: ['@storybook/addon-links', '@storybook/addon-essentials'],
 };

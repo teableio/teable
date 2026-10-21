@@ -1,5 +1,7 @@
 import type { MailerService } from '@nestjs-modules/mailer';
+import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
+import { CollaboratorType, MailTransporterType } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMailConfig } from '../../configs/mail.config';
@@ -193,5 +195,201 @@ describe('MailSenderService transporter pooling', () => {
 
     await service.sendMailByConfig({ to: 'b@example.com' }, smtpConfig);
     expect(mockedCreateTransport).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('MailSenderService delivery error classification', () => {
+  const smtpRejection = Object.assign(new Error('Message failed: 554 5.7.1 outgoing limits'), {
+    code: 'EMESSAGE',
+    responseCode: 554,
+    response: '554 5.7.1 outgoing limits',
+    command: 'DATA',
+  });
+
+  const createService = (settings: Record<string, unknown> = {}) => {
+    const mailService = {
+      templateAdapter: {},
+      initTemplateAdapter: vi.fn(),
+    } as unknown as MailerService;
+    const mailConfig = {
+      ...smtpConfig,
+      senderName: 'Teable',
+      isConfigured: true,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      dnsTimeout: 5000,
+    } as unknown as IMailConfig;
+    const settingOpenApiService = { getSetting: vi.fn().mockResolvedValue(settings) };
+    const stub = <T>() => ({}) as T;
+    return new MailSenderService(
+      mailService,
+      mailConfig,
+      stub(),
+      settingOpenApiService as never,
+      stub(),
+      stub(),
+      stub()
+    );
+  };
+
+  beforeEach(() => {
+    mockedCreateTransport.mockReset();
+    mockedCreateTransport.mockImplementation(
+      () =>
+        ({
+          sendMail: vi.fn().mockRejectedValue(smtpRejection),
+          close: vi.fn(),
+        }) as never
+    );
+  });
+
+  it('converts a caller-supplied transport failure into a 424', async () => {
+    const service = createService();
+
+    await expect(
+      service.sendMail({ to: 'a@example.com' }, { shouldThrow: true, transportConfig: smtpConfig })
+    ).rejects.toMatchObject({
+      status: 424,
+      code: HttpErrorCode.FAILED_DEPENDENCY,
+      data: { smtp: { responseCode: 554, host: smtpConfig.host } },
+    });
+  });
+
+  it('leaves a system transport failure unclassified so it still reaches Sentry', async () => {
+    const service = createService();
+
+    await expect(
+      service.sendMail(
+        { to: 'a@example.com' },
+        { shouldThrow: true, transporterName: MailTransporterType.Automation }
+      )
+    ).rejects.toBe(smtpRejection);
+  });
+});
+
+describe('MailSenderService html escaping of user-supplied names (GHSA-3rmq-5wwc-x8w2)', () => {
+  // The display name an attacker sets through PATCH /api/user/name
+  const xssName = '<img src=x onerror="window.__xss=1">';
+  // The English templates whose result lands in an unescaped template slot
+  const templates = new Map<string, string>([
+    [
+      'common.email.templates.invite.subject',
+      '{{name}} ({{email}}) invited you to their {{resourceAlias}} {{resourceName}} - {{brandName}}',
+    ],
+    [
+      'common.email.templates.invite.message',
+      '<strong>{{name}}</strong> ({{email}}) invited you to their {{resourceAlias}} <strong>{{resourceName}}</strong>.',
+    ],
+    [
+      'common.email.templates.collaboratorCellTag.subject',
+      '{{fromUserName}} added you to the {{fieldName}} field of a record in {{tableName}}',
+    ],
+    [
+      'common.email.templates.collaboratorCellTag.title',
+      '<strong>{{fromUserName}}</strong> added you to the <strong>{{fieldName}}</strong> field of a record in <strong>{{tableName}}</strong>',
+    ],
+    [
+      'common.email.templates.collaboratorMultiRowTag.subject',
+      '{{fromUserName}} added you to {{refLength}} records in {{tableName}}',
+    ],
+    [
+      'common.email.templates.collaboratorMultiRowTag.title',
+      '<strong>{{fromUserName}}</strong> added you to <strong>{{refLength}}</strong> records in <strong>{{tableName}}</strong>',
+    ],
+  ]);
+
+  const createService = () => {
+    const mailService = {
+      templateAdapter: {},
+      initTemplateAdapter: vi.fn(),
+    } as unknown as MailerService;
+    const mailConfig = {
+      ...smtpConfig,
+      senderName: 'Teable',
+      isConfigured: true,
+      origin: 'https://app.example.com',
+      invite: { userNameMaxLength: 50, spaceNameMaxLength: 50 },
+    } as unknown as IMailConfig;
+    const settingOpenApiService = {
+      getServerBrand: vi.fn().mockResolvedValue({ brandName: 'Teable', brandLogo: '' }),
+    };
+    const i18n = {
+      t: (key: string, options?: { args?: Record<string, unknown> }) =>
+        (templates.get(key) ?? key).replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
+          String(options?.args?.[name] ?? '')
+        ),
+    };
+    const stub = <T>() => ({}) as T;
+    return new MailSenderService(
+      mailService,
+      mailConfig,
+      stub(),
+      settingOpenApiService as never,
+      stub(),
+      stub(),
+      i18n as never
+    );
+  };
+
+  it('escapes the inviter and resource names in the html message but not the plain-text subject', async () => {
+    const { subject, context } = await createService().inviteEmailOptions({
+      name: xssName,
+      email: 'attacker@example.com',
+      resourceName: '<b>Space</b>',
+      resourceType: CollaboratorType.Space,
+      inviteUrl: 'https://app.example.com/invite/abc',
+    });
+
+    expect(context.message).toContain('&lt;img');
+    expect(context.message).not.toContain('<img');
+    expect(context.message).toContain('&lt;b&gt;Space&lt;/b&gt;');
+    // the template's own markup survives
+    expect(context.message).toContain('<strong>');
+    expect(subject).toContain(xssName);
+  });
+
+  it('escapes the user, field and table names in the collaborator cell tag title', async () => {
+    const { subject, context } = await createService().collaboratorCellTagEmailOptions({
+      notifyId: 'notxxxxxxxxxxxxxxxxx',
+      fromUserName: xssName,
+      refRecord: {
+        baseId: 'bsexxxxxxxxxxxxxxxxx',
+        tableId: 'tblxxxxxxxxxxxxxxxxx',
+        tableName: '<i>T1</i>',
+        fieldName: 'Assignee<script>',
+        recordIds: ['recxxxxxxxxxxxxxxxxx'],
+        recordTitles: [{ id: 'recxxxxxxxxxxxxxxxxx', title: 'r1' }],
+      },
+    });
+
+    expect(context.title).toContain('&lt;img');
+    expect(context.title).not.toContain('<img');
+    expect(context.title).not.toContain('<script>');
+    expect(context.title).toContain('&lt;i&gt;T1&lt;/i&gt;');
+    expect(context.title).toContain('<strong>');
+    expect(subject).toContain(xssName);
+  });
+
+  it('escapes the names in the multi-row tag title', async () => {
+    const { context } = await createService().collaboratorCellTagEmailOptions({
+      notifyId: 'notxxxxxxxxxxxxxxxxx',
+      fromUserName: xssName,
+      refRecord: {
+        baseId: 'bsexxxxxxxxxxxxxxxxx',
+        tableId: 'tblxxxxxxxxxxxxxxxxx',
+        tableName: '<i>T1</i>',
+        fieldName: 'Assignee',
+        recordIds: ['recxxxxxxxxxxxxxxxxx', 'recyyyyyyyyyyyyyyyyy'],
+        recordTitles: [
+          { id: 'recxxxxxxxxxxxxxxxxx', title: 'r1' },
+          { id: 'recyyyyyyyyyyyyyyyyy', title: 'r2' },
+        ],
+      },
+    });
+
+    expect(context.title).toContain('&lt;img');
+    expect(context.title).not.toContain('<img');
+    expect(context.title).toContain('&lt;i&gt;T1&lt;/i&gt;');
+    expect(context.title).toContain('<strong>2</strong>');
   });
 });

@@ -17,7 +17,7 @@ describe('resolveSearchAccessPathCapability', () => {
         provider: 'pg_bigm',
         state: 'ready',
         operatorClass: 'gin_bigm_ops',
-        minimumProbeLength: 2,
+        minimumProbeLength: 1,
         operatorClassInstalled: true,
       },
     },

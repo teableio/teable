@@ -198,6 +198,15 @@ describe('createSsrfSafeFetch', () => {
       await expect(safeFetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
     });
 
+    it('reaches the private network with allowPrivateNetwork (self-hosted)', async () => {
+      await startServer();
+      const safeFetch = createSsrfSafeFetch({ allowPrivateNetwork: true });
+      const res = await safeFetch(`http://127.0.0.1:${port}/`);
+      expect(res.status).toBe(200);
+      // the strict dispatcher is a separate instance and still blocks
+      await expect(createSsrfSafeFetch()(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+    });
+
     it('passes through to plain fetch when SSRF protection is disabled (env opt-out parity)', async () => {
       await startServer();
       process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';

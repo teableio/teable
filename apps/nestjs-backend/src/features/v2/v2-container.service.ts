@@ -1,58 +1,77 @@
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DiscoveryService, Reflector } from '@nestjs/core';
+import { DiscoveryService, ModuleRef, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import { COMPUTE_ACTIVITY_CHANGED, getActionTriggerChannel } from '@teable/core';
 import type { IPgPoolLease } from '@teable/db-main-prisma';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  ShareDbBackendPresencePublisher,
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
+  v2ShareDbTokens,
 } from '@teable/v2-adapter-realtime-sharedb';
 import {
   IComputedOutboxWakeupPublisher,
+  IDomainEventWakeupPublisher,
   noopComputedOutboxWakeupPublisher,
+  noopDomainEventWakeupPublisher,
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateOutboxConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
-import { createV2NodePgContainer, type IV2NodePgContainerOptions } from '@teable/v2-container-node';
+import {
+  createV2NodePgContainer,
+  disposeV2NodePgContainer,
+  type IV2NodePgContainerOptions,
+} from '@teable/v2-container-node';
 import type {
   AttachmentValueDecoratorService,
   IAttachmentLookupService,
-  IComputedActivityReader,
+  IComputedOutboxAdmin,
   IExecutionContext,
 } from '@teable/v2-core';
-import {
-  ActorId,
-  mapFieldComputeActivityToRealtime,
-  mapTableComputeActivityToRealtime,
-  v2CoreTokens,
-} from '@teable/v2-core';
+import { ActorId, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import {
+  executablePhase1RemediationKindValues,
   startTableQueryOpsAnalyzerIfEnabled,
   startTableQueryOpsTaskWorkerIfEnabled,
   type ExecutablePhase1RemediationKind,
   type TableQueryOpsRunnerHandle,
 } from '@teable/v2-table-query-ops';
 import { createSsrfSafeFetch, setSafeFetch } from '@teable/v2-utils';
+import { ClsService } from 'nestjs-cls';
 import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
-import type { IComputedOutboxMaintenanceTarget } from '../../global/data-db-client-manager.service';
+import type {
+  IComputedOutboxMaintenanceTarget,
+  IDataDbRoutingSnapshot,
+} from '../../global/data-db-client-manager.service';
 import {
   DataDbRuntimeCacheService,
   V2_CONTAINER_CACHE_NAMESPACE,
 } from '../../global/data-db-runtime-cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER } from './computed-outbox-trigger/constants';
+import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
+import {
+  COMPUTED_OUTBOX_ADMIN,
+  COMPUTED_OUTBOX_WAKEUP_PUBLISHER,
+} from './computed-outbox-trigger/constants';
+import { DOMAIN_EVENT_OUTBOX_WAKEUP_PUBLISHER } from './domain-event-outbox-trigger/constants';
+import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
 import { TableQuerySearchMetricsService } from './table-query-search-observability';
 import { resolveTableQuerySearchVectorRuntimeMode } from './table-query-search-vector-runtime.service';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
+import { resolveBoolean, resolvePositiveInteger } from './v2-config-parsers';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
 import {
   V2_PROJECTION_REGISTRAR_METADATA,
@@ -60,33 +79,74 @@ import {
   type IV2ProjectionRegistrar,
 } from './v2-projection-registrar';
 import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
+import { V2QueryCancellationMiddleware } from './v2-query-cancellation.middleware';
 import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
-const resolvePositiveInteger = (value: unknown): number | undefined => {
+const resolveNonNegativeInteger = (value: unknown): number | undefined => {
   const parsed =
-    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 };
 
-const resolveBoolean = (value: unknown, defaultValue = false): boolean => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return defaultValue;
+const resolveTableQueryOpsWorkerId = (configured: unknown): string => {
+  const hostname = process.env.HOSTNAME?.trim();
+  const instanceId = hostname && hostname.length > 0 ? hostname : String(process.pid);
+  if (typeof configured === 'string' && configured.trim().length > 0) {
+    return `${configured.trim()}:${instanceId}`;
+  }
+  return `nestjs-${instanceId}`;
+};
+
+// Default is shadow: decisions and reasons are logged for the admin page without
+// executing any DDL until V2_TABLE_QUERY_OPS_AUTO_ACCEPT=auto is set explicitly.
+export const resolveTableQueryAutoAcceptMode = (value: unknown): 'off' | 'shadow' | 'auto' => {
+  if (typeof value !== 'string') return 'shadow';
   const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return defaultValue;
+  return normalized === 'auto' || normalized === 'off' ? normalized : 'shadow';
+};
+
+const buildComputedUpdateOptions = (
+  computedUpdateMode: string | undefined,
+  wakeupPublisher: NonNullable<IV2NodePgContainerOptions['computedUpdate']>['wakeupPublisher'],
+  outboxConfig?: NonNullable<IV2NodePgContainerOptions['computedUpdate']>['outboxConfig'],
+  runtimeConfig?: NonNullable<IV2NodePgContainerOptions['computedUpdate']>['runtimeConfig']
+): IV2NodePgContainerOptions['computedUpdate'] => {
+  const shared = {
+    wakeupPublisher,
+    ...(outboxConfig && Object.keys(outboxConfig).length > 0 ? { outboxConfig } : {}),
+    ...(runtimeConfig && Object.keys(runtimeConfig).length > 0 ? { runtimeConfig } : {}),
+  };
+  if (computedUpdateMode === 'sync') {
+    return {
+      mode: 'sync',
+      fieldBackfillConfig: { mode: 'sync' },
+      ...shared,
+    };
+  }
+  return shared;
 };
 
 const executablePhase1RemediationKinds = [
-  'create_search_index',
-  'create_search_vector',
-  'rebuild_search_vector',
-  'create_filter_index',
-  'create_sort_index',
-  'repair_index',
-  'manual_investigation',
+  ...executablePhase1RemediationKindValues,
 ] as const satisfies ReadonlyArray<ExecutablePhase1RemediationKind>;
+
+const defaultAllowedRemediationKinds = (input: {
+  readonly allowIndexExecution: boolean;
+  readonly searchVectorRuntimeEnabled: boolean;
+}): ReadonlyArray<ExecutablePhase1RemediationKind> => {
+  if (input.allowIndexExecution) return executablePhase1RemediationKinds;
+  if (input.searchVectorRuntimeEnabled) {
+    // Schema-change maintenance and reclaim share the search runtime worker.
+    return [
+      'rebuild_search_access_path',
+      'rebuild_search_vector',
+      'drop_search_access_path',
+      'manual_investigation',
+    ];
+  }
+  return ['manual_investigation'];
+};
 
 const parseAllowedRemediationKinds = (
   value: unknown
@@ -110,6 +170,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     ReadonlyArray<TableQueryOpsRunnerHandle>
   >();
   private readonly poolLeases = new WeakMap<DependencyContainer, ReadonlyArray<IPgPoolLease>>();
+  private readonly claimConcurrencyUnregisters = new WeakMap<DependencyContainer, () => void>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -120,37 +181,21 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly reflector: Reflector,
     private readonly discoveryService: DiscoveryService,
+    private readonly moduleRef: ModuleRef,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly runtimeCache: DataDbRuntimeCacheService,
     private readonly pgPoolRegistry: PgPoolRegistry,
+    private readonly tableQueryObservationRuntime: TableQueryObservationRuntimeService,
+    private readonly cls: ClsService<IClsStore>,
     @Optional()
     @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
-    private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
-  ) {
-    this.shareDbService.setComputedActivitySnapshotLoader(async (tableId) => {
-      const container = await this.getContainerForTable(tableId);
-      const reader = container.resolve<IComputedActivityReader>(
-        v2CoreTokens.computedActivityReader
-      );
-      const result = await reader.getByTableId(undefined, tableId);
-      if (result.isErr()) throw result.error;
-
-      const documents: Record<string, { version: number; data: unknown }> = {};
-      if (result.value.table) {
-        documents.table = {
-          version: result.value.table.generation,
-          data: mapTableComputeActivityToRealtime(result.value.table),
-        };
-      }
-      for (const field of result.value.fields) {
-        documents[field.fieldId] = {
-          version: field.generation,
-          data: mapFieldComputeActivityToRealtime(field),
-        };
-      }
-      return documents;
-    });
-  }
+    private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher,
+    @Optional()
+    @Inject(DOMAIN_EVENT_OUTBOX_WAKEUP_PUBLISHER)
+    private readonly domainEventWakeupPublisher: IDomainEventWakeupPublisher = noopDomainEventWakeupPublisher,
+    @Optional()
+    private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
+  ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.getContainer();
@@ -163,6 +208,17 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForSpace(spaceId);
     return await this.getContainerForDataDb(
+      dataDb.cacheKey,
+      dataDb.connectionUrl ?? dataDb.url,
+      dataDb.internalSchema
+    );
+  }
+
+  async getContainerForRoutingSnapshot(
+    snapshot: IDataDbRoutingSnapshot
+  ): Promise<DependencyContainer> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseFromRoutingSnapshot(snapshot);
+    return this.getContainerForDataDb(
       dataDb.cacheKey,
       dataDb.connectionUrl ?? dataDb.url,
       dataDb.internalSchema
@@ -206,6 +262,14 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
   }
 
+  private resolveComputedOutboxAdmin(): IComputedOutboxAdmin | undefined {
+    try {
+      return this.moduleRef.get<IComputedOutboxAdmin>(COMPUTED_OUTBOX_ADMIN, { strict: false });
+    } catch {
+      return undefined;
+    }
+  }
+
   private async getContainerForDataDb(
     cacheKey: string,
     dataConnectionString: string,
@@ -227,18 +291,54 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
   }
 
+  private acquireDataPoolLease(
+    dataConnectionString: string,
+    metaConnectionString: string,
+    metaPoolLease: IPgPoolLease,
+    dataSchema?: string
+  ): IPgPoolLease {
+    if (dataConnectionString === metaConnectionString && !dataSchema) {
+      return metaPoolLease;
+    }
+    return this.pgPoolRegistry.acquire(dataConnectionString, {
+      ...(dataSchema ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) } : undefined),
+    });
+  }
+
+  private resolveComputedOutboxAdminOption(): {
+    computedOutboxAdmin?: IComputedOutboxAdmin;
+  } {
+    const computedOutboxAdmin = this.resolveComputedOutboxAdmin();
+    return computedOutboxAdmin ? { computedOutboxAdmin } : {};
+  }
+
+  private resolveTableRowLimitOption(): {
+    tableMaxRowLimit?: number;
+    maxFreeRowLimit?: number;
+  } {
+    const tableMaxRowLimit = resolvePositiveInteger(
+      this.configService.get('TABLE_LIMIT_RECORDS_PER_TABLE_MAX')
+    );
+    if (tableMaxRowLimit) return { tableMaxRowLimit };
+    const legacyMaxFreeRowLimit = resolvePositiveInteger(
+      this.configService.get('MAX_FREE_ROW_LIMIT')
+    );
+    if (legacyMaxFreeRowLimit) return { maxFreeRowLimit: legacyMaxFreeRowLimit };
+    return {};
+  }
+
   private async createContainer(
     dataConnectionString: string,
     dataSchema?: string
   ): Promise<DependencyContainer> {
     const metaConnectionString = this.getMetaConnectionString();
     const metaPoolLease = this.pgPoolRegistry.acquire(metaConnectionString);
-    const dataPoolLease =
-      dataConnectionString === metaConnectionString && !dataSchema
-        ? metaPoolLease
-        : this.pgPoolRegistry.acquire(dataConnectionString, {
-            ...(dataSchema ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) } : undefined),
-          });
+    const dataPoolLease = this.acquireDataPoolLease(
+      dataConnectionString,
+      metaConnectionString,
+      metaPoolLease,
+      dataSchema
+    );
     const poolLeases =
       dataPoolLease === metaPoolLease ? [metaPoolLease] : [metaPoolLease, dataPoolLease];
 
@@ -247,28 +347,59 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       const tracer = new OpenTelemetryTracer();
       const tableQueryObservability = new TableQuerySearchMetricsService();
       const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
-      const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
+      const queryBusMiddlewares = [
+        new QueryBusTracingMiddleware(),
+        new V2QueryCancellationMiddleware(this.cls),
+      ];
       const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
-      const tableQueryOps = this.resolveTableQueryOpsOptions();
-      const tableMaxRowLimit = resolvePositiveInteger(
-        this.configService.get('TABLE_LIMIT_RECORDS_PER_TABLE_MAX')
+      const tableQueryOpsConfig = this.resolveTableQueryOpsOptions();
+      const tableQueryObservationRuntime = tableQueryOpsConfig
+        ? await this.tableQueryObservationRuntime.get()
+        : undefined;
+      const tableQueryOps = tableQueryOpsConfig
+        ? {
+            ...tableQueryOpsConfig,
+            ensureObservationSchema: false,
+            observationPublisher: this.tableQueryObservationRuntime,
+            observationReader: this.tableQueryObservationRuntime,
+            observationSink: this.tableQueryObservationRuntime,
+            ...(tableQueryObservationRuntime
+              ? { observationDb: tableQueryObservationRuntime.db }
+              : { observationDisabled: true }),
+          }
+        : undefined;
+      const taskStatementTimeoutMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS')
       );
-      const legacyMaxFreeRowLimit = resolvePositiveInteger(
-        this.configService.get('MAX_FREE_ROW_LIMIT')
+      const inlineStatementTimeoutMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS')
       );
-      const computedUpdate: IV2NodePgContainerOptions['computedUpdate'] =
-        computedUpdateMode === 'sync'
-          ? {
-              mode: 'sync',
-              fieldBackfillConfig: { mode: 'sync' },
-              wakeupPublisher: this.computedOutboxWakeupPublisher,
-            }
-          : {
-              wakeupPublisher: this.computedOutboxWakeupPublisher,
-            };
+      const fieldBackfillBatchSize = resolvePositiveInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE')
+      );
+      const continuationRelayClaimEnabled = resolveBoolean(
+        this.configService.get('V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED'),
+        true
+      );
+      const claimDefaults = this.claimConcurrency?.processDefault;
+      const computedUpdate = buildComputedUpdateOptions(
+        computedUpdateMode,
+        this.computedOutboxWakeupPublisher,
+        {
+          ...(taskStatementTimeoutMs !== undefined ? { taskStatementTimeoutMs } : {}),
+          ...(fieldBackfillBatchSize !== undefined ? { fieldBackfillBatchSize } : {}),
+          continuationRelayClaimEnabled,
+          ...(claimDefaults
+            ? {
+                maxConcurrentProcessingPerBase: claimDefaults.perBase,
+                maxConcurrentProcessingPerSeedTable: claimDefaults.perSeedTable,
+              }
+            : {}),
+        },
+        inlineStatementTimeoutMs !== undefined ? { inlineStatementTimeoutMs } : undefined
+      );
 
       this.logger.log('Initializing V2 container');
-
       const container = await createV2NodePgContainer({
         metaConnectionString,
         dataConnectionString,
@@ -282,17 +413,23 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         queryBusMiddlewares,
         computedUpdate,
         tableQueryOps,
-        ...(tableMaxRowLimit
-          ? { tableMaxRowLimit }
-          : legacyMaxFreeRowLimit
-            ? { maxFreeRowLimit: legacyMaxFreeRowLimit }
-            : {}),
+        domainEventWakeupPublisher: this.domainEventWakeupPublisher,
+        // The postgres adapter writes record_trash markers inside the v2 delete
+        // transaction, so the delete-undo purge guard is sound here.
+        undoRedoRestorePurgeGuard: true,
+        ...this.resolveComputedOutboxAdminOption(),
+        ...this.resolveTableRowLimitOption(),
       });
 
       setSafeFetch(createSsrfSafeFetch());
 
       registerV2ShareDbRealtime(container, {
         publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+        presence: new ShareDbBackendPresencePublisher(this.shareDbService),
+        computeActivitySignal: {
+          resolveChannel: getActionTriggerChannel,
+          actionKey: COMPUTE_ACTIVITY_CHANGED,
+        },
       });
       const attachmentLookupService = container.resolve<IAttachmentLookupService>(
         v2CoreTokens.attachmentLookupService
@@ -329,6 +466,18 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         registrar.registerProjections(container);
       }
 
+      // Only primary-storage containers follow the runtime claim-cap override;
+      // BYODB pools are sized against the env defaults at deploy time.
+      if (this.claimConcurrency && dataPoolLease === metaPoolLease) {
+        const outboxConfig = container.resolve<ComputedUpdateOutboxConfig>(
+          v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
+        );
+        this.claimConcurrencyUnregisters.set(
+          container,
+          this.claimConcurrency.registerOutboxConfig(outboxConfig)
+        );
+      }
+
       this.poolLeases.set(container, poolLeases);
       this.logger.log('V2 container initialized');
       return container;
@@ -339,18 +488,21 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   private resolveTableQueryOpsOptions(): IV2NodePgContainerOptions['tableQueryOps'] | undefined {
-    const previewDefaultEnabled = Boolean(this.configService.get('PREVIEW_TAG'));
-    if (
-      !resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), previewDefaultEnabled)
-    ) {
+    if (!resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), false)) {
       return undefined;
     }
 
-    const workerId =
-      this.configService.get<string>('V2_TABLE_QUERY_OPS_WORKER_ID') ?? `nestjs-${process.pid}`;
+    const workerId = resolveTableQueryOpsWorkerId(
+      this.configService.get('V2_TABLE_QUERY_OPS_WORKER_ID')
+    );
     const allowManualIndexExecution = resolveBoolean(
       this.configService.get('V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION')
     );
+    const autoAcceptMode = resolveTableQueryAutoAcceptMode(
+      this.configService.get('V2_TABLE_QUERY_OPS_AUTO_ACCEPT')
+    );
+    const policyAutoExecutionEnabled = autoAcceptMode === 'auto';
+    const allowIndexExecution = allowManualIndexExecution || policyAutoExecutionEnabled;
     const searchVectorRuntimeEnabled =
       resolveTableQuerySearchVectorRuntimeMode(
         this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') ??
@@ -359,15 +511,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const configuredAllowedKinds =
       parseAllowedRemediationKinds(
         this.configService.get('V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS')
-      ) ??
-      (allowManualIndexExecution
-        ? executablePhase1RemediationKinds
-        : searchVectorRuntimeEnabled
-          ? ([
-              'rebuild_search_vector',
-              'manual_investigation',
-            ] satisfies ReadonlyArray<ExecutablePhase1RemediationKind>)
-          : (['manual_investigation'] satisfies ReadonlyArray<ExecutablePhase1RemediationKind>));
+      ) ?? defaultAllowedRemediationKinds({ allowIndexExecution, searchVectorRuntimeEnabled });
     const allowedKinds = configuredAllowedKinds;
     const analyzerIntervalMs = resolvePositiveInteger(
       this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_INTERVAL_MS')
@@ -400,20 +544,27 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         ...(sqlSampleMaxLength ? { maxSampleLength: sqlSampleMaxLength } : {}),
         ...(maxDiagnosticsPerObservation ? { maxDiagnosticsPerObservation } : {}),
       },
+      decisionPolicyConfig: {
+        autoAcceptMode,
+      },
       analyzerConfig: {
-        enabled: resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_ENABLED')),
+        enabled: resolveBoolean(
+          this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_ENABLED'),
+          false
+        ),
         workerId: `${workerId}:analyzer`,
-        ...(analyzerIntervalMs ? { intervalMs: analyzerIntervalMs } : {}),
+        intervalMs: analyzerIntervalMs ?? 5 * 60 * 1000,
         ...(analyzerLookbackMs ? { lookbackMs: analyzerLookbackMs } : {}),
         ...(analyzerBatchSize ? { batchSize: analyzerBatchSize } : {}),
       },
       taskWorkerConfig: {
         enabled: resolveBoolean(
           this.configService.get('V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED'),
-          searchVectorRuntimeEnabled
+          searchVectorRuntimeEnabled || policyAutoExecutionEnabled
         ),
         workerId: `${workerId}:task-worker`,
         allowManualIndexExecution,
+        allowPolicyIndexExecution: policyAutoExecutionEnabled,
         allowedKinds,
         ...(taskWorkerIntervalMs ? { intervalMs: taskWorkerIntervalMs } : {}),
       },
@@ -423,10 +574,16 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   private startTableQueryOpsRunners(container: DependencyContainer): void {
     const context = this.createTableQueryOpsContext(container);
     if (!context) return;
+    const resolveExecution = async (tableId: string) => {
+      const target = await this.getContainerForTable(tableId);
+      const targetContext = this.createTableQueryOpsContext(target);
+      if (!targetContext) throw new Error('Unable to initialize table query task context');
+      return { container: target, context: targetContext };
+    };
 
     const handles = [
-      startTableQueryOpsAnalyzerIfEnabled(container, context),
-      startTableQueryOpsTaskWorkerIfEnabled(container, context),
+      startTableQueryOpsAnalyzerIfEnabled(container, context, resolveExecution),
+      startTableQueryOpsTaskWorkerIfEnabled(container, context, resolveExecution),
     ].filter((handle): handle is TableQueryOpsRunnerHandle => Boolean(handle));
 
     if (handles.length === 0) {
@@ -493,12 +650,43 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
   async onModuleDestroy(): Promise<void> {
     await this.runtimeCache.deleteByNamespace(V2_CONTAINER_CACHE_NAMESPACE);
+    await this.tableQueryObservationRuntime.dispose();
   }
 
   private async destroyContainer(container: DependencyContainer): Promise<void> {
     this.stopTableQueryOpsRunners(container);
+    // Stop the async activity flusher before destroying the pools — a pending
+    // debounce/retry timer firing afterwards would retry against the dead pool.
+    try {
+      container
+        .resolve<{
+          disposeAsyncFlusher(): void;
+        }>(v2RecordRepositoryPostgresTokens.computedActivityProjector)
+        .disposeAsyncFlusher();
+    } catch {
+      // Container without the record adapter registered — nothing to stop.
+    }
+    try {
+      container
+        .resolve<{
+          dispose(): void;
+        }>(v2ShareDbTokens.presence)
+        .dispose();
+    } catch {
+      // Container without the ShareDB realtime adapter — nothing to release.
+    }
+    this.claimConcurrencyUnregisters.get(container)?.();
+    this.claimConcurrencyUnregisters.delete(container);
     const poolLeases = this.poolLeases.get(container) ?? [];
     this.poolLeases.delete(container);
+    try {
+      await disposeV2NodePgContainer(container);
+    } catch (error) {
+      this.logger.error(
+        'Failed to dispose the V2 schema coordination pool',
+        error instanceof Error ? error.stack : String(error)
+      );
+    }
     const closers = Array.from(
       new Set([
         container.resolve<{ destroy(): Promise<void> }>(v2MetaDbTokens.db),

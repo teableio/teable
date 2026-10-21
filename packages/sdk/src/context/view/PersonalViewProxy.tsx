@@ -13,11 +13,10 @@ interface IPersonalViewProxyProps {
   children: React.ReactNode;
 }
 
-export interface IProxyPersonalView
-  extends Omit<
-    IViewInstance,
-    'updateFilter' | 'updateSort' | 'updateGroup' | 'updateOption' | 'updateColumnMeta'
-  > {
+export interface IProxyPersonalView extends Omit<
+  IViewInstance,
+  'updateFilter' | 'updateSort' | 'updateGroup' | 'updateOption' | 'updateColumnMeta'
+> {
   updateFilter: (filter: IFilter) => void;
   updateSort: (sort: ISort) => void;
   updateGroup: (group: IGroup) => void;
@@ -89,7 +88,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
       newViewProxy.updateOption = (options: Record<string, unknown>) => {
         setPersonalViewMap(viewId, (prev) => ({
           ...prev,
-          options: { ...(prev.options ?? {}), ...options },
+          options: { ...(prev.options ?? {}), ...options }, // NOSONAR typescript:S7744 -- the spread source is not typed as an object; the fallback keeps the spread type-safe
         }));
       };
       newViewProxy.updateColumnMeta = (columnMetaRo: IColumnMetaRo) => {
@@ -105,7 +104,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
           return {
             ...prev,
             columnMeta: {
-              ...(prev.columnMeta ?? {}),
+              ...(prev.columnMeta ?? {}), // NOSONAR typescript:S7744 -- the spread source is not typed as an object; the fallback keeps the spread type-safe
               ...columnMetaMap,
             },
           };

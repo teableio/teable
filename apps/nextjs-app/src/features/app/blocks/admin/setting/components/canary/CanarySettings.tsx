@@ -143,7 +143,7 @@ const SpaceIdsEditor = ({ spaceIds, onSave, disabled }: ISpaceIdsEditorProps) =>
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" disabled={disabled}>
-          <Settings className="mr-1 size-4" />
+          <Settings className="me-1 size-4" />
           {t('admin.canary.configure')}
         </Button>
       </PopoverTrigger>

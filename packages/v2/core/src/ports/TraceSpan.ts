@@ -142,7 +142,7 @@ export function TraceSpan(
   const options: TraceSpanOptions =
     typeof optionsOrSpanName === 'string'
       ? { name: optionsOrSpanName, attributes: legacyAttributes }
-      : optionsOrSpanName ?? {};
+      : (optionsOrSpanName ?? {});
 
   const { name: customSpanName, component = 'handler', attributes } = options;
 

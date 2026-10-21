@@ -11,6 +11,7 @@ import type {
   ICellValueSpecVisitor,
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
+import type { SetButtonValueSpec } from '../../domain/table/records/specs/values/SetButtonValueSpec';
 import type { SetCheckboxValueSpec } from '../../domain/table/records/specs/values/SetCheckboxValueSpec';
 import type { SetDateValueSpec } from '../../domain/table/records/specs/values/SetDateValueSpec';
 import type { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
@@ -110,6 +111,9 @@ class MissingLinkTitleForeignTableCollector implements ICellValueSpecVisitor {
   }
 
   visitSetAttachmentValue(_spec: SetAttachmentValueSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+  visitSetButtonValue(_spec: SetButtonValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

@@ -1,10 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  CompactionSkipReason,
+  planMonthCompaction,
+  supersededKeys,
+  swapCompactedStatsEntries,
+} from '../cold-archive/compaction';
+import { expireColdMonths, readColdExpiryDryRun } from '../cold-archive/retention';
+import type { ListedColdPart } from '../cold-archive/storage-ops';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import { truncateColdRow } from './part-codec';
 import type { IParsedPartKey, ITableColdStats } from './part-codec';
 import { PartWriter } from './part-writer';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
 import { recordHistoryColdConfig } from './record-history-cold.config';
+
+export interface ICompactMonthOptions {
+  force?: boolean;
+  /** the month's parts when the caller already listed them (compactTable); listed here otherwise */
+  parts?: IParsedPartKey[];
+}
 
 export interface ICompactMonthResult {
   tableId: string;
@@ -32,15 +46,31 @@ export class RecordHistoryCompactorService {
 
   constructor(private readonly coldStorage: RecordHistoryColdStorageService) {}
 
-  /** compact every month of a table except the current (still-hot) one */
+  /**
+   * delete the months past retention, then compact every closed month of a
+   * table; the current one is reported as open, not compacted
+   */
   async compactTable(tableId: string): Promise<ICompactMonthResult[]> {
     const now = new Date();
     const currentMonth = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    const months = await this.coldStorage.listMonths(tableId);
+    const partsByMonth = await this.coldStorage.listTableParts(tableId);
+    const expired = await this.expireMonths(tableId, partsByMonth, now);
     const results: ICompactMonthResult[] = [];
-    for (const yyyymm of months) {
-      if (yyyymm >= currentMonth) continue;
-      results.push(await this.compactMonth(tableId, yyyymm));
+    for (const [yyyymm, parts] of partsByMonth) {
+      if (expired.has(yyyymm)) continue;
+      if (yyyymm >= currentMonth) {
+        results.push({
+          tableId,
+          yyyymm,
+          inputParts: parts.length,
+          outputParts: 0,
+          rows: 0,
+          durationMs: 0,
+          skippedReason: CompactionSkipReason.OpenMonth,
+        });
+        continue;
+      }
+      results.push(await this.compactMonth(tableId, yyyymm, { parts }));
     }
     return results;
   }
@@ -48,34 +78,26 @@ export class RecordHistoryCompactorService {
   async compactMonth(
     tableId: string,
     yyyymm: string,
-    options?: { force?: boolean }
+    options?: ICompactMonthOptions
   ): Promise<ICompactMonthResult> {
     const startedAt = Date.now();
     const config = recordHistoryColdConfig();
-    const parts = await this.coldStorage.listMonthParts(tableId, yyyymm);
-    const dayParts = parts.filter((part) => part.kind === 'day');
-    const monthParts = parts.filter((part) => part.kind === 'month');
+    const parts = options?.parts ?? (await this.coldStorage.listMonthParts(tableId, yyyymm));
+    const plan = planMonthCompaction(parts, { force: options?.force });
 
     const base: Omit<ICompactMonthResult, 'skippedReason'> = {
       tableId,
       yyyymm,
-      inputParts: parts.length,
+      inputParts: plan.inputParts,
       outputParts: 0,
       rows: 0,
       durationMs: 0,
     };
-    if (dayParts.length === 0 && !options?.force) {
-      return { ...base, durationMs: Date.now() - startedAt, skippedReason: 'no-day-parts' };
-    }
-    if (parts.length === 0) {
-      return { ...base, durationMs: Date.now() - startedAt, skippedReason: 'empty-month' };
+    if (plan.skippedReason) {
+      return { ...base, durationMs: Date.now() - startedAt, skippedReason: plan.skippedReason };
     }
 
-    const inputs: IParsedPartKey[] = [...dayParts, ...monthParts];
-    // never write the keys we are still reading (S3 GET vs same-key overwrite
-    // is unspecified): new month parts start past the existing max seq and
-    // healing drops the superseded keys afterwards
-    const startSeq = monthParts.reduce((max, part) => Math.max(max, part.seq + 1), 0);
+    const { inputs, startSeq } = plan;
     const writer = new PartWriter({
       store: this.coldStorage.partStore,
       rootDir: this.coldStorage.rootDir,
@@ -93,32 +115,16 @@ export class RecordHistoryCompactorService {
       config.truncateValueUnits
     );
     const entries = await writer.finish();
-    const writtenKeys = new Set(entries.map((entry) => entry.key));
 
-    // stats: replace exactly the consumed inputs with the fresh outputs; an
-    // entry for a part that landed after our input snapshot belongs to a
-    // concurrent run and stays intact
-    const inputKeys = new Set(inputs.map((input) => input.key));
     const stats: ITableColdStats = (await this.coldStorage.readStats(tableId)) ?? {
       version: 1,
       tableId,
       parts: {},
     };
-    for (const key of Object.keys(stats.parts)) {
-      if (inputKeys.has(key)) delete stats.parts[key];
-    }
-    for (const entry of entries) {
-      stats.parts[entry.key] = entry;
-    }
+    swapCompactedStatsEntries(stats.parts, inputs, entries);
     await this.coldStorage.writeStats(tableId, stats);
 
-    // heal: delete exactly what this run consumed and superseded — never a
-    // key that appeared after the input snapshot. A concurrent backfill or
-    // flush may have written it, and it can be the only cold copy of rows
-    // whose buffer entries that other run then deletes.
-    const staleKeys = inputs
-      .filter((input) => !writtenKeys.has(input.key))
-      .map((input) => input.key);
+    const staleKeys = supersededKeys(inputs, entries);
     await this.coldStorage.deleteKeys(staleKeys);
 
     this.logger.log(
@@ -130,6 +136,29 @@ export class RecordHistoryCompactorService {
       rows,
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  private async expireMonths(
+    tableId: string,
+    partsByMonth: Map<string, ListedColdPart<IParsedPartKey>[]>,
+    now: Date
+  ): Promise<Set<string>> {
+    return expireColdMonths({
+      category: 'record-history',
+      scope: tableId,
+      partsByMonth,
+      retentionDays: recordHistoryColdConfig().coldRetentionDays,
+      dryRun: readColdExpiryDryRun(),
+      logger: this.logger,
+      now,
+      dropFromStats: async (keys) => {
+        const stats = await this.coldStorage.readStats(tableId);
+        if (!stats) return;
+        for (const key of keys) delete stats.parts[key];
+        await this.coldStorage.writeStats(tableId, stats);
+      },
+      deleteMonth: (_yyyymm, keys) => this.coldStorage.deleteKeys(keys),
+    });
   }
 
   /** external sort + id-dedup: inputs are read one at a time, order-agnostic */

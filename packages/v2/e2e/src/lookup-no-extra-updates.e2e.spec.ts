@@ -43,7 +43,7 @@ const expectEmptyLookup = (value: unknown) => {
   expect(isEmpty).toBe(true);
 };
 
-describe('lookup computed update scope regression', () => {
+describe('[F21] lookup computed update scope regression', () => {
   let ctx: SharedTestContext;
 
   beforeAll(async () => {
@@ -234,6 +234,12 @@ describe('lookup computed update scope regression', () => {
       await sql`
         insert into users (id, name, email)
         values (${bobCell.id}, ${bobCell.title}, ${'bob+lookup-multi-user@e2e.com'})
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+
+      await sql`
+        insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+        values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
         on conflict (id) do nothing
       `.execute(ctx.testContainer.db);
 

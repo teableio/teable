@@ -24,6 +24,14 @@ export type TableSchemaInsertManyOptions = {
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   ensureInserted?(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  /**
+   * Create the physical table only when it is missing. Do not replay field
+   * schema on an existing relation — that can recreate unique indexes.
+   */
+  ensurePhysicalTable?(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>>;
   insertMany(
     context: IExecutionContext,
     tables: ReadonlyArray<Table>,
@@ -38,6 +46,17 @@ export interface ITableSchemaRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>>;
+  /**
+   * Create `__row_<viewId>` columns, backfill them, and build their indexes
+   * on the non-transactional handle. Callers must invoke this before opening
+   * the request transaction: CREATE INDEX CONCURRENTLY waits for an open
+   * snapshot and deadlocks with it.
+   */
+  prepareViewRowOrderStorage?(
+    context: IExecutionContext,
+    table: Table,
+    viewIds: ReadonlyArray<string>
+  ): Promise<Result<void, DomainError>>;
   delete(
     context: IExecutionContext,
     table: Table,

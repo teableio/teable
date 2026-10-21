@@ -46,8 +46,12 @@ import type {
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
-import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import type {
+  ITableSchemaRepository,
+  TableSchemaInsertManyOptions,
+} from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
@@ -274,6 +278,7 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   insertedTables: Table[] = [];
+  insertManyOptions: Array<TableSchemaInsertManyOptions | undefined> = [];
 
   async insert(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.insertedTables.push(table);
@@ -282,9 +287,11 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async insertMany(
     _context: IExecutionContext,
-    tables: ReadonlyArray<Table>
+    tables: ReadonlyArray<Table>,
+    options?: TableSchemaInsertManyOptions
   ): Promise<Result<void, DomainError>> {
     this.insertedTables.push(...tables);
+    this.insertManyOptions.push(options);
     return ok(undefined);
   }
 
@@ -535,7 +542,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -566,6 +573,13 @@ describe('DuplicateTableHandler', () => {
       'ready',
     ]);
     expect(tableSchemaRepository.insertedTables).toHaveLength(1);
+    expect(tableSchemaRepository.insertManyOptions).toEqual([
+      {
+        knownTables: [tableSchemaRepository.insertedTables[0]],
+        optimizeForEmptyTables: true,
+        skipUndoCaptureSetup: true,
+      },
+    ]);
     // Physical bulk path (self + external links): no hydrate insertMany.
     expect(tableRecordRepository.insertedRecords).toHaveLength(0);
     expect(tableRecordRepository.physicalPlans).toHaveLength(1);
@@ -664,7 +678,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -739,7 +753,7 @@ describe('DuplicateTableHandler', () => {
       tableSchemaRepository,
       tableRecordQueryRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)

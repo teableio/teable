@@ -1,40 +1,62 @@
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import { recordFilterSchema, type RecordFilter } from '../../../queries/RecordFilterDto';
+import {
+  recordFilterConditionSchema,
+  recordFilterConjunctionSchema,
+  type RecordFilter,
+  type RecordFilterNode,
+} from '../../../queries/RecordFilterDto';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
-
-const viewSortItemSchema = z.object({
-  fieldId: z.string().min(1),
-  order: z.enum(['asc', 'desc']),
-});
+import { viewSortItemSchema, type ViewSortItem } from './ViewSort';
+import { ViewSourceFilter, type ViewSourceFilterDTO } from './ViewSourceFilter';
 
 const viewGroupItemSchema = z.object({
   fieldId: z.string().min(1),
   order: z.enum(['asc', 'desc']),
 });
 
+const viewRecordFilterNodeSchema: z.ZodType<RecordFilterNode> = z.lazy(() =>
+  z.union([
+    recordFilterConditionSchema,
+    z.object({
+      conjunction: recordFilterConjunctionSchema,
+      items: z.array(viewRecordFilterNodeSchema),
+    }),
+    z.object({ not: viewRecordFilterNodeSchema }),
+  ])
+);
+
+export const viewRecordFilterSchema: z.ZodType<RecordFilter> =
+  viewRecordFilterNodeSchema.nullable();
+
 const viewQueryDefaultsSchema = z
   .object({
-    filter: recordFilterSchema.optional().nullable(),
+    filter: viewRecordFilterSchema.optional().nullable(),
     sort: z.array(viewSortItemSchema).optional(),
     group: z.array(viewGroupItemSchema).optional(),
     manualSort: z.boolean().optional(),
   })
   .strict();
 
-export type ViewQuerySortItem = z.infer<typeof viewSortItemSchema>;
+export type ViewQuerySortItem = ViewSortItem;
 export type ViewQueryGroupItem = z.infer<typeof viewGroupItemSchema>;
 
 export type ViewQueryDefaultsDTO = z.infer<typeof viewQueryDefaultsSchema>;
 
 export class ViewQueryDefaults extends ValueObject {
-  private constructor(private readonly value: ViewQueryDefaultsDTO) {
+  private constructor(
+    private readonly value: ViewQueryDefaultsDTO,
+    private readonly sourceFilterValue?: ViewSourceFilter
+  ) {
     super();
   }
 
-  static create(raw: ViewQueryDefaultsDTO): Result<ViewQueryDefaults, DomainError> {
+  static create(
+    raw: ViewQueryDefaultsDTO,
+    options?: { sourceFilter?: unknown }
+  ): Result<ViewQueryDefaults, DomainError> {
     const parsed = viewQueryDefaultsSchema.safeParse(raw ?? {});
     if (!parsed.success)
       return err(
@@ -43,10 +65,20 @@ export class ViewQueryDefaults extends ValueObject {
           details: z.formatError(parsed.error),
         })
       );
-    return ok(new ViewQueryDefaults(parsed.data));
+    const sourceFilterResult = ViewQueryDefaults.parseSourceFilter(options?.sourceFilter);
+    if (sourceFilterResult.isErr()) return err(sourceFilterResult.error);
+    const canonicalResult = ViewQueryDefaults.withCanonicalSourceFilter(
+      parsed.data,
+      sourceFilterResult.value
+    );
+    if (canonicalResult.isErr()) return err(canonicalResult.error);
+    return ok(new ViewQueryDefaults(canonicalResult.value, sourceFilterResult.value));
   }
 
-  static rehydrate(raw: unknown): Result<ViewQueryDefaults, DomainError> {
+  static rehydrate(
+    raw: unknown,
+    options?: { sourceFilter?: unknown }
+  ): Result<ViewQueryDefaults, DomainError> {
     const parsed = viewQueryDefaultsSchema.safeParse(raw ?? {});
     if (!parsed.success)
       return err(
@@ -55,7 +87,14 @@ export class ViewQueryDefaults extends ValueObject {
           details: z.formatError(parsed.error),
         })
       );
-    return ok(new ViewQueryDefaults(parsed.data));
+    const sourceFilterResult = ViewQueryDefaults.parseSourceFilter(options?.sourceFilter);
+    if (sourceFilterResult.isErr()) return err(sourceFilterResult.error);
+    const canonicalResult = ViewQueryDefaults.withCanonicalSourceFilter(
+      parsed.data,
+      sourceFilterResult.value
+    );
+    if (canonicalResult.isErr()) return err(canonicalResult.error);
+    return ok(new ViewQueryDefaults(canonicalResult.value, sourceFilterResult.value));
   }
 
   static empty(): ViewQueryDefaults {
@@ -64,6 +103,10 @@ export class ViewQueryDefaults extends ValueObject {
 
   filter(): RecordFilter | null | undefined {
     return this.value.filter;
+  }
+
+  sourceFilter(): ViewSourceFilterDTO | null | undefined {
+    return this.sourceFilterValue?.toDto();
   }
 
   sort(): ReadonlyArray<ViewQuerySortItem> | undefined {
@@ -83,7 +126,13 @@ export class ViewQueryDefaults extends ValueObject {
   }
 
   equals(other: ViewQueryDefaults): boolean {
-    return ViewQueryDefaults.isSameValue(this.value, other.value);
+    return (
+      ViewQueryDefaults.isSameValue(this.value, other.value) &&
+      ((this.sourceFilterValue == null && other.sourceFilterValue == null) ||
+        (this.sourceFilterValue != null &&
+          other.sourceFilterValue != null &&
+          this.sourceFilterValue.equals(other.sourceFilterValue)))
+    );
   }
 
   merge(params: {
@@ -162,5 +211,32 @@ export class ViewQueryDefaults extends ValueObject {
 
   private static isSameValue(left: ViewQueryDefaultsDTO, right: ViewQueryDefaultsDTO): boolean {
     return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  private static parseSourceFilter(
+    raw: unknown
+  ): Result<ViewSourceFilter | undefined, DomainError> {
+    if (raw === undefined) return ok(undefined);
+    return ViewSourceFilter.create(raw);
+  }
+
+  private static withCanonicalSourceFilter(
+    value: ViewQueryDefaultsDTO,
+    sourceFilter: ViewSourceFilter | undefined
+  ): Result<ViewQueryDefaultsDTO, DomainError> {
+    if (!sourceFilter) return ok(value);
+    const parsed = viewQueryDefaultsSchema.safeParse({
+      ...value,
+      filter: sourceFilter.toCanonical(),
+    });
+    if (!parsed.success) {
+      return err(
+        domainError.validation({
+          message: 'Invalid canonical ViewSourceFilter',
+          details: z.formatError(parsed.error),
+        })
+      );
+    }
+    return ok(parsed.data);
   }
 }

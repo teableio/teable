@@ -64,7 +64,7 @@ export const SpaceSubscriptionModal = () => {
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="flex items-center gap-4">
-            <Label htmlFor="username" className="text-right">
+            <Label htmlFor="username" className="text-end">
               {t('space:baseModal.toSpace')}
             </Label>
             <Selector

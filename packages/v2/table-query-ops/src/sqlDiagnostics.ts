@@ -95,12 +95,12 @@ export const attachTableQuerySqlDiagnosticsCollector = (
 
 const normalizeSql = (sql: string): string =>
   sql
-    .replace(/--.*$/gm, ' ')
+    .replaceAll(/--[^\n]*/g, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-const statementKind = (sql: string): string => sql.match(/^[a-z]+/i)?.[0]?.toLowerCase() ?? 'sql';
+const statementKind = (sql: string): string => /^[a-z]+/i.exec(sql)?.[0]?.toLowerCase() ?? 'sql';
 
 const truncateSql = (sql: string, maxLength: number): string =>
   sql.length <= maxLength ? sql : `${sql.slice(0, Math.max(0, maxLength - 3))}...`;

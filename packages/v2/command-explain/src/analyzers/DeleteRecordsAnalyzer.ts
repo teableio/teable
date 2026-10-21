@@ -94,7 +94,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
     options: ExplainOptions,
     startTime: number
   ): Promise<Result<ExplainResult, DomainError>> {
-    const analyzer = this;
+    const analyzer = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
     return safeTry<ExplainResult, DomainError>(async function* () {

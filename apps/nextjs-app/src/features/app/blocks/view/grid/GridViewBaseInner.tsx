@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, stopFillField, autoFillCell } from '@teable/openapi';
+import { createRecords, stopFillField, autoFillCell, GroupPointType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -85,6 +85,7 @@ import {
   useButtonClickStatus,
   useSearch,
   useTableListener,
+  useTables,
 } from '@teable/sdk/hooks';
 import {
   finalizePendingUploadAfterCreate,
@@ -138,7 +139,7 @@ import {
 import { downgradeCrossBaseHeaders, isCrossBaseField } from './utils/crossBaseLink';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 import {
-  cacheColumnSelectionForChat,
+  cancelGridSelectionCapture,
   cacheSelectionForChat,
   isSingleCellSelection,
 } from './utils/gridSelectionChat';
@@ -167,6 +168,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
+  const tableName =
+    useTables().find((table) => table.id === tableId)?.name ??
+    (baseId
+      ? queryClient.getQueryData<{ name?: string }>(ReactQueryKeys.tableInfo(baseId, tableId))?.name
+      : undefined);
   const activeViewId = useViewId();
   const { user } = useSession();
   const view = useView(activeViewId) as GridView | undefined;
@@ -187,7 +193,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   // share-view id lives only in ShareViewContext (empty outside a share view).
   const { shareId: shareViewId } = useContext(ShareViewContext);
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
-  const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields } =
+  const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields, setMountedGrid } =
     useGridSearchStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns(
     undefined,
@@ -286,6 +292,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (!baseId || !activeViewId) return;
     const queryKey = ReactQueryKeys.activeViewContext(baseId);
 
+    setMountedGrid({ tableId, viewId: activeViewId });
     queryClient.setQueryData(queryKey, {
       tableId,
       viewId: activeViewId,
@@ -297,30 +304,43 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (current?.viewId === activeViewId) {
         queryClient.removeQueries({ queryKey, exact: true });
       }
+      if (useGridSearchStore.getState().mountedGrid?.viewId === activeViewId) {
+        setMountedGrid(null);
+      }
     };
-  }, [queryClient, baseId, tableId, activeViewId, viewQuery, filteringSearchQuery]);
+  }, [queryClient, baseId, tableId, activeViewId, viewQuery, filteringSearchQuery, setMountedGrid]);
 
   const {
     onVisibleRegionChanged,
     onReset,
     recordMap,
+    loadedFieldsByRecordId,
+    snapshotFieldIds,
     groupPoints,
-    recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
   } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
-  const commentCountMap = useCommentCountMap(recordsQuery);
+  const commentRecordIds = useMemo(
+    () =>
+      [...new Set(Object.values(recordMap).map((record) => record.id))].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      ),
+    [recordMap]
+  );
+  const commentCountMap = useCommentCountMap(commentRecordIds);
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
   const {
+    resolveSelectionForChat,
     copy,
     paste,
     clear,
     deleteRecords,
+    archiveRecords,
     duplicateRecords,
     clearProgress,
     clearSummary,
@@ -365,6 +385,44 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
   });
+
+  // Context menus can stay open across grid updates; resolve against action-time data.
+  const context = { baseId, groupPoints, recordMap, resolveSelectionForChat, rowCount, tableName };
+  const chatCaptureContext = useRef(context);
+  chatCaptureContext.current = context;
+
+  const captureSelectionForChat = useCallback(
+    (selection: CombinedSelection, addToChat: boolean) => {
+      const { baseId, groupPoints, recordMap, resolveSelectionForChat, rowCount, tableName } =
+        chatCaptureContext.current;
+      if (!baseId) return;
+      const visibleRecordCount = groupPoints?.length
+        ? groupPoints.reduce(
+            (count, point) => count + (point.type === GroupPointType.Row ? point.count : 0),
+            0
+          )
+        : rowCount;
+      const reportCaptureError = (error: unknown) => {
+        // Capturing a chat reference must never prevent the ordinary clipboard copy.
+        if (addToChat) toast.error(error instanceof Error ? error.message : String(error));
+      };
+      try {
+        const captured = resolveSelectionForChat(
+          selection,
+          recordMap,
+          visibleRecordCount,
+          tableName
+        );
+        const pending = cacheSelectionForChat(queryClient, baseId, captured, addToChat);
+        if (pending) void pending.catch(reportCaptureError);
+      } catch (error) {
+        cancelGridSelectionCapture(queryClient, baseId);
+        queryClient.removeQueries({ queryKey: ReactQueryKeys.gridSelection(baseId), exact: true });
+        reportCaptureError(error);
+      }
+    },
+    [queryClient]
+  );
 
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
@@ -657,6 +715,21 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         .filter(Boolean);
     }
 
+    const confirmAndArchiveRecords = async (recordCount: number) => {
+      const confirmed = await confirm({
+        title: t('table:table.actionTips.archiveRecordConfirmTitle'),
+        description: t('table:table.actionTips.archiveRecordConfirmDescription', {
+          recordCount,
+        }),
+        confirmText: t('table:table.actionTips.archiveRecord'),
+        cancelText: t('common:actions.cancel'),
+      });
+      if (!confirmed) return;
+
+      await archiveRecords(selection, recordMap);
+      gridRef.current?.setSelection(emptySelection);
+    };
+
     if (isCellSelection || isRowSelection) {
       const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
       const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
@@ -665,9 +738,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const isMultipleSelected =
         (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
-      const addToChat = baseId
-        ? () => cacheSelectionForChat(queryClient, baseId, selection, true)
-        : undefined;
+      const addToChat = baseId ? () => captureSelectionForChat(selection, true) : undefined;
 
       if (isMultipleSelected || isMultiCellSelection) {
         openRecordMenu({
@@ -694,6 +765,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             deleteRecords(selection, recordMap);
             gridRef.current?.setSelection(emptySelection);
           },
+          archiveRecords: () => confirmAndArchiveRecords(getEffectRows(selection, realRowCount)),
           duplicateRecord: async () => {
             await duplicateRecords(selection);
           },
@@ -736,6 +808,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             deleteRecords(selection, recordMap);
             gridRef.current?.setSelection(emptySelection);
           },
+          archiveRecords: () => confirmAndArchiveRecords(1),
           copyRecordUrl: async () => {
             await copyRecordUrl(record?.id);
           },
@@ -766,16 +839,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onSelectionClear,
         onAutoFill,
-        addToChat: () => {
-          if (!baseId || !selectFields.length) return;
-          cacheColumnSelectionForChat(
-            queryClient,
-            baseId,
-            Math.min(start, end),
-            Math.max(start, end),
-            selectColumns.map((column) => column.name)
-          );
-        },
+        addToChat: () => captureSelectionForChat(selection, true),
       });
     }
   };
@@ -802,16 +866,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         freezeColumnIndex: colIndex,
         maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onAutoFill,
-        addToChat: () => {
-          if (!baseId) return;
-          cacheColumnSelectionForChat(queryClient, baseId, colIndex, colIndex, [
-            columns[colIndex].name,
-          ]);
-        },
+        addToChat: () =>
+          captureSelectionForChat(
+            new CombinedSelection(SelectionRegionType.Columns, [[colIndex, colIndex]]),
+            true
+          ),
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [columns, fields, fieldAIEnable, openHeaderMenu, baseId, queryClient]
+    [columns, fields, fieldAIEnable, openHeaderMenu, captureSelectionForChat]
   );
 
   const onColumnHeaderDblClick = useCallback(
@@ -901,6 +964,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     const readableGroup = group.filter(({ fieldId }) => fieldMap[fieldId]);
     return readableGroup.reduce(
       (prev, { fieldId }, depth) => {
+        // A button's count is execution history, never a default for a new record.
+        if (fieldMap[fieldId]?.type === FieldType.Button) return prev;
         const cellValue = record?.getCellValue(fieldId);
         const value = cellValue === undefined ? groupValues?.[depth] : cellValue;
         if (value !== undefined) {
@@ -1002,7 +1067,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const selectionIncludesCrossBaseField = useCallback(
     (selection: CombinedSelection) => {
-      if (!baseId) return false;
       switch (selection.type) {
         case SelectionRegionType.Cells: {
           const [[startCol], [endCol]] = selection.serialize();
@@ -1032,10 +1096,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
     // Share view guard: cross-base link fields would otherwise leak foreign-base
     // record IDs through the clipboard. Confirm and downgrade them to plain text
-    // before the payload leaves the page.
-    if (shareId && baseId && selectionIncludesCrossBaseField(selection)) {
+    // before the payload leaves the page. Share pages have no AnchorContext
+    // baseId; isCrossBaseField still matches an explicit options.baseId.
+    if (shareId && selectionIncludesCrossBaseField(selection)) {
       e.preventDefault();
-      if (!isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+      if (
+        !isSelectionLoaded({
+          selection,
+          recordMap,
+          rowCount: realRowCount,
+          loadedFieldsByRecordId,
+          snapshotFieldIds,
+          fields,
+        })
+      ) {
         sonnerToast.warning(t('table:table.actionTips.crossBaseCopyLoadFirst'));
         return;
       }
@@ -1059,11 +1133,25 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return;
     }
 
-    if (baseId && !isSingleCellSelection(selection)) {
-      cacheSelectionForChat(queryClient, baseId, selection, false);
+    if (baseId) {
+      if (isSingleCellSelection(selection)) {
+        cancelGridSelectionCapture(queryClient, baseId);
+        queryClient.removeQueries({ queryKey: ReactQueryKeys.gridSelection(baseId), exact: true });
+      } else {
+        captureSelectionForChat(selection, false);
+      }
     }
 
-    if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+    if (
+      isSelectionLoaded({
+        selection,
+        recordMap,
+        rowCount: realRowCount,
+        loadedFieldsByRecordId,
+        snapshotFieldIds,
+        fields,
+      })
+    ) {
       // sync copy
       syncCopy(e, { selection, recordMap, rowCount: realRowCount });
       return;
@@ -1831,7 +1919,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           />
         </PresortRowContainer>
       )}
-      <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
+      <RowCounter rowCount={realRowCount} className="absolute bottom-3 start-0" />
       <DomBox id={componentId} />
       {!onRowExpand && (
         <ExpandRecordContainer

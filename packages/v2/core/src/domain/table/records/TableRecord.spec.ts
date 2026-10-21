@@ -94,3 +94,37 @@ describe('TableRecord.displayName', () => {
     expect(result._unsafeUnwrapErr().code).toBe('record.table_mismatch');
   });
 });
+
+describe('TableRecord.displayValue', () => {
+  it('resolves a non-primary field through the owning Table definition', () => {
+    const table = buildSinglePrimaryTable();
+    const builder = Table.builder()
+      .withId(table.id())
+      .withBaseId(table.baseId())
+      .withName(table.name());
+    const primaryField = table.primaryField()._unsafeUnwrap();
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryField.id())
+      .withName(primaryField.name())
+      .primary()
+      .done();
+    builder
+      .field()
+      .multipleSelect()
+      .withName(FieldName.create('Tags')._unsafeUnwrap())
+      .withOptions([selectOption('Alpha'), selectOption('Beta')])
+      .done();
+    builder.view().defaultGrid().done();
+    const tableWithTags = builder.build()._unsafeUnwrap();
+    const tagsField = tableWithTags.getFields()[1]!;
+    const record = TableRecord.create({
+      id: recordId('d'),
+      tableId: tableWithTags.id(),
+      fieldValues: [{ fieldId: tagsField.id(), value: cell(['Alpha', 'Beta']) }],
+    })._unsafeUnwrap();
+
+    expect(record.displayValue(tableWithTags, tagsField.id())._unsafeUnwrap()).toBe('Alpha, Beta');
+  });
+});

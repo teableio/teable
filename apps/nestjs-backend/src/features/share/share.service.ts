@@ -19,15 +19,18 @@ import type {
   IShareViewAggregationsRo,
   IShareViewRecordsRo,
   IRangesRo,
+  IShareViewCopyQuery,
   IShareViewGroupPointsRo,
   IAggregationVo,
   IGroupPointsVo,
   IRowCountVo,
   IShareViewLinkRecordsRo,
+  IShareViewLinkRecordsVo,
   IRecordsVo,
   IShareViewCollaboratorsRo,
-  ISearchCountRo,
-  ISearchIndexByQueryRo,
+  IShareViewCollaboratorsVo,
+  IShareViewSearchCountRo,
+  IShareViewSearchIndexRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -47,18 +50,38 @@ import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
+import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
 import type { IShareViewInfo } from './share-auth.service';
 import { isLinkRecordSelectionQuery } from './share-link-query.util';
-import { ShareSocketService } from './share-socket.service';
+import {
+  ShareSocketService,
+  scopeSearchToVisibleFields,
+  type IShareQueryFieldRefs,
+} from './share-socket.service';
+import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.service';
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  // sha256 over shareId + password (see hashSharePassword); never the password.
+  pwHash: string;
 }
+
+// The share GET is the only share endpoint that echoes shareMeta to the visitor.
+// The password must never be part of it (GHSA-w677-p6hx-85vw): the guard already
+// answers 401 while it is missing, so the client has no use for the value.
+const omitSharePassword = <T extends { password?: unknown }>(
+  meta: T | undefined
+): Omit<T, 'password'> | undefined => {
+  if (!meta) return meta;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password, ...rest } = meta;
+  return rest;
+};
 
 const resolveShareRecordProjection = (
   fields: IFieldVo[],
@@ -87,6 +110,7 @@ export class ShareService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly recordService: RecordService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -94,6 +118,8 @@ export class ShareService {
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly shareSocketService: ShareSocketService,
+    private readonly viewOpenApiV2Service: ViewOpenApiV2Service,
+    private readonly sharedViewRecordQueryV2Service: SharedViewRecordQueryV2Service,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex
@@ -173,15 +199,87 @@ export class ShareService {
     }
 
     return {
-      shareMeta,
+      shareMeta: omitSharePassword(shareMeta),
       shareId,
       tableId,
       viewId,
-      view: view ? convertViewVoAttachmentUrl(view) : undefined,
+      view: view ? this.toPublicShareView(view) : undefined,
       fields: filteredFields,
       records,
       extra,
     };
+  }
+
+  private toPublicShareView(view: IViewVo): IViewVo {
+    return convertViewVoAttachmentUrl({
+      ...view,
+      shareMeta: omitSharePassword(view.shareMeta),
+    });
+  }
+
+  async getShareViewV2(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
+    const { shareId, tableId, view, linkOptions, shareMeta } = shareInfo;
+    const { filterByViewId, filter } = linkOptions ?? {};
+    const viewId = filterByViewId ?? view?.id;
+    const filteredFields = await this.getShareVisibleFieldsV2(shareInfo);
+
+    let records: IRecordsVo['records'] = [];
+    let extra: ShareViewGetVo['extra'];
+    if (shareMeta?.includeRecords) {
+      const recordsData = await this.recordOpenApiV2Service.getRecords(tableId, {
+        viewId,
+        skip: 0,
+        take: 50,
+        filter,
+        groupBy: view?.group,
+        fieldKeyType: FieldKeyType.Id,
+        projection: filteredFields.map((field) => field.id),
+      });
+      records = recordsData.records;
+      extra = recordsData.extra;
+    }
+
+    if (view?.type === ViewType.Plugin && viewId) {
+      const pluginInstall = await this.viewOpenApiV2Service.getPluginInstall(tableId, viewId);
+      const plugin = {
+        pluginId: pluginInstall.pluginId,
+        pluginInstallId: pluginInstall.pluginInstallId,
+        name: pluginInstall.name,
+        storage: pluginInstall.storage,
+        url: pluginInstall.url,
+      };
+      if (extra) {
+        extra.plugin = plugin;
+      } else {
+        extra = { plugin };
+      }
+    }
+
+    return {
+      shareMeta: omitSharePassword(shareMeta),
+      shareId,
+      tableId,
+      viewId,
+      view: view ? this.toPublicShareView(view) : undefined,
+      fields: filteredFields,
+      records,
+      extra,
+    };
+  }
+
+  /**
+   * Bound a client-supplied share query to the fields the share exposes (see
+   * ShareSocketService.assertQueryFieldsVisible). Every share read path, v1 and
+   * v2, must call this before the query reaches a record/aggregation service:
+   * the share context carries no authority matrix, so this is the only guard
+   * against filter/group/sort/search on hidden columns. Returns the visible
+   * field ids, or undefined when the share includes hidden fields.
+   */
+  async assertShareQueryFieldsVisible(
+    shareInfo: IShareViewInfo,
+    query: IShareQueryFieldRefs | undefined
+  ): Promise<string[] | undefined> {
+    return this.shareSocketService.assertQueryFieldsVisible(shareInfo, query);
   }
 
   async getViewAggregations(
@@ -192,6 +290,7 @@ export class ShareService {
     if (!shareMeta?.includeRecords) {
       return { aggregations: [] };
     }
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
     const viewId = shareInfo.view?.id;
     const filter = query?.filter ?? null;
     const groupBy = query?.groupBy ?? null;
@@ -222,6 +321,14 @@ export class ShareService {
     return { aggregations: result?.aggregations };
   }
 
+  async getViewAggregationsV2(
+    shareInfo: IShareViewInfo,
+    query: IShareViewAggregationsRo = {}
+  ): Promise<IAggregationVo> {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getAggregations(shareInfo, query);
+  }
+
   async getViewRowCount(
     shareInfo: IShareViewInfo,
     query?: IShareViewRowCountRo
@@ -232,6 +339,7 @@ export class ShareService {
       return { rowCount: 0 };
     }
 
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
     const { id } = view ?? {};
     const { filterByViewId } = linkOptions ?? {};
     const tableId = shareInfo.tableId;
@@ -241,17 +349,26 @@ export class ShareService {
     // even when they fall outside that view — otherwise an already-linked record outside
     // the configured view reports rowCount 0. T4864.
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const viewId = isLinkSelectionQuery ? id : filterByViewId ?? id;
-    const filter = isLinkSelectionQuery ? undefined : linkOptions?.filter ?? query?.filter;
+    const viewId = isLinkSelectionQuery ? id : (filterByViewId ?? id);
+    const filter = isLinkSelectionQuery ? undefined : (linkOptions?.filter ?? query?.filter);
     const result = await this.aggregationService.performRowCount(tableId, {
       ...query,
       viewId,
       filter,
+      search: scopeSearchToVisibleFields(query?.search, visibleFieldIds),
     });
 
     return {
       rowCount: result.rowCount,
     };
+  }
+
+  async getViewRowCountV2(
+    shareInfo: IShareViewInfo,
+    query?: IShareViewRowCountRo
+  ): Promise<IRowCountVo> {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getRowCount(shareInfo, query);
   }
 
   async getViewRecords(
@@ -264,6 +381,7 @@ export class ShareService {
       return { records: [] };
     }
 
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
     const { id, group } = view ?? {};
     const { filterByViewId, filter: linkFilter } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
@@ -276,13 +394,17 @@ export class ShareService {
       query?.projection,
       Boolean(linkOptions)
     );
+    // An empty projection reads as "every field" downstream.
+    if (!projection.length) {
+      return { records: [] };
+    }
 
     // Queries that load already-linked records (filterLinkCellSelected or explicit
     // selectedRecordIds) must return them in full, even when they fall outside the link
     // field's view scope — otherwise an already-linked record outside the configured
     // view renders blank. The view scope/filter only constrains the candidate list. T4864.
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
-    const filter = isLinkSelectionQuery ? undefined : query?.filter ?? linkFilter;
+    const filter = isLinkSelectionQuery ? undefined : (query?.filter ?? linkFilter);
 
     return await this.recordService.getRecords(
       tableId,
@@ -295,13 +417,57 @@ export class ShareService {
         groupBy: query?.groupBy ?? group,
         fieldKeyType: FieldKeyType.Id,
         projection,
-        search: query?.search,
+        search: scopeSearchToVisibleFields(query?.search, visibleFieldIds),
         filterLinkCellCandidate: query?.filterLinkCellCandidate,
         filterLinkCellSelected: query?.filterLinkCellSelected,
         selectedRecordIds: query?.selectedRecordIds,
       },
       true
     );
+  }
+
+  async getViewRecordsV2(
+    shareInfo: IShareViewInfo,
+    query?: IShareViewRecordsRo
+  ): Promise<IRecordsVo> {
+    const { tableId, view, linkOptions, shareMeta } = shareInfo;
+
+    if (!shareMeta?.includeRecords) {
+      return { records: [] };
+    }
+
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    const { id, group } = view ?? {};
+    const { filterByViewId, filter: linkFilter } = linkOptions ?? {};
+    const viewId = filterByViewId ?? id;
+    const shareVisibleFields = await this.getShareVisibleFieldsV2(shareInfo);
+    const projection = resolveShareRecordProjection(
+      shareVisibleFields,
+      query?.projection,
+      Boolean(linkOptions)
+    );
+    // An empty projection reads as "every field" downstream.
+    if (!projection.length) {
+      return { records: [] };
+    }
+    const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
+    const filter = isLinkSelectionQuery ? undefined : (query?.filter ?? linkFilter);
+
+    return this.recordOpenApiV2Service.getRecords(tableId, {
+      viewId: isLinkSelectionQuery ? id : viewId,
+      ignoreViewQuery: isLinkSelectionQuery || undefined,
+      skip: query?.skip ?? 0,
+      take: query?.take ?? 100,
+      filter,
+      orderBy: query?.orderBy,
+      groupBy: query?.groupBy ?? group,
+      fieldKeyType: FieldKeyType.Id,
+      projection,
+      search: query?.search,
+      filterLinkCellCandidate: query?.filterLinkCellCandidate,
+      filterLinkCellSelected: query?.filterLinkCellSelected,
+      selectedRecordIds: query?.selectedRecordIds,
+    });
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
@@ -351,10 +517,41 @@ export class ShareService {
       });
     }
 
+    // allowCopy only governs clipboard access to records the share exposes; when
+    // record sharing is disabled there is nothing to copy. The V1 path must
+    // mirror the V2 copy behaviour and return empty content, otherwise copy
+    // leaks records the share hides.
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return { content: '', header: [] };
+    }
+
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, shareViewCopyRo);
+    // SelectionService resolves an explicit projection before it applies the
+    // view's hidden-column filter, so bound it to the share scope here.
+    const projection =
+      visibleFieldIds && shareViewCopyRo.projection?.length
+        ? resolveShareRecordProjection(
+            await this.getShareVisibleFields(shareInfo),
+            shareViewCopyRo.projection,
+            false
+          )
+        : shareViewCopyRo.projection;
+
     return this.selectionService.copy(shareInfo.tableId, {
       viewId: shareInfo.view?.id,
       ...shareViewCopyRo,
+      projection,
+      search: scopeSearchToVisibleFields(shareViewCopyRo.search, visibleFieldIds),
     });
+  }
+
+  async copyV2(shareInfo: IShareViewInfo, shareViewCopyRo: IShareViewCopyQuery) {
+    await this.assertShareQueryFieldsVisible(shareInfo, shareViewCopyRo);
+    return this.sharedViewRecordQueryV2Service.getCopy(
+      shareInfo,
+      shareViewCopyRo,
+      this.isShareEditor(shareInfo)
+    );
   }
 
   // The field ids a share visitor is allowed to read: the view's non-hidden
@@ -372,6 +569,19 @@ export class ShareService {
     });
     return visibleFieldIds?.length
       ? fields.filter((f) => visibleFieldIds.includes(f.id) || f.isPrimary)
+      : fields;
+  }
+
+  private async getShareVisibleFieldsV2(shareInfo: IShareViewInfo): Promise<IFieldVo[]> {
+    const { tableId, view, linkOptions, shareMeta } = shareInfo;
+    const { filterByViewId, visibleFieldIds } = linkOptions ?? {};
+    const viewId = filterByViewId ?? view?.id;
+    const fields = await this.fieldOpenApiV2Service.getFields(tableId, {
+      viewId,
+      filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
+    });
+    return visibleFieldIds?.length
+      ? fields.filter((field) => visibleFieldIds.includes(field.id) || field.isPrimary)
       : fields;
   }
 
@@ -428,15 +638,22 @@ export class ShareService {
       recordsVo =
         query.type === ShareViewLinkRecordsType.Candidate
           ? await this.getFormLinkRecords(field, query)
-          : await this.getViewFilterLinkRecords(field, query);
+          : await this.getViewFilterLinkRecords(field, query, view);
     } else {
-      recordsVo = await this.getViewFilterLinkRecords(field, query);
+      recordsVo = await this.getViewFilterLinkRecords(field, query, view);
     }
     return recordsVo.records.map(({ id, name, fields }) => {
       const lookupFieldId = (field.options as ILinkFieldOptions).lookupFieldId;
       const title = lookupFieldId ? (fields[lookupFieldId] as string) : name;
       return { id, title };
     });
+  }
+
+  async getViewLinkRecordsV2(
+    shareInfo: IShareViewInfo,
+    query: IShareViewLinkRecordsRo
+  ): Promise<IShareViewLinkRecordsVo> {
+    return this.sharedViewRecordQueryV2Service.getLinkRecords(shareInfo, query);
   }
 
   async getFormLinkRecords(field: IFieldVo, query: IShareViewLinkRecordsRo) {
@@ -461,7 +678,11 @@ export class ShareService {
     );
   }
 
-  async getViewFilterLinkRecords(field: IFieldVo, query: IShareViewLinkRecordsRo) {
+  async getViewFilterLinkRecords(
+    field: IFieldVo,
+    query: IShareViewLinkRecordsRo,
+    view?: Pick<IViewVo, 'filter'>
+  ) {
     const { fieldId, skip, take, search } = query;
 
     const { foreignTableId, lookupFieldId } = field.options as ILinkFieldOptions;
@@ -475,6 +696,11 @@ export class ShareService {
         fieldKeyType: FieldKeyType.Id,
         projection: [lookupFieldId],
         filterLinkCellSelected: fieldId,
+        // Only foreign records linked from host rows the shared view shows: a
+        // bare filterLinkCellSelected otherwise lists every referenced foreign
+        // record, including those linked from rows the view filter hides
+        // (GHSA-4x7c-hmrf-xwg6).
+        linkSelectedHostFilter: view?.filter,
         cellFormat: CellFormat.Text,
       },
       true
@@ -498,8 +724,21 @@ export class ShareService {
         this.preCheckFieldHidden(view, fieldId);
       });
     }
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
 
-    return this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
+    return this.aggregationService.getGroupPoints(tableId, {
+      ...query,
+      viewId,
+      search: scopeSearchToVisibleFields(query?.search, visibleFieldIds),
+    });
+  }
+
+  async getViewGroupPointsV2(
+    shareInfo: IShareViewInfo,
+    query: IShareViewGroupPointsRo = {}
+  ): Promise<IGroupPointsVo> {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getGroupPoints(shareInfo, query);
   }
 
   async getViewCollaborators(shareInfo: IShareViewInfo, query: IShareViewCollaboratorsRo) {
@@ -531,7 +770,7 @@ export class ShareService {
       });
     }
 
-    await this.preCheckFieldHidden(view as IViewVo, fieldId);
+    this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // user field check
     const field = await this.fieldService.getField(tableId, fieldId);
@@ -549,6 +788,23 @@ export class ShareService {
     }
 
     return this.getViewFilterCollaborators(shareInfo, field, query);
+  }
+
+  async getViewCollaboratorsV2(
+    shareInfo: IShareViewInfo,
+    query: IShareViewCollaboratorsRo
+  ): Promise<IShareViewCollaboratorsVo> {
+    const collaborators = await this.sharedViewRecordQueryV2Service.getCollaborators(
+      shareInfo,
+      query,
+      this.isShareEditor(shareInfo)
+    );
+    return collaborators.map((collaborator) => ({
+      ...collaborator,
+      avatar: collaborator.avatar
+        ? getPublicFullStorageUrl(collaborator.avatar)
+        : collaborator.avatar,
+    }));
   }
 
   private async getViewFilterUserIds(
@@ -691,21 +947,53 @@ export class ShareService {
     }));
   }
 
-  async getShareSearchCount(tableId: string, query: ISearchCountRo) {
-    return this.aggregationService.getSearchCount(tableId, query);
+  async getShareSearchCount(shareInfo: IShareViewInfo, query: IShareViewSearchCountRo) {
+    const { tableId, view } = shareInfo;
+    // The visible ids double as the search projection: an all-field search then
+    // only touches share-visible columns.
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.aggregationService.getSearchCount(
+      tableId,
+      { ...query, viewId: view?.id },
+      visibleFieldIds
+    );
   }
 
-  async getShareSearchIndex(tableId: string, query: ISearchIndexByQueryRo) {
-    return this.aggregationService.getRecordIndexBySearchOrder(tableId, query);
+  async getShareSearchCountV2(shareInfo: IShareViewInfo, query: IShareViewSearchCountRo) {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getSearchCount(shareInfo, query);
+  }
+
+  async getShareSearchIndex(shareInfo: IShareViewInfo, query: IShareViewSearchIndexRo) {
+    const { tableId, view } = shareInfo;
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.aggregationService.getRecordIndexBySearchOrder(
+      tableId,
+      { ...query, viewId: view?.id },
+      visibleFieldIds
+    );
+  }
+
+  async getShareSearchIndexV2(shareInfo: IShareViewInfo, query: IShareViewSearchIndexRo) {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getSearchIndex(shareInfo, query);
   }
 
   async getViewCalendarDailyCollection(
     shareInfo: IShareViewInfo,
     query: IShareViewCalendarDailyCollectionRo
   ) {
+    // When record sharing is disabled the view exposes no records; the V1 path
+    // must mirror the V2 guard (shared-view-record-query-v2.service.ts) and
+    // return nothing, otherwise the calendar endpoint leaks the hidden records.
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return { countMap: {}, records: [] };
+    }
+    const shareVisibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
     const result = await this.aggregationService.getCalendarDailyCollection(shareInfo.tableId, {
       ...query,
       viewId: shareInfo.view?.id,
+      search: scopeSearchToVisibleFields(query.search, shareVisibleFieldIds),
     });
     // The daily collection returns full record snapshots; restrict them to the
     // share's visible fields so hidden columns are not leaked to the visitor.
@@ -721,7 +1009,26 @@ export class ShareService {
     };
   }
 
+  async getViewCalendarDailyCollectionV2(
+    shareInfo: IShareViewInfo,
+    query: IShareViewCalendarDailyCollectionRo
+  ) {
+    await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getCalendarDailyCollection(shareInfo, query);
+  }
+
   async buttonClick(shareInfo: IShareViewInfo, recordId: string, fieldId: string) {
+    if (this.cls.get('useV2')) {
+      const viewId = shareInfo.view?.id;
+      if (!viewId) {
+        throw new CustomHttpException('Shared view not found', HttpErrorCode.NOT_FOUND);
+      }
+      return this.recordOpenApiV2Service.buttonClick(shareInfo.tableId, recordId, fieldId, {
+        viewId,
+        includeHiddenFields: Boolean(shareInfo.shareMeta?.includeHiddenField),
+        includeRecords: Boolean(shareInfo.shareMeta?.includeRecords),
+      });
+    }
     await this.shareSocketService.validFieldSnapshotPermission(shareInfo, [fieldId]);
     await this.shareSocketService.validRecordSnapshotPermission(shareInfo, [recordId]);
     return this.recordOpenApiService.buttonClick(shareInfo.tableId, recordId, fieldId);

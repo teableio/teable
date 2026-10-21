@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type { TableAction, AppAction, AutomationAction } from '@teable/core';
+import type { TableAction, AppAction, AutomationAction, RoutineAction } from '@teable/core';
 import { HttpErrorCode } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
@@ -37,6 +37,12 @@ const map: Record<BaseNodeResourceType, Record<BaseNodeAction, string>> = {
     [BaseNodeAction.Update]: 'app|update',
     [BaseNodeAction.Delete]: 'app|delete',
   },
+  [BaseNodeResourceType.Routine]: {
+    [BaseNodeAction.Read]: 'routine|read',
+    [BaseNodeAction.Create]: 'routine|create',
+    [BaseNodeAction.Update]: 'routine|update',
+    [BaseNodeAction.Delete]: 'routine|delete',
+  },
 };
 
 export const checkBaseNodePermission = (
@@ -46,9 +52,17 @@ export const checkBaseNodePermission = (
 ): boolean => {
   const { resourceType } = node;
   const { resourceId } = node;
-  const { tablePermissionMap, permissionSet, appPermissionMap, workflowPermissionMap } =
-    permissionContext;
-  const checkAction = map[resourceType][action];
+  const {
+    tablePermissionMap,
+    permissionSet,
+    appPermissionMap,
+    workflowPermissionMap,
+    routinePermissionMap,
+  } = permissionContext;
+  // A type the map does not know (a row written by a newer edition, or a
+  // corrupt one) has no permission anyone could hold; it must not throw.
+  const checkAction = map[resourceType]?.[action];
+  if (!checkAction) return false;
   if (resourceType === BaseNodeResourceType.Table && tablePermissionMap) {
     return tablePermissionMap[resourceId]?.includes(checkAction as TableAction) ?? false;
   }
@@ -57,6 +71,9 @@ export const checkBaseNodePermission = (
   }
   if (resourceType === BaseNodeResourceType.Workflow && workflowPermissionMap) {
     return workflowPermissionMap[resourceId]?.includes(checkAction as AutomationAction) ?? false;
+  }
+  if (resourceType === BaseNodeResourceType.Routine && routinePermissionMap) {
+    return routinePermissionMap[resourceId]?.includes(checkAction as RoutineAction) ?? false;
   }
   return permissionSet.has(checkAction);
 };
@@ -73,7 +90,7 @@ export const checkBaseNodePermissionCreate = (
   const { resourceType } = node;
   if (!resourceType) {
     throw new CustomHttpException(
-      'Cannot create base node with empty resource type',
+      'Cannot create project node with empty resource type',
       HttpErrorCode.VALIDATION_ERROR,
       {
         localization: {

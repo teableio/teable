@@ -1,8 +1,8 @@
-import { Database, Home, Trash2, ShieldUser } from '@teable/icons';
+import { LayoutGrid, Home, ShieldUser } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
-import { Building2 } from 'lucide-react';
+import { Recycle, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -31,7 +31,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     {
       href: '/space/shared-base',
       text: t('space:sharedBase.title'),
-      Icon: Database,
+      Icon: LayoutGrid,
     },
     {
       href: `/enterprise/${organization?.id}`,
@@ -48,7 +48,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     {
       href: '/space/trash',
       text: t('noun.trash'),
-      Icon: Trash2,
+      Icon: Recycle,
     },
   ];
   return (

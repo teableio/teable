@@ -125,7 +125,7 @@ type CreateFieldsOptions = {
 
 @Injectable()
 export class FieldOpenApiService {
-  private logger = new Logger(FieldOpenApiService.name);
+  private readonly logger = new Logger(FieldOpenApiService.name);
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
@@ -1035,10 +1035,8 @@ export class FieldOpenApiService {
       if (!field.hasError) {
         await this.fieldService.markError(tableId, [field.id], true);
       }
-    } else {
-      if (field.hasError) {
-        await this.fieldService.markError(tableId, [field.id], false);
-      }
+    } else if (field.hasError) {
+      await this.fieldService.markError(tableId, [field.id], false);
     }
   }
 
@@ -1064,7 +1062,7 @@ export class FieldOpenApiService {
       },
     });
     const missingReferenceIds = uniqueFieldReferenceIds.filter(
-      (refId) => !curReference.find((ref) => ref.fromFieldId === refId)
+      (refId) => !curReference.some((ref) => ref.fromFieldId === refId)
     );
 
     if (missingReferenceIds.length) {
@@ -1583,6 +1581,15 @@ export class FieldOpenApiService {
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
     await this.assertTableWritable(tableId);
+    if (
+      updateFieldRo.unique !== undefined ||
+      updateFieldRo.notNull !== undefined ||
+      updateFieldRo.options !== undefined
+    ) {
+      throw new BadRequestException(
+        'Patching constraints and options requires v2; use field conversion on v1'
+      );
+    }
     const ops: IOtOperation[] = [];
     if (updateFieldRo.name) {
       const op = await this.updateUniqProperty(tableId, fieldId, 'name', updateFieldRo.name);
@@ -2050,6 +2057,9 @@ export class FieldOpenApiService {
         return [];
       }
 
+      // The route only checks the host table; reading a cross-base foreign table
+      // needs read access there too.
+      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
@@ -2060,6 +2070,7 @@ export class FieldOpenApiService {
         return [];
       }
 
+      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
@@ -2246,6 +2257,7 @@ export class FieldOpenApiService {
         return target;
       case isLookupOrRollup: {
         const picked = pick(source.lookupOptions ?? {}, [
+          'isUnique',
           'foreignTableId',
           'lookupFieldId',
           'linkFieldId',

@@ -16,6 +16,7 @@ import type {
   ComputedBeforeImageRecord,
   ComputedDependencyEdge,
   ComputedUpdatePlan,
+  SameTableBatch,
   UpdateStep,
 } from '../ComputedUpdatePlanner';
 import { isAllTargetRecordsReason } from '../ComputedUpdatePlanner';
@@ -26,9 +27,24 @@ export type ComputedUpdateStepDto = {
   level: number;
 };
 
+export type SameTableBatchDto = {
+  tableId: string;
+  steps: ComputedUpdateStepDto[];
+  minLevel: number;
+  maxLevel: number;
+};
+
 export type ComputedDependencyEdgeDto = {
   fromFieldId: string;
   toFieldId: string;
+  /**
+   * All target computed fields covered by this (deduplicated) propagation edge.
+   * Absent only on payloads serialized before this field existed; consumers must
+   * fall back to table-granular handling for such edges.
+   */
+  propagationTargetFieldIds?: string[];
+  /** Absent in old tasks; never infer complete provenance from fromFieldId. */
+  propagationSourceFieldIds?: string[];
   fromTableId: string;
   toTableId: string;
   linkFieldId?: string;
@@ -40,6 +56,7 @@ export type ComputedDependencyEdgeDto = {
     filterDto: unknown;
     includeBeforeImage?: boolean;
   };
+  restrictDirtySourceRecordIds?: string[];
   order: number;
 };
 
@@ -100,6 +117,7 @@ export type ComputedUpdateOutboxPayload = {
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
   beforeImageRecords: ComputedBeforeImageRecordDto[];
   steps: ComputedUpdateStepDto[];
+  sameTableBatches?: SameTableBatchDto[];
   edges: ComputedDependencyEdgeDto[];
   estimatedComplexity: number;
   changeType: ComputedUpdatePlan['changeType'];
@@ -111,6 +129,12 @@ export type ComputedUpdateOutboxPayload = {
   stageDepth?: number;
   /** Table IDs where ALL records should be seeded as dirty (avoids storing individual record IDs) */
   seedAllTableIds?: string[];
+  /** Whole-table seeding resume cursors (last seeded __id per table id). */
+  seedAllCursors?: Record<string, string>;
+  /** Stage-ledger scope (continuation chain root task id). */
+  ledgerScopeId?: string;
+  partialStageBudget?: ComputedUpdatePlan['partialStageBudget'];
+  terminalFieldErrors?: ComputedUpdatePlan['terminalFieldErrors'];
   orchestration?: ComputedRealtimeOrchestrationDto;
 };
 
@@ -128,6 +152,17 @@ export type ComputedUpdateOutboxTaskInput = ComputedUpdateOutboxPayload &
     affectedTableIds: string[];
     affectedFieldIds: string[];
     syncMaxLevel: number;
+    /**
+     * Earliest source-mutation time the task's work traces back to. Carried
+     * forward across stage continuations so the run-history ledger can derive
+     * source-change → converged end-to-end latency. Absent on fresh enqueues:
+     * the outbox stamps `now` at insert.
+     */
+    sourceChangedAt?: Date;
+    /** Original mutation field ids for this run. Bounded by schema width. */
+    sourceFieldIds?: ReadonlyArray<string>;
+    /** Task this continuation was staged from (lineage chain pointer). */
+    predecessorTaskId?: string;
   };
 
 export type ComputedUpdateOutboxItem = ComputedUpdateOutboxTaskInput & {
@@ -152,12 +187,31 @@ export const serializeComputedUpdatePlan = (
     extraSeedRecords: serializeSeedGroups(plan.extraSeedRecords),
     beforeImageRecords: serializeBeforeImageRecords(plan.beforeImageRecords ?? []),
     steps: plan.steps.map(serializeStep),
+    sameTableBatches: plan.sameTableBatches.map(serializeSameTableBatch),
     edges: plan.edges.map(serializeEdge),
     estimatedComplexity: plan.estimatedComplexity,
     changeType: plan.changeType,
     seedAllTableIds: plan.seedAllTableIds?.map((id) => id.toString()),
+    seedAllCursors:
+      plan.seedAllCursors && Object.keys(plan.seedAllCursors).length > 0
+        ? { ...plan.seedAllCursors }
+        : undefined,
+    ledgerScopeId: plan.ledgerScopeId,
+    partialStageBudget: plan.partialStageBudget,
+    terminalFieldErrors: plan.terminalFieldErrors,
   };
 };
+
+/**
+ * Lineage-scoped idempotency key for stage continuations: same-shape continuations
+ * from different runs, stages, or predecessor tasks must never merge in the outbox,
+ * or run progress, retries, and activity attribution blur together.
+ */
+export const buildContinuationPlanHash = (
+  basePlanHash: string,
+  lineage: { runId: string; stageIndex: number; predecessorTaskId: string }
+): string =>
+  `${basePlanHash}:run:${lineage.runId}:stage:${lineage.stageIndex}:from:${lineage.predecessorTaskId}`;
 
 export const computePlanHash = (payload: ComputedUpdateOutboxPayload, hasher: IHasher): string => {
   const hashInput = {
@@ -182,14 +236,26 @@ export const buildOutboxTaskInput = (params: {
   affectedTableIds?: string[];
   affectedFieldIds?: string[];
   stageDepth?: number;
+  sourceChangedAt?: Date;
+  predecessorTaskId?: string;
+  /** Original mutation field ids for this run. Bounded by schema width. */
+  sourceFieldIds?: ReadonlyArray<string>;
   orchestration?: ComputedRealtimeOrchestrationDto;
 }): ComputedUpdateOutboxTaskInput => {
   const payload = serializeComputedUpdatePlan(params.plan);
   const affectedTableIds = params.affectedTableIds ?? [
-    ...new Set(payload.steps.map((step) => step.tableId)),
+    ...new Set([
+      ...payload.steps.map((step) => step.tableId),
+      ...payload.edges.map((edge) => edge.toTableId),
+    ]),
   ];
+  const stepOutputFieldIds = payload.steps.flatMap((step) => step.fieldIds);
   const affectedFieldIds = params.affectedFieldIds ?? [
-    ...new Set(payload.steps.flatMap((step) => step.fieldIds)),
+    ...new Set(
+      stepOutputFieldIds.length > 0
+        ? stepOutputFieldIds
+        : payload.edges.flatMap((edge) => edge.propagationTargetFieldIds ?? [edge.toFieldId])
+    ),
   ];
 
   return {
@@ -204,6 +270,9 @@ export const buildOutboxTaskInput = (params: {
     affectedFieldIds,
     syncMaxLevel: params.syncMaxLevel,
     stageDepth: params.stageDepth ?? 0,
+    sourceChangedAt: params.sourceChangedAt,
+    predecessorTaskId: params.predecessorTaskId,
+    ...(params.sourceFieldIds?.length ? { sourceFieldIds: [...params.sourceFieldIds] } : {}),
     orchestration: params.orchestration,
   };
 };
@@ -279,6 +348,53 @@ export const deserializeComputedUpdatePlan = (
   );
   if (stepsResult.isErr()) return err(stepsResult.error);
 
+  const sameTableBatchesResult = (payload.sameTableBatches ?? []).reduce<
+    Result<SameTableBatch[], DomainError>
+  >(
+    (acc, batch) =>
+      acc.andThen((batches) =>
+        TableId.create(batch.tableId).andThen((tableId) => {
+          const batchStepsResult = batch.steps.reduce<Result<UpdateStep[], DomainError>>(
+            (stepAcc, step) =>
+              stepAcc.andThen((steps) =>
+                TableId.create(step.tableId)
+                  .andThen((stepTableId) =>
+                    step.fieldIds
+                      .reduce<Result<FieldId[], DomainError>>(
+                        (fieldAcc, fieldId) =>
+                          fieldAcc.andThen((fieldIds) =>
+                            FieldId.create(fieldId).map((id) => {
+                              fieldIds.push(id);
+                              return fieldIds;
+                            })
+                          ),
+                        ok([])
+                      )
+                      .map((fieldIds) => ({ tableId: stepTableId, fieldIds, level: step.level }))
+                  )
+                  .map((resolved) => {
+                    steps.push(resolved);
+                    return steps;
+                  })
+              ),
+            ok([])
+          );
+
+          return batchStepsResult.map((steps) => {
+            batches.push({
+              tableId,
+              steps,
+              minLevel: batch.minLevel,
+              maxLevel: batch.maxLevel,
+            });
+            return batches;
+          });
+        })
+      ),
+    ok([])
+  );
+  if (sameTableBatchesResult.isErr()) return err(sameTableBatchesResult.error);
+
   const edgesResult = payload.edges.reduce<Result<ComputedDependencyEdge[], DomainError>>(
     (acc, edge) =>
       acc.andThen((edges) => {
@@ -332,16 +448,80 @@ export const deserializeComputedUpdatePlan = (
                   }
                   const filterCondition = filterConditionResult?.value;
 
+                  const targetFieldIdsResult = (edge.propagationTargetFieldIds ?? []).reduce<
+                    Result<FieldId[], DomainError>
+                  >(
+                    (targetAcc, targetFieldId) =>
+                      targetAcc.andThen((targetIds) =>
+                        FieldId.create(targetFieldId).map((id) => {
+                          targetIds.push(id);
+                          return targetIds;
+                        })
+                      ),
+                    ok([])
+                  );
+                  if (targetFieldIdsResult.isErr()) return err(targetFieldIdsResult.error);
+                  const propagationTargetFieldIds =
+                    targetFieldIdsResult.value.length > 0 ? targetFieldIdsResult.value : undefined;
+
+                  if (
+                    edge.propagationSourceFieldIds !== undefined &&
+                    !Array.isArray(edge.propagationSourceFieldIds)
+                  ) {
+                    return err(
+                      domainError.validation({
+                        message: 'Invalid propagationSourceFieldIds in outbox payload',
+                      })
+                    );
+                  }
+                  const sourceFieldIdsResult = (edge.propagationSourceFieldIds ?? []).reduce<
+                    Result<FieldId[], DomainError>
+                  >(
+                    (sourceAcc, rawId) =>
+                      sourceAcc.andThen((ids) => FieldId.create(rawId).map((id) => [...ids, id])),
+                    ok([])
+                  );
+                  if (sourceFieldIdsResult.isErr()) return err(sourceFieldIdsResult.error);
+                  const propagationSourceFieldIds = sourceFieldIdsResult.value.length
+                    ? sourceFieldIdsResult.value
+                    : undefined;
+                  if (
+                    propagationSourceFieldIds &&
+                    !propagationSourceFieldIds.some((id) => id.equals(fromFieldId))
+                  ) {
+                    return err(
+                      domainError.validation({
+                        message: 'Source provenance must contain fromFieldId',
+                      })
+                    );
+                  }
+
+                  if (
+                    edge.restrictDirtySourceRecordIds !== undefined &&
+                    (!Array.isArray(edge.restrictDirtySourceRecordIds) ||
+                      edge.restrictDirtySourceRecordIds.some((id) => typeof id !== 'string'))
+                  ) {
+                    return err(
+                      domainError.validation({
+                        message: 'Invalid restrictDirtySourceRecordIds in outbox payload',
+                      })
+                    );
+                  }
+                  const restrictDirtySourceRecordIds = edge.restrictDirtySourceRecordIds;
+
                   if (edge.linkFieldId) {
                     return FieldId.create(edge.linkFieldId).map((linkFieldId) => ({
                       linkFieldId,
                       fromFieldId,
                       toFieldId,
+                      propagationTargetFieldIds,
+                      propagationSourceFieldIds,
                       fromTableId,
                       toTableId,
                       propagationMode: propagationMode ?? 'linkTraversal',
                       allTargetRecordsReasons: edge.allTargetRecordsReasons,
                       filterCondition,
+                      ...(restrictDirtySourceRecordIds ? { restrictDirtySourceRecordIds } : {}),
                       order: edge.order,
                     }));
                   }
@@ -349,11 +529,14 @@ export const deserializeComputedUpdatePlan = (
                     linkFieldId: undefined,
                     fromFieldId,
                     toFieldId,
+                    propagationTargetFieldIds,
+                    propagationSourceFieldIds,
                     fromTableId,
                     toTableId,
                     propagationMode: propagationMode ?? 'allTargetRecords',
                     allTargetRecordsReasons: edge.allTargetRecordsReasons,
                     filterCondition,
+                    ...(restrictDirtySourceRecordIds ? { restrictDirtySourceRecordIds } : {}),
                     order: edge.order,
                   });
                 })
@@ -389,14 +572,19 @@ export const deserializeComputedUpdatePlan = (
     edges: edgesResult.value,
     estimatedComplexity: payload.estimatedComplexity,
     changeType,
-    // Note: sameTableBatches are derived from steps at planning time,
-    // so we don't serialize/deserialize them. They will be empty for outbox tasks.
-    sameTableBatches: [],
+    sameTableBatches: sameTableBatchesResult.value,
     seedAllTableIds: payload.seedAllTableIds?.reduce<TableId[]>((acc, id) => {
       const result = TableId.create(id);
       if (result.isOk()) acc.push(result.value);
       return acc;
     }, []),
+    seedAllCursors:
+      payload.seedAllCursors && Object.keys(payload.seedAllCursors).length > 0
+        ? { ...payload.seedAllCursors }
+        : undefined,
+    ledgerScopeId: payload.ledgerScopeId,
+    partialStageBudget: payload.partialStageBudget,
+    terminalFieldErrors: payload.terminalFieldErrors,
   });
 };
 
@@ -406,9 +594,30 @@ const serializeStep = (step: UpdateStep): ComputedUpdateStepDto => ({
   level: step.level,
 });
 
+const serializeSameTableBatch = (batch: SameTableBatch): SameTableBatchDto => ({
+  tableId: batch.tableId.toString(),
+  steps: batch.steps.map(serializeStep),
+  minLevel: batch.minLevel,
+  maxLevel: batch.maxLevel,
+});
+
 const serializeEdge = (edge: ComputedDependencyEdge): ComputedDependencyEdgeDto => ({
   fromFieldId: edge.fromFieldId.toString(),
   toFieldId: edge.toFieldId.toString(),
+  ...(edge.propagationSourceFieldIds?.length
+    ? {
+        propagationSourceFieldIds: [
+          ...new Set(edge.propagationSourceFieldIds.map((id) => id.toString())),
+        ].sort((a, b) => Number(a > b) - Number(a < b)),
+      }
+    : {}),
+  // Always emit targets (defaulting to toFieldId) so deserialized edges keep
+  // field-granular target info; presence marks the info as trustworthy.
+  propagationTargetFieldIds: [
+    ...new Set(
+      (edge.propagationTargetFieldIds ?? [edge.toFieldId]).map((fieldId) => fieldId.toString())
+    ),
+  ],
   fromTableId: edge.fromTableId.toString(),
   toTableId: edge.toTableId.toString(),
   linkFieldId: edge.linkFieldId?.toString(),
@@ -423,6 +632,9 @@ const serializeEdge = (edge: ComputedDependencyEdge): ComputedDependencyEdgeDto 
         includeBeforeImage: edge.filterCondition.includeBeforeImage,
       }
     : undefined,
+  ...(edge.restrictDirtySourceRecordIds
+    ? { restrictDirtySourceRecordIds: [...edge.restrictDirtySourceRecordIds] }
+    : {}),
   order: edge.order,
 });
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { listPluginPanels } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useUiDirection } from '@teable/ui-lib';
 import { Resizable } from 're-resizable';
 import { usePluginPanelStorage } from './hooks/usePluginPanelStorage';
 import { DEFAULT_PLUGIN_PANEL_WIDTH } from './hooks/usePluginPanelStore';
@@ -15,31 +16,29 @@ export const PluginPanelContainer = ({ tableId }: { tableId: string }) => {
     queryFn: ({ queryKey }) => listPluginPanels(queryKey[1]).then((res) => res.data),
   });
 
+  // `re-resizable` handles are physical. This panel docks to the inline-end
+  // edge, so under an RTL interface it sits on the left and the edge the user
+  // drags is its RIGHT one.
+  const isRtl = useUiDirection() === 'rtl';
+
   return (
     <Resizable
-      className="ml-1 bg-background px-1"
+      className="ms-1 bg-background px-1"
       size={{ width, height: '100%' }}
       defaultSize={{ width: DEFAULT_PLUGIN_PANEL_WIDTH, height: '100%' }}
       maxWidth={'60%'}
       minWidth={'300px'}
-      enable={{
-        left: true,
-      }}
+      enable={isRtl ? { right: true } : { left: true }}
       onResizeStop={(_e, _direction, ref) => {
         updateWidth(ref.style.width);
       }}
-      handleClasses={{
-        left: 'group',
-      }}
-      handleStyles={{
-        left: {
-          width: '4px',
-          left: '0',
-        },
-      }}
+      handleClasses={isRtl ? { right: 'group' } : { left: 'group' }}
+      handleStyles={
+        isRtl ? { right: { width: '4px', right: '0' } } : { left: { width: '4px', left: '0' } }
+      }
       handleComponent={{
         // eslint-disable-next-line tailwindcss/no-unnecessary-arbitrary-value
-        left: (
+        [isRtl ? 'right' : 'left']: (
           <div className="h-full w-px bg-border group-hover:px-[1.5px] group-active:px-[1.5px]"></div>
         ),
       }}

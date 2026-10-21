@@ -2,6 +2,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { FunctionName } from '@teable/v2-core';
 
+import type { FormulaSqlPgBindings } from './FormulaSqlPgBindings';
 import {
   DATE_ADD_UNIT_ALIASES,
   DATE_ADD_UNIT_SQL,
@@ -12,7 +13,12 @@ import {
   IS_SAME_UNIT_SQL,
 } from './FormulaSqlPgExpressionBuilder';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
-import { buildErrorLiteral, extractJsonScalarText, sqlStringLiteral } from './PgSqlHelpers';
+import {
+  buildErrorLiteral,
+  escapeSqlLiteral,
+  extractJsonScalarText,
+  sqlStringLiteral,
+} from './PgSqlHelpers';
 import {
   buildErrorMessageSql,
   combineErrorConditions,
@@ -34,8 +40,8 @@ const NULL_TIMESTAMPTZ = 'NULL::timestamptz';
 export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private readonly functionHandlers: Partial<Record<FunctionName, (params: SqlExpr[]) => SqlExpr>>;
 
-  constructor(translator: FormulaSqlPgTranslator) {
-    super(translator);
+  constructor(translator: FormulaSqlPgTranslator, bindings?: FormulaSqlPgBindings) {
+    super(translator, bindings);
     this.functionHandlers = {
       [FunctionName.Sum]: (params) => this.sum(params),
       [FunctionName.Average]: (params) => this.average(params),
@@ -86,7 +92,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       [FunctionName.Error]: (params) => this.errorFunc(params),
       [FunctionName.IsError]: (params) => this.isError(params),
 
-      [FunctionName.Today]: () => makeExpr('CURRENT_DATE', 'datetime', false),
+      [FunctionName.Today]: () =>
+        // Store local midnight as an instant so downstream timezone conversion preserves 00:00.
+        makeExpr(
+          this.budget
+            .sql`(((CURRENT_TIMESTAMP AT TIME ZONE ${this.formulaTimeZoneSql()})::date::timestamp) AT TIME ZONE ${this.formulaTimeZoneSql()})`,
+          'datetime',
+          false
+        ),
       [FunctionName.Now]: () => makeExpr('NOW()', 'datetime', false),
       [FunctionName.Year]: (params) => this.extractDatePart('YEAR', params),
       [FunctionName.Month]: (params) => this.extractDatePart('MONTH', params),
@@ -114,9 +127,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       [FunctionName.CreatedTime]: (params) => this.createdTime(params),
       [FunctionName.LastModifiedTime]: (params) => this.lastModifiedTime(params),
       [FunctionName.RecordId]: () =>
-        makeExpr(`"${this.translator.tableAlias}".__id`, 'string', false),
+        makeExpr(this.budget.sql`"${this.translator.tableAlias}".__id`, 'string', false),
       [FunctionName.AutoNumber]: () =>
-        makeExpr(`"${this.translator.tableAlias}".__auto_number`, 'number', false),
+        makeExpr(this.budget.sql`"${this.translator.tableAlias}".__auto_number`, 'number', false),
 
       [FunctionName.ArrayJoin]: (params) => this.arrayJoin(params),
       [FunctionName.ArrayCompact]: (params) => this.arrayCompact(params),
@@ -143,37 +156,50 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         .filter((p) => p !== arrayExpr)
         .map((p) => this.coerceToNumber(p, 'sum'));
       const scalarTerms = scalars.map((p) => p.valueSql);
-      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars]);
+      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars], this.budget);
       const scalarErrorMessage = buildErrorMessageSql(
         [arrayExpr, ...scalars],
-        buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+        this.budget
       );
       const normalizedArray = this.normalizeArrayExpr(arrayExpr);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         arrayExpr.errorConditionSql,
         arrayExpr.errorMessageSql
       );
       const elementNumber = this.coerceToNumber(elemExpr, 'sum');
-      const arraySumSql = `(SELECT SUM(${elementNumber.valueSql})
+      const arraySumSql = this.budget.sql`(SELECT SUM(${elementNumber.valueSql})
         FROM jsonb_array_elements(${normalizedArray}) AS t(elem)
       )`;
-      const scalarSumSql = scalarTerms.length ? `(${scalarTerms.join(' + ')})` : '';
-      const sumSql = scalarSumSql ? `(${arraySumSql}) + ${scalarSumSql}` : arraySumSql;
-      const valueSql = guardValueSql(sumSql, scalarErrorCondition);
+      const scalarSumSql = scalarTerms.length
+        ? this.budget.sql`(${this.budget.join(scalarTerms, ' + ')})`
+        : '';
+      const sumSql = scalarSumSql
+        ? this.budget.sql`(${arraySumSql}) + ${scalarSumSql}`
+        : arraySumSql;
+      const valueSql = guardValueSql(sumSql, scalarErrorCondition, this.budget);
       return makeExpr(valueSql, 'number', false, scalarErrorCondition, scalarErrorMessage);
     }
 
     const numericParams = params.map((param) => this.coerceToNumber(param, 'sum'));
-    const errorCondition = combineErrorConditions(numericParams);
+    const errorCondition = combineErrorConditions(numericParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       numericParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
-    const sumSql = numericParams.map((param) => param.valueSql).join(' + ');
-    const valueSql = guardValueSql(sumSql.length ? `(${sumSql})` : '0', errorCondition);
+    const sumSql = this.budget.join(
+      numericParams.map((param) => param.valueSql),
+      ' + '
+    );
+    const valueSql = guardValueSql(
+      sumSql.length ? this.budget.sql`(${sumSql})` : '0',
+      errorCondition,
+      this.budget
+    );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
 
@@ -186,44 +212,59 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         .filter((p) => p !== arrayExpr)
         .map((p) => this.coerceToNumber(p, 'average'));
       const scalarTerms = scalars.map((p) => p.valueSql);
-      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars]);
+      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars], this.budget);
       const scalarErrorMessage = buildErrorMessageSql(
         [arrayExpr, ...scalars],
-        buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+        this.budget
       );
       const normalizedArray = this.normalizeArrayExpr(arrayExpr);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         arrayExpr.errorConditionSql,
         arrayExpr.errorMessageSql
       );
       const elementNumber = this.coerceToNumber(elemExpr, 'average');
-      const arraySumSql = `(SELECT SUM(${elementNumber.valueSql})
+      const arraySumSql = this.budget.sql`(SELECT SUM(${elementNumber.valueSql})
         FROM jsonb_array_elements(${normalizedArray}) AS t(elem)
       )`;
-      const arrayCountSql = `jsonb_array_length(${normalizedArray})`;
-      const scalarSumSql = scalarTerms.length ? `(${scalarTerms.join(' + ')})` : '';
-      const totalSumSql = scalarSumSql ? `(${arraySumSql}) + ${scalarSumSql}` : arraySumSql;
+      const arrayCountSql = this.budget.sql`jsonb_array_length(${normalizedArray})`;
+      const scalarSumSql = scalarTerms.length
+        ? this.budget.sql`(${this.budget.join(scalarTerms, ' + ')})`
+        : '';
+      const totalSumSql = scalarSumSql
+        ? this.budget.sql`(${arraySumSql}) + ${scalarSumSql}`
+        : arraySumSql;
       const totalCountSql = scalarTerms.length
-        ? `(${arrayCountSql}) + ${scalarTerms.length}`
+        ? this.budget.sql`(${arrayCountSql}) + ${scalarTerms.length}`
         : arrayCountSql;
-      const denominatorSql = `NULLIF(${totalCountSql}, 0)`;
-      const valueSql = guardValueSql(`(${totalSumSql}) / ${denominatorSql}`, scalarErrorCondition);
+      const denominatorSql = this.budget.sql`NULLIF(${totalCountSql}, 0)`;
+      const valueSql = guardValueSql(
+        this.budget.sql`(${totalSumSql}) / ${denominatorSql}`,
+        scalarErrorCondition,
+        this.budget
+      );
       return makeExpr(valueSql, 'number', false, scalarErrorCondition, scalarErrorMessage);
     }
     const numericParams = params.map((param) => this.coerceToNumber(param, 'average'));
-    const errorCondition = combineErrorConditions(numericParams);
+    const errorCondition = combineErrorConditions(numericParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       numericParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
-    const sumSql = numericParams.map((param) => param.valueSql).join(' + ');
-    const numerator = sumSql.length ? `(${sumSql})` : '0';
+    const sumSql = this.budget.join(
+      numericParams.map((param) => param.valueSql),
+      ' + '
+    );
+    const numerator = sumSql.length ? this.budget.sql`(${sumSql})` : '0';
     const valueSql = guardValueSql(
-      `(CASE WHEN ${params.length} = 0 THEN NULL ELSE ${numerator} / ${params.length} END)`,
-      errorCondition
+      this.budget
+        .sql`(CASE WHEN ${params.length} = 0 THEN NULL ELSE ${numerator} / ${params.length} END)`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
@@ -238,14 +279,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         .filter((p) => p !== arrayExpr)
         .map((p) => (preferDatetime ? this.coerceToDatetime(p) : this.coerceToNumber(p, 'max')));
       const scalarTerms = scalars.map((p) => p.valueSql);
-      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars]);
+      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars], this.budget);
       const scalarErrorMessage = buildErrorMessageSql(
         [arrayExpr, ...scalars],
-        buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+        this.budget
       );
       const normalizedArray = this.normalizeArrayExpr(arrayExpr);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         arrayExpr.errorConditionSql,
@@ -254,11 +296,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       const elementValue = preferDatetime
         ? this.coerceToDatetime(elemExpr)
         : this.coerceToNumber(elemExpr, 'max');
-      const arrayMaxSql = `(SELECT MAX(${elementValue.valueSql})
+      const arrayMaxSql = this.budget.sql`(SELECT MAX(${elementValue.valueSql})
         FROM jsonb_array_elements(${normalizedArray}) AS t(elem)
       )`;
       const candidates = [arrayMaxSql, ...scalarTerms];
-      const valueSql = guardValueSql(`GREATEST(${candidates.join(', ')})`, scalarErrorCondition);
+      const valueSql = guardValueSql(
+        this.budget.sql`GREATEST(${this.budget.join(candidates, ', ')})`,
+        scalarErrorCondition,
+        this.budget
+      );
       return makeExpr(
         valueSql,
         preferDatetime ? 'datetime' : 'number',
@@ -270,14 +316,19 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const typedParams = params.map((param) =>
       preferDatetime ? this.coerceToDatetime(param) : this.coerceToNumber(param, 'max')
     );
-    const errorCondition = combineErrorConditions(typedParams);
+    const errorCondition = combineErrorConditions(typedParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       typedParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `GREATEST(${typedParams.map((p) => p.valueSql).join(', ')})`,
-      errorCondition
+      this.budget.sql`GREATEST(${this.budget.join(
+        typedParams.map((p) => p.valueSql),
+        ', '
+      )})`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(
       valueSql,
@@ -298,14 +349,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         .filter((p) => p !== arrayExpr)
         .map((p) => (preferDatetime ? this.coerceToDatetime(p) : this.coerceToNumber(p, 'min')));
       const scalarTerms = scalars.map((p) => p.valueSql);
-      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars]);
+      const scalarErrorCondition = combineErrorConditions([arrayExpr, ...scalars], this.budget);
       const scalarErrorMessage = buildErrorMessageSql(
         [arrayExpr, ...scalars],
-        buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+        this.budget
       );
       const normalizedArray = this.normalizeArrayExpr(arrayExpr);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         arrayExpr.errorConditionSql,
@@ -314,11 +366,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       const elementValue = preferDatetime
         ? this.coerceToDatetime(elemExpr)
         : this.coerceToNumber(elemExpr, 'min');
-      const arrayMinSql = `(SELECT MIN(${elementValue.valueSql})
+      const arrayMinSql = this.budget.sql`(SELECT MIN(${elementValue.valueSql})
         FROM jsonb_array_elements(${normalizedArray}) AS t(elem)
       )`;
       const candidates = [arrayMinSql, ...scalarTerms];
-      const valueSql = guardValueSql(`LEAST(${candidates.join(', ')})`, scalarErrorCondition);
+      const valueSql = guardValueSql(
+        this.budget.sql`LEAST(${this.budget.join(candidates, ', ')})`,
+        scalarErrorCondition,
+        this.budget
+      );
       return makeExpr(
         valueSql,
         preferDatetime ? 'datetime' : 'number',
@@ -330,14 +386,19 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const typedParams = params.map((param) =>
       preferDatetime ? this.coerceToDatetime(param) : this.coerceToNumber(param, 'min')
     );
-    const errorCondition = combineErrorConditions(typedParams);
+    const errorCondition = combineErrorConditions(typedParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       typedParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `LEAST(${typedParams.map((p) => p.valueSql).join(', ')})`,
-      errorCondition
+      this.budget.sql`LEAST(${this.budget.join(
+        typedParams.map((p) => p.valueSql),
+        ', '
+      )})`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(
       valueSql,
@@ -357,9 +418,10 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const elementNumber = this.coerceArrayElementToNumber(arrayExpr, 'elem', reason);
     const elementValueSql = guardValueSql(
       op(elementNumber.valueSql),
-      elementNumber.errorConditionSql
+      elementNumber.errorConditionSql,
+      this.budget
     );
-    const valueSql = `(SELECT jsonb_agg(to_jsonb(${elementValueSql}) ORDER BY ord)
+    const valueSql = this.budget.sql`(SELECT jsonb_agg(to_jsonb(${elementValueSql}) ORDER BY ord)
       FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS _jae(elem, ord)
     )`;
     return makeExpr(
@@ -367,7 +429,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'number',
       true,
       arrayExpr.errorConditionSql,
-      arrayExpr.errorMessageSql
+      arrayExpr.errorMessageSql,
+      undefined,
+      'json'
     );
   }
 
@@ -380,30 +444,33 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         return this.vectorizeArrayScalar(
           value,
           precision,
-          (leftSql, rightSql) => `ROUND(${leftSql}::numeric, ${rightSql}::integer)`,
+          (leftSql, rightSql) => this.budget.sql`ROUND(${leftSql}::numeric, ${rightSql}::integer)`,
           'round'
         );
       }
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `ROUND(${valueSql}::numeric)`,
+        (valueSql: string) => this.budget.sql`ROUND(${valueSql}::numeric)`,
         'round'
       );
     }
     const numericValue = this.coerceToNumber(value, 'round');
     const numericPrecision = precision ? this.coerceToNumber(precision, 'round') : undefined;
     const errorCondition = combineErrorConditions(
-      numericPrecision ? [numericValue, numericPrecision] : [numericValue]
+      numericPrecision ? [numericValue, numericPrecision] : [numericValue],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       numericPrecision ? [numericValue, numericPrecision] : [numericValue],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     const valueSql = precision
-      ? `ROUND(${numericValue.valueSql}::numeric, ${numericPrecision?.valueSql}::integer)`
-      : `ROUND(${numericValue.valueSql}::numeric)`;
+      ? this.budget
+          .sql`ROUND(${numericValue.valueSql}::numeric, ${numericPrecision?.valueSql}::integer)`
+      : this.budget.sql`ROUND(${numericValue.valueSql}::numeric)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -421,40 +488,42 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           value,
           precision,
           (leftSql, rightSql) => {
-            const factor = `POWER(10, ${rightSql}::integer)`;
-            return `CEIL(${leftSql} * ${factor}) / ${factor}`;
+            const factor = this.budget.sql`POWER(10, ${rightSql}::integer)`;
+            return this.budget.sql`CEIL(${leftSql} * ${factor}) / ${factor}`;
           },
           'roundup'
         );
       }
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `CEIL(${valueSql})`,
+        (valueSql: string) => this.budget.sql`CEIL(${valueSql})`,
         'roundup'
       );
     }
     const numericValue = this.coerceToNumber(value, 'roundup');
     const numericPrecision = precision ? this.coerceToNumber(precision, 'roundup') : undefined;
     const errorCondition = combineErrorConditions(
-      numericPrecision ? [numericValue, numericPrecision] : [numericValue]
+      numericPrecision ? [numericValue, numericPrecision] : [numericValue],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       numericPrecision ? [numericValue, numericPrecision] : [numericValue],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     if (!precision) {
       return makeExpr(
-        guardValueSql(`CEIL(${numericValue.valueSql})`, errorCondition),
+        guardValueSql(this.budget.sql`CEIL(${numericValue.valueSql})`, errorCondition, this.budget),
         'number',
         false,
         errorCondition,
         errorMessage
       );
     }
-    const factor = `POWER(10, ${numericPrecision?.valueSql}::integer)`;
-    const valueSql = `CEIL(${numericValue.valueSql} * ${factor}) / ${factor}`;
+    const factor = this.budget.sql`POWER(10, ${numericPrecision?.valueSql}::integer)`;
+    const valueSql = this.budget.sql`CEIL(${numericValue.valueSql} * ${factor}) / ${factor}`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -472,40 +541,46 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           value,
           precision,
           (leftSql, rightSql) => {
-            const factor = `POWER(10, ${rightSql}::integer)`;
-            return `FLOOR(${leftSql} * ${factor}) / ${factor}`;
+            const factor = this.budget.sql`POWER(10, ${rightSql}::integer)`;
+            return this.budget.sql`FLOOR(${leftSql} * ${factor}) / ${factor}`;
           },
           'rounddown'
         );
       }
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `FLOOR(${valueSql})`,
+        (valueSql: string) => this.budget.sql`FLOOR(${valueSql})`,
         'rounddown'
       );
     }
     const numericValue = this.coerceToNumber(value, 'rounddown');
     const numericPrecision = precision ? this.coerceToNumber(precision, 'rounddown') : undefined;
     const errorCondition = combineErrorConditions(
-      numericPrecision ? [numericValue, numericPrecision] : [numericValue]
+      numericPrecision ? [numericValue, numericPrecision] : [numericValue],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       numericPrecision ? [numericValue, numericPrecision] : [numericValue],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     if (!precision) {
       return makeExpr(
-        guardValueSql(`FLOOR(${numericValue.valueSql})`, errorCondition),
+        guardValueSql(
+          this.budget.sql`FLOOR(${numericValue.valueSql})`,
+          errorCondition,
+          this.budget
+        ),
         'number',
         false,
         errorCondition,
         errorMessage
       );
     }
-    const factor = `POWER(10, ${numericPrecision?.valueSql}::integer)`;
-    const valueSql = `FLOOR(${numericValue.valueSql} * ${factor}) / ${factor}`;
+    const factor = this.budget.sql`POWER(10, ${numericPrecision?.valueSql}::integer)`;
+    const valueSql = this.budget.sql`FLOOR(${numericValue.valueSql} * ${factor}) / ${factor}`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -519,14 +594,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `CEIL(${valueSql})`,
+        (valueSql: string) => this.budget.sql`CEIL(${valueSql})`,
         'ceiling'
       );
     }
     const numeric = this.coerceToNumber(value, 'ceiling');
     const errorCondition = numeric.errorConditionSql;
     return makeExpr(
-      guardValueSql(`CEIL(${numeric.valueSql})`, errorCondition),
+      guardValueSql(this.budget.sql`CEIL(${numeric.valueSql})`, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -540,14 +615,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `FLOOR(${valueSql})`,
+        (valueSql: string) => this.budget.sql`FLOOR(${valueSql})`,
         'floor'
       );
     }
     const numeric = this.coerceToNumber(value, 'floor');
     const errorCondition = numeric.errorConditionSql;
     return makeExpr(
-      guardValueSql(`FLOOR(${numeric.valueSql})`, errorCondition),
+      guardValueSql(this.budget.sql`FLOOR(${numeric.valueSql})`, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -560,15 +635,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'even');
     const valueSql = this.withValueAlias(numeric.valueSql, (ref) => {
-      const rounded = `FLOOR(${ref})`;
-      const roundedNumeric = `(${rounded})::numeric`;
-      return `(CASE
+      const rounded = this.budget.sql`FLOOR(${ref})`;
+      const roundedNumeric = this.budget.sql`(${rounded})::numeric`;
+      return this.budget.sql`(CASE
         WHEN MOD(${roundedNumeric}, 2::numeric) = 0 THEN ${rounded}
         ELSE (${rounded} + 1)
       END)`;
     });
     return makeExpr(
-      guardValueSql(valueSql, numeric.errorConditionSql),
+      guardValueSql(valueSql, numeric.errorConditionSql, this.budget),
       'number',
       false,
       numeric.errorConditionSql,
@@ -581,15 +656,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'odd');
     const valueSql = this.withValueAlias(numeric.valueSql, (ref) => {
-      const rounded = `FLOOR(${ref})`;
-      const roundedNumeric = `(${rounded})::numeric`;
-      return `(CASE
+      const rounded = this.budget.sql`FLOOR(${ref})`;
+      const roundedNumeric = this.budget.sql`(${rounded})::numeric`;
+      return this.budget.sql`(CASE
         WHEN MOD(${roundedNumeric}, 2::numeric) <> 0 THEN ${rounded}
         ELSE (${rounded} + 1)
       END)`;
     });
     return makeExpr(
-      guardValueSql(valueSql, numeric.errorConditionSql),
+      guardValueSql(valueSql, numeric.errorConditionSql, this.budget),
       'number',
       false,
       numeric.errorConditionSql,
@@ -603,13 +678,17 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       return this.vectorizeUnaryNumericArray(
         value,
-        (valueSql: string) => `FLOOR(${valueSql})`,
+        (valueSql: string) => this.budget.sql`FLOOR(${valueSql})`,
         'int'
       );
     }
     const numeric = this.coerceToNumber(value, 'int');
     return makeExpr(
-      guardValueSql(`FLOOR(${numeric.valueSql})`, numeric.errorConditionSql),
+      guardValueSql(
+        this.budget.sql`FLOOR(${numeric.valueSql})`,
+        numeric.errorConditionSql,
+        this.budget
+      ),
       'number',
       false,
       numeric.errorConditionSql,
@@ -622,7 +701,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'abs');
     return makeExpr(
-      guardValueSql(`ABS(${numeric.valueSql})`, numeric.errorConditionSql),
+      guardValueSql(
+        this.budget.sql`ABS(${numeric.valueSql})`,
+        numeric.errorConditionSql,
+        this.budget
+      ),
       'number',
       false,
       numeric.errorConditionSql,
@@ -635,7 +718,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'sqrt');
     return makeExpr(
-      guardValueSql(`SQRT(${numeric.valueSql})`, numeric.errorConditionSql),
+      guardValueSql(
+        this.budget.sql`SQRT(${numeric.valueSql})`,
+        numeric.errorConditionSql,
+        this.budget
+      ),
       'number',
       false,
       numeric.errorConditionSql,
@@ -649,14 +736,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!base || !exp) return makeExpr('NULL', 'number', false);
     const baseNumeric = this.coerceToNumber(base, 'power');
     const expNumeric = this.coerceToNumber(exp, 'power');
-    const errorCondition = combineErrorConditions([baseNumeric, expNumeric]);
+    const errorCondition = combineErrorConditions([baseNumeric, expNumeric], this.budget);
     const errorMessage = buildErrorMessageSql(
       [baseNumeric, expNumeric],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `POWER(${baseNumeric.valueSql}, ${expNumeric.valueSql})`,
-      errorCondition
+      this.budget.sql`POWER(${baseNumeric.valueSql}, ${expNumeric.valueSql})`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
@@ -666,7 +755,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'exp');
     return makeExpr(
-      guardValueSql(`EXP(${numeric.valueSql})`, numeric.errorConditionSql),
+      guardValueSql(
+        this.budget.sql`EXP(${numeric.valueSql})`,
+        numeric.errorConditionSql,
+        this.budget
+      ),
       'number',
       false,
       numeric.errorConditionSql,
@@ -681,7 +774,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const numericValue = this.coerceToNumber(value, 'log');
     if (!base) {
       return makeExpr(
-        guardValueSql(`LN(${numericValue.valueSql})`, numericValue.errorConditionSql),
+        guardValueSql(
+          this.budget.sql`LN(${numericValue.valueSql})`,
+          numericValue.errorConditionSql,
+          this.budget
+        ),
         'number',
         false,
         numericValue.errorConditionSql,
@@ -689,15 +786,17 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       );
     }
     const numericBase = this.coerceToNumber(base, 'log');
-    const errorCondition = combineErrorConditions([numericValue, numericBase]);
+    const errorCondition = combineErrorConditions([numericValue, numericBase], this.budget);
     const errorMessage = buildErrorMessageSql(
       [numericValue, numericBase],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_number')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_number', this.budget),
+      this.budget
     );
-    const baseLog = `LN(${numericBase.valueSql})`;
+    const baseLog = this.budget.sql`LN(${numericBase.valueSql})`;
     const valueSql = guardValueSql(
-      `(LN(${numericValue.valueSql}) / NULLIF(${baseLog}, 0))`,
-      errorCondition
+      this.budget.sql`(LN(${numericValue.valueSql}) / NULLIF(${baseLog}, 0))`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
@@ -708,18 +807,21 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!dividend || !divisor) return makeExpr('NULL', 'number', false);
     const left = this.coerceToNumber(dividend, 'mod');
     const right = this.coerceToNumber(divisor, 'mod');
-    const divZeroCondition = `(${right.valueSql}) = 0`;
-    const errorCondition = combineErrorConditions([
-      left,
-      right,
-      makeExpr(
-        'NULL',
-        'number',
-        false,
-        divZeroCondition,
-        buildErrorLiteral('DIV0', 'division_by_zero')
-      ),
-    ]);
+    const divZeroCondition = this.budget.sql`(${right.valueSql}) = 0`;
+    const errorCondition = combineErrorConditions(
+      [
+        left,
+        right,
+        makeExpr(
+          'NULL',
+          'number',
+          false,
+          divZeroCondition,
+          buildErrorLiteral('DIV0', 'division_by_zero', this.budget)
+        ),
+      ],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       [
         left,
@@ -729,14 +831,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'number',
           false,
           divZeroCondition,
-          buildErrorLiteral('DIV0', 'division_by_zero')
+          buildErrorLiteral('DIV0', 'division_by_zero', this.budget)
         ),
       ],
-      buildErrorLiteral('DIV0', 'division_by_zero')
+      buildErrorLiteral('DIV0', 'division_by_zero', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `MOD(${left.valueSql}::numeric, ${right.valueSql}::numeric)::double precision`,
-      errorCondition
+      this.budget.sql`MOD(${left.valueSql}::numeric, ${right.valueSql}::numeric)::double precision`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
@@ -748,8 +852,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       return this.vectorizeUnaryNumericArray(textExpr, (valueSql: string) => valueSql, 'value');
     }
     const numeric = this.coerceToNumber(textExpr, 'value');
+    // v1 parity: VALUE(null|''|non-numeric) is null, never 0 (T6520)
     return makeExpr(
-      `COALESCE(${numeric.valueSql}, 0)`,
+      numeric.valueSql,
       'number',
       false,
       numeric.errorConditionSql,
@@ -762,14 +867,18 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     // Do not apply formatting when converting to string to match v1 behavior
     // where String(value) is used instead of formatted strings
     const parts = params.map((param) => this.coerceToString(param, false));
-    const errorCondition = combineErrorConditions(parts);
+    const errorCondition = combineErrorConditions(parts, this.budget);
     const errorMessage = buildErrorMessageSql(
       parts,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `CONCAT(${parts.map((p) => p.valueSql).join(', ')})`;
+    const valueSql = this.budget.sql`CONCAT(${this.budget.join(
+      parts.map((p) => p.valueSql),
+      ', '
+    )})`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -784,7 +893,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
    * `position(jsonb, unknown)` which hard-fails the whole computed task.
    */
   private asTextSql(valueSql: string): string {
-    return `((${valueSql})::text)`;
+    return this.budget.sql`((${valueSql})::text)`;
   }
 
   private find(params: SqlExpr[]): SqlExpr {
@@ -796,19 +905,22 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const within = this.coerceToString(withinText);
     const start = startNum ? this.coerceToNumber(startNum, 'find') : undefined;
     const errorCondition = combineErrorConditions(
-      start ? [search, within, start] : [search, within]
+      start ? [search, within, start] : [search, within],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       start ? [search, within, start] : [search, within],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
     const searchSql = this.asTextSql(search.valueSql);
     const withinSql = this.asTextSql(within.valueSql);
     const valueSql = start
-      ? `POSITION(${searchSql} IN SUBSTRING(${withinSql} FROM ${start.valueSql}::integer)) + ${start.valueSql}::integer - 1`
-      : `POSITION(${searchSql} IN ${withinSql})`;
+      ? this.budget
+          .sql`POSITION(${searchSql} IN SUBSTRING(${withinSql} FROM ${start.valueSql}::integer)) + ${start.valueSql}::integer - 1`
+      : this.budget.sql`POSITION(${searchSql} IN ${withinSql})`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -825,19 +937,22 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const within = this.coerceToString(withinText);
     const start = startNum ? this.coerceToNumber(startNum, 'search') : undefined;
     const errorCondition = combineErrorConditions(
-      start ? [search, within, start] : [search, within]
+      start ? [search, within, start] : [search, within],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       start ? [search, within, start] : [search, within],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
     const searchSql = this.asTextSql(search.valueSql);
     const withinSql = this.asTextSql(within.valueSql);
     const valueSql = start
-      ? `POSITION(UPPER(${searchSql}) IN UPPER(SUBSTRING(${withinSql} FROM ${start.valueSql}::integer))) + ${start.valueSql}::integer - 1`
-      : `POSITION(UPPER(${searchSql}) IN UPPER(${withinSql}))`;
+      ? this.budget
+          .sql`POSITION(UPPER(${searchSql}) IN UPPER(SUBSTRING(${withinSql} FROM ${start.valueSql}::integer))) + ${start.valueSql}::integer - 1`
+      : this.budget.sql`POSITION(UPPER(${searchSql}) IN UPPER(${withinSql}))`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -853,14 +968,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const text = this.coerceToString(textExpr);
     const start = this.coerceToNumber(startNum, 'mid');
     const length = this.coerceToNumber(numChars, 'mid');
-    const errorCondition = combineErrorConditions([text, start, length]);
+    const errorCondition = combineErrorConditions([text, start, length], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, start, length],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `SUBSTRING(${text.valueSql} FROM ${start.valueSql}::integer FOR ${length.valueSql}::integer)`;
+    const valueSql = this.budget
+      .sql`SUBSTRING(${text.valueSql} FROM ${start.valueSql}::integer FOR ${length.valueSql}::integer)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -874,14 +991,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr || !numChars) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     const length = this.coerceToNumber(numChars, 'left');
-    const errorCondition = combineErrorConditions([text, length]);
+    const errorCondition = combineErrorConditions([text, length], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, length],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `LEFT(${text.valueSql}, ${length.valueSql}::integer)`;
+    const valueSql = this.budget.sql`LEFT(${text.valueSql}, ${length.valueSql}::integer)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -895,14 +1013,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr || !numChars) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     const length = this.coerceToNumber(numChars, 'right');
-    const errorCondition = combineErrorConditions([text, length]);
+    const errorCondition = combineErrorConditions([text, length], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, length],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `RIGHT(${text.valueSql}, ${length.valueSql}::integer)`;
+    const valueSql = this.budget.sql`RIGHT(${text.valueSql}, ${length.valueSql}::integer)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -920,14 +1039,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const start = this.coerceToNumber(startNum, 'replace');
     const length = this.coerceToNumber(numChars, 'replace');
     const replacement = this.coerceToString(newText);
-    const errorCondition = combineErrorConditions([text, start, length, replacement]);
+    const errorCondition = combineErrorConditions([text, start, length, replacement], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, start, length, replacement],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `OVERLAY(${text.valueSql} PLACING ${replacement.valueSql} FROM ${start.valueSql}::integer FOR ${length.valueSql}::integer)`;
+    const valueSql = this.budget
+      .sql`OVERLAY(${text.valueSql} PLACING ${replacement.valueSql} FROM ${start.valueSql}::integer FOR ${length.valueSql}::integer)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -943,14 +1064,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const text = this.coerceToString(textExpr);
     const regex = this.coerceToString(pattern);
     const repl = this.coerceToString(replacement);
-    const errorCondition = combineErrorConditions([text, regex, repl]);
+    const errorCondition = combineErrorConditions([text, regex, repl], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, regex, repl],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `REGEXP_REPLACE(${text.valueSql}, ${regex.valueSql}, ${repl.valueSql}, 'g')`;
+    const valueSql = this.budget
+      .sql`REGEXP_REPLACE(${text.valueSql}, ${regex.valueSql}, ${repl.valueSql}, 'g')`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -967,14 +1090,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const text = this.coerceToString(textExpr, false);
     const search = this.coerceToString(oldText);
     const replacement = this.coerceToString(newText);
-    const errorCondition = combineErrorConditions([text, search, replacement]);
+    const errorCondition = combineErrorConditions([text, search, replacement], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, search, replacement],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `REPLACE(${text.valueSql}, ${search.valueSql}, ${replacement.valueSql})`;
+    const valueSql = this.budget
+      .sql`REPLACE(${text.valueSql}, ${search.valueSql}, ${replacement.valueSql})`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -990,19 +1115,22 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const delimiter = this.coerceToString(delimiterExpr);
     const ifNotFound = params[5] ? this.coerceToString(params[5]) : undefined;
     const errorCondition = combineErrorConditions(
-      ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter]
+      ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter],
+      this.budget
     );
     const errorMessage = buildErrorMessageSql(
       ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
     const textSql = this.asTextSql(text.valueSql);
     const delimiterSql = this.asTextSql(delimiter.valueSql);
-    const positionSql = `POSITION(${delimiterSql} IN ${textSql})`;
+    const positionSql = this.budget.sql`POSITION(${delimiterSql} IN ${textSql})`;
     const fallbackSql = ifNotFound?.valueSql ?? 'NULL';
-    const valueSql = `(CASE WHEN ${positionSql} = 0 THEN ${fallbackSql} ELSE LEFT(${textSql}, ${positionSql} - 1) END)`;
+    const valueSql = this.budget
+      .sql`(CASE WHEN ${positionSql} = 0 THEN ${fallbackSql} ELSE LEFT(${textSql}, ${positionSql} - 1) END)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -1013,21 +1141,26 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private textSplit(params: SqlExpr[]): SqlExpr {
     const textExpr = params[0];
     const delimiterExpr = params[1];
-    if (!textExpr || !delimiterExpr) return makeExpr('NULL', 'string', true);
+    if (!textExpr || !delimiterExpr)
+      return makeExpr('NULL::jsonb', 'string', true, undefined, undefined, undefined, 'json');
     const text = this.coerceToString(textExpr, false);
     const delimiter = this.coerceToString(delimiterExpr);
-    const errorCondition = combineErrorConditions([text, delimiter]);
+    const errorCondition = combineErrorConditions([text, delimiter], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, delimiter],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `to_jsonb(string_to_array(${text.valueSql}, ${delimiter.valueSql}))`;
+    const valueSql = this.budget
+      .sql`to_jsonb(string_to_array(${text.valueSql}, ${delimiter.valueSql}))`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
@@ -1036,7 +1169,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     return makeExpr(
-      guardValueSql(`LOWER(${text.valueSql})`, text.errorConditionSql),
+      guardValueSql(this.budget.sql`LOWER(${text.valueSql})`, text.errorConditionSql, this.budget),
       'string',
       false,
       text.errorConditionSql,
@@ -1049,7 +1182,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     return makeExpr(
-      guardValueSql(`UPPER(${text.valueSql})`, text.errorConditionSql),
+      guardValueSql(this.budget.sql`UPPER(${text.valueSql})`, text.errorConditionSql, this.budget),
       'string',
       false,
       text.errorConditionSql,
@@ -1063,14 +1196,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr || !numTimes) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     const count = this.coerceToNumber(numTimes, 'rept');
-    const errorCondition = combineErrorConditions([text, count]);
+    const errorCondition = combineErrorConditions([text, count], this.budget);
     const errorMessage = buildErrorMessageSql(
       [text, count],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
+      this.budget
     );
-    const valueSql = `REPEAT(${text.valueSql}, ${count.valueSql}::integer)`;
+    const valueSql = this.budget.sql`REPEAT(${text.valueSql}, ${count.valueSql}::integer)`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -1083,7 +1217,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     return makeExpr(
-      guardValueSql(`TRIM(${text.valueSql})`, text.errorConditionSql),
+      guardValueSql(
+        this.budget.sql`TRIM((${text.valueSql})::text)`,
+        text.errorConditionSql,
+        this.budget
+      ),
       'string',
       false,
       text.errorConditionSql,
@@ -1096,7 +1234,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr) return makeExpr('NULL', 'number', false);
     const text = this.coerceToString(textExpr);
     return makeExpr(
-      guardValueSql(`LENGTH(${text.valueSql})`, text.errorConditionSql),
+      guardValueSql(this.budget.sql`LENGTH(${text.valueSql})`, text.errorConditionSql, this.budget),
       'number',
       false,
       text.errorConditionSql,
@@ -1110,7 +1248,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     // Keep legacy runtime behavior: T coerces supported scalar/array values to text.
     const text = this.coerceToString(value, false);
     return makeExpr(
-      guardValueSql(text.valueSql, text.errorConditionSql),
+      guardValueSql(text.valueSql, text.errorConditionSql, this.budget),
       'string',
       false,
       text.errorConditionSql,
@@ -1123,8 +1261,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'string', false);
     // Do not apply formatting when converting to string to match v1 behavior
     const text = this.coerceToString(value, false);
-    const textExpr = `(${text.valueSql})::text`;
-    const encodedSql = `(SELECT string_agg(
+    const textExpr = this.budget.sql`(${text.valueSql})::text`;
+    const encodedSql = this.budget.sql`(SELECT string_agg(
       CASE
         WHEN byte_val BETWEEN 48 AND 57
           OR byte_val BETWEEN 65 AND 90
@@ -1141,9 +1279,10 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       FROM (SELECT convert_to(${textExpr}, 'UTF8') AS bytes) AS src
       CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
     ) AS utf8_bytes)`;
-    const valueSql = `(CASE WHEN ${text.valueSql} IS NULL THEN NULL ELSE COALESCE(${encodedSql}, '') END)`;
+    const valueSql = this.budget
+      .sql`(CASE WHEN ${text.valueSql} IS NULL THEN NULL ELSE COALESCE(${encodedSql}, '') END)`;
     return makeExpr(
-      guardValueSql(valueSql, text.errorConditionSql),
+      guardValueSql(valueSql, text.errorConditionSql, this.budget),
       'string',
       false,
       text.errorConditionSql,
@@ -1161,21 +1300,48 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'string',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'if_needs_3_params')
+        buildErrorLiteral('ARG', 'if_needs_3_params', this.budget)
       );
     }
     const condBool = this.coerceToBoolean(condition);
     const merged = this.coerceBranches(trueExpr, falseExpr);
-    const errorCondition = combineErrorConditions([condBool, merged.left, merged.right]);
-    const errorMessage = buildErrorMessageSql(
-      [condBool, merged.left, merged.right],
-      buildErrorLiteral('TYPE', 'if_branch_mismatch')
-    );
+    const trueErr = merged.left.errorConditionSql;
+    const falseErr = merged.right.errorConditionSql;
+    // Error metadata follows the same lazy branch selection as the value.
+    // A flat OR loses selected ERROR() values or observes errors in dead arms.
+    const branchError =
+      trueErr || falseErr
+        ? this.budget
+            .sql`(CASE WHEN ${condBool.valueSql} THEN COALESCE(${trueErr ?? 'FALSE'}, FALSE) ELSE COALESCE(${falseErr ?? 'FALSE'}, FALSE) END)`
+        : undefined;
+    const errorCondition = condBool.errorConditionSql
+      ? this.budget
+          .sql`(CASE WHEN ${condBool.errorConditionSql} THEN TRUE ELSE ${branchError ?? 'FALSE'} END)`
+      : branchError;
+    const fallbackMessage = buildErrorLiteral('TYPE', 'if_branch_mismatch', this.budget);
+    const branchMessage = this.budget
+      .sql`(CASE WHEN ${condBool.valueSql} THEN ${merged.left.errorMessageSql ?? fallbackMessage} ELSE ${merged.right.errorMessageSql ?? fallbackMessage} END)`;
+    const errorMessage = errorCondition
+      ? condBool.errorConditionSql
+        ? this.budget
+            .sql`(CASE WHEN ${condBool.errorConditionSql} THEN ${condBool.errorMessageSql ?? fallbackMessage} ELSE ${branchMessage} END)`
+        : branchMessage
+      : undefined;
     const valueSql = guardValueSql(
-      `(CASE WHEN ${condBool.valueSql} THEN ${merged.left.valueSql} ELSE ${merged.right.valueSql} END)`,
-      errorCondition
+      this.budget
+        .sql`(CASE WHEN ${condBool.valueSql} THEN ${merged.left.valueSql} ELSE ${merged.right.valueSql} END)`,
+      condBool.errorConditionSql,
+      this.budget
     );
-    return makeExpr(valueSql, merged.type, merged.isArray, errorCondition, errorMessage);
+    return makeExpr(
+      valueSql,
+      merged.type,
+      merged.isArray,
+      errorCondition,
+      errorMessage,
+      undefined,
+      merged.storageKind
+    );
   }
 
   private switchFunc(params: SqlExpr[]): SqlExpr {
@@ -1185,7 +1351,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'string',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'switch_needs_2_params')
+        buildErrorLiteral('ARG', 'switch_needs_2_params', this.budget)
       );
     }
     const expression = params[0];
@@ -1205,44 +1371,58 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ...casePairs.map((pair) => pair.match),
       ...mergedResults.results,
     ];
-    const errorCondition = combineErrorConditions(errorExprs);
+    const errorCondition = combineErrorConditions(errorExprs, this.budget);
     const errorMessage = buildErrorMessageSql(
       errorExprs,
-      buildErrorLiteral('TYPE', 'switch_branch_mismatch')
+      buildErrorLiteral('TYPE', 'switch_branch_mismatch', this.budget),
+      this.budget
     );
 
     const normalizedExpression = this.coerceToString(expression);
-    const casesSql = casePairs
-      .map((pair, index) => {
+    const casesSql = this.budget.join(
+      casePairs.map((pair, index) => {
         const matchText = this.coerceToString(pair.match);
         const resultSql = mergedResults.results[index]?.valueSql ?? pair.result.valueSql;
-        return `WHEN ${normalizedExpression.valueSql} = ${matchText.valueSql} THEN ${resultSql}`;
-      })
-      .join(' ');
+        return this.budget
+          .sql`WHEN ${normalizedExpression.valueSql} = ${matchText.valueSql} THEN ${resultSql}`;
+      }),
+      ' '
+    );
     const defaultSql = defaultResult
-      ? mergedResults.defaultValueSql ?? defaultResult.valueSql
+      ? (mergedResults.defaultValueSql ?? defaultResult.valueSql)
       : 'NULL';
-    const valueSql = guardValueSql(`(CASE ${casesSql} ELSE ${defaultSql} END)`, errorCondition);
+    const valueSql = guardValueSql(
+      this.budget.sql`(CASE ${casesSql} ELSE ${defaultSql} END)`,
+      errorCondition,
+      this.budget
+    );
     return makeExpr(
       valueSql,
       mergedResults.type,
       mergedResults.isArray,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      mergedResults.storageKind
     );
   }
 
   private and(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('FALSE', 'boolean', false);
     const boolParams = params.map((param) => this.coerceToBoolean(param));
-    const errorCondition = combineErrorConditions(boolParams);
+    const errorCondition = combineErrorConditions(boolParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       boolParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `(${boolParams.map((p) => p.valueSql).join(' AND ')})`,
-      errorCondition
+      this.budget.sql`(${this.budget.join(
+        boolParams.map((p) => p.valueSql),
+        ' AND '
+      )})`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'boolean', false, errorCondition, errorMessage);
   }
@@ -1250,14 +1430,19 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private or(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('FALSE', 'boolean', false);
     const boolParams = params.map((param) => this.coerceToBoolean(param));
-    const errorCondition = combineErrorConditions(boolParams);
+    const errorCondition = combineErrorConditions(boolParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       boolParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean', this.budget),
+      this.budget
     );
     const valueSql = guardValueSql(
-      `(${boolParams.map((p) => p.valueSql).join(' OR ')})`,
-      errorCondition
+      this.budget.sql`(${this.budget.join(
+        boolParams.map((p) => p.valueSql),
+        ' OR '
+      )})`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'boolean', false, errorCondition, errorMessage);
   }
@@ -1266,7 +1451,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const value = params[0];
     if (!value) return makeExpr('NULL', 'boolean', false);
     const boolExpr = this.coerceToBoolean(value);
-    const valueSql = guardValueSql(`(NOT ${boolExpr.valueSql})`, boolExpr.errorConditionSql);
+    const valueSql = guardValueSql(
+      this.budget.sql`(NOT ${boolExpr.valueSql})`,
+      boolExpr.errorConditionSql,
+      this.budget
+    );
     return makeExpr(
       valueSql,
       'boolean',
@@ -1279,29 +1468,38 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private xor(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('FALSE', 'boolean', false);
     const boolParams = params.map((param) => this.coerceToBoolean(param));
-    const errorCondition = combineErrorConditions(boolParams);
+    const errorCondition = combineErrorConditions(boolParams, this.budget);
     const errorMessage = buildErrorMessageSql(
       boolParams,
-      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_boolean', this.budget),
+      this.budget
     );
     if (params.length === 1) {
       return makeExpr(boolParams[0].valueSql, 'boolean', false, errorCondition, errorMessage);
     }
-    const numericParams = boolParams.map((p) => `(CASE WHEN ${p.valueSql} THEN 1 ELSE 0 END)`);
-    const valueSql = guardValueSql(`((${numericParams.join(' + ')}) % 2 = 1)`, errorCondition);
+    const numericParams = boolParams.map(
+      (p) => this.budget.sql`(CASE WHEN ${p.valueSql} THEN 1 ELSE 0 END)`
+    );
+    const valueSql = guardValueSql(
+      this.budget.sql`((${this.budget.join(numericParams, ' + ')}) % 2 = 1)`,
+      errorCondition,
+      this.budget
+    );
     return makeExpr(valueSql, 'boolean', false, errorCondition, errorMessage);
   }
 
   private errorFunc(params: SqlExpr[]): SqlExpr {
     const messageExpr = params[0]
       ? this.coerceToString(params[0])
-      : makeExpr(sqlStringLiteral(''), 'string', false);
-    const prefix = sqlStringLiteral('#ERROR:USER:');
-    const emptyLiteral = sqlStringLiteral('');
-    const messageSql = `(${prefix} || COALESCE(${messageExpr.valueSql}, ${emptyLiteral}))`;
+      : makeExpr(sqlStringLiteral('', this.budget), 'string', false);
+    const prefix = sqlStringLiteral('#ERROR:USER:', this.budget);
+    const emptyLiteral = sqlStringLiteral('', this.budget);
+    const messageSql = this.budget
+      .sql`(${prefix} || COALESCE(${messageExpr.valueSql}, ${emptyLiteral}))`;
     const errorMessage = messageExpr.errorConditionSql
-      ? `CASE WHEN ${messageExpr.errorConditionSql} THEN ${
-          messageExpr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'error_message_failed')
+      ? this.budget.sql`CASE WHEN ${messageExpr.errorConditionSql} THEN ${
+          messageExpr.errorMessageSql ??
+          buildErrorLiteral('INTERNAL', 'error_message_failed', this.budget)
         } ELSE ${messageSql} END`
       : messageSql;
     return makeExpr('NULL', 'string', false, 'TRUE', errorMessage);
@@ -1311,11 +1509,12 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const value = params[0];
     if (!value) return makeExpr('FALSE', 'boolean', false);
     const textValue = this.coerceToString(value);
-    const likeCondition = `(${textValue.valueSql} LIKE ${sqlStringLiteral('#ERROR:%')})`;
+    const likeCondition = this.budget
+      .sql`(${textValue.valueSql} LIKE ${sqlStringLiteral('#ERROR:%', this.budget)})`;
     const valueSql = value.errorConditionSql
-      ? `(${value.errorConditionSql} OR ${likeCondition})`
+      ? this.budget.sql`(${value.errorConditionSql} OR ${likeCondition})`
       : likeCondition;
-    return makeExpr(valueSql, 'boolean', false);
+    return makeExpr(this.budget.sql`COALESCE(${valueSql}, FALSE)`, 'boolean', false);
   }
 
   private applyWeekdayStartDay(weekdaySql: string, startDayOfWeek?: SqlExpr): string {
@@ -1323,15 +1522,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       return weekdaySql;
     }
 
-    const mondayWeekdaySql = `(((${weekdaySql}) + 6) % 7)`;
+    const mondayWeekdaySql = this.budget.sql`(((${weekdaySql}) + 6) % 7)`;
     const startDayLiteral = this.getStringLiteralValue(startDayOfWeek)?.trim().toLowerCase();
     if (startDayLiteral) {
       return startDayLiteral === 'monday' ? mondayWeekdaySql : weekdaySql;
     }
 
     const startDayText = this.coerceToString(startDayOfWeek);
-    const normalizedStartDay = `LOWER(BTRIM(${startDayText.valueSql}))`;
-    return `(CASE WHEN ${normalizedStartDay} = 'monday' THEN ${mondayWeekdaySql} ELSE ${weekdaySql} END)`;
+    const normalizedStartDay = this.budget.sql`LOWER(BTRIM((${startDayText.valueSql})::text))`;
+    return this.budget
+      .sql`(CASE WHEN ${normalizedStartDay} = 'monday' THEN ${mondayWeekdaySql} ELSE ${weekdaySql} END)`;
   }
 
   private extractDatePart(part: string, params: SqlExpr[]): SqlExpr {
@@ -1346,7 +1546,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'number',
         false,
         'TRUE',
-        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime'),
+        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget),
         value.field
       );
     }
@@ -1354,28 +1554,31 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       const normalizedArray = this.normalizeArrayExpr(value);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         value.errorConditionSql,
         value.errorMessageSql
       );
       const elementDatetime = this.coerceToDatetime(elemExpr);
-      const elementDatePartSql = `EXTRACT(${part} FROM ${this.applyFormulaTimeZone(elementDatetime.valueSql)})::int`;
+      const elementDatePartSql = this.budget
+        .sql`EXTRACT(${part} FROM ${this.applyFormulaTimeZone(elementDatetime.valueSql)})::int`;
       const elementValueSql = guardValueSql(
         this.applyWeekdayStartDay(elementDatePartSql, startDayOfWeek),
-        elementDatetime.errorConditionSql
+        elementDatetime.errorConditionSql,
+        this.budget
       );
-      const valueSql = `(SELECT jsonb_agg(to_jsonb(${elementValueSql}) ORDER BY ord)
+      const valueSql = this.budget.sql`(SELECT jsonb_agg(to_jsonb(${elementValueSql}) ORDER BY ord)
         FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS _jae(elem, ord)
       )`;
       return makeExpr(valueSql, 'number', true, value.errorConditionSql, value.errorMessageSql);
     }
     const datetime = this.coerceToDatetime(value);
-    const datePartSql = `EXTRACT(${part} FROM ${this.applyFormulaTimeZone(datetime.valueSql)})::int`;
+    const datePartSql = this.budget
+      .sql`EXTRACT(${part} FROM ${this.applyFormulaTimeZone(datetime.valueSql)})::int`;
     const valueSql = this.applyWeekdayStartDay(datePartSql, startDayOfWeek);
     return makeExpr(
-      guardValueSql(valueSql, datetime.errorConditionSql),
+      guardValueSql(valueSql, datetime.errorConditionSql, this.budget),
       'number',
       false,
       datetime.errorConditionSql,
@@ -1392,7 +1595,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   ): SqlExpr {
     if (!unit) {
       return makeExpr(
-        guardValueSql(diffSeconds, datetime.errorConditionSql),
+        guardValueSql(diffSeconds, datetime.errorConditionSql, this.budget),
         'number',
         false,
         datetime.errorConditionSql,
@@ -1409,7 +1612,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'number',
           false,
           'TRUE',
-          buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+          buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
         );
       }
       const valueSql = this.buildDatetimeDiffSql(
@@ -1419,7 +1622,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         diffYears
       );
       return makeExpr(
-        guardValueSql(valueSql, datetime.errorConditionSql),
+        guardValueSql(valueSql, datetime.errorConditionSql, this.budget),
         'number',
         false,
         datetime.errorConditionSql,
@@ -1433,28 +1636,30 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'number',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+        buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
       );
     }
 
     const unitText = this.coerceToString(unit);
-    const unitSql = `LOWER(${unitText.valueSql})`;
-    const invalidUnit = `(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATETIME_DIFF_UNIT_SQL}))`;
+    const unitSql = this.budget.sql`LOWER(${unitText.valueSql})`;
+    const invalidUnit = this.budget
+      .sql`(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATETIME_DIFF_UNIT_SQL}))`;
     const unitErrorExpr = makeExpr(
       'NULL',
       'string',
       false,
       invalidUnit,
-      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
     );
-    const errorCondition = combineErrorConditions([datetime, unitText, unitErrorExpr]);
+    const errorCondition = combineErrorConditions([datetime, unitText, unitErrorExpr], this.budget);
     const errorMessage = buildErrorMessageSql(
       [datetime, unitText, unitErrorExpr],
-      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget),
+      this.budget
     );
     const valueSql = this.buildDatetimeDiffCaseSql(unitSql, diffSeconds, diffMonths, diffYears);
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -1467,9 +1672,10 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const unit = params[1];
     const datetime = this.coerceToDatetime(value);
-    const diffSeconds = `EXTRACT(EPOCH FROM (NOW() - ${datetime.valueSql}))`;
-    const diffMonths = `EXTRACT(MONTH FROM AGE(NOW(), ${datetime.valueSql})) + EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql})) * 12`;
-    const diffYears = `EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql}))`;
+    const diffSeconds = this.budget.sql`EXTRACT(EPOCH FROM (NOW() - ${datetime.valueSql}))`;
+    const diffMonths = this.budget
+      .sql`EXTRACT(MONTH FROM AGE(NOW(), ${datetime.valueSql})) + EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql})) * 12`;
+    const diffYears = this.budget.sql`EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql}))`;
     return this.buildNowDiffWithUnit(datetime, unit, diffSeconds, diffMonths, diffYears);
   }
 
@@ -1480,7 +1686,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private datetimeDiff(params: SqlExpr[]): SqlExpr {
     const start = params[0];
     const end = params[1];
-    const unit = params[2] ?? makeExpr(sqlStringLiteral('second'), 'string', false);
+    const unit = params[2] ?? makeExpr(sqlStringLiteral('second', this.budget), 'string', false);
     if (!start || !end) return makeExpr('NULL', 'number', false);
     const startDt = this.coerceToDatetime(start);
     const endDt = this.coerceToDatetime(end);
@@ -1488,19 +1694,20 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       startDt,
       NULL_DOUBLE_PRECISION,
       'number',
-      buildErrorLiteral('TYPE', 'invalid_datetime_diff')
+      buildErrorLiteral('TYPE', 'invalid_datetime_diff', this.budget)
     );
     if (startError) return startError;
     const endError = this.shortCircuitOnError(
       endDt,
       NULL_DOUBLE_PRECISION,
       'number',
-      buildErrorLiteral('TYPE', 'invalid_datetime_diff')
+      buildErrorLiteral('TYPE', 'invalid_datetime_diff', this.budget)
     );
     if (endError) return endError;
-    const diffSeconds = `EXTRACT(EPOCH FROM (${startDt.valueSql} - ${endDt.valueSql}))`;
+    const diffSeconds = this.budget
+      .sql`EXTRACT(EPOCH FROM (${startDt.valueSql} - ${endDt.valueSql}))`;
     const diffMonths = this.buildMonthDiff(startDt.valueSql, endDt.valueSql);
-    const diffYears = `CAST((${diffMonths}) / 12.0 AS INTEGER)`;
+    const diffYears = this.budget.sql`CAST((${diffMonths}) / 12.0 AS INTEGER)`;
     const unitLiteral = this.getStringLiteralValue(unit);
     const normalizedUnit = this.normalizeUnitLiteral(unitLiteral, DATETIME_DIFF_UNIT_ALIASES);
     if (unitLiteral) {
@@ -1510,13 +1717,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'number',
           false,
           'TRUE',
-          buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+          buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
         );
       }
-      const errorCondition = combineErrorConditions([startDt, endDt]);
+      const errorCondition = combineErrorConditions([startDt, endDt], this.budget);
       const errorMessage = buildErrorMessageSql(
         [startDt, endDt],
-        buildErrorLiteral('TYPE', 'invalid_datetime_diff')
+        buildErrorLiteral('TYPE', 'invalid_datetime_diff', this.budget),
+        this.budget
       );
       const valueSql = this.buildDatetimeDiffSql(
         normalizedUnit,
@@ -1525,7 +1733,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         diffYears
       );
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'number',
         false,
         errorCondition,
@@ -1540,28 +1748,33 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'number',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+        buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
       );
     }
 
     const unitText = this.coerceToString(unit);
-    const unitSql = `LOWER(${unitText.valueSql})`;
-    const invalidUnit = `(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATETIME_DIFF_UNIT_SQL}))`;
+    const unitSql = this.budget.sql`LOWER(${unitText.valueSql})`;
+    const invalidUnit = this.budget
+      .sql`(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATETIME_DIFF_UNIT_SQL}))`;
     const unitErrorExpr = makeExpr(
       'NULL',
       'string',
       false,
       invalidUnit,
-      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget)
     );
-    const errorCondition = combineErrorConditions([startDt, endDt, unitText, unitErrorExpr]);
+    const errorCondition = combineErrorConditions(
+      [startDt, endDt, unitText, unitErrorExpr],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       [startDt, endDt, unitText, unitErrorExpr],
-      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit')
+      buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget),
+      this.budget
     );
     const valueSql = this.buildDatetimeDiffCaseSql(unitSql, diffSeconds, diffMonths, diffYears);
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -1573,19 +1786,24 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const startExpr = this.applyFormulaTimeZone(startSql);
     const endExpr = this.applyFormulaTimeZone(endSql);
 
-    const startYear = `EXTRACT(YEAR FROM ${startExpr})`;
-    const endYear = `EXTRACT(YEAR FROM ${endExpr})`;
-    const startMonth = `EXTRACT(MONTH FROM ${startExpr})`;
-    const endMonth = `EXTRACT(MONTH FROM ${endExpr})`;
-    const startDay = `EXTRACT(DAY FROM ${startExpr})`;
-    const endDay = `EXTRACT(DAY FROM ${endExpr})`;
-    const startLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${startExpr}) + INTERVAL '1 month - 1 day'))`;
-    const endLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${endExpr}) + INTERVAL '1 month - 1 day'))`;
+    const startYear = this.budget.sql`EXTRACT(YEAR FROM ${startExpr})`;
+    const endYear = this.budget.sql`EXTRACT(YEAR FROM ${endExpr})`;
+    const startMonth = this.budget.sql`EXTRACT(MONTH FROM ${startExpr})`;
+    const endMonth = this.budget.sql`EXTRACT(MONTH FROM ${endExpr})`;
+    const startDay = this.budget.sql`EXTRACT(DAY FROM ${startExpr})`;
+    const endDay = this.budget.sql`EXTRACT(DAY FROM ${endExpr})`;
+    const startLastDay = this.budget
+      .sql`EXTRACT(DAY FROM (DATE_TRUNC('month', ${startExpr}) + INTERVAL '1 month - 1 day'))`;
+    const endLastDay = this.budget
+      .sql`EXTRACT(DAY FROM (DATE_TRUNC('month', ${endExpr}) + INTERVAL '1 month - 1 day'))`;
 
-    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
-    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
-    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
-    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
+    const baseMonths = this.budget
+      .sql`((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = this.budget
+      .sql`(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = this.budget
+      .sql`(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+    return this.budget.sql`(${baseMonths} - ${adjustDown} + ${adjustUp})`;
   }
 
   private workday(params: SqlExpr[]): SqlExpr {
@@ -1597,17 +1815,34 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const dayCount = this.coerceToNumber(days, 'workday');
     const holidayText = holiday
       ? this.coerceToString(holiday, false)
-      : makeExpr(sqlStringLiteral(''), 'string', false);
-    const errorCondition = combineErrorConditions([startDt, dayCount, holidayText]);
+      : makeExpr(sqlStringLiteral('', this.budget), 'string', false);
+    const errorCondition = combineErrorConditions([startDt, dayCount, holidayText], this.budget);
     const errorMessage = buildErrorMessageSql(
       [startDt, dayCount, holidayText],
-      buildErrorLiteral('TYPE', 'invalid_workday')
+      buildErrorLiteral('TYPE', 'invalid_workday', this.budget),
+      this.budget
     );
-    const startDateSql = `(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
-    const dayCountSql = `COALESCE((${dayCount.valueSql})::integer, 0)`;
-    const valueSql = `(
+    const startDateSql = this.budget.sql`(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const dayCountSql = this.budget.sql`COALESCE((${dayCount.valueSql})::integer, 0)`;
+    const valueSql = this.budget.sql`(
       SELECT CASE
         WHEN p.day_count = 0 THEN p.start_date::timestamp
+        -- Anchor weekend starts on the preceding Friday (forward) or following
+        -- Monday (backward). Whole work weeks then cost seven calendar days.
+        WHEN BTRIM(p.holiday_text) = '' THEN (
+          SELECT (a.anchor_date + CASE WHEN p.day_count > 0
+            THEN ABS(p.day_count) + 2 * ((a.weekday - 1 + ABS(p.day_count)) / 5)
+            ELSE -(ABS(p.day_count) + 2 * ((5 - a.weekday + ABS(p.day_count)) / 5))
+          END)::timestamp
+          FROM (
+            SELECT
+              p.start_date + CASE WHEN p.day_count > 0 THEN -GREATEST(d.dow - 5, 0)
+                WHEN d.dow > 5 THEN 8 - d.dow ELSE 0 END AS anchor_date,
+              CASE WHEN p.day_count > 0 THEN LEAST(d.dow, 5)
+                WHEN d.dow > 5 THEN 1 ELSE d.dow END AS weekday
+            FROM (SELECT EXTRACT(ISODOW FROM p.start_date)::integer AS dow) d
+          ) a
+        )
         ELSE (
           SELECT c.candidate_date::timestamp
           FROM (
@@ -1638,7 +1873,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ) p
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'datetime',
       false,
       errorCondition,
@@ -1666,15 +1901,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const endDt = this.coerceToDatetime(end);
     const holidayText = holiday
       ? this.coerceToString(holiday, false)
-      : makeExpr(sqlStringLiteral(''), 'string', false);
-    const errorCondition = combineErrorConditions([startDt, endDt, holidayText]);
+      : makeExpr(sqlStringLiteral('', this.budget), 'string', false);
+    const errorCondition = combineErrorConditions([startDt, endDt, holidayText], this.budget);
     const errorMessage = buildErrorMessageSql(
       [startDt, endDt, holidayText],
-      buildErrorLiteral('TYPE', 'invalid_workday_diff')
+      buildErrorLiteral('TYPE', 'invalid_workday_diff', this.budget),
+      this.budget
     );
-    const startDateSql = `(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
-    const endDateSql = `(${this.applyFormulaTimeZone(endDt.valueSql)})::date`;
-    const valueSql = `(
+    const startDateSql = this.budget.sql`(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const endDateSql = this.budget.sql`(${this.applyFormulaTimeZone(endDt.valueSql)})::date`;
+    const valueSql = this.budget.sql`(
       WITH params AS (
         SELECT ${startDateSql} AS start_date, ${endDateSql} AS end_date, COALESCE(${holidayText.valueSql}, '') AS holiday_text
       ),
@@ -1692,28 +1928,37 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ),
       bounds AS (
         SELECT
-          LEAST(p.start_date, p.end_date) AS min_date,
+          CASE WHEN p.start_date IS NULL OR p.end_date IS NULL THEN NULL
+            ELSE LEAST(p.start_date, p.end_date) END AS min_date,
           GREATEST(p.start_date, p.end_date) AS max_date,
           CASE WHEN p.end_date >= p.start_date THEN 1 ELSE -1 END AS direction
         FROM params p
       ),
-      candidates AS (
-        SELECT d::date AS candidate_date
+      span AS (
+        SELECT b.*, COALESCE(b.max_date - b.min_date + 1, 0) AS days
         FROM bounds b
-        CROSS JOIN LATERAL generate_series(b.min_date + 1, b.max_date, INTERVAL '1 day') AS d
       ),
-      workdays AS (
-        SELECT c.candidate_date
-        FROM candidates c
-        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
-        WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
-          AND h.holiday_date IS NULL
+      weekday_counts AS (
+        -- Whole weeks contribute five days; at most six remainder dates are scanned.
+        SELECT b.*, (b.days / 7) * 5 + (
+          SELECT COUNT(*) FROM generate_series(0, b.days % 7 - 1) AS r(n)
+          WHERE EXTRACT(ISODOW FROM b.min_date + r.n)::integer <= 5
+        ) AS weekday_count
+        FROM span b
       )
-      SELECT (b.direction * (SELECT COUNT(*) FROM workdays))::integer
-      FROM bounds b
+      -- With no weekday candidates, the old enumeration never evaluated holiday
+      -- casts. Preserve that laziness, including malformed calendar dates.
+      SELECT CASE WHEN b.weekday_count = 0 THEN 0 ELSE (b.direction * (
+        b.weekday_count - (
+          SELECT COUNT(*) FROM holiday_dates h
+          WHERE h.holiday_date >= b.min_date AND h.holiday_date <= b.max_date
+            AND EXTRACT(ISODOW FROM h.holiday_date)::integer <= 5
+        )
+      ))::integer END
+      FROM weekday_counts b
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'number',
       false,
       errorCondition,
@@ -1732,25 +1977,26 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       leftDt,
       NULL_BOOLEAN,
       'boolean',
-      buildErrorLiteral('TYPE', 'invalid_is_same')
+      buildErrorLiteral('TYPE', 'invalid_is_same', this.budget)
     );
     if (leftError) return leftError;
     const rightError = this.shortCircuitOnError(
       rightDt,
       NULL_BOOLEAN,
       'boolean',
-      buildErrorLiteral('TYPE', 'invalid_is_same')
+      buildErrorLiteral('TYPE', 'invalid_is_same', this.budget)
     );
     if (rightError) return rightError;
     if (!unit) {
-      const errorCondition = combineErrorConditions([leftDt, rightDt]);
+      const errorCondition = combineErrorConditions([leftDt, rightDt], this.budget);
       const errorMessage = buildErrorMessageSql(
         [leftDt, rightDt],
-        buildErrorLiteral('TYPE', 'invalid_is_same')
+        buildErrorLiteral('TYPE', 'invalid_is_same', this.budget),
+        this.budget
       );
-      const valueSql = `${leftDt.valueSql} = ${rightDt.valueSql}`;
+      const valueSql = this.budget.sql`${leftDt.valueSql} = ${rightDt.valueSql}`;
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'boolean',
         false,
         errorCondition,
@@ -1767,17 +2013,18 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'boolean',
           false,
           'TRUE',
-          buildErrorLiteral('ARG', 'invalid_is_same_unit')
+          buildErrorLiteral('ARG', 'invalid_is_same_unit', this.budget)
         );
       }
-      const errorCondition = combineErrorConditions([leftDt, rightDt]);
+      const errorCondition = combineErrorConditions([leftDt, rightDt], this.budget);
       const errorMessage = buildErrorMessageSql(
         [leftDt, rightDt],
-        buildErrorLiteral('TYPE', 'invalid_is_same')
+        buildErrorLiteral('TYPE', 'invalid_is_same', this.budget),
+        this.budget
       );
       const valueSql = this.buildIsSameSql(normalizedUnit, leftDt.valueSql, rightDt.valueSql);
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'boolean',
         false,
         errorCondition,
@@ -1792,28 +2039,33 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'boolean',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'invalid_is_same_unit')
+        buildErrorLiteral('ARG', 'invalid_is_same_unit', this.budget)
       );
     }
 
     const unitText = this.coerceToString(unit);
-    const unitSql = `LOWER(${unitText.valueSql})`;
-    const invalidUnit = `(${unitSql} IS NULL OR ${unitSql} NOT IN (${IS_SAME_UNIT_SQL}))`;
+    const unitSql = this.budget.sql`LOWER(${unitText.valueSql})`;
+    const invalidUnit = this.budget
+      .sql`(${unitSql} IS NULL OR ${unitSql} NOT IN (${IS_SAME_UNIT_SQL}))`;
     const unitErrorExpr = makeExpr(
       'NULL',
       'string',
       false,
       invalidUnit,
-      buildErrorLiteral('ARG', 'invalid_is_same_unit')
+      buildErrorLiteral('ARG', 'invalid_is_same_unit', this.budget)
     );
-    const errorCondition = combineErrorConditions([leftDt, rightDt, unitText, unitErrorExpr]);
+    const errorCondition = combineErrorConditions(
+      [leftDt, rightDt, unitText, unitErrorExpr],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       [leftDt, rightDt, unitText, unitErrorExpr],
-      buildErrorLiteral('ARG', 'invalid_is_same_unit')
+      buildErrorLiteral('ARG', 'invalid_is_same_unit', this.budget),
+      this.budget
     );
     const valueSql = this.buildIsSameCaseSql(unitSql, leftDt.valueSql, rightDt.valueSql);
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'boolean',
       false,
       errorCondition,
@@ -1846,14 +2098,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       dateValue,
       NULL_TIMESTAMPTZ,
       'datetime',
-      buildErrorLiteral('TYPE', 'invalid_date_add')
+      buildErrorLiteral('TYPE', 'invalid_date_add', this.budget)
     );
     if (dateError) return dateError;
     const countError = this.shortCircuitOnError(
       countValue,
       NULL_TIMESTAMPTZ,
       'datetime',
-      buildErrorLiteral('TYPE', 'invalid_date_add')
+      buildErrorLiteral('TYPE', 'invalid_date_add', this.budget)
     );
     if (countError) return countError;
     const unitLiteral = this.getStringLiteralValue(unitExpr);
@@ -1865,13 +2117,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'datetime',
           false,
           'TRUE',
-          buildErrorLiteral('ARG', 'invalid_date_add_unit')
+          buildErrorLiteral('ARG', 'invalid_date_add_unit', this.budget)
         );
       }
-      const errorCondition = combineErrorConditions([dateValue, countValue]);
+      const errorCondition = combineErrorConditions([dateValue, countValue], this.budget);
       const errorMessage = buildErrorMessageSql(
         [dateValue, countValue],
-        buildErrorLiteral('TYPE', 'invalid_date_add')
+        buildErrorLiteral('TYPE', 'invalid_date_add', this.budget),
+        this.budget
       );
       const valueSql = this.buildDateAddSql(
         normalizedUnit,
@@ -1879,7 +2132,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         countValue.valueSql
       );
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'datetime',
         false,
         errorCondition,
@@ -1894,33 +2147,33 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'datetime',
         false,
         'TRUE',
-        buildErrorLiteral('ARG', 'invalid_date_add_unit')
+        buildErrorLiteral('ARG', 'invalid_date_add_unit', this.budget)
       );
     }
 
     const unitValue = this.coerceToString(unitExpr);
-    const unitSql = `LOWER(${unitValue.valueSql})`;
-    const invalidUnit = `(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATE_ADD_UNIT_SQL}))`;
+    const unitSql = this.budget.sql`LOWER(${unitValue.valueSql})`;
+    const invalidUnit = this.budget
+      .sql`(${unitSql} IS NULL OR ${unitSql} NOT IN (${DATE_ADD_UNIT_SQL}))`;
     const unitErrorExpr = makeExpr(
       'NULL',
       'string',
       false,
       invalidUnit,
-      buildErrorLiteral('ARG', 'invalid_date_add_unit')
+      buildErrorLiteral('ARG', 'invalid_date_add_unit', this.budget)
     );
-    const errorCondition = combineErrorConditions([
-      dateValue,
-      countValue,
-      unitValue,
-      unitErrorExpr,
-    ]);
+    const errorCondition = combineErrorConditions(
+      [dateValue, countValue, unitValue, unitErrorExpr],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       [dateValue, countValue, unitValue, unitErrorExpr],
-      buildErrorLiteral('ARG', 'invalid_date_add_unit')
+      buildErrorLiteral('ARG', 'invalid_date_add_unit', this.budget),
+      this.budget
     );
     const valueSql = this.buildDateAddCaseSql(unitSql, dateValue.valueSql, countValue.valueSql);
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'datetime',
       false,
       errorCondition,
@@ -1934,7 +2187,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       const normalizedArray = this.normalizeArrayExpr(value);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         value.errorConditionSql,
@@ -1942,15 +2195,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       );
       const elementDatetime = this.coerceToDatetime(elemExpr);
       const elementValueSql = guardValueSql(
-        `(${this.applyFormulaTimeZone(elementDatetime.valueSql)})::date::text`,
-        elementDatetime.errorConditionSql
+        this.budget.sql`(${this.applyFormulaTimeZone(elementDatetime.valueSql)})::date::text`,
+        elementDatetime.errorConditionSql,
+        this.budget
       );
       const valueSql = this.stringifyNormalizedJsonArrayWithElement(
         normalizedArray,
         elementValueSql
       );
       return makeExpr(
-        guardValueSql(valueSql, value.errorConditionSql),
+        guardValueSql(valueSql, value.errorConditionSql, this.budget),
         'string',
         false,
         value.errorConditionSql,
@@ -1958,9 +2212,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       );
     }
     const datetime = this.coerceToDatetime(value);
-    const valueSql = `(${this.applyFormulaTimeZone(datetime.valueSql)})::date::text`;
+    const valueSql = this.budget.sql`(${this.applyFormulaTimeZone(datetime.valueSql)})::date::text`;
     return makeExpr(
-      guardValueSql(valueSql, datetime.errorConditionSql),
+      guardValueSql(valueSql, datetime.errorConditionSql, this.budget),
       'string',
       false,
       datetime.errorConditionSql,
@@ -1974,7 +2228,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (value.isArray) {
       const normalizedArray = this.normalizeArrayExpr(value);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         value.errorConditionSql,
@@ -1982,15 +2236,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       );
       const elementDatetime = this.coerceToDatetime(elemExpr);
       const elementValueSql = guardValueSql(
-        `(${this.applyFormulaTimeZone(elementDatetime.valueSql)})::time::text`,
-        elementDatetime.errorConditionSql
+        this.budget.sql`(${this.applyFormulaTimeZone(elementDatetime.valueSql)})::time::text`,
+        elementDatetime.errorConditionSql,
+        this.budget
       );
       const valueSql = this.stringifyNormalizedJsonArrayWithElement(
         normalizedArray,
         elementValueSql
       );
       return makeExpr(
-        guardValueSql(valueSql, value.errorConditionSql),
+        guardValueSql(valueSql, value.errorConditionSql, this.budget),
         'string',
         false,
         value.errorConditionSql,
@@ -1998,9 +2253,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       );
     }
     const datetime = this.coerceToDatetime(value);
-    const valueSql = `(${this.applyFormulaTimeZone(datetime.valueSql)})::time::text`;
+    const valueSql = this.budget.sql`(${this.applyFormulaTimeZone(datetime.valueSql)})::time::text`;
     return makeExpr(
-      guardValueSql(valueSql, datetime.errorConditionSql),
+      guardValueSql(valueSql, datetime.errorConditionSql, this.budget),
       'string',
       false,
       datetime.errorConditionSql,
@@ -2022,12 +2277,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         formatText = this.coerceToString(format);
         const formatLiteral = this.getStringLiteralValue(formatText);
         formatExprSql =
-          formatLiteral !== undefined ? sqlStringLiteral(formatLiteral) : formatText.valueSql;
+          formatLiteral !== undefined
+            ? sqlStringLiteral(formatLiteral, this.budget)
+            : formatText.valueSql;
       }
 
       const normalizedArray = this.normalizeArrayExpr(value);
       const elemExpr = makeExpr(
-        extractJsonScalarText('elem'),
+        extractJsonScalarText('elem', this.budget),
         'unknown',
         false,
         value.errorConditionSql,
@@ -2039,21 +2296,27 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         buildDatetimeFormatSql(
           localTimestampSql,
           formatExprSql,
-          this.buildTimezoneOffsetSql(localTimestampSql)
+          this.buildTimezoneOffsetSql(localTimestampSql),
+          this.budget
         ),
-        elementDatetime.errorConditionSql
+        elementDatetime.errorConditionSql,
+        this.budget
       );
       const valueSql = this.stringifyNormalizedJsonArrayWithElement(
         normalizedArray,
         elementValueSql
       );
-      const errorCondition = combineErrorConditions(formatText ? [value, formatText] : [value]);
+      const errorCondition = combineErrorConditions(
+        formatText ? [value, formatText] : [value],
+        this.budget
+      );
       const errorMessage = buildErrorMessageSql(
         formatText ? [value, formatText] : [value],
-        buildErrorLiteral('TYPE', 'invalid_datetime_format')
+        buildErrorLiteral('TYPE', 'invalid_datetime_format', this.budget),
+        this.budget
       );
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'string',
         false,
         errorCondition,
@@ -2067,23 +2330,28 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const formatLiteral = formatText ? this.getStringLiteralValue(formatText) : undefined;
     const formatExprSql = formatText
       ? formatLiteral !== undefined
-        ? sqlStringLiteral(formatLiteral)
+        ? sqlStringLiteral(formatLiteral, this.budget)
         : formatText.valueSql
       : null;
 
-    const errorCondition = combineErrorConditions(formatText ? [datetime, formatText] : [datetime]);
+    const errorCondition = combineErrorConditions(
+      formatText ? [datetime, formatText] : [datetime],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       formatText ? [datetime, formatText] : [datetime],
-      buildErrorLiteral('TYPE', 'invalid_datetime_format')
+      buildErrorLiteral('TYPE', 'invalid_datetime_format', this.budget),
+      this.budget
     );
     const valueSql = buildDatetimeFormatSql(
       localTimestampSql,
       formatExprSql,
-      this.buildTimezoneOffsetSql(localTimestampSql)
+      this.buildTimezoneOffsetSql(localTimestampSql),
+      this.budget
     );
 
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -2092,9 +2360,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   }
 
   private buildTimezoneOffsetSql(localTimestampSql: string): string {
-    const offsetMinutesSql = `ROUND(EXTRACT(EPOCH FROM (((${localTimestampSql}) AT TIME ZONE 'UTC') - ((${localTimestampSql}) AT TIME ZONE ${this.formulaTimeZoneSql()}))) / 60)::int`;
+    const offsetMinutesSql = this.budget
+      .sql`ROUND(EXTRACT(EPOCH FROM (((${localTimestampSql}) AT TIME ZONE 'UTC') - ((${localTimestampSql}) AT TIME ZONE ${this.formulaTimeZoneSql()}))) / 60)::int`;
 
-    return `(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
+    return this.budget
+      .sql`(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
   }
 
   private buildDatetimeParseWithFormatSql(
@@ -2102,24 +2372,24 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     formatExprSql: string,
     nullGuardSql: string = textSql
   ): string {
-    const normalizedFormatSql = normalizeDatetimeFormatExpression(formatExprSql);
-    const toTimestampExpr = `TO_TIMESTAMP(${textSql}::text, ${normalizedFormatSql})`;
-    const hasTimezoneToken = hasDatetimeTimezoneToken(formatExprSql);
+    const normalizedFormatSql = normalizeDatetimeFormatExpression(formatExprSql, this.budget);
+    const toTimestampExpr = this.budget.sql`TO_TIMESTAMP(${textSql}::text, ${normalizedFormatSql})`;
+    const hasTimezoneToken = hasDatetimeTimezoneToken(formatExprSql, this.budget);
     const parsedExpr =
       hasTimezoneToken === false
-        ? `(${toTimestampExpr})::timestamp AT TIME ZONE ${this.formulaTimeZoneSql()}`
+        ? this.budget.sql`(${toTimestampExpr})::timestamp AT TIME ZONE ${this.formulaTimeZoneSql()}`
         : toTimestampExpr;
-    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql);
+    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql, this.budget);
     if (!guardPattern) {
-      return `(CASE
+      return this.budget.sql`(CASE
         WHEN ${nullGuardSql} IS NULL THEN NULL
         WHEN ${textSql} = '' THEN NULL
         ELSE ${parsedExpr}
       END)`;
     }
 
-    const escapedPattern = guardPattern.replace(/'/g, "''");
-    return `(CASE
+    const escapedPattern = escapeSqlLiteral(guardPattern, this.budget);
+    return this.budget.sql`(CASE
       WHEN ${nullGuardSql} IS NULL THEN NULL
       WHEN ${textSql} = '' THEN NULL
       WHEN ${textSql} ~ '${escapedPattern}' THEN ${parsedExpr}
@@ -2132,13 +2402,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     formatExprSql: string,
     nullGuardSql: string = textSql
   ): string {
-    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql);
+    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql, this.budget);
     if (!guardPattern) {
       return 'FALSE';
     }
 
-    const escapedPattern = guardPattern.replace(/'/g, "''");
-    return `(${nullGuardSql} IS NOT NULL AND ${textSql} <> '' AND NOT (${textSql} ~ '${escapedPattern}'))`;
+    const escapedPattern = escapeSqlLiteral(guardPattern, this.budget);
+    return this.budget
+      .sql`(${nullGuardSql} IS NOT NULL AND ${textSql} <> '' AND NOT (${textSql} ~ '${escapedPattern}'))`;
   }
 
   private datetimeParse(params: SqlExpr[]): SqlExpr {
@@ -2149,7 +2420,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const formatLiteral = formatText ? this.getStringLiteralValue(formatText) : undefined;
     const formatExprSql = formatText
       ? formatLiteral !== undefined
-        ? sqlStringLiteral(formatLiteral)
+        ? sqlStringLiteral(formatLiteral, this.budget)
         : formatText.valueSql
       : null;
 
@@ -2168,16 +2439,18 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       const formattedTextSql = buildDatetimeFormatSql(
         localTimestampSql,
         formatExprSql,
-        this.buildTimezoneOffsetSql(localTimestampSql)
+        this.buildTimezoneOffsetSql(localTimestampSql),
+        this.budget
       );
       const valueSql = this.buildDatetimeParseWithFormatSql(formattedTextSql, formatExprSql);
-      const errorCondition = combineErrorConditions([datetime, formatText]);
+      const errorCondition = combineErrorConditions([datetime, formatText], this.budget);
       const errorMessage = buildErrorMessageSql(
         [datetime, formatText],
-        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime')
+        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget),
+        this.budget
       );
       return makeExpr(
-        guardValueSql(valueSql, errorCondition),
+        guardValueSql(valueSql, errorCondition, this.budget),
         'datetime',
         false,
         errorCondition,
@@ -2191,18 +2464,24 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         'datetime',
         false,
         'TRUE',
-        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime'),
+        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget),
         value.field
       );
     }
     const textValue = this.coerceToString(value);
-    const textSql = `${textValue.valueSql}::text`;
-    const trimmedTextSql = `BTRIM(${textSql})`;
-    const validTimestamptz = this.typeValidation.isValidForType(textSql, 'timestamptz');
-    const validTimestamp = this.typeValidation.isValidForType(textSql, 'timestamp');
-    const hasClockTime = `(${trimmedTextSql} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
-    const hasExplicitTimeZone = `(${trimmedTextSql} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
-    const shouldInterpretAsLocal = `(${hasClockTime} AND NOT ${hasExplicitTimeZone})`;
+    const textSql = this.budget.sql`${textValue.valueSql}::text`;
+    const trimmedTextSql = this.budget.sql`BTRIM(${textSql})`;
+    const validTimestamptz = this.typeValidation.isValidForType(
+      textSql,
+      'timestamptz',
+      this.budget
+    );
+    const validTimestamp = this.typeValidation.isValidForType(textSql, 'timestamp', this.budget);
+    const hasClockTime = this.budget.sql`(${trimmedTextSql} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+    const hasExplicitTimeZone = this.budget
+      .sql`(${trimmedTextSql} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+    const shouldInterpretAsLocal = this.budget
+      .sql`(${hasClockTime} AND NOT ${hasExplicitTimeZone})`;
     const customFormatValueSql =
       formatExprSql != null
         ? this.buildDatetimeParseWithFormatSql(textSql, formatExprSql, textValue.valueSql)
@@ -2211,32 +2490,40 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       formatExprSql != null
         ? this.buildDatetimeParseInvalidCondition(textSql, formatExprSql, textValue.valueSql)
         : null;
-    const caseBranches = [`WHEN ${textValue.valueSql} IS NULL THEN NULL`];
+    const caseBranches = [this.budget.sql`WHEN ${textValue.valueSql} IS NULL THEN NULL`];
     if (customFormatValueSql && formatText) {
-      caseBranches.push(`WHEN ${formatText.valueSql} IS NOT NULL THEN ${customFormatValueSql}`);
+      caseBranches.push(
+        this.budget.sql`WHEN ${formatText.valueSql} IS NOT NULL THEN ${customFormatValueSql}`
+      );
     }
     caseBranches.push(
-      `WHEN ${validTimestamp} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
-      `WHEN ${validTimestamptz} THEN (${textValue.valueSql})::timestamptz`,
-      `WHEN ${validTimestamp} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
+      this.budget
+        .sql`WHEN ${validTimestamp} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
+      this.budget.sql`WHEN ${validTimestamptz} THEN (${textValue.valueSql})::timestamptz`,
+      this.budget
+        .sql`WHEN ${validTimestamp} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
       'ELSE NULL'
     );
-    const valueSql = `(CASE
-      ${caseBranches.join('\n      ')}
+    const valueSql = this.budget.sql`(CASE
+      ${this.budget.join(caseBranches, '\n      ')}
     END)`;
-    const defaultErrorCondition = `(${textValue.valueSql} IS NOT NULL AND NOT (${validTimestamptz} OR ${validTimestamp}))`;
+    const defaultErrorCondition = this.budget
+      .sql`(${textValue.valueSql} IS NOT NULL AND NOT (${validTimestamptz} OR ${validTimestamp}))`;
     const errorCondition = customFormatErrorCondition ?? defaultErrorCondition;
-    const combinedErrorCondition = combineErrorConditions([
-      textValue,
-      ...(formatText ? [formatText] : []),
-      makeExpr(
-        'NULL',
-        'datetime',
-        false,
-        errorCondition,
-        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime')
-      ),
-    ]);
+    const combinedErrorCondition = combineErrorConditions(
+      [
+        textValue,
+        ...(formatText ? [formatText] : []),
+        makeExpr(
+          'NULL',
+          'datetime',
+          false,
+          errorCondition,
+          buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget)
+        ),
+      ],
+      this.budget
+    );
     const errorMessage = buildErrorMessageSql(
       [
         textValue,
@@ -2246,13 +2533,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           'datetime',
           false,
           errorCondition,
-          buildErrorLiteral('TYPE', 'cannot_cast_to_datetime')
+          buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget)
         ),
       ],
-      buildErrorLiteral('TYPE', 'cannot_cast_to_datetime')
+      buildErrorLiteral('TYPE', 'cannot_cast_to_datetime', this.budget),
+      this.budget
     );
     return makeExpr(
-      guardValueSql(valueSql, combinedErrorCondition),
+      guardValueSql(valueSql, combinedErrorCondition, this.budget),
       'datetime',
       false,
       combinedErrorCondition,
@@ -2273,25 +2561,30 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value || !timeZone) return makeExpr(NULL_TIMESTAMPTZ, 'datetime', false);
     const datetime = this.coerceToDatetime(value);
     const timeZoneText = this.coerceToString(timeZone);
-    const errorCondition = combineErrorConditions([datetime, timeZoneText]);
+    const errorCondition = combineErrorConditions([datetime, timeZoneText], this.budget);
     const errorMessage = buildErrorMessageSql(
       [datetime, timeZoneText],
-      buildErrorLiteral('TYPE', 'invalid_timezone')
+      buildErrorLiteral('TYPE', 'invalid_timezone', this.budget),
+      this.budget
     );
     // Convert to the timezone's local time, then re-tag as UTC so downstream operations
     // (DATETIME_FORMAT, YEAR, etc.) operate in the requested timezone.
-    const localizedSql = `((${datetime.valueSql} AT TIME ZONE ${timeZoneText.valueSql}) AT TIME ZONE 'UTC')`;
-    const valueSql = guardValueSql(localizedSql, errorCondition);
+    const localizedSql = this.budget
+      .sql`((${datetime.valueSql} AT TIME ZONE ${timeZoneText.valueSql}) AT TIME ZONE 'UTC')`;
+    const valueSql = guardValueSql(localizedSql, errorCondition, this.budget);
     return makeExpr(valueSql, 'datetime', false, errorCondition, errorMessage);
   }
 
   private quoteIdentifier(value: string): string {
-    return `"${value.replace(/"/g, '""')}"`;
+    let bytes = this.budget.bytes(value);
+    for (let index = 0; index < value.length; index++) if (value.codePointAt(index) === 34) bytes++;
+    this.budget.allocate(bytes);
+    return this.budget.sql`"${value.replaceAll('"', '""')}"`;
   }
 
   private recordSystemColumn(column: string): string {
     const alias = this.quoteIdentifier(this.translator.tableAlias);
-    return `${alias}.${this.quoteIdentifier(column)}`;
+    return this.budget.sql`${alias}.${this.quoteIdentifier(column)}`;
   }
 
   private createdTime(_params: SqlExpr[]): SqlExpr {
@@ -2304,60 +2597,83 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
 
   private count(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('0', 'number', false);
-    const errorCondition = combineErrorConditions(params);
-    const errorMessage = buildErrorMessageSql(params, buildErrorLiteral('TYPE', 'count_invalid'));
+    const errorCondition = combineErrorConditions(params, this.budget);
+    const errorMessage = buildErrorMessageSql(
+      params,
+      buildErrorLiteral('TYPE', 'count_invalid', this.budget),
+      this.budget
+    );
     const terms = params.map((param) => {
       if (param.isArray) {
         const normalized = this.normalizeArrayExpr(param);
-        return `(
+        return this.budget.sql`(
           SELECT COUNT(*)
           FROM jsonb_array_elements(${normalized}) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
         )`;
       }
-      return `CASE WHEN ${param.valueSql} IS NOT NULL THEN 1 ELSE 0 END`;
+      return this.budget.sql`CASE WHEN ${param.valueSql} IS NOT NULL THEN 1 ELSE 0 END`;
     });
-    const valueSql = guardValueSql(`(${terms.join(' + ')})`, errorCondition);
+    const valueSql = guardValueSql(
+      this.budget.sql`(${this.budget.join(terms, ' + ')})`,
+      errorCondition,
+      this.budget
+    );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
 
   private countA(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('0', 'number', false);
-    const errorCondition = combineErrorConditions(params);
-    const errorMessage = buildErrorMessageSql(params, buildErrorLiteral('TYPE', 'count_invalid'));
+    const errorCondition = combineErrorConditions(params, this.budget);
+    const errorMessage = buildErrorMessageSql(
+      params,
+      buildErrorLiteral('TYPE', 'count_invalid', this.budget),
+      this.budget
+    );
     const terms = params.map((param) => {
       if (param.isArray) {
         const normalized = this.normalizeArrayExpr(param);
-        return `(
+        return this.budget.sql`(
           SELECT COUNT(*)
           FROM jsonb_array_elements(${normalized}) AS elem
-          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND (${extractJsonScalarText('elem')}) <> ''
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND (${extractJsonScalarText('elem', this.budget)}) <> ''
         )`;
       }
-      return `CASE WHEN ${param.valueSql} IS NULL OR (${param.valueSql})::text = '' THEN 0 ELSE 1 END`;
+      return this.budget
+        .sql`CASE WHEN ${param.valueSql} IS NULL OR (${param.valueSql})::text = '' THEN 0 ELSE 1 END`;
     });
-    const valueSql = guardValueSql(`(${terms.join(' + ')})`, errorCondition);
+    const valueSql = guardValueSql(
+      this.budget.sql`(${this.budget.join(terms, ' + ')})`,
+      errorCondition,
+      this.budget
+    );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
 
   private countAll(params: SqlExpr[]): SqlExpr {
     if (params.length === 0) return makeExpr('0', 'number', false);
     const value = params[0];
-    const errorCondition = value ? combineErrorConditions([value]) : undefined;
+    const errorCondition = value ? combineErrorConditions([value], this.budget) : undefined;
     const errorMessage = value
-      ? buildErrorMessageSql([value], buildErrorLiteral('TYPE', 'count_invalid'))
+      ? buildErrorMessageSql(
+          [value],
+          buildErrorLiteral('TYPE', 'count_invalid', this.budget),
+          this.budget
+        )
       : undefined;
     if (value?.isArray) {
       const normalized = this.normalizeArrayExpr(value);
       const valueSql = guardValueSql(
-        `COALESCE(jsonb_array_length(${normalized}), 0)`,
-        errorCondition
+        this.budget.sql`COALESCE(jsonb_array_length(${normalized}), 0)`,
+        errorCondition,
+        this.budget
       );
       return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
     }
     const valueSql = guardValueSql(
-      `CASE WHEN ${value?.valueSql ?? 'NULL'} IS NULL THEN 0 ELSE 1 END`,
-      errorCondition
+      this.budget.sql`CASE WHEN ${value?.valueSql ?? 'NULL'} IS NULL THEN 0 ELSE 1 END`,
+      errorCondition,
+      this.budget
     );
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
@@ -2367,19 +2683,20 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!arrayExpr) return makeExpr('NULL', 'string', false);
     const separator = params[1]
       ? this.coerceToString(params[1])
-      : makeExpr(sqlStringLiteral(', '), 'string', false);
-    const errorCondition = combineErrorConditions([arrayExpr, separator]);
+      : makeExpr(sqlStringLiteral(', ', this.budget), 'string', false);
+    const errorCondition = combineErrorConditions([arrayExpr, separator], this.budget);
     const errorMessage = buildErrorMessageSql(
       [arrayExpr, separator],
-      buildErrorLiteral('TYPE', 'array_join_invalid')
+      buildErrorLiteral('TYPE', 'array_join_invalid', this.budget),
+      this.budget
     );
     const normalized = this.normalizeArrayExpr(arrayExpr);
-    const valueSql = `(
-      SELECT string_agg(${extractJsonScalarText('elem')}, ${separator.valueSql})
+    const valueSql = this.budget.sql`(
+      SELECT string_agg(${extractJsonScalarText('elem', this.budget)}, ${separator.valueSql})
       FROM jsonb_array_elements(${normalized}) AS elem
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
@@ -2388,20 +2705,23 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   }
 
   private arrayUnique(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
-    const errorCondition = combineErrorConditions(params);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
+    const errorCondition = combineErrorConditions(params, this.budget);
     const errorMessage = buildErrorMessageSql(
       params,
-      buildErrorLiteral('TYPE', 'array_unique_invalid')
+      buildErrorLiteral('TYPE', 'array_unique_invalid', this.budget),
+      this.budget
     );
     const arrays = params.map((param) => this.normalizeArrayExpr(param));
-    const unionQuery = arrays
-      .map(
-        (array, index) => `SELECT elem.value, ${index} AS arg_index, ord
+    const unionQuery = this.budget.join(
+      arrays.map(
+        (array, index) => this.budget.sql`SELECT elem.value, ${index} AS arg_index, ord
           FROM jsonb_array_elements_text(${array}) WITH ORDINALITY AS elem(value, ord)`
-      )
-      .join(' UNION ALL ');
-    const valueSql = `(
+      ),
+      ' UNION ALL '
+    );
+    const valueSql = this.budget.sql`(
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2410,29 +2730,34 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ) AS uniq
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
   private arrayFlatten(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
-    const errorCondition = combineErrorConditions(params);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
+    const errorCondition = combineErrorConditions(params, this.budget);
     const errorMessage = buildErrorMessageSql(
       params,
-      buildErrorLiteral('TYPE', 'array_flatten_invalid')
+      buildErrorLiteral('TYPE', 'array_flatten_invalid', this.budget),
+      this.budget
     );
     const arrays = params.map((param) => this.normalizeArrayExpr(param));
-    const unionQuery = arrays
-      .map(
-        (array, index) => `SELECT elem.value, ${index} AS arg_index, ord
+    const unionQuery = this.budget.join(
+      arrays.map(
+        (array, index) => this.budget.sql`SELECT elem.value, ${index} AS arg_index, ord
           FROM jsonb_array_elements_text(${array}) WITH ORDINALITY AS elem(value, ord)`
-      )
-      .join(' UNION ALL ');
-    const valueSql = `(
+      ),
+      ' UNION ALL '
+    );
+    const valueSql = this.budget.sql`(
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -2441,30 +2766,35 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ) AS flat
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
   private arrayCompact(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
-    const errorCondition = combineErrorConditions(params);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
+    const errorCondition = combineErrorConditions(params, this.budget);
     const errorMessage = buildErrorMessageSql(
       params,
-      buildErrorLiteral('TYPE', 'array_compact_invalid')
+      buildErrorLiteral('TYPE', 'array_compact_invalid', this.budget),
+      this.budget
     );
     const arrays = params.map((param) => this.normalizeArrayExpr(param));
-    const unionQuery = arrays
-      .map(
-        (array, index) => `SELECT elem.value, ${index} AS arg_index, ord
+    const unionQuery = this.budget.join(
+      arrays.map(
+        (array, index) => this.budget.sql`SELECT elem.value, ${index} AS arg_index, ord
           FROM jsonb_array_elements_text(${array}) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != ''`
-      )
-      .join(' UNION ALL ');
-    const valueSql = `(
+      ),
+      ' UNION ALL '
+    );
+    const valueSql = this.budget.sql`(
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -2473,11 +2803,13 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ) AS compacted
     )`;
     return makeExpr(
-      guardValueSql(valueSql, errorCondition),
+      guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 

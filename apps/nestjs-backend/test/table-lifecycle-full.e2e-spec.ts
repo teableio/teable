@@ -372,5 +372,7 @@ describe('Table Lifecycle Comprehensive (e2e)', () => {
     // 14) Clean up: permanently delete tables
     await permanentDeleteTable(baseId, tableA.id);
     await permanentDeleteTable(baseId, tableB.id);
-  });
+    // The full lifecycle regularly takes 8-10s on a loaded CI shard; the
+    // default 10s timeout leaves no margin.
+  }, 30_000);
 });

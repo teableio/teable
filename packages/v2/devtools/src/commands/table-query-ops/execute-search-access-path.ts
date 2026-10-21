@@ -27,8 +27,11 @@ const executeOption = Options.boolean('execute').pipe(
 const allowLargeTableRewriteOption = Options.boolean('allow-large-table-rewrite').pipe(
   Options.withDefault(false)
 );
-const modeOption = Options.choice('mode', ['create', 'rebuild']).pipe(
-  Options.withDefault('create' as const)
+const modeOption = Options.choice('mode', ['create', 'rebuild', 'drop']).pipe(
+  Options.withDefault('create' as const),
+  Options.withDescription(
+    'drop removes the managed generated column + GIN index and disables the table config (kill switch)'
+  )
 );
 const noEnsureSchemaOption = Options.boolean('no-ensure-schema').pipe(Options.withDefault(false));
 
@@ -41,7 +44,7 @@ const handler = (args: {
   readonly fieldIds: Option.Option<string>;
   readonly execute: boolean;
   readonly allowLargeTableRewrite: boolean;
-  readonly mode: 'create' | 'rebuild';
+  readonly mode: 'create' | 'rebuild' | 'drop';
   readonly noEnsureSchema: boolean;
 }) =>
   Effect.gen(function* () {

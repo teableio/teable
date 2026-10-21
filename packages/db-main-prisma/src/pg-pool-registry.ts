@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+// `PgPoolObserver` is the contract name for the DI seam, and the failure-phase table below
+// is keyed by PostgreSQL SQLSTATE / node driver codes, not by code style.
 import type { OnApplicationShutdown } from '@nestjs/common';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Pool } from 'pg';
 import type { PoolConfig } from 'pg';
 
@@ -18,18 +21,21 @@ export const defaultPgPoolFactory: PgPoolFactory = (config) => new Pool(config);
 
 export interface IPgPoolAcquireOptions {
   applicationName?: string;
-  max?: number;
   connectionTimeoutMillis?: number;
+  max?: number;
+  poolName?: string;
 }
 
 /** Fail fast on TCP connect instead of hanging on OS timeout (~75–130s+). */
 export const DEFAULT_PG_POOL_CONNECTION_TIMEOUT_MS = 5000;
 
 export interface IPgPoolSnapshot {
+  applicationName: string;
   database: string;
   host: string;
   idle: number;
   max: number;
+  poolName?: string;
   port?: number;
   references: number;
   total: number;
@@ -41,12 +47,133 @@ export interface IPgPoolLease {
   release(): Promise<void>;
 }
 
+/**
+ * Which pool observation point saw a failure.
+ *
+ * - `connect`: establishing a physical connection (DNS/TCP/TLS/auth, or the server
+ *   refusing the connection, e.g. `sorry, too many clients already`).
+ * - `acquire`: waiting for a free client of an already usable pool.
+ *
+ * `idle` is not produced here: it is the failure phase of an *established* idle
+ * client and only the pg Pool `'error'` event can report it.
+ */
+export type PgPoolFailurePhase = 'connect' | 'acquire';
+
+/**
+ * Observation seam over the process-owned pg pools. Every method is called by the
+ * registry inside its own try/catch: an observer must never affect pool behaviour,
+ * connection semantics or error propagation, and a broken observer must not be able
+ * to break a query. Implementations must stay cheap (no queries, no blocking work).
+ */
+export interface PgPoolObserver {
+  onPoolCreated(snapshot: IPgPoolSnapshot): void;
+  onConnectEstablished(snapshot: IPgPoolSnapshot): void;
+  onPoolError(snapshot: IPgPoolSnapshot, error: unknown): void;
+  onAcquireFailure(
+    snapshot: IPgPoolSnapshot,
+    error: unknown,
+    phase: PgPoolFailurePhase,
+    durationMs: number
+  ): void;
+  onAcquireSettled(
+    snapshot: IPgPoolSnapshot,
+    phase: PgPoolFailurePhase,
+    durationMs: number,
+    isError: boolean
+  ): void;
+}
+
+export const PG_POOL_OBSERVER = Symbol('PG_POOL_OBSERVER');
+
+export const noopPgPoolObserver: PgPoolObserver = {
+  onPoolCreated: () => undefined,
+  onConnectEstablished: () => undefined,
+  onPoolError: () => undefined,
+  onAcquireFailure: () => undefined,
+  onAcquireSettled: () => undefined,
+};
+
+let activePgPoolObserver: PgPoolObserver | undefined;
+
+/**
+ * Install the observer for every pool this process owns.
+ *
+ * `PrismaModule` is a library module: Nest resolves `PG_POOL_OBSERVER` in the module
+ * that declares `PgPoolRegistry`, so an application cannot override it by providing
+ * the token again without re-providing `PgPoolRegistry` — which would create a second
+ * registry and duplicate physical pools. The app therefore installs its observer once
+ * at startup through this hook, and the DI value below (`pgPoolObserverFacade`) keeps
+ * delegating to it. Not installed = no-op, which is also the behaviour of a default
+ * construction (`new PgPoolRegistry(factory)`).
+ */
+export const installPgPoolObserver = (observer?: PgPoolObserver): void => {
+  activePgPoolObserver = observer;
+};
+
+export const getPgPoolObserver = (): PgPoolObserver => activePgPoolObserver ?? noopPgPoolObserver;
+
+/**
+ * Provided under `PG_POOL_OBSERVER` by `PrismaModule`. Delegates at call time so an
+ * observer installed after module bootstrap is still visible, and stays a no-op
+ * (no allocation, no work) when nothing is installed.
+ */
+export const pgPoolObserverFacade: PgPoolObserver = {
+  onPoolCreated: (snapshot) => getPgPoolObserver().onPoolCreated(snapshot),
+  onConnectEstablished: (snapshot) => getPgPoolObserver().onConnectEstablished(snapshot),
+  onPoolError: (snapshot, error) => getPgPoolObserver().onPoolError(snapshot, error),
+  onAcquireFailure: (snapshot, error, phase, durationMs) =>
+    getPgPoolObserver().onAcquireFailure(snapshot, error, phase, durationMs),
+  onAcquireSettled: (snapshot, phase, durationMs, isError) =>
+    getPgPoolObserver().onAcquireSettled(snapshot, phase, durationMs, isError),
+};
+
+/** Driver/PG codes that mean the physical connection attempt itself failed. */
+const connectPhaseCodes: Record<string, true> = {
+  '08000': true,
+  '08001': true,
+  '08003': true,
+  '08004': true,
+  '08006': true,
+  '08007': true,
+  '28000': true,
+  '28P01': true,
+  '3D000': true,
+  '53300': true,
+  '53400': true,
+  '57P01': true,
+  '57P02': true,
+  '57P03': true,
+  EAI_AGAIN: true,
+  ECONNREFUSED: true,
+  ECONNRESET: true,
+  EHOSTUNREACH: true,
+  ENETUNREACH: true,
+  ENOTFOUND: true,
+  EPIPE: true,
+  ETIMEDOUT: true,
+};
+
+/** pg-pool message for a connection-attempt timeout, also emitted by Prisma's retry. */
+const connectPhaseMessagePattern =
+  /timeout exceeded when trying to connect|connection terminated due to connection timeout|connection terminated unexpectedly|getaddrinfo|password authentication failed|could not connect|connection refused/i;
+
+const resolveAcquireFailurePhase = (error: unknown): PgPoolFailurePhase => {
+  const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+  if (typeof code === 'string' && connectPhaseCodes[code]) {
+    return 'connect';
+  }
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return message && connectPhaseMessagePattern.test(message) ? 'connect' : 'acquire';
+};
+
 interface IPgPoolEntry {
+  applicationName: string;
   database: string;
   host: string;
   key: string;
   max: number;
   pool: Pool;
+  poolName?: string;
   port?: number;
   references: number;
 }
@@ -57,6 +184,7 @@ interface INormalizedPoolConfig {
   host: string;
   key: string;
   max: number;
+  poolName?: string;
   port?: number;
 }
 
@@ -102,8 +230,9 @@ const normalizePoolConfig = (
     connectionString: normalizedConnectionString,
     database: url.pathname.replace(/^\//, ''),
     host: url.hostname,
-    key: identityUrl.toString(),
+    key: JSON.stringify([identityUrl.toString(), options.poolName ?? null]),
     max,
+    ...(options.poolName !== undefined ? { poolName: options.poolName } : {}),
     port: Number(url.port || 5432),
   };
 };
@@ -116,7 +245,12 @@ export class PgPoolRegistry implements OnApplicationShutdown {
 
   constructor(
     @Inject(PG_POOL_FACTORY)
-    private readonly poolFactory: PgPoolFactory
+    private readonly poolFactory: PgPoolFactory,
+    // Optional: `new PgPoolRegistry(factory)` stays a valid construction and means
+    // "observe nothing"; the observer is never required for pool correctness.
+    @Optional()
+    @Inject(PG_POOL_OBSERVER)
+    private readonly observer?: PgPoolObserver
   ) {}
 
   acquire(connectionString: string, options: IPgPoolAcquireOptions = {}): IPgPoolLease {
@@ -127,28 +261,28 @@ export class PgPoolRegistry implements OnApplicationShutdown {
     const normalized = normalizePoolConfig(connectionString, options);
     let entry = this.entries.get(normalized.key);
     if (!entry) {
+      const applicationName = options.applicationName ?? 'teable';
       const pool = this.poolFactory({
-        application_name: options.applicationName ?? 'teable',
+        application_name: applicationName,
         connectionString: normalized.connectionString,
         connectionTimeoutMillis: resolveConnectionTimeoutMillis(options),
         max: normalized.max,
       });
-      pool.on?.('error', (error) => {
-        this.logger.error(
-          `Unexpected idle PostgreSQL pool error for ${normalized.host}/${normalized.database}`,
-          error instanceof Error ? error.stack : undefined
-        );
-      });
-      entry = {
+      const created: IPgPoolEntry = {
+        applicationName,
         database: normalized.database,
         host: normalized.host,
         key: normalized.key,
         max: normalized.max,
         pool,
+        ...(normalized.poolName !== undefined ? { poolName: normalized.poolName } : {}),
         port: normalized.port,
         references: 0,
       };
-      this.entries.set(normalized.key, entry);
+      this.entries.set(normalized.key, created);
+      this.observePool(created);
+      this.notifyObservers((observer) => observer.onPoolCreated(this.toSnapshot(created)));
+      entry = created;
     } else if (entry.max !== normalized.max) {
       this.logger.warn(
         `Reusing PostgreSQL pool ${entry.host}/${entry.database} with max=${entry.max}; ignored requested max=${normalized.max}`
@@ -169,21 +303,119 @@ export class PgPoolRegistry implements OnApplicationShutdown {
 
   snapshot(): IPgPoolSnapshot[] {
     return Array.from(this.entries.values())
-      .map((entry) => ({
-        database: entry.database,
-        host: entry.host,
-        idle: entry.pool.idleCount,
-        max: entry.max,
-        ...(entry.port ? { port: entry.port } : {}),
-        references: entry.references,
-        total: entry.pool.totalCount,
-        waiting: entry.pool.waitingCount,
-      }))
+      .map((entry) => this.toSnapshot(entry))
       .sort((left, right) =>
-        `${left.host}:${left.port ?? ''}/${left.database}`.localeCompare(
-          `${right.host}:${right.port ?? ''}/${right.database}`
+        `${left.host}:${left.port ?? ''}/${left.database}/${left.poolName ?? ''}`.localeCompare(
+          `${right.host}:${right.port ?? ''}/${right.database}/${right.poolName ?? ''}`
         )
       );
+  }
+
+  private toSnapshot(entry: IPgPoolEntry): IPgPoolSnapshot {
+    return {
+      applicationName: entry.applicationName,
+      database: entry.database,
+      host: entry.host,
+      idle: entry.pool.idleCount,
+      max: entry.max,
+      ...(entry.poolName !== undefined ? { poolName: entry.poolName } : {}),
+      ...(entry.port ? { port: entry.port } : {}),
+      references: entry.references,
+      total: entry.pool.totalCount,
+      waiting: entry.pool.waitingCount,
+    };
+  }
+
+  /** Observation must never change pool behaviour, so every call is isolated. */
+  private notifyObservers(run: (observer: PgPoolObserver) => void): void {
+    try {
+      run(this.observer ?? noopPgPoolObserver);
+    } catch {
+      // A broken observer is a monitoring problem, never a connection problem.
+    }
+  }
+
+  /**
+   * Attach the pool-level seam: idle client failures, physical connection
+   * establishments, and a timing wrapper around `connect()`.
+   *
+   * The wrapper calls the (already instrumented) `connect` and only observes the
+   * result: same resolution value, same rejection, same callbacks. Callback-style
+   * (`connect(cb)`) and promise-style (`connect()`, what Prisma's pg adapter uses)
+   * are both measured, and every attempt is its own observation — Prisma retries a
+   * connection timeout once, so one logical `connect` can legitimately produce two
+   * observations that must not be merged.
+   */
+  private observePool(entry: IPgPoolEntry): void {
+    const pool = entry.pool;
+    pool.on?.('error', (error) => {
+      this.logger.error(
+        `Unexpected idle PostgreSQL pool error for ${entry.host}/${entry.database}`,
+        error instanceof Error ? error.stack : undefined
+      );
+      this.notifyObservers((observer) => observer.onPoolError(this.toSnapshot(entry), error));
+    });
+    pool.on?.('connect', () => {
+      this.notifyObservers((observer) => observer.onConnectEstablished(this.toSnapshot(entry)));
+    });
+
+    const originalConnect: unknown = Reflect.get(pool, 'connect');
+    if (typeof originalConnect !== 'function') {
+      return;
+    }
+
+    // `connect` is invoked with the pool as its receiver, so the reporting callback is
+    // bound to the registry up front instead of aliasing `this`.
+    const settleAcquire = this.reportAcquireOutcome.bind(this, entry);
+    const observedConnect = function (this: Pool, ...args: unknown[]): unknown {
+      const startedAt = Date.now();
+      const callback = typeof args[0] === 'function' ? args[0] : undefined;
+      const settle = (error: unknown): void => settleAcquire(startedAt, error);
+
+      if (typeof callback === 'function') {
+        const observedCallback = function (this: unknown, ...callbackArgs: unknown[]): unknown {
+          settle(callbackArgs[0]);
+          return (callback as (...inner: unknown[]) => unknown).apply(this, callbackArgs);
+        };
+        return Reflect.apply(originalConnect, this, [observedCallback]);
+      }
+
+      const result = Reflect.apply(originalConnect, this, args);
+      if (!(result instanceof Promise)) {
+        return result;
+      }
+      return result.then(
+        (value) => {
+          settle(undefined);
+          return value;
+        },
+        (error: unknown) => {
+          settle(error);
+          throw error;
+        }
+      );
+    };
+
+    Reflect.set(pool, 'connect', observedConnect);
+  }
+
+  /**
+   * Reports one settled acquisition attempt. Settlement is reported before failure so a
+   * throwing settle listener cannot swallow the failure detail (and vice versa: each
+   * notification has its own guard).
+   */
+  private reportAcquireOutcome(entry: IPgPoolEntry, startedAt: number, error: unknown): void {
+    const durationMs = Date.now() - startedAt;
+    const phase = resolveAcquireFailurePhase(error);
+    const snapshot = this.toSnapshot(entry);
+    this.notifyObservers((observer) =>
+      observer.onAcquireSettled(snapshot, phase, durationMs, error != null)
+    );
+    if (error != null) {
+      this.notifyObservers((observer) =>
+        observer.onAcquireFailure(snapshot, error, phase, durationMs)
+      );
+    }
   }
 
   async onApplicationShutdown(): Promise<void> {

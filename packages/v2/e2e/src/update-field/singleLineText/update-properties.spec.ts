@@ -24,7 +24,7 @@ const isSingleLineTextField = (field: IFieldDto): field is SingleLineTextFieldDt
   return field.type === 'singleLineText';
 };
 
-describe('update-field: singleLineText property updates', () => {
+describe('[D01][F01][S01][S09] update-field: singleLineText property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
   let primaryFieldId: string;
@@ -100,6 +100,34 @@ describe('update-field: singleLineText property updates', () => {
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [record1.id, record2.id]);
+  });
+
+  test('should prevent renaming field to a duplicated name', async () => {
+    // V1 parity: field-converting.e2e-spec.ts "should modify field name and prevent name duplicate"
+    const fieldAId = createFieldId();
+    const fieldBId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'singleLineText', id: fieldAId, name: 'Dup Target' },
+    });
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'singleLineText', id: fieldBId, name: 'Dup Source' },
+    });
+
+    await expect(
+      ctx.updateField({
+        tableId,
+        fieldId: fieldBId,
+        field: { name: 'Dup Target' },
+      })
+    ).rejects.toThrow();
+
+    // Cleanup
+    await ctx.deleteField({ tableId, fieldId: fieldAId });
+    await ctx.deleteField({ tableId, fieldId: fieldBId });
   });
 
   test('should update field description only', async () => {
