@@ -85,7 +85,7 @@ export const modelConfigSchema = z.object({
 
 export type IModelConfig = z.infer<typeof modelConfigSchema>;
 
-export const MINIMAX_MODEL_IDS = ['MiniMax-M3', 'MiniMax-M2.7'] as const;
+export const MINIMAX_MODEL_IDS = ['MiniMax-M3.1-Flash', 'MiniMax-M3'] as const;
 
 export const MINIMAX_PROVIDER_ENDPOINTS = [
   {
@@ -111,30 +111,33 @@ export const MINIMAX_PROVIDER_ENDPOINTS = [
 ] as const;
 
 export const MINIMAX_DEFAULT_MODEL_CONFIGS = {
-  'MiniMax-M3': {
+  'MiniMax-M3.1-Flash': {
     pricing: {
-      input: '0.0000006',
-      output: '0.0000024',
-      inputCacheRead: '0.00000012',
+      input: '0.00000015',
+      output: '0.0000006',
+      inputCacheRead: '0.000000015',
     },
     ability: { image: true, reasoning: true },
     ownedBy: 'minimax',
     modelType: 'language',
     tags: ['reasoning', 'vision', 'video-input'],
     contextWindow: 1_000_000,
+    maxTokens: 524_288,
   },
-  'MiniMax-M2.7': {
+  'MiniMax-M3': {
+    // Standard rates for prompts up to 512k; longer prompts cost twice as much.
+    // The progressive pricing tiers cannot represent a whole-request price change.
     pricing: {
       input: '0.0000003',
       output: '0.0000012',
       inputCacheRead: '0.00000006',
-      inputCacheWrite: '0.000000375',
     },
-    ability: { reasoning: true },
+    ability: { image: true, reasoning: true },
     ownedBy: 'minimax',
     modelType: 'language',
-    tags: ['reasoning'],
-    contextWindow: 204_800,
+    tags: ['reasoning', 'vision', 'video-input'],
+    contextWindow: 1_000_000,
+    description: 'Standard pricing up to 512k input tokens; longer prompts use 2x these rates.',
   },
 } satisfies Record<(typeof MINIMAX_MODEL_IDS)[number], IModelConfig>;
 

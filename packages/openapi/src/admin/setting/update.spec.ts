@@ -111,25 +111,25 @@ describe('MiniMax provider preset', () => {
   });
 
   it('contains the current text model metadata', () => {
-    expect(MINIMAX_MODEL_IDS).toEqual(['MiniMax-M3', 'MiniMax-M2.7']);
-    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M3']).toMatchObject({
+    expect(MINIMAX_MODEL_IDS).toEqual(['MiniMax-M3.1-Flash', 'MiniMax-M3']);
+    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M3.1-Flash']).toMatchObject({
       contextWindow: 1_000_000,
+      maxTokens: 524_288,
       pricing: {
-        input: '0.0000006',
-        output: '0.0000024',
-        inputCacheRead: '0.00000012',
+        input: '0.00000015',
+        output: '0.0000006',
+        inputCacheRead: '0.000000015',
       },
       ability: { image: true, reasoning: true },
     });
-    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M2.7']).toMatchObject({
-      contextWindow: 204_800,
+    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M3']).toMatchObject({
+      contextWindow: 1_000_000,
       pricing: {
         input: '0.0000003',
         output: '0.0000012',
         inputCacheRead: '0.00000006',
-        inputCacheWrite: '0.000000375',
       },
-      ability: { reasoning: true },
+      ability: { image: true, reasoning: true },
     });
   });
 });

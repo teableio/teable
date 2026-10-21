@@ -56,8 +56,9 @@ describe('LLMProviderForm', () => {
     await userEvent.click(screen.getByRole('option', { name: /MiniMax/ }));
 
     expect(screen.getByDisplayValue('https://api.minimax.io/v1')).toBeInTheDocument();
+    expect(screen.getByText('MiniMax-M3.1-Flash')).toBeInTheDocument();
     expect(screen.getByText('MiniMax-M3')).toBeInTheDocument();
-    expect(screen.getByText('MiniMax-M2.7')).toBeInTheDocument();
+    expect(screen.queryByText('MiniMax-M2.7')).not.toBeInTheDocument();
     expect(
       Array.from(document.querySelectorAll('datalist option')).map((option) =>
         option.getAttribute('value')
