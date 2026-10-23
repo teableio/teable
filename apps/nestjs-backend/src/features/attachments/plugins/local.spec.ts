@@ -201,6 +201,72 @@ describe('LocalStorage', () => {
       expect(result).toHaveProperty('mimetype', imageType);
       expect(result).toHaveProperty('path');
     });
+
+    it('rejects and deletes the temp file when the streamed body exceeds the cap', async () => {
+      // A public-share signature may declare contentLength 0; the cap must still
+      // stop the streamed body from exceeding the configured maximum, and must not
+      // leave the partial file behind in the temporary dir.
+      const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockReturnValue(undefined as never);
+      const destroy = vi.fn();
+      vi.spyOn(fs, 'createWriteStream').mockReturnValue({
+        write: vi.fn(),
+        end: vi.fn(),
+        destroy,
+        on: vi.fn(),
+      } as any);
+      const mockRequest = {
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'content-type': imageType,
+        },
+        destroy: vi.fn(),
+        on: vi.fn().mockImplementation((event: string, cb: (chunk?: unknown) => void) => {
+          if (event === 'data') cb('oversized-body'); // 13 bytes > cap of 4
+        }),
+      };
+
+      const error = await getError(() => storage.saveTemporaryFile(mockRequest as any, 4));
+
+      expect(error).toBeDefined();
+      expect(error?.message).toContain('File size exceeds the maximum limit');
+      expect(error?.status).toBe(400);
+      expect(mockRequest.destroy).toHaveBeenCalled();
+      expect(destroy).toHaveBeenCalled();
+      expect(unlinkSpy).toHaveBeenCalled();
+    });
+
+    it('deletes the temp file when the request stream errors mid-upload', async () => {
+      const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockReturnValue(undefined as never);
+      vi.spyOn(fs, 'createWriteStream').mockReturnValue({
+        write: vi.fn(),
+        end: vi.fn(),
+        destroy: vi.fn(),
+        on: vi.fn(),
+      } as any);
+      const mockRequest = {
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'content-type': imageType,
+        },
+        destroy: vi.fn(),
+        on: vi.fn().mockImplementation((event: string, cb: (err?: unknown) => void) => {
+          if (event === 'error') cb(new Error('connection reset'));
+        }),
+      };
+
+      const error = await getError(() => storage.saveTemporaryFile(mockRequest as any));
+
+      expect(error?.message).toBe('connection reset');
+      expect(unlinkSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('removeTemporaryFile', () => {
+    it('unlinks the given temp file', () => {
+      const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockReturnValue(undefined as never);
+      storage.removeTemporaryFile('/mock/temp/abc');
+      expect(unlinkSpy).toHaveBeenCalledWith('/mock/temp/abc');
+    });
   });
 
   describe('save', () => {

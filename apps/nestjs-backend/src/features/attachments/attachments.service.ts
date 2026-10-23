@@ -90,16 +90,30 @@ export class AttachmentsService {
       });
     }
     const { path, bucket } = tokenCache;
-    const file = await localStorage.saveTemporaryFile(req);
-    await localStorage.validateToken(token, file);
-    const hash = await FileUtils.getHash(file.path);
-    await localStorage.save(file.path, join(bucket, path));
-
-    await this.cacheService.set(
-      `attachment:upload:${token}`,
-      { mimetype: file.mimetype, hash, size: file.size },
-      second(this.storageConfig.tokenExpireIn)
+    // Cap the streamed body at the configured limit regardless of the declared
+    // Content-Length, so a signature with contentLength 0 cannot smuggle an
+    // oversized file past the check that only runs on the declared value.
+    const file = await localStorage.saveTemporaryFile(
+      req,
+      this.thresholdConfig.maxAttachmentUploadSize
     );
+    try {
+      await localStorage.validateToken(token, file);
+      const hash = await FileUtils.getHash(file.path);
+      await localStorage.save(file.path, join(bucket, path));
+
+      await this.cacheService.set(
+        `attachment:upload:${token}`,
+        { mimetype: file.mimetype, hash, size: file.size },
+        second(this.storageConfig.tokenExpireIn)
+      );
+    } catch (error) {
+      // validateToken/save can reject after the body is already on disk; drop the
+      // orphaned temp file so rejected uploads do not pile up (save() already
+      // removes it on the success path).
+      localStorage.removeTemporaryFile(file.path);
+      throw error;
+    }
   }
 
   /**
