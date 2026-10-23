@@ -24,6 +24,16 @@ publicHoistPattern:
   - '*prettier*'
 pmOnFail: ignore
 
+catalog:
+  typescript: 6.0.3
+
+# @next/bundle-analyzer's types import 'next' without declaring it, so they resolved to whichever
+# hoisted next copy pnpm picked instead of the app's own.
+packageExtensions:
+  '@next/bundle-analyzer':
+    peerDependencies:
+      next: '*'
+
 overrides:
   i18next-fs-backend: ^2.6.6
   hono: ^4.13.7
@@ -48,3 +58,4 @@ overrides:
   tailwindcss>postcss-selector-parser: ^7.1.6
   postcss-nested>postcss-selector-parser: ^7.1.6
   figma-js>axios: ^1.20.0
+  follow-redirects: ^1.16.1

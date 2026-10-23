@@ -24,6 +24,8 @@ vi.mock('@/features/app/hooks/usePreviewUrl', () => ({
   usePreviewUrl: () => (path: string) => path,
 }));
 
+vi.mock('next/router', () => ({ useRouter: () => ({ query: {} }) }));
+
 vi.mock('./FormField', () => ({
   FormField: ({ field, errors }: { field: IFieldInstance; errors: Set<string> }) => (
     <div data-testid={`form-field-${field.id}`} data-error={String(errors.has(field.id))} />

@@ -15,7 +15,7 @@ import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateField
 import { Table as TableAggregate } from '../domain/table/Table';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { ITableMapper } from '../ports/mappers/TableMapper';
-import { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableRecordAggregationQueryRepository } from '../ports/TableRecordQueryRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { DryRunFieldConversionQuery } from './DryRunFieldConversionQuery';

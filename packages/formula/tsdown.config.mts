@@ -4,7 +4,9 @@ export default defineConfig({
   entry: ['src/index.ts'],
   outDir: 'dist',
   format: ['esm', 'cjs'],
-  external: ['antlr4ts'],
+  deps: {
+    neverBundle: true,
+  },
   dts: {
     sourcemap: true,
   },
@@ -12,7 +14,6 @@ export default defineConfig({
   sourcemap: false,
   minify: false,
   treeshake: true,
-  skipNodeModulesBundle: true,
   outExtensions({ format }) {
     const js = format === 'es' ? '.mjs' : '.cjs';
     return {

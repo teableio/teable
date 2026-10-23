@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
 import { importBaseStream, type IImportBaseProgressEvent, type INotifyVo } from '@teable/openapi';
 import { getHttpErrorMessage } from '@teable/sdk';
@@ -6,6 +7,7 @@ import {
   UsageLimitModalType,
   useUsageLimitModalStore,
 } from '@teable/sdk/components/billing/store';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/index';
 import {
   Button,
@@ -82,6 +84,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
   openRef.current = open;
 
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // t() expects compile-time literal keys, but i18nKey is a runtime string from the map,
   // so we widen t to accept any string key once here instead of scattering `as any` at every call.
@@ -269,6 +272,8 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
       );
 
       const baseId = result.data.base.id;
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
 
       addLog(tAny('space:import.phase.done'), 'done');
 
@@ -325,6 +330,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
   }, [
     notify,
     spaceId,
+    queryClient,
     addLog,
     translatePhase,
     tAny,

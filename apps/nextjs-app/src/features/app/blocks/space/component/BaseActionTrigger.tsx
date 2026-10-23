@@ -215,7 +215,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
 
   const finishMoveSuccess = React.useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(base.spaceId) });
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.base(base.id) });
     setCrossSpaceConfirm({ open: false, affectedFields: [] });
     setMoveJobId(null);
     setMoveJobStatus(null);
@@ -226,7 +228,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         spaceName: newSpace,
       }),
     });
-  }, [base.name, queryClient, spaceId, spaceList, t]);
+  }, [base.id, base.name, base.spaceId, queryClient, spaceId, spaceList, t]);
 
   const { mutate: moveBaseFn, isPending: moveBaseLoading } = useMutation({
     mutationFn: ({ baseId }: { baseId: string }) =>
@@ -818,7 +820,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <BaseShareDialog
         baseId={base.id}
         baseName={base.name}
-        isBaseShared={!!base.isShared}
+        isBaseShared={base.isShared}
         open={shareOpen}
         onOpenChange={setShareOpen}
       />

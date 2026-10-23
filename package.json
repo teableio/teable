@@ -78,7 +78,7 @@
     "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "shell-quote": "1.12.0",
-    "typescript": "5.4.3",
+    "typescript": "catalog:",
     "zx": "8.8.5"
   },
   "engines": {

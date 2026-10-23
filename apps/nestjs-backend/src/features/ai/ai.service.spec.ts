@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { LLMProviderType } from '@teable/openapi';
+import { getOfferedTierModelKey, LLMProviderType, MODEL_TIER_IDS } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi';
 import { describe, expect, it, vi } from 'vitest';
 import { AiService } from './ai.service';
@@ -200,29 +200,40 @@ describe('AiService space model resolution', () => {
         chatModel: { sm: instanceModelKey, md: instanceModelKey, ability: { toolCall: true } },
       },
     },
-  ])('uses the Space model for every tier when $name', async ({ config: instanceConfig }) => {
-    const service = createConfigService({ llmProviders: [spaceProvider] }, instanceConfig);
+  ])(
+    'uses the Space model for every slot, offering no tier, when $name',
+    async ({ config: instanceConfig }) => {
+      const service = createConfigService({ llmProviders: [spaceProvider] }, instanceConfig);
 
-    const config = await service.getAIConfigBySpaceId('spc-test');
+      const config = await service.getAIConfigBySpaceId('spc-test');
 
-    expect(config.chatModel).toEqual({
-      lg: spaceModelKey,
-      md: spaceModelKey,
-      sm: spaceModelKey,
-    });
+      expect(config.chatModel).toEqual({
+        lg: spaceModelKey,
+        md: spaceModelKey,
+        sm: spaceModelKey,
+        fromSpaceModels: true,
+      });
+      // Users see the space model by its own name, not as a tier the admin never set up.
+      expect(MODEL_TIER_IDS.map((tier) => getOfferedTierModelKey(config.chatModel, tier))).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
 
-    const resolved = await service.getChatModelInstanceBySpaceId('spc-test');
+      const resolved = await service.getChatModelInstanceBySpaceId('spc-test');
 
-    expect(resolved).toMatchObject({
-      lg: { modelId: 'space-model' },
-      md: { modelId: 'space-model' },
-      sm: { modelId: 'space-model' },
-      isInstance: false,
-      lgModelKey: spaceModelKey,
-      mdModelKey: spaceModelKey,
-      smModelKey: spaceModelKey,
-    });
-  });
+      expect(resolved).toMatchObject({
+        lg: { modelId: 'space-model' },
+        md: { modelId: 'space-model' },
+        sm: { modelId: 'space-model' },
+        isInstance: false,
+        lgModelKey: spaceModelKey,
+        mdModelKey: spaceModelKey,
+        smModelKey: spaceModelKey,
+      });
+    }
+  );
 
   it('keeps the Admin default when Space providers and legacy chatModel data exist', async () => {
     const service = createConfigService(

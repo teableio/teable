@@ -34,6 +34,7 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import { validateForeignTableCondition } from '../foreignTableConditionValidation';
 import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
@@ -468,6 +469,17 @@ export class ConditionalRollupField
         })
       );
     if (lookupField.isErr()) return err(lookupField.error);
+
+    // The filter is user input resolved against the foreign and host tables at
+    // execution time. A buildable-looking filter with an operator the target
+    // field's value shape rejects must fail here as a request-validation error
+    // instead of being persisted and killing the computed backfill later.
+    const conditionValidation = validateForeignTableCondition(
+      this.configValue.condition(),
+      context,
+      foreignTable
+    );
+    if (conditionValidation.isErr()) return err(conditionValidation.error);
 
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);

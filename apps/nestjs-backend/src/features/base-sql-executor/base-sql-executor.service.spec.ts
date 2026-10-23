@@ -1,7 +1,13 @@
+/* eslint-disable teable/naming-convention -- assertion literals are OTel span attribute keys, not object identifiers. */
 import type { ConfigService } from '@nestjs/config';
 import type { Span } from '@opentelemetry/api';
-import { context } from '@opentelemetry/api';
+import { context, trace } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import {
+  BasicTracerProvider,
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import knex from 'knex';
 import { describe, expect, it, vi } from 'vitest';
 import { mockDeep } from 'vitest-mock-extended';
@@ -256,5 +262,51 @@ describe('BaseSqlExecutorService', () => {
     expect(transactionPrisma.$executeRawUnsafe.mock.calls).toEqual(
       expect.arrayContaining([[expect.stringContaining('SET LOCAL ROLE')]])
     );
+  });
+
+  it('records one structural-coverage span per opted-in execution, not per SQL validation', async () => {
+    const exporter = new InMemorySpanExporter();
+    const provider = new BasicTracerProvider({
+      spanProcessors: [new SimpleSpanProcessor(exporter)],
+    });
+    const previous = trace.getTracerProvider();
+    trace.setGlobalTracerProvider(provider);
+    try {
+      const transactionPrisma = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+        $queryRawUnsafe: vi.fn().mockResolvedValue([{ count: 1n }]),
+      };
+      const databaseRouter = {
+        getDataDatabaseForBase: vi.fn().mockResolvedValue({ isMetaFallback: false }),
+        dataPrismaTransactionForBase: vi.fn(
+          async (_baseId: string, fn: (prisma: never) => unknown) => fn(transactionPrisma as never)
+        ),
+      };
+      const service = createService({ prismaService: createPrismaService(), databaseRouter });
+
+      await service.validateQuerySql(baseId, sql);
+      await service.executeQuerySql(baseId, sql, { structuredCoverage: true });
+      // Direct service callers do not opt in; only the public route counts.
+      await service.executeQuerySql(baseId, sql);
+
+      const spans = exporter
+        .getFinishedSpans()
+        .filter((span) => span.name === 'teable.baseSqlExecutor.executeQuerySql');
+      expect(spans).toHaveLength(1);
+      expect(spans[0].attributes).toMatchObject({
+        'teable.data_query.coverage.version': 2,
+        'teable.data_query.coverage.candidate': 'aggregate',
+        'teable.data_query.coverage.features': ['aggregate'],
+        'teable.data_query.coverage.gaps': [],
+        'teable.data_query.coverage.unknown': [],
+      });
+      expect(String(spans[0].attributes['teable.data_query.coverage.fingerprint'])).toMatch(
+        /^[0-9a-f]{16}$/
+      );
+      expect(JSON.stringify(spans[0].attributes)).not.toContain(tableDbName);
+    } finally {
+      trace.setGlobalTracerProvider(previous as never);
+      await provider.shutdown();
+    }
   });
 });

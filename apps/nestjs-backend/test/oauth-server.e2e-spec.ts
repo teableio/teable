@@ -34,6 +34,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import axiosInstance from 'axios';
 import { omit } from 'lodash';
 import { CacheService } from '../src/cache/cache.service';
+import { TeableJwtService } from '../src/features/auth/jwt/teable-jwt.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -839,6 +840,82 @@ describe('OpenAPI OAuthController (e2e)', () => {
     expect(error?.status).toBe(401);
   });
 
+  it('/api/oauth/access_token (POST) - refresh token failing verification answers 401', async () => {
+    const secret = await generateOAuthSecret(oauth.clientId);
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const code = new URL(res.headers.location).searchParams.get('code');
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code ?? '',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    // A well-formed JWT whose signature matches no instance secret, e.g. a refresh
+    // token minted by another environment or corrupted on the client.
+    const [header, payload] = tokenRes.data.refresh_token.split('.');
+    const badSignature = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: `${header}.${payload}.${'A'.repeat(43)}`,
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(badSignature?.status).toBe(401);
+
+    // jsonwebtoken rejects an expired token before any lookup; expiry is still a
+    // client credential error, not a server fault.
+    const expired = app
+      .get(TeableJwtService)
+      .sign(
+        { clientId: oauth.clientId, accessTokenId: 'actexpired', sign: 'expired' },
+        { expiresIn: '-10s' }
+      );
+    const expiredError = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: expired,
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(expiredError?.status).toBe(401);
+  });
+
   describe('PKCE flow', () => {
     const generateCodeVerifier = () => {
       return crypto.randomBytes(32).toString('base64url');
@@ -1072,6 +1149,38 @@ describe('OpenAPI OAuthController (e2e)', () => {
         )
       );
       expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/access_token (POST) - client_secret together with PKCE', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+      const code = new URL(res.headers.location).searchParams.get('code');
+
+      // OAuth 2.1 wants PKCE from confidential clients too: both are checked.
+      const secret = await generateOAuthSecret(oauth.clientId);
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+          code_verifier: codeVerifier,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data.access_token).toBeTruthy();
     });
 
     it('/api/oauth/access_token (POST) - PKCE refresh token', async () => {
@@ -1544,7 +1653,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
           {
             client_name: clientName,
             redirect_uris: ['https://app.example/cb'],
-            token_endpoint_auth_method: 'client_secret_post',
+            token_endpoint_auth_method: 'client_secret_basic',
           },
           'invalid_client_metadata',
         ],
@@ -1617,6 +1726,109 @@ describe('OpenAPI OAuthController (e2e)', () => {
       // never available to a self-registered client, whatever it asks for.
       expect((await authorize('base|read user|integrations')).status).toBe(400);
       expect((await authorize('user|notifications_send')).status).toBe(400);
+    });
+
+    it('runs the claude.ai flow: a self-registered confidential client proves both secret and PKCE', async () => {
+      const redirectUri = 'https://claude.ai/api/mcp/auth_callback';
+      const registered = await register({
+        client_name: clientName,
+        redirect_uris: [redirectUri],
+        token_endpoint_auth_method: 'client_secret_post',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        application_type: 'web',
+      });
+      expect(registered.status).toBe(201);
+      expect(registered.data.token_endpoint_auth_method).toBe('client_secret_post');
+      expect(registered.data.client_secret_expires_at).toBe(0);
+      const clientId = registered.data.client_id as string;
+      const clientSecret = registered.data.client_secret as string;
+      expect(clientSecret).toBeTruthy();
+
+      const authorizeCode = async (codeChallenge: string) => {
+        const authorizeRes = await axios.get(
+          `/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+            redirectUri
+          )}&scope=${encodeURIComponent('base|read')}&code_challenge=${codeChallenge}&code_challenge_method=S256`,
+          { maxRedirects: 0 }
+        );
+        const transactionId = new URL(authorizeRes.headers.location, redirectUri).searchParams.get(
+          'transaction_id'
+        );
+        const decisionRes = await decision(axios, transactionId!);
+        return new URL(decisionRes.headers.location).searchParams.get('code')!;
+      };
+      const exchange = (body: Record<string, string>) =>
+        anonymousAxios.post('/oauth/access_token', new URLSearchParams(body), {
+          maxRedirects: 0,
+          validateStatus: () => true,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
+
+      const codeVerifier = crypto.randomBytes(32).toString('base64url');
+      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+
+      // The secret alone does not stand in for the verifier, nor a wrong one.
+      const withoutVerifier = await exchange({
+        grant_type: 'authorization_code',
+        code: await authorizeCode(codeChallenge),
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      });
+      expect(withoutVerifier.status).toBe(400);
+      const wrongVerifier = await exchange({
+        grant_type: 'authorization_code',
+        code: await authorizeCode(codeChallenge),
+        client_id: clientId,
+        client_secret: clientSecret,
+        code_verifier: crypto.randomBytes(32).toString('base64url'),
+        redirect_uri: redirectUri,
+      });
+      expect(wrongVerifier.status).toBe(401);
+      const wrongSecret = await exchange({
+        grant_type: 'authorization_code',
+        code: await authorizeCode(codeChallenge),
+        client_id: clientId,
+        client_secret: 'not-the-secret',
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+      });
+      expect(wrongSecret.status).toBe(401);
+
+      const tokenRes = await exchange({
+        grant_type: 'authorization_code',
+        code: await authorizeCode(codeChallenge),
+        client_id: clientId,
+        client_secret: clientSecret,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+      });
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data.access_token).toBeTruthy();
+      const baseRes = await anonymousAxios.get(`/base/${baseId}`, {
+        headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+      });
+      expect(baseRes.data.id).toBe(baseId);
+
+      // The refresh token is bound to the secret: refreshing without it fails.
+      const refreshWithoutSecret = await exchange({
+        grant_type: 'refresh_token',
+        refresh_token: tokenRes.data.refresh_token,
+        client_id: clientId,
+      });
+      expect(refreshWithoutSecret.status).toBeGreaterThanOrEqual(400);
+      const refreshed = await exchange({
+        grant_type: 'refresh_token',
+        refresh_token: tokenRes.data.refresh_token,
+        client_id: clientId,
+        client_secret: clientSecret,
+      });
+      expect(refreshed.status).toBe(201);
+      expect(refreshed.data.access_token).toBeTruthy();
     });
 
     it('runs the whole PKCE flow for a self-registered client, and the user sees it as such', async () => {

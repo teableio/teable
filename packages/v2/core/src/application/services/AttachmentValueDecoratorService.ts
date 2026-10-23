@@ -6,8 +6,8 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { AttachmentItem } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import type { Table } from '../../domain/table/Table';
-import { IAttachmentUrlSignerService } from '../../ports/AttachmentUrlSignerService';
 import type {
+  IAttachmentUrlSignerService,
   AttachmentSignedUrls,
   AttachmentSignRequest,
 } from '../../ports/AttachmentUrlSignerService';

@@ -2,7 +2,6 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "./src",
     "target": "esnext",
     "experimentalDecorators": true,
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -11,46 +10,52 @@
     "incremental": true,
     "moduleResolution": "Bundler",
     "paths": {
-      "@/test-utils": ["../config/tests/test-utils"],
-      "@/config/*": ["./config/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/components/*": ["./components/*"],
-      "@/backend/*": ["./backend/*"],
-      "@/features/*": ["./features/*"],
-      "@/pages/*": ["./pages/*"],
-      "@/public/*": ["../public/*"],
-      "@/themes/*": ["./themes/*"],
-      "@/styles/*": ["./styles/*"],
-      "@/api/*": ["./api/*"],
+      "@/test-utils": ["./config/tests/test-utils"],
+      "@/config/*": ["./src/config/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/backend/*": ["./src/backend/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/pages/*": ["./src/pages/*"],
+      "@/public/*": ["./public/*"],
+      "@/themes/*": ["./src/themes/*"],
+      "@/styles/*": ["./src/styles/*"],
+      "@/api/*": ["./src/api/*"],
       "@overridable/SpaceInnerSettingModal": [
-        "./features/app/blocks/space-setting/SpaceInnerSettingModal"
+        "./src/features/app/blocks/space-setting/SpaceInnerSettingModal"
       ],
-      "@overridable/WorkFlowPanel": ["./features/app/automation/workflow-panel/WorkFlowPanel"],
-      "@overridable/TableArchiveDialog": ["./features/app/blocks/archive/TableArchiveDialog"],
-      "@overridable/TableImport": ["./features/app/blocks/import-table/TableImport"],
-      "@overridable/UserNavExtras": ["./features/app/components/user/UserNavExtras"],
-      "@overridable/AddView": ["./features/app/blocks/table/table-header/AddView"],
-      "@overridable/SettingDialog": ["./features/app/components/setting/SettingDialog"],
+      "@overridable/WorkFlowPanel": ["./src/features/app/automation/workflow-panel/WorkFlowPanel"],
+      "@overridable/TableArchiveDialog": ["./src/features/app/blocks/archive/TableArchiveDialog"],
+      "@overridable/TableImport": ["./src/features/app/blocks/import-table/TableImport"],
+      "@overridable/FieldDeleteImpact": [
+        "./src/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteImpact"
+      ],
+      "@overridable/UserNavExtras": ["./src/features/app/components/user/UserNavExtras"],
+      "@overridable/AddView": ["./src/features/app/blocks/table/table-header/AddView"],
+      "@overridable/BaseNodeAddResourceButton": [
+        "./src/features/app/blocks/base/base-side-bar/BaseNodeAddResourceButton"
+      ],
+      "@overridable/SettingDialog": ["./src/features/app/components/setting/SettingDialog"],
       "@overridable/DeleteAccountActions": [
-        "./features/app/components/setting/account/delete-account/DeleteAccountActions"
+        "./src/features/app/components/setting/account/delete-account/DeleteAccountActions"
       ],
       "@overridable/useSpaceDeleteCopy": [
-        "./features/app/blocks/trash/space-delete-copy/useSpaceDeleteCopy"
+        "./src/features/app/blocks/trash/space-delete-copy/useSpaceDeleteCopy"
       ],
       "@overridable/AccountDataExport": [
-        "./features/app/components/setting/account/data-export/AccountDataExport"
+        "./src/features/app/components/setting/account/data-export/AccountDataExport"
       ],
-      "@teable/common-i18n": ["../../../packages/common-i18n/src/index"],
-      "@teable/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
-      "@teable/ui-lib/*": ["../../../packages/ui-lib/src/*"],
-      "@teable/ui-lib": ["../../../packages/ui-lib/src/index"],
-      "@teable/sdk/*": ["../../../packages/sdk/src/*"],
-      "@teable/sdk": ["../../../packages/sdk/src/index"],
-      "@teable/db-main-prisma": ["../../../packages/db-main-prisma/src/index"],
-      "@teable/core": ["../../../packages/core/src/index"],
-      "@teable/openapi": ["../../../packages/openapi/src/index"],
-      "@teable/icons": ["../../../packages/icons/src/index"],
-      "@teable/formula": ["../../../packages/formula/src/index"]
+      "@teable/common-i18n": ["../../packages/common-i18n/src/index"],
+      "@teable/common-i18n/locales/*": ["../../packages/common-i18n/src/locales/*"],
+      "@teable/ui-lib/*": ["../../packages/ui-lib/src/*"],
+      "@teable/ui-lib": ["../../packages/ui-lib/src/index"],
+      "@teable/sdk/*": ["../../packages/sdk/src/*"],
+      "@teable/sdk": ["../../packages/sdk/src/index"],
+      "@teable/db-main-prisma": ["../../packages/db-main-prisma/src/index"],
+      "@teable/core": ["../../packages/core/src/index"],
+      "@teable/openapi": ["../../packages/openapi/src/index"],
+      "@teable/icons": ["../../packages/icons/src/index"],
+      "@teable/formula": ["../../packages/formula/src/index"]
     },
     "plugins": [
       {

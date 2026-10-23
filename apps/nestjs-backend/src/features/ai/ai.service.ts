@@ -497,7 +497,7 @@ export class AiService implements OnModuleInit {
       config = {
         ...aiIntegrationConfig,
         llmProviders,
-        chatModel: { lg: modelKey, md: modelKey, sm: modelKey },
+        chatModel: { lg: modelKey, md: modelKey, sm: modelKey, fromSpaceModels: true },
       };
     } else {
       const lg = aiConfig.chatModel.lg;
@@ -660,29 +660,33 @@ export class AiService implements OnModuleInit {
 
   async getSimplifiedAIConfig(baseId: string) {
     try {
-      const config = await this.getAIConfig(baseId);
-      const llmProviders = this.baseConfig.isCloud
-        ? config.llmProviders.filter(({ isInstance }) => !isInstance)
-        : config.llmProviders;
-      return {
-        enable: config.enable,
-        llmProviders: llmProviders.map(({ type, name, models, isInstance, modelConfigs }) => ({
-          type,
-          name,
-          models,
-          isInstance,
-          modelConfigs,
-        })),
-        embeddingModel: config.embeddingModel,
-        translationModel: config.translationModel,
-        chatModel: config.chatModel,
-        capabilities: config.capabilities,
-        gatewayModels: config.gatewayModels,
-        attachmentTransferMode: config.attachmentTransferMode,
-      };
+      return this.simplifyAIConfig(await this.getAIConfig(baseId));
     } catch {
       return null;
     }
+  }
+
+  /** What a base's users see of its AI config: no credentials, and on Cloud no system providers. */
+  simplifyAIConfig(config: Awaited<ReturnType<AiService['getAIConfigBySpaceId']>>) {
+    const llmProviders = this.baseConfig.isCloud
+      ? config.llmProviders.filter(({ isInstance }) => !isInstance)
+      : config.llmProviders;
+    return {
+      enable: config.enable,
+      llmProviders: llmProviders.map(({ type, name, models, isInstance, modelConfigs }) => ({
+        type,
+        name,
+        models,
+        isInstance,
+        modelConfigs,
+      })),
+      embeddingModel: config.embeddingModel,
+      translationModel: config.translationModel,
+      chatModel: config.chatModel,
+      capabilities: config.capabilities,
+      gatewayModels: config.gatewayModels,
+      attachmentTransferMode: config.attachmentTransferMode,
+    };
   }
 
   private async getGenerationModelInstance(baseId: string, aiGenerateRo: IAiGenerateRo) {

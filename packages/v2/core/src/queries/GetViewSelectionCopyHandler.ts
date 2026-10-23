@@ -19,10 +19,12 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import type { ViewQueryGroupItem } from '../domain/table/views/ViewQueryDefaults';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { ITableRecordAggregationQueryRepository } from '../ports/TableRecordQueryRepository';
-import type { TableRecordOrderBy } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordAggregationQueryRepository,
+  TableRecordOrderBy,
+} from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
-import { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { GetViewSelectionCopyQuery, type ViewSelectionCopySort } from './GetViewSelectionCopyQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';

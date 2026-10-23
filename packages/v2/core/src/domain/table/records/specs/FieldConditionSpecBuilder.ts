@@ -226,7 +226,17 @@ export class FieldConditionSpecBuilder {
     const resolved = resolution.value;
     if (!resolved.accepted) {
       return err(
-        domainError.validation({ message: 'Invalid record condition operator for field' })
+        domainError.validation({
+          code: 'field.condition.invalid_operator_for_field',
+          message: `Invalid record condition operator for field ${this.field
+            .id()
+            .toString()}: "${resolved.operator}"`,
+          details: {
+            fieldId: this.field.id().toString(),
+            operator: resolved.operator,
+            validOperators: resolved.supportedOperators,
+          },
+        })
       );
     }
     input = resolved.input;

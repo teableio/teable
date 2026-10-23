@@ -311,6 +311,40 @@ describe('createSmartSpanProcessor', () => {
     expect(names(priorityExporter)).toEqual(['slow-root']);
   });
 
+  it('promotes a sub-second successful HTTP request above the HTTP threshold', async () => {
+    const { processor, batchExporter, priorityExporter } = createProcessor({ exportRatio: 0 });
+    const root = makeSpan({
+      name: 'slow-http',
+      kind: SpanKind.SERVER,
+      parent: 'remote',
+      durationMs: 699,
+      attributes: { 'http.request.method': 'GET', [ATTR_HTTP_RESPONSE_STATUS_CODE]: 200 },
+    });
+    startSpan(processor, root);
+    runSpan(processor, makeSpan({ name: 'prisma:engine:db_query' }));
+    processor.onEnd(root);
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['prisma:engine:db_query']);
+    expect(names(priorityExporter)).toEqual(['slow-http']);
+  });
+
+  it('leaves a fast successful HTTP request unsampled at ratio zero', async () => {
+    const { processor, batchExporter, priorityExporter } = createProcessor({ exportRatio: 0 });
+    const root = makeSpan({
+      name: 'fast-http',
+      kind: SpanKind.SERVER,
+      parent: 'remote',
+      durationMs: 499,
+      attributes: { 'http.request.method': 'GET', [ATTR_HTTP_RESPONSE_STATUS_CODE]: 200 },
+    });
+    startSpan(processor, root);
+    runSpan(processor, makeSpan({ name: 'detail' }));
+    processor.onEnd(root);
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual([]);
+    expect(names(priorityExporter)).toEqual(['fast-http']);
+  });
+
   it('promotes mid-trace at the threshold and exports subsequent spans in full', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
     const root = makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' });

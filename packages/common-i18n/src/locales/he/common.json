@@ -79,6 +79,51 @@
     "title": "פעולות מהירות",
     "placeHolder": "הקלדת פקודה או חיפוש..."
   },
+  "commandPalette": {
+    "title": "לוח פקודות",
+    "placeholder": "חיפוש משאבים או פקודות…",
+    "aiPlaceholder": "חיפוש, הפעלת פקודה או שאלה ל-Cuppy…",
+    "commandsPlaceholder": "חיפוש פקודות…",
+    "commands": "פקודות",
+    "askCuppy": "שאלה ל-Cuppy",
+    "askQuery": "שאלה ל-Cuppy: {{query}}",
+    "aiHint": "משתמש בפרויקט, בטבלה ובתצוגה הנוכחיים",
+    "recent": "ביקורים אחרונים",
+    "noRecent": "משאבים ותצוגות שביקרת בהם לאחרונה יופיעו כאן.",
+    "actions": "פעולות מהירות",
+    "results": "תוצאות",
+    "noResults": "לא נמצאו התאמות עבור „{{query}}”",
+    "noResultsHint": "אפשר לנסות שם אחר, לשאול את Cuppy או לחפש בטבלה הנוכחית.",
+    "noResultsHintWithoutAI": "אפשר לנסות שם אחר או לחפש בטבלה הנוכחית.",
+    "appearance": "מראה",
+    "shortcuts": "קיצורי מקשים",
+    "back": "חזרה",
+    "select": "בחירה",
+    "open": "פתיחה",
+    "execute": "הפעלה",
+    "close": "סגירה",
+    "newTab": "פתיחה בכרטיסייה חדשה",
+    "loading": "מתבצע חיפוש…",
+    "searchFailed": "לא ניתן לטעון את תוצאות החיפוש",
+    "retry": "ניסיון חוזר",
+    "currentTable": "חיפוש בטבלה הנוכחית",
+    "searchTableQuery": "חיפוש „{{query}}” בטבלה הנוכחית",
+    "createTableQuery": "יצירת הטבלה „{{name}}”",
+    "createDashboard": "לוח מחוונים חדש",
+    "createApp": "אפליקציה חדשה",
+    "createWorkflow": "אוטומציה חדשה",
+    "createRoutine": "משימה מתוזמנת חדשה",
+    "createFolder": "תיקייה חדשה",
+    "createView": "יצירת {{name}}",
+    "invite": "הזמנת משתפי פעולה",
+    "folderCreated": "התיקייה נוצרה",
+    "actionFailed": "לא ניתן להשלים פעולה זו",
+    "backspace": "יציאה ממצב פקודות כשהשאילתה ריקה",
+    "toggle": "פתיחה או סגירה של לוח הפקודות",
+    "aiMode": "בינה מלאכותית",
+    "space": "מרחב",
+    "project": "פרויקט"
+  },
   "password": {
     "setInvalid": "הסיסמה אינה חוקית. נדרשים לפחות 8 תווים, ובהם לפחות אות אחת וספרה אחת."
   },
@@ -1665,6 +1710,12 @@
     "sm": {
       "label": "Lite",
       "description": "מודל קל למשימות שגרתיות זולות ובנפח גדול."
+    },
+    "unavailable": {
+      "title": "הוחלף ל-{{model}}",
+      "description": "המודלים הזמינים עודכנו ו-{{previous}} כבר אינו מוצע. מעכשיו {{model}} ימשיך לענות.",
+      "change": "בחירת מודל אחר",
+      "ok": "הבנתי"
     }
   },
   "system": {

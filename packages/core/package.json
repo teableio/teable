@@ -79,7 +79,7 @@
     "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "size-limit": "11.1.2",
-    "typescript": "5.4.3",
+    "typescript": "catalog:",
     "vitest": "4.1.12"
   }
 }

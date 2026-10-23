@@ -16,7 +16,7 @@ export interface IFieldSetting {
 }
 
 export type IFieldSettingBase = Omit<IFieldSetting, 'onConfirm'> & {
-  onConfirm?: (field?: IFieldRo) => void;
+  onConfirm?: (field?: IFieldRo) => void | Promise<void>;
 };
 
 export type IFieldEditorRo = Partial<IFieldRo> & {

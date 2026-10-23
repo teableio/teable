@@ -91,6 +91,7 @@ const SAFE_METRICS: Record<string, true> = {
   astDepth: true,
   referenceDepth: true,
   bindings: true,
+  materializedCtes: true,
   fragmentBytes: true,
   sqlBytes: true,
 };

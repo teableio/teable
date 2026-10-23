@@ -119,7 +119,11 @@ export const planFormulaUpdateBatches = (params: {
     const update = { table: params.table, fieldIds, selectQuery, incrementVersion };
     if (params.collectChanges) {
       return updateBuilder.buildWithReturning(update).andThen((returning) =>
-        checkFormulaSqlBudget(returning.compiled.sql, formulaBudget).map(() => ({
+        checkFormulaSqlBudget(
+          returning.compiled.sql,
+          formulaBudget,
+          fieldIds.length > 1 ? undefined : 0
+        ).map(() => ({
           selectQuery,
           fieldIds,
           formulaBudget,
@@ -131,7 +135,11 @@ export const planFormulaUpdateBatches = (params: {
     return updateBuilder
       .build({ ...update, returnRecordIds: !incrementVersion })
       .andThen((compiled) =>
-        checkFormulaSqlBudget(compiled.sql, formulaBudget).map(() => ({
+        checkFormulaSqlBudget(
+          compiled.sql,
+          formulaBudget,
+          fieldIds.length > 1 ? undefined : 0
+        ).map(() => ({
           selectQuery,
           fieldIds,
           formulaBudget,

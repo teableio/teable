@@ -7,10 +7,10 @@ import { composeAndSpecsOrUndefined } from '../domain/shared/specification/compo
 import { Table } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
-import { ITableRecordCollaboratorQueryRepository } from '../ports/TableRecordQueryRepository';
+import type { ITableRecordCollaboratorQueryRepository } from '../ports/TableRecordQueryRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { IUserLookupService } from '../ports/UserLookupService';
+import type { IUserLookupService } from '../ports/UserLookupService';
 import { GetRecordCollaboratorsQuery } from './GetRecordCollaboratorsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 

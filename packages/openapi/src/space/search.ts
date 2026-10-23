@@ -64,6 +64,9 @@ export const SpaceSearchRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
-export const spaceSearch = async (spaceId: string, query: ISpaceSearchRo) => {
-  return axios.get<ISpaceSearchVo>(urlBuilder(SPACE_SEARCH, { spaceId }), { params: query });
+export const spaceSearch = async (spaceId: string, query: ISpaceSearchRo, signal?: AbortSignal) => {
+  return axios.get<ISpaceSearchVo>(urlBuilder(SPACE_SEARCH, { spaceId }), {
+    params: query,
+    signal,
+  });
 };

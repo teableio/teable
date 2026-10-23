@@ -20,7 +20,7 @@ import { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import * as ButtonClickWorkflowServicePort from '../ports/ButtonClickWorkflowService';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
-import { IExecutionContext } from '../ports/ExecutionContext';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';

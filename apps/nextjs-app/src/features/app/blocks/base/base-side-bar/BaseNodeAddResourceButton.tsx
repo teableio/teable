@@ -89,7 +89,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
       >
         <Button variant="ghost" size="xs" className="h-4">
           <Table2 className="size-4" />
-          {t('table.operator.createBlank')}
+          {t('common:noun.table')}
         </Button>
       </DropdownMenuItem>
     );
@@ -104,26 +104,30 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
         | BaseNodeResourceType.Dashboard
         | BaseNodeResourceType.Folder;
       label: string;
+      defaultName?: string;
       trailingIcon?: React.ReactNode;
     }> = [];
 
     if (canCreateWorkflow) {
       list.push({
         resourceType: BaseNodeResourceType.Workflow,
-        label: t('common:noun.newAutomation'),
+        label: t('common:noun.automation'),
+        defaultName: t('common:noun.newAutomation'),
         trailingIcon: <Slack className="size-4" />,
       });
     }
     if (canCreateRoutine) {
       list.push({
         resourceType: BaseNodeResourceType.Routine,
-        label: t('common:noun.newRoutine'),
+        label: t('common:noun.routine'),
+        defaultName: t('common:noun.newRoutine'),
       });
     }
     if (canCreateApp) {
       list.push({
         resourceType: BaseNodeResourceType.App,
-        label: t('common:noun.newApp'),
+        label: t('common:noun.app'),
+        defaultName: t('common:noun.newApp'),
       });
     }
     if (canCreateDashboard) {
@@ -136,7 +140,8 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     if (canCreateFolder) {
       list.push({
         resourceType: BaseNodeResourceType.Folder,
-        label: t('common:noun.newFolder'),
+        label: t('common:noun.folder'),
+        defaultName: t('common:noun.newFolder'),
       });
     }
 
@@ -145,7 +150,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     }
 
     return list.map((item) => {
-      const { resourceType, label, trailingIcon } = item;
+      const { resourceType, label, defaultName = label, trailingIcon } = item;
       const IconComponent = BaseNodeResourceIconMap[resourceType];
       return (
         <DropdownMenuItem
@@ -156,7 +161,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             createNode({
               resourceType,
               parentId,
-              name: label,
+              name: defaultName,
             });
           }}
         >

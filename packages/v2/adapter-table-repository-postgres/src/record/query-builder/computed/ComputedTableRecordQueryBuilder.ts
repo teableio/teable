@@ -298,6 +298,22 @@ const resolveTableField = (
       })
     );
 
+/**
+ * `SpecBuilder` collapses several condition errors into one `spec.builder`
+ * error and keeps only their messages, so this also inspects the message and
+ * the collected `details.errors` strings.
+ */
+const isInvalidConditionOperatorError = (error: DomainError): boolean => {
+  if (error.code === 'field.condition.invalid_operator_for_field') return true;
+  if (/invalid record condition operator/i.test(error.message)) return true;
+  const errors = error.details?.errors;
+  return (
+    Array.isArray(errors) &&
+    errors.some(
+      (entry) => typeof entry === 'string' && /invalid record condition operator/i.test(entry)
+    )
+  );
+};
 const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
   if (!filter?.filterSet) {
     return [];
@@ -2153,7 +2169,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTable: Table,
     group: ConditionalFieldReferenceGroup,
     hostTableAlias = T,
-    optimizeArrayMembership = false
+    optimizeArrayMembership = false,
+    onUnresolvable: 'skip' | 'error' = 'skip'
   ): Result<Expression<SqlBool> | null, DomainError> {
     return FieldCondition.create({
       filter: {
@@ -2166,7 +2183,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         condition,
         hostTableAlias,
         F,
-        optimizeArrayMembership
+        optimizeArrayMembership,
+        onUnresolvable
       )
     );
   }
@@ -2263,7 +2281,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       function* (this: ComputedTableRecordQueryBuilder) {
         const hostDbTableName = yield* hostTable.dbTableName();
         const hostTableName = yield* hostDbTableName.value();
-        const whereClause = yield* this.buildFieldReferenceConditionWhere(foreignTable, group, H);
+        const whereClause = yield* this.buildFieldReferenceConditionWhere(
+          foreignTable,
+          group,
+          H,
+          false,
+          'error'
+        );
         if (whereClause === null) {
           return err(
             domainError.invariant({
@@ -2346,7 +2370,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       function* (this: ComputedTableRecordQueryBuilder) {
         const hostDbTableName = yield* hostTable.dbTableName();
         const hostTableName = yield* hostDbTableName.value();
-        const whereClause = yield* this.buildFieldReferenceConditionWhere(foreignTable, group, H);
+        const whereClause = yield* this.buildFieldReferenceConditionWhere(
+          foreignTable,
+          group,
+          H,
+          false,
+          'error'
+        );
         if (whereClause === null) {
           return err(
             domainError.invariant({
@@ -2483,7 +2513,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     condition?: FieldCondition,
     hostTableAlias = T,
     foreignTableAlias = F,
-    optimizeArrayMembership = false
+    optimizeArrayMembership = false,
+    onUnresolvable: 'skip' | 'error' = 'skip'
   ): Result<Expression<SqlBool> | null, DomainError> {
     if (!condition || !condition.hasFilter()) {
       return ok(null);
@@ -2499,8 +2530,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         condition.toRecordConditionSpec(foreignTable, hostTable)
       );
       if (conditionSpecResult.isErr()) {
-        // Condition references a field that no longer exists (e.g., deleted field) -
-        // return null to skip filtering (field should be in error state)
+        // Persisted plans can reference a field that no longer exists (e.g. a deleted
+        // field); the generic lateral path skips that filter and the field reports an
+        // error state. An operator the target field cannot evaluate is different: the
+        // filter would silently disappear, so every path surfaces it. Fast paths pass
+        // 'error' to surface the real cause instead of crashing on a null where clause.
+        if (
+          onUnresolvable === 'error' ||
+          isInvalidConditionOperatorError(conditionSpecResult.error)
+        ) {
+          return err(conditionSpecResult.error);
+        }
         return ok(null);
       }
       const spec = conditionSpecResult.value;

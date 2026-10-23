@@ -85,7 +85,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const { t } = useTranslation(['common', 'table']);
   const searchComposition = useRef(false);
   const ref = useRef<HTMLInputElement>(null);
-  const { setSearchCursor, setResetSearchHandler } = useGridSearchStore();
+  const { setSearchCursor, setResetSearchHandler, registerSearchTarget } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
     true
@@ -100,6 +100,28 @@ export const SearchButton = (props: ISearchButtonProps) => {
   );
 
   const searchCommandRef = useRef<ISearchCommandRef>(null);
+  useEffect(() => {
+    if (!tableId || !viewId || shareView) return;
+    let focusTimer: number | undefined;
+    const unregister = registerSearchTarget({
+      tableId,
+      viewId,
+      open: (query) => {
+        if (query !== undefined) setInputValue(query);
+        setActive(true);
+        // Let React mount the input and the palette restore focus before taking it.
+        clearTimeout(focusTimer);
+        focusTimer = window.setTimeout(() => {
+          ref.current?.focus();
+          ref.current?.select();
+        }, 0);
+      },
+    });
+    return () => {
+      unregister();
+      clearTimeout(focusTimer);
+    };
+  }, [registerSearchTarget, shareView, tableId, viewId]);
 
   const commandTrigger = useRef<HTMLButtonElement>(null);
 

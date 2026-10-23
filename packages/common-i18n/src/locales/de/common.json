@@ -79,6 +79,51 @@
     "title": "Schnelle Aktionen",
     "placeHolder": "Geben Sie einen Befehl ein oder suchen Sie..."
   },
+  "commandPalette": {
+    "title": "Befehlspalette",
+    "placeholder": "Ressourcen oder Befehle suchen…",
+    "aiPlaceholder": "Suchen, Befehl ausführen oder Cuppy fragen…",
+    "commandsPlaceholder": "Befehle suchen…",
+    "commands": "Befehle",
+    "askCuppy": "Cuppy fragen",
+    "askQuery": "Cuppy fragen: {{query}}",
+    "aiHint": "Verwendet das aktuelle Projekt, die Tabelle und Ansicht",
+    "recent": "Zuletzt besucht",
+    "noRecent": "Hier werden deine zuletzt besuchten Ressourcen und Ansichten angezeigt.",
+    "actions": "Schnelle Aktionen",
+    "results": "Ergebnisse",
+    "noResults": "Keine Treffer für „{{query}}“",
+    "noResultsHint": "Versuche einen anderen Namen, frage Cuppy oder suche in der aktuellen Tabelle.",
+    "noResultsHintWithoutAI": "Versuche einen anderen Namen oder suche in der aktuellen Tabelle.",
+    "appearance": "Darstellung",
+    "shortcuts": "Tastenkürzel",
+    "back": "Zurück",
+    "select": "Auswählen",
+    "open": "Öffnen",
+    "execute": "Ausführen",
+    "close": "Schließen",
+    "newTab": "In neuem Tab öffnen",
+    "loading": "Suche läuft…",
+    "searchFailed": "Suchergebnisse konnten nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "currentTable": "In aktueller Tabelle suchen",
+    "searchTableQuery": "Aktuelle Tabelle nach „{{query}}“ durchsuchen",
+    "createTableQuery": "Tabelle „{{name}}“ erstellen",
+    "createDashboard": "Neues Dashboard",
+    "createApp": "Neue App",
+    "createWorkflow": "Neue Automatisierung",
+    "createRoutine": "Neue geplante Aufgabe",
+    "createFolder": "Neuer Ordner",
+    "createView": "{{name}} erstellen",
+    "invite": "Mitwirkende einladen",
+    "folderCreated": "Ordner erstellt",
+    "actionFailed": "Aktion konnte nicht abgeschlossen werden",
+    "backspace": "Befehlsmodus verlassen, wenn die Abfrage leer ist",
+    "toggle": "Palette öffnen oder schließen",
+    "aiMode": "KI",
+    "space": "Bereich",
+    "project": "Projekt"
+  },
   "password": {
     "setInvalid": "Das Passwort ist ungültig, besteht aus mindestens 8 Zeichen und muss mindestens einen Buchstaben und eine Zahl enthalten."
   },
@@ -1657,6 +1702,12 @@
     "sm": {
       "label": "Lite",
       "description": "Leichtgewichtiges Modell für günstige Routineaufgaben in großer Zahl."
+    },
+    "unavailable": {
+      "title": "Zu {{model}} gewechselt",
+      "description": "Die verfügbaren Modelle wurden angepasst und {{previous}} wird nicht mehr angeboten. Ab jetzt antwortet {{model}} weiter.",
+      "change": "Anderes Modell wählen",
+      "ok": "Verstanden"
     }
   },
   "system": {

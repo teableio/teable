@@ -1,16 +1,23 @@
 import {
   ActorId,
+  buildRecordConditionSpec,
   DefaultTableMapper,
   domainError,
   NoopLogger,
   RecordQueryPluginRunner,
+  type ILinkFieldOptionsDTO,
   type IRecordQueryPlugin,
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DataQueryBinding, validateDataQueryFilter } from './DataQueryBinding';
+import { assertDataQueryAccess } from './assertDataQueryAccess';
+import {
+  DataQueryBinding,
+  DataQueryRelationBinding,
+  validateDataQueryFilter,
+} from './DataQueryBinding';
 import { DataQueryDefinition } from './DataQueryDefinition';
 import { DataQueryService } from './DataQueryService';
 import { QueryExecutionService } from './QueryExecutionService';
@@ -660,5 +667,354 @@ describe('DataQueryBinding', () => {
         nullable: false,
       },
     ]);
+  });
+});
+
+describe('DataQueryRelationBinding', () => {
+  const targetTableId = `tbl${'b'.repeat(16)}`;
+  const targetTitleId = `fld${'t'.repeat(16)}`;
+  const targetDto = (): ITablePersistenceDTO => ({
+    id: targetTableId,
+    baseId: `bse${'a'.repeat(16)}`,
+    name: 'Target table',
+    dbTableName: 'schema.target',
+    primaryFieldId: targetTitleId,
+    fields: [
+      {
+        id: targetTitleId,
+        name: 'Name',
+        dbFieldName: 'name',
+        type: 'singleLineText',
+      },
+    ],
+    views: [{ id: `viw${'b'.repeat(16)}`, name: 'Grid', type: 'grid', columnMeta: {} }],
+  });
+
+  const withLinkOptions = (options: Partial<ILinkFieldOptionsDTO>): ITablePersistenceDTO => {
+    const dto = tableDto();
+    return {
+      ...dto,
+      fields: dto.fields.map((field) =>
+        field.type === 'link' ? { ...field, options: { ...field.options, ...options } } : field
+      ),
+    };
+  };
+
+  it('separates root and target dependencies and describes projected values', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [
+        { fieldId: textId, alias: 'title' },
+        { source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' },
+        { source: 'owner', system: 'id', alias: 'ownerId' },
+      ],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.rootDependencies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fieldId: textId, usages: ['projection'] }),
+        expect.objectContaining({ fieldId: linkId, usages: ['relation'] }),
+      ])
+    );
+    expect(binding.sources).toHaveLength(1);
+    expect(binding.sources[0]?.dependencies).toEqual([
+      expect.objectContaining({ fieldId: targetTitleId, usages: ['projection'] }),
+    ]);
+    expect(binding.outputs).toEqual([
+      {
+        alias: 'title',
+        wireType: 'string',
+        cellValueType: 'string',
+        isMultipleCellValue: false,
+        nullable: true,
+      },
+      {
+        alias: 'ownerTitle',
+        wireType: 'string',
+        cellValueType: 'string',
+        isMultipleCellValue: false,
+        nullable: true,
+      },
+      {
+        alias: 'ownerId',
+        wireType: 'string',
+        cellValueType: 'string',
+        isMultipleCellValue: false,
+        nullable: true,
+      },
+    ]);
+  });
+
+  it('fails closed when the declared target table does not match', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper
+      .toDomain({
+        ...targetDto(),
+        id: `tbl${'c'.repeat(16)}`,
+      })
+      ._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+
+    expect(
+      DataQueryRelationBinding.prepare(definition, root, new Map([['owner', target]])).isErr()
+    ).toBe(true);
+  });
+
+  it('authorizes root and target projections with independent scopes', async () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const calls: Array<{ tableId: string; fields: ReadonlyArray<string> }> = [];
+    const plugin: IRecordQueryPlugin = {
+      name: 'relation-scope',
+      supports: () => true,
+      scope: (pluginContext) => {
+        calls.push({
+          tableId: pluginContext.table.id().toString(),
+          fields: pluginContext.payload.projectionFieldIds ?? [],
+        });
+        return ok({});
+      },
+    };
+    const execute = vi.fn(async () => ok({ rows: [] }));
+    const executeRelation = vi.fn(async () => ok({ rows: [{ ownerTitle: 'One' }] }));
+    const service = new DataQueryService(
+      {
+        findOne: async (_context, specification) => {
+          if (specification.isSatisfiedBy(root)) return ok(root);
+          if (specification.isSatisfiedBy(target)) return ok(target);
+          return err(
+            domainError.notFound({ code: 'test.table_missing', message: 'Missing table' })
+          );
+        },
+      },
+      new RecordQueryPluginRunner([plugin], new NoopLogger()),
+      { execute, executeRelation }
+    );
+    const context = { actorId: ActorId.create('reader')._unsafeUnwrap() };
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [
+        { fieldId: textId, alias: 'title' },
+        { source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' },
+      ],
+    })._unsafeUnwrap();
+
+    const validation = await service.validate(context, definition);
+    expect(validation.isOk()).toBe(true);
+    expect(calls).toEqual([
+      { tableId, fields: [textId, linkId] },
+      { tableId: targetTableId, fields: [targetTitleId] },
+    ]);
+
+    calls.length = 0;
+    const execution = await service.execute(context, definition);
+    expect(execution._unsafeUnwrap().rows).toEqual([{ ownerTitle: 'One' }]);
+    expect(executeRelation).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([
+      { tableId, fields: [textId, linkId] },
+      { tableId: targetTableId, fields: [targetTitleId] },
+    ]);
+  });
+
+  it('rejects a related table that belongs to another base', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper
+      .toDomain({ ...targetDto(), baseId: `bse${'z'.repeat(16)}` })
+      ._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+
+    expect(
+      DataQueryRelationBinding.prepare(
+        definition,
+        root,
+        new Map([['owner', target]])
+      )._unsafeUnwrapErr().code
+    ).toBe('data_query.join_cross_base');
+  });
+
+  it('accepts a root-hosted one-one link', () => {
+    const root = mapper
+      .toDomain(
+        withLinkOptions({
+          relationship: 'oneOne',
+          fkHostTableName: 'schema.original',
+          selfKeyName: '__id',
+          foreignKeyName: 'fk_partner',
+        })
+      )
+      ._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.sources).toEqual([
+      expect.objectContaining({ alias: 'owner', linkFieldId: linkId }),
+    ]);
+    expect(binding.rootDependencies).toEqual(
+      expect.arrayContaining([expect.objectContaining({ fieldId: linkId, usages: ['relation'] })])
+    );
+  });
+
+  it('rejects an inverse one-one link whose foreign key lives on the target', () => {
+    const root = mapper
+      .toDomain(
+        withLinkOptions({
+          relationship: 'oneOne',
+          fkHostTableName: 'schema.target',
+          selfKeyName: 'fk_back',
+          foreignKeyName: '__id',
+        })
+      )
+      ._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+
+    expect(
+      DataQueryRelationBinding.prepare(
+        definition,
+        root,
+        new Map([['owner', target]])
+      )._unsafeUnwrapErr().code
+    ).toBe('data_query.join_relationship');
+  });
+
+  it('rejects a many-one link whose foreign key is not hosted by the root table', () => {
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+    const foreignHost = mapper
+      .toDomain(withLinkOptions({ fkHostTableName: 'schema.target' }))
+      ._unsafeUnwrap();
+    const foreignSelfKey = mapper
+      .toDomain(withLinkOptions({ selfKeyName: 'fk_owner_back' }))
+      ._unsafeUnwrap();
+
+    for (const root of [foreignHost, foreignSelfKey]) {
+      expect(
+        DataQueryRelationBinding.prepare(
+          definition,
+          root,
+          new Map([['owner', target]])
+        )._unsafeUnwrapErr().code
+      ).toBe('data_query.join_relationship');
+    }
+  });
+
+  it('marks target system projections nullable and keeps root system invariants', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [
+        { system: 'id', alias: 'id' },
+        { system: 'lastModifiedTime', alias: 'modified' },
+        { system: 'version', alias: 'version' },
+        { source: 'owner', system: 'id', alias: 'ownerId' },
+        { source: 'owner', system: 'createdTime', alias: 'ownerCreated' },
+        { source: 'owner', system: 'lastModifiedTime', alias: 'ownerModified' },
+      ],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.outputs.map((output) => [output.alias, output.nullable])).toEqual([
+      ['id', false],
+      ['modified', true],
+      ['version', false],
+      ['ownerId', true],
+      ['ownerCreated', true],
+      ['ownerModified', true],
+    ]);
+  });
+
+  it('rejects a masked relation link even without an allow-list or with it readable', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
+    })._unsafeUnwrap();
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+    const linkMask = {
+      fieldId: linkId,
+      visibleWhen: buildRecordConditionSpec(root, {
+        fieldId: textId,
+        operator: 'is',
+        value: 'Alpha',
+      })._unsafeUnwrap(),
+    };
+
+    for (const scope of [
+      { fieldMasks: [linkMask] },
+      { readableFieldIds: new Set([textId, linkId]), fieldMasks: [linkMask] },
+      { readableFieldIds: new Set([textId]), fieldMasks: [linkMask] },
+    ]) {
+      expect(
+        assertDataQueryAccess({ dependencies: binding.rootDependencies }, scope)._unsafeUnwrapErr()
+          .code
+      ).toBe('data_query.field_forbidden');
+    }
   });
 });

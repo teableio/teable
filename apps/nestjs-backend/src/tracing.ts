@@ -38,6 +38,9 @@
  *   OTEL_SLOW_TRACE_THRESHOLD_MS (default 1000 ms, non-positive/invalid values fall back to
  *   the default), so slow successful requests keep their internal spans. With the default
  *   OTEL_EXPORT_RATIO of 0.1 this raises retention above 10% for slow traffic only.
+ * - Additionally, a successful HTTP SERVER request at or above 500 ms promotes its buffered
+ *   detail inside the same memory/export caps, so sub-second request regressions keep their
+ *   spans without lowering the general span threshold.
  * - Any single trace is truncated past TRACE_EXPORT_SPAN_CAP detail spans, so a leaked
  *   context cannot funnel a pod's whole lifetime into one unbounded trace
  */

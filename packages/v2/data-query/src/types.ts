@@ -14,6 +14,8 @@ export type DataQueryParameterDefinition = {
 };
 /** Explicit sort-order values. A parameterized order may only resolve to one of these. */
 export type DataQuerySortOrder = 'asc' | 'desc';
+/** Explicit null placement; omitted keeps the compiler's existing per-field default. */
+export type DataQuerySortNulls = 'first' | 'last';
 export type DataQueryFilterLeaf = {
   fieldId: string;
   operator: RecordFilterOperator;
@@ -41,10 +43,10 @@ export type DataQuerySystemProjection = { system: DataQuerySystemField; alias: s
 /** A concrete sort target an allow-list may expose to a parameterized sort. */
 export type DataQuerySortTarget = { fieldId: string } | { system: DataQuerySystemField };
 export type DataQuerySort =
-  | { fieldId: string; order: DataQuerySortOrder }
-  | { system: DataQuerySystemField; order: DataQuerySortOrder }
+  | { fieldId: string; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }
+  | { system: DataQuerySystemField; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }
   /** Aggregate output alias. Compiled to `ORDER BY <alias>` without re-evaluating the aggregate. */
-  | { alias: string; order: DataQuerySortOrder }
+  | { alias: string; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }
   | {
       field: DataQueryParameterReference;
       order: DataQuerySortOrder | DataQueryParameterReference;
@@ -52,19 +54,19 @@ export type DataQuerySort =
       allowed: DataQuerySortTarget[];
       /** Skip the whole item when its field or order parameter is absent. */
       optional?: boolean;
+      nulls?: DataQuerySortNulls;
     };
 /** Runtime sort items after parameter binding; only these reach SQL compilation. */
 export type DataQuerySortResolved =
-  | { fieldId: string; order: DataQuerySortOrder }
-  | { system: DataQuerySystemField; order: DataQuerySortOrder }
-  | { alias: string; order: DataQuerySortOrder };
+  | { fieldId: string; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }
+  | { system: DataQuerySystemField; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }
+  | { alias: string; order: DataQuerySortOrder; nulls?: DataQuerySortNulls };
 export type DataQueryAggregate = {
   fieldId: string;
   statisticFunc: TableRecordAggregationFunction;
   alias: string;
 };
 type DataQueryDefinitionBase = {
-  version: 1;
   tableId: string;
   parameters?: Record<string, DataQueryParameterDefinition>;
   filter?: DataQueryFilter;
@@ -76,20 +78,48 @@ type DataQueryDefinitionBase = {
   };
   sort?: DataQuerySort[];
 };
-export type DataQueryDefinitionInput = DataQueryDefinitionBase &
+export type DataQueryRelation = {
+  /** Stable Link field on the root table. */
+  linkFieldId: string;
+  /** Declared target table; checked against the Link metadata when tables load. */
+  tableId: string;
+};
+export type DataQuerySourceRef = {
+  /** Omitted means root. `root` is reserved and may also be written explicitly. */
+  source?: string;
+};
+export type DataQueryFieldProjectionV2 = DataQueryFieldProjection & DataQuerySourceRef;
+export type DataQuerySystemProjectionV2 = DataQuerySystemProjection & DataQuerySourceRef;
+export type DataQueryDefinitionInput = (
+  | (DataQueryDefinitionBase & { version: 1 })
+  | (DataQueryDefinitionBase & {
+      version: 2;
+      relations?: Record<string, DataQueryRelation>;
+    })
+) &
   (
     | {
         kind: 'records';
         recordId?: string | DataQueryParameterReference;
         select: [
-          DataQueryFieldProjection | DataQuerySystemProjection,
-          ...(DataQueryFieldProjection | DataQuerySystemProjection)[],
+          (
+            | DataQueryFieldProjection
+            | DataQuerySystemProjection
+            | DataQueryFieldProjectionV2
+            | DataQuerySystemProjectionV2
+          ),
+          ...(
+            | DataQueryFieldProjection
+            | DataQuerySystemProjection
+            | DataQueryFieldProjectionV2
+            | DataQuerySystemProjectionV2
+          )[],
         ];
       }
     | {
         kind: 'aggregate';
         aggregates: [DataQueryAggregate, ...DataQueryAggregate[]];
-        groupBy?: DataQueryFieldProjection[];
+        groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
       }
   );
 export type BoundDataQuery = {
@@ -109,7 +139,8 @@ export type DataQueryFieldUsage =
   | 'sort'
   | 'group'
   | 'aggregate'
-  | 'reference';
+  | 'reference'
+  | 'relation';
 export type DataQueryFieldDependency = {
   readonly fieldId: string;
   readonly usages: ReadonlyArray<DataQueryFieldUsage>;

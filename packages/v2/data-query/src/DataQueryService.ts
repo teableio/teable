@@ -7,16 +7,17 @@ import {
   type ITableReadModel,
   type RecordQueryPluginScope,
   type RecordQueryPluginRunner,
+  type Table,
   TableByIdSpec,
   TableId,
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
 import { assertDataQueryAccess } from './assertDataQueryAccess';
-import { DataQueryBinding } from './DataQueryBinding';
+import { DataQueryBinding, DataQueryRelationBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
-import type { DataQueryResult, IDataQueryExecutor } from './ports';
-import type { DataQueryOutput } from './types';
+import type { DataQueryRelationPlan, DataQueryResult, IDataQueryExecutor } from './ports';
+import type { DataQueryFieldDependency, DataQueryOutput } from './types';
 
 export interface DataQueryExecutionInput {
   readonly parameters?: Readonly<Record<string, unknown>>;
@@ -55,6 +56,107 @@ export const traceDataQueryStage = async <T>(
   if ('thrown' in outcome) throw outcome.thrown;
   return outcome;
 };
+export const hasDataQueryRelations = (definition: DataQueryDefinition): boolean => {
+  const snapshot = definition.snapshot();
+  return (
+    snapshot.version === 2 &&
+    snapshot.kind === 'records' &&
+    (Object.keys(snapshot.relations ?? {}).length > 0 ||
+      snapshot.select.some(
+        (projection) => 'source' in projection && projection.source !== undefined
+      ))
+  );
+};
+
+/** Loads the root and every declared target table, then validates the relation contract. */
+export const prepareDataQueryRelation = async (
+  context: IExecutionContext,
+  tableRepository: Pick<ITableRepository, 'findOne'>,
+  definition: DataQueryDefinition
+): Promise<
+  Result<
+    {
+      rootTable: Table;
+      targetTables: ReadonlyMap<string, Table>;
+      binding: DataQueryRelationBinding;
+      attributes: SpanAttributes;
+    },
+    DomainError
+  >
+> => {
+  return safeTry(async function* () {
+    const snapshot = definition.snapshot();
+    if (snapshot.version !== 2 || snapshot.kind !== 'records') {
+      return err(
+        domainError.validation({
+          code: 'data_query.join_version',
+          message: 'Relation queries require a version 2 records definition',
+        })
+      );
+    }
+    const tableId = yield* TableId.create(snapshot.tableId);
+    const attributes = {
+      'teable.table_id': tableId.toString(),
+      'teable.data_query.kind': snapshot.kind,
+    };
+    const rootTable = yield* await traceDataQueryStage(context, 'schema.load', attributes, () =>
+      tableRepository.findOne(context, TableByIdSpec.create(tableId))
+    );
+    const targetTables = new Map<string, Table>();
+    for (const [alias, relation] of Object.entries(snapshot.relations ?? {})) {
+      const targetId = yield* TableId.create(relation.tableId);
+      const target = yield* await traceDataQueryStage(
+        context,
+        'schema.load.relation',
+        {
+          ...attributes,
+          'teable.data_query.relation': alias,
+          'teable.table_id': targetId.toString(),
+        },
+        () => tableRepository.findOne(context, TableByIdSpec.create(targetId))
+      );
+      targetTables.set(alias, target);
+    }
+    const binding = yield* await traceDataQueryStage(
+      context,
+      'schema.compatibility.relations',
+      attributes,
+      async () =>
+        DataQueryRelationBinding.prepare(definition, rootTable, targetTables, {
+          deferOperatorRejection: true,
+        })
+    );
+    return ok({ rootTable, targetTables, binding, attributes });
+  });
+};
+
+/** Prepares one table's row/field scope and fails closed when a required field is unreadable. */
+export const authorizeDataQueryDependencies = async (
+  context: IExecutionContext,
+  queryPlugins: RecordQueryPluginRunner,
+  table: ITableReadModel,
+  dependencies: ReadonlyArray<DataQueryFieldDependency>,
+  pagination?: { readonly limit: number; readonly offset: number }
+): Promise<Result<RecordQueryPluginScope, DomainError>> => {
+  const execution = await queryPlugins.prepare({
+    kind: 'list',
+    executionContext: context,
+    table,
+    payload: {
+      ignoreViewQuery: true,
+      projectionFieldIds: dependencies.map((dependency) => dependency.fieldId),
+      ...pagination,
+    },
+  });
+  if (execution.isErr()) return err(execution.error);
+  const guard = await execution.value.guard();
+  if (guard.isErr()) return err(guard.error);
+  const scope = execution.value.getScope();
+  if (scope.isErr()) return err(scope.error);
+  const resolvedScope = scope.value ?? {};
+  return assertDataQueryAccess({ dependencies }, resolvedScope).map(() => resolvedScope);
+};
+
 /**
  * Reuses table semantics without introducing host or SQL concepts into core.
  * Bindings are transient contracts for live schema validation and authorization.
@@ -94,6 +196,9 @@ export class DataQueryService {
     definition: DataQueryDefinition
   ): Promise<Result<{ outputs: ReadonlyArray<DataQueryOutput> }, DomainError>> {
     try {
+      if (hasDataQueryRelations(definition)) {
+        return await this.validateRelation(context, definition);
+      }
       return await safeTry(
         async function* (this: DataQueryService) {
           const { table, binding, attributes } = yield* await this.prepare(context, definition);
@@ -121,6 +226,9 @@ export class DataQueryService {
     input: DataQueryExecutionInput = {}
   ): Promise<Result<DataQueryResult, DomainError>> {
     try {
+      if (hasDataQueryRelations(definition)) {
+        return await this.executeRelation(context, definition, input);
+      }
       return await safeTry(
         async function* (this: DataQueryService) {
           const { table, binding, attributes } = yield* await this.prepare(context, definition);
@@ -144,28 +252,142 @@ export class DataQueryService {
     }
   }
 
+  private async validateRelation(
+    context: IExecutionContext,
+    definition: DataQueryDefinition
+  ): Promise<Result<{ outputs: ReadonlyArray<DataQueryOutput> }, DomainError>> {
+    try {
+      return await safeTry(
+        async function* (this: DataQueryService) {
+          const { rootTable, binding, attributes } = yield* await prepareDataQueryRelation(
+            context,
+            this.tableRepository,
+            definition
+          );
+          yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
+            authorizeDataQueryDependencies(
+              context,
+              this.queryPlugins,
+              rootTable,
+              binding.rootDependencies
+            )
+          );
+          for (const source of binding.sources) {
+            yield* await traceDataQueryStage(
+              context,
+              'authorize.relation',
+              { ...attributes, 'teable.data_query.relation': source.alias },
+              () =>
+                authorizeDataQueryDependencies(
+                  context,
+                  this.queryPlugins,
+                  source.table,
+                  source.dependencies
+                )
+            );
+          }
+          if (binding.deferredFilterError) return err(binding.deferredFilterError);
+          return ok({ outputs: binding.outputs });
+        }.bind(this)
+      );
+    } catch (cause) {
+      return err(
+        domainError.infrastructure({
+          code: 'data_query.validation_failed',
+          message: 'Unable to validate the data query',
+          cause,
+        })
+      );
+    }
+  }
+
+  private async executeRelation(
+    context: IExecutionContext,
+    definition: DataQueryDefinition,
+    input: DataQueryExecutionInput
+  ): Promise<Result<DataQueryResult, DomainError>> {
+    try {
+      const executor = this.executor.executeRelation?.bind(this.executor);
+      if (!executor) {
+        return err(
+          domainError.validation({
+            code: 'data_query.join_unsupported',
+            message: 'The configured executor does not support relation queries',
+          })
+        );
+      }
+      return await safeTry(
+        async function* (this: DataQueryService) {
+          const { rootTable, targetTables, binding, attributes } =
+            yield* await prepareDataQueryRelation(context, this.tableRepository, definition);
+          const query = yield* definition.bind(input.parameters ?? {});
+          const rootScope = yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
+            authorizeDataQueryDependencies(
+              context,
+              this.queryPlugins,
+              rootTable,
+              binding.rootDependencies,
+              { limit: query.limit, offset: query.offset }
+            )
+          );
+          const scopes = new Map<string, RecordQueryPluginScope>();
+          for (const source of binding.sources) {
+            const scope = yield* await traceDataQueryStage(
+              context,
+              'authorize.relation',
+              { ...attributes, 'teable.data_query.relation': source.alias },
+              () =>
+                authorizeDataQueryDependencies(
+                  context,
+                  this.queryPlugins,
+                  source.table,
+                  source.dependencies
+                )
+            );
+            scopes.set(source.alias, scope);
+          }
+          if (binding.deferredFilterError) return err(binding.deferredFilterError);
+          const plan: DataQueryRelationPlan = {
+            definition,
+            query,
+            rootTable,
+            rootScope,
+            rootDependencies: binding.rootDependencies,
+            sources: binding.sources.map((source) => ({
+              alias: source.alias,
+              table: targetTables.get(source.alias)!,
+              linkFieldId: source.linkFieldId,
+              scope: scopes.get(source.alias)!,
+              dependencies: source.dependencies,
+            })),
+          };
+          const result = yield* await executor(context, plan);
+          return ok(result);
+        }.bind(this)
+      );
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          code: 'data_query.execution_failed',
+          message: 'Unable to execute the data query',
+          cause: error,
+        })
+      );
+    }
+  }
+
   private async authorize(
     context: IExecutionContext,
     table: ITableReadModel,
     binding: DataQueryBinding,
     pagination?: { readonly limit: number; readonly offset: number }
   ): Promise<Result<RecordQueryPluginScope, DomainError>> {
-    const execution = await this.queryPlugins.prepare({
-      kind: 'list',
-      executionContext: context,
+    return authorizeDataQueryDependencies(
+      context,
+      this.queryPlugins,
       table,
-      payload: {
-        ignoreViewQuery: true,
-        projectionFieldIds: binding.dependencies.map((dependency) => dependency.fieldId),
-        ...pagination,
-      },
-    });
-    if (execution.isErr()) return err(execution.error);
-    const guard = await execution.value.guard();
-    if (guard.isErr()) return err(guard.error);
-    const scope = execution.value.getScope();
-    if (scope.isErr()) return err(scope.error);
-    const resolvedScope = scope.value ?? {};
-    return assertDataQueryAccess(binding, resolvedScope).map(() => resolvedScope);
+      binding.dependencies,
+      pagination
+    );
   }
 }

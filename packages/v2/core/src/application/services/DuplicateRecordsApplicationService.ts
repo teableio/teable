@@ -38,11 +38,13 @@ import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
 } from '../../ports/RecordWritePlugin';
-import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
-import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
-import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import { ITableRecordRepository } from '../../ports/TableRecordRepository';
 import type {
+  ITableRecordQueryRepository,
+  TableRecordOrderBy,
+} from '../../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
+import type {
+  ITableRecordRepository,
   BatchRecordMutationResult,
   RecordStoredSnapshot,
 } from '../../ports/TableRecordRepository';

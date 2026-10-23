@@ -3,8 +3,8 @@
   "display": "@teable/v2-di",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "esnext",
     "lib": ["esnext"],
     "esModuleInterop": true,

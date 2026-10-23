@@ -92,6 +92,26 @@ export class V2DataQueryService {
             return err(dataQueryHostError(error));
           }
         },
+        executeRelation: async (executionContext, plan) => {
+          try {
+            if (!routingSnapshot) throw new Error('Query resource has not been admitted');
+            const snapshot = routingSnapshot;
+            const route = await traceDataQueryStage(
+              executionContext,
+              'routing.resolve',
+              { [TableQueryTraceAttributes.SPACE_ID]: snapshot.spaceId },
+              async () => ok(await this.containers.getContainerForRoutingSnapshot(snapshot))
+            );
+            if (route.isErr()) return err(route.error);
+            const dataContainer = route.value;
+            const postgres = new PostgresDataQueryExecutor(
+              dataContainer.resolve(v2DataDbTokens.db)
+            );
+            return await postgres.executeRelation(executionContext, plan);
+          } catch (error) {
+            return err(dataQueryHostError(error));
+          }
+        },
       };
       const dataQueries = new DataQueryService(
         {

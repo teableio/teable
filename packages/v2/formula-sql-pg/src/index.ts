@@ -38,6 +38,7 @@ export {
   FormulaCompileBudgetViolationError,
   isFormulaCompileBudgetError,
   checkFormulaSqlBudget,
+  countMaterializedFormulaCtes,
   assertFormulaCompileBudgetOptions,
 } from './FormulaCompileBudget';
 export type {

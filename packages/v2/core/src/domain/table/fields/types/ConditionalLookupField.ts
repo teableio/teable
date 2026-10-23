@@ -35,6 +35,7 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import { validateForeignTableCondition } from '../foreignTableConditionValidation';
 import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
@@ -326,6 +327,17 @@ export class ConditionalLookupField
       this.innerFieldValue = resolvedInnerField;
       this.normalizeInnerOptionsPatch(resolvedInnerField);
     }
+
+    // The filter is user input resolved against the foreign and host tables at
+    // execution time. A buildable-looking filter with an operator the target
+    // field's value shape rejects must fail here as a request-validation error
+    // instead of being persisted and killing the computed backfill later.
+    const conditionValidation = validateForeignTableCondition(
+      this.conditionalLookupOptionsValue.condition(),
+      context,
+      foreignTable
+    );
+    if (conditionValidation.isErr()) return err(conditionValidation.error);
 
     // 4. Set dependencies to host fields referenced by condition value expressions.
     // Foreign-table predicate fields are not same-table dependencies.

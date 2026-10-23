@@ -331,6 +331,30 @@ for (const backend of ['pglite', 'postgres'] as const) {
         expect(changes(split.result).map((record) => record.newVersion)).toEqual([11, 11, 11, 11]);
       });
 
+      it('splits batches whose combined MATERIALIZED formula CTE count exceeds the limit', async () => {
+        const shared = `LEN(${ref(inputId)})`;
+        const expression = `IF(${shared} > 0, ${shared} + 1, 0)`;
+        const data = await fixture([
+          { expression },
+          { expression },
+          { expression },
+        ]);
+        const singles = measurement();
+        for (let index = 0; index < 3; index++)
+          await data.run(singles.config, data.plan([[index]]));
+        const max = singles.maximum('materializedCtes');
+        expect(max).toBeGreaterThan(0);
+
+        const normal = await data.run(defaultFormulaCompileBudgetConfig, data.plan());
+        expect(normal.updates).toHaveLength(1);
+
+        const split = await data.run(bounded('materializedCtes', max), data.plan());
+        expect(split.updates.length).toBeGreaterThan(1);
+        expect(split.result.fieldErrors ?? []).toEqual([]);
+        expect(split.rows).toEqual(normal.rows);
+        expect(changes(split.result)).toEqual(changes(normal.result));
+      });
+
       it('rejects mixed explicit compiler roots but executes legacy and protected updater groups without a downgrade', async () => {
         const large = `${ref(inputId)}${' + 1'.repeat(16)}`;
         const data = await fixture([

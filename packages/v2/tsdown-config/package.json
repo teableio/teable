@@ -17,6 +17,6 @@
     "src"
   ],
   "devDependencies": {
-    "tsdown": "0.18.1"
+    "tsdown": "0.23.1"
   }
 }

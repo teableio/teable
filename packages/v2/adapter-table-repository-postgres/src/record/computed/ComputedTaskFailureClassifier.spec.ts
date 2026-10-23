@@ -346,4 +346,69 @@ describe('classifyComputedTaskFailure', () => {
       normalizeComputedTaskError(domainError.infrastructure({ message: 'ordinary failure' })).code
     ).toBe('infrastructure');
   });
+
+  it('classifies an invalid persisted condition operator as a non-retryable obsolete plan', () => {
+    const failure = classifyComputedTaskFailure(
+      domainError.validation({
+        code: 'field.condition.invalid_operator_for_field',
+        message: 'Invalid record condition operator "is" for field fldInvalidOperator',
+      })
+    );
+
+    expect(failure).toEqual({
+      failureKind: 'obsolete_plan',
+      failureReason: 'invalid_condition',
+      retryable: false,
+    });
+  });
+
+  it('classifies invariant violations as non-retryable code bugs', () => {
+    const failure = classifyComputedTaskFailure(
+      domainError.invariant({
+        message: 'Conditional rollup field-reference set-based path requires a filter',
+      })
+    );
+
+    expect(failure).toEqual({
+      failureKind: 'computed_code_bug',
+      failureReason: 'computed_invariant_violation',
+      retryable: false,
+    });
+  });
+
+  it('classifies a collapsed multi-error condition builder as a non-retryable obsolete plan', () => {
+    const failure = classifyComputedTaskFailure(
+      domainError.validation({
+        code: 'spec.builder',
+        message: 'Specification builder errors',
+        details: {
+          errors: [
+            'Invalid record condition operator for field fldOne: "is"',
+            'Invalid record condition operator for field fldTwo: "is"',
+          ],
+        },
+      })
+    );
+
+    expect(failure).toEqual({
+      failureKind: 'obsolete_plan',
+      failureReason: 'invalid_condition',
+      retryable: false,
+    });
+  });
+
+  it('classifies custom invariant codes as non-retryable code bugs', () => {
+    const failure = classifyComputedTaskFailure(
+      domainError.invariant({
+        code: 'invariant.missing_db_field_name',
+        message: 'Missing db field name',
+      })
+    );
+
+    expect(failure).toEqual({
+      failureKind: 'computed_code_bug',
+      failureReason: 'computed_invariant_violation',
+      retryable: false,
+    });
+  });
 });

@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Span } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
 import type { IDsn } from '@teable/core';
 import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
 import { PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
@@ -27,6 +29,10 @@ import {
   type BaseSqlFieldObservationTarget,
   type BaseSqlTableObservationTarget,
 } from './sql-query-observation';
+import {
+  classifyStructuredCoverage,
+  STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX,
+} from './structured-coverage';
 import { checkTableAccess, validateRoleOperations } from './utils';
 
 /** Room reserved inside the transaction budget for the `SET` round trips and the COMMIT. */
@@ -348,6 +354,8 @@ export class BaseSqlExecutorService {
       projectionTableIds?: string[];
       parameters?: ReadonlyArray<unknown>;
       redactErrors?: boolean;
+      /** Only the public SQL route opts in; internal chat SQL is not the baseline population. */
+      structuredCoverage?: boolean;
     }
   ) {
     let checked: SqlObservationCheck | undefined;
@@ -365,7 +373,19 @@ export class BaseSqlExecutorService {
             if (shouldSetLocalRole) {
               await this.setLocalRole(prisma, baseId);
             }
-            return await prisma.$queryRawUnsafe<T>(sql, ...(opts?.parameters ?? []));
+            const coverageSpan =
+              opts?.structuredCoverage === true
+                ? this.startStructuredCoverageSpan(checked!.parsed)
+                : undefined;
+            try {
+              return await prisma.$queryRawUnsafe<T>(sql, ...(opts?.parameters ?? []));
+            } finally {
+              try {
+                coverageSpan?.end();
+              } catch {
+                // Diagnostics are best effort and never change the SQL result.
+              }
+            }
           } catch (error: unknown) {
             sqlTimedOut = isSqlTimeout(error);
             if (opts?.redactErrors) throw error;
@@ -403,6 +423,34 @@ export class BaseSqlExecutorService {
         );
       }
       throw error;
+    }
+  }
+
+  /**
+   * One span per SQL execution, after authorization and immediately around the
+   * statement. Diagnostics are best effort: a failure here never changes the
+   * business result.
+   */
+  private startStructuredCoverageSpan(parsed: BaseSqlParsedQuery): Span | undefined {
+    let span: Span | undefined;
+    try {
+      span = trace
+        .getTracer('teable.base-sql-executor')
+        .startSpan('teable.baseSqlExecutor.executeQuerySql');
+      if (!span.isRecording()) return span;
+      const coverage = classifyStructuredCoverage(parsed.ast);
+      span.setAttributes({
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.version`]: coverage.version,
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.candidate`]: coverage.candidate ?? 'unclassified',
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.features`]: [...coverage.features],
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.gaps`]: [...coverage.gaps],
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.unknown`]: [...coverage.unknown],
+        [`${STRUCTURED_COVERAGE_ATTRIBUTE_PREFIX}.fingerprint`]: coverage.fingerprint,
+      });
+      return span;
+    } catch {
+      span?.end();
+      return undefined;
     }
   }
 

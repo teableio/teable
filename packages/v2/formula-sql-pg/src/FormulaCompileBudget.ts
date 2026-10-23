@@ -22,6 +22,7 @@ export type FormulaBudgetMetric =
   | 'astDepth'
   | 'referenceDepth'
   | 'bindings'
+  | 'materializedCtes'
   | 'fragmentBytes'
   | 'sqlBytes';
 export type FormulaBudgetViolation = {
@@ -50,12 +51,20 @@ export const assertFormulaCompileBudgetOptions = (options: FormulaCompileBudgetO
   }
 };
 
+/**
+ * A statement with hundreds of MATERIALIZED formula CTEs builds a plan whose node count is
+ * independent of the dirty row count. Keep the host statement bounded so the batch planner can
+ * split fields instead of letting a single-row computed update exhaust a small tenant instance.
+ */
+export const MAX_MATERIALIZED_FORMULA_CTES = 96;
+
 /** Provisional version-one thresholds, not production-validated release limits. */
 export const defaultFormulaCompileBudgetLimits: Readonly<Record<FormulaBudgetMetric, number>> =
   Object.freeze({
     ...defaultFormulaSourceBudgetLimits,
     uniqueNodes: 8192,
     bindings: 1024,
+    materializedCtes: MAX_MATERIALIZED_FORMULA_CTES,
     fragmentBytes: 4194304,
     sqlBytes: 262144,
   });
@@ -64,9 +73,10 @@ export const createFormulaCompileBudgetPolicy = (
 ): FormulaCompileBudgetPolicy => {
   const snapshot = { ...limits };
   for (const metric of Object.keys(defaultFormulaCompileBudgetLimits) as FormulaBudgetMetric[]) {
-    if (!Number.isSafeInteger(snapshot[metric]) || snapshot[metric] < 0) {
+    const limit = snapshot[metric] ?? defaultFormulaCompileBudgetLimits[metric];
+    if (!Number.isSafeInteger(limit) || limit < 0)
       throw new Error(`Invalid formula compile budget: ${metric}`);
-    }
+    snapshot[metric] = limit;
   }
   return Object.freeze({
     check: (metric: FormulaBudgetMetric, attempted: number) =>
@@ -87,6 +97,7 @@ const errors = {
   astDepth: tableDataSafetyLimitErrors.formulaCompileDepthMax,
   referenceDepth: tableDataSafetyLimitErrors.formulaReferenceDepthMax,
   bindings: tableDataSafetyLimitErrors.formulaBindingsMax,
+  materializedCtes: tableDataSafetyLimitErrors.formulaBindingsMax,
   fragmentBytes: tableDataSafetyLimitErrors.formulaCompileBytesMax,
   sqlBytes: tableDataSafetyLimitErrors.formulaSqlBytesMax,
 } as const;
@@ -132,6 +143,7 @@ export class FormulaCompileBudget {
     astDepth: 0,
     referenceDepth: 0,
     bindings: 0,
+    materializedCtes: 0,
     fragmentBytes: 0,
     sqlBytes: 0,
   };
@@ -263,14 +275,30 @@ export class FormulaCompileBudget {
   }
 }
 
+const MATERIALIZED_FORMULA_CTE =
+  /'(?:[^']|'')*'|("__formula_\d+" AS MATERIALIZED)/g;
+
+/** Count CTE definitions outside string literals; duplicates in nested scopes each add a plan node. */
+export const countMaterializedFormulaCtes = (sql: string): number => {
+  let count = 0;
+  for (const match of sql.matchAll(MATERIALIZED_FORMULA_CTE)) if (match[1] !== undefined) count++;
+  return count;
+};
+
 /** Check the complete host statement, including casts, CTEs and UPDATE wrappers. */
 export const checkFormulaSqlBudget = (
   sql: string,
-  options?: FormulaCompileBudgetOptions
+  options?: FormulaCompileBudgetOptions,
+  materializedCtes = countMaterializedFormulaCtes(sql)
 ): Result<string, DomainError> => {
   const budget = new FormulaCompileBudget(options);
   return budget.boundary(() => {
     budget.check('sqlBytes', budget.bytes(sql));
+    // Plan shape is a safety limit, not an observation: enforce it even in observe mode.
+    budget.check('materializedCtes', materializedCtes);
+    const violation = budget.options.policy.check('materializedCtes', materializedCtes);
+    if (violation)
+      throw new FormulaCompileBudgetViolationError(violation, budget.options.policyVersion);
     return sql;
   });
 };

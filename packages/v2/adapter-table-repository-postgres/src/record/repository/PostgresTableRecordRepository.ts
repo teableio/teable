@@ -373,7 +373,18 @@ async function getViewOrderInfo(
   // the lookup below and the INSERT would receive NULL (T7570). The publish
   // takes ACCESS EXCLUSIVE, so it either sweeps this row or precedes it.
   if (isKyselyTransaction(db)) {
-    await sql`LOCK TABLE ${sql.table(tableName)} IN ROW EXCLUSIVE MODE`.execute(db);
+    try {
+      await sql`LOCK TABLE ${sql.table(tableName)} IN ROW EXCLUSIVE MODE`.execute(db);
+    } catch (error) {
+      // A reused transaction handle can outlive its transaction block. The probe and
+      // insert still work on the connection; only the column-pinning lock is unavailable.
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes('LOCK TABLE can only be used in transaction blocks')
+      ) {
+        throw error;
+      }
+    }
   }
 
   // First, check which columns actually exist in the table.

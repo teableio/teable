@@ -4,6 +4,7 @@ import {
   replaceCurrentUserTagInFilter,
   type DomainError,
   type Field,
+  type LinkField,
   type IExecutionContext,
   type ITableReadModel,
   type RecordQueryPluginScope,
@@ -12,10 +13,12 @@ import {
 import {
   assertDataQueryAccess,
   DataQueryBinding,
+  DataQueryRelationBinding,
   isBoundDataQuery,
   traceDataQueryStage,
   validateDataQueryFilter,
   type BoundDataQuery,
+  type DataQueryRelationPlan,
   type DataQueryResult,
   type DataQuerySystemField,
   type IDataQueryExecutor,
@@ -197,16 +200,23 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         const addOrder = (
           expression: RawBuilder<unknown>,
           direction: 'asc' | 'desc',
-          matchNulls = false
+          matchNulls = false,
+          nulls?: 'first' | 'last'
         ) => {
+          const nullOrder =
+            nulls ?? (matchNulls ? (direction === 'asc' ? 'first' : 'last') : undefined);
           orders.push(
             direction === 'asc'
-              ? matchNulls
+              ? nullOrder === 'first'
                 ? sql`${expression} asc nulls first`
-                : sql`${expression} asc`
-              : matchNulls
-                ? sql`${expression} desc nulls last`
-                : sql`${expression} desc`
+                : nullOrder === 'last'
+                  ? sql`${expression} asc nulls last`
+                  : sql`${expression} asc`
+              : nullOrder === 'first'
+                ? sql`${expression} desc nulls first`
+                : nullOrder === 'last'
+                  ? sql`${expression} desc nulls last`
+                  : sql`${expression} desc`
           );
         };
         if (snapshot.kind === 'records') {
@@ -225,7 +235,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           });
           for (const sort of query.sort) {
             if ('system' in sort) {
-              addOrder(sql.id('t', systemColumns[sort.system]), sort.order, true);
+              addOrder(sql.id('t', systemColumns[sort.system]), sort.order, true, sort.nulls);
               continue;
             }
             if (!('fieldId' in sort)) {
@@ -242,8 +252,14 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             const clauses = yield* buildStoredFieldOrderByClauses(field, column, sort.order, 't', {
               columnExpression: value,
             });
-            for (const clause of clauses)
-              addOrder(clause.expression, clause.direction, clause.matchV1Nulls);
+            clauses.forEach((clause, index) =>
+              addOrder(
+                clause.expression,
+                clause.direction,
+                clause.matchV1Nulls,
+                index === 0 ? sort.nulls : undefined
+              )
+            );
           }
           addOrder(sql.id('t', '__id'), 'asc');
           const rows = sql<Row>`select ${sql.join(selections)} from ${from} ${where}
@@ -318,7 +334,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         for (const sort of groupOrders) {
           if ('alias' in sort) {
             // The alias is the selected output column; sorting never re-evaluates the aggregate.
-            addOrder(sql.id(sort.alias), sort.order, true);
+            addOrder(sql.id(sort.alias), sort.order, true, sort.nulls);
             continue;
           }
           if (!('fieldId' in sort) || !groups.has(sort.fieldId)) {
@@ -334,10 +350,16 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             'a',
             { columnExpression: expression, groupIdentityCollation: true }
           );
-          for (const clause of clauses)
-            addOrder(clause.expression, clause.direction, clause.matchV1Nulls);
+          clauses.forEach((clause, index) =>
+            addOrder(
+              clause.expression,
+              clause.direction,
+              clause.matchV1Nulls,
+              index === 0 ? sort.nulls : undefined
+            )
+          );
           // Display ordering may have ties (select-choice order or link titles).
-          addOrder(expression, sort.order, true);
+          addOrder(expression, sort.order, true, sort.nulls);
         }
         const groupClause = groups.size ? sql`group by ${sql.join([...groups.values()])}` : sql``;
         const orderClause = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
@@ -355,6 +377,367 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       });
     } catch {
       return err(failure('compile_failed', 'Unable to compile data query'));
+    }
+  }
+  async compileRelation(
+    context: IExecutionContext,
+    plan: DataQueryRelationPlan
+  ): Promise<
+    Result<
+      {
+        rows: CompiledQuery<Row>;
+        count?: CompiledQuery<{ total: unknown }>;
+      },
+      DomainError
+    >
+  > {
+    return traceDataQueryStage(
+      context,
+      'compile.relation',
+      { 'teable.component': 'repository' },
+      async () => this.buildRelationQueries(context, plan)
+    );
+  }
+
+  private buildRelationQueries(
+    context: IExecutionContext,
+    plan: DataQueryRelationPlan
+  ): Result<
+    {
+      rows: CompiledQuery<Row>;
+      count?: CompiledQuery<{ total: unknown }>;
+    },
+    DomainError
+  > {
+    try {
+      const db = this.db;
+      return safeTry(function* () {
+        if (!isBoundDataQuery(plan.query)) {
+          return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
+        }
+        const relationDefinition = plan.query.definition;
+        if (relationDefinition.kind !== 'records') {
+          return err(failure('invalid_relation_plan', 'Relation execution requires records'));
+        }
+        const targetTables = new Map(plan.sources.map((source) => [source.alias, source.table]));
+        const binding = yield* DataQueryRelationBinding.prepare(
+          plan.definition,
+          plan.rootTable,
+          targetTables
+        );
+        const sourcePlans = new Map(plan.sources.map((source) => [source.alias, source]));
+        if (sourcePlans.size !== binding.sources.length) {
+          return err(failure('invalid_relation_plan', 'Relation plan is incomplete'));
+        }
+        // Public relation aliases are arbitrary strings (long, dotted, unicode). They are
+        // never SQL identifiers: a private per-source alias keeps PostgreSQL identifier
+        // limits and quoting rules out of the public contract.
+        const sqlAliases = new Map(
+          binding.sources.map((source, index) => [source.alias, `relation_${index}`])
+        );
+        yield* assertDataQueryAccess({ dependencies: binding.rootDependencies }, plan.rootScope);
+        for (const source of binding.sources) {
+          const sourcePlan = sourcePlans.get(source.alias);
+          if (!sourcePlan) {
+            return err(failure('invalid_relation_plan', 'A relation scope is missing'));
+          }
+          yield* assertDataQueryAccess({ dependencies: source.dependencies }, sourcePlan.scope);
+        }
+        yield* validateDataQueryFilter(plan.rootTable, plan.query.filter);
+        const rootName = yield* (yield* plan.rootTable.dbTableName()).split({
+          defaultSchema: 'public',
+        });
+        // `root` is reserved for the public root source, so a declared relation alias
+        // can never shadow the internal root alias.
+        const rootAlias = 'root';
+        const rootFrom = rootName.schema
+          ? sql`${sql.id(rootName.schema, rootName.tableName)} as ${sql.id(rootAlias)}`
+          : sql`${sql.id(rootName.tableName)} as ${sql.id(rootAlias)}`;
+
+        const rootFields = new Map<string, Field>();
+        const rootColumns = new Map<string, string>();
+        for (const dependency of binding.rootDependencies) {
+          const field = yield* plan.rootTable.getField(
+            (candidate) => candidate.id().toString() === dependency.fieldId
+          );
+          rootFields.set(dependency.fieldId, field);
+          rootColumns.set(dependency.fieldId, yield* (yield* field.dbFieldName()).value());
+        }
+        const rootMasks = yield* buildFieldMaskSqlMap(plan.rootScope.fieldMasks, rootAlias);
+        const rootVisitor = new StoredFieldSelectVisitor(rootAlias);
+        const rootValues = new Map<string, RawBuilder<unknown>>();
+        for (const [id, field] of rootFields) {
+          const selected = yield* field.accept(rootVisitor);
+          const expression = sql`${selected.expression}`;
+          const mask = rootMasks?.get(id);
+          rootValues.set(id, mask ? maskValueExpression(mask, expression) : expression);
+        }
+
+        type SqlSource = {
+          readonly alias: string;
+          readonly from: RawBuilder<unknown>;
+          readonly values: Map<string, RawBuilder<unknown>>;
+        };
+        const sqlSources: SqlSource[] = [];
+        const joins: RawBuilder<unknown>[] = [];
+        for (const source of binding.sources) {
+          const sourcePlan = sourcePlans.get(source.alias)!;
+          const sqlAlias = sqlAliases.get(source.alias)!;
+          const name = yield* (yield* sourcePlan.table.dbTableName()).split({
+            defaultSchema: 'public',
+          });
+          const from = name.schema
+            ? sql`${sql.id(name.schema, name.tableName)} as ${sql.id(sqlAlias)}`
+            : sql`${sql.id(name.tableName)} as ${sql.id(sqlAlias)}`;
+          const fields = new Map<string, Field>();
+          for (const dependency of source.dependencies) {
+            const field = yield* sourcePlan.table.getField(
+              (candidate) => candidate.id().toString() === dependency.fieldId
+            );
+            fields.set(dependency.fieldId, field);
+          }
+          const masks = yield* buildFieldMaskSqlMap(sourcePlan.scope.fieldMasks, sqlAlias);
+          const visitor = new StoredFieldSelectVisitor(sqlAlias);
+          const values = new Map<string, RawBuilder<unknown>>();
+          for (const [id, field] of fields) {
+            const selected = yield* field.accept(visitor);
+            const expression = sql`${selected.expression}`;
+            const mask = masks?.get(id);
+            values.set(id, mask ? maskValueExpression(mask, expression) : expression);
+          }
+          const linkField = yield* plan.rootTable.getField(
+            (candidate) => candidate.id().toString() === source.linkFieldId
+          );
+          const restriction = sourcePlan.scope.recordSpec
+            ? yield* buildRecordWhereClause(sourcePlan.scope.recordSpec, {
+                tableAlias: sqlAlias,
+              })
+            : undefined;
+          const foreignKey = yield* (linkField as LinkField).foreignKeyNameString();
+          const linkPredicate = sql`${sql.id(sqlAlias, '__id')} = ${sql.id(rootAlias, foreignKey)}`;
+          joins.push(
+            restriction
+              ? sql`left join ${from} on ${linkPredicate} and ${restriction}`
+              : sql`left join ${from} on ${linkPredicate}`
+          );
+          sqlSources.push({
+            alias: source.alias,
+            from,
+            values,
+          });
+        }
+
+        const predicates: RawBuilder<unknown>[] = [];
+        if (plan.query.recordId !== undefined) {
+          predicates.push(sql`${sql.id(rootAlias, '__id')} = ${plan.query.recordId}`);
+        }
+        const filter = replaceCurrentUserTagInFilter(
+          plan.rootTable,
+          plan.query.filter,
+          context.actorId.toString()
+        );
+        if (filter != null) {
+          const condition = yield* buildRecordConditionSpec(
+            plan.rootTable,
+            filter,
+            plan.rootScope.fieldMasks
+          );
+          const where = yield* buildRecordWhereClause(condition, { tableAlias: rootAlias });
+          if (where) predicates.push(sql`${where}`);
+        }
+        if (plan.rootScope.recordSpec) {
+          const where = yield* buildRecordWhereClause(plan.rootScope.recordSpec, {
+            tableAlias: rootAlias,
+          });
+          if (where) predicates.push(sql`${where}`);
+        }
+        const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
+
+        const selections = relationDefinition.select.map((projection) => {
+          const source = 'source' in projection ? projection.source : undefined;
+          const sqlAlias =
+            source === undefined || source === 'root' ? rootAlias : sqlAliases.get(source)!;
+          if ('system' in projection) {
+            const expression = sql`${sql.id(sqlAlias, systemColumns[projection.system])}`;
+            return sql`${expression} as ${sql.id(projection.alias)}`;
+          }
+          const values =
+            source === undefined || source === 'root'
+              ? rootValues
+              : sqlSources.find((candidate) => candidate.alias === source)?.values;
+          const expression = values?.get(projection.fieldId);
+          if (!expression) throw new Error('Missing relation projection');
+          return sql`${
+            projection.arrayDistinct === true
+              ? buildArrayDistinctExpression(expression)
+              : expression
+          } as ${sql.id(projection.alias)}`;
+        });
+
+        const orders: RawBuilder<unknown>[] = [];
+        const addOrder = (
+          expression: RawBuilder<unknown>,
+          direction: 'asc' | 'desc',
+          matchNulls = false,
+          nulls?: 'first' | 'last'
+        ) => {
+          const nullOrder =
+            nulls ?? (matchNulls ? (direction === 'asc' ? 'first' : 'last') : undefined);
+          orders.push(
+            direction === 'asc'
+              ? nullOrder === 'first'
+                ? sql`${expression} asc nulls first`
+                : nullOrder === 'last'
+                  ? sql`${expression} asc nulls last`
+                  : sql`${expression} asc`
+              : nullOrder === 'first'
+                ? sql`${expression} desc nulls first`
+                : nullOrder === 'last'
+                  ? sql`${expression} desc nulls last`
+                  : sql`${expression} desc`
+          );
+        };
+        for (const sort of plan.query.sort) {
+          if ('alias' in sort) {
+            addOrder(sql.id(sort.alias), sort.order, false, sort.nulls);
+            continue;
+          }
+          if ('system' in sort) {
+            addOrder(sql.id(rootAlias, systemColumns[sort.system]), sort.order, true, sort.nulls);
+            continue;
+          }
+          const field = rootFields.get(sort.fieldId);
+          const column = rootColumns.get(sort.fieldId);
+          const value = rootValues.get(sort.fieldId);
+          if (!field || !column || !value) {
+            return err(failure('invalid_sort', 'A sort field is not part of the query binding'));
+          }
+          const clauses = yield* buildStoredFieldOrderByClauses(
+            field,
+            column,
+            sort.order,
+            rootAlias,
+            {
+              columnExpression: value,
+            }
+          );
+          clauses.forEach((clause, index) =>
+            addOrder(
+              clause.expression,
+              clause.direction,
+              clause.matchV1Nulls,
+              index === 0 ? sort.nulls : undefined
+            )
+          );
+        }
+        addOrder(sql.id(rootAlias, '__id'), 'asc');
+        const rows = sql<Row>`select ${sql.join(selections)} from ${rootFrom}
+          ${sql.join(joins, sql` `)} ${where}
+          order by ${sql.join(orders)} limit ${plan.query.limit} offset ${plan.query.offset}`.compile(
+          db
+        );
+        if (!plan.query.includeTotal) return ok({ rows });
+        const count = sql<{
+          total: unknown;
+        }>`select count(*) as ${sql.id('total')} from ${rootFrom} ${where}`.compile(db);
+        return ok({ rows, count });
+      });
+    } catch {
+      return err(failure('compile_failed', 'Unable to compile data query'));
+    }
+  }
+
+  async executeRelation(
+    context: IExecutionContext,
+    plan: DataQueryRelationPlan
+  ): Promise<Result<DataQueryResult, DomainError>> {
+    const compiled = await this.compileRelation(context, plan);
+    if (compiled.isErr()) return err(compiled.error);
+    try {
+      const read = await traceDataQueryStage(
+        context,
+        'database.readOnly.relation',
+        {
+          'teable.component': 'repository',
+          'teable.table_id': plan.rootTable.id().toString(),
+          'teable.data_query.kind': plan.query.definition.kind,
+          'teable.data_query.relation_count': plan.sources.length,
+          'teable.data_query.limit': plan.query.limit,
+          'teable.data_query.offset': plan.query.offset,
+          ...(plan.query.includeTotal ? { 'teable.data_query.include_total': true } : {}),
+        },
+        async () => {
+          try {
+            const queries = compiled.value;
+            return ok(
+              await this.db.transaction().execute(async (transaction) => {
+                await transaction.executeQuery(
+                  sql`set transaction isolation level repeatable read`.compile(this.db)
+                );
+                await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
+                await transaction.executeQuery(
+                  sql`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)`.compile(
+                    this.db
+                  )
+                );
+                const pages = await transaction.executeQuery(queries.rows);
+                if (!plan.query.includeTotal) return { pages, total: undefined };
+                if (!queries.count) throw new Error('Missing count query');
+                const counted = await transaction.executeQuery(queries.count);
+                return { pages, total: parseTotal(counted.rows[0]?.total) };
+              })
+            );
+          } catch (error) {
+            const state =
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              typeof error.code === 'string' &&
+              /^[0-9A-Z]{5}$/.test(error.code)
+                ? error.code
+                : undefined;
+            return err(
+              domainError.infrastructure({
+                code: state === '57014' ? 'data_query.timeout' : 'data_query.execution_failed',
+                message:
+                  state === '57014'
+                    ? 'Data query exceeded its statement timeout'
+                    : 'Unable to execute data query',
+                ...(state ? { details: { sqlState: state } } : {}),
+              })
+            );
+          }
+        }
+      );
+      if (read.isErr()) return err(read.error);
+      const { pages, total } = read.value;
+      if (plan.query.includeTotal && total === undefined) {
+        return err(
+          domainError.infrastructure({
+            code: 'data_query.execution_failed',
+            message: 'Unable to resolve the data query total',
+          })
+        );
+      }
+      return ok({
+        rows: pages.rows.map((row) => {
+          const output: Row = {};
+          for (const [alias, value] of Object.entries(row)) {
+            output[alias] = normalizeDataQueryValue(value, undefined);
+          }
+          return output;
+        }),
+        ...(total === undefined
+          ? {}
+          : { page: { limit: plan.query.limit, offset: plan.query.offset, total } }),
+      });
+    } catch {
+      return err(
+        domainError.infrastructure({
+          code: 'data_query.execution_failed',
+          message: 'Unable to execute data query',
+        })
+      );
     }
   }
 

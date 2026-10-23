@@ -41,6 +41,10 @@ export const SETTLED_LINGER_MS = 10_000;
 export const TOMBSTONE_CAP = 10_000;
 export const TRACE_EXPORT_SPAN_CAP = 10_000;
 export const DEFAULT_SLOW_TRACE_THRESHOLD_MS = 1000;
+// Successful HTTP requests are promoted earlier than other spans: a sub-second
+// request regression still needs its children, while raising the general span
+// threshold would retain unrelated slow DB/job spans.
+export const SLOW_HTTP_REQUEST_MS = 500;
 const CLEANUP_INTERVAL_MS = 30_000;
 
 const truncationLogger = new Logger('SmartSpanExport');
@@ -101,6 +105,15 @@ export const normalizeSlowTraceThresholdMs = (value?: number): number => {
   const thresholdMs = Math.floor(value);
   return thresholdMs > 0 ? thresholdMs : DEFAULT_SLOW_TRACE_THRESHOLD_MS;
 };
+
+const requestDurationMs = (span: ReadableSpan): number =>
+  span.duration[0] * 1000 + span.duration[1] / 1_000_000;
+
+const isSlowHttpRequest = (span: ReadableSpan): boolean =>
+  span.kind === SpanKind.SERVER &&
+  (typeof span.attributes['http.request.method'] === 'string' ||
+    typeof span.attributes['http.method'] === 'string') &&
+  requestDurationMs(span) >= SLOW_HTTP_REQUEST_MS;
 
 export interface ISmartSpanProcessorOptions {
   exportRatio: number;
@@ -507,6 +520,20 @@ export const createSmartSpanProcessor = (
         reason: 'slow',
         durationMs: Math.round(spanDurationMs),
         thresholdMs: slowTraceThresholdMs,
+      });
+      promote(traceId, trace, nowMs);
+      routeCounted(span, trace, traceId, nowMs);
+      return;
+    }
+
+    // A successful HTTP request at or above SLOW_HTTP_REQUEST_MS is promoted
+    // through the same bounded path. This catches sub-second regressions (for
+    // example a 699ms GET) that the general span threshold ignores.
+    if (isSlowHttpRequest(span)) {
+      recordDecision(traceId, trace, {
+        reason: 'slow-http',
+        durationMs: Math.round(requestDurationMs(span)),
+        thresholdMs: SLOW_HTTP_REQUEST_MS,
       });
       promote(traceId, trace, nowMs);
       routeCounted(span, trace, traceId, nowMs);

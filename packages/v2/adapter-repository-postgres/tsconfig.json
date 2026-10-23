@@ -25,7 +25,7 @@
       "@teable/v2-postgres-schema": ["../postgres-schema/src"],
       "@teable/formula": ["../../formula/src"]
     },
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "exclude": [
     "**/node_modules",

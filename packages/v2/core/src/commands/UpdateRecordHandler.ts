@@ -33,7 +33,7 @@ import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRo
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';

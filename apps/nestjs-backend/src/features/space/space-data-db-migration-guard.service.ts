@@ -1,7 +1,9 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { trace } from '@opentelemetry/api';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CustomHttpException } from '../../custom.exception';
+import { Span } from '../../tracing/decorators/span';
 import {
   activeBaseDataDbMoveJobStates,
   baseDataDbMovingErrorCode,
@@ -50,7 +52,9 @@ export class SpaceDataDbMigrationGuardService {
     @Optional() private readonly dataDbHealthService?: DataDbHealthService
   ) {}
 
+  @Span()
   async assertSpaceSchemaWritable(spaceId: string, options?: IWriteGuardOptions): Promise<void> {
+    trace.getActiveSpan()?.setAttribute('teable.space_id', spaceId);
     // Metadata-only removal still respects migrations, but never writes to the external database.
     if (!options?.metadataOnly) await this.assertSpaceDataDbHealthy(spaceId);
     const activeJob = await this.findActiveMigrationForSpace(spaceId, [
@@ -73,7 +77,9 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
+  @Span()
   async assertSpaceRecordWritable(spaceId: string): Promise<void> {
+    trace.getActiveSpan()?.setAttribute('teable.space_id', spaceId);
     await this.assertSpaceDataDbHealthy(spaceId);
     const activeJob = await this.findActiveMigrationForSpace(
       spaceId,
@@ -112,6 +118,7 @@ export class SpaceDataDbMigrationGuardService {
    * alive. The health lookup is 30s-cached and flushed on recovery, so
    * unblocking is prompt once the database accepts writes again.
    */
+  @Span()
   private async assertSpaceDataDbHealthy(spaceId: string): Promise<void> {
     const health = await this.dataDbHealthService?.getHealthStateForSpace(spaceId);
     if (health !== 'read_only') {
@@ -127,6 +134,7 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
+  @Span()
   private async findActiveMigrationForSpace(
     spaceId: string,
     states: readonly string[],
@@ -204,6 +212,7 @@ export class SpaceDataDbMigrationGuardService {
     await this.assertBaseSchemaWritable(baseId, options);
   }
 
+  @Span()
   async assertBaseSchemaWritable(baseId: string, options?: IWriteGuardOptions): Promise<void> {
     const base = await this.prismaClient.base.findUnique({
       where: { id: baseId },
@@ -216,6 +225,7 @@ export class SpaceDataDbMigrationGuardService {
     await this.assertSpaceSchemaWritable(base.spaceId, options);
   }
 
+  @Span()
   async assertBaseRecordWritable(baseId: string): Promise<void> {
     const base = await this.prismaClient.base.findUnique({
       where: { id: baseId },
@@ -248,6 +258,7 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
+  @Span()
   private async findActiveBaseMove(baseId: string, states: readonly string[]) {
     try {
       const client = this.migrationJobClient.baseDataDbMoveJob;
@@ -289,7 +300,9 @@ export class SpaceDataDbMigrationGuardService {
     await this.assertTableSchemaWritable(tableId);
   }
 
+  @Span()
   async assertTableSchemaWritable(tableId: string): Promise<void> {
+    trace.getActiveSpan()?.setAttribute('teable.table_id', tableId);
     const table = await this.prismaClient.tableMeta.findUnique({
       where: { id: tableId },
       select: { baseId: true, base: { select: { spaceId: true } } },
@@ -301,7 +314,12 @@ export class SpaceDataDbMigrationGuardService {
     await this.assertSpaceSchemaWritable(table.base.spaceId);
   }
 
+  @Span()
   async assertTableRecordWritable(tableId: string): Promise<void> {
+    trace.getActiveSpan()?.setAttributes({
+      ['teable.precommand.stage']: 'migration',
+      ['teable.table_id']: tableId,
+    });
     const table = await this.prismaClient.tableMeta.findUnique({
       where: { id: tableId },
       select: { baseId: true, base: { select: { spaceId: true } } },
@@ -313,10 +331,12 @@ export class SpaceDataDbMigrationGuardService {
     await this.assertSpaceRecordWritable(table.base.spaceId);
   }
 
+  @Span()
   async assertTableRecordSearchReadable(
     tableId: string,
     query?: { search?: unknown }
   ): Promise<void> {
+    trace.getActiveSpan()?.setAttribute('teable.table_id', tableId);
     if (!query?.search) {
       return;
     }

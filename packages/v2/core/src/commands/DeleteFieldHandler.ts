@@ -33,8 +33,10 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import type { Table } from '../domain/table/Table';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
-import type { IFieldDeleteSnapshotSinkCompletion } from '../ports/FieldDeleteSnapshotSink';
+import type {
+  IFieldDeleteSnapshotSink,
+  IFieldDeleteSnapshotSinkCompletion,
+} from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import {

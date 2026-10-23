@@ -3,8 +3,8 @@
   "display": "@teable/v2-core",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "esnext",

@@ -79,6 +79,51 @@
     "title": "快捷搜索",
     "placeHolder": "输入命令或进行搜索..."
   },
+  "commandPalette": {
+    "title": "命令面板",
+    "placeholder": "搜索资源或命令…",
+    "aiPlaceholder": "搜索资源、执行命令，或问 Cuppy…",
+    "commandsPlaceholder": "搜索命令…",
+    "commands": "命令",
+    "askCuppy": "问 Cuppy",
+    "askQuery": "问 Cuppy：{{query}}",
+    "aiHint": "带上当前项目、表与视图上下文",
+    "recent": "最近访问",
+    "noRecent": "最近访问的资源和视图会显示在这里。",
+    "actions": "快捷操作",
+    "results": "搜索结果",
+    "noResults": "没有找到“{{query}}”",
+    "noResultsHint": "试试其他名称、问 Cuppy，或在当前表中搜索。",
+    "noResultsHintWithoutAI": "试试其他名称，或在当前表中搜索。",
+    "appearance": "外观",
+    "shortcuts": "键盘快捷键",
+    "back": "返回",
+    "select": "选择",
+    "open": "打开",
+    "execute": "执行",
+    "close": "关闭",
+    "newTab": "在新标签页打开",
+    "loading": "正在搜索…",
+    "searchFailed": "无法加载搜索结果",
+    "retry": "重试",
+    "currentTable": "在当前表中搜索",
+    "searchTableQuery": "在当前表中搜索“{{query}}”",
+    "createTableQuery": "新建表“{{name}}”",
+    "createDashboard": "新建仪表盘",
+    "createApp": "新建应用",
+    "createWorkflow": "新建自动化",
+    "createRoutine": "新建定时任务",
+    "createFolder": "新建文件夹",
+    "createView": "新建{{name}}",
+    "invite": "邀请协作",
+    "folderCreated": "文件夹已创建",
+    "actionFailed": "操作未完成",
+    "backspace": "输入为空时退出命令模式",
+    "toggle": "打开或关闭命令面板",
+    "aiMode": "AI",
+    "space": "空间",
+    "project": "项目"
+  },
   "password": {
     "setInvalid": "设置的密码无效，至少需要8个字符，且必须包含至少一个字母和一个数字。"
   },
@@ -1658,6 +1703,12 @@
     "sm": {
       "label": "Lite",
       "description": "轻量模型，适合低成本、高频次的常规工作。"
+    },
+    "unavailable": {
+      "title": "已为你换成 {{model}}",
+      "description": "可用模型有所调整，{{previous}} 不再提供，接下来由 {{model}} 继续为你回答。",
+      "change": "换一个模型",
+      "ok": "知道了"
     }
   },
   "system": {

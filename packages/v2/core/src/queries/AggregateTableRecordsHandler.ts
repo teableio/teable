@@ -16,10 +16,10 @@ import type { TableRecordAggregationGroup } from '../domain/table/records/TableR
 import { Table } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
-import {
+import type {
   ITableRecordAggregationQueryRepository,
-  type TableRecordAggregationValue,
-  type TableRecordOrderBy,
+  TableRecordAggregationValue,
+  TableRecordOrderBy,
 } from '../ports/TableRecordQueryRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';

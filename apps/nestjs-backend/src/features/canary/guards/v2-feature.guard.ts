@@ -1,9 +1,11 @@
 import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { trace } from '@opentelemetry/api';
 import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { Span } from '../../../tracing/decorators/span';
 import type { IClsStore } from '../../../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../../../utils/meta-ancestry-cache';
 import { CanaryService, type IBaseV2DecisionContext } from '../canary.service';
@@ -44,6 +46,7 @@ export class V2FeatureGuard implements CanActivate {
     private readonly prismaService: PrismaService
   ) {}
 
+  @Span()
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
 
@@ -58,6 +61,10 @@ export class V2FeatureGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+    trace.getActiveSpan()?.setAttributes({
+      ['teable.precommand.stage']: 'canary',
+      ['teable.v2.feature']: feature ?? 'none',
+    });
 
     // No feature marked, default to V1
     if (!feature) {
@@ -80,6 +87,10 @@ export class V2FeatureGuard implements CanActivate {
     this.cls.set('useV2', decision.useV2);
     this.cls.set('v2Feature', feature);
     this.cls.set('v2Reason', decision.reason);
+    trace.getActiveSpan()?.setAttributes({
+      ['teable.v2.enabled']: decision.useV2,
+      ['teable.v2.reason']: decision.reason,
+    });
 
     return true;
   }

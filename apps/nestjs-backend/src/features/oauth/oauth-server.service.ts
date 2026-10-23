@@ -449,40 +449,44 @@ export class OAuthServerService {
     return new Date(Date.now() + ms(this.oauth2Config.refreshTokenExpireIn)).toISOString();
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   private verifyExchangeClient(client: ITokenClient, state: IOAuthCodeState) {
-    // code_challenge was set during authorize — code_verifier is required
     if (client.type === 'pkce') {
-      if (!client.codeVerifier) {
-        throw new BadRequestException('code_verifier is required');
-      }
-      if (!this.pkceService.isValidCodeVerifier(client.codeVerifier)) {
-        throw new BadRequestException('Invalid code_verifier format');
-      }
-      if (!state.codeChallenge) {
-        throw new BadRequestException('code_challenge is required');
-      }
-      if (!state.codeChallengeMethod || state.codeChallengeMethod !== 'S256') {
-        throw new BadRequestException('Invalid code_challenge method');
-      }
-      const valid = this.pkceService.validateCodeVerifier(
-        state.codeChallenge,
-        state.codeChallengeMethod,
-        client.codeVerifier
-      );
-      if (!valid) {
-        throw new UnauthorizedException('Invalid code_verifier');
-      }
+      this.verifyCodeVerifier(client.codeVerifier, state);
     } else if (client.type === 'secret') {
       if (!client.clientSecret) {
         throw new BadRequestException('client_secret is required');
       }
-      // RFC 7636: once code_challenge is sent, code_verifier must be provided
+      // A confidential client that sent code_challenge at authorize proves
+      // both (OAuth 2.1 wants PKCE from every client): RFC 7636, once
+      // code_challenge is sent, code_verifier must be provided and match.
       if (state.codeChallenge) {
-        throw new BadRequestException('code_verifier is required for PKCE flow');
+        this.verifyCodeVerifier(client.codeVerifier, state);
       }
     } else {
       throw new BadRequestException('Invalid client type');
+    }
+  }
+
+  private verifyCodeVerifier(codeVerifier: string | undefined, state: IOAuthCodeState) {
+    if (!codeVerifier) {
+      throw new BadRequestException('code_verifier is required');
+    }
+    if (!this.pkceService.isValidCodeVerifier(codeVerifier)) {
+      throw new BadRequestException('Invalid code_verifier format');
+    }
+    if (!state.codeChallenge) {
+      throw new BadRequestException('code_challenge is required');
+    }
+    if (!state.codeChallengeMethod || state.codeChallengeMethod !== 'S256') {
+      throw new BadRequestException('Invalid code_challenge method');
+    }
+    const valid = this.pkceService.validateCodeVerifier(
+      state.codeChallenge,
+      state.codeChallengeMethod,
+      codeVerifier
+    );
+    if (!valid) {
+      throw new UnauthorizedException('Invalid code_verifier');
     }
   }
 
@@ -667,7 +671,7 @@ export class OAuthServerService {
   ) => void = (client, refreshToken, done) => {
     return this.prismaService
       .$tx(async () => {
-        const decoded = await this.jwtService.verifyAsync<{
+        let decoded: {
           clientId: string;
           secretId?: string;
           // Refresh tokens issued before `secretId` carry the secret hash; they
@@ -675,7 +679,15 @@ export class OAuthServerService {
           secret?: string;
           accessTokenId: string;
           sign: string;
-        }>(refreshToken);
+        };
+        try {
+          decoded = await this.jwtService.verifyAsync(refreshToken);
+        } catch {
+          // A refresh token that fails verification (unknown signature or expiry)
+          // is a client credential error like every check below; letting the raw
+          // JsonWebTokenError escape answered a client mistake with a 500.
+          return () => done(new UnauthorizedException('Invalid refresh token'));
+        }
 
         if (client.clientId !== decoded.clientId) {
           return () => done(new UnauthorizedException('Invalid client'));

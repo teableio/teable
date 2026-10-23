@@ -74,6 +74,8 @@ export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.getSpaceTrash(resourceType, spaceId),
       });

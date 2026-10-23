@@ -79,6 +79,51 @@
     "title": "Azioni rapide",
     "placeHolder": "Digita un comando o cerca..."
   },
+  "commandPalette": {
+    "title": "Tavolozza dei comandi",
+    "placeholder": "Cerca risorse o comandi…",
+    "aiPlaceholder": "Cerca, esegui un comando o chiedi a Cuppy…",
+    "commandsPlaceholder": "Cerca comandi…",
+    "commands": "Comandi",
+    "askCuppy": "Chiedi a Cuppy",
+    "askQuery": "Chiedi a Cuppy: {{query}}",
+    "aiHint": "Usa il progetto, la tabella e la vista correnti",
+    "recent": "Visitati di recente",
+    "noRecent": "Le risorse e le viste visitate di recente appariranno qui.",
+    "actions": "Azioni rapide",
+    "results": "Risultati",
+    "noResults": "Nessuna corrispondenza per «{{query}}»",
+    "noResultsHint": "Prova un altro nome, chiedi a Cuppy o cerca nella tabella corrente.",
+    "noResultsHintWithoutAI": "Prova un altro nome o cerca nella tabella corrente.",
+    "appearance": "Aspetto",
+    "shortcuts": "Scorciatoie da tastiera",
+    "back": "Indietro",
+    "select": "Seleziona",
+    "open": "Apri",
+    "execute": "Esegui",
+    "close": "Chiudi",
+    "newTab": "Apri in una nuova scheda",
+    "loading": "Ricerca in corso…",
+    "searchFailed": "Impossibile caricare i risultati della ricerca",
+    "retry": "Riprova",
+    "currentTable": "Cerca nella tabella corrente",
+    "searchTableQuery": "Cerca «{{query}}» nella tabella corrente",
+    "createTableQuery": "Crea la tabella «{{name}}»",
+    "createDashboard": "Nuova dashboard",
+    "createApp": "Nuova app",
+    "createWorkflow": "Nuova automazione",
+    "createRoutine": "Nuova attività pianificata",
+    "createFolder": "Nuova cartella",
+    "createView": "Crea {{name}}",
+    "invite": "Invita collaboratori",
+    "folderCreated": "Cartella creata",
+    "actionFailed": "Impossibile completare questa azione",
+    "backspace": "Esci dalla modalità comandi quando la ricerca è vuota",
+    "toggle": "Apri o chiudi la tavolozza dei comandi",
+    "aiMode": "AI",
+    "space": "Spazio",
+    "project": "Progetto"
+  },
   "password": {
     "setInvalid": "La password non è valida, deve contenere almeno 8 caratteri e almeno una lettera e un numero."
   },
@@ -1659,6 +1704,12 @@
     "sm": {
       "label": "Lite",
       "description": "Modello leggero per attività di routine economiche e ad alto volume."
+    },
+    "unavailable": {
+      "title": "Passato a {{model}}",
+      "description": "I modelli disponibili sono cambiati e {{previous}} non è più offerto: d'ora in poi continuerà a rispondere {{model}}.",
+      "change": "Scegli un altro modello",
+      "ok": "Ho capito"
     }
   },
   "system": {

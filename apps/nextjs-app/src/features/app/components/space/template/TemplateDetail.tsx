@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createBaseFromTemplate,
   createShortLink,
@@ -57,6 +57,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   }, [categoryList, categoryId]);
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const spaceId = useSpaceId();
   const routerBaseId = router.query.baseId as string | undefined;
 
@@ -70,6 +71,8 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId as string) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
       const { id: baseId, defaultUrl } = res.data;
 
       // The host may own the landing (EE: a solution goes to its setup flow first)

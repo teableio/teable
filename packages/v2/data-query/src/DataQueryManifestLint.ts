@@ -88,9 +88,11 @@ const hasParameterReference = (value: unknown): boolean => {
 
 const definitionShape = (definition: DataQueryDefinitionInput): string =>
   canonicalJson({
+    version: definition.version,
     kind: definition.kind,
     tableId: definition.tableId,
     recordId: definition.kind === 'records' ? (definition.recordId ?? null) : undefined,
+    relations: definition.version === 2 ? (definition.relations ?? {}) : undefined,
     select: definition.kind === 'records' ? definition.select : undefined,
     aggregates: definition.kind === 'aggregate' ? definition.aggregates : undefined,
     groupBy: definition.kind === 'aggregate' ? (definition.groupBy ?? []) : undefined,

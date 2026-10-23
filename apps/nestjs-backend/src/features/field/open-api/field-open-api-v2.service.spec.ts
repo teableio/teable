@@ -30,6 +30,9 @@ vi.mock('../../v2/v2-execution-context.factory', () => ({
 vi.mock('../field-calculate/field-supplement.service', () => ({
   FieldSupplementService: class FieldSupplementService {},
 }));
+vi.mock('../../table/table-index.service', () => ({
+  TableIndexService: class TableIndexService {},
+}));
 
 const {
   executeDeleteFieldEndpoint,

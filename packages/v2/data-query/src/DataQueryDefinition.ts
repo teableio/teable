@@ -120,6 +120,11 @@ const systemSchema = z.enum(['id', 'createdTime', 'lastModifiedTime', 'autoNumbe
 const fieldProjectionSchema = z
   .object({ fieldId: fieldIdSchema, alias: aliasSchema, arrayDistinct: z.boolean().optional() })
   .strict();
+const systemProjectionSchema = z.object({ system: systemSchema, alias: aliasSchema }).strict();
+const sourceRefShape = { source: dataQueryNameSchema.optional() };
+const v2FieldProjectionSchema = fieldProjectionSchema.extend(sourceRefShape).strict();
+const v2SystemProjectionSchema = systemProjectionSchema.extend(sourceRefShape).strict();
+const relationSchema = z.object({ linkFieldId: fieldIdSchema, tableId: tableIdSchema }).strict();
 const orderSchema = z.enum(['asc', 'desc']);
 const sortTargetSchema = z.union([
   z.object({ fieldId: fieldIdSchema }).strict(),
@@ -129,22 +134,27 @@ const sortTargetSchema = z.union([
  * A parameterized sort never accepts a raw identifier. `allowed` is the complete
  * set of concrete targets the runtime parameter may resolve to.
  */
+const sortNullsSchema = z.enum(['first', 'last']);
 const parameterizedSortSchema = z
   .object({
     field: referenceSchema,
     order: z.union([orderSchema, referenceSchema]),
     allowed: z.array(sortTargetSchema).nonempty(),
     optional: z.boolean().optional(),
+    nulls: sortNullsSchema.optional(),
   })
   .strict();
 const sortItemSchema = z.union([
-  z.object({ fieldId: fieldIdSchema, order: orderSchema }).strict(),
-  z.object({ system: systemSchema, order: orderSchema }).strict(),
-  z.object({ alias: aliasSchema, order: orderSchema }).strict(),
+  z
+    .object({ fieldId: fieldIdSchema, order: orderSchema, nulls: sortNullsSchema.optional() })
+    .strict(),
+  z
+    .object({ system: systemSchema, order: orderSchema, nulls: sortNullsSchema.optional() })
+    .strict(),
+  z.object({ alias: aliasSchema, order: orderSchema, nulls: sortNullsSchema.optional() }).strict(),
   parameterizedSortSchema,
 ]);
 const baseShape = {
-  version: z.literal(1),
   tableId: tableIdSchema,
   parameters: z.record(dataQueryNameSchema, dataQueryParameterDefinitionSchema).optional(),
   filter: filterSchema.optional(),
@@ -158,35 +168,24 @@ const baseShape = {
     .optional(),
   sort: z.array(sortItemSchema).optional(),
 };
-export const dataQueryDefinitionInputSchema: z.ZodType<
-  DataQueryDefinitionInput,
-  DataQueryDefinitionInput
-> = z.discriminatedUnion('kind', [
+const v1Schema = z.discriminatedUnion('kind', [
   z
     .object({
       ...baseShape,
+      version: z.literal(1),
       kind: z.literal('records'),
       recordId: z
         .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
         .optional(),
       select: z
-        .tuple([
-          z.union([
-            fieldProjectionSchema,
-            z.object({ system: systemSchema, alias: aliasSchema }).strict(),
-          ]),
-        ])
-        .rest(
-          z.union([
-            fieldProjectionSchema,
-            z.object({ system: systemSchema, alias: aliasSchema }).strict(),
-          ])
-        ),
+        .tuple([z.union([fieldProjectionSchema, systemProjectionSchema])])
+        .rest(z.union([fieldProjectionSchema, systemProjectionSchema])),
     })
     .strict(),
   z
     .object({
       ...baseShape,
+      version: z.literal(1),
       kind: z.literal('aggregate'),
       aggregates: z
         .tuple([
@@ -211,6 +210,55 @@ export const dataQueryDefinitionInputSchema: z.ZodType<
     })
     .strict(),
 ]);
+const v2BaseShape = {
+  ...baseShape,
+  version: z.literal(2),
+  relations: z.record(dataQueryNameSchema, relationSchema).optional(),
+};
+const v2Schema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      ...v2BaseShape,
+      kind: z.literal('records'),
+      recordId: z
+        .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
+        .optional(),
+      select: z
+        .tuple([z.union([v2FieldProjectionSchema, v2SystemProjectionSchema])])
+        .rest(z.union([v2FieldProjectionSchema, v2SystemProjectionSchema])),
+    })
+    .strict(),
+  z
+    .object({
+      ...v2BaseShape,
+      kind: z.literal('aggregate'),
+      aggregates: z
+        .tuple([
+          z
+            .object({
+              fieldId: fieldIdSchema,
+              statisticFunc: z.enum(tableRecordAggregationFunctionValues),
+              alias: aliasSchema,
+            })
+            .strict(),
+        ])
+        .rest(
+          z
+            .object({
+              fieldId: fieldIdSchema,
+              statisticFunc: z.enum(tableRecordAggregationFunctionValues),
+              alias: aliasSchema,
+            })
+            .strict()
+        ),
+      groupBy: z.array(v2FieldProjectionSchema).optional(),
+    })
+    .strict(),
+]);
+export const dataQueryDefinitionInputSchema: z.ZodType<
+  DataQueryDefinitionInput,
+  DataQueryDefinitionInput
+> = z.union([v1Schema, v2Schema]);
 
 export const isParameterReference = (value: unknown): value is DataQueryParameterReference =>
   value !== null && typeof value === 'object' && 'type' in value && value.type === 'parameter';
@@ -670,8 +718,41 @@ const validateSorts = (
   return ok(references);
 };
 
+const validateRelations = (value: DataQueryDefinitionInput): Result<void, DomainError> => {
+  if (value.version !== 2) return ok(undefined);
+  const relations = value.relations ?? {};
+  const aliases = Object.keys(relations);
+  if (aliases.length > 4) {
+    return err(queryError('join_count', 'A query may declare at most four relations'));
+  }
+  if (aliases.includes('root')) {
+    return err(queryError('join_alias_reserved', '`root` is reserved for the root source'));
+  }
+  if (value.kind === 'aggregate' && aliases.length > 0) {
+    return err(queryError('join_aggregate', 'Aggregate queries cannot declare relations'));
+  }
+  const sources = new Set(['root', ...aliases]);
+  const projections = value.kind === 'records' ? value.select : (value.groupBy ?? []);
+  for (const projection of projections) {
+    if (
+      'source' in projection &&
+      projection.source !== undefined &&
+      !sources.has(projection.source)
+    ) {
+      return err(
+        queryError('join_source_unknown', 'A projection references an undeclared source', {
+          source: projection.source,
+        })
+      );
+    }
+  }
+  return ok(undefined);
+};
+
 const validateDefinition = (value: DataQueryDefinitionInput): Result<void, DomainError> =>
   safeTry(function* () {
+    const relations = validateRelations(value);
+    if (relations.isErr()) return err(relations.error);
     const parameters = value.parameters ?? {};
     yield* validateDataQueryParameterDefaults(parameters);
     const outputs =
@@ -816,9 +897,20 @@ const resolveParameterizedSort = (
       : 'literal';
     return err(queryError('sort_order', `Sort order ${source} must be either asc or desc`));
   }
-  return ok(
-    'fieldId' in target ? { fieldId: target.fieldId, order } : { system: target.system, order }
-  );
+  return ok({
+    ...('fieldId' in target ? { fieldId: target.fieldId } : { system: target.system }),
+    order,
+    ...(item.nulls ? { nulls: item.nulls } : {}),
+  });
+};
+
+type LiteralSort = Exclude<DataQuerySort, { field: DataQueryParameterReference }>;
+
+const resolveLiteralSort = (item: LiteralSort): DataQuerySortResolved => {
+  const nulls = item.nulls ? { nulls: item.nulls } : {};
+  if ('fieldId' in item) return { fieldId: item.fieldId, order: item.order, ...nulls };
+  if ('system' in item) return { system: item.system, order: item.order, ...nulls };
+  return { alias: item.alias, order: item.order, ...nulls };
 };
 
 const bindSort = (
@@ -828,13 +920,7 @@ const bindSort = (
   const resolved: DataQuerySortResolved[] = [];
   for (const item of sort ?? []) {
     if (!('field' in item)) {
-      resolved.push(
-        'fieldId' in item
-          ? { fieldId: item.fieldId, order: item.order }
-          : 'system' in item
-            ? { system: item.system, order: item.order }
-            : { alias: item.alias, order: item.order }
-      );
+      resolved.push(resolveLiteralSort(item));
       continue;
     }
     const parameterized = resolveParameterizedSort(item, values);

@@ -577,7 +577,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
           ...(result.data as IFieldRo),
           options: (result.data as IFieldRo).options ?? undefined,
         };
-        onConfirm?.(confirmField);
+        await onConfirm?.(confirmField);
       } finally {
         setIsSaving(false);
       }
@@ -649,6 +649,8 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
         onCancel={onCancel}
         cancelText={t('common:actions.doNotSave')}
         confirmText={t('common:actions.save')}
+        confirmLoading={isSaving}
+        confirmDisabled={isSaving}
         onConfirm={onSave}
       />
     </>

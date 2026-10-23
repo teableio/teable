@@ -6,7 +6,8 @@
     "noEmit": true,
     "incremental": true,
     "allowJs": true,
-    "checkJs": true
+    "checkJs": true,
+    "types": ["node"]
   },
   "exclude": ["node_modules", "dist", "build"],
   "include": ["**/*.ts", "**/*.js", "**/*.cjs", "**/*.mjs", "**/*.json"]

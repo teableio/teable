@@ -59,27 +59,30 @@ const CommandInput: ForwardRefComponent<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
     containerClassName?: string;
+    endContent?: React.ReactNode;
   }
 > = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
     containerClassName?: string;
+    endContent?: React.ReactNode;
   }
->(({ className, containerClassName, ...props }, ref) => (
+>(({ className, containerClassName, endContent, ...props }, ref) => (
   <div
-    className={cn('flex h-[44px] items-center gap-2 border-b py-3 px-4', containerClassName)}
+    className={cn('flex h-[44px] items-center gap-2 border-b px-4 py-3', containerClassName)}
     // eslint-disable-next-line react/no-unknown-property
     cmdk-input-wrapper=""
   >
-    <Search className="shrink-0 size-4 text-muted-foreground" />
+    <Search className="size-4 shrink-0 text-muted-foreground" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        'flex h-10 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+        'h-10 min-w-0 flex-1 rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}
     />
+    {endContent}
   </div>
 ));
 

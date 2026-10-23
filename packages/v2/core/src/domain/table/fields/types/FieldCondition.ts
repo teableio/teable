@@ -103,7 +103,7 @@ const fieldConditionDtoSchema = z.object({
 const RECORD_ID_FIELD_ID = '__id';
 type ConditionFieldId = FieldId | typeof RECORD_ID_FIELD_ID;
 
-const isRecordIdFieldId = (value: unknown): value is typeof RECORD_ID_FIELD_ID =>
+export const isRecordIdFieldId = (value: unknown): value is typeof RECORD_ID_FIELD_ID =>
   value === RECORD_ID_FIELD_ID;
 
 const conditionFieldIdEquals = (a: ConditionFieldId, b: ConditionFieldId): boolean =>

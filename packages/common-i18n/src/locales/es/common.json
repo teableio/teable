@@ -79,6 +79,51 @@
     "title": "Acciones Rápidas",
     "placeHolder": "Escribe un comando o busca..."
   },
+  "commandPalette": {
+    "title": "Paleta de comandos",
+    "placeholder": "Buscar recursos o comandos…",
+    "aiPlaceholder": "Busca, ejecuta un comando o pregunta a Cuppy…",
+    "commandsPlaceholder": "Buscar comandos…",
+    "commands": "Comandos",
+    "askCuppy": "Preguntar a Cuppy",
+    "askQuery": "Preguntar a Cuppy: {{query}}",
+    "aiHint": "Usa el proyecto, la tabla y la vista actuales",
+    "recent": "Visitados recientemente",
+    "noRecent": "Aquí aparecerán los recursos y las vistas que visites recientemente.",
+    "actions": "Acciones rápidas",
+    "results": "Resultados",
+    "noResults": "No hay coincidencias para “{{query}}”",
+    "noResultsHint": "Prueba con otro nombre, pregunta a Cuppy o busca en la tabla actual.",
+    "noResultsHintWithoutAI": "Prueba con otro nombre o busca en la tabla actual.",
+    "appearance": "Apariencia",
+    "shortcuts": "Atajos de teclado",
+    "back": "Atrás",
+    "select": "Seleccionar",
+    "open": "Abrir",
+    "execute": "Ejecutar",
+    "close": "Cerrar",
+    "newTab": "Abrir en una pestaña nueva",
+    "loading": "Buscando…",
+    "searchFailed": "No se pudieron cargar los resultados de búsqueda",
+    "retry": "Volver a intentar",
+    "currentTable": "Buscar en la tabla actual",
+    "searchTableQuery": "Buscar “{{query}}” en la tabla actual",
+    "createTableQuery": "Crear tabla “{{name}}”",
+    "createDashboard": "Nuevo panel",
+    "createApp": "Nueva aplicación",
+    "createWorkflow": "Nueva automatización",
+    "createRoutine": "Nueva tarea programada",
+    "createFolder": "Nueva carpeta",
+    "createView": "Crear {{name}}",
+    "invite": "Invitar a colaboradores",
+    "folderCreated": "Carpeta creada",
+    "actionFailed": "No se pudo completar esta acción",
+    "backspace": "Salir del modo de comandos cuando la consulta esté vacía",
+    "toggle": "Abrir o cerrar la paleta",
+    "aiMode": "IA",
+    "space": "Espacio",
+    "project": "Proyecto"
+  },
   "password": {
     "setInvalid": "La contraseña no es válida, debe tener al menos 8 caracteres y contener al menos una letra y un número."
   },
@@ -1659,6 +1704,12 @@
     "sm": {
       "label": "Lite",
       "description": "Modelo ligero para tareas rutinarias económicas y de gran volumen."
+    },
+    "unavailable": {
+      "title": "Cambiado a {{model}}",
+      "description": "Los modelos disponibles han cambiado y {{previous}} ya no se ofrece. A partir de ahora seguirá respondiendo {{model}}.",
+      "change": "Elegir otro modelo",
+      "ok": "Entendido"
     }
   },
   "system": {
