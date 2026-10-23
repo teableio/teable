@@ -1,6 +1,7 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import type { DataQueryManifest } from './DataQueryManifest';
 import { generateAppQueryArtifacts, parseDataQueryManifestText } from './DataQueryManifestFiles';
 
 const todo = `schemaVersion: 1
@@ -142,6 +143,29 @@ function loadModule(
   new Function('require', 'exports', compiled.outputText)(require, exports);
   return exports as GeneratedQueries;
 }
+
+const relationQuery = (
+  fallback?: Readonly<{ sql: string }>
+): DataQueryManifest['queries'][string] => ({
+  ...(fallback ? { mode: 'auto' as const } : {}),
+  definition: {
+    version: 2,
+    kind: 'records',
+    tableId: `tbl${'a'.repeat(16)}`,
+    relations: { owner: { linkFieldId: `fld${'b'.repeat(16)}`, tableId: `tbl${'c'.repeat(16)}` } },
+    select: [
+      { system: 'id', alias: 'bookId' },
+      { system: 'lastModifiedTime', alias: 'bookUpdatedAt' },
+      { system: 'id', source: 'owner', alias: 'ownerId' },
+      { system: 'createdTime', source: 'owner', alias: 'ownerCreatedAt' },
+      { system: 'lastModifiedTime', source: 'owner', alias: 'ownerUpdatedAt' },
+      { system: 'autoNumber', source: 'owner', alias: 'ownerSequence' },
+      { system: 'version', source: 'owner', alias: 'ownerVersion' },
+      { fieldId: `fld${'d'.repeat(16)}`, source: 'owner', alias: 'ownerName' },
+    ],
+  },
+  ...(fallback ? { fallback } : {}),
+});
 
 describe('app query manifest files', () => {
   it('accepts Todo YAML and equivalent JSON and generates deterministically', () => {
@@ -595,6 +619,101 @@ void row; void wrong;`,
         .getPreEmitDiagnostics(program)
         .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
     ).toEqual([]);
+  });
+
+  it('infers nullable offline types for joined system projections and keeps root id non-nullable', () => {
+    const generated = generateAppQueryArtifacts({
+      schemaVersion: 1,
+      queries: { ownerBooks: relationQuery() },
+    })._unsafeUnwrap();
+    const files: Record<string, string> = {
+      '/relation-types/queries.ts': generated.module,
+      '/relation-types/request.ts':
+        'export declare function request<T>(path:string, options:unknown):Promise<T>; export declare function getConfig(): {baseId:string};',
+      '/relation-types/server-only.d.ts': "declare module 'server-only';",
+      '/relation-types/consumer.ts': `import {queries, QueryRows} from './queries';
+const row: QueryRows['ownerBooks'] = {
+  bookId: 'recAAAAAAAAAAAAAAAA',
+  bookUpdatedAt: null,
+  ownerId: null,
+  ownerCreatedAt: null,
+  ownerUpdatedAt: null,
+  ownerSequence: null,
+  ownerVersion: null,
+  ownerName: 'Ada',
+};
+const rootId: string = row.bookId;
+const joinedId: string | null = row.ownerId;
+const joinedCreatedAt: string | null = row.ownerCreatedAt;
+const joinedUpdatedAt: string | null = row.ownerUpdatedAt;
+const joinedSequence: number | string | null = row.ownerSequence;
+const joinedVersion: number | string | null = row.ownerVersion;
+// @ts-expect-error root id is never null
+const wrongRootId: QueryRows['ownerBooks'] = {...row, bookId: null};
+// @ts-expect-error joined id is a string or null, never numeric
+const wrongJoinedId: QueryRows['ownerBooks'] = {...row, ownerId: 1};
+// @ts-expect-error joined autoNumber is number|string or null, never boolean
+const wrongJoinedSequence: QueryRows['ownerBooks'] = {...row, ownerSequence: true};
+async function check() {
+  const result: Array<typeof row> = await queries.ownerBooks();
+  void result;
+}
+void check; void rootId; void joinedId; void joinedCreatedAt; void joinedUpdatedAt;
+void joinedSequence; void joinedVersion; void wrongRootId; void wrongJoinedId; void wrongJoinedSequence;`,
+    };
+    const options: ts.CompilerOptions = {
+      noEmit: true,
+      strict: true,
+      skipLibCheck: true,
+      types: [],
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    };
+    const host = ts.createCompilerHost(options);
+    const originalRead = host.readFile;
+    const originalExists = host.fileExists;
+    const originalDirectoryExists = host.directoryExists;
+    host.readFile = (path) => files[path] ?? originalRead(path);
+    host.fileExists = (path) => path in files || originalExists(path);
+    host.directoryExists = (path) =>
+      path === '/relation-types' || Boolean(originalDirectoryExists?.(path));
+    host.getSourceFile = (path, languageVersion) => {
+      const source = host.readFile(path);
+      return source === undefined ? undefined : ts.createSourceFile(path, source, languageVersion);
+    };
+    expect(
+      ts
+        .getPreEmitDiagnostics(ts.createProgram(Object.keys(files), options, host))
+        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+    ).toEqual([]);
+  });
+
+  it('rejects real version 2 relation failures without selecting the SQL fallback', async () => {
+    const generated = generateAppQueryArtifacts({
+      schemaVersion: 1,
+      queries: { ownerBooks: relationQuery({ sql: 'SELECT 1 AS bookId' }) },
+    })._unsafeUnwrap();
+    for (const code of [
+      'data_query.join_relationship',
+      'data_query.field_forbidden',
+      'data_query.join_unsupported',
+    ]) {
+      const calls: Array<{ endpoint: string; options: unknown }> = [];
+      const loaded = loadModule(
+        async (endpoint, options) => {
+          calls.push({ endpoint, options });
+          return { ok: false, error: { code, message: 'relation refused', tags: ['validation'] } };
+        },
+        () => ({ baseId: 'bseFallback' }),
+        generated
+      ) as unknown as { queries: { ownerBooks(): Promise<unknown> } };
+      await expect(loaded.queries.ownerBooks()).rejects.toMatchObject({
+        code,
+        queryId: 'ownerBooks',
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({ endpoint: '/v2/queries/execute' });
+    }
   });
 
   it('generates a mixed manifest that typechecks with narrow per-query results', () => {

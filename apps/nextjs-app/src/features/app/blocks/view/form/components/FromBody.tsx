@@ -5,11 +5,13 @@ import { type FormView } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { omit } from 'lodash';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
+import { getFormPrefillValues } from '../prefill';
 import { generateUniqLocalKey, isProtectedField } from '../util';
 import { FormField } from './FormField';
 
@@ -37,11 +39,59 @@ export const FormBody = (props: IFormBodyProps) => {
   );
   const [loading, setLoading] = useState(false);
   const previewUrl = usePreviewUrl();
+  const router = useRouter();
+  const prefillValuesRef = useRef<Record<string, unknown>>({});
+  const prefillAppliedRef = useRef(false);
+  const prefillViewIdRef = useRef<string | undefined>(undefined);
 
   const visibleFields = useMemo(
     () => fields.filter(({ isComputed, isLookup }) => !isComputed && !isLookup),
     [fields]
   );
+
+  useEffect(() => {
+    if (view == null) return;
+    let currentFormData = formData;
+
+    // Another form view has its own draft and URL values, so neither the prefill
+    // state nor the previous view's answers may leak across a view switch.
+    if (prefillViewIdRef.current !== view.id) {
+      prefillViewIdRef.current = view.id;
+      prefillAppliedRef.current = false;
+      prefillValuesRef.current = {};
+      currentFormData = formDataMap?.[localKey] ?? {};
+      initFormData(currentFormData);
+      resetErrors();
+    }
+
+    if (prefillAppliedRef.current) return;
+
+    const prefillValues = getFormPrefillValues(visibleFields, router.query);
+    if (!Object.keys(prefillValues).length) return;
+
+    prefillAppliedRef.current = true;
+    prefillValuesRef.current = prefillValues;
+
+    const nextFormData = { ...currentFormData };
+    let changed = false;
+    Object.entries(prefillValues).forEach(([fieldId, value]) => {
+      // A saved draft is user input; URL params only fill cells that are empty.
+      if (nextFormData[fieldId] != null) return;
+      nextFormData[fieldId] = value;
+      changed = true;
+    });
+
+    if (changed) initFormData(nextFormData);
+  }, [
+    view,
+    visibleFields,
+    router.query,
+    formData,
+    initFormData,
+    formDataMap,
+    localKey,
+    resetErrors,
+  ]);
 
   if (view == null) return null;
 
@@ -105,7 +155,7 @@ export const FormBody = (props: IFormBodyProps) => {
 
   const onReset = () => {
     setLoading(false);
-    initFormData({});
+    initFormData(prefillValuesRef.current);
     setFormDataMap(omit(formDataMap, [localKey]));
   };
 

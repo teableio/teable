@@ -238,3 +238,93 @@ describe('DataQueryDefinition', () => {
     ).toBe(true);
   });
 });
+
+describe('DataQueryDefinition v2 relations', () => {
+  const targetTableId = `tbl${'b'.repeat(16)}`;
+  const targetFieldId = `fld${'b'.repeat(16)}`;
+  const related = {
+    version: 2,
+    kind: 'records',
+    tableId,
+    relations: { project: { linkFieldId: fieldId, tableId: targetTableId } },
+    select: [
+      { fieldId, alias: 'title' },
+      { source: 'project', fieldId: targetFieldId, alias: 'projectName' },
+    ],
+  };
+
+  it('accepts a declared source-qualified projection', () => {
+    const result = DataQueryDefinition.create(related);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().snapshot()).toMatchObject({
+      version: 2,
+      relations: { project: { tableId: targetTableId } },
+    });
+  });
+
+  it('rejects a source that was not declared', () => {
+    expect(
+      DataQueryDefinition.create({
+        ...related,
+        select: [{ source: 'missing', fieldId: targetFieldId, alias: 'missingName' }],
+      }).isErr()
+    ).toBe(true);
+  });
+
+  it('keeps version 1 strict about relation fields', () => {
+    expect(
+      DataQueryDefinition.create({
+        ...related,
+        version: 1,
+      }).isErr()
+    ).toBe(true);
+    expect(
+      DataQueryDefinition.create({
+        version: 1,
+        kind: 'records',
+        tableId,
+        select: [{ source: 'project', fieldId, alias: 'title' }],
+      }).isErr()
+    ).toBe(true);
+  });
+
+  it('caps relations and reserves the root alias', () => {
+    const relations = Object.fromEntries(
+      Array.from({ length: 5 }, (_, index) => [
+        `r${index}`,
+        { linkFieldId: fieldId, tableId: targetTableId },
+      ])
+    );
+    expect(DataQueryDefinition.create({ ...related, relations }).isErr()).toBe(true);
+    expect(
+      DataQueryDefinition.create({
+        ...related,
+        relations: { root: { linkFieldId: fieldId, tableId: targetTableId } },
+      }).isErr()
+    ).toBe(true);
+  });
+
+  it('allows the relation alias r because the compiler root alias is internal', () => {
+    const result = DataQueryDefinition.create({
+      ...related,
+      relations: { r: { linkFieldId: fieldId, tableId: targetTableId } },
+      select: [
+        { fieldId, alias: 'title' },
+        { source: 'r', fieldId: targetFieldId, alias: 'rName' },
+      ],
+    });
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('rejects relation declarations on aggregate definitions', () => {
+    expect(
+      DataQueryDefinition.create({
+        version: 2,
+        kind: 'aggregate',
+        tableId,
+        relations: { project: { linkFieldId: fieldId, tableId: targetTableId } },
+        aggregates: [{ fieldId, statisticFunc: 'count', alias: 'count' }],
+      }).isErr()
+    ).toBe(true);
+  });
+});

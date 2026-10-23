@@ -36,17 +36,21 @@ import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import { ILogger } from '../../ports/Logger';
+import type { ILogger } from '../../ports/Logger';
 import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
   type RecordWritePluginRunnerOptions,
 } from '../../ports/RecordWritePlugin';
-import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
-import type { ITableRecordQueryResult } from '../../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import { ITableRecordRepository } from '../../ports/TableRecordRepository';
-import type { UpdateManyStreamBatchInput } from '../../ports/TableRecordRepository';
+import type {
+  ITableRecordRepository,
+  UpdateManyStreamBatchInput,
+} from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import {
   createTeableSpanAttributes,

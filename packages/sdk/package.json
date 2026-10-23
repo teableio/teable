@@ -105,7 +105,7 @@
     "fuse.js": "7.0.0",
     "immer": "10.0.4",
     "lodash": "4.18.1",
-    "lru-cache": "10.2.0",
+    "lru-cache": "11.5.3",
     "lucide-react": "0.363.0",
     "penpal": "6.2.2",
     "react-day-picker": "9.5.1",
@@ -157,7 +157,7 @@
     "react-dom": "19.2.3",
     "rimraf": "5.0.5",
     "tailwindcss": "3.4.1",
-    "typescript": "5.4.3",
+    "typescript": "catalog:",
     "vitest": "4.1.12"
   }
 }

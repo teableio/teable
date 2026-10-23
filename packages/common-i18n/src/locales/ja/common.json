@@ -79,6 +79,51 @@
     "title": "クイックアクション",
     "placeHolder": "コマンドまたは検索の入力..."
   },
+  "commandPalette": {
+    "title": "コマンドパレット",
+    "placeholder": "リソースやコマンドを検索…",
+    "aiPlaceholder": "検索、コマンドの実行、またはCuppyに質問…",
+    "commandsPlaceholder": "コマンドを検索…",
+    "commands": "コマンド",
+    "askCuppy": "Cuppyに質問",
+    "askQuery": "Cuppyに質問：{{query}}",
+    "aiHint": "現在のプロジェクト、テーブル、ビューを使用します",
+    "recent": "最近アクセスした項目",
+    "noRecent": "最近アクセスしたリソースやビューがここに表示されます。",
+    "actions": "クイックアクション",
+    "results": "検索結果",
+    "noResults": "「{{query}}」に一致する項目がありません",
+    "noResultsHint": "別の名前で検索するか、Cuppyに質問するか、現在のテーブルを検索してください。",
+    "noResultsHintWithoutAI": "別の名前で検索するか、現在のテーブルを検索してください。",
+    "appearance": "外観",
+    "shortcuts": "キーボードショートカット",
+    "back": "戻る",
+    "select": "選択",
+    "open": "開く",
+    "execute": "実行",
+    "close": "閉じる",
+    "newTab": "新しいタブで開く",
+    "loading": "検索中…",
+    "searchFailed": "検索結果を読み込めませんでした",
+    "retry": "再試行",
+    "currentTable": "現在のテーブルを検索",
+    "searchTableQuery": "現在のテーブルで「{{query}}」を検索",
+    "createTableQuery": "テーブル「{{name}}」を作成",
+    "createDashboard": "新しいダッシュボード",
+    "createApp": "新しいアプリ",
+    "createWorkflow": "新しい自動化",
+    "createRoutine": "新しい定期タスク",
+    "createFolder": "新しいフォルダー",
+    "createView": "{{name}}を作成",
+    "invite": "共同作業者を招待",
+    "folderCreated": "フォルダーを作成しました",
+    "actionFailed": "この操作を完了できませんでした",
+    "backspace": "検索欄が空のときにコマンドモードを終了",
+    "toggle": "パレットを開く／閉じる",
+    "aiMode": "AI",
+    "space": "スペース",
+    "project": "プロジェクト"
+  },
   "password": {
     "setInvalid": "パスワードが無効です。少なくとも8文字で、少なくとも1つの文字と1つの数字を含める必要があります。"
   },
@@ -1655,6 +1700,12 @@
     "sm": {
       "label": "Lite",
       "description": "低コストで大量の定型業務向けの軽量モデル。"
+    },
+    "unavailable": {
+      "title": "{{model}} に切り替えました",
+      "description": "利用できるモデルが変更され、{{previous}} は提供されなくなりました。ここからは {{model}} が引き続き回答します。",
+      "change": "別のモデルを選ぶ",
+      "ok": "了解"
     }
   },
   "system": {

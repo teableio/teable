@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import { isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
-import { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { GetRecordByIdHandler } from './GetRecordByIdHandler';

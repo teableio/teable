@@ -293,6 +293,29 @@ describe('Postgres data query extensions on PGlite', () => {
     ).toBe(true);
   });
 
+  it('honours an explicit null ordering on a sort item', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 1,
+      tableId,
+      kind: 'aggregate',
+      groupBy: [{ fieldId: categoryId, alias: 'bucket' }],
+      aggregates: [{ fieldId: amountId, statisticFunc: 'max', alias: 'maximum' }],
+      sort: [{ alias: 'maximum', order: 'desc', nulls: 'first' }],
+    })
+      ._unsafeUnwrap()
+      .bind({})
+      ._unsafeUnwrap();
+    expect(definition.sort).toEqual([{ alias: 'maximum', order: 'desc', nulls: 'first' }]);
+    expect(executor.compile(context, table, definition, {})._unsafeUnwrap().sql).toContain(
+      'order by "maximum" desc nulls first'
+    );
+    expect((await executor.execute(context, table, definition, {}))._unsafeUnwrap().rows).toEqual([
+      { bucket: null, maximum: null },
+      { bucket: 'y', maximum: 20 },
+      { bucket: 'x', maximum: 10 },
+    ]);
+  });
+
   it('quotes a special-character aggregate alias and shares one repeatable-read snapshot', async () => {
     const alias = 'max "value"';
     const definition = DataQueryDefinition.create({

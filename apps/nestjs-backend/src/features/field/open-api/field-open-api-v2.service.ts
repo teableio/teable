@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import {
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
@@ -83,6 +83,7 @@ import type { IClsStore } from '../../../types/cls';
 import { isNotHiddenField } from '../../../utils/is-not-hidden-field';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
+import { TableIndexService } from '../../table/table-index.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
@@ -194,7 +195,9 @@ export class FieldOpenApiV2Service {
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly prismaService: PrismaService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @Optional()
+    private readonly tableIndexService?: TableIndexService
   ) {}
 
   /**
@@ -2656,64 +2659,92 @@ export class FieldOpenApiV2Service {
     if (executionOptions?.suppressWindowId) {
       delete context.windowId;
     }
-    const currentField = await this.getFieldFromV2(tableId, fieldId, context);
-    // v2 uses UpdateFieldCommand for both update and convert
-    const v2Input = {
-      tableId,
-      fieldId,
-      field: {
-        ...this.mapConvertFieldToV2(convertFieldRo, currentField as Record<string, unknown>),
-        updateMode: 'full',
-      },
+    let currentField: IFieldVo | undefined;
+    const executeConvert = async () => {
+      currentField = await this.getFieldFromV2(tableId, fieldId, context);
+      // v2 uses UpdateFieldCommand for both update and convert
+      const v2Input = {
+        tableId,
+        fieldId,
+        field: {
+          ...this.mapConvertFieldToV2(convertFieldRo, currentField as Record<string, unknown>),
+          updateMode: 'full',
+        },
+      };
+      await this.assertCrossSpaceForV2Field(
+        tableId,
+        v2Input.field as Record<string, unknown>,
+        currentField as Record<string, unknown>
+      );
+
+      const result = await executeUpdateFieldEndpoint(context, v2Input, commandBus);
+      if (result.status === 200 && result.body.ok) {
+        return;
+      }
+      if (!result.body.ok) {
+        throwV2Error(result.body.error, result.status);
+      }
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     };
-    await this.assertCrossSpaceForV2Field(
-      tableId,
-      v2Input.field as Record<string, unknown>,
-      currentField as Record<string, unknown>
-    );
+    if (this.tableIndexService) {
+      await this.tableIndexService.withQueryIndexesForFieldConversion(
+        tableId,
+        fieldId,
+        convertFieldRo.type,
+        executeConvert,
+        {
+          targetIsLookup: convertFieldRo.isLookup,
+          targetIsConditionalLookup: convertFieldRo.isConditionalLookup,
+        }
+      );
+    } else {
+      await executeConvert();
+    }
 
-    const result = await executeUpdateFieldEndpoint(context, v2Input, commandBus);
+    const updatedField = await this.getFieldFromV2(tableId, fieldId, context);
+    const convertOptions = convertFieldRo.options;
+    if (
+      convertFieldRo.type === FieldType.Link &&
+      convertOptions &&
+      typeof convertOptions === 'object' &&
+      'isOneWay' in convertOptions &&
+      convertOptions.isOneWay === false &&
+      updatedField.type === FieldType.Link &&
+      'options' in updatedField &&
+      updatedField.options &&
+      typeof updatedField.options === 'object'
+    ) {
+      Object.assign(updatedField.options, { isOneWay: false });
+    }
 
-    if (result.status === 200 && result.body.ok) {
-      const updatedField = await this.getFieldFromV2(tableId, fieldId, context);
-
+    const getForeignTableId = (options: unknown): string | undefined => {
       if (
-        convertFieldRo.type === FieldType.Link &&
-        typeof convertFieldRo.options === 'object' &&
-        convertFieldRo.options != null &&
-        (convertFieldRo.options as Record<string, unknown>).isOneWay === false &&
-        updatedField.type === FieldType.Link &&
-        updatedField.options &&
-        typeof updatedField.options === 'object'
+        options &&
+        typeof options === 'object' &&
+        'foreignTableId' in options &&
+        typeof options.foreignTableId === 'string'
       ) {
-        (updatedField.options as Record<string, unknown>).isOneWay = false;
+        return options.foreignTableId;
       }
-
-      const tableIdsToInvalidate = [tableId];
-      const currentOptions =
-        currentField && typeof currentField === 'object'
-          ? ((currentField as { options?: unknown }).options as Record<string, unknown> | undefined)
-          : undefined;
-      const updatedOptions =
-        updatedField && typeof updatedField === 'object'
-          ? ((updatedField as { options?: unknown }).options as Record<string, unknown> | undefined)
-          : undefined;
-      if (typeof currentOptions?.foreignTableId === 'string') {
-        tableIdsToInvalidate.push(currentOptions.foreignTableId);
-      }
-      if (typeof updatedOptions?.foreignTableId === 'string') {
-        tableIdsToInvalidate.push(updatedOptions.foreignTableId);
-      }
-      this.invalidateFieldLoader(tableIdsToInvalidate);
-
-      return updatedField;
+      return undefined;
+    };
+    const tableIdsToInvalidate = [tableId];
+    const currentOptions =
+      currentField && typeof currentField === 'object' && 'options' in currentField
+        ? currentField.options
+        : undefined;
+    const updatedOptions = 'options' in updatedField ? updatedField.options : undefined;
+    const currentForeignTableId = getForeignTableId(currentOptions);
+    const updatedForeignTableId = getForeignTableId(updatedOptions);
+    if (currentForeignTableId) {
+      tableIdsToInvalidate.push(currentForeignTableId);
     }
-
-    if (!result.body.ok) {
-      throwV2Error(result.body.error, result.status);
+    if (updatedForeignTableId) {
+      tableIdsToInvalidate.push(updatedForeignTableId);
     }
+    this.invalidateFieldLoader(tableIdsToInvalidate);
 
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    return updatedField;
   }
 
   async replayModifiedOps(

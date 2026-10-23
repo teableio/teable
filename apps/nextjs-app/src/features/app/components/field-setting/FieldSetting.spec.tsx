@@ -8,7 +8,7 @@ import {
 import type * as OpenApi from '@teable/openapi';
 import type * as SdkHooks from '@teable/sdk/hooks';
 import { act } from 'react';
-import { render, screen, TestAnchorProvider, userEvent, waitFor } from '@/test-utils';
+import { render, screen, TestAnchorProvider, userEvent, waitFor, within } from '@/test-utils';
 import { FieldSetting, FieldSettingBase, sanitizeLookupOptions } from './FieldSetting';
 import { FieldOperator } from './type';
 
@@ -172,6 +172,75 @@ describe('FieldSettingBase', () => {
         shouldNotify: true,
       },
     });
+  });
+
+  it('keeps save loading and blocks duplicate submissions until field creation settles', async () => {
+    const confirmDeferred = createDeferred<void>();
+    const onConfirm = vi.fn(() => confirmDeferred.promise);
+
+    render(
+      <FieldSettingBase
+        visible
+        field={undefined}
+        operator={FieldOperator.Add}
+        onCancel={() => undefined}
+        onConfirm={onConfirm}
+      />
+    );
+
+    const saveButton = screen.getByRole('button', { name: 'common:actions.save' });
+    await userEvent.click(saveButton);
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(saveButton).toBeDisabled();
+    expect(saveButton.querySelector('.animate-spin')).toBeInTheDocument();
+
+    await userEvent.click(saveButton);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      confirmDeferred.resolve();
+      await confirmDeferred.promise;
+    });
+
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    expect(saveButton.querySelector('.animate-spin')).not.toBeInTheDocument();
+  });
+
+  it('keeps the unsaved-changes save loading until field update settles', async () => {
+    const confirmDeferred = createDeferred<void>();
+    const onConfirm = vi.fn(() => confirmDeferred.promise);
+
+    render(
+      <FieldSettingBase
+        visible
+        field={undefined}
+        operator={FieldOperator.Add}
+        onCancel={() => undefined}
+        onConfirm={onConfirm}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mock polluted user field' }));
+    await userEvent.keyboard('{Escape}');
+
+    const dialogTitle = await screen.findByText('table:field.editor.doSaveChanges');
+    const dialog = dialogTitle.closest<HTMLElement>('[role="dialog"]')!;
+    const dialogSaveButton = within(dialog).getByRole('button', {
+      name: 'common:actions.save',
+    });
+    await userEvent.click(dialogSaveButton);
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(dialogSaveButton).toBeDisabled();
+    expect(dialogSaveButton.querySelector('.animate-spin')).toBeInTheDocument();
+
+    await act(async () => {
+      confirmDeferred.resolve();
+      await confirmDeferred.promise;
+    });
+
+    await waitFor(() => expect(dialogSaveButton).toBeEnabled());
   });
 
   it('hydrates local editor state when originField arrives after initial fallback render', () => {

@@ -217,6 +217,29 @@ describe('lintDataQueryManifest', () => {
     const findings = lintDataQueryManifest({ text, manifest });
     expect(codesOf(findings)).toEqual([dataQueryLintCodes.duplicateDefinition]);
   });
+
+  it('keeps different relation declarations in separate combinatorial groups', () => {
+    const relationDefinition = (targetTableId: string, targetFieldId: string) => ({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: otherFieldId, tableId: targetTableId } },
+      select: [
+        { fieldId, alias: 'title' },
+        { source: 'owner', fieldId: targetFieldId, alias: 'ownerName' },
+      ],
+    });
+    const { text, manifest } = parse({
+      ownerA: { definition: relationDefinition(`tbl${'d'.repeat(16)}`, fieldId) },
+      ownerB: { definition: relationDefinition(`tbl${'e'.repeat(16)}`, otherFieldId) },
+    });
+    const findings = lintDataQueryManifest({
+      text,
+      manifest,
+      limits: { maxCombinatorialVariants: 2 },
+    });
+    expect(codesOf(findings)).not.toContain(dataQueryLintCodes.combinatorialManifest);
+  });
 });
 
 describe('scanDataQueryUsage', () => {

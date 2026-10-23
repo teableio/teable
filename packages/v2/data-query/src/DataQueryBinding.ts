@@ -1,6 +1,7 @@
 import {
   buildRecordConditionSpec,
   buildRecordConditionValue,
+  DbTableName,
   FieldValueTypeVisitor,
   getValidRecordAggregationFunctions,
   isRecordFilterDateValue,
@@ -401,6 +402,294 @@ export type DataQueryBindingPrepareOptions = {
    */
   readonly deferOperatorRejection?: boolean;
 };
+
+export type DataQueryRelationSourceBinding = {
+  readonly alias: string;
+  readonly table: ITableReadModel;
+  readonly linkFieldId: string;
+  readonly dependencies: ReadonlyArray<DataQueryFieldDependency>;
+};
+
+const projectionSource = (projection: object): string | undefined =>
+  'source' in projection && typeof projection.source === 'string' ? projection.source : undefined;
+
+const isRootProjection = (projection: object): boolean => {
+  const source = projectionSource(projection);
+  return source === undefined || source === 'root';
+};
+
+/**
+ * A version-2 records binding keeps each source's dependencies separate so the
+ * host authorizes every joined table with that table's own scope. Filters and
+ * sorts stay root-only in this version.
+ */
+export class DataQueryRelationBinding {
+  private constructor(
+    readonly definition: DataQueryDefinition,
+    readonly rootTable: ITableReadModel,
+    readonly rootDependencies: ReadonlyArray<DataQueryFieldDependency>,
+    readonly sources: ReadonlyArray<DataQueryRelationSourceBinding>,
+    readonly outputs: ReadonlyArray<DataQueryOutput>,
+    readonly deferredFilterError?: DomainError
+  ) {
+    freezeQueryValue(rootDependencies);
+    freezeQueryValue(sources);
+    freezeQueryValue(outputs);
+    Object.freeze(this);
+  }
+
+  static prepare(
+    definition: DataQueryDefinition,
+    rootTable: ITableReadModel,
+    targetTables: ReadonlyMap<string, ITableReadModel>,
+    options: DataQueryBindingPrepareOptions = {}
+  ): Result<DataQueryRelationBinding, DomainError> {
+    // The generator is a single linear validation sequence: early returns explain each
+    // rejected boundary, and splitting it would scatter one contract across helpers.
+    // eslint-disable-next-line sonarjs/cognitive-complexity
+    return safeTry(function* () {
+      const snapshot = definition.snapshot();
+      if (snapshot.version !== 2) {
+        return err(queryError('join_version', 'Relation binding requires definition version 2'));
+      }
+      if (snapshot.kind !== 'records') {
+        return err(queryError('join_aggregate', 'Aggregate queries cannot declare relations'));
+      }
+      if (snapshot.tableId !== rootTable.id().toString())
+        return err(queryError('table_mismatch', 'Query table does not match the loaded table'));
+      const filterValidation = validateDefinitionFilters(snapshot, rootTable);
+      const deferredFilterError =
+        options.deferOperatorRejection &&
+        filterValidation.isErr() &&
+        filterValidation.error.code === 'data_query.filter_operator_unsupported'
+          ? filterValidation.error
+          : undefined;
+      if (filterValidation.isErr() && !deferredFilterError) return err(filterValidation.error);
+
+      const rootProjections = snapshot.select.filter((projection) => isRootProjection(projection));
+      const rootSnapshot = {
+        ...snapshot,
+        select: rootProjections,
+      } as DataQueryDefinitionInput;
+      const rootUsages = queryFieldUsages(rootSnapshot);
+      const rootDependencyMap = new Map<string, DataQueryFieldDependency>();
+      const rootDependencies: DataQueryFieldDependency[] = [];
+      for (const [fieldId, usages] of rootUsages) {
+        const field = yield* rootTable
+          .getField((candidate) => candidate.id().toString() === fieldId)
+          .mapErr(() => queryError('field_missing', 'A required query field is missing'));
+        const dependency = yield* describeField(rootTable, field, usages);
+        rootDependencyMap.set(fieldId, dependency);
+        rootDependencies.push(dependency);
+      }
+
+      const targetUsages = new Map<string, Map<string, DataQueryFieldUsage[]>>();
+      for (const projection of snapshot.select) {
+        if (!('fieldId' in projection) || isRootProjection(projection)) continue;
+        const alias = projectionSource(projection)!;
+        const usages = targetUsages.get(alias) ?? new Map<string, DataQueryFieldUsage[]>();
+        const fieldUsages = usages.get(projection.fieldId) ?? [];
+        if (!fieldUsages.includes('projection')) fieldUsages.push('projection');
+        usages.set(projection.fieldId, fieldUsages);
+        targetUsages.set(alias, usages);
+      }
+
+      const sources: DataQueryRelationSourceBinding[] = [];
+      const sourceDependencies = new Map<string, Map<string, DataQueryFieldDependency>>();
+      for (const [alias, relation] of Object.entries(snapshot.relations ?? {})) {
+        const target = targetTables.get(alias);
+        if (!target) {
+          return err(
+            queryError('join_table_missing', 'A related table could not be loaded', {
+              source: alias,
+            })
+          );
+        }
+        if (target.id().toString() !== relation.tableId) {
+          return err(
+            queryError('table_mismatch', 'Related table does not match its declaration', {
+              source: alias,
+            })
+          );
+        }
+        if (target.baseId().toString() !== rootTable.baseId().toString()) {
+          return err(
+            queryError('join_cross_base', 'Related table belongs to another base', {
+              source: alias,
+            })
+          );
+        }
+        const link = yield* rootTable
+          .getField((candidate) => candidate.id().toString() === relation.linkFieldId)
+          .mapErr(() =>
+            queryError('join_link_missing', 'A relation link field is missing', { source: alias })
+          );
+        if (link.type().toString() !== 'link' || link.hasError().toBoolean()) {
+          return err(
+            queryError('join_link_type', 'A relation field is not a usable link', {
+              source: alias,
+            })
+          );
+        }
+        const linkField = link as LinkField;
+        const relationship = linkField.relationship().toString();
+        if (relationship !== 'manyOne' && relationship !== 'oneOne') {
+          return err(
+            queryError('join_relationship', 'Only root-hosted to-one relations are supported', {
+              source: alias,
+            })
+          );
+        }
+        if (!linkField.foreignTableId().equals(target.id())) {
+          return err(
+            queryError('join_link_target', 'A relation link points at another table', {
+              source: alias,
+            })
+          );
+        }
+        const fkHostTableName = yield* linkField
+          .fkHostTableNameString()
+          .andThen((raw) => DbTableName.rehydrate(raw))
+          .andThen((name) => name.split({ defaultSchema: 'public' }))
+          .mapErr(() =>
+            queryError('join_link_metadata', 'A relation foreign key host is unavailable', {
+              source: alias,
+            })
+          );
+        const selfKeyName = yield* linkField.selfKeyNameString().mapErr(() =>
+          queryError('join_link_metadata', 'A relation self key is unavailable', {
+            source: alias,
+          })
+        );
+        const foreignKeyName = yield* linkField.foreignKeyNameString().mapErr(() =>
+          queryError('join_link_metadata', 'A relation foreign key is unavailable', {
+            source: alias,
+          })
+        );
+        const rootPhysical = yield* rootTable
+          .dbTableName()
+          .andThen((name) => name.split({ defaultSchema: 'public' }))
+          .mapErr(() =>
+            queryError('join_link_metadata', 'The root table physical name is unavailable')
+          );
+        if (
+          fkHostTableName.schema !== rootPhysical.schema ||
+          fkHostTableName.tableName !== rootPhysical.tableName ||
+          selfKeyName !== '__id' ||
+          foreignKeyName === '__id'
+        ) {
+          return err(
+            queryError(
+              'join_relationship',
+              'A relation foreign key is not hosted by the root table',
+              { source: alias }
+            )
+          );
+        }
+        const linkDependency = yield* describeField(rootTable, link, ['relation']);
+        const existing = rootDependencyMap.get(linkDependency.fieldId);
+        if (existing) {
+          const usages = [...new Set([...existing.usages, 'relation'])] as DataQueryFieldUsage[];
+          const merged = { ...existing, usages };
+          rootDependencyMap.set(linkDependency.fieldId, merged);
+          const index = rootDependencies.findIndex(
+            (dependency) => dependency.fieldId === linkDependency.fieldId
+          );
+          if (index >= 0) rootDependencies[index] = merged;
+        } else {
+          rootDependencyMap.set(linkDependency.fieldId, linkDependency);
+          rootDependencies.push(linkDependency);
+        }
+
+        const dependencies: DataQueryFieldDependency[] = [];
+        const dependencyMap = new Map<string, DataQueryFieldDependency>();
+        for (const [fieldId, usages] of targetUsages.get(alias) ?? []) {
+          const field = yield* target
+            .getField((candidate) => candidate.id().toString() === fieldId)
+            .mapErr(() =>
+              queryError('field_missing', 'A required related field is missing', {
+                source: alias,
+              })
+            );
+          const dependency = yield* describeField(target, field, usages);
+          dependencyMap.set(fieldId, dependency);
+          dependencies.push(dependency);
+        }
+        sourceDependencies.set(alias, dependencyMap);
+        sources.push({
+          alias,
+          table: target,
+          linkFieldId: relation.linkFieldId,
+          dependencies,
+        });
+      }
+
+      const outputs: DataQueryOutput[] = [];
+      for (const projection of snapshot.select) {
+        if ('system' in projection) {
+          const cellValueTypes = {
+            id: 'string',
+            createdTime: 'dateTime',
+            lastModifiedTime: 'dateTime',
+            autoNumber: 'number',
+            version: 'number',
+          };
+          outputs.push({
+            alias: projection.alias,
+            wireType:
+              projection.system === 'autoNumber' || projection.system === 'version'
+                ? 'numberOrString'
+                : 'string',
+            cellValueType: cellValueTypes[projection.system],
+            isMultipleCellValue: false,
+            // A LEFT JOIN can miss for any target row, so target system columns are
+            // always nullable; the root keeps its stored-column invariants.
+            nullable: !isRootProjection(projection) || projection.system === 'lastModifiedTime',
+          });
+          continue;
+        }
+        const rawSource = projectionSource(projection);
+        const source = rawSource === 'root' ? undefined : rawSource;
+        const dependency = source
+          ? sourceDependencies.get(source)?.get(projection.fieldId)
+          : rootDependencyMap.get(projection.fieldId);
+        if (!dependency) {
+          return err(
+            queryError('field_missing', 'A selected field is not part of the query binding', {
+              ...(source ? { source } : {}),
+            })
+          );
+        }
+        if (projection.arrayDistinct === true && dependency.isMultipleCellValue !== true) {
+          return err(
+            queryError(
+              'array_distinct_incompatible',
+              'Array-distinct projection requires a multiple-value field'
+            )
+          );
+        }
+        outputs.push({
+          alias: projection.alias,
+          wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+          cellValueType: dependency.cellValueType,
+          isMultipleCellValue: dependency.isMultipleCellValue,
+          nullable: true,
+        });
+      }
+
+      return ok(
+        new DataQueryRelationBinding(
+          definition,
+          rootTable,
+          rootDependencies,
+          sources,
+          outputs,
+          deferredFilterError
+        )
+      );
+    });
+  }
+}
 
 export class DataQueryBinding {
   private constructor(

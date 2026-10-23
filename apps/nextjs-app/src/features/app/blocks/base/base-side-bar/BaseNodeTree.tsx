@@ -48,6 +48,7 @@ import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { collapseChatPanelIfExpanded } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { BaseNodeAddResourceButton } from '@overridable/BaseNodeAddResourceButton';
 import { usePinActions } from '../../space/usePinActions';
 import { usePinMap } from '../../space/usePinMap';
 import { useTableHref } from '../../table-list/useTableHref';
@@ -63,7 +64,6 @@ import {
 } from '../base-node/hooks';
 import type { TreeItemData } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
-import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
 import { BaseNodeShareIndicator, useSharedNodeIds } from './BaseNodeShareIndicator';
 import { BaseNodeStarButton, getNodePinType } from './BaseNodeStarButton';

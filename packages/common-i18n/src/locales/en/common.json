@@ -79,6 +79,51 @@
     "title": "Quick actions",
     "placeHolder": "Type a command or search..."
   },
+  "commandPalette": {
+    "title": "Command palette",
+    "placeholder": "Search resources or commands…",
+    "aiPlaceholder": "Search, run a command, or ask Cuppy…",
+    "commandsPlaceholder": "Search commands…",
+    "commands": "Commands",
+    "askCuppy": "Ask Cuppy",
+    "askQuery": "Ask Cuppy: {{query}}",
+    "aiHint": "Uses the current project, table, and view",
+    "recent": "Recently visited",
+    "noRecent": "Your recently visited resources and views appear here.",
+    "actions": "Quick actions",
+    "results": "Results",
+    "noResults": "No matches for “{{query}}”",
+    "noResultsHint": "Try another name, ask Cuppy, or search the current table.",
+    "noResultsHintWithoutAI": "Try another name or search the current table.",
+    "appearance": "Appearance",
+    "shortcuts": "Keyboard shortcuts",
+    "back": "Back",
+    "select": "Select",
+    "open": "Open",
+    "execute": "Run",
+    "close": "Close",
+    "newTab": "Open in a new tab",
+    "loading": "Searching…",
+    "searchFailed": "Could not load search results",
+    "retry": "Try again",
+    "currentTable": "Search in current table",
+    "searchTableQuery": "Search current table for “{{query}}”",
+    "createTableQuery": "Create table “{{name}}”",
+    "createDashboard": "New dashboard",
+    "createApp": "New app",
+    "createWorkflow": "New automation",
+    "createRoutine": "New scheduled task",
+    "createFolder": "New folder",
+    "createView": "New {{name}}",
+    "invite": "Invite collaborators",
+    "folderCreated": "Folder created",
+    "actionFailed": "Could not complete this action",
+    "backspace": "Leave command mode when the query is empty",
+    "toggle": "Open or close the palette",
+    "aiMode": "AI",
+    "space": "Space",
+    "project": "Project"
+  },
   "password": {
     "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
   },
@@ -1660,6 +1705,12 @@
     "sm": {
       "label": "Lite",
       "description": "Lightweight model for inexpensive, high-volume routine work."
+    },
+    "unavailable": {
+      "title": "Switched to {{model}}",
+      "description": "The available models have changed and {{previous}} is no longer offered, so {{model}} will keep answering from here.",
+      "change": "Choose another model",
+      "ok": "Got it"
     }
   },
   "system": {

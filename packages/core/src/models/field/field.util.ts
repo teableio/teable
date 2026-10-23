@@ -51,6 +51,27 @@ export function hasCrossBaseField(
 }
 
 /**
+ * Whether an explicit AI action (single-cell generate / field auto-fill) may
+ * target this field.
+ *
+ * Computed fields — lookup, conditional lookup, formula, rollup — can carry an
+ * inherited `aiConfig` copy on their row (v1 create, snapshot rehydrate,
+ * duplicate), which is enough for the AI entry points to treat them as AI
+ * fields. Their cells are read-only projections, so a generation task started
+ * for them can never write its result back. Backend validates with the same
+ * predicate; keep both sides aligned.
+ */
+export function isAiActionWritableField(field: {
+  aiConfig?: unknown;
+  isComputed?: boolean | null;
+  isLookup?: boolean | null;
+  isConditionalLookup?: boolean | null;
+}): boolean {
+  if (!field.aiConfig) return false;
+  return !field.isComputed && !field.isLookup && !field.isConditionalLookup;
+}
+
+/**
  * Apply a single field property operation to a field VO.
  * This is a helper function that handles type-safe property assignment.
  */

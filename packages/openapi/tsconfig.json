@@ -2,8 +2,10 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    // The openapi sources export axios calls with inferred return types. Under bundler + CommonJS,
+    // TS 6.0 cannot name axios's require-side typings in the emitted declarations (TS2883).
+    "module": "node20",
+    "moduleResolution": "node16",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "esnext",

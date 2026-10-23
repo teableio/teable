@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { createBaseFromTemplate, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -33,6 +33,7 @@ const TemplateBase = ({
   const [withRecords, setWithRecords] = useState(true);
   const [targetSpaceId, setTargetSpaceId] = useState<string | undefined>(fixedSpaceId);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   // Only fetch space list if no fixed spaceId provided
@@ -44,7 +45,9 @@ const TemplateBase = ({
 
   const { mutateAsync: templateCreateBaseMutator, isPending: isLoading } = useMutation({
     mutationFn: createBaseFromTemplate,
-    onSuccess: ({ data }) => {
+    onSuccess: ({ data }, { spaceId }) => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
       closeModal();
       const { id: baseId, defaultUrl } = data;
 

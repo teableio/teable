@@ -23,8 +23,10 @@ import { NoopTableQueryObservability } from '../ports/defaults/NoopTableQueryObs
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import type { RecordQueryFieldMask } from '../ports/RecordQueryPlugin';
-import { ITableQueryObservability } from '../ports/TableQueryObservability';
-import type { TableQueryObservabilityEvent } from '../ports/TableQueryObservability';
+import type {
+  ITableQueryObservability,
+  TableQueryObservabilityEvent,
+} from '../ports/TableQueryObservability';
 import {
   createSearchTraceAttributes,
   createTableQueryTraceAttributes,

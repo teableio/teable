@@ -79,6 +79,51 @@
     "title": "إجراءات سريعة",
     "placeHolder": "اكتب أمرًا أو ابحث..."
   },
+  "commandPalette": {
+    "title": "لوحة الأوامر",
+    "placeholder": "ابحث عن الموارد أو الأوامر…",
+    "aiPlaceholder": "ابحث أو شغّل أمرًا أو اسأل Cuppy…",
+    "commandsPlaceholder": "ابحث عن الأوامر…",
+    "commands": "الأوامر",
+    "askCuppy": "اسأل Cuppy",
+    "askQuery": "اسأل Cuppy: {{query}}",
+    "aiHint": "يستخدم المشروع والجدول وطريقة العرض الحالية",
+    "recent": "تمت زيارتها مؤخرًا",
+    "noRecent": "ستظهر هنا الموارد وطرق العرض التي زرتها مؤخرًا.",
+    "actions": "إجراءات سريعة",
+    "results": "النتائج",
+    "noResults": "لا توجد مطابقة لـ “{{query}}”",
+    "noResultsHint": "جرّب اسمًا آخر أو اسأل Cuppy أو ابحث في الجدول الحالي.",
+    "noResultsHintWithoutAI": "جرّب اسمًا آخر أو ابحث في الجدول الحالي.",
+    "appearance": "المظهر",
+    "shortcuts": "اختصارات لوحة المفاتيح",
+    "back": "رجوع",
+    "select": "تحديد",
+    "open": "فتح",
+    "execute": "تشغيل",
+    "close": "إغلاق",
+    "newTab": "فتح في علامة تبويب جديدة",
+    "loading": "جارٍ البحث…",
+    "searchFailed": "تعذّر تحميل نتائج البحث",
+    "retry": "المحاولة مرة أخرى",
+    "currentTable": "البحث في الجدول الحالي",
+    "searchTableQuery": "البحث في الجدول الحالي عن “{{query}}”",
+    "createTableQuery": "إنشاء جدول “{{name}}”",
+    "createDashboard": "لوحة معلومات جديدة",
+    "createApp": "تطبيق جديد",
+    "createWorkflow": "أتمتة جديدة",
+    "createRoutine": "مهمة مجدولة جديدة",
+    "createFolder": "مجلد جديد",
+    "createView": "إنشاء {{name}}",
+    "invite": "دعوة متعاونين",
+    "folderCreated": "تم إنشاء المجلد",
+    "actionFailed": "تعذّر إكمال هذا الإجراء",
+    "backspace": "مغادرة وضع الأوامر عند فراغ الاستعلام",
+    "toggle": "فتح اللوحة أو إغلاقها",
+    "aiMode": "الذكاء الاصطناعي",
+    "space": "المساحة",
+    "project": "المشروع"
+  },
   "password": {
     "setInvalid": "كلمة المرور غير صالحة؛ يجب أن تتكون من 8 أحرف على الأقل وأن تتضمن حرفًا واحدًا ورقمًا واحدًا على الأقل."
   },
@@ -1665,6 +1710,12 @@
     "sm": {
       "label": "Lite",
       "description": "نموذج خفيف للمهام الروتينية منخفضة التكلفة وكبيرة الحجم."
+    },
+    "unavailable": {
+      "title": "تم التبديل إلى {{model}}",
+      "description": "تم تعديل النماذج المتاحة ولم يعد {{previous}} متاحًا، لذا سيواصل {{model}} الإجابة من الآن.",
+      "change": "اختيار نموذج آخر",
+      "ok": "حسنًا"
     }
   },
   "system": {

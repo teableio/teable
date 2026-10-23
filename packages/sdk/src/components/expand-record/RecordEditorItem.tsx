@@ -1,4 +1,5 @@
 import type { IAttachmentCellValue } from '@teable/core';
+import { isAiActionWritableField } from '@teable/core';
 import { Info } from '@teable/icons';
 import { cn } from '@teable/ui-lib';
 import { useContext } from 'react';
@@ -50,7 +51,8 @@ export const RecordEditorItem = (props: {
     ? normalizeCellValueForDisplay(field, record.fields[field.id])
     : undefined;
   const compact = !vertical;
-  const showAiGenerateButton = hasAiConfig && Boolean(field.tableId && record && !readonly);
+  const showAiGenerateButton =
+    isAiActionWritableField(field) && Boolean(field.tableId && record && !readonly);
   const aiGenerateButton = showAiGenerateButton && field.tableId && record && (
     <AiFieldGenerateButton
       tableId={field.tableId}
@@ -60,7 +62,11 @@ export const RecordEditorItem = (props: {
     />
   );
   const onChangeInner = (value: unknown) => {
-    if (cellValue === value) return;
+    // A create-record dialog starts every field absent, which editors render as empty and
+    // commit as null on blur. Treat absent and null as the same no-op so focusing a field
+    // without typing cannot turn it into an explicit clear and suppress its configured
+    // default. A field that held a value still reports the clear.
+    if (cellValue === value || (cellValue == null && value == null)) return;
     onChange?.(value, field.id);
   };
 

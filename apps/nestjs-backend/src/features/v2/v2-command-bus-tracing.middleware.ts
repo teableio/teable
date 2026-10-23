@@ -1,4 +1,4 @@
-import { TeableSpanAttributes } from '@teable/v2-core';
+import { FieldId, RecordId, TableId, TeableSpanAttributes } from '@teable/v2-core';
 import type {
   CommandBusNext,
   ICommandBusMiddleware,
@@ -14,6 +14,13 @@ const describeError = (error: unknown): string => {
     return String(error);
   }
 };
+const commandId = (value: unknown): string | undefined => {
+  if (typeof value === 'string') return value;
+  if (value instanceof TableId || value instanceof RecordId || value instanceof FieldId) {
+    return value.toString();
+  }
+  return undefined;
+};
 
 /**
  * Extract relevant IDs from command for tracing.
@@ -26,9 +33,9 @@ const extractCommandIds = (
 
   const cmd = command as Record<string, unknown>;
   return {
-    tableId: typeof cmd.tableId === 'string' ? cmd.tableId : undefined,
-    recordId: typeof cmd.recordId === 'string' ? cmd.recordId : undefined,
-    fieldId: typeof cmd.fieldId === 'string' ? cmd.fieldId : undefined,
+    tableId: commandId(cmd.tableId),
+    recordId: commandId(cmd.recordId),
+    fieldId: commandId(cmd.fieldId),
   };
 };
 

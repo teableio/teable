@@ -6,6 +6,7 @@ import {
   RowHeightLevel,
   contractColorForTheme,
   fieldVoSchema,
+  isAiActionWritableField,
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
@@ -1683,14 +1684,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           (e) => e.cellItem[0] === fieldIndex && e.cellItem[1] === recordIndex
         );
 
+        const canRetry = isAiActionWritableField(fields[fieldIndex]);
         const newError: ICellError = {
           cellItem: [fieldIndex, recordIndex],
           errorMsg,
-          onRetry: () => {
-            // Clear error and trigger retry
-            clearCellError(recordId, fieldId);
-            autoFillCell(tableId, recordId, fieldId);
-          },
+          onRetry: canRetry
+            ? () => {
+                // Clear error and trigger retry
+                clearCellError(recordId, fieldId);
+                autoFillCell(tableId, recordId, fieldId);
+              }
+            : undefined,
           onDismiss: () => {
             clearCellError(recordId, fieldId);
           },

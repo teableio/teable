@@ -20,6 +20,8 @@ import type {
   ITableDeleteReferencesVo,
   ITableFullVo,
   ITableListVo,
+  ITableQueryIndexPolicyRo,
+  ITableQueryIndexPolicyVo,
   ITableSearchIndexPolicyRo,
   ITableSearchIndexPolicyVo,
   ITableSearchVectorStatusVo,
@@ -40,6 +42,7 @@ import {
   updateOrderRoSchema,
   IToggleIndexRo,
   toggleIndexRoSchema,
+  tableQueryIndexPolicyRoSchema,
   tableSearchIndexPolicyRoSchema,
   TableIndex,
   duplicateTableRoSchema,
@@ -328,6 +331,22 @@ export class TableController {
     policy: ITableSearchIndexPolicyRo
   ): Promise<ITableSearchIndexPolicyVo> {
     return this.tableIndexService.updateSearchIndexPolicy(tableId, policy);
+  }
+
+  @Get(':tableId/index/query-policy')
+  @Permissions('table|read')
+  async getQueryIndexPolicy(@Param('tableId') tableId: string): Promise<ITableQueryIndexPolicyVo> {
+    return this.tableIndexService.getQueryIndexPolicy(tableId);
+  }
+
+  @Put(':tableId/index/query-policy')
+  @Permissions('table|update')
+  async updateQueryIndexPolicy(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(tableQueryIndexPolicyRoSchema))
+    policy: ITableQueryIndexPolicyRo
+  ): Promise<ITableQueryIndexPolicyVo> {
+    return this.tableIndexService.updateQueryIndexPolicy(tableId, policy);
   }
 
   @Get(':tableId/activated-index')

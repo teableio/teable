@@ -292,6 +292,51 @@ export type I18nTranslations = {
             "title": string;
             "placeHolder": string;
         };
+        "commandPalette": {
+            "title": string;
+            "placeholder": string;
+            "aiPlaceholder": string;
+            "commandsPlaceholder": string;
+            "commands": string;
+            "askCuppy": string;
+            "askQuery": string;
+            "aiHint": string;
+            "recent": string;
+            "noRecent": string;
+            "actions": string;
+            "results": string;
+            "noResults": string;
+            "noResultsHint": string;
+            "noResultsHintWithoutAI": string;
+            "appearance": string;
+            "shortcuts": string;
+            "back": string;
+            "select": string;
+            "open": string;
+            "execute": string;
+            "close": string;
+            "newTab": string;
+            "loading": string;
+            "searchFailed": string;
+            "retry": string;
+            "currentTable": string;
+            "searchTableQuery": string;
+            "createTableQuery": string;
+            "createDashboard": string;
+            "createApp": string;
+            "createWorkflow": string;
+            "createRoutine": string;
+            "createFolder": string;
+            "createView": string;
+            "invite": string;
+            "folderCreated": string;
+            "actionFailed": string;
+            "backspace": string;
+            "toggle": string;
+            "aiMode": string;
+            "space": string;
+            "project": string;
+        };
         "password": {
             "setInvalid": string;
         };
@@ -1889,6 +1934,12 @@ export type I18nTranslations = {
             "sm": {
                 "label": string;
                 "description": string;
+            };
+            "unavailable": {
+                "title": string;
+                "description": string;
+                "change": string;
+                "ok": string;
             };
         };
         "system": {

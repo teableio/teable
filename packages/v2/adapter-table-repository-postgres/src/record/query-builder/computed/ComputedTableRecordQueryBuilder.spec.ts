@@ -4133,6 +4133,120 @@ describe('ComputedTableRecordQueryBuilder', () => {
       }
     });
 
+    test('surfaces an invalid residual operator instead of an invariant failure', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const hostKeyFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+      const foreignKeyFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+      const foreignMultiSelectFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const rollupFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('T8009Foreign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignKeyFieldId)
+        .withName(FieldName.create('ForeignKey')._unsafeUnwrap())
+        .done();
+      // A multi-value field only accepts the multiple-select operator set; the
+      // persisted `is` residual is what production accepted and then crashed on.
+      foreignBuilder
+        .field()
+        .multipleSelect()
+        .withId(foreignMultiSelectFieldId)
+        .withName(FieldName.create('ForeignTags')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getField((field) => field.id().equals(foreignKeyFieldId))
+        ._unsafeUnwrap()
+        .setDbFieldName(DbFieldName.rehydrate('col_foreign_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getField((field) => field.id().equals(foreignMultiSelectFieldId))
+        ._unsafeUnwrap()
+        .setDbFieldName(DbFieldName.rehydrate('col_foreign_tags')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const valuesField = foreignTable
+        .getField((field) => field.id().equals(foreignKeyFieldId))
+        ._unsafeUnwrap();
+      const config = ConditionalRollupConfig.create({
+        foreignTableId: FOREIGN_TABLE_ID,
+        lookupFieldId: foreignKeyFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: foreignKeyFieldId.toString(),
+                operator: 'is',
+                value: { type: 'field', fieldId: hostKeyFieldId.toString() },
+              },
+              { fieldId: foreignMultiSelectFieldId.toString(), operator: 'is', value: 'A' },
+              { fieldId: foreignMultiSelectFieldId.toString(), operator: 'is', value: 'B' },
+            ],
+          },
+        },
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('T8009Main')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withId(hostKeyFieldId)
+        .withName(FieldName.create('HostKey')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .conditionalRollup()
+        .withId(rollupFieldId)
+        .withName(FieldName.create('Rollup')._unsafeUnwrap())
+        .withConfig(config)
+        .withExpression(RollupExpression.create('countall({values})')._unsafeUnwrap())
+        .withValuesField(valuesField)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+      // No foreignTables here: field creation now rejects this filter (T8009), so
+      // this table models a row persisted before that validation existed.
+      const mainTable = mainBuilder.build()._unsafeUnwrap();
+      mainTable
+        .getField((field) => field.id().equals(hostKeyFieldId))
+        ._unsafeUnwrap()
+        .setDbFieldName(DbFieldName.rehydrate('col_host_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getField((field) => field.id().equals(rollupFieldId))
+        ._unsafeUnwrap()
+        .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const result = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+        typeValidationStrategy,
+      })
+        .from(mainTable)
+        .select([rollupFieldId])
+        .build();
+
+      expect(result.isErr()).toBe(true);
+      const error = result._unsafeUnwrapErr();
+      // Two invalid residuals collapse into SpecBuilder's single error; the
+      // operator messages survive in details.errors.
+      expect(error.code).toBe('spec.builder');
+      expect(JSON.stringify(error.details)).toContain('Invalid record condition operator');
+      expect(JSON.stringify(error.details)).not.toContain('requires a filter');
+    });
+
     test('conditional rollup uses window ranking for field-reference filter with limit', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(

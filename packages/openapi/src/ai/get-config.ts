@@ -68,6 +68,12 @@ export const chatModelResponseSchema = z.object({
   tags: z.array(gatewayModelTagSchema).optional(),
   /** Credit ratio of each offered tier against the default tier; see `IModelTierCreditRatio`. */
   tierCreditRatio: z.partialRecord(modelTierIdSchema, z.number()).optional(),
+  /** See `IChatModelTierSlots.fromSpaceModels`. */
+  fromSpaceModels: z.boolean().optional(),
+  /** Every model key a chat may run on; a pick outside it runs the default. Set by the EE route. */
+  offeredModelKeys: z.array(z.string()).optional(),
+  /** What a chat without a usable pick runs on and shows: a tier id or a model key. Set by the EE route. */
+  defaultSelection: z.string().optional(),
 });
 
 export const getAIConfigSchema = z.object({

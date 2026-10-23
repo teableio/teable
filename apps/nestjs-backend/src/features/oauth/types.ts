@@ -18,6 +18,7 @@ export interface IExchangeClient extends IClientBase {
   name: string;
   secretId: string;
   clientSecret: string;
+  codeVerifier?: string;
 }
 
 export interface IPkceExchangeClient extends IClientBase {

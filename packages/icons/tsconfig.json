@@ -3,7 +3,6 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react",
-    "baseUrl": "./src",
     "target": "esnext",
     "outDir": "./dist",
     "rootDir": "./src",
@@ -12,7 +11,7 @@
     "noEmit": false,
     "incremental": true,
     "composite": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],

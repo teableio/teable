@@ -36,7 +36,7 @@ dayjs.extend(timezone);
  */
 import '../styles/global.css';
 
-import '@fontsource-variable/inter';
+import '@fontsource-variable/inter/index.css';
 
 // Workaround for https://github.com/zeit/next.js/issues/8592
 export type AppProps<T> = NextAppProps<T> & {

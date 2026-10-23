@@ -1,6 +1,8 @@
 /* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { createHash } from 'node:crypto';
 import { assertNever, CellValueType, FieldType } from '@teable/core';
+import type { ITableQueryIndexSpec } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
@@ -250,6 +252,71 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       WHERE schemaname = '${schema}'
       AND tablename = '${table}'
       AND indexname like '${searchFactor}%'`;
+  }
+
+  private getQueryIndexPrefix() {
+    return 'idx_qry';
+  }
+
+  getQueryIndexName(tableId: string, indexId: string): string {
+    const prefix = this.getQueryIndexPrefix();
+    const safeId = indexId.toLowerCase();
+    const tableHash = createHash('sha1').update(tableId).digest('hex').slice(0, 8);
+    return `${prefix}_${tableHash}_${safeId}`;
+  }
+
+  getQueryIndexInfoSql(dbTableName: string): string {
+    const [schema, table] = dbTableName.split('.');
+    return `
+      SELECT indexname::text
+      FROM pg_indexes
+      WHERE schemaname = '${schema}'
+      AND tablename = '${table}'
+      AND indexname LIKE '${this.getQueryIndexPrefix()}_%'`;
+  }
+
+  getDropQueryIndexesSql(dbTableName: string): string {
+    const [schema, table] = dbTableName.split('.');
+    return `
+      DO $$ 
+      DECLARE 
+        _index record;
+      BEGIN 
+        FOR _index IN 
+          SELECT indexname 
+          FROM pg_indexes 
+          WHERE schemaname = '${schema}' 
+          AND tablename = '${table}'
+          AND indexname LIKE '${this.getQueryIndexPrefix()}_%'
+        LOOP
+          EXECUTE 'DROP INDEX IF EXISTS "' || '${schema}' || '"."' || _index.indexname || '"';
+        END LOOP;
+      END $$;
+    `;
+  }
+
+  createQueryIndexSql(
+    dbTableName: string,
+    index: ITableQueryIndexSpec,
+    fieldNamesById: Map<string, string>,
+    tableId: string
+  ): string {
+    const [schema, table] = dbTableName.split('.');
+    const indexName = this.getQueryIndexName(tableId, index.id);
+    const columns = index.columns.map((column) => {
+      const fieldIds = column.kind === 'field' ? [column.fieldId] : column.fieldIds;
+      const expressions = fieldIds.map((fieldId) => {
+        const fieldName = fieldNamesById.get(fieldId);
+        if (!fieldName) {
+          throw new Error(`Unknown field for query index: ${fieldId}`);
+        }
+        return `"${fieldName}"`;
+      });
+      const expression =
+        column.kind === 'field' ? expressions[0]! : `COALESCE(${expressions.join(', ')})`;
+      return `${expression} ${column.direction === 'desc' ? 'DESC' : 'ASC'}`;
+    });
+    return `CREATE INDEX IF NOT EXISTS "${indexName}" ON "${schema}"."${table}" USING btree (${columns.join(', ')})`;
   }
 
   getAbnormalIndex(dbTableName: string, fields: IFieldInstance[], existingIndex: IPgIndex[]) {

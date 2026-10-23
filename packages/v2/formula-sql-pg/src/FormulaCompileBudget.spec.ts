@@ -239,6 +239,31 @@ describe('formula compilation budgets', () => {
     expect(joinBudget.join(['\ud83d', '\ude00'], '')).toBe('😀');
   });
 
+  it('bounds duplicated MATERIALIZED formula CTEs even in observe mode', () => {
+    const cte = (index: number) =>
+      `"__formula_${index}" AS MATERIALIZED (SELECT 1 AS value)`;
+    const statement = (count: number) =>
+      `WITH ${Array.from({ length: count }, (_, index) => cte(index)).join(', ')} SELECT 1`;
+
+    expect(checkFormulaSqlBudget(statement(96), options({}, 'observe')).isOk()).toBe(true);
+    expect(
+      checkFormulaSqlBudget(statement(97), options({}, 'observe'))._unsafeUnwrapErr().details
+    ).toEqual({ metric: 'materializedCtes', attempted: 97, max: 96, policyVersion: 1 });
+    expect(
+      checkFormulaSqlBudget(statement(97), options(), 0)._unsafeUnwrap().length
+    ).toBeGreaterThan(0);
+    expect(
+      checkFormulaSqlBudget(statement(2), options({ materializedCtes: 1 }))._unsafeUnwrapErr()
+        .details
+    ).toEqual({ metric: 'materializedCtes', attempted: 2, max: 1, policyVersion: 1 });
+    expect(
+      checkFormulaSqlBudget(
+        `SELECT '"__formula_1" AS MATERIALIZED'`,
+        options({ materializedCtes: 0 })
+      )._unsafeUnwrap()
+    ).toBe(`SELECT '"__formula_1" AS MATERIALIZED'`);
+  });
+
   it('closes every public channel before returning and returns host composition failures as Results', () => {
     expect(
       createTranslator(options({ sqlBytes: 1 }))

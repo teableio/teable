@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { SYSTEM_USER_ID, generateClientId, getRandomString, nullsToUndefined } from '@teable/core';
+import { SYSTEM_USER_ID, generateClientId, nullsToUndefined } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   AuthorizedVo,
@@ -10,7 +10,6 @@ import type {
   OAuthGetVo,
   OAuthUpdateVo,
 } from '@teable/openapi';
-import * as bcrypt from 'bcrypt';
 import { isEqual, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
@@ -18,6 +17,7 @@ import { generateAccessTokenCacheKey } from '../../performance-cache/generate-ke
 import type { IClsStore } from '../../types/cls';
 import { AuditScope } from '../audit/audit-scope';
 import { UserService } from '../user/user.service';
+import { createOAuthSecret } from './oauth-secret';
 
 // App settings an update can change; the audit row records each one that did, before and after.
 const auditedAppSettings = [
@@ -310,11 +310,7 @@ export class OAuthService {
 
   async generateSecret(clientId: string): Promise<GenerateOAuthSecretVo> {
     await this.validateOwnership(clientId);
-    const secret = getRandomString(40).toLocaleLowerCase();
-    const hashedSecret = await bcrypt.hash(secret, 10);
-
-    const sensitivePart = secret.slice(0, -10);
-    const maskedSecret = secret.slice(0).replace(sensitivePart, '*'.repeat(sensitivePart.length));
+    const { secret, hashedSecret, maskedSecret } = await createOAuthSecret();
 
     const res = await this.prismaService.oAuthAppSecret.create({
       data: {

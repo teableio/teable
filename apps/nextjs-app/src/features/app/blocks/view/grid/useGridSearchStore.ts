@@ -28,6 +28,12 @@ const notifyFieldsChange = (fields: IFieldInstance[] | null) => {
   fieldsListeners.forEach((listener) => listener(fields));
 };
 
+interface SearchTarget {
+  tableId: string;
+  viewId: string;
+  open: (query?: string) => void;
+}
+
 interface IGridRefState {
   gridRef: React.RefObject<IGridRef | null> | null;
   setGridRef: (ref: React.RefObject<IGridRef | null>) => void;
@@ -45,6 +51,8 @@ interface IGridRefState {
   setHighlightedTableId: (tableId: string | null) => void;
   highlightedViewId: string | null;
   setHighlightedViewId: (viewId: string | null) => void;
+  searchTarget: SearchTarget | null;
+  registerSearchTarget: (target: SearchTarget) => () => void;
   mountedGrid: { tableId: string; viewId: string } | null;
   setMountedGrid: (grid: { tableId: string; viewId: string } | null) => void;
 }
@@ -57,7 +65,13 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
   fields: null,
   highlightedTableId: null,
   highlightedViewId: null,
+  searchTarget: null,
+  registerSearchTarget: (target) => {
+    set({ searchTarget: target });
+    return () => set((state) => (state.searchTarget === target ? { searchTarget: null } : state));
+  },
   mountedGrid: null,
+  setMountedGrid: (grid) => set({ mountedGrid: grid }),
   resetSearchHandler: noop,
   setResetSearchHandler: (fn: () => void) => {
     set((state) => {
@@ -126,11 +140,5 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
         highlightedViewId: viewId,
       };
     });
-  },
-  setMountedGrid: (grid) => {
-    set((state) => ({
-      ...state,
-      mountedGrid: grid,
-    }));
   },
 }));

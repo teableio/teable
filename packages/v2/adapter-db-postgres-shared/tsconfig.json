@@ -23,7 +23,8 @@
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/formula": ["../../formula/src"]
-    }
+    },
+    "types": ["node"]
   },
   "exclude": [
     "**/node_modules",

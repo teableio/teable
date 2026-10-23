@@ -36,7 +36,9 @@ export type ComputedTaskFailureReason =
   | 'missing_relation'
   | 'readonly_database'
   | 'runtime_type_error'
-  | 'provision_pending';
+  | 'provision_pending'
+  | 'invalid_condition'
+  | 'computed_invariant_violation';
 
 export type ComputedTaskFailureClassification = {
   failureKind: ComputedTaskFailureKind;
@@ -187,6 +189,25 @@ const isReadOnlyDatabaseMessage = (message: string): boolean =>
 const isCallStackOverflowMessage = (message: string): boolean =>
   /maximum call stack size exceeded/i.test(message);
 
+/**
+ * `SpecBuilder` collapses several condition errors into one `spec.builder`
+ * error and keeps only their messages, so the structured code alone misses the
+ * production shape (two invalid residual predicates).
+ */
+const hasInvalidConditionOperator = (error: DomainError): boolean => {
+  if (hasStructuredCode(error, { 'field.condition.invalid_operator_for_field': true })) {
+    return true;
+  }
+  if (/invalid record condition operator/i.test(error.message)) return true;
+  const errors = error.details?.errors;
+  return (
+    Array.isArray(errors) &&
+    errors.some(
+      (entry) => typeof entry === 'string' && /invalid record condition operator/i.test(entry)
+    )
+  );
+};
+
 export const isTableProvisionPendingError = (error: { code?: string; message?: string }): boolean =>
   hasProvisionPendingCode(error) || /provision_state=pending/i.test(error.message ?? '');
 
@@ -255,6 +276,30 @@ export const classifyComputedTaskFailure = (
     return {
       failureKind: 'data_safety_limit',
       failureReason: 'stage_depth_exhausted',
+      retryable: false,
+    };
+  }
+
+  // A persisted conditional-field filter that no longer builds (an operator that
+  // the target field's value shape rejects, or a reference to a deleted field)
+  // fails identically on every attempt. Retrying only burns max_attempts before
+  // dead-lettering; the field filter must be repaired and the group replayed.
+  if (hasInvalidConditionOperator(error)) {
+    return {
+      failureKind: 'obsolete_plan',
+      failureReason: 'invalid_condition',
+      retryable: false,
+    };
+  }
+
+  // An invariant violation inside computed planning/SQL generation is a code
+  // defect, not a load blip: retrying the same metadata cannot succeed and only
+  // amplifies load with max_attempts claims per task. Custom invariant codes
+  // (e.g. invariant.missing_db_field_name) share the invariant tag.
+  if (error.tags.includes('invariant') || error.code.startsWith('invariant.')) {
+    return {
+      failureKind: 'computed_code_bug',
+      failureReason: 'computed_invariant_violation',
       retryable: false,
     };
   }

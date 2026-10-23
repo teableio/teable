@@ -548,3 +548,129 @@ describe('ConditionalRollupField.onFieldDeleted', () => {
     expect(reaction?.afterPersist).toBeUndefined();
   });
 });
+
+describe('ConditionalRollupField filter validation', () => {
+  const baseId = createBaseId('v');
+  const hostTableId = createTableId('w');
+  const foreignTableId = createTableId('x');
+  const hostKeyFieldId = createFieldId('y');
+  const foreignKeyFieldId = createFieldId('z');
+  const foreignTagsFieldId = createFieldId('m');
+  const missingFieldId = createFieldId('n');
+
+  const hostBuilder = Table.builder()
+    .withId(hostTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Host')._unsafeUnwrap());
+  hostBuilder
+    .field()
+    .singleLineText()
+    .withId(hostKeyFieldId)
+    .withName(FieldName.create('Key')._unsafeUnwrap())
+    .primary()
+    .done();
+  hostBuilder.view().defaultGrid().done();
+  const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Foreign')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(foreignKeyFieldId)
+    .withName(FieldName.create('Key')._unsafeUnwrap())
+    .primary()
+    .done();
+  foreignBuilder
+    .field()
+    .multipleSelect()
+    .withId(foreignTagsFieldId)
+    .withName(FieldName.create('Tags')._unsafeUnwrap())
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+  const createField = (filterSet: unknown[]) => {
+    const config = ConditionalRollupConfig.create({
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignKeyFieldId.toString(),
+      condition: { filter: { conjunction: 'and', filterSet } },
+    })._unsafeUnwrap();
+    return ConditionalRollupField.createPending({
+      id: createFieldId('q'),
+      name: FieldName.create('Rollup')._unsafeUnwrap(),
+      config,
+      expression: RollupExpression.create('countall({values})')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+  };
+
+  it('rejects an invalid operator even when another predicate field is missing', () => {
+    const field = createField([
+      { fieldId: foreignTagsFieldId.toString(), operator: 'is', value: 'A' },
+      { fieldId: missingFieldId.toString(), operator: 'is', value: 'x' },
+    ]);
+
+    const result = field.validateForeignTables({ hostTable, foreignTables: [foreignTable] });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.code).toBe('field.condition.invalid_operator_for_field');
+    }
+  });
+
+  it('tolerates a missing predicate field when resolvable predicates are valid', () => {
+    const field = createField([
+      { fieldId: foreignKeyFieldId.toString(), operator: 'is', value: 'x' },
+      { fieldId: missingFieldId.toString(), operator: 'is', value: 'x' },
+    ]);
+
+    expect(field.validateForeignTables({ hostTable, foreignTables: [foreignTable] }).isOk()).toBe(
+      true
+    );
+  });
+
+  it('rejects a malformed value shape for a resolvable predicate', () => {
+    const field = createField([
+      { fieldId: foreignKeyFieldId.toString(), operator: 'is', value: ['a', 'b'] },
+    ]);
+
+    const result = field.validateForeignTables({ hostTable, foreignTables: [foreignTable] });
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('rejects an invalid operator on the record-id predicate', () => {
+    const field = createField([{ fieldId: '__id', operator: 'isGreater', value: 'x' }]);
+
+    expect(field.validateForeignTables({ hostTable, foreignTables: [foreignTable] }).isErr()).toBe(
+      true
+    );
+  });
+
+  it('rejects an incomplete value the runtime would drop', () => {
+    const field = createField([{ fieldId: foreignKeyFieldId.toString(), operator: 'is' }]);
+
+    const result = field.validateForeignTables({ hostTable, foreignTables: [foreignTable] });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.code).toBe('field.condition.invalid_value');
+    }
+  });
+
+  it('validates record-id value references', () => {
+    const field = createField([
+      {
+        fieldId: foreignKeyFieldId.toString(),
+        operator: 'isEmpty',
+        value: { type: 'field', fieldId: '__id' },
+      },
+    ]);
+
+    expect(field.validateForeignTables({ hostTable, foreignTables: [foreignTable] }).isErr()).toBe(
+      true
+    );
+  });
+});

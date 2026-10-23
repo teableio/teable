@@ -23,7 +23,8 @@
       "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"]
-    }
+    },
+    "types": ["node"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src", "../adapter-db-postgres-shared/src", "../core/src", "../di/src"]

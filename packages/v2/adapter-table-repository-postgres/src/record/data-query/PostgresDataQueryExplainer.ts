@@ -10,6 +10,7 @@ import {
   traceDataQueryStage,
   type BoundDataQuery,
   type DataQueryExplainResult,
+  type DataQueryRelationPlan,
   type IDataQueryExplainer,
 } from '@teable/v2-data-query';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -123,6 +124,68 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
     return ok(result);
   }
 
+  async explainRelation(
+    context: IExecutionContext,
+    plan: DataQueryRelationPlan
+  ): Promise<Result<DataQueryExplainResult, DomainError>> {
+    const startedAt = performance.now();
+    const compiler = new PostgresDataQueryExecutor(this.db, {
+      statementTimeoutMs: this.statementTimeoutMs,
+    });
+    const full = await compiler.compileRelation(context, plan);
+    if (full.isErr()) return err(full.error);
+    const callerPlan: DataQueryRelationPlan = {
+      ...plan,
+      rootScope: {},
+      sources: plan.sources.map((source) => ({ ...source, scope: {} })),
+    };
+    const caller = await compiler.compileRelation(context, callerPlan);
+    if (caller.isErr()) return err(caller.error);
+    const planning = await traceDataQueryStage(
+      context,
+      'explain.plan',
+      {
+        'teable.component': 'repository',
+        'teable.table_id': plan.rootTable.id().toString(),
+        'teable.data_query.kind': plan.query.definition.kind,
+        'teable.data_query.relation_count': plan.sources.length,
+      },
+      async () => this.plan(caller.value.rows)
+    );
+    if (planning.isErr()) return err(planning.error);
+    const snapshot = plan.query.definition.parameters ?? {};
+    const definitions = Object.entries(snapshot).map(([name, definition]) => ({
+      name,
+      type: definition.type,
+      nullable: definition.nullable === true,
+    }));
+    const fieldMaskCount = [plan.rootScope, ...plan.sources.map((source) => source.scope)].reduce(
+      (total, scope) => total + (scope.fieldMasks?.length ?? 0),
+      0
+    );
+    const result: DataQueryExplainResult = {
+      sql: caller.value.rows.sql,
+      sqlScope: 'caller',
+      hostScope: {
+        rowScope: 'applied',
+        fieldScope: 'applied',
+        fieldMaskCount,
+      },
+      parameters: {
+        order: Object.keys(snapshot),
+        orderKind: 'declaration',
+        redaction: 'bind-values-hidden',
+        bindCount: caller.value.rows.parameters.length,
+        definitions,
+      },
+      plan: planning.value.plan,
+      timing: {
+        planningMs: Math.max(0, Math.round(planning.value.planningMs * 1000) / 1000),
+        totalMs: Math.max(0, Math.round((performance.now() - startedAt) * 1000) / 1000),
+      },
+    };
+    return ok(result);
+  }
   private async plan(
     compiled: CompiledQuery<Record<string, unknown>>
   ): Promise<Result<{ plan: DataQueryExplainResult['plan']; planningMs: number }, DomainError>> {

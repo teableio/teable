@@ -16,7 +16,13 @@ import { assertDataQueryAccess } from './assertDataQueryAccess';
 import { DataQueryBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryExplainResult } from './DataQueryExplain';
-import { traceDataQueryStage } from './DataQueryService';
+import {
+  authorizeDataQueryDependencies,
+  hasDataQueryRelations,
+  prepareDataQueryRelation,
+  traceDataQueryStage,
+} from './DataQueryService';
+import type { DataQueryRelationPlan } from './ports';
 import type { BoundDataQuery } from './types';
 
 /**
@@ -29,6 +35,11 @@ export interface IDataQueryExplainer {
     table: Table,
     query: BoundDataQuery,
     scope: RecordQueryPluginScope
+  ): Promise<Result<DataQueryExplainResult, DomainError>>;
+  /** Optional so execute-only adapters stay valid; relation explain fails closed without it. */
+  explainRelation?(
+    context: IExecutionContext,
+    plan: DataQueryRelationPlan
   ): Promise<Result<DataQueryExplainResult, DomainError>>;
 }
 
@@ -61,6 +72,74 @@ export class DataQueryExplainService {
             'teable.table_id': tableId.toString(),
             'teable.data_query.kind': snapshot.kind,
           };
+
+          if (hasDataQueryRelations(definition)) {
+            const explainRelation = this.explainer.explainRelation?.bind(this.explainer);
+            if (!explainRelation) {
+              return err(
+                domainError.validation({
+                  code: 'data_query.join_unsupported',
+                  message: 'The configured explainer does not support relation queries',
+                })
+              );
+            }
+            const relation = yield* await prepareDataQueryRelation(
+              context,
+              this.tableRepository,
+              definition
+            );
+            const query = yield* definition.bind(input.parameters ?? {});
+            const rootScope = yield* await traceDataQueryStage(
+              context,
+              'authorize',
+              relation.attributes,
+              () =>
+                authorizeDataQueryDependencies(
+                  context,
+                  this.queryPlugins,
+                  relation.rootTable,
+                  relation.binding.rootDependencies,
+                  { limit: query.limit, offset: query.offset }
+                )
+            );
+            const scopes = new Map<string, RecordQueryPluginScope>();
+            for (const source of relation.binding.sources) {
+              const scope = yield* await traceDataQueryStage(
+                context,
+                'authorize.relation',
+                {
+                  ...relation.attributes,
+                  'teable.data_query.relation': source.alias,
+                },
+                () =>
+                  authorizeDataQueryDependencies(
+                    context,
+                    this.queryPlugins,
+                    source.table,
+                    source.dependencies
+                  )
+              );
+              scopes.set(source.alias, scope);
+            }
+            if (relation.binding.deferredFilterError) {
+              return err(relation.binding.deferredFilterError);
+            }
+            const plan: DataQueryRelationPlan = {
+              definition,
+              query,
+              rootTable: relation.rootTable,
+              rootScope,
+              rootDependencies: relation.binding.rootDependencies,
+              sources: relation.binding.sources.map((source) => ({
+                alias: source.alias,
+                table: relation.targetTables.get(source.alias)!,
+                linkFieldId: source.linkFieldId,
+                scope: scopes.get(source.alias)!,
+                dependencies: source.dependencies,
+              })),
+            };
+            return ok(yield* await explainRelation(context, plan));
+          }
           const table = yield* await traceDataQueryStage(context, 'schema.load', attributes, () =>
             this.tableRepository.findOne(context, TableByIdSpec.create(tableId))
           );

@@ -206,6 +206,7 @@ export const BaseShareContent = ({
                       variant="outline"
                       size="icon-sm"
                       className="shrink-0"
+                      aria-label={t('baseShare.refreshLink')}
                       onClick={onRefreshShare}
                       disabled={isRefreshLoading || disabled}
                     >

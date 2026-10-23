@@ -7,7 +7,7 @@ import {
   type ComputedOutboxQueueJobList,
 } from '../../domain/computed/outbox';
 import type { DomainError } from '../../domain/shared/DomainError';
-import { IComputedOutboxAdmin } from '../../ports/ComputedOutboxAdmin';
+import type { IComputedOutboxAdmin } from '../../ports/ComputedOutboxAdmin';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { QueryHandler, type IQueryHandler } from '../QueryHandler';

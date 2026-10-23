@@ -36,14 +36,16 @@ import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
-import type { IFieldDeleteSnapshotSinkCompletion } from '../ports/FieldDeleteSnapshotSink';
+import type {
+  IFieldDeleteSnapshotSink,
+  IFieldDeleteSnapshotSinkCompletion,
+} from '../ports/FieldDeleteSnapshotSink';
 import {
   FieldOperationKind,
   FieldOperationTargetKind,
   type IFieldOperationDeleteContext,
 } from '../ports/FieldOperationPlugin';
-import { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import {
   NoopTableSchemaCoordination,
   type ITableSchemaCoordination,

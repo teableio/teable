@@ -23,6 +23,7 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import {
   analyzeDeterministicScalarFormula,
+  checkFormulaSqlBudget,
   formulaSqlPgTokens,
   type IPgTypeValidationStrategy,
   isFormulaCompileBudgetError,
@@ -561,6 +562,12 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           // Note: NOT passing dirtyFilter - update all records
         });
 
+        yield* checkFormulaSqlBudget(
+          compiled.sql,
+          { ...this.formulaCompileBudget, mode: 'observe' },
+          0
+        );
+
         this.logger.debug(`computed:backfill:sql\n${compiled.sql}`, {
           tableId: input.table.id().toString(),
           fieldId: fieldId.toString(),
@@ -727,6 +734,10 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             selectQuery,
             skipDistinctFilter: input.skipDistinctFilter,
             countChangedFieldsForVersion: fields.length > 1,
+          });
+          yield* checkFormulaSqlBudget(compiled.sql, {
+            ...this.formulaCompileBudget,
+            mode: 'observe',
           });
 
           this.logger.debug('computed:backfillMany:sql', {

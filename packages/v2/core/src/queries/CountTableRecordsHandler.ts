@@ -10,8 +10,10 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
-import { ITableRecordCountQueryRepository } from '../ports/TableRecordQueryRepository';
-import type { ITableRecordCountOptions } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordCountQueryRepository,
+  ITableRecordCountOptions,
+} from '../ports/TableRecordQueryRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { CountTableRecordsQuery } from './CountTableRecordsQuery';

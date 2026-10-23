@@ -79,6 +79,51 @@
     "title": "Actions rapides",
     "placeHolder": "Tapez une commande ou recherchez..."
   },
+  "commandPalette": {
+    "title": "Palette de commandes",
+    "placeholder": "Rechercher des ressources ou des commandes…",
+    "aiPlaceholder": "Rechercher, exécuter une commande ou demander à Cuppy…",
+    "commandsPlaceholder": "Rechercher des commandes…",
+    "commands": "Commandes",
+    "askCuppy": "Demander à Cuppy",
+    "askQuery": "Demander à Cuppy : {{query}}",
+    "aiHint": "Utilise le projet, la table et la vue actuels",
+    "recent": "Récemment consultés",
+    "noRecent": "Vos ressources et vues récemment consultées apparaîtront ici.",
+    "actions": "Actions rapides",
+    "results": "Résultats",
+    "noResults": "Aucun résultat pour « {{query}} »",
+    "noResultsHint": "Essayez un autre nom, demandez à Cuppy ou recherchez dans la table actuelle.",
+    "noResultsHintWithoutAI": "Essayez un autre nom ou recherchez dans la table actuelle.",
+    "appearance": "Apparence",
+    "shortcuts": "Raccourcis clavier",
+    "back": "Retour",
+    "select": "Sélectionner",
+    "open": "Ouvrir",
+    "execute": "Exécuter",
+    "close": "Fermer",
+    "newTab": "Ouvrir dans un nouvel onglet",
+    "loading": "Recherche…",
+    "searchFailed": "Impossible de charger les résultats de recherche",
+    "retry": "Réessayer",
+    "currentTable": "Rechercher dans la table actuelle",
+    "searchTableQuery": "Rechercher « {{query}} » dans la table actuelle",
+    "createTableQuery": "Créer la table « {{name}} »",
+    "createDashboard": "Nouveau tableau de bord",
+    "createApp": "Nouvelle application",
+    "createWorkflow": "Nouvelle automatisation",
+    "createRoutine": "Nouvelle tâche planifiée",
+    "createFolder": "Nouveau dossier",
+    "createView": "Créer {{name}}",
+    "invite": "Inviter des collaborateurs",
+    "folderCreated": "Dossier créé",
+    "actionFailed": "Impossible de terminer cette action",
+    "backspace": "Quitter le mode commande lorsque la requête est vide",
+    "toggle": "Ouvrir ou fermer la palette",
+    "aiMode": "IA",
+    "space": "Espace",
+    "project": "Projet"
+  },
   "password": {
     "setInvalid": "Le mot de passe n'est pas valide, il doit contenir au moins 8 caractères et au moins une lettre et un chiffre."
   },
@@ -1659,6 +1704,12 @@
     "sm": {
       "label": "Lite",
       "description": "Modèle léger pour les tâches courantes peu coûteuses et en grand volume."
+    },
+    "unavailable": {
+      "title": "Passé à {{model}}",
+      "description": "Les modèles disponibles ont changé et {{previous}} n'est plus proposé. {{model}} prend le relais pour la suite.",
+      "change": "Choisir un autre modèle",
+      "ok": "Compris"
     }
   },
   "system": {

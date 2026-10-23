@@ -17,8 +17,8 @@ import type { TableId } from '../../domain/table/TableId';
 import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import { ITableRecordRepository } from '../../ports/TableRecordRepository';
 import type {
+  ITableRecordRepository,
   BatchRecordMutationResult,
   RecordStoredSnapshot,
 } from '../../ports/TableRecordRepository';

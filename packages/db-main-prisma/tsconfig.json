@@ -3,10 +3,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "baseUrl": "./src",
     "target": "esnext",
     "lib": ["esnext"],
     "module": "CommonJS",
+    "moduleResolution": "bundler",
     "noEmit": false,
     "incremental": true,
     "declaration": true,

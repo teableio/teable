@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { isAiActionWritableField } from '@teable/core';
 import { RefreshCcw } from '@teable/icons';
 import { autoFillCell } from '@teable/openapi';
 import {
@@ -112,7 +113,9 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
         return setStyle(null);
       }
 
-      if (!field?.aiConfig?.type) {
+      // Lookup / computed fields carry an inherited aiConfig copy but are
+      // read-only projections; generating into them can never be written back.
+      if (!field || !isAiActionWritableField(field)) {
         return setStyle(null);
       }
 

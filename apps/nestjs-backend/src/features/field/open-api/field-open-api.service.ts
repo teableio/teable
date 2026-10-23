@@ -1463,6 +1463,7 @@ export class FieldOpenApiService {
     await this.assertTableWritable(tableId);
     const { fields, fieldVos, columnsMeta, referenceMap, records } = await this.prismaService.$tx(
       async () => {
+        await this.tableIndexService.lockQueryIndexPolicy(tableId);
         const fieldRaws = await this.prismaService.txClient().field.findMany({
           where: { tableId, id: { in: fieldIds }, deletedTime: null },
         });
@@ -1497,7 +1498,9 @@ export class FieldOpenApiService {
         // Drop per-field search indexes inside the same transaction boundary
         for (const field of fieldInstances) {
           try {
-            await this.tableIndexService.deleteSearchFieldIndex(tableId, field);
+            await this.tableIndexService.deleteSearchFieldIndex(tableId, field, {
+              removeQueryIndexes: true,
+            });
           } catch (e) {
             this.logger.warn(`deleteFields: drop search index failed for ${field.id}: ${e}`);
           }
@@ -1822,6 +1825,7 @@ export class FieldOpenApiService {
     const { oldFieldVo, newFieldVo, modifiedOps, references, supplementChange } =
       await this.prismaService.$tx(
         async () => {
+          await this.tableIndexService.lockQueryIndexPolicy(tableId);
           // stage analysis and collect field changes
           const analysisResult = await this.fieldConvertingService.stageAnalysis(
             tableId,

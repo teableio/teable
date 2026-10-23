@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
-import { FieldType, getValidFilterOperators } from '@teable/core';
+import { FieldType, getValidFilterOperators, isAiActionWritableField } from '@teable/core';
 import {
   EyeOff,
   ArrowLeft,
@@ -320,7 +320,10 @@ export const FieldMenu = () => {
         name: t('table:menu.autoFill'),
         icon: <MagicAi className={iconClassName} />,
         hidden:
-          !aiEnable || !fields[0].aiConfig || fieldIds.length !== 1 || !permission['record|update'],
+          !aiEnable ||
+          !isAiActionWritableField(fields[0]) ||
+          fieldIds.length !== 1 ||
+          !permission['record|update'],
         onClick: async () => {
           onAutoFill?.(fieldIds[0]);
         },

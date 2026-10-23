@@ -8,11 +8,10 @@
     "experimentalDecorators": true,
     "isolatedModules": false,
     "target": "es2022",
-    "declaration": true,
-    "declarationDir": "./dist",
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
+    "rootDir": "../..",
     "outDir": "./dist",
     "paths": {
       "@nestjs/common/interfaces": ["./node_modules/@nestjs/common/interfaces/index"],

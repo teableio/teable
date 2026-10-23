@@ -116,6 +116,7 @@ export type DirtyPropagationMode = 'linkTraversal' | 'allTargetRecords' | 'condi
 
 export const allTargetRecordsReasonValues = [
   'conditional_filter_field_changed',
+  'conditional_filter_field_recomputed',
   'conditional_missing_filter',
   'conditional_delete',
   'conditional_filter_fields_not_in_source',
@@ -1783,6 +1784,16 @@ const buildPropagationEdges = (
       existing.order = edge.order;
     }
   };
+  // A self-table conditional edge means an insert can change the computed
+  // filter values of pre-existing rows of the inserted table, so "only the new
+  // rows carry a new value" no longer holds for that plan.
+  const seedTableRecomputesOwnConditional = edges.some((candidate) => {
+    if (candidate.kind !== 'cross_record') return false;
+    if (!candidate.fromTableId.equals(seedTableId)) return false;
+    if (!candidate.toTableId.equals(seedTableId)) return false;
+    const targetMeta = fieldsById.get(candidate.toFieldId.toString());
+    return targetMeta?.type === 'conditionalLookup' || targetMeta?.type === 'conditionalRollup';
+  });
 
   for (const edge of edges) {
     const toId = edge.toFieldId.toString();
@@ -1822,6 +1833,24 @@ const buildPropagationEdges = (
 
       // Check if any filter field was changed
       const filterFieldsChanged = [...filterFieldIds].some((id) => changedFieldIdSet.has(id));
+      // A source-side filter field that this plan recomputes can enter or leave
+      // the match without appearing in `changedFieldIds` (the edit was an input
+      // further upstream, e.g. a conditionalLookup over an edited select).
+      const recomputedFilterFields = [...filterFieldIds].filter((id) => {
+        if (!computedFieldIds.has(id)) return false;
+        const fieldMeta = fieldsById.get(id);
+        return fieldMeta?.tableId.equals(edge.fromTableId) ?? false;
+      });
+      // An INSERT only has a "new" side for its own rows: the filter value is
+      // computed from the inserted record, so current-value filtering is exact.
+      // Upstream inserts that dirty pre-existing rows, extra seed groups, and
+      // self-table conditionals (whose recompute rewrites old rows of the same
+      // table) keep the full refresh.
+      const insertOnlyNewSourceRows =
+        changeType === 'insert' &&
+        edge.fromTableId.equals(seedTableId) &&
+        !extraSeedTableIds.has(edge.fromTableId.toString()) &&
+        !seedTableRecomputesOwnConditional;
       const canUseBeforeImage =
         beforeImageRecords.length > 0 && edge.fromTableId.equals(seedTableId);
       const requiresOldMatchTracking =
@@ -1857,6 +1886,20 @@ const buildPropagationEdges = (
           toTableId: edge.toTableId,
           propagationMode: 'allTargetRecords',
           allTargetRecordsReasons: ['conditional_delete'],
+          order: levels.get(toId) ?? 0,
+        });
+      } else if (recomputedFilterFields.length > 0 && !insertOnlyNewSourceRows) {
+        // The filter value is computed by this cascade, so which rows match can
+        // change without any dirty source row carrying the old value (stage
+        // splits may run the recompute and the propagation in separate plans).
+        // Refresh every target row instead of trusting a per-row match.
+        addPropagationEdge({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['conditional_filter_field_recomputed'],
           order: levels.get(toId) ?? 0,
         });
       } else if (requiresOldMatchTracking && canUseBeforeImage) {

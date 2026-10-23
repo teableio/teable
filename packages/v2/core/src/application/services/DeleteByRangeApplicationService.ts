@@ -42,11 +42,12 @@ import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWri
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
-import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordQueryRepository,
+  TableRecordOrderBy,
+} from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import { ITableRecordRepository } from '../../ports/TableRecordRepository';
-import type { DeleteManyResult } from '../../ports/TableRecordRepository';
+import type { ITableRecordRepository, DeleteManyResult } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { SpanAttributes } from '../../ports/Tracer';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';

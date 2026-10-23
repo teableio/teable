@@ -1,4 +1,4 @@
-import type { IGetAbnormalVo } from '@teable/openapi';
+import type { IGetAbnormalVo, ITableQueryIndexSpec } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 export abstract class IndexBuilderAbstract {
@@ -25,4 +25,17 @@ export abstract class IndexBuilderAbstract {
     fields: IFieldInstance[],
     existingIndex: unknown[]
   ): IGetAbnormalVo;
+
+  abstract getQueryIndexInfoSql(dbTableName: string): string;
+
+  abstract getDropQueryIndexesSql(dbTableName: string): string;
+
+  abstract getQueryIndexName(tableId: string, indexId: string): string;
+
+  abstract createQueryIndexSql(
+    dbTableName: string,
+    index: ITableQueryIndexSpec,
+    fieldNamesById: Map<string, string>,
+    tableId: string
+  ): string;
 }

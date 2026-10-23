@@ -481,4 +481,184 @@ describe('create-field: conditionalRollup v1 parity', () => {
       if (foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
     }
   });
+
+  test('rejects a filter operator that is invalid for a multi-value lookup field T8009', async () => {
+    let sourceTableId: string | undefined;
+    let bridgeTableId: string | undefined;
+    let hostTableId: string | undefined;
+    try {
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('t8009-source'),
+        fields: [
+          { type: 'singleLineText', name: 'Label', isPrimary: true },
+          {
+            type: 'singleSelect',
+            name: 'Kind',
+            options: {
+              choices: [
+                { name: 'A', color: 'blue' },
+                { name: 'B', color: 'green' },
+              ],
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      sourceTableId = source.id;
+      const sourceLabelId = source.fields.find((field) => field.name === 'Label')?.id;
+      const sourceKindId = source.fields.find((field) => field.name === 'Kind')?.id;
+      if (!sourceLabelId || !sourceKindId) throw new Error('Missing source fields');
+
+      const bridge = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('t8009-bridge'),
+        fields: [{ type: 'singleLineText', name: 'Label', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      bridgeTableId = bridge.id;
+      const bridgeLabelId = bridge.fields.find((field) => field.name === 'Label')?.id;
+      if (!bridgeLabelId) throw new Error('Missing bridge label');
+
+      // A conditional lookup of a single-select source is a multi-value cell; the
+      // valid operator set is the multiple-select one, so a persisted `is` filter
+      // cannot be converted to a condition spec.
+      const bridgeWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: bridge.id,
+        field: {
+          type: 'conditionalLookup',
+          name: 'KindLookup',
+          options: {
+            foreignTableId: source.id,
+            lookupFieldId: sourceKindId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceLabelId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: bridgeLabelId },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+      const kindLookupId = bridgeWithLookup.fields.find((field) => field.name === 'KindLookup')?.id;
+      if (!kindLookupId) throw new Error('Missing conditional lookup');
+
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('t8009-host'),
+        fields: [{ type: 'singleLineText', name: 'Label', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      hostTableId = host.id;
+      const hostLabelId = host.fields.find((field) => field.name === 'Label')?.id;
+      if (!hostLabelId) throw new Error('Missing host label');
+
+      // Seed the source rows first so the original failure (create-time backfill
+      // SQL generation) exercised real foreign data, not an empty table.
+      await ctx.createRecord(source.id, { [sourceLabelId]: 'A', [sourceKindId]: 'A' });
+      await ctx.createRecord(source.id, { [sourceLabelId]: 'B', [sourceKindId]: 'B' });
+      await ctx.createRecord(bridge.id, { [bridgeLabelId]: 'A' });
+      await ctx.createRecord(bridge.id, { [bridgeLabelId]: 'B' });
+      await ctx.createRecord(host.id, { [hostLabelId]: 'A' });
+      await ctx.createRecord(host.id, { [hostLabelId]: 'B' });
+
+      const invalidResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'conditionalRollup',
+            name: 'Invalid Kind Count',
+            options: { expression: 'countall({values})' },
+            config: {
+              foreignTableId: bridge.id,
+              lookupFieldId: bridgeLabelId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: bridgeLabelId,
+                      operator: 'is',
+                      value: { type: 'field', fieldId: hostLabelId },
+                    },
+                    { fieldId: kindLookupId, operator: 'is', value: 'A' },
+                  ],
+                },
+              },
+            },
+          },
+        }),
+      });
+      const invalidBody = await invalidResponse.json();
+      expect(invalidResponse.status).toBe(400);
+      expect(createFieldErrorResponseSchema.safeParse(invalidBody).success).toBe(true);
+      expect(JSON.stringify(invalidBody)).toContain('Invalid record condition operator');
+
+      const tableResponse = await fetch(
+        `${ctx.baseUrl}/tables/get?baseId=${ctx.baseId}&tableId=${host.id}`
+      );
+      const tableBody = getTableByIdOkResponseSchema.parse(await tableResponse.json());
+      if (!tableBody.ok) throw new Error('Failed to retrieve host table');
+      expect(
+        tableBody.data.table.fields.find((field) => field.name === 'Invalid Kind Count')
+      ).toBeUndefined();
+
+      const created = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          type: 'conditionalRollup',
+          name: 'Kind Count',
+          options: { expression: 'countall({values})' },
+          config: {
+            foreignTableId: bridge.id,
+            lookupFieldId: bridgeLabelId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: bridgeLabelId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: hostLabelId },
+                  },
+                  { fieldId: kindLookupId, operator: 'hasAnyOf', value: ['A'] },
+                ],
+              },
+            },
+          },
+        },
+      });
+      const rollupId = created.fields.find((field) => field.name === 'Kind Count')?.id;
+      if (!rollupId) throw new Error('Missing conditional rollup');
+
+      await ctx.drainOutbox();
+
+      const deadLetters = await ctx.testContainer.db
+        .selectFrom('computed_update_dead_letter')
+        .select(['id', 'affected_field_ids'])
+        .where('base_id', '=', ctx.baseId)
+        .execute();
+      expect(deadLetters.filter((task) => task.affected_field_ids.includes(rollupId))).toEqual([]);
+
+      const records = await ctx.listRecords(host.id);
+      const byLabel = new Map(records.map((record) => [record.fields[hostLabelId], record]));
+      expect(byLabel.get('A')?.fields[rollupId]).toBe(1);
+      expect(byLabel.get('B')?.fields[rollupId]).toBe(0);
+    } finally {
+      if (hostTableId) await ctx.deleteTable(hostTableId).catch(() => undefined);
+      if (bridgeTableId) await ctx.deleteTable(bridgeTableId).catch(() => undefined);
+      if (sourceTableId) await ctx.deleteTable(sourceTableId).catch(() => undefined);
+    }
+  });
 });

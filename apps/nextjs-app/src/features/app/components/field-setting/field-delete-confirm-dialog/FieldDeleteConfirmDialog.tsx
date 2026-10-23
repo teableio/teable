@@ -20,6 +20,7 @@ import {
 import { ShieldCheck } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
+import { FieldDeleteImpact } from '@overridable/FieldDeleteImpact';
 import { useBaseNodeContext } from '../../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { LoginAppWarning } from '../../../components/LoginAppWarning';
 import { AffectedFieldsList } from './AffectedFieldsList';
@@ -285,6 +286,14 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
 
   const deleteCount = checkedFieldIds.size;
   const canDelete = deleteCount > 0;
+  const impactFieldIds = useMemo(
+    () => (isMultiField ? Array.from(checkedFieldIds) : fieldIds),
+    [isMultiField, checkedFieldIds, fieldIds]
+  );
+  const fieldNames = useMemo(
+    () => Object.fromEntries(targetFields.map((field) => [field.id, field.name])),
+    [targetFields]
+  );
 
   const close = () => {
     setIsDeleting(false);
@@ -336,6 +345,12 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
             />
           )}
         </AlertDialogHeader>
+        <FieldDeleteImpact
+          open={open}
+          tableId={tableId}
+          fieldIds={impactFieldIds}
+          fieldNames={fieldNames}
+        />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>{t('common:actions.cancel')}</AlertDialogCancel>
           <AlertDialogAction

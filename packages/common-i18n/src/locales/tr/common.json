@@ -79,6 +79,51 @@
     "title": "Hızlı İşlemler",
     "placeHolder": "Bir komut yazın veya arayın..."
   },
+  "commandPalette": {
+    "title": "Komut paleti",
+    "placeholder": "Kaynak veya komut ara…",
+    "aiPlaceholder": "Ara, bir komut çalıştır veya Cuppy'ye sor…",
+    "commandsPlaceholder": "Komut ara…",
+    "commands": "Komutlar",
+    "askCuppy": "Cuppy'ye sor",
+    "askQuery": "Cuppy'ye sor: {{query}}",
+    "aiHint": "Geçerli projeyi, tabloyu ve görünümü kullanır",
+    "recent": "Son ziyaret edilenler",
+    "noRecent": "Son ziyaret ettiğiniz kaynaklar ve görünümler burada görünür.",
+    "actions": "Hızlı işlemler",
+    "results": "Sonuçlar",
+    "noResults": "“{{query}}” için eşleşme bulunamadı",
+    "noResultsHint": "Başka bir ad deneyin, Cuppy'ye sorun veya geçerli tabloda arayın.",
+    "noResultsHintWithoutAI": "Başka bir ad deneyin veya geçerli tabloda arayın.",
+    "appearance": "Görünüm",
+    "shortcuts": "Klavye kısayolları",
+    "back": "Geri",
+    "select": "Seç",
+    "open": "Aç",
+    "execute": "Çalıştır",
+    "close": "Kapat",
+    "newTab": "Yeni sekmede aç",
+    "loading": "Aranıyor…",
+    "searchFailed": "Arama sonuçları yüklenemedi",
+    "retry": "Tekrar dene",
+    "currentTable": "Geçerli tabloda ara",
+    "searchTableQuery": "Geçerli tabloda “{{query}}” ara",
+    "createTableQuery": "“{{name}}” tablosunu oluştur",
+    "createDashboard": "Yeni pano",
+    "createApp": "Yeni uygulama",
+    "createWorkflow": "Yeni otomasyon",
+    "createRoutine": "Yeni zamanlanmış görev",
+    "createFolder": "Yeni klasör",
+    "createView": "{{name}} oluştur",
+    "invite": "Ortak çalışanları davet et",
+    "folderCreated": "Klasör oluşturuldu",
+    "actionFailed": "Bu işlem tamamlanamadı",
+    "backspace": "Sorgu boşken komut modundan çık",
+    "toggle": "Komut paletini aç veya kapat",
+    "aiMode": "Yapay zekâ",
+    "space": "Alan",
+    "project": "Proje"
+  },
   "password": {
     "setInvalid": "Şifre geçersiz, en az 8 karakter olmalı ve en az bir harf ve bir rakam içermelidir."
   },
@@ -1657,6 +1702,12 @@
     "sm": {
       "label": "Lite",
       "description": "Düşük maliyetli, yüksek hacimli rutin işler için hafif model."
+    },
+    "unavailable": {
+      "title": "{{model}} modeline geçildi",
+      "description": "Kullanılabilir modeller değişti ve {{previous}} artık sunulmuyor. Bundan sonra {{model}} yanıtlamaya devam edecek.",
+      "change": "Başka bir model seç",
+      "ok": "Anladım"
     }
   },
   "system": {

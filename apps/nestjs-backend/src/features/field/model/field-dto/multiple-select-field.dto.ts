@@ -10,7 +10,7 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements F
     return value == null ? null : JSON.stringify(value);
   }
 
-  convertDBValue2CellValue(value: unknown): string[] {
+  convertDBValue2CellValue(value: unknown): unknown {
     return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
   }
 }

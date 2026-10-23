@@ -10,9 +10,9 @@ import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import type { RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
-import {
+import type {
   ITableRecordCalendarQueryRepository,
-  type TableRecordCalendarDailyCollectionEntry,
+  TableRecordCalendarDailyCollectionEntry,
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRepositoryPort from '../ports/TableRepository';

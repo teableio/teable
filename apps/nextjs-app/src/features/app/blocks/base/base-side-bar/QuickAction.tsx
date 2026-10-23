@@ -1,40 +1,39 @@
 import { Search } from '@teable/icons';
-import { useBaseId } from '@teable/sdk/hooks';
 import {
-  CommandDialog,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
   Button,
-  TooltipProvider,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
-import { PaletteExtras, ProjectNodeGroups } from './PaletteGroups';
+import { CommandPalette } from './CommandPalette';
 
-export const QuickAction = () => {
-  const baseId = useBaseId() as string;
+export interface QuickActionProps {
+  onAskAI?: (prompt: string, files?: File[]) => void;
+}
+
+export const QuickAction = ({ onAskAI }: QuickActionProps) => {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const modKeyStr = useModKeyStr();
+
   useHotkeys(
-    `mod+k`,
+    'mod+k',
     () => {
-      setOpen(!open);
+      setOpen((value) => !value);
     },
     {
       enableOnFormTags: ['input', 'select', 'textarea'],
+      enableOnContentEditable: true,
+      preventDefault: true,
     }
   );
-
-  const { treeItems } = useBaseNodeContext();
 
   return (
     <>
@@ -42,6 +41,8 @@ export const QuickAction = () => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              ref={triggerRef}
+              aria-label={t('common:commandPalette.title')}
               className="size-7 shrink-0 p-0"
               variant="ghost"
               size="xs"
@@ -56,31 +57,12 @@ export const QuickAction = () => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <CommandDialog
-        closeable={false}
+      <CommandPalette
         open={open}
         onOpenChange={setOpen}
-        commandProps={{
-          filter: (value, search, keywords) => {
-            const searchLower = search.toLowerCase();
-            if (keywords?.some((keyword) => keyword.toLowerCase().includes(searchLower))) {
-              return 1;
-            }
-            return 0;
-          },
-        }}
-      >
-        <CommandInput placeholder={t('common:quickAction.placeHolder')} />
-        <CommandList>
-          <CommandEmpty>{t('common:noResult')}</CommandEmpty>
-          <ProjectNodeGroups
-            baseId={baseId}
-            treeItems={treeItems}
-            onNavigate={() => setOpen(false)}
-          />
-          <PaletteExtras onClose={() => setOpen(false)} />
-        </CommandList>
-      </CommandDialog>
+        onAskAI={onAskAI}
+        triggerRef={triggerRef}
+      />
     </>
   );
 };

@@ -18,6 +18,7 @@ import {
 import {
   FormulaSqlPgTranslator,
   FormulaCompileBudget,
+  checkFormulaSqlBudget,
   defaultFormulaCompileBudgetConfig,
   resolveFormulaCompileBudget,
   type FormulaCompileBudgetConfig,
@@ -182,6 +183,19 @@ export class FormulaAdmissionService implements IFormulaAdmissionService {
             domainError.validation({
               ...compiled.error,
               details: { ...compiled.error.details, fieldId: id },
+            })
+          );
+        // A single field has no cross-field duplication; only the batch statement is capped.
+        const checked = checkFormulaSqlBudget(
+          compiled.value,
+          { ...service.config, mode: 'observe' },
+          0
+        );
+        if (checked.isErr())
+          return err(
+            domainError.validation({
+              ...checked.error,
+              details: { ...checked.error.details, fieldId: id },
             })
           );
       }

@@ -24,6 +24,11 @@ export interface IChatModelTierSlots {
   sm?: string;
   hiddenTiers?: IModelTierId[];
   defaultTier?: IModelTierId;
+  /**
+   * The slots were filled from the space's own models because the admin set no main
+   * model: they serve as defaults, never as tiers offered to users.
+   */
+  fromSpaceModels?: boolean;
 }
 
 /**
@@ -40,13 +45,13 @@ export const getDefaultModelTier = (
 /**
  * The model a tier offers to users. Unset md / sm inherit the main model, as
  * they do for background tasks; unset xl and hidden tiers are not offered; the
- * default tier can never be hidden.
+ * default tier can never be hidden. Slots filled from space models offer no tier.
  */
 export function getOfferedTierModelKey(
   chatModel: IChatModelTierSlots | null | undefined,
   tier: IModelTierId
 ): string | undefined {
-  if (!chatModel) return undefined;
+  if (!chatModel || chatModel.fromSpaceModels) return undefined;
   if (tier !== getDefaultModelTier(chatModel) && chatModel.hiddenTiers?.includes(tier)) {
     return undefined;
   }

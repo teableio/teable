@@ -135,6 +135,15 @@ const fallbackOutputType = (output: FallbackOutput): string => {
   return `${primitive[output.wireType ?? 'unknown']}${output.nullable ? ' | null' : ''}`;
 };
 
+/**
+ * Offline system-field types. A joined source is left-joined, so every target system value
+ * can be null; root system values keep their stored nullability.
+ */
+const offlineSystemType = (system: string, joined: boolean): string => {
+  const type = ['autoNumber', 'version'].includes(system) ? 'number | string' : 'string';
+  return joined || system === 'lastModifiedTime' ? `${type} | null` : type;
+};
+
 /** Pure, deterministic generator. Live descriptions refine otherwise unknown field values. */
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export function generateAppQueryArtifacts(
@@ -183,13 +192,14 @@ export function generateAppQueryArtifacts(
             definition.kind === 'records'
               ? definition.select.find((item) => item.alias === alias)
               : undefined;
+          const joined =
+            projection !== undefined &&
+            'source' in projection &&
+            projection.source !== undefined &&
+            projection.source !== 'root';
           const systemType =
             projection && 'system' in projection
-              ? ['autoNumber', 'version'].includes(projection.system)
-                ? 'number | string'
-                : projection.system === 'lastModifiedTime'
-                  ? 'string | null'
-                  : 'string'
+              ? offlineSystemType(projection.system, joined)
               : 'unknown';
           return `    ${JSON.stringify(alias)}: ${output ? outputType(output) : systemType};`;
         })

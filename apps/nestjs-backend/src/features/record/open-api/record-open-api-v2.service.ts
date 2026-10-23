@@ -143,6 +143,7 @@ import type { ICacheStore } from '../../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { Span } from '../../../tracing/decorators/span';
 import type { IClsStore } from '../../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../../utils';
 import { generateFilterItem } from '../../../utils/filter';
@@ -295,7 +296,9 @@ export class RecordOpenApiV2Service {
     };
   }
 
+  @Span()
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
+    trace.getActiveSpan()?.setAttribute('teable.table_id', tableId);
     this.assertValidListQuery(query);
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
@@ -2902,12 +2905,17 @@ export class RecordOpenApiV2Service {
     });
   }
 
+  @Span()
   async createRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
     _isAiInternal?: string,
     options?: { source?: RecordCreateSource }
   ): Promise<ICreateRecordsVo> {
+    trace.getActiveSpan()?.setAttributes({
+      'teable.table_id': tableId,
+      'teable.record.count': createRecordsRo.records.length,
+    });
     await this.assertTableRecordWritable(tableId);
 
     // Preserve v1's default typecast behavior (false) to ensure proper validation
@@ -3986,11 +3994,16 @@ export class RecordOpenApiV2Service {
     return this.wrapStreamAndClearPreference(result.value, tableId);
   }
 
+  @Span()
   async deleteRecords(
     tableId: string,
     recordIds: string[],
     _windowId?: string
   ): Promise<IRecordsVo> {
+    trace.getActiveSpan()?.setAttributes({
+      'teable.table_id': tableId,
+      'teable.record.count': recordIds.length,
+    });
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -4025,11 +4038,16 @@ export class RecordOpenApiV2Service {
   // Returns the ids the engine actually deleted: unlike v1, the v2 delete reports
   // records that no longer exist as a successful zero/partial delete instead of
   // throwing, so callers that must know what happened have to check this list.
+  @Span()
   async deleteRecordsByIds(
     tableId: string,
     recordIds: string[],
     _windowId?: string
   ): Promise<string[]> {
+    trace.getActiveSpan()?.setAttributes({
+      'teable.table_id': tableId,
+      'teable.record.count': recordIds.length,
+    });
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

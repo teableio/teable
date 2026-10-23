@@ -49,6 +49,7 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 import { FieldOpenApiService } from './field-open-api.service';
@@ -62,6 +63,7 @@ export class FieldOpenApiController {
     private readonly fieldService: FieldService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
+    private readonly tableIndexService: TableIndexService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -198,6 +200,7 @@ export class FieldOpenApiController {
   ) {
     if (this.cls.get('useV2')) {
       await this.fieldOpenApiV2Service.deleteField(tableId, fieldId);
+      await this.tableIndexService.removeQueryIndexesForFieldStandalone(tableId, fieldId);
       return;
     }
     await this.fieldOpenApiService.deleteField(tableId, fieldId, windowId);
@@ -213,6 +216,9 @@ export class FieldOpenApiController {
   ) {
     if (this.cls.get('useV2')) {
       await this.fieldOpenApiV2Service.deleteFields(tableId, query.fieldIds);
+      for (const fieldId of query.fieldIds) {
+        await this.tableIndexService.removeQueryIndexesForFieldStandalone(tableId, fieldId);
+      }
       return;
     }
     await this.fieldOpenApiService.deleteFields(tableId, query.fieldIds, windowId);

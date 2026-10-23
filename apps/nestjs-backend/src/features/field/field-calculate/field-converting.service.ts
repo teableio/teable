@@ -1550,7 +1550,10 @@ export class FieldConvertingService {
       select: { dbTableName: true },
     });
 
-    await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField);
+    await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField, {
+      removeQueryIndexes:
+        oldField.type !== newField.type || oldField.dbFieldType !== newField.dbFieldType,
+    });
 
     const { unique, notNull, dbFieldName } = oldField;
 

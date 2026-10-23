@@ -24,14 +24,14 @@ import { resolveFormulaFields } from '../domain/table/resolveFormulaFields';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
-import { IBaseDataBulkCopier } from '../ports/BaseDataBulkCopier';
 import type {
+  IBaseDataBulkCopier,
   BaseDataBulkCopyPlan,
   BaseDataBulkCopyResult,
   BulkCopyJunctionInput,
   BulkCopyTableInput,
 } from '../ports/BaseDataBulkCopier';
-import { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
+import type { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
 import { NoopBaseDataBulkCopier } from '../ports/defaults/NoopBaseDataBulkCopier';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
@@ -39,8 +39,7 @@ import * as EventBusPort from '../ports/EventBus';
 import { getFormulaSourceBudget } from '../ports/ExecutionContext';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import { ITableMapper } from '../ports/mappers/TableMapper';
-import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
+import type { ITableMapper, ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
 import type {

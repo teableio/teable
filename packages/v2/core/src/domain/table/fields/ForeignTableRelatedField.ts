@@ -36,8 +36,20 @@ export const isForeignTableRelatedField = (
 export const validateForeignTablesForFields = (
   fields: ReadonlyArray<Field>,
   context: ForeignTableValidationContext
-): Result<void, DomainError> =>
-  fields.reduce<Result<void, DomainError>>(
+): Result<void, DomainError> => {
+  // A pending conditional lookup validates predicates through the outer field and
+  // accepts every operator. Resolve its inner field first so a conditional field
+  // that appears earlier in the field list still validates against the real
+  // operator set instead of depending on table field order.
+  for (const foreignTable of context.foreignTables) {
+    for (const candidate of foreignTable.getFields()) {
+      if (candidate instanceof ConditionalLookupField && candidate.innerField().isErr()) {
+        candidate.validateForeignTables({ ...context, hostTable: foreignTable });
+      }
+    }
+  }
+
+  return fields.reduce<Result<void, DomainError>>(
     (acc, field) =>
       acc.andThen(() => {
         if (!isForeignTableRelatedField(field)) return ok(undefined);
@@ -45,3 +57,4 @@ export const validateForeignTablesForFields = (
       }),
     ok(undefined)
   );
+};

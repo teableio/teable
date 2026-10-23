@@ -1,4 +1,5 @@
 import { mcpOAuthScopes } from '@teable/core';
+import * as bcrypt from 'bcrypt';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ClientRegistrationError, OAuthRegistrationService } from './oauth-registration.service';
 
@@ -59,6 +60,46 @@ describe('OAuthRegistrationService', () => {
         }),
       })
     );
+  });
+
+  it('issues a secret to a client asking for client_secret_post, as claude.ai does', async () => {
+    // claude.ai's registration body, verbatim apart from the scope list.
+    const res = await ctx.service.register(
+      {
+        redirect_uris: ['https://claude.ai/api/mcp/auth_callback'],
+        token_endpoint_auth_method: 'client_secret_post',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        scope: 'base|read record|read',
+        client_name: 'Claude',
+        application_type: 'web',
+      } as never,
+      '10.0.0.1'
+    );
+    expect(res.token_endpoint_auth_method).toBe('client_secret_post');
+    expect(res.client_secret).toMatch(/^[a-z0-9]{40}$/);
+    expect(res.client_secret_expires_at).toBe(0);
+    const { data } = ctx.prisma.oAuthApp.create.mock.calls[0][0];
+    const stored = data.secrets.create;
+    // Only the hash is stored, never the secret itself.
+    expect(stored.secret).not.toBe(res.client_secret);
+    expect(await bcrypt.compare(res.client_secret!, stored.secret)).toBe(true);
+    expect(stored.maskedSecret.endsWith(res.client_secret!.slice(-10))).toBe(true);
+    expect(stored.createdBy).toBe('system');
+  });
+
+  it('issues no secret to a public client or when no method is given', async () => {
+    for (const method of ['none', undefined]) {
+      const res = await ctx.service.register(
+        { redirect_uris: ['http://localhost:1/cb'], token_endpoint_auth_method: method },
+        '10.0.0.1'
+      );
+      expect(res.token_endpoint_auth_method).toBe('none');
+      expect(res.client_secret).toBeUndefined();
+    }
+    for (const [{ data }] of ctx.prisma.oAuthApp.create.mock.calls) {
+      expect(data.secrets).toBeUndefined();
+    }
   });
 
   it('drops the server alias Claude Code appends to its name, keeping the full name as description', async () => {

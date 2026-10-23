@@ -1,3 +1,4 @@
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import type { Base, Space, TableMeta } from '@teable/db-main-prisma';
 
 export type TableMetaWithBase = TableMeta & { base: Base };
@@ -42,21 +43,50 @@ const getCachedRow = async <T>(
   key: string,
   load: () => Promise<T | null>
 ): Promise<T | null> => {
-  const cls = clsLike as IMetaAncestryClsAccess | undefined;
-  if (!cls?.isActive?.() || typeof cls.get !== 'function') {
-    return load();
-  }
-  let cache = cls.get('metaAncestryCache') as Map<string, unknown> | undefined;
-  if (!cache) {
-    cache = new Map<string, unknown>();
-    cls.set('metaAncestryCache', cache);
-  }
-  if (cache.has(key)) {
-    return cache.get(key) as T | null;
-  }
-  const row = await load();
-  cache.set(key, row);
-  return row;
+  const [model, resourceId] = key.split(':');
+  return trace.getTracer('default').startActiveSpan('MetaAncestryCache.get', async (span) => {
+    const cls = clsLike as IMetaAncestryClsAccess | undefined;
+    const active = Boolean(cls?.isActive?.() && typeof cls.get === 'function');
+    span.setAttributes({
+      ['teable.meta.model']: model,
+      ['teable.meta.operation']: 'findUnique',
+      ['teable.meta.resource_id']: resourceId,
+      ['teable.cache.enabled']: active,
+    });
+    try {
+      if (!active || !cls) {
+        span.setAttribute('teable.cache.hit', false);
+        return await load();
+      }
+      let cache = cls.get('metaAncestryCache') as Map<string, unknown> | undefined;
+      if (!cache) {
+        cache = new Map<string, unknown>();
+        cls.set('metaAncestryCache', cache);
+      }
+      const hit = cache.has(key);
+      span.setAttribute('teable.cache.hit', hit);
+      if (hit) {
+        return await (cache.get(key) as T | null | Promise<T | null>);
+      }
+      // Publish the pending load before awaiting it so concurrent guards share
+      // both its result and its failure. A rejection must not poison retries.
+      const pending = load();
+      cache.set(key, pending);
+      try {
+        const row = await pending;
+        cache.set(key, row);
+        return row;
+      } catch (error) {
+        cache.delete(key);
+        throw error;
+      }
+    } catch (error) {
+      span.setStatus({ code: SpanStatusCode.ERROR });
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
 };
 
 const seedCachedRow = (clsLike: MetaAncestryCls, key: string, row: unknown) => {

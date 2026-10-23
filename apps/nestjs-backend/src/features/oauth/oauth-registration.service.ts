@@ -6,6 +6,7 @@ import { CacheService } from '../../cache/cache.service';
 import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
 import { CustomHttpException } from '../../custom.exception';
 import { second } from '../../utils/second';
+import { createOAuthSecret } from './oauth-secret';
 
 /** RFC 7591 §3.2.2 error codes this server can answer with. */
 export class ClientRegistrationError extends Error {
@@ -32,15 +33,19 @@ export interface IClientRegistrationRequest {
 export interface IClientRegistrationResponse {
   client_id: string;
   client_id_issued_at: number;
+  client_secret?: string;
+  client_secret_expires_at?: number;
   client_name: string;
   client_uri?: string;
   redirect_uris: string[];
-  token_endpoint_auth_method: 'none';
+  token_endpoint_auth_method: ITokenEndpointAuthMethod;
   grant_types: string[];
   response_types: string[];
   scope: string;
 }
 /* eslint-enable @typescript-eslint/naming-convention */
+
+type ITokenEndpointAuthMethod = 'none' | 'client_secret_post';
 
 const MAX_REDIRECT_URIS = 10;
 const MAX_NAME_LENGTH = 100;
@@ -66,14 +71,17 @@ const FORBIDDEN_SCHEMES = new Set([
 ]);
 
 /**
- * Dynamic client registration (RFC 7591) for public clients.
+ * Dynamic client registration (RFC 7591).
  *
  * MCP clients (Claude Code, claude.ai, Cursor, VS Code, ChatGPT) register
  * themselves here on first connect instead of a developer creating an OAuth app
- * for each of them. Only public clients are accepted: no secret is issued and
- * the token endpoint requires PKCE for them. The row is a regular `oauth_app`
- * flagged `dynamicRegistration`, so the rest of the OAuth server (authorize,
- * consent, token, refresh, revoke, authorized-apps list) needs no special case.
+ * for each of them. Native clients register as public clients (`none`, no
+ * secret); a server-side client such as claude.ai asks for
+ * `client_secret_post` and gets a secret. Either way authorize requires PKCE
+ * from a self-registered client, so a secret adds to PKCE rather than
+ * replacing it. The row is a regular `oauth_app` flagged
+ * `dynamicRegistration`, so the rest of the OAuth server (authorize, consent,
+ * token, refresh, revoke, authorized-apps list) needs no special case.
  */
 @Injectable()
 export class OAuthRegistrationService {
@@ -99,6 +107,8 @@ export class OAuthRegistrationService {
     // and in the authorized-apps list. Keep the full name as the description.
     const displayName = metadata.clientName.replace(/\s*\([^()]*\)\s*$/, '').trim();
     const name = displayName || metadata.clientName;
+    const issued =
+      metadata.authMethod === 'client_secret_post' ? await createOAuthSecret() : undefined;
     const created = await this.prismaService.oAuthApp.create({
       data: {
         clientId,
@@ -110,21 +120,34 @@ export class OAuthRegistrationService {
         allowDeviceFlow: false,
         dynamicRegistration: true,
         createdBy: SYSTEM_USER_ID,
+        ...(issued
+          ? {
+              secrets: {
+                create: {
+                  secret: issued.hashedSecret,
+                  maskedSecret: issued.maskedSecret,
+                  createdBy: SYSTEM_USER_ID,
+                },
+              },
+            }
+          : {}),
       },
       select: { createdTime: true },
     });
     this.logger.log(
-      `Registered dynamic OAuth client ${clientId} (${name}) for ${metadata.redirectUris.join(', ')}`
+      `Registered dynamic OAuth client ${clientId} (${name}, ${metadata.authMethod}) for ${metadata.redirectUris.join(', ')}`
     );
 
     /* eslint-disable @typescript-eslint/naming-convention */
     return {
       client_id: clientId,
       client_id_issued_at: Math.floor(created.createdTime.getTime() / 1000),
+      // 0: the secret does not expire (RFC 7591 §3.2.1).
+      ...(issued ? { client_secret: issued.secret, client_secret_expires_at: 0 } : {}),
       client_name: metadata.clientName,
       ...(metadata.clientUri ? { client_uri: metadata.clientUri } : {}),
       redirect_uris: metadata.redirectUris,
-      token_endpoint_auth_method: 'none',
+      token_endpoint_auth_method: metadata.authMethod,
       grant_types: SUPPORTED_GRANT_TYPES,
       response_types: SUPPORTED_RESPONSE_TYPES,
       scope: metadata.scopes.join(' '),
@@ -181,10 +204,10 @@ export class OAuthRegistrationService {
     const clientName = this.validateName(body.client_name);
     const clientUri = this.validateClientUri(body.client_uri);
     const scopes = this.validateScopes(body.scope);
-    this.validateAuthMethod(body.token_endpoint_auth_method);
+    const authMethod = this.validateAuthMethod(body.token_endpoint_auth_method);
     this.validateGrantTypes(body.grant_types);
     this.validateResponseTypes(body.response_types);
-    return { redirectUris, clientName, clientUri, scopes };
+    return { redirectUris, clientName, clientUri, scopes, authMethod };
   }
 
   private validateRedirectUris(value: unknown): string[] {
@@ -315,13 +338,23 @@ export class OAuthRegistrationService {
     return scopes.length > 0 ? scopes : [...mcpOAuthScopes];
   }
 
-  private validateAuthMethod(value: unknown) {
-    if (value !== undefined && value !== null && value !== 'none') {
-      throw new ClientRegistrationError(
-        'invalid_client_metadata',
-        'only public clients can register dynamically: token_endpoint_auth_method must be "none"'
-      );
+  /**
+   * The methods the token endpoint takes from a self-registered client: no
+   * secret, or the secret in the request body. RFC 7591 defaults an absent
+   * value to `client_secret_basic`, which the token endpoint cannot read, so
+   * absent registers as public like every MCP client expects.
+   */
+  private validateAuthMethod(value: unknown): ITokenEndpointAuthMethod {
+    if (value === undefined || value === null || value === 'none') {
+      return 'none';
     }
+    if (value === 'client_secret_post') {
+      return value;
+    }
+    throw new ClientRegistrationError(
+      'invalid_client_metadata',
+      'token_endpoint_auth_method must be "none" or "client_secret_post"'
+    );
   }
 
   private validateGrantTypes(value: unknown) {
