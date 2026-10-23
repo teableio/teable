@@ -23,11 +23,19 @@ const CROSS_SITE_FORM_POST_CALLBACKS = new Set(['/api/auth/apple/callback']);
 // for them on every deployment: it does not depend on PUBLIC_ORIGIN or proxy headers
 // being right, and no legitimate sign-in arrives cross-site (the session cookie is
 // SameSite=Lax, so a cross-site fetch could not use the session anyway).
+//
+// `/api/auth/mobile/exchange` belongs here too: it is @Public(), and completing the
+// mobile PKCE flow calls `req.login` + sets the `auth_session` cookie, so from a browser
+// it is just another anonymous sign-in. The attacker mints both the one-time code and the
+// PKCE verifier on their own account, so PKCE is no defence against login CSRF here. The
+// native app completes the exchange from its own HTTP client, which sends no
+// `Sec-Fetch-Site` header, so it is never treated as cross-site and stays unaffected.
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SESSION_CREATING_ROUTES = new Set([
   '/api/auth/signin',
   '/api/auth/signin-with-code',
   '/api/auth/signup',
+  '/api/auth/mobile/exchange',
 ]);
 
 @Injectable()

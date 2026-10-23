@@ -164,31 +164,76 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  async saveTemporaryFile(req: Request) {
+  private fileSizeExceeded(maxFileSize: number): CustomHttpException {
+    const maxSize = (maxFileSize / (1024 * 1024)).toFixed(2);
+    return new CustomHttpException(
+      `File size exceeds the maximum limit of ${maxSize} MB`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+          context: { maxSize: `${maxSize}MB` },
+        },
+      }
+    );
+  }
+
+  /**
+   * Remove a temp file left behind by {@link saveTemporaryFile} when the upload is
+   * rejected after its body was already streamed to disk (e.g. a size/type/token
+   * failure in validateToken). Without this, rejected uploads accumulate in the
+   * temporary dir and can exhaust disk.
+   */
+  removeTemporaryFile(path: string) {
+    this.deleteLocalFile(path);
+  }
+
+  async saveTemporaryFile(req: Request, maxSize?: number) {
     const name = getRandomString(12);
     const path = resolve(StorageAdapter.TEMPORARY_DIR, name);
     let size = 0;
     return new Promise<ILocalFileUpload>((resolve, reject) => {
+      const fileStream = createWriteStream(path);
+      let settled = false;
+      // Drop the half-written temp file on any failure so a rejected upload never
+      // lingers in the temporary dir.
+      const fail = (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        fileStream.destroy();
+        this.deleteLocalFile(path);
+        reject(err);
+      };
       try {
-        const fileStream = createWriteStream(path);
         req.on('data', (chunk) => {
-          fileStream.write(chunk);
+          if (settled) return;
           size += chunk.length;
+          // Hard cap enforced on the bytes actually streamed, independent of the
+          // client-declared Content-Length: a signature minted with contentLength 0
+          // (or any under-declared value) must not let the body exceed the configured
+          // limit or write an unbounded file to disk.
+          if (maxSize !== undefined && size > maxSize) {
+            req.destroy();
+            fail(this.fileSizeExceeded(maxSize));
+            return;
+          }
+          fileStream.write(chunk);
         });
 
         req.on('end', () => {
-          fileStream.end();
+          if (!settled) fileStream.end();
         });
         req.on('error', (err) => {
-          fileStream.end();
-          reject(err);
+          fail(err);
         });
 
         fileStream.on('error', (err) => {
-          reject(err);
+          fail(err);
         });
 
         fileStream.on('finish', () => {
+          if (settled) return;
+          settled = true;
           resolve({
             size,
             mimetype: req.headers['content-type'] as string,
@@ -197,8 +242,7 @@ export class LocalStorage implements StorageAdapter {
         });
       } catch (error) {
         this.logger.error('saveTemporaryFile error', error);
-        this.deleteLocalFile(path);
-        reject(error);
+        fail(error);
       }
     });
   }

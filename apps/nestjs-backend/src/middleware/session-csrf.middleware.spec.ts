@@ -171,12 +171,23 @@ describe('SessionCsrfMiddleware', () => {
       '/api/auth/signin',
       '/api/auth/signin-with-code',
       '/api/auth/signup',
+      '/api/auth/mobile/exchange',
       '/api/auth/signin/',
       '/API/Auth/SignIn?redirect=/space',
     ])('rejects a cross-site POST to %s even with the origin check off', (url) => {
       const next = callDisabledMiddleware(signinRequest(url, { 'sec-fetch-site': 'cross-site' }));
 
       expect(next).toHaveBeenCalledWith(expect.any(ForbiddenException));
+    });
+
+    it('allows the mobile PKCE exchange from a native client (no fetch metadata)', () => {
+      // The app completes the exchange from its own HTTP client, which sends no
+      // Sec-Fetch-Site header, so it must not be treated as a cross-site sign-in.
+      const next = callDisabledMiddleware(
+        signinRequest('/api/auth/mobile/exchange', { origin: 'teable://auth' })
+      );
+
+      expect(next).toHaveBeenCalledWith();
     });
 
     it.each(['same-origin', 'same-site', 'none'])(
