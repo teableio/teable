@@ -29,9 +29,10 @@ const flattenedFunctions: ReadonlyArray<TableRecordAggregationFunction> = [
 export const buildTableRecordAggregationExpression = (
   field: Field,
   columnName: string,
-  statisticFunc: TableRecordAggregationFunction
+  statisticFunc: TableRecordAggregationFunction,
+  tableAlias = 'a'
 ): RawBuilder<unknown> => {
-  const column = sql.ref(`a.${columnName}`);
+  const column = sql.ref(`${tableAlias}.${columnName}`);
   const fieldType = field.type().toString();
   const valueType = field.accept(new FieldValueTypeVisitor())._unsafeUnwrap();
   const isMultiple = valueType.isMultipleCellValue.toBoolean();

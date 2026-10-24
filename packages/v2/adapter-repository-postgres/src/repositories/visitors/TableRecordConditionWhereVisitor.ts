@@ -1,8 +1,8 @@
 import * as core from '@teable/v2-core';
 import type { DomainError } from '@teable/v2-core';
 import dayjs, { type Dayjs, type ManipulateType } from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';

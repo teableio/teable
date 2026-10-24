@@ -16,6 +16,9 @@ export const v2RecordRepositoryPostgresTokens = {
   computedUpdateRuntimeConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateRuntimeConfig'
   ),
+  computedRuntimeConfig: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedRuntimeConfig'
+  ),
   computedUpdateHybridConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateHybridConfig'
   ),

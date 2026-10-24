@@ -11,9 +11,12 @@ import {
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 describe('RenameTableHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('renames tables and publishes TableRenamed', async () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

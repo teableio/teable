@@ -40,7 +40,11 @@ const recordProjectionDecorator =
 
 describe('record command EventBus isolation', () => {
   it.each(recordCommandHandlers)('%s uses DomainWriteTransaction instead of EventBus', (file) => {
-    const source = readFileSync(join(commandDir, file), 'utf8');
+    // UpdateRecordHandler is a thin forwarder; its write implementation lives
+    // in the application service it delegates to.
+    const sourceFile =
+      file === 'UpdateRecordHandler.ts' ? 'UpdateRecordApplicationService.ts' : file;
+    const source = readFileSync(join(commandDir, sourceFile), 'utf8');
     expect(source).not.toContain("from '../ports/EventBus'");
     expect(source).not.toContain("from '../ports/memory/EventBusDomainWriteTransaction'");
     expect(source).toContain('domainWriteTransaction');

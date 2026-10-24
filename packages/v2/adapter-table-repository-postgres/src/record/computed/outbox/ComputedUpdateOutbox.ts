@@ -1,6 +1,6 @@
-import { randomInt } from 'node:crypto';
 import {
   getPostgresTransaction,
+  randomIntBelow,
   resolvePostgresDbOrTx,
   PostgresUnitOfWorkTransaction,
 } from '@teable/v2-adapter-db-postgres-shared';
@@ -46,6 +46,11 @@ import { compactStageLedgerWhenEmpty } from '../ComputedStageLedger';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
+import type {
+  ComputedReliabilityRuntimeConfig,
+  ComputedRuntimeConfig,
+} from '../../../config/runtimeConfig';
+import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
 import { isComputedReliabilityEnabled } from '../reliability/config';
 import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
@@ -310,14 +315,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     @inject(v2RecordRepositoryPostgresTokens.computedActivityProjector)
     private readonly activityProjector: IComputedActivityProjector = noopComputedActivityProjector,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus | null = null
+    private readonly eventBus: IEventBus | null = null,
+    @inject(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)
+    runtime: ComputedRuntimeConfig = defaultComputedRuntimeConfig
   ) {
+    this.reliability = runtime.reliability ?? {};
     // Keep the existing unique index / ON CONFLICT contract usable during an additive rollout.
     this.lanePlanHashPrefix =
       config.workerLane === DEFAULT_COMPUTED_WORKER_LANE
         ? ''
         : `lane:${encodeURIComponent(config.workerLane)}:`;
   }
+
+  private readonly reliability: ComputedReliabilityRuntimeConfig;
 
   private scopeTaskToLane<T extends { planHash: string }>(task: T): T {
     if (!this.lanePlanHashPrefix || task.planHash.startsWith(this.lanePlanHashPrefix)) return task;
@@ -2500,7 +2510,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
 
-          if (fieldErrors?.length && isComputedReliabilityEnabled(String(deleted[0].base_id))) {
+          if (fieldErrors?.length && isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)) {
             const reliability = new PostgresComputedReliabilityStore(trx);
             await reliability.recordFailure({
               taskId,
@@ -2516,7 +2526,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             });
           }
 
-          if (isComputedReliabilityEnabled(String(deleted[0].base_id))) {
+          if (isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)) {
             const taskForTargets =
               typeof taskOrId === 'string' ? toOutboxItem(deleted[0] as OutboxRow, []) : taskOrId;
             const targets = resolveFieldTargetsFromOutboxItem(taskForTargets);
@@ -3211,6 +3221,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           if (pending && String(pending.id) !== params.task.id) {
             const { taskId: mergedTaskId, merged: retryMerged } =
               await this.mergeRetryTaskIntoPending(trx, pending, params.task, now);
+            // The pending row may be newer than the task that just lost the
+            // lock; keep the oldest enqueue time so an age-based escalation
+            // (T8079) still recognizes work that keeps circulating on retries.
+            const taskCreatedAt =
+              params.task.createdAt instanceof Date ? params.task.createdAt : now;
+            await trx
+              .updateTable(OUTBOX_TABLE)
+              .set({ created_at: sql`LEAST(created_at, ${taskCreatedAt})` })
+              .where('id', '=', mergedTaskId)
+              .execute();
             // Verify the merge target survived before we delete the retrying
             // task's own row below: never delete the only durable copy of this
             // task's dirty data on the strength of a merge we have not confirmed
@@ -3570,7 +3590,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .insertInto(DEAD_LETTER_TABLE)
       .values({ ...deadLetterValues, worker_lane: this.config.workerLane })
       .execute();
-    if (isComputedReliabilityEnabled(task.baseId)) {
+    if (isComputedReliabilityEnabled(task.baseId, this.reliability)) {
       // The legacy resolver guesses the seed table for affected fields when steps
       // are missing. Durable evidence must only use explicit placements or refs.
       const hasExplicitTargets =
@@ -4882,7 +4902,7 @@ const sleep = async (ms: number): Promise<void> => {
 
 const backoffMs = (attempt: number): number => {
   const base = 5 * 2 ** attempt;
-  const jitter = randomInt(10);
+  const jitter = randomIntBelow(10);
   return base + jitter;
 };
 
@@ -4958,7 +4978,7 @@ const uniquifyPlanHash = (planHash: string): string => {
 
 /** Spread retries across [0.5x, 1.5x) so same-key losers do not wake in lockstep. */
 const applyRetryJitter = (delayMs: number): number =>
-  Math.floor(delayMs * (0.5 + randomInt(1_000_000) / 1_000_000));
+  Math.floor(delayMs * (0.5 + randomIntBelow(1_000_000) / 1_000_000));
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;

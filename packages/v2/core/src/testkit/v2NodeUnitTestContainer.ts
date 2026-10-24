@@ -19,9 +19,11 @@ export const resetV2NodeUnitTestContainer = (): void => {
   current = undefined;
 };
 
+export const peekV2NodeUnitTestContainer = (): IV2NodeUnitTestContainer | undefined => current;
+
 export const getV2NodeUnitTestContainer = (): IV2NodeUnitTestContainer => {
   if (!current) {
-    throw new Error('V2 node unit test container is not initialized (missing vitest setup?)');
+    throw new Error('V2 node unit test container is not initialized (missing test setup?)');
   }
   return current;
 };

@@ -1,3 +1,5 @@
+import { utf8ByteLength } from '@teable/v2-core';
+
 import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryDefinitionInput } from './types';
 
@@ -234,7 +236,7 @@ export function lintDataQueryManifest(input: DataQueryLintInput): DataQueryLintF
   const limits: DataQueryLintLimits = { ...dataQueryLintDefaultLimits, ...input.limits };
   const findings: DataQueryLintFinding[] = [];
   const queryIds = Object.keys(input.manifest.queries);
-  const manifestBytes = Buffer.byteLength(input.text, 'utf8');
+  const manifestBytes = utf8ByteLength(input.text);
 
   if (queryIds.length > limits.maxQueries) {
     findings.push({

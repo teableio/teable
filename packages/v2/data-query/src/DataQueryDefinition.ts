@@ -24,6 +24,7 @@ import type {
   DataQueryFilterLeaf,
   DataQueryParameterDefinition,
   DataQueryParameterReference,
+  DataQueryRelationAggregate,
   DataQuerySort,
   DataQuerySortResolved,
 } from './types';
@@ -117,18 +118,111 @@ export const dataQueryParameterDefinitionSchema = z
   })
   .strict();
 const systemSchema = z.enum(['id', 'createdTime', 'lastModifiedTime', 'autoNumber', 'version']);
+const timeZoneSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine((value) => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+const bucketLabelSchema = dataQueryNameSchema.refine(
+  (value) => !value.includes('\0') && utf8Encoder.encode(value).length <= 128
+);
+const bucketEdgeSchema = z
+  .object({ maxExclusive: z.number().finite(), label: bucketLabelSchema })
+  .strict();
+const bucketEdgesSchema = z
+  .tuple([bucketEdgeSchema])
+  .rest(bucketEdgeSchema)
+  .refine((edges) => edges.length <= 8, 'A bucket accepts at most eight edges')
+  .refine(
+    (edges) =>
+      edges.every(
+        (edge, index) => index === 0 || edge.maxExclusive > edges[index - 1].maxExclusive
+      ),
+    'Bucket edges must be strictly ascending'
+  )
+  .refine(
+    (edges) => new Set(edges.map((edge) => edge.label)).size === edges.length,
+    'Bucket labels must be unique'
+  );
+const bucketSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('dateTrunc'),
+      unit: z.enum(['day', 'week', 'month', 'quarter', 'year']),
+      timeZone: timeZoneSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('numericRange'),
+      edges: bucketEdgesSchema,
+      fallbackLabel: bucketLabelSchema,
+      nullLabel: bucketLabelSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('dateDifferenceRange'),
+      unit: z.enum(['day', 'month']),
+      timeZone: timeZoneSchema,
+      anchor: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .refine((value) => {
+          const parsed = new Date(`${value}T00:00:00.000Z`);
+          return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+        }, 'Anchor must be a real calendar date')
+        .optional(),
+      edges: bucketEdgesSchema,
+      fallbackLabel: bucketLabelSchema,
+      nullLabel: bucketLabelSchema.optional(),
+    })
+    .strict(),
+]);
 const fieldProjectionSchema = z
   .object({ fieldId: fieldIdSchema, alias: aliasSchema, arrayDistinct: z.boolean().optional() })
   .strict();
 const systemProjectionSchema = z.object({ system: systemSchema, alias: aliasSchema }).strict();
 const sourceRefShape = { source: dataQueryNameSchema.optional() };
-const v2FieldProjectionSchema = fieldProjectionSchema.extend(sourceRefShape).strict();
+const v2FieldProjectionSchema = fieldProjectionSchema
+  .extend({ ...sourceRefShape, bucket: bucketSchema.optional() })
+  .strict();
 const v2SystemProjectionSchema = systemProjectionSchema.extend(sourceRefShape).strict();
-const relationSchema = z.object({ linkFieldId: fieldIdSchema, tableId: tableIdSchema }).strict();
+const relationStatisticSchema = z.enum(['count', 'unique', 'sum', 'average', 'min', 'max']);
+const relationAggregateSchema = z
+  .object({
+    source: dataQueryNameSchema,
+    fieldId: fieldIdSchema.optional(),
+    statisticFunc: relationStatisticSchema,
+    alias: aliasSchema,
+  })
+  .strict();
+const v2ProjectionSchema = z.union([
+  v2FieldProjectionSchema,
+  v2SystemProjectionSchema,
+  relationAggregateSchema,
+]);
+const relationSchema = z
+  .object({
+    linkFieldId: fieldIdSchema,
+    tableId: tableIdSchema,
+    filter: filterSchema.optional(),
+    via: dataQueryNameSchema.optional(),
+  })
+  .strict();
 const orderSchema = z.enum(['asc', 'desc']);
 const sortTargetSchema = z.union([
   z.object({ fieldId: fieldIdSchema }).strict(),
   z.object({ system: systemSchema }).strict(),
+  z.object({ source: dataQueryNameSchema, fieldId: fieldIdSchema }).strict(),
+  z.object({ source: dataQueryNameSchema, system: systemSchema }).strict(),
 ]);
 /**
  * A parameterized sort never accepts a raw identifier. `allowed` is the complete
@@ -150,6 +244,22 @@ const sortItemSchema = z.union([
     .strict(),
   z
     .object({ system: systemSchema, order: orderSchema, nulls: sortNullsSchema.optional() })
+    .strict(),
+  z
+    .object({
+      source: dataQueryNameSchema,
+      fieldId: fieldIdSchema,
+      order: orderSchema,
+      nulls: sortNullsSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      source: dataQueryNameSchema,
+      system: systemSchema,
+      order: orderSchema,
+      nulls: sortNullsSchema.optional(),
+    })
     .strict(),
   z.object({ alias: aliasSchema, order: orderSchema, nulls: sortNullsSchema.optional() }).strict(),
   parameterizedSortSchema,
@@ -223,9 +333,7 @@ const v2Schema = z.discriminatedUnion('kind', [
       recordId: z
         .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
         .optional(),
-      select: z
-        .tuple([z.union([v2FieldProjectionSchema, v2SystemProjectionSchema])])
-        .rest(z.union([v2FieldProjectionSchema, v2SystemProjectionSchema])),
+      select: z.tuple([v2ProjectionSchema]).rest(v2ProjectionSchema),
     })
     .strict(),
   z
@@ -485,6 +593,7 @@ class BoundDataQueryValue implements BoundDataQuery {
     readonly validatedDefinition: DataQueryDefinition,
     readonly definition: DataQueryDefinitionInput,
     readonly filter: RecordFilter | undefined,
+    readonly relationFilters: Readonly<Record<string, RecordFilter>> | undefined,
     readonly limit: number,
     readonly offset: number,
     readonly sort: ReadonlyArray<DataQuerySortResolved>,
@@ -495,6 +604,7 @@ class BoundDataQueryValue implements BoundDataQuery {
       throw new Error('Bound queries must be created by definition.bind');
     freezeQueryValue(definition);
     freezeQueryValue(filter);
+    freezeQueryValue(relationFilters);
     freezeQueryValue(sort);
     Object.freeze(this);
   }
@@ -635,6 +745,8 @@ const validateParameterizedSort = (
     }
     references.push(sort.order);
   }
+  // The runtime parameter selects a target by field/system name only, so the same name
+  // must not appear twice even across sources; that would be ambiguous.
   const targets = sort.allowed.map((target) =>
     'fieldId' in target ? `field:${target.fieldId}` : `system:${target.system}`
   );
@@ -646,21 +758,53 @@ const validateParameterizedSort = (
 const validateAliasSort = (
   value: DataQueryDefinitionInput,
   sort: Extract<DataQuerySort, { alias: string }>,
-  outputAliases: ReadonlySet<string>
-): Result<void, DomainError> =>
-  value.kind === 'aggregate' && outputAliases.has(sort.alias)
+  outputAliases: ReadonlySet<string>,
+  relationAggregateAliases: ReadonlySet<string>
+): Result<void, DomainError> => {
+  // A records sort may order by the one-row-per-root relation aggregate, never by a
+  // stored projection alias: only that alias has a documented ordering contract.
+  const allowed =
+    value.kind === 'aggregate'
+      ? outputAliases.has(sort.alias)
+      : relationAggregateAliases.has(sort.alias);
+  return allowed
     ? ok(undefined)
     : err(queryError('aggregate_sort', 'Alias sorting requires an aggregate output alias'));
+};
 
 const validateFieldSort = (
   value: DataQueryDefinitionInput,
   sort: ParameterizedSort,
   parameters: ParameterDefinitions,
   groupFieldIds: ReadonlySet<string>,
+  ambiguousGroupFieldIds: ReadonlySet<string>,
   index: number
 ): Result<DataQueryParameterReference[], DomainError> => {
   const references = validateParameterizedSort(sort, parameters, index);
   if (references.isErr()) return err(references.error);
+  const relations = value.version === 2 ? (value.relations ?? {}) : {};
+  for (const target of sort.allowed) {
+    if ('source' in target && !Object.hasOwn(relations, target.source)) {
+      return err(
+        queryError('join_source_unknown', 'A sort references an undeclared source', {
+          source: target.source,
+        })
+      );
+    }
+    if (value.kind === 'aggregate' && 'source' in target) {
+      return err(
+        queryError(
+          'aggregate_sort',
+          'Aggregate sorting must use the output alias of a source group'
+        )
+      );
+    }
+    if ('fieldId' in target && ambiguousGroupFieldIds.has(target.fieldId)) {
+      return err(
+        queryError('bucket_sort', 'A bucketed grouping field must be sorted by its alias')
+      );
+    }
+  }
   if (
     value.kind === 'aggregate' &&
     sort.allowed.some((target) => !('fieldId' in target) || !groupFieldIds.has(target.fieldId))
@@ -673,51 +817,111 @@ const validateFieldSort = (
 const validateLiteralSort = (
   value: DataQueryDefinitionInput,
   sort: Exclude<DataQuerySort, ParameterizedSort | { alias: string }>,
-  groupFieldIds: ReadonlySet<string>
-): Result<void, DomainError> =>
-  value.kind !== 'aggregate' || ('fieldId' in sort && groupFieldIds.has(sort.fieldId))
+  groupFieldIds: ReadonlySet<string>,
+  ambiguousGroupFieldIds: ReadonlySet<string>
+): Result<void, DomainError> => {
+  if ('source' in sort) {
+    const relations = value.version === 2 ? (value.relations ?? {}) : {};
+    if (!Object.hasOwn(relations, sort.source)) {
+      return err(
+        queryError('join_source_unknown', 'A sort references an undeclared source', {
+          source: sort.source,
+        })
+      );
+    }
+    return value.kind === 'aggregate'
+      ? err(
+          queryError(
+            'aggregate_sort',
+            'Aggregate sorting must use the output alias of a source group'
+          )
+        )
+      : ok(undefined);
+  }
+  if ('fieldId' in sort && ambiguousGroupFieldIds.has(sort.fieldId)) {
+    return err(queryError('bucket_sort', 'A bucketed grouping field must be sorted by its alias'));
+  }
+  return value.kind !== 'aggregate' || ('fieldId' in sort && groupFieldIds.has(sort.fieldId))
     ? ok(undefined)
     : err(
         queryError('aggregate_sort', 'Aggregate sorting must reference a grouping field or alias')
       );
+};
 
-type SortContext = { groupFieldIds: ReadonlySet<string>; outputAliases: ReadonlySet<string> };
+type SortContext = {
+  groupFieldIds: ReadonlySet<string>;
+  /** Fields whose only grouping uses a bucket; sorting them by field id is ambiguous. */
+  ambiguousGroupFieldIds: ReadonlySet<string>;
+  outputAliases: ReadonlySet<string>;
+  relationAggregateAliases: ReadonlySet<string>;
+};
 
-const sortContext = (value: DataQueryDefinitionInput): SortContext => ({
-  groupFieldIds: new Set(
-    (value.kind === 'aggregate' ? (value.groupBy ?? []) : []).map((group) => group.fieldId)
-  ),
-  outputAliases: new Set(
-    value.kind === 'records'
-      ? value.select.map((projection) => projection.alias)
-      : [...(value.groupBy ?? []), ...value.aggregates].map((output) => output.alias)
-  ),
-});
+const sortContext = (value: DataQueryDefinitionInput): SortContext => {
+  const groups = value.kind === 'aggregate' ? (value.groupBy ?? []) : [];
+  // A source group is ordered by its output alias only; field-id sorting refers to root groups.
+  const rootGroups = groups.filter(
+    (group) => !('source' in group) || group.source === undefined || group.source === 'root'
+  );
+  const bucketed = new Set<string>();
+  const plain = new Set<string>();
+  for (const group of rootGroups) {
+    if ('bucket' in group && group.bucket !== undefined) bucketed.add(group.fieldId);
+    else plain.add(group.fieldId);
+  }
+  return {
+    groupFieldIds: new Set(rootGroups.map((group) => group.fieldId)),
+    ambiguousGroupFieldIds: new Set([...bucketed].filter((fieldId) => !plain.has(fieldId))),
+    outputAliases: new Set(
+      value.kind === 'records'
+        ? value.select.map((projection) => projection.alias)
+        : [...(value.groupBy ?? []), ...value.aggregates].map((output) => output.alias)
+    ),
+    relationAggregateAliases: new Set(
+      value.kind === 'records'
+        ? value.select
+            .filter(
+              (projection): projection is DataQueryRelationAggregate =>
+                'statisticFunc' in projection
+            )
+            .map((projection) => projection.alias)
+        : []
+    ),
+  };
+};
 
 const validateSorts = (
   value: DataQueryDefinitionInput,
   parameters: ParameterDefinitions
 ): Result<DataQueryParameterReference[], DomainError> => {
   const references: DataQueryParameterReference[] = [];
-  const { groupFieldIds, outputAliases } = sortContext(value);
+  const { groupFieldIds, ambiguousGroupFieldIds, outputAliases, relationAggregateAliases } =
+    sortContext(value);
   for (const [index, sort] of (value.sort ?? []).entries()) {
     if ('alias' in sort) {
-      const validated = validateAliasSort(value, sort, outputAliases);
+      const validated = validateAliasSort(value, sort, outputAliases, relationAggregateAliases);
       if (validated.isErr()) return err(validated.error);
       continue;
     }
     if ('field' in sort) {
-      const validated = validateFieldSort(value, sort, parameters, groupFieldIds, index);
+      const validated = validateFieldSort(
+        value,
+        sort,
+        parameters,
+        groupFieldIds,
+        ambiguousGroupFieldIds,
+        index
+      );
       if (validated.isErr()) return err(validated.error);
       references.push(...validated.value);
       continue;
     }
-    const validated = validateLiteralSort(value, sort, groupFieldIds);
+    const validated = validateLiteralSort(value, sort, groupFieldIds, ambiguousGroupFieldIds);
     if (validated.isErr()) return err(validated.error);
   }
   return ok(references);
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity -- one linear contract per hop
 const validateRelations = (value: DataQueryDefinitionInput): Result<void, DomainError> => {
   if (value.version !== 2) return ok(undefined);
   const relations = value.relations ?? {};
@@ -728,26 +932,133 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
   if (aliases.includes('root')) {
     return err(queryError('join_alias_reserved', '`root` is reserved for the root source'));
   }
-  if (value.kind === 'aggregate' && aliases.length > 0) {
-    return err(queryError('join_aggregate', 'Aggregate queries cannot declare relations'));
+  // `via` may only name a relation declared earlier. Insertion order is the public
+  // declaration order, so cycles are unrepresentable and a chain stops at four hops.
+  const declared = new Set<string>();
+  const depths = new Map<string, number>();
+  for (const alias of aliases) {
+    const via = relations[alias]!.via;
+    if (via === undefined) {
+      depths.set(alias, 0);
+    } else {
+      if (!declared.has(via)) {
+        return err(
+          queryError(
+            'join_via',
+            `relations.${alias}.via: \`${via}\` must name an earlier relation`,
+            {
+              source: alias,
+            }
+          )
+        );
+      }
+      const depth = (depths.get(via) ?? 0) + 1;
+      if (depth > 3) {
+        return err(
+          queryError(
+            'join_depth',
+            `relations.${alias}.via: a relation chain may span at most three hops`,
+            { source: alias }
+          )
+        );
+      }
+      depths.set(alias, depth);
+    }
+    declared.add(alias);
   }
   const sources = new Set(['root', ...aliases]);
-  const projections = value.kind === 'records' ? value.select : (value.groupBy ?? []);
-  for (const projection of projections) {
-    if (
-      'source' in projection &&
-      projection.source !== undefined &&
-      !sources.has(projection.source)
-    ) {
+  if (value.kind === 'records') {
+    for (const [index, projection] of value.select.entries()) {
+      if (
+        'source' in projection &&
+        projection.source !== undefined &&
+        !sources.has(projection.source)
+      ) {
+        return err(
+          queryError('join_source_unknown', 'A projection references an undeclared source', {
+            source: projection.source,
+          })
+        );
+      }
+      if (
+        'bucket' in projection &&
+        projection.bucket !== undefined &&
+        'arrayDistinct' in projection &&
+        projection.arrayDistinct === true
+      ) {
+        return err(
+          queryError(
+            'bucket_array_distinct',
+            `select.${index}: a bucket cannot be combined with arrayDistinct`
+          )
+        );
+      }
+    }
+    for (const [index, projection] of value.select.entries()) {
+      if (!('statisticFunc' in projection)) continue;
+      const aggregate: DataQueryRelationAggregate = projection;
+      if (aggregate.source === 'root') {
+        return err(
+          queryError(
+            'relation_aggregate_source',
+            `select.${index}: relation aggregates require a relation source`
+          )
+        );
+      }
+      if (aggregate.statisticFunc === 'count') {
+        if (aggregate.fieldId !== undefined) {
+          return err(
+            queryError(
+              'relation_aggregate_field',
+              `select.${index}: count counts related records and takes no fieldId`
+            )
+          );
+        }
+        continue;
+      }
+      if (aggregate.fieldId === undefined) {
+        return err(
+          queryError(
+            'relation_aggregate_field',
+            `select.${index}: ${aggregate.statisticFunc} requires a fieldId`
+          )
+        );
+      }
+    }
+    return ok(undefined);
+  }
+  for (const [index, group] of (value.groupBy ?? []).entries()) {
+    if ('source' in group && group.source !== undefined && !sources.has(group.source)) {
       return err(
         queryError('join_source_unknown', 'A projection references an undeclared source', {
-          source: projection.source,
+          source: group.source,
         })
+      );
+    }
+    if ('bucket' in group && group.bucket !== undefined && group.arrayDistinct === true) {
+      return err(
+        queryError(
+          'bucket_array_distinct',
+          `groupBy.${index}: a bucket cannot be combined with arrayDistinct`
+        )
       );
     }
   }
   return ok(undefined);
 };
+
+const relationFilterParameterReferences = (
+  value: DataQueryDefinitionInput,
+  parameters: ParameterDefinitions
+): Result<DataQueryParameterReference[], DomainError> =>
+  safeTry(function* () {
+    if (value.version !== 2 || !value.relations) return ok([]);
+    const references: DataQueryParameterReference[] = [];
+    for (const relation of Object.values(value.relations)) {
+      references.push(...(yield* filterParameterReferences(relation.filter, parameters)));
+    }
+    return ok(references);
+  });
 
 const validateDefinition = (value: DataQueryDefinitionInput): Result<void, DomainError> =>
   safeTry(function* () {
@@ -773,6 +1084,7 @@ const validateDefinition = (value: DataQueryDefinitionInput): Result<void, Domai
     }
     const references = [
       ...(yield* filterParameterReferences(value.filter, parameters)),
+      ...(yield* relationFilterParameterReferences(value, parameters)),
       ...(yield* pageParameterReferences(value.page, parameters)),
       ...(yield* validateSorts(value, parameters)),
       ...(value.kind === 'records' && isParameterReference(value.recordId) ? [value.recordId] : []),
@@ -899,6 +1211,7 @@ const resolveParameterizedSort = (
   }
   return ok({
     ...('fieldId' in target ? { fieldId: target.fieldId } : { system: target.system }),
+    ...('source' in target ? { source: target.source } : {}),
     order,
     ...(item.nulls ? { nulls: item.nulls } : {}),
   });
@@ -908,6 +1221,11 @@ type LiteralSort = Exclude<DataQuerySort, { field: DataQueryParameterReference }
 
 const resolveLiteralSort = (item: LiteralSort): DataQuerySortResolved => {
   const nulls = item.nulls ? { nulls: item.nulls } : {};
+  if ('source' in item) {
+    return 'fieldId' in item
+      ? { source: item.source, fieldId: item.fieldId, order: item.order, ...nulls }
+      : { source: item.source, system: item.system, order: item.order, ...nulls };
+  }
   if ('fieldId' in item) return { fieldId: item.fieldId, order: item.order, ...nulls };
   if ('system' in item) return { system: item.system, order: item.order, ...nulls };
   return { alias: item.alias, order: item.order, ...nulls };
@@ -929,6 +1247,20 @@ const bindSort = (
   }
   return ok(resolved);
 };
+
+const bindRelationFilters = (
+  value: DataQueryDefinitionInput,
+  values: ParameterValues
+): Result<Record<string, RecordFilter> | undefined, DomainError> =>
+  safeTry(function* () {
+    if (value.version !== 2 || !value.relations) return ok(undefined);
+    const resolved: Record<string, RecordFilter> = {};
+    for (const [alias, relation] of Object.entries(value.relations)) {
+      const filter = yield* resolveDataQueryFilter(relation.filter, values);
+      if (filter !== undefined) resolved[alias] = filter;
+    }
+    return ok(Object.keys(resolved).length > 0 ? resolved : undefined);
+  });
 
 export class DataQueryDefinition {
   private constructor(private readonly value: DataQueryDefinitionInput) {
@@ -966,6 +1298,7 @@ export class DataQueryDefinition {
           // Undefined is absence (optional leaves/items are skipped); null stays an explicit value.
           const filter = yield* resolveDataQueryFilter(this.value.filter, values);
           const sort = yield* bindSort(this.value.sort, values);
+          const relationFilters = yield* bindRelationFilters(this.value, values);
           const rawRecordId = this.value.kind === 'records' ? this.value.recordId : undefined;
           if (isParameterReference(rawRecordId) && !values.has(rawRecordId.name)) {
             return err(queryError('missing_parameter', 'A required record identity is missing'));
@@ -985,6 +1318,7 @@ export class DataQueryDefinition {
               this,
               this.snapshot(),
               filter,
+              relationFilters,
               limit,
               offset,
               sort,

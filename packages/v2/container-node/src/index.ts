@@ -24,6 +24,7 @@ import {
   type TableQueryObservationDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
+  computedRuntimeConfigFromEnv,
   createTypeValidationStrategy,
   DomainEventOutboxWorker,
   NodeImportEventSpoolFactory,
@@ -114,6 +115,12 @@ export interface IV2NodePgContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  /**
+   * Explicit computed-pipeline runtime configuration. Defaults to
+   * `computedRuntimeConfigFromEnv(process.env)`, so the process environment is
+   * read here — the composition root — and never inside the adapter.
+   */
+  runtime?: IV2TableRepositoryPostgresConfig['runtime'];
   formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   computedOutboxAdmin?: IComputedOutboxAdmin;
   domainEventWakeupPublisher?: IV2TableRepositoryPostgresConfig['domainEventWakeupPublisher'];
@@ -322,6 +329,7 @@ export const registerV2NodePgDependencies = async (
         parsePositiveInteger(process.env.V2_RECORD_QUERY_STATEMENT_BUDGET_MS) ??
         0,
     },
+    runtime: options.runtime ?? computedRuntimeConfigFromEnv(process.env),
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {

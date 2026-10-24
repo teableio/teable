@@ -10,6 +10,7 @@ import createKnex, { type Knex } from 'knex';
 import { CacheService } from '../../../cache/cache.service';
 import {
   applyComputedReliabilityBaseFilter,
+  computedReliabilityConfig,
   isComputedReliabilityReady,
   reliabilityCandidateQuery,
   reliabilityTable,
@@ -37,7 +38,7 @@ export class ComputedReliabilityReconciliationService
   ) {}
   onApplicationBootstrap() {
     // Retention remains active when optional projection reconciliation is disabled.
-    if (!isComputedReliabilityConfigured()) return;
+    if (!isComputedReliabilityConfigured(computedReliabilityConfig())) return;
     this.timer = setInterval(() => void this.runOnce(), 60_000);
     this.timer.unref?.();
   }
@@ -45,7 +46,7 @@ export class ComputedReliabilityReconciliationService
     if (this.timer) clearInterval(this.timer);
   }
   async runOnce() {
-    if (this.running || !isComputedReliabilityConfigured()) return;
+    if (this.running || !isComputedReliabilityConfigured(computedReliabilityConfig())) return;
     this.running = true;
     const deadline = Date.now() + 20_000;
     try {
@@ -137,7 +138,10 @@ export class ComputedReliabilityReconciliationService
           if (Date.now() < deadline) {
             await this.closeUncomputable(trx, target, deadline);
           }
-          if (isComputedReliabilityReconciliationEnabled() && Date.now() < deadline) {
+          if (
+            isComputedReliabilityReconciliationEnabled(computedReliabilityConfig()) &&
+            Date.now() < deadline
+          ) {
             await this.reconcileTables(trx, target, routedAway, deadline);
           }
           return true;
@@ -192,10 +196,7 @@ export class ComputedReliabilityReconciliationService
   private snapshotKey(
     target: IComputedOutboxMaintenanceTarget
   ): `computed-reliability:snapshot:${string}` {
-    const bases = (process.env.COMPUTED_RELIABILITY_BASE_IDS ?? '')
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean)
+    const bases = [...(computedReliabilityConfig().baseIds ?? [])]
       .sort((a, b) => Number(a > b) - Number(a < b))
       .join(',');
     return `computed-reliability:snapshot:${target.cacheKey}:${bases}`;
@@ -335,7 +336,7 @@ export class ComputedReliabilityReconciliationService
       target.storage === 'byodb'
         ? target.baseSpaceMapping?.some((mapping) => mapping.baseId === baseId)
         : !routedAway.has(baseId);
-    if (!routedHere || !isComputedReliabilityEnabled(baseId)) return 0;
+    if (!routedHere || !isComputedReliabilityEnabled(baseId, computedReliabilityConfig())) return 0;
     try {
       const container = await this.containers.getContainerForTable(tableId);
       const remaining = deadline - Date.now();

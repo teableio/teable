@@ -453,7 +453,7 @@ describe('Table', () => {
     expect(addedEntry.order).toBe(maxOrder + 1);
   });
 
-  it('hides newly added field in non-target grid views with explicit visibility config', () => {
+  it('hides newly added field in non-target grid views that hide a field', () => {
     const newFieldId = createFieldId('i')._unsafeUnwrap();
     const builder = Table.builder()
       .withBaseId(createBaseId('i')._unsafeUnwrap())
@@ -480,7 +480,7 @@ describe('Table', () => {
       ...hiddenViewMeta,
       [hiddenFieldKey]: {
         ...(hiddenViewMeta[hiddenFieldKey] ?? {}),
-        hidden: false,
+        hidden: true,
       },
     })._unsafeUnwrap();
 
@@ -513,6 +513,71 @@ describe('Table', () => {
     expect(hiddenEntry?.hidden).toBe(true);
     expect(
       updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[hiddenFieldKey]?.hidden
+    ).toBe(true);
+    expect(defaultEntry?.hidden).toBeUndefined();
+  });
+
+  it('shows newly added field in non-target grid views that hide no field', () => {
+    const newFieldId = createFieldId('p')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('p')._unsafeUnwrap())
+      .withName(TableName.create('Shown View Stability')._unsafeUnwrap());
+
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View A')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View B')._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const notesField = table.getFields().find((field) => field.name().toString() === 'Notes');
+    const shownView = table.views()[0];
+    const defaultView = table.views()[1];
+
+    expect(notesField).toBeTruthy();
+    expect(shownView).toBeTruthy();
+    expect(defaultView).toBeTruthy();
+    if (!notesField || !shownView || !defaultView) return;
+
+    // "Show all" leaves an explicit `hidden: false` entry behind; the view hides nothing.
+    const shownViewMeta = shownView.columnMeta()._unsafeUnwrap().toDto();
+    const notesFieldKey = notesField.id().toString();
+    const configuredShownMeta = ViewColumnMeta.create({
+      ...shownViewMeta,
+      [notesFieldKey]: {
+        ...(shownViewMeta[notesFieldKey] ?? {}),
+        hidden: false,
+      },
+    })._unsafeUnwrap();
+
+    const configuredTable = TableUpdateViewColumnMetaSpec.create(table, [
+      {
+        viewId: shownView.id(),
+        fieldId: notesField.id(),
+        columnMeta: configuredShownMeta,
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    const newField = SingleLineTextField.create({
+      id: newFieldId,
+      name: FieldName.create('Extra')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const updatedTable = configuredTable
+      .update((mutator) => mutator.addField(newField))
+      ._unsafeUnwrap().table;
+
+    const shownEntry = updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+    const defaultEntry = updatedTable.views()[1]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+
+    expect(shownEntry?.hidden).toBeUndefined();
+    expect(
+      updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[notesFieldKey]?.hidden
     ).toBe(false);
     expect(defaultEntry?.hidden).toBeUndefined();
   });
@@ -600,7 +665,7 @@ describe('Table', () => {
     expect(otherView).toBeTruthy();
     if (!notesField || !targetView || !otherView) return;
 
-    // Configure both views with explicit hidden visibility config
+    // Both views hide the Notes column; only the target view should pick up the new field
     const targetViewMeta = targetView.columnMeta()._unsafeUnwrap().toDto();
     const otherViewMeta = otherView.columnMeta()._unsafeUnwrap().toDto();
 
@@ -616,7 +681,7 @@ describe('Table', () => {
       ...otherViewMeta,
       [notesField.id().toString()]: {
         ...(otherViewMeta[notesField.id().toString()] ?? {}),
-        hidden: false,
+        hidden: true,
       },
     })._unsafeUnwrap();
 
@@ -658,7 +723,7 @@ describe('Table', () => {
 
     // The new field should NOT be hidden in the target view (current view)
     expect(targetEntry?.hidden).toBeUndefined();
-    // The new field SHOULD be hidden in the other view that has explicit hidden config
+    // The new field SHOULD be hidden in the other view that hides fields
     expect(otherEntry?.hidden).toBe(true);
   });
 

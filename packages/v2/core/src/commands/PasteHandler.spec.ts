@@ -805,6 +805,9 @@ class CapturingDomainWriteTransaction implements IDomainWriteTransaction {
       options
     );
   }
+
+  savepoint: IDomainWriteTransaction['savepoint'] = (context, work) =>
+    this.inner.savepoint(context, work);
 }
 
 class FakeForeignTableLoaderService {

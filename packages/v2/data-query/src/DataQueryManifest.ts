@@ -273,7 +273,12 @@ const validateFallbackSemantics = (
     (definition.filter !== undefined && hasOptionalFilter(definition.filter)) ||
     definition.sort?.some((sort) => 'field' in sort || 'alias' in sort) ||
     (definition.kind === 'records' &&
-      definition.select.some((projection) => 'fieldId' in projection && projection.arrayDistinct));
+      definition.select.some(
+        (projection) =>
+          'fieldId' in projection &&
+          'arrayDistinct' in projection &&
+          projection.arrayDistinct === true
+      ));
   if (unsupported) {
     addManifestIssue(
       context,

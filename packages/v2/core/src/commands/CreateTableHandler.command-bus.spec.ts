@@ -26,10 +26,12 @@ import { injectable } from '@teable/v2-di';
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { createV2NodeUnitTestContainer } from '../testkit/createV2NodeUnitTestContainer';
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 describe('CreateTableHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('returns ok and publishes TableCreated', async () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

@@ -20,7 +20,7 @@ import { container } from '@teable/v2-di';
 
 import type { IV2NodeUnitTestContainer } from './v2NodeUnitTestContainer';
 
-export const createV2NodeUnitTestContainer = async (): Promise<IV2NodeUnitTestContainer> => {
+export const createV2NodeUnitTestContainer = (): IV2NodeUnitTestContainer => {
   const c = container.createChildContainer();
 
   const baseIdResult = BaseId.generate();

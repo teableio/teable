@@ -456,6 +456,55 @@ describe('database health metrics and span processor', () => {
     expect(await points(DATABASE_HEALTH_METRIC.connectionFailures)).toHaveLength(2);
   });
 
+  it('records queued acquisition latency with the same pool identity as gauges', async () => {
+    const snapshot: IPgPoolSnapshot = {
+      applicationName: 'teable',
+      database: 'teable',
+      host: 'meta.example.com',
+      idle: 0,
+      max: 20,
+      poolName: 'shared',
+      port: 5432,
+      references: 2,
+      total: 20,
+      waiting: 1,
+    };
+
+    service.onAcquireSettled(snapshot, 'acquire', 2, false);
+    expect(await points(DATABASE_HEALTH_METRIC.queuedAcquireDuration)).toHaveLength(0);
+
+    service.onAcquireQueued(snapshot, 37, false);
+    const queued = await points(DATABASE_HEALTH_METRIC.queuedAcquireDuration);
+    expect(queued).toMatchObject([
+      {
+        attributes: {
+          'db.client.application.name': 'teable',
+          'db.namespace': 'teable',
+          'server.address': 'meta.example.com',
+          'server.port': 5432,
+          [DATABASE_HEALTH_ATTRIBUTE.outcome]: 'success',
+          [DATABASE_HEALTH_ATTRIBUTE.poolName]: 'shared',
+        },
+        value: { count: 1, sum: 37, buckets: { boundaries: DATABASE_LATENCY_BUCKETS_MS } },
+      },
+    ]);
+    // Pod identity stays an OTel resource attribute; the instrument carries only the
+    // existing pool identity plus a bounded outcome.
+    expect(queued[0].attributes).not.toHaveProperty(DATABASE_HEALTH_ATTRIBUTE.instanceId);
+    expect(queued[0].attributes).not.toHaveProperty(DATABASE_HEALTH_ATTRIBUTE.role);
+    expect(queued[0].attributes).not.toHaveProperty('host.name');
+
+    service.onAcquireQueued(snapshot, 5, true);
+    expect(await points(DATABASE_HEALTH_METRIC.queuedAcquireDuration)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          attributes: expect.objectContaining({ [DATABASE_HEALTH_ATTRIBUTE.outcome]: 'error' }),
+          value: expect.objectContaining({ count: 1, sum: 5 }),
+        }),
+      ])
+    );
+  });
+
   it('resolves pool roles from the configured URLs, not from the request context', async () => {
     vi.stubEnv('PRISMA_META_DATABASE_URL', 'postgresql://teable@db.example.com:5432/teable');
     const tenant: IPgPoolSnapshot = {

@@ -389,4 +389,51 @@ describe('manifest dependency index', () => {
       },
     ]);
   });
+
+  it('indexes target filters and source sorts against the joined table', () => {
+    const index = indexOf({
+      filteredJoin: {
+        definition: {
+          version: 2,
+          kind: 'records',
+          tableId: tableA,
+          relations: {
+            owner: {
+              linkFieldId: otherField,
+              tableId: tableB,
+              filter: { fieldId: statusField, operator: 'is', value: 'open' },
+            },
+          },
+          select: [
+            { fieldId: titleField, alias: 'title' },
+            { source: 'owner', fieldId: statusField, alias: 'status' },
+          ],
+          sort: [{ source: 'owner', fieldId: statusField, order: 'asc' }],
+          page: { limit: 10 },
+        },
+      },
+    });
+
+    expect(index.queries[0]).toMatchObject({
+      queryId: 'filteredJoin',
+      fields: [
+        { fieldId: titleField, usages: ['projection'] },
+        { fieldId: otherField, usages: ['relation'] },
+      ],
+      relations: [
+        {
+          alias: 'owner',
+          tableId: tableB,
+          fields: [{ fieldId: statusField, usages: ['projection', 'filter', 'sort'] }],
+        },
+      ],
+    });
+    expect(index.tables.find((table) => table.tableId === tableB)?.fields).toEqual([
+      {
+        fieldId: statusField,
+        usages: ['projection', 'filter', 'sort'],
+        queryIds: ['filteredJoin'],
+      },
+    ]);
+  });
 });

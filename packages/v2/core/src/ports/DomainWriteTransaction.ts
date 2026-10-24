@@ -80,6 +80,20 @@ export interface IDomainWriteTransaction {
     ) => Promise<Result<DomainWriteDecision<T>, DomainError>>,
     options?: IUnitOfWorkOptions
   ): Promise<Result<DomainWriteCommit<T>, DomainError>>;
+
+  /**
+   * Runs `work` inside a savepoint of the active data transaction.
+   *
+   * A failed `work` is rolled back to the savepoint so the caller can keep using
+   * the transaction afterwards (PostgreSQL aborts the whole transaction after an
+   * error, which would turn every later statement into 25P02). Callers must not
+   * use this to swallow arbitrary failures: only errors the caller deliberately
+   * recovers from belong here.
+   */
+  savepoint<T>(
+    context: IExecutionContext,
+    work: () => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>>;
 }
 
 export const domainWrite = {

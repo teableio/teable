@@ -3,7 +3,9 @@ import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import type { ObservableCallback, ObservableGauge } from '@opentelemetry/api';
 import { metrics } from '@opentelemetry/api';
+import type { IPgPoolSnapshot } from '@teable/db-main-prisma';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
+import { databaseClientPoolAttributes } from '../observability/database-health/database-pool-identity';
 
 @Injectable()
 export class DatabaseClientPoolMetrics implements OnModuleDestroy {
@@ -45,7 +47,7 @@ export class DatabaseClientPoolMetrics implements OnModuleDestroy {
     });
     const callback: ObservableCallback = (observer) => {
       for (const snapshot of this.registry.snapshot()) {
-        const attributes = this.attributes(snapshot);
+        const attributes = databaseClientPoolAttributes(snapshot);
         observer.observe(snapshot.total, { ...attributes, state: 'total' });
         observer.observe(snapshot.idle, { ...attributes, state: 'idle' });
         observer.observe(Math.max(0, snapshot.total - snapshot.idle), {
@@ -61,25 +63,15 @@ export class DatabaseClientPoolMetrics implements OnModuleDestroy {
   private registerGauge(
     name: string,
     description: string,
-    read: (snapshot: ReturnType<PgPoolRegistry['snapshot']>[number]) => number
+    read: (snapshot: IPgPoolSnapshot) => number
   ): void {
     const gauge = this.meter.createObservableGauge(name, { description });
     const callback: ObservableCallback = (observer) => {
       for (const snapshot of this.registry.snapshot()) {
-        observer.observe(read(snapshot), this.attributes(snapshot));
+        observer.observe(read(snapshot), databaseClientPoolAttributes(snapshot));
       }
     };
     gauge.addCallback(callback);
     this.registrations.push({ callback, gauge });
-  }
-
-  private attributes(snapshot: ReturnType<PgPoolRegistry['snapshot']>[number]) {
-    return {
-      'db.namespace': snapshot.database,
-      'server.address': snapshot.host,
-      'db.client.application.name': snapshot.applicationName,
-      'teable.database.pool.name': snapshot.poolName ?? 'shared',
-      ...(snapshot.port ? { 'server.port': snapshot.port } : {}),
-    };
   }
 }

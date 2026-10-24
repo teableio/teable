@@ -58,14 +58,14 @@ export const traceDataQueryStage = async <T>(
 };
 export const hasDataQueryRelations = (definition: DataQueryDefinition): boolean => {
   const snapshot = definition.snapshot();
-  return (
-    snapshot.version === 2 &&
-    snapshot.kind === 'records' &&
-    (Object.keys(snapshot.relations ?? {}).length > 0 ||
-      snapshot.select.some(
-        (projection) => 'source' in projection && projection.source !== undefined
-      ))
-  );
+  if (snapshot.version !== 2) return false;
+  if (Object.keys(snapshot.relations ?? {}).length > 0) return true;
+  if (snapshot.kind === 'records') {
+    return snapshot.select.some(
+      (projection) => 'source' in projection && projection.source !== undefined
+    );
+  }
+  return (snapshot.groupBy ?? []).some((group) => 'source' in group && group.source !== undefined);
 };
 
 /** Loads the root and every declared target table, then validates the relation contract. */
@@ -86,11 +86,11 @@ export const prepareDataQueryRelation = async (
 > => {
   return safeTry(async function* () {
     const snapshot = definition.snapshot();
-    if (snapshot.version !== 2 || snapshot.kind !== 'records') {
+    if (snapshot.version !== 2) {
       return err(
         domainError.validation({
           code: 'data_query.join_version',
-          message: 'Relation queries require a version 2 records definition',
+          message: 'Relation queries require a version 2 definition',
         })
       );
     }

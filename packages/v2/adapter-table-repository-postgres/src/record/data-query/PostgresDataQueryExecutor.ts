@@ -4,7 +4,6 @@ import {
   replaceCurrentUserTagInFilter,
   type DomainError,
   type Field,
-  type LinkField,
   type IExecutionContext,
   type ITableReadModel,
   type RecordQueryPluginScope,
@@ -18,13 +17,22 @@ import {
   traceDataQueryStage,
   validateDataQueryFilter,
   type BoundDataQuery,
+  type DataQueryBucket,
+  type DataQueryRelationAggregate,
   type DataQueryRelationPlan,
   type DataQueryResult,
   type DataQuerySystemField,
   type IDataQueryExecutor,
 } from '@teable/v2-data-query';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type CompiledQuery, type Kysely, type RawBuilder } from 'kysely';
+import {
+  sql,
+  type CompiledQuery,
+  type Expression,
+  type Kysely,
+  type RawBuilder,
+  type SqlBool,
+} from 'kysely';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
 import { buildDateLikeGroupExpression } from '../query-builder/dateLikeOrderBy';
@@ -52,6 +60,49 @@ const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
 
 const failure = (code: string, message: string): DomainError =>
   domainError.validation({ code: `data_query.${code}`, message });
+/**
+ * Compile one of the controlled bucket shapes. Labels are bound values, never
+ * interpolated SQL; the stored expression is already masked before it arrives.
+ */
+const buildBucketExpression = (
+  expression: RawBuilder<unknown>,
+  bucket: DataQueryBucket,
+  dateOnly = false
+): RawBuilder<unknown> => {
+  if (bucket.kind === 'dateTrunc') {
+    // A date-only column is a calendar date: never reinterpret it through the
+    // session timezone. A timestamp is an instant and converts through the zone.
+    return dateOnly
+      ? sql`to_char(date_trunc(${bucket.unit}, ${expression}::timestamp), 'YYYY-MM-DD')`
+      : sql`to_char(date_trunc(${bucket.unit}, ${expression}::timestamptz at time zone ${bucket.timeZone}), 'YYYY-MM-DD')`;
+  }
+  const nullLabel = bucket.nullLabel === undefined ? sql`null` : sql`${bucket.nullLabel}`;
+  let measured: RawBuilder<unknown>;
+  if (bucket.kind === 'numericRange') {
+    measured = expression;
+  } else {
+    const valueDate = dateOnly
+      ? sql`(${expression})::date`
+      : sql`(${expression}::timestamptz at time zone ${bucket.timeZone})::date`;
+    const anchorDate =
+      bucket.anchor === undefined
+        ? dateOnly
+          ? sql`(now() at time zone ${bucket.timeZone})::date`
+          : sql`(now() at time zone ${bucket.timeZone})::date`
+        : sql`${bucket.anchor}::date`;
+    measured =
+      bucket.unit === 'day'
+        ? sql`(${anchorDate} - ${valueDate})`
+        : sql`((extract(year from age(${anchorDate}, ${valueDate})) * 12 + extract(month from age(${anchorDate}, ${valueDate})))::integer)`;
+  }
+  const cases = bucket.edges.map(
+    (edge) => sql`when ${measured} < ${edge.maxExclusive} then ${edge.label}`
+  );
+  return sql`case when ${expression} is null then ${nullLabel} ${sql.join(
+    cases,
+    sql` `
+  )} else ${bucket.fallbackLabel} end`;
+};
 /**
  * PostgreSQL-side de-duplication for multi-value lookup/rollup storage.
  * First occurrence wins, NULL/scalars pass through unchanged, and elements compare
@@ -220,13 +271,26 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           );
         };
         if (snapshot.kind === 'records') {
+          if (snapshot.select.some((projection) => 'statisticFunc' in projection)) {
+            return err(
+              failure('join_version', 'Relation aggregates require a relation execution plan')
+            );
+          }
           const selections = snapshot.select.map((projection) => {
             if ('system' in projection) {
               return sql`${sql.id('t', systemColumns[projection.system])} as ${sql.id(
                 projection.alias
               )}`;
             }
-            const expression = values.get(projection.fieldId)!;
+            if ('statisticFunc' in projection || !('fieldId' in projection))
+              throw new Error('Missing field projection');
+            const stored = values.get(projection.fieldId)!;
+            const expression =
+              'bucket' in projection && projection.bucket !== undefined
+                ? // Teable stores every date cell as an instant (timestamptz), even
+                  // when the view formats it as a date; convert through the declared zone.
+                  buildBucketExpression(stored, projection.bucket)
+                : stored;
             return sql`${
               projection.arrayDistinct === true
                 ? buildArrayDistinctExpression(expression)
@@ -305,15 +369,29 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             )} as ${sql.id(aggregate.alias)}`
         );
         const groups = new Map<string, RawBuilder<unknown>>();
+        // A bucket expression carries bound unit/zone/label values. Repeating it in
+        // GROUP BY would create distinct placeholders PostgreSQL cannot prove equal,
+        // so the row query groups by the projected alias while the total query still
+        // needs the full expression (its projection is only `1`).
+        const rowGroups = new Map<string, RawBuilder<unknown>>();
         for (const group of snapshot.groupBy ?? []) {
           const field = fields.get(group.fieldId)!;
           const column = sql.ref(`a.${group.fieldId}`);
-          const multiplicity = yield* resolveUserGroupIdentityMultiplicity(field);
-          const expression =
-            multiplicity == null
-              ? (buildDateLikeGroupExpression(field, 'a', group.fieldId) ?? column)
-              : buildUserGroupIdentityExpr(column, multiplicity);
-          groups.set(group.fieldId, expression);
+          const bucket = 'bucket' in group ? group.bucket : undefined;
+          let expression: RawBuilder<unknown>;
+          if (bucket !== undefined) {
+            expression = buildBucketExpression(column, bucket);
+          } else {
+            const multiplicity = yield* resolveUserGroupIdentityMultiplicity(field);
+            expression =
+              multiplicity == null
+                ? (buildDateLikeGroupExpression(field, 'a', group.fieldId) ?? column)
+                : buildUserGroupIdentityExpr(column, multiplicity);
+          }
+          // A bucketed group has no field-identity ordering; sorting must use its alias.
+          const key = bucket === undefined ? group.fieldId : `bucket:${group.alias}`;
+          groups.set(key, expression);
+          rowGroups.set(key, bucket === undefined ? expression : sql.id(group.alias));
           selections.push(sql`${expression} as ${sql.id(group.alias)}`);
         }
         const groupOrders = [...query.sort];
@@ -362,9 +440,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           addOrder(expression, sort.order, true, sort.nulls);
         }
         const groupClause = groups.size ? sql`group by ${sql.join([...groups.values()])}` : sql``;
+        const rowGroupClause = rowGroups.size
+          ? sql`group by ${sql.join([...rowGroups.values()])}`
+          : sql``;
         const orderClause = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
         const rows = sql<Row>`select ${sql.join(selections)} from (${source}) as ${sql.id('a')}
-          ${groupClause} ${orderClause} limit ${query.limit} offset ${query.offset}`.compile(db);
+          ${rowGroupClause} ${orderClause} limit ${query.limit} offset ${query.offset}`.compile(db);
         if (!query.includeTotal) return ok({ rows });
         // Without grouping the aggregate always produces exactly one result row.
         if (!groups.size) return ok({ rows, constantTotal: 1 });
@@ -387,6 +468,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       {
         rows: CompiledQuery<Row>;
         count?: CompiledQuery<{ total: unknown }>;
+        constantTotal?: number;
       },
       DomainError
     >
@@ -406,6 +488,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     {
       rows: CompiledQuery<Row>;
       count?: CompiledQuery<{ total: unknown }>;
+      /** An ungrouped aggregate returns exactly one row. */
+      constantTotal?: number;
     },
     DomainError
   > {
@@ -416,8 +500,10 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
         }
         const relationDefinition = plan.query.definition;
-        if (relationDefinition.kind !== 'records') {
-          return err(failure('invalid_relation_plan', 'Relation execution requires records'));
+        if (relationDefinition.kind !== 'records' && relationDefinition.kind !== 'aggregate') {
+          return err(
+            failure('invalid_relation_plan', 'Relation execution requires records or aggregate')
+          );
         }
         const targetTables = new Map(plan.sources.map((source) => [source.alias, source.table]));
         const binding = yield* DataQueryRelationBinding.prepare(
@@ -475,12 +561,19 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
 
         type SqlSource = {
           readonly alias: string;
-          readonly from: RawBuilder<unknown>;
+          readonly cardinality: 'one' | 'many';
+          readonly sqlAlias: string;
+          readonly fields: Map<string, Field>;
+          readonly columns: Map<string, string>;
           readonly values: Map<string, RawBuilder<unknown>>;
+          /** Parent-scoped mask expressions; a child hop ANDs its link-edge mask. */
+          readonly masks?: ReadonlyMap<string, Expression<SqlBool>>;
+          /** Present for a to-many source: the one-row pre-aggregated lateral. */
+          readonly aggregateAlias?: string;
         };
         const sqlSources: SqlSource[] = [];
         const joins: RawBuilder<unknown>[] = [];
-        for (const source of binding.sources) {
+        for (const [index, source] of binding.sources.entries()) {
           const sourcePlan = sourcePlans.get(source.alias)!;
           const sqlAlias = sqlAliases.get(source.alias)!;
           const name = yield* (yield* sourcePlan.table.dbTableName()).split({
@@ -490,11 +583,13 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             ? sql`${sql.id(name.schema, name.tableName)} as ${sql.id(sqlAlias)}`
             : sql`${sql.id(name.tableName)} as ${sql.id(sqlAlias)}`;
           const fields = new Map<string, Field>();
+          const columns = new Map<string, string>();
           for (const dependency of source.dependencies) {
             const field = yield* sourcePlan.table.getField(
               (candidate) => candidate.id().toString() === dependency.fieldId
             );
             fields.set(dependency.fieldId, field);
+            columns.set(dependency.fieldId, yield* (yield* field.dbFieldName()).value());
           }
           const masks = yield* buildFieldMaskSqlMap(sourcePlan.scope.fieldMasks, sqlAlias);
           const visitor = new StoredFieldSelectVisitor(sqlAlias);
@@ -505,25 +600,166 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             const mask = masks?.get(id);
             values.set(id, mask ? maskValueExpression(mask, expression) : expression);
           }
-          const linkField = yield* plan.rootTable.getField(
-            (candidate) => candidate.id().toString() === source.linkFieldId
+          // A join may only read a source that was joined before it. `via` is
+          // validated to name an earlier alias, so declaration order is join order.
+          const parentAlias =
+            source.parentAlias === 'root' ? rootAlias : sqlAliases.get(source.parentAlias);
+          if (!parentAlias) {
+            return err(failure('invalid_relation_plan', 'A relation parent source is missing'));
+          }
+          const relationFilter = replaceCurrentUserTagInFilter(
+            sourcePlan.table,
+            plan.query.relationFilters?.[source.alias],
+            context.actorId.toString()
           );
+          const filterRestriction = relationFilter
+            ? yield* buildRecordWhereClause(
+                yield* buildRecordConditionSpec(
+                  sourcePlan.table,
+                  relationFilter,
+                  sourcePlan.scope.fieldMasks
+                ),
+                { tableAlias: sqlAlias }
+              )
+            : undefined;
           const restriction = sourcePlan.scope.recordSpec
             ? yield* buildRecordWhereClause(sourcePlan.scope.recordSpec, {
                 tableAlias: sqlAlias,
               })
             : undefined;
-          const foreignKey = yield* (linkField as LinkField).foreignKeyNameString();
-          const linkPredicate = sql`${sql.id(sqlAlias, '__id')} = ${sql.id(rootAlias, foreignKey)}`;
-          joins.push(
-            restriction
-              ? sql`left join ${from} on ${linkPredicate} and ${restriction}`
-              : sql`left join ${from} on ${linkPredicate}`
-          );
+          // A masked link edge must not reveal membership. The mask belongs to the
+          // table that hosts the link (root for the first hop, the parent alias after).
+          const parentMasks =
+            source.parentAlias === 'root'
+              ? rootMasks
+              : sqlSources.find((candidate) => candidate.alias === source.parentAlias)?.masks;
+          const linkMask = parentMasks?.get(source.linkFieldId);
+
+          if (source.cardinality === 'many') {
+            if (relationDefinition.kind !== 'records') {
+              return err(
+                failure('invalid_relation_plan', 'A to-many source requires a records definition')
+              );
+            }
+            const aggregateAlias = `aggregate_${index}`;
+            const aggregates = relationDefinition.select.filter(
+              (projection): projection is DataQueryRelationAggregate =>
+                'statisticFunc' in projection && projection.source === source.alias
+            );
+            if (aggregates.length === 0) {
+              // Declared but unused: no lateral join is needed.
+              sqlSources.push({
+                alias: source.alias,
+                cardinality: source.cardinality,
+                sqlAlias,
+                fields,
+                columns,
+                values,
+              });
+              continue;
+            }
+            const membership =
+              source.linkStorage.kind === 'target-fk-many'
+                ? sql`${sql.id(sqlAlias, source.linkStorage.column)} = ${sql.id(
+                    parentAlias,
+                    '__id'
+                  )}`
+                : source.linkStorage.kind === 'junction'
+                  ? (() => {
+                      const junctionAlias = `junction_${index}`;
+                      const junctionFrom = source.linkStorage.schema
+                        ? sql`${sql.id(
+                            source.linkStorage.schema,
+                            source.linkStorage.tableName
+                          )} as ${sql.id(junctionAlias)}`
+                        : sql`${sql.id(source.linkStorage.tableName)} as ${sql.id(junctionAlias)}`;
+                      return sql`exists (
+                        select 1 from ${junctionFrom}
+                        where ${sql.id(junctionAlias, source.linkStorage.selfKeyName)} = ${sql.id(
+                          parentAlias,
+                          '__id'
+                        )}
+                          and ${sql.id(
+                            junctionAlias,
+                            source.linkStorage.foreignKeyName
+                          )} = ${sql.id(sqlAlias, '__id')}
+                      )`;
+                    })()
+                  : undefined;
+            if (!membership) {
+              return err(failure('join_storage', 'A to-many relation has no physical storage'));
+            }
+            const conditions: RawBuilder<unknown>[] = [membership];
+            if (linkMask) conditions.push(sql`${linkMask}`);
+            if (filterRestriction) conditions.push(sql`${filterRestriction}`);
+            if (restriction) conditions.push(sql`${restriction}`);
+            const aggregateSelections = aggregates.map((aggregate) => {
+              if (aggregate.statisticFunc === 'count') {
+                // Count related records, not joined rows: an unlinked parent is 0.
+                return sql`count(${sql.id(sqlAlias, '__id')}) as ${sql.id(aggregate.alias)}`;
+              }
+              const value = values.get(aggregate.fieldId!);
+              if (!value) throw new Error('Missing relation aggregate field');
+              switch (aggregate.statisticFunc) {
+                case 'unique':
+                  return sql`count(distinct ${value}) as ${sql.id(aggregate.alias)}`;
+                case 'sum':
+                  return sql`sum(${value}) as ${sql.id(aggregate.alias)}`;
+                case 'average':
+                  return sql`avg(${value}) as ${sql.id(aggregate.alias)}`;
+                case 'min':
+                  return sql`min(${value}) as ${sql.id(aggregate.alias)}`;
+                case 'max':
+                  return sql`max(${value}) as ${sql.id(aggregate.alias)}`;
+              }
+            });
+            // One row per parent key, so the root result keeps its row shape and
+            // offset/total semantics; target filters and row scope stay inside.
+            joins.push(
+              sql`left join lateral (select ${sql.join(
+                aggregateSelections
+              )} from ${from} where ${sql.join(conditions, sql` and `)}) as ${sql.id(
+                aggregateAlias
+              )} on true`
+            );
+            sqlSources.push({
+              alias: source.alias,
+              cardinality: source.cardinality,
+              sqlAlias,
+              fields,
+              columns,
+              values,
+              masks,
+              aggregateAlias,
+            });
+            continue;
+          }
+
+          const linkPredicate =
+            source.linkStorage.kind === 'root-fk'
+              ? sql`${sql.id(sqlAlias, '__id')} = ${sql.id(parentAlias, source.linkStorage.column)}`
+              : source.linkStorage.kind === 'target-fk'
+                ? sql`${sql.id(sqlAlias, source.linkStorage.column)} = ${sql.id(
+                    parentAlias,
+                    '__id'
+                  )}`
+                : undefined;
+          if (!linkPredicate) {
+            return err(failure('join_storage', 'A to-one relation has no physical storage'));
+          }
+          const joinCondition: RawBuilder<unknown>[] = [linkPredicate];
+          if (linkMask) joinCondition.push(sql`${linkMask}`);
+          if (filterRestriction) joinCondition.push(sql`${filterRestriction}`);
+          if (restriction) joinCondition.push(sql`${restriction}`);
+          joins.push(sql`left join ${from} on ${sql.join(joinCondition, sql` and `)}`);
           sqlSources.push({
             alias: source.alias,
-            from,
+            cardinality: source.cardinality,
+            sqlAlias,
+            fields,
+            columns,
             values,
+            masks,
           });
         }
 
@@ -553,7 +789,180 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         }
         const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
 
+        if (relationDefinition.kind === 'aggregate') {
+          const groupSource = (group: object): string => {
+            if ('source' in group && typeof group.source === 'string') return group.source;
+            return rootAlias;
+          };
+          const sourceIndex = new Map(
+            sqlSources.map((candidate, index) => [candidate.alias, index])
+          );
+          const innerSelections: RawBuilder<unknown>[] = [];
+          const rootInnerAlias = (fieldId: string) => `root__${fieldId}`;
+          const sourceInnerAlias = (index: number, fieldId: string) =>
+            `source_${index}__${fieldId}`;
+          const rootIds = new Set<string>([
+            ...relationDefinition.aggregates.map((aggregate) => aggregate.fieldId),
+            ...(relationDefinition.groupBy ?? [])
+              .filter((group) => groupSource(group) === rootAlias)
+              .map((group) => group.fieldId),
+          ]);
+          for (const fieldId of rootIds) {
+            const expression = rootValues.get(fieldId);
+            if (!expression) {
+              return err(failure('invalid_relation_plan', 'A root field is not bound'));
+            }
+            innerSelections.push(sql`${expression} as ${sql.id(rootInnerAlias(fieldId))}`);
+          }
+          for (const [alias, index] of sourceIndex) {
+            const source = sqlSources[index];
+            const fieldIds = new Set(
+              (relationDefinition.groupBy ?? [])
+                .filter((group) => groupSource(group) === alias)
+                .map((group) => group.fieldId)
+            );
+            for (const fieldId of fieldIds) {
+              const expression = source.values.get(fieldId);
+              if (!expression) {
+                return err(failure('invalid_relation_plan', 'A source group field is not bound'));
+              }
+              innerSelections.push(
+                sql`${expression} as ${sql.id(sourceInnerAlias(index, fieldId))}`
+              );
+            }
+          }
+          const inner = sql`select ${sql.join(innerSelections)} from ${rootFrom}
+            ${sql.join(joins, sql` `)} ${where}`;
+          const selections = relationDefinition.aggregates.map(
+            (aggregate) =>
+              sql`${buildTableRecordAggregationExpression(
+                rootFields.get(aggregate.fieldId)!,
+                rootInnerAlias(aggregate.fieldId),
+                aggregate.statisticFunc,
+                'b'
+              )} as ${sql.id(aggregate.alias)}`
+          );
+          const groups = new Map<string, RawBuilder<unknown>>();
+          const rowGroups = new Map<string, RawBuilder<unknown>>();
+          for (const group of relationDefinition.groupBy ?? []) {
+            const source = groupSource(group);
+            const sourcePosition = source === rootAlias ? undefined : sourceIndex.get(source);
+            if (source !== rootAlias && sourcePosition === undefined) {
+              return err(failure('invalid_relation_plan', 'A group source is missing'));
+            }
+            const columnName =
+              source === rootAlias
+                ? rootInnerAlias(group.fieldId)
+                : sourceInnerAlias(sourcePosition!, group.fieldId);
+            const column = sql.ref(`b.${columnName}`);
+            const bucket = 'bucket' in group ? group.bucket : undefined;
+            const groupField =
+              source === rootAlias
+                ? rootFields.get(group.fieldId)!
+                : sqlSources[sourcePosition!].fields.get(group.fieldId)!;
+            let expression: RawBuilder<unknown>;
+            if (bucket !== undefined) {
+              expression = buildBucketExpression(column, bucket);
+            } else {
+              const multiplicity = yield* resolveUserGroupIdentityMultiplicity(groupField);
+              expression =
+                multiplicity == null
+                  ? (buildDateLikeGroupExpression(groupField, 'b', columnName) ?? column)
+                  : buildUserGroupIdentityExpr(column, multiplicity);
+            }
+            // Every group is keyed by its output alias; a field-id sort resolves
+            // the alias instead of assuming alias == fieldId.
+            const key = `group:${group.alias}`;
+            groups.set(key, expression);
+            rowGroups.set(key, bucket === undefined ? expression : sql.id(group.alias));
+            selections.push(sql`${expression} as ${sql.id(group.alias)}`);
+          }
+          const orders: RawBuilder<unknown>[] = [];
+          const addOrder = (
+            expression: RawBuilder<unknown>,
+            direction: 'asc' | 'desc',
+            nulls?: 'first' | 'last'
+          ) => {
+            const nullOrder = nulls ?? (direction === 'asc' ? 'first' : 'last');
+            orders.push(
+              direction === 'asc'
+                ? nullOrder === 'first'
+                  ? sql`${expression} asc nulls first`
+                  : sql`${expression} asc nulls last`
+                : nullOrder === 'first'
+                  ? sql`${expression} desc nulls first`
+                  : sql`${expression} desc nulls last`
+            );
+          };
+          for (const sort of plan.query.sort) {
+            if ('alias' in sort) {
+              addOrder(sql.id(sort.alias), sort.order, sort.nulls);
+              continue;
+            }
+            if (!('fieldId' in sort) || 'source' in sort) {
+              return err(failure('invalid_sort', 'Aggregate sorting must use a group alias'));
+            }
+            const group = (relationDefinition.groupBy ?? []).find(
+              (candidate) =>
+                groupSource(candidate) === rootAlias &&
+                candidate.fieldId === sort.fieldId &&
+                (!('bucket' in candidate) || candidate.bucket === undefined)
+            );
+            const field = rootFields.get(sort.fieldId);
+            const expression = group === undefined ? undefined : groups.get(`group:${group.alias}`);
+            if (!field || !expression) {
+              return err(
+                failure('invalid_sort', 'Aggregate sorting requires a root grouping field')
+              );
+            }
+            const clauses = yield* buildStoredFieldOrderByClauses(
+              field,
+              rootInnerAlias(sort.fieldId),
+              sort.order,
+              'b',
+              { columnExpression: expression, groupIdentityCollation: true }
+            );
+            clauses.forEach((clause, index) =>
+              addOrder(clause.expression, clause.direction, index === 0 ? sort.nulls : undefined)
+            );
+          }
+          for (const group of relationDefinition.groupBy ?? []) {
+            if (
+              !orders.length ||
+              !plan.query.sort.some((sort) => 'alias' in sort && sort.alias === group.alias)
+            ) {
+              addOrder(sql.id(group.alias), 'asc');
+            }
+          }
+          const rowGroupClause = rowGroups.size
+            ? sql`group by ${sql.join([...rowGroups.values()])}`
+            : sql``;
+          const countGroupClause = groups.size
+            ? sql`group by ${sql.join([...groups.values()])}`
+            : sql``;
+          const orderClause = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
+          const rows = sql<Row>`select ${sql.join(selections)} from (${inner}) as ${sql.id('b')}
+            ${rowGroupClause} ${orderClause} limit ${plan.query.limit} offset ${plan.query.offset}`.compile(
+            db
+          );
+          if (!plan.query.includeTotal) return ok({ rows });
+          if (!groups.size) return ok({ rows, constantTotal: 1 });
+          const count = sql<{
+            total: unknown;
+          }>`select count(*) as ${sql.id('total')} from (
+            select 1 from (${inner}) as ${sql.id('b')} ${countGroupClause}
+          ) as ${sql.id('grouped')}`.compile(db);
+          return ok({ rows, count });
+        }
+
         const selections = relationDefinition.select.map((projection) => {
+          if ('statisticFunc' in projection) {
+            const target = sqlSources.find((candidate) => candidate.alias === projection.source);
+            if (!target?.aggregateAlias) throw new Error('Missing relation aggregate source');
+            return sql`${sql.id(target.aggregateAlias, projection.alias)} as ${sql.id(
+              projection.alias
+            )}`;
+          }
           const source = 'source' in projection ? projection.source : undefined;
           const sqlAlias =
             source === undefined || source === 'root' ? rootAlias : sqlAliases.get(source)!;
@@ -565,8 +974,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             source === undefined || source === 'root'
               ? rootValues
               : sqlSources.find((candidate) => candidate.alias === source)?.values;
-          const expression = values?.get(projection.fieldId);
-          if (!expression) throw new Error('Missing relation projection');
+          const stored = values?.get(projection.fieldId);
+          if (!stored) throw new Error('Missing relation projection');
+          const expression =
+            'bucket' in projection && projection.bucket !== undefined
+              ? buildBucketExpression(stored, projection.bucket)
+              : stored;
           return sql`${
             projection.arrayDistinct === true
               ? buildArrayDistinctExpression(expression)
@@ -598,6 +1011,54 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           );
         };
         for (const sort of plan.query.sort) {
+          if ('source' in sort) {
+            const target = sqlSources.find((candidate) => candidate.alias === sort.source);
+            const targetAlias = sqlAliases.get(sort.source);
+            if (!target || !targetAlias) {
+              return err(
+                failure('invalid_sort', 'A sort references a source outside the relation plan')
+              );
+            }
+            if (target.cardinality === 'many') {
+              return err(
+                failure(
+                  'invalid_sort',
+                  'A to-many relation cannot be sorted directly; sort by an aggregate alias'
+                )
+              );
+            }
+            if ('system' in sort) {
+              addOrder(
+                sql.id(targetAlias, systemColumns[sort.system]),
+                sort.order,
+                true,
+                sort.nulls
+              );
+              continue;
+            }
+            const field = target.fields.get(sort.fieldId);
+            const column = target.columns.get(sort.fieldId);
+            const value = target.values.get(sort.fieldId);
+            if (!field || !column || !value) {
+              return err(failure('invalid_sort', 'A sort field is not part of the query binding'));
+            }
+            const clauses = yield* buildStoredFieldOrderByClauses(
+              field,
+              column,
+              sort.order,
+              targetAlias,
+              { columnExpression: value }
+            );
+            clauses.forEach((clause, index) =>
+              addOrder(
+                clause.expression,
+                clause.direction,
+                clause.matchV1Nulls,
+                index === 0 ? sort.nulls : undefined
+              )
+            );
+            continue;
+          }
           if ('alias' in sort) {
             addOrder(sql.id(sort.alias), sort.order, false, sort.nulls);
             continue;
@@ -682,6 +1143,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 );
                 const pages = await transaction.executeQuery(queries.rows);
                 if (!plan.query.includeTotal) return { pages, total: undefined };
+                if (queries.constantTotal !== undefined) {
+                  return { pages, total: queries.constantTotal };
+                }
                 if (!queries.count) throw new Error('Missing count query');
                 const counted = await transaction.executeQuery(queries.count);
                 return { pages, total: parseTotal(counted.rows[0]?.total) };
@@ -719,11 +1183,25 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           })
         );
       }
+      const statistics = new Map(
+        plan.query.definition.kind === 'records'
+          ? plan.query.definition.select
+              .filter(
+                (projection): projection is DataQueryRelationAggregate =>
+                  'statisticFunc' in projection
+              )
+              .map((projection) => [projection.alias, projection.statisticFunc] as const)
+          : plan.query.definition.kind === 'aggregate'
+            ? plan.query.definition.aggregates.map(
+                (aggregate) => [aggregate.alias, aggregate.statisticFunc] as const
+              )
+            : []
+      );
       return ok({
         rows: pages.rows.map((row) => {
           const output: Row = {};
           for (const [alias, value] of Object.entries(row)) {
-            output[alias] = normalizeDataQueryValue(value, undefined);
+            output[alias] = normalizeDataQueryValue(value, statistics.get(alias));
           }
           return output;
         }),

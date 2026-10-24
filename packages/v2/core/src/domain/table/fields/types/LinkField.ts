@@ -365,7 +365,12 @@ export class LinkField
     return ok(undefined);
   }
 
-  validateTitleResolutionTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
+  /**
+   * Auto-creation writes a foreign record from the pasted title alone, so it
+   * still requires the display field to be the primary field and that primary
+   * to hold a single text value.
+   */
+  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
     if (foreignTable.id().equals(hostTable.id())) {
       return err(
         domainError.validation({
@@ -408,8 +413,8 @@ export class LinkField
       !cellValueType.equals(CellValueType.string()) ||
       !isMultipleCellValue.equals(CellValueMultiplicity.single())
     ) {
-      // Text formulas may resolve existing titles, but a computed non-text
-      // primary cannot resolve titles or be populated by paste auto-creation.
+      // Text formulas may still be populated by paste auto-creation; other
+      // computed primaries only pass when the table accepts a primary-only create.
       if (primaryFieldResult.value.computed().toBoolean()) {
         return foreignTable.validateCreateWithPrimaryOnly();
       }
@@ -430,13 +435,7 @@ export class LinkField
       );
     }
 
-    return ok(undefined);
-  }
-
-  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
-    return this.validateTitleResolutionTarget(hostTable, foreignTable).andThen(() =>
-      foreignTable.validateCreateWithPrimaryOnly()
-    );
+    return foreignTable.validateCreateWithPrimaryOnly();
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {

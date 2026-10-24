@@ -256,16 +256,8 @@ describe('ComputedActivityReadCoalescer', () => {
     expect(execute).toHaveBeenCalledTimes(4);
   });
 
-  it('reads the env kill switch', () => {
-    const previous = process.env.COMPUTED_ACTIVITY_READ_CACHE_MS;
-    try {
-      process.env.COMPUTED_ACTIVITY_READ_CACHE_MS = '0';
-      expect(computedActivityReadCacheConfig().ttlMs).toBe(0);
-      delete process.env.COMPUTED_ACTIVITY_READ_CACHE_MS;
-      expect(computedActivityReadCacheConfig().ttlMs).toBe(1_000);
-    } finally {
-      if (previous === undefined) delete process.env.COMPUTED_ACTIVITY_READ_CACHE_MS;
-      else process.env.COMPUTED_ACTIVITY_READ_CACHE_MS = previous;
-    }
+  it('honours an explicit ttl kill switch', () => {
+    expect(computedActivityReadCacheConfig({ ttlMs: 0 }).ttlMs).toBe(0);
+    expect(computedActivityReadCacheConfig().ttlMs).toBe(1_000);
   });
 });
