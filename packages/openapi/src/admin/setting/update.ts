@@ -31,6 +31,7 @@ export enum LLMProviderType {
   COHERE = 'cohere',
   MISTRAL = 'mistral',
   DEEPSEEK = 'deepseek',
+  MINIMAX = 'minimax',
   QWEN = 'qwen',
   ZHIPU = 'zhipu',
   LINGYIWANWU = 'lingyiwanwu',
@@ -87,6 +88,70 @@ export const modelConfigSchema = z.object({
 });
 
 export type IModelConfig = z.infer<typeof modelConfigSchema>;
+
+export const MINIMAX_MODEL_IDS = ['MiniMax-M3.1-Flash', 'MiniMax-M3'] as const;
+
+export const MINIMAX_PROVIDER_ENDPOINTS = [
+  {
+    region: 'global_en',
+    apiStyle: 'chatCompletions',
+    baseUrl: 'https://api.minimax.io/v1',
+  },
+  {
+    region: 'cn_zh',
+    apiStyle: 'chatCompletions',
+    baseUrl: 'https://api.minimaxi.com/v1',
+  },
+  {
+    region: 'global_en',
+    apiStyle: 'messages',
+    baseUrl: 'https://api.minimax.io/anthropic',
+  },
+  {
+    region: 'cn_zh',
+    apiStyle: 'messages',
+    baseUrl: 'https://api.minimaxi.com/anthropic',
+  },
+] as const;
+
+export const MINIMAX_DEFAULT_MODEL_CONFIGS = {
+  'MiniMax-M3.1-Flash': {
+    pricing: {
+      input: '0.00000015',
+      output: '0.0000006',
+      inputCacheRead: '0.000000015',
+    },
+    ability: { image: true, reasoning: true },
+    ownedBy: 'minimax',
+    modelType: 'language',
+    tags: ['reasoning', 'vision', 'video-input'],
+    contextWindow: 1_000_000,
+    maxTokens: 524_288,
+  },
+  'MiniMax-M3': {
+    // Standard rates for prompts up to 512k; longer prompts cost twice as much.
+    // The progressive pricing tiers cannot represent a whole-request price change.
+    pricing: {
+      input: '0.0000003',
+      output: '0.0000012',
+      inputCacheRead: '0.00000006',
+    },
+    ability: { image: true, reasoning: true },
+    ownedBy: 'minimax',
+    modelType: 'language',
+    tags: ['reasoning', 'vision', 'video-input'],
+    contextWindow: 1_000_000,
+    description: 'Standard pricing up to 512k input tokens; longer prompts use 2x these rates.',
+  },
+} satisfies Record<(typeof MINIMAX_MODEL_IDS)[number], IModelConfig>;
+
+export const isMiniMaxMessagesEndpoint = (baseUrl: string): boolean => {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  return MINIMAX_PROVIDER_ENDPOINTS.some(
+    (endpoint) =>
+      endpoint.apiStyle === 'messages' && endpoint.baseUrl.replace(/\/+$/, '') === normalizedBaseUrl
+  );
+};
 
 export const llmProviderSchema = z.object({
   type: z.enum(LLMProviderType),
