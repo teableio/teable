@@ -491,7 +491,7 @@ describe('[B11] v2 realtime sharedb (e2e)', () => {
     };
     viewAMeta[notesFieldId] = {
       ...(viewAMeta[notesFieldId] ?? {}),
-      hidden: false,
+      hidden: true,
     };
 
     await testContainer.db
@@ -564,7 +564,7 @@ describe('[B11] v2 realtime sharedb (e2e)', () => {
       });
 
       expect(doc.data?.columnMeta?.[newFieldId]?.hidden).toBe(true);
-      expect(doc.data?.columnMeta?.[notesFieldId]?.hidden).toBe(false);
+      expect(doc.data?.columnMeta?.[notesFieldId]?.hidden).toBe(true);
     } finally {
       doc.destroy();
       connection.close();

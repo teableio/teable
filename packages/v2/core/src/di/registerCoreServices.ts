@@ -1,5 +1,7 @@
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle } from '@teable/v2-di';
+import { UpdateRecordApplicationService } from '../commands/UpdateRecordApplicationService';
+import { UpdateRecordsApplicationService } from '../commands/UpdateRecordsApplicationService';
 
 import { AttachmentValueDecoratorService } from '../application/services/AttachmentValueDecoratorService';
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
@@ -18,6 +20,7 @@ import { LinkTitleResolverService } from '../application/services/LinkTitleResol
 import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import { RecordUpsertService } from '../application/services/RecordUpsertService';
 import { NullRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
@@ -546,6 +549,26 @@ export const registerV2CoreServices = (
 
   if (!container.isRegistered(v2CoreTokens.recordBulkUpdateService)) {
     container.register(v2CoreTokens.recordBulkUpdateService, RecordBulkUpdateService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.updateRecordApplicationService)) {
+    container.register(
+      v2CoreTokens.updateRecordApplicationService,
+      UpdateRecordApplicationService,
+      { lifecycle }
+    );
+  }
+  if (!container.isRegistered(v2CoreTokens.updateRecordsApplicationService)) {
+    container.register(
+      v2CoreTokens.updateRecordsApplicationService,
+      UpdateRecordsApplicationService,
+      { lifecycle }
+    );
+  }
+  if (!container.isRegistered(v2CoreTokens.recordUpsertService)) {
+    container.register(v2CoreTokens.recordUpsertService, RecordUpsertService, {
       lifecycle,
     });
   }

@@ -63,7 +63,7 @@ describe('TableUpdateViewColumnMetaSpec', () => {
     expect((duplicatedOrder as number) > (sourceOrder as number)).toBe(true);
   });
 
-  it('keeps non-target view visibility updates while overriding target view placement', () => {
+  it.each([false, true])('preserves visibility with hidden=%s and target placement', (hidden) => {
     const baseId = createBaseId('b');
     const builder = Table.builder()
       .withBaseId(baseId)
@@ -97,7 +97,7 @@ describe('TableUpdateViewColumnMetaSpec', () => {
           ...viewA.columnMeta()._unsafeUnwrap().toDto(),
           [notesField.id().toString()]: {
             ...(viewA.columnMeta()._unsafeUnwrap().toDto()[notesField.id().toString()] ?? {}),
-            hidden: false,
+            hidden,
           },
         })._unsafeUnwrap(),
       },
@@ -131,7 +131,10 @@ describe('TableUpdateViewColumnMetaSpec', () => {
     expect(viewBUpdate).toBeTruthy();
     if (!viewAUpdate || !viewBUpdate) return;
 
-    expect(viewAUpdate.columnMeta.toDto()[newField.id().toString()]?.hidden).toBe(true);
+    expect(viewAUpdate.columnMeta.toDto()[newField.id().toString()]?.hidden).toBe(
+      hidden ? true : undefined
+    );
+    expect(viewAUpdate.columnMeta.toDto()[notesField.id().toString()]?.hidden).toBe(hidden);
     expect(viewBUpdate.columnMeta.toDto()[newField.id().toString()]?.hidden).toBeUndefined();
     expect(viewBUpdate.columnMeta.toDto()[newField.id().toString()]?.order).toBe(2.5);
   });

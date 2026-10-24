@@ -498,7 +498,7 @@ describe('CreateFieldHandler (db)', () => {
     expect(updatedViewMetaDb).toEqual(updatedViewMeta);
   });
 
-  it('defaults new field to hidden in grid views with explicit visibility config', async () => {
+  it.each([false, true])('persists new-field visibility with hidden=%s', async (hidden) => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
@@ -552,7 +552,7 @@ describe('CreateFieldHandler (db)', () => {
     >;
     viewAMeta[notesFieldId] = {
       ...(viewAMeta[notesFieldId] ?? {}),
-      hidden: false,
+      hidden,
     };
 
     await db
@@ -584,8 +584,9 @@ describe('CreateFieldHandler (db)', () => {
     const updatedViewAMeta = updatedViewA.columnMeta()._unsafeUnwrap().toDto();
     const updatedViewBMeta = updatedViewB.columnMeta()._unsafeUnwrap().toDto();
 
-    expect(updatedViewAMeta[newFieldId]?.hidden).toBe(true);
-    expect(updatedViewAMeta[notesFieldId]?.hidden).toBe(false);
+    expect(updatedViewAMeta[newFieldId]?.hidden).toBe(hidden ? true : undefined);
+    expect(updatedViewAMeta[newFieldId]?.order).toBeTypeOf('number');
+    expect(updatedViewAMeta[notesFieldId]?.hidden).toBe(hidden);
     expect(updatedViewBMeta[newFieldId]?.hidden).toBeUndefined();
 
     const persistedRows = await db
@@ -596,12 +597,17 @@ describe('CreateFieldHandler (db)', () => {
     const persistedMetaByViewId = new Map(
       persistedRows.map((row) => [
         row.id,
-        JSON.parse(row.column_meta ?? '{}') as Record<string, { hidden?: boolean }>,
+        JSON.parse(row.column_meta ?? '{}') as Record<string, { order?: number; hidden?: boolean }>,
       ])
     );
 
-    expect(persistedMetaByViewId.get(viewA.id().toString())?.[newFieldId]?.hidden).toBe(true);
-    expect(persistedMetaByViewId.get(viewA.id().toString())?.[notesFieldId]?.hidden).toBe(false);
+    expect(persistedMetaByViewId.get(viewA.id().toString())?.[newFieldId]?.hidden).toBe(
+      hidden ? true : undefined
+    );
+    expect(persistedMetaByViewId.get(viewA.id().toString())?.[newFieldId]?.order).toBeTypeOf(
+      'number'
+    );
+    expect(persistedMetaByViewId.get(viewA.id().toString())?.[notesFieldId]?.hidden).toBe(hidden);
     expect(persistedMetaByViewId.get(viewB.id().toString())?.[newFieldId]?.hidden).toBeUndefined();
   });
 

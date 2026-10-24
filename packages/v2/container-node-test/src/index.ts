@@ -27,6 +27,7 @@ import {
   FormulaSourceBudgetCommandBusMiddleware,
   type ComputedUpdateWorker,
   type ComputedUpdateOutboxConfig,
+  computedRuntimeConfigFromEnv,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
@@ -391,6 +392,7 @@ export const createV2NodeTestContainer = async (
     registerV2TableRepositoryPostgresAdapter(c, {
       db: dataDb,
       metaDb,
+      runtime: computedRuntimeConfigFromEnv(process.env),
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
         ...options.computedUpdate,

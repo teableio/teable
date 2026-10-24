@@ -2002,10 +2002,11 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       return hasHiddenField ? { ...defaultEntry, visible: false } : { ...defaultEntry };
     }
 
-    const hasExplicitHiddenVisibilityConfig = Object.values(currentMeta).some((entry) =>
-      Object.hasOwn(entry, 'hidden')
-    );
-    if (!hasExplicitHiddenVisibilityConfig) {
+    // A view decides by how many fields it actually hides, not by whether any
+    // entry carries a `hidden` key: "show all" leaves `hidden: false` behind,
+    // and such a view must still pick up new fields.
+    const hasHiddenField = Object.values(currentMeta).some((entry) => entry.hidden === true);
+    if (!hasHiddenField) {
       return { ...defaultEntry };
     }
 

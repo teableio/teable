@@ -1,5 +1,10 @@
 import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
-import { domainError, tableDataSafetyLimitErrors, type DomainError } from '@teable/v2-core';
+import {
+  domainError,
+  tableDataSafetyLimitErrors,
+  utf8ByteLength,
+  type DomainError,
+} from '@teable/v2-core';
 import { err, ok, type Result } from 'neverthrow';
 
 /** Ordinary helper callers do not create a compilation; their text builder is stateless. */
@@ -182,7 +187,7 @@ export class FormulaCompileBudget {
   bytes(value: string): number {
     const cached = this.sizes.get(value);
     if (cached !== undefined) return cached;
-    const size = Buffer.byteLength(value, 'utf8');
+    const size = utf8ByteLength(value);
     this.sizes.set(value, size);
     return size;
   }

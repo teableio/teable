@@ -928,6 +928,75 @@ describe('ComputedFieldUpdater', () => {
     expect(driver.queries[0]?.parameters).toHaveLength(1);
   });
 
+  it('bounds a waiting acquire across every key with one deadline T8079', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(2);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const context = {
+      actorId,
+      transaction: {
+        kind: 'unitOfWorkTransaction',
+        scope: 'data',
+        db,
+        pending: true,
+        committed: false,
+        rolledBack: false,
+        isTransaction: true,
+      },
+    } as unknown as IExecutionContext;
+
+    const result = await updater.acquireLocks(plan, context, { wait: true, waitTimeoutMs: 5_000 });
+    expect(result.isOk()).toBe(true);
+
+    // Record keys are acquired one statement at a time so lock_timeout can be
+    // re-armed from the remaining budget; a batch unnest would give each key a
+    // fresh full timeout and let the acquisition outlive the deadline.
+    expect(driver.queries.some((query) => query.sql.includes('unnest'))).toBe(false);
+    const exclusiveKeys = driver.queries.filter(
+      (query) => query.sql.includes('pg_advisory_xact_lock(') && !query.sql.includes('pg_try')
+    );
+    expect(exclusiveKeys).toHaveLength(2);
+    expect(new Set(exclusiveKeys.map((query) => String(query.parameters[0]))).size).toBe(2);
+
+    const armed = driver.queries
+      .filter((query) => query.sql.includes("set_config('lock_timeout'"))
+      .map((query) => Number(query.parameters[0]));
+    // One arm per waiting statement (covering key + 2 record keys) then a restore.
+    expect(armed).toHaveLength(4);
+    expect(armed.slice(0, 3).every((value) => value > 0 && value <= 5_000)).toBe(true);
+    expect(armed[0]).toBe(5_000);
+    expect(armed[1]).toBeLessThanOrEqual(armed[0] as number);
+    expect(armed[2]).toBeLessThanOrEqual(armed[1] as number);
+    expect(armed[3]).toBe(0);
+  });
+
   it('loads tables referenced only by seedAllTableIds before dirty seeding', async () => {
     const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
     const { hostTable: seedAllTable } = createLinkTables();
@@ -1035,7 +1104,7 @@ describe('ComputedFieldUpdater', () => {
               record_id text not null,
               generation integer not null default 0,
               primary key (table_id, record_id)
-            ) on commit drop",
+            )",
         },
         {
           "parameters": [],
@@ -1056,7 +1125,7 @@ describe('ComputedFieldUpdater', () => {
               record_id text not null,
               field_values jsonb not null,
               primary key (table_id, record_id)
-            ) on commit drop",
+            )",
         },
         {
           "parameters": [
@@ -2368,7 +2437,7 @@ describe('ComputedFieldUpdater', () => {
               record_id text not null,
               generation integer not null default 0,
               primary key (table_id, record_id)
-            ) on commit drop",
+            )",
         },
         {
           "parameters": [],
@@ -2389,7 +2458,7 @@ describe('ComputedFieldUpdater', () => {
               record_id text not null,
               field_values jsonb not null,
               primary key (table_id, record_id)
-            ) on commit drop",
+            )",
         },
         {
           "parameters": [

@@ -1379,9 +1379,10 @@ export class ComputedUpdateWorker {
       });
 
       failurePhase = 'acquire_locks';
+      const lockOptions = this.resolveTaskLockOptions(computedTask);
       const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
         logContext: runLogContext,
-        wait: false,
+        ...lockOptions,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
@@ -1393,6 +1394,7 @@ export class ComputedUpdateWorker {
         context: txContext,
         run,
         ledgerScopeId,
+        lockOptions,
         logContext: runLogContext,
       });
       if (stageExecution.isErr()) return err(stageExecution.error);
@@ -1836,6 +1838,36 @@ export class ComputedUpdateWorker {
     }
 
     return result.value;
+  }
+
+  /**
+   * Resolve the computed-lock mode for one task attempt.
+   *
+   * A fresh task keeps the non-blocking try-lock: overlapping workers requeue
+   * instead of stacking waiting transactions. A task that keeps losing the key
+   * escalates to a bounded waiting acquire, because a try-lock never queues and
+   * a continuous stream of shared covering locks (small request-path updates)
+   * can miss it forever — the exclusive cascade/backfill then never runs and the
+   * outbox oldest age grows without bound (T8079). PostgreSQL grants a queued
+   * waiter ahead of later shared requests, so the escalated attempt breaks the
+   * stream instead of waiting behind every new holder.
+   */
+  private resolveTaskLockOptions(task: AnyOutboxItem): {
+    wait: boolean;
+    waitTimeoutMs?: number;
+  } {
+    const escalationAgeMs = this.outboxConfig.lockStarvationEscalationAgeMs;
+    const waitTimeoutMs = this.outboxConfig.lockStarvationEscalationWaitMs;
+    if (escalationAgeMs <= 0 || waitTimeoutMs <= 0) return { wait: false };
+    const createdAt = task.createdAt instanceof Date ? task.createdAt : undefined;
+    const taskAgeMs = createdAt ? Date.now() - createdAt.getTime() : undefined;
+    if (taskAgeMs === undefined || taskAgeMs < escalationAgeMs) return { wait: false };
+    this.logger.debug('computed:worker:lock_wait_escalated', {
+      taskId: task.id,
+      taskAgeMs,
+      waitTimeoutMs,
+    });
+    return { wait: true, waitTimeoutMs };
   }
 
   private async releaseTaskForRetry(
@@ -2446,9 +2478,10 @@ export class ComputedUpdateWorker {
       });
 
       failurePhase = 'acquire_locks';
+      const lockOptions = this.resolveTaskLockOptions(task);
       const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
         logContext: runLogContext,
-        wait: false,
+        ...lockOptions,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
@@ -2462,6 +2495,7 @@ export class ComputedUpdateWorker {
         context: txContext,
         run,
         ledgerScopeId,
+        lockOptions,
         logContext: runLogContext,
       });
       if (stageExecution.isErr()) return err(stageExecution.error);
@@ -2739,6 +2773,8 @@ export class ComputedUpdateWorker {
     run: ComputedUpdateRunContext;
     /** Stage-ledger scope: the continuation chain's root task id. */
     ledgerScopeId: string;
+    /** Lock mode resolved once per task from its outbox age. */
+    lockOptions: { wait: boolean; waitTimeoutMs?: number };
     logContext: Record<string, unknown>;
   }): Promise<
     Result<
@@ -2824,6 +2860,8 @@ export class ComputedUpdateWorker {
       if (maxDirtyRecords <= 0) {
         const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
           ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+          lockWait: params.lockOptions.wait,
+          lockWaitTimeoutMs: params.lockOptions.waitTimeoutMs,
           maxStatements,
           valueFrontier,
           // Continuations may still carry stage-ledger state (e.g. after a
@@ -2904,6 +2942,8 @@ export class ComputedUpdateWorker {
           params.run,
           {
             ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+            lockWait: params.lockOptions.wait,
+            lockWaitTimeoutMs: params.lockOptions.waitTimeoutMs,
             maxStatements,
             valueFrontier,
             maxDirtyRecords,
@@ -2920,6 +2960,8 @@ export class ComputedUpdateWorker {
 
       const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
         ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+        lockWait: params.lockOptions.wait,
+        lockWaitTimeoutMs: params.lockOptions.waitTimeoutMs,
         maxStatements,
         valueFrontier,
         maxDirtyRecords,

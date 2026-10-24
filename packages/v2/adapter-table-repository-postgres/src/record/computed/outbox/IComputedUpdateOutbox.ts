@@ -22,7 +22,7 @@ export const DEFAULT_COMPUTED_WORKER_LANE = 'production';
 
 /** Queue ownership is explicit; changing telemetry labels must not reassign durable work. */
 export const resolveComputedWorkerLane = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>> = {}
 ): string => env.TEABLE_WORKER_LANE?.trim() || DEFAULT_COMPUTED_WORKER_LANE;
 
 /**
@@ -47,6 +47,20 @@ export type ComputedUpdateOutboxConfig = {
   baseBackoffMs: number;
   /** Delay before retrying a transient computed advisory-lock conflict. */
   lockUnavailableRetryDelayMs: number;
+  /**
+   * Age at which a task that keeps losing the non-blocking computed lock
+   * switches to a bounded waiting acquire. A continuous stream of shared
+   * covering locks (small request-path updates) makes every try-lock miss, so
+   * without this the task requeues forever while its outbox age grows. 0
+   * disables the escalation and keeps the pure try-lock regime.
+   */
+  lockStarvationEscalationAgeMs: number;
+  /**
+   * `lock_timeout` bound for the escalated acquire. PostgreSQL grants a queued
+   * waiter ahead of later shared requests, so a short bound is enough to make
+   * progress between holders; expiry requeues as `computed_update.lock_unavailable`.
+   */
+  lockStarvationEscalationWaitMs: number;
   /** Max backoff in milliseconds for retry scheduling. */
   maxBackoffMs: number;
   /**
@@ -200,6 +214,8 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   maxAttempts: 8,
   baseBackoffMs: 5000,
   lockUnavailableRetryDelayMs: 250,
+  lockStarvationEscalationAgeMs: 30 * 1000,
+  lockStarvationEscalationWaitMs: 5 * 1000,
   maxBackoffMs: 5 * 60 * 1000,
   inactiveTableDeferMaxAgeMs: 24 * 60 * 60 * 1000,
   processingLeaseMs: 2 * 60 * 1000,
@@ -244,6 +260,11 @@ export const normalizeComputedUpdateOutboxConfig = (
   return {
     ...config,
     lockUnavailableRetryDelayMs: Math.max(0, Math.trunc(config.lockUnavailableRetryDelayMs)),
+    lockStarvationEscalationAgeMs: Math.max(0, Math.trunc(config.lockStarvationEscalationAgeMs)),
+    lockStarvationEscalationWaitMs: Math.max(
+      0,
+      Math.trunc(config.lockStarvationEscalationWaitMs)
+    ),
     inactiveTableDeferMaxAgeMs: Math.max(0, Math.trunc(config.inactiveTableDeferMaxAgeMs)),
     processingLeaseMs,
     heartbeatIntervalMs: Math.max(

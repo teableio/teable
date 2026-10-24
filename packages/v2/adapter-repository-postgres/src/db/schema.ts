@@ -753,7 +753,16 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('deleted_time', 'timestamptz')
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('last_modified_by', 'text')
+    .addColumn('thumbnail_path', 'text')
     .execute();
+
+  await sql`
+    alter table attachments add column if not exists last_modified_by text
+  `.execute(db);
+  await sql`
+    alter table attachments add column if not exists thumbnail_path text
+  `.execute(db);
 
   await db.schema
     .createTable('attachments_table')

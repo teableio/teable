@@ -22,6 +22,7 @@ export { PostgresDataQueryExecutor } from './record/data-query/PostgresDataQuery
 export { PostgresDataQueryExplainer } from './record/data-query/PostgresDataQueryExplainer';
 
 // DI exports (main API)
+export * from './config/runtimeConfig';
 export * from './di';
 
 // Shared utilities

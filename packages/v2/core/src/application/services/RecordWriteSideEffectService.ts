@@ -3,26 +3,36 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import type { Field } from '../../domain/table/fields/Field';
+import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
-import type { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import {
   ensureSelectFieldOptionNameWithinLimit,
   resolveMaxSelectChoices,
   selectFieldOptionCountExceededError,
 } from '../../domain/table/fields/types/SelectFieldOptionWriteConfig';
+import type { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
+import { normalizeCellDisplayValue } from '../../domain/table/fields/visitors/normalizeCellDisplayValue';
 import {
   RecordWriteSideEffectVisitor,
   type RecordWriteSideEffect,
   type RecordWriteSideEffects,
 } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import { normalizeCellDisplayValue } from '../../domain/table/fields/visitors/normalizeCellDisplayValue';
 import { splitSelectTypecastValues } from '../../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { getDomainContext } from '../../ports/ExecutionContext';
+import { FieldKeyResolverService } from './FieldKeyResolverService';
+import {
+  preLeasePlan,
+  sharedRecordWritePlan,
+  exclusiveRecordWritePlan,
+  type RecordWriteCoordinationPlan,
+} from './RecordWriteCoordinationPlan';
+import type { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
 
 export type RecordWriteSideEffectResult = {
   table: Table;
@@ -92,6 +102,86 @@ const stripRejectedSelectValues = (
 
 @injectable()
 export class RecordWriteSideEffectService {
+  planCoordination(
+    context: IExecutionContext,
+    table: Table,
+    input: {
+      hasOrder: boolean;
+      fieldValues: ReadonlyMap<string, unknown>;
+      fieldKeyType: FieldKeyType;
+      typecast: boolean;
+    }
+  ): RecordWriteCoordinationPlan {
+    const initialPlan = preLeasePlan(input);
+    if (initialPlan.mode === 'none' || !input.typecast || input.fieldValues.size === 0)
+      return initialPlan;
+    const resolved = this.prepareFieldValues(table, input.fieldValues, input.fieldKeyType);
+    if (resolved.isErr()) return sharedRecordWritePlan;
+    const probe = this.wouldUpdateTableMetadata(context, table, [resolved.value], true);
+    // Execution reports the same error before persistence, with its usual ordering.
+    return probe.isOk() && probe.value ? exclusiveRecordWritePlan : sharedRecordWritePlan;
+  }
+
+  prepareFieldValues(
+    table: Table,
+    fieldValues: ReadonlyMap<string, unknown>,
+    fieldKeyType: FieldKeyType
+  ): Result<Map<string, unknown>, DomainError> {
+    return FieldKeyResolverService.resolveFieldKeys(
+      table,
+      Object.fromEntries(fieldValues),
+      fieldKeyType
+    ).map((fields) => new Map(Object.entries(fields)));
+  }
+
+  outputFieldKey(field: Field, fieldKeyType: FieldKeyType): string {
+    return FieldKeyResolverService.getFieldKey(field, fieldKeyType);
+  }
+
+  async prepareUpdate(
+    context: IExecutionContext,
+    table: Table,
+    fieldValues: ReadonlyMap<string, unknown>,
+    typecast: boolean,
+    undoRedoPlanService: Pick<RecordWriteUndoRedoPlanService, 'captureSelectOptionSideEffects'>
+  ) {
+    const prepared = this.execute(context, table, [fieldValues], typecast);
+    if (prepared.isErr()) return err(prepared.error);
+    const plan = await undoRedoPlanService.captureSelectOptionSideEffects(
+      context,
+      table,
+      prepared.value.table,
+      prepared.value.effects
+    );
+    return plan.map((undoRedoPlan) => ({ ...prepared.value, undoRedoPlan }));
+  }
+
+  /**
+   * Lease-selection probe for typecast record writes.
+   *
+   * Typecast alone never changes table metadata; only accepted auto-created
+   * select options do. The probe runs the real preparation on copies of the
+   * field values so the write path stays the only owner of input mutation,
+   * error reporting and ordering. The result is returned rather than flattened
+   * because callers decide how conservative an error must be: a single-record
+   * command can stay shared (its normal path re-raises the same error), while a
+   * bulk command over a superset of records must widen the lease.
+   */
+  wouldUpdateTableMetadata(
+    context: IExecutionContext,
+    table: Table,
+    recordFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>,
+    typecast: boolean
+  ): Result<boolean, DomainError> {
+    if (!typecast) return ok(false);
+    return this.execute(
+      context,
+      table,
+      recordFieldValues.map((fieldValues) => new Map(fieldValues)),
+      true
+    ).map((probe) => probe.updateResult !== undefined);
+  }
+
   execute(
     context: IExecutionContext,
     table: Table,

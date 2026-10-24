@@ -30,6 +30,11 @@ import type { Result } from 'neverthrow';
 import { resolveTableSql } from '../../../shared/sqlIdentifiers';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
+import type {
+  ComputedReliabilityRuntimeConfig,
+  ComputedRuntimeConfig,
+} from '../../../config/runtimeConfig';
+import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
 import { isComputedReliabilityVisible } from '../reliability/config';
 import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
@@ -181,8 +186,17 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
     @inject(v2RecordRepositoryPostgresTokens.computedActivityProjector)
     private readonly activityProjector: IComputedActivityProjector,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
-  ) {}
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)
+    runtime: ComputedRuntimeConfig = defaultComputedRuntimeConfig
+  ) {
+    this.readCoalescer = new ComputedActivityReadCoalescer<CachedActivityRead>(
+      runtime.activityReadCache
+    );
+    this.reliability = runtime.reliability ?? {};
+  }
+
+  private readonly reliability: ComputedReliabilityRuntimeConfig;
 
   // Per-pod, per-table gate on read-time reconcile attempts. The advisory lock
   // already makes reconcile single-flight across pods; this only spaces out how
@@ -194,7 +208,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
   // See ComputedActivityReadCoalescer: every viewer of a table polls the same
   // shared projection, so one read per table+scope per retention window serves
   // them all — and only while the projection token is unchanged.
-  private readonly readCoalescer = new ComputedActivityReadCoalescer<CachedActivityRead>();
+  private readonly readCoalescer: ComputedActivityReadCoalescer<CachedActivityRead>;
 
   // Last successful snapshot per coalescer scope. A budgeted poll that is
   // canceled returns this snapshot marked `syncing` instead of a 500; the next
@@ -790,7 +804,8 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       if (loaded) loaded.projectedFields = fields.map((field) => ({ ...field }));
       const state = loaded ?? { projectedFields: [] };
       const visible = isComputedReliabilityVisible(
-        requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? '')
+        requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? ''),
+        this.reliability
       );
       if (includeFields && !skipReliability && !state.reliabilityLoaded) {
         state.reliabilityLoaded = true;
@@ -848,7 +863,8 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
       }
       if (
         !isComputedReliabilityVisible(
-          requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? '')
+          requestedBaseId ?? fields[0]?.baseId ?? String(tableRow?.base_id ?? ''),
+          this.reliability
         )
       ) {
         for (const field of fields) field.reliability = undefined;

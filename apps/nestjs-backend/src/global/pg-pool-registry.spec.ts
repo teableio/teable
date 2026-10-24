@@ -59,6 +59,7 @@ const createObserver = () => ({
   onPoolError: vi.fn(),
   onAcquireFailure: vi.fn(),
   onAcquireSettled: vi.fn(),
+  onAcquireQueued: vi.fn(),
 });
 
 describe('PgPoolRegistry', () => {
@@ -294,6 +295,74 @@ describe('PgPoolRegistry', () => {
     await lease.release();
   });
 
+  it('reports queue admission but not immediate or physical-connection acquisitions', async () => {
+    vi.useFakeTimers();
+    try {
+      const observer = createObserver();
+      const { factory, pool, connect } = createObservedPoolFactory();
+      const registry = new PgPoolRegistry(factory, observer);
+      const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable', {
+        max: 1,
+        poolName: 'shared',
+      });
+
+      // One idle client and two synchronous callers: pg appends both, then dispenses the
+      // idle client to the first on the next pulse. The second is actually queued.
+      let releaseFirst: (() => void) | undefined;
+      let releaseSecond: (() => void) | undefined;
+      connect.mockImplementationOnce(() => {
+        Object.assign(pool, { waitingCount: pool.waitingCount + 1 });
+        return new Promise((resolve) => {
+          releaseFirst = () => {
+            Object.assign(pool, { idleCount: 0, waitingCount: pool.waitingCount - 1 });
+            resolve({ id: 'idle-client' });
+          };
+        });
+      });
+      connect.mockImplementationOnce(() => {
+        Object.assign(pool, { waitingCount: pool.waitingCount + 1 });
+        return new Promise((resolve) => {
+          releaseSecond = () => {
+            Object.assign(pool, { waitingCount: pool.waitingCount - 1 });
+            resolve({ id: 'queued-client' });
+          };
+        });
+      });
+
+      const first = lease.pool.connect();
+      const second = lease.pool.connect();
+      await vi.advanceTimersByTimeAsync(37);
+      releaseSecond?.();
+      await expect(second).resolves.toEqual({ id: 'queued-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+      expect(observer.onAcquireQueued).toHaveBeenCalledWith(
+        expect.objectContaining({ max: 1, poolName: 'shared' }),
+        37,
+        false
+      );
+
+      releaseFirst?.();
+      await expect(first).resolves.toEqual({ id: 'idle-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      // A physical connection and a synchronously rejected acquisition do not join the
+      // pending queue, so neither emits the queue histogram.
+      Object.assign(pool, { idleCount: 0, totalCount: 0, waitingCount: 0 });
+      connect.mockResolvedValueOnce({ id: 'new-client' });
+      await expect(lease.pool.connect()).resolves.toEqual({ id: 'new-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      const rejection = new Error('Cannot use a pool after calling end on the pool');
+      connect.mockRejectedValueOnce(rejection);
+      await expect(lease.pool.connect()).rejects.toBe(rejection);
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      await lease.release();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('measures promise-style acquisitions and keeps a retry as its own attempt', async () => {
     const observer = createObserver();
     const { factory, connect } = createObservedPoolFactory();
@@ -344,6 +413,9 @@ describe('PgPoolRegistry', () => {
         throw boom;
       },
       onAcquireSettled: () => {
+        throw boom;
+      },
+      onAcquireQueued: () => {
         throw boom;
       },
     };

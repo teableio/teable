@@ -1167,6 +1167,165 @@ describe('ComputedUpdateWorker', () => {
       expect(markFailed).not.toHaveBeenCalled();
     });
 
+    it('keeps the non-blocking try-lock for a fresh task T8079', async () => {
+      const task = createMockTask({ createdAt: new Date() });
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const acquireLocks = vi.fn().mockResolvedValue(
+        err(
+          domainError.infrastructure({
+            code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+            message: 'Computed update lock unavailable: lock-key',
+          })
+        )
+      );
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+      });
+      const updater = createUpdaterStub({
+        acquireLocks,
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(acquireLocks).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ wait: false })
+      );
+      expect(acquireLocks.mock.calls[0][2]).not.toHaveProperty('waitTimeoutMs');
+    });
+
+    it('escalates an aged task to a bounded waiting acquire T8079', async () => {
+      const task = createMockTask({ createdAt: new Date(Date.now() - 10 * 60 * 1000) });
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const acquireLocks = vi.fn().mockResolvedValue(
+        err(
+          domainError.infrastructure({
+            code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+            message: 'Computed update lock unavailable: lock-key',
+          })
+        )
+      );
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+      });
+      const updater = createUpdaterStub({
+        acquireLocks,
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(acquireLocks).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          wait: true,
+          waitTimeoutMs: defaultComputedUpdateOutboxConfig.lockStarvationEscalationWaitMs,
+        })
+      );
+      // The lock miss still requeues; the escalated acquire must not consume attempts.
+      expect(releaseForRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it('propagates the escalated lock mode into plan execution T8079', async () => {
+      const task = createMockSeedTask({ createdAt: new Date(Date.now() - 10 * 60 * 1000) });
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+      const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        steps: [],
+        edges: [
+          {
+            fromFieldId: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+            toFieldId: FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap(),
+            fromTableId: tableId,
+            toTableId: TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap(),
+            propagationMode: 'linkTraversal',
+            order: 0,
+          } as unknown as ComputedUpdatePlan['edges'][number],
+        ],
+        estimatedComplexity: 1,
+        changeType: 'delete',
+        sameTableBatches: [],
+      };
+      const execute = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markDone,
+      });
+      const updater = createUpdaterStub({ execute });
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok(plan)),
+      } as unknown as ComputedUpdatePlanner;
+      const table = { id: () => tableId, baseId: () => baseId } as unknown as Table;
+      const tableRepository = {
+        ...createTableRepository(),
+        findOne: vi.fn().mockResolvedValue(ok(table)),
+      } as ITableRepository;
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute.mock.calls[0][3]).toMatchObject({
+        lockWait: true,
+        lockWaitTimeoutMs: defaultComputedUpdateOutboxConfig.lockStarvationEscalationWaitMs,
+      });
+    });
+
     it('executes edge-only seed plans instead of marking them done', async () => {
       // A propagation-only plan (edges, no steps — orphan/delete shapes) is
       // real executable work; the seed path must not short-circuit it.

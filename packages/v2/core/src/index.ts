@@ -100,6 +100,7 @@ export * from './application/services/RecordCreationService';
 export * from './application/services/DeleteByRangeApplicationService';
 export * from './application/services/DuplicateRecordsApplicationService';
 export * from './application/services/RecordBulkUpdateService';
+export * from './application/services/RecordUpsertService';
 export * from './application/services/RecordReorderService';
 export * from './application/services/SpecResolver';
 export * from './application/services/UserValueResolverService';
@@ -110,6 +111,7 @@ export * from './application/services/TableSchemaOperationLifecycleService';
 export * from './application/services/UndoRedoStackService';
 export * from './application/services/DomainWriteTransaction';
 export * from './application/services/ImmutableDurableSubscriptionCatalog';
+export * from './application/services/EventTypeIndex';
 export * from './application/services/compileDurableSubscriptionCatalog';
 export * from './application/services/ProjectionMessageCodecRegistry';
 export * from './application/services/TargetedLegacyEventDispatcher';
@@ -174,6 +176,8 @@ export * from './commands/SubmitRecordCommand';
 export * from './commands/SubmitRecordHandler';
 export * from './commands/CreateRecordsCommand';
 export * from './commands/CreateRecordsHandler';
+export * from './commands/UpsertRecordsCommand';
+export * from './commands/UpsertRecordsHandler';
 export * from './commands/CreateRecordsStreamCommand';
 export * from './commands/CreateRecordsStreamHandler';
 export * from './commands/ArchiveRecordsCommand';
@@ -300,6 +304,7 @@ export * from './queries/GetViewSelectionCopyQuery';
 export * from './queries/GetViewSelectionCopyHandler';
 export * from './queries/ListTableRecordsQuery';
 export * from './queries/ListTableRecordsHandler';
+export * from './queries/RecordPageBoundary';
 export * from './queries/CountTableRecordsQuery';
 export * from './queries/CountTableRecordsHandler';
 export * from './queries/GetRecordStatusQuery';
@@ -755,6 +760,8 @@ export * from './domain/shared/specification/visitors/AbstractSpecFilterVisitor'
 export * from './domain/shared/specification/visitors/ISpecFilterVisitor';
 
 export * from './domain/shared/graph/topologicalSort';
+
+export * from './domain/shared/utf8';
 
 export * from './domain/table/specs/TableByBaseIdSpec';
 export * from './domain/table/specs/TableSpecBuilder';

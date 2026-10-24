@@ -37,10 +37,14 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   repetition uses the final planned width, and permission-filtered updates and creates share this
   preflight. Generic typecast updates are not a substitute because unresolved titles can become
   empty links.
-  Non-primary display fields reject title paste with `paste.link_auto_create_requires_primary_lookup`.
-  Computed non-text primaries (including auto-number) reject with
-  `paste.link_auto_create_computed_primary_unsupported`; text formulas may still resolve existing
-  titles. Explicit record IDs and empty link values do not request title resolution.
+  Titles resolve against the link's display field (`lookupFieldId`), not only the foreign primary;
+  text, numeric, and single-select display fields match their stored value, while a checkbox display
+  resolves through the foreign primary like the read model. Missing values must
+  still be refused when creation cannot fill the shown column (non-primary display, computed
+  primary, required fields without defaults) so the user sees the reason instead of a silently
+  empty cell; `paste.link_auto_create_computed_primary_unsupported` covers computed primaries
+  (including auto-number) and text formulas may still resolve existing titles. Explicit record IDs
+  and empty link values do not request title resolution.
 - `RecordReorderService.ts` - Role: application service; Purpose: apply batched row-order updates
   and build reorder events plus undo/redo payloads for callers that need native v2 reorder flows.
 - `ImportTabularTableService.ts` - Role: application service; Purpose: shared create-table

@@ -98,6 +98,12 @@ export interface IClsStore extends ClsStore {
   };
   shareViewId?: string;
   baseShareId?: string;
+  /**
+   * Set by an upsert request that may insert unmatched rows. The EE createMany
+   * write plugin admits the actual created rows against the space MaxRows limit,
+   * so plain create requests keep their controller-level guard.
+   */
+  upsertCreateAdmissionSpaceId?: string;
   permissions: Action[];
   // this is used to check if the user is in the space when the user operate in a space
   spaceId?: string;

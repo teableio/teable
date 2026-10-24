@@ -9,6 +9,7 @@ import {
 import type { CreateTableResult, ICommandBus, IQueryBus, ListTablesResult } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 const createTable = async (
@@ -34,6 +35,8 @@ const createTable = async (
 };
 
 describe('ListTablesHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('lists tables by base id with default sorting', async () => {
     const { container, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

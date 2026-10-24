@@ -226,6 +226,31 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     });
   }
 
+  async savepoint<T>(
+    context: IExecutionContext,
+    work: () => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    if (!getUnitOfWorkTransaction(context, 'data')) {
+      return err(
+        domainError.infrastructure({
+          code: 'domain_event.transaction_required',
+          message: 'Domain write savepoint requires an active data transaction',
+        })
+      );
+    }
+
+    if (!this.unitOfWork.savepoint) {
+      return err(
+        domainError.infrastructure({
+          code: 'domain_write.savepoint_unsupported',
+          message: 'The unit of work does not support savepoints',
+        })
+      );
+    }
+
+    return this.unitOfWork.savepoint(context, async () => work());
+  }
+
   async executeStream<T>(
     context: IExecutionContext,
     work: (

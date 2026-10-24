@@ -81,6 +81,16 @@ export interface PgPoolObserver {
     durationMs: number,
     isError: boolean
   ): void;
+
+  /**
+   * Called only when the acquisition joined pg's pending queue instead of being dispensed
+   * as an immediate idle checkout or starting its own physical connection. `durationMs` is
+   * the time from `connect()` until the client was handed out; if the queued request later
+   * needed a replacement physical connection, that setup time is included. Immediate
+   * acquisitions never call this method; `onAcquireSettled` remains the complete
+   * per-attempt signal.
+   */
+  onAcquireQueued?(snapshot: IPgPoolSnapshot, durationMs: number, isError: boolean): void;
 }
 
 export const PG_POOL_OBSERVER = Symbol('PG_POOL_OBSERVER');
@@ -91,6 +101,7 @@ export const noopPgPoolObserver: PgPoolObserver = {
   onPoolError: () => undefined,
   onAcquireFailure: () => undefined,
   onAcquireSettled: () => undefined,
+  onAcquireQueued: () => undefined,
 };
 
 let activePgPoolObserver: PgPoolObserver | undefined;
@@ -125,6 +136,8 @@ export const pgPoolObserverFacade: PgPoolObserver = {
     getPgPoolObserver().onAcquireFailure(snapshot, error, phase, durationMs),
   onAcquireSettled: (snapshot, phase, durationMs, isError) =>
     getPgPoolObserver().onAcquireSettled(snapshot, phase, durationMs, isError),
+  onAcquireQueued: (snapshot, durationMs, isError) =>
+    getPgPoolObserver().onAcquireQueued?.(snapshot, durationMs, isError),
 };
 
 /** Driver/PG codes that mean the physical connection attempt itself failed. */
@@ -366,21 +379,26 @@ export class PgPoolRegistry implements OnApplicationShutdown {
 
     // `connect` is invoked with the pool as its receiver, so the reporting callback is
     // bound to the registry up front instead of aliasing `this`.
-    const settleAcquire = this.reportAcquireOutcome.bind(this, entry);
+    const reportAcquireOutcome = this.reportAcquireOutcome.bind(this, entry);
     const observedConnect = function (this: Pool, ...args: unknown[]): unknown {
       const startedAt = Date.now();
+      const waitingBefore = pool.waitingCount;
+      let queued = false;
       const callback = typeof args[0] === 'function' ? args[0] : undefined;
-      const settle = (error: unknown): void => settleAcquire(startedAt, error);
+      const settle = (error: unknown): void => reportAcquireOutcome(queued, startedAt, error);
 
       if (typeof callback === 'function') {
         const observedCallback = function (this: unknown, ...callbackArgs: unknown[]): unknown {
           settle(callbackArgs[0]);
           return (callback as (...inner: unknown[]) => unknown).apply(this, callbackArgs);
         };
-        return Reflect.apply(originalConnect, this, [observedCallback]);
+        const result = Reflect.apply(originalConnect, this, [observedCallback]);
+        queued = didJoinPoolQueue(pool, waitingBefore);
+        return result;
       }
 
       const result = Reflect.apply(originalConnect, this, args);
+      queued = didJoinPoolQueue(pool, waitingBefore);
       if (!(result instanceof Promise)) {
         return result;
       }
@@ -404,13 +422,23 @@ export class PgPoolRegistry implements OnApplicationShutdown {
    * throwing settle listener cannot swallow the failure detail (and vice versa: each
    * notification has its own guard).
    */
-  private reportAcquireOutcome(entry: IPgPoolEntry, startedAt: number, error: unknown): void {
+  private reportAcquireOutcome(
+    entry: IPgPoolEntry,
+    queuedAtEntry: boolean,
+    startedAt: number,
+    error: unknown
+  ): void {
     const durationMs = Date.now() - startedAt;
     const phase = resolveAcquireFailurePhase(error);
     const snapshot = this.toSnapshot(entry);
     this.notifyObservers((observer) =>
       observer.onAcquireSettled(snapshot, phase, durationMs, error != null)
     );
+    if (queuedAtEntry) {
+      this.notifyObservers((observer) =>
+        observer.onAcquireQueued?.(snapshot, durationMs, error != null)
+      );
+    }
     if (error != null) {
       this.notifyObservers((observer) =>
         observer.onAcquireFailure(snapshot, error, phase, durationMs)
@@ -436,3 +464,15 @@ export class PgPoolRegistry implements OnApplicationShutdown {
     await entry.pool.end();
   }
 }
+
+/**
+ * Whether this `connect()` call was appended to pg's pending queue without an idle client
+ * available for it. pg appends synchronously and only dispenses idle clients on the next
+ * pulse, so `waitingCount` still includes this call; its queue position is
+ * `waitingAfter - 1`, and it is queued when that position is not covered by `idleCount`.
+ * A call that starts a physical connection does not change `waitingCount`.
+ */
+const didJoinPoolQueue = (pool: Pool, waitingBefore: number): boolean => {
+  const waitingAfter = pool.waitingCount;
+  return waitingAfter > waitingBefore && waitingAfter - 1 >= pool.idleCount;
+};

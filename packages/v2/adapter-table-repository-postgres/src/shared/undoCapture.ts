@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomHex } from '@teable/v2-adapter-db-postgres-shared';
 import { sql, Transaction } from 'kysely';
 import type { Kysely } from 'kysely';
 
@@ -59,7 +59,7 @@ export const invalidateUndoCaptureTableCache = (
 };
 
 const nextSavepointName = () =>
-  `teable_undo_capture_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
+  `teable_undo_capture_${Date.now().toString(36)}_${randomHex(4)}`;
 
 const toQuotedSavepointIdentifier = (savepointName: string) =>
   `"${savepointName.replaceAll('"', '""')}"`;

@@ -381,6 +381,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         this.configService.get('V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED'),
         true
       );
+      const lockStarvationEscalationAgeMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS')
+      );
+      const lockStarvationEscalationWaitMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_WAIT_MS')
+      );
       const claimDefaults = this.claimConcurrency?.processDefault;
       const computedUpdate = buildComputedUpdateOptions(
         computedUpdateMode,
@@ -388,6 +394,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         {
           ...(taskStatementTimeoutMs !== undefined ? { taskStatementTimeoutMs } : {}),
           ...(fieldBackfillBatchSize !== undefined ? { fieldBackfillBatchSize } : {}),
+          ...(lockStarvationEscalationAgeMs !== undefined
+            ? { lockStarvationEscalationAgeMs }
+            : {}),
+          ...(lockStarvationEscalationWaitMs !== undefined
+            ? { lockStarvationEscalationWaitMs }
+            : {}),
           continuationRelayClaimEnabled,
           ...(claimDefaults
             ? {

@@ -15,9 +15,12 @@ import {
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 describe('DeleteFieldHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('deletes a field and publishes FieldDeleted', async () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

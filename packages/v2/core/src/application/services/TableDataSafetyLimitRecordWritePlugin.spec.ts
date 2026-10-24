@@ -1,9 +1,8 @@
-import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import type { TableDataSafetyLimitConfig } from '../../domain/shared/TableDataSafetyLimits';
-import { BaseId } from '../../domain/base/BaseId';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldName } from '../../domain/table/fields/FieldName';
@@ -82,6 +81,7 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
     expect(plugin.supports(RecordWriteOperationKind.updateMany)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.importAppend)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.paste)).toBe(true);
+    expect(plugin.supports(RecordWriteOperationKind.upsertRecords)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.deleteMany)).toBe(false);
     expect(plugin.supports(RecordWriteOperationKind.archiveMany)).toBe(false);
   });
@@ -187,6 +187,17 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
         recordCount: 2,
       },
     ],
+    [
+      RecordWriteOperationKind.upsertRecords,
+      {
+        recordsFieldValues: [values(), values()],
+        matchFieldId: textFieldId.toString(),
+        onConflict: 'ignore',
+        fieldKeyType: FieldKeyType.Name,
+        typecast: false,
+        recordCount: 2,
+      },
+    ],
   ] satisfies ReadonlyArray<readonly [RecordWriteOperationKind, Record<string, unknown>]>)(
     'allows %s at the configured records-per-mutation boundary',
     async (kind, payload) => {
@@ -238,6 +249,17 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
         typecast: false,
         updateRecordCount: 0,
         createRecordCount: 3,
+        recordCount: 3,
+      },
+    ],
+    [
+      RecordWriteOperationKind.upsertRecords,
+      {
+        recordsFieldValues: [values(), values(), values()],
+        matchFieldId: textFieldId.toString(),
+        onConflict: 'update',
+        fieldKeyType: FieldKeyType.Name,
+        typecast: false,
         recordCount: 3,
       },
     ],

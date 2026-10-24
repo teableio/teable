@@ -22,6 +22,14 @@ export class NoopUnitOfWork implements IUnitOfWork {
       );
     }
   }
+
+  /** No transaction state exists to recover, so the savepoint is a pass-through. */
+  async savepoint<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, DomainError>> {
+    return work(context);
+  }
 }
 
 const describeError = (error: unknown): string => {

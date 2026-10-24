@@ -3,20 +3,28 @@ import {
   PostgresUnitOfWork,
   registerV2PostgresPgliteDb,
   v2DataDbTokens,
+  type IV2PostgresPgliteOptions,
 } from '@teable/v2-adapter-db-postgres-pglite';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   registerV2TableRepositoryPostgresAdapter,
+  v2RecordRepositoryPostgresTokens,
   FormulaSourceBudgetCommandBusMiddleware,
+  type ComputedUpdateWorker,
   type IV2TableRepositoryPostgresConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import {
   AsyncMemoryEventBus,
+  compileDurableSubscriptionCatalog,
+  DomainWriteTransaction,
+  FieldCreated,
+  FieldUpdated,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopHasher,
   NoopLogger,
+  NoopProjectionMessageJournal,
   NoopRealtimeEngine,
   NoopTableRepository,
   NoopTableRecordQueryRepository,
@@ -24,15 +32,27 @@ import {
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
+  ProjectionMessageCodecRegistry,
+  RecordCreated,
+  RecordReordered,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  RecordUpdated,
+  recordProjectionCodecs,
   registerV2CoreServices,
+  SameTxProjectionDispatcher,
   StaticTableDataSafetyLimitPlugin,
+  TableCreated,
   TableDataSafetyLimitCommandBusMiddleware,
+  TargetedLegacyEventDispatcher,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type ILogger,
   type IQueryBusMiddleware,
   type TableDataSafetyLimitConfig,
   type ITracer,
+  type DomainError,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -41,11 +61,17 @@ const defaultPgliteDataDir = 'memory://';
 
 export interface IV2BrowserPgliteContainerOptions {
   connectionString?: string;
+  /**
+   * Options forwarded to `PGlite.create`. Needed when the default on-disk
+   * asset lookup is unavailable, e.g. inside a single-file binary.
+   */
+  pglite?: IV2PostgresPgliteOptions;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
   formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
+  computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
@@ -81,6 +107,7 @@ export const registerV2BrowserPgliteDependencies = async (
 
   await registerV2PostgresPgliteDb(c, {
     pg: { connectionString },
+    pglite: options.pglite,
   });
 
   const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
@@ -105,6 +132,7 @@ export const registerV2BrowserPgliteDependencies = async (
     db: dataDb,
     tableDataSafetyLimits: options.tableDataSafetyLimits,
     formulaCompileBudget: options.formulaCompileBudget,
+    computedUpdate: options.computedUpdate,
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -143,6 +171,41 @@ export const registerV2BrowserPgliteDependencies = async (
         });
       },
     })
+  );
+
+  const catalogResult = compileDurableSubscriptionCatalog([
+    RecordCreated,
+    RecordsBatchCreated,
+    RecordUpdated,
+    RecordsBatchUpdated,
+    RecordsDeleted,
+    RecordReordered,
+    TableCreated,
+    FieldCreated,
+    FieldUpdated,
+  ]);
+  if (catalogResult.isErr()) {
+    throw new Error(catalogResult.error.message);
+  }
+  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  if (codecResult.isErr()) {
+    throw new Error(codecResult.error.message);
+  }
+  c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
+    c.registerInstance(v2CoreTokens.projectionMessageJournal, new NoopProjectionMessageJournal());
+  }
+  c.registerInstance(
+    v2CoreTokens.domainWriteTransaction,
+    new DomainWriteTransaction(
+      c.resolve(v2CoreTokens.unitOfWork),
+      codecResult.value,
+      catalogResult.value,
+      c.resolve(v2CoreTokens.projectionMessageJournal),
+      new TargetedLegacyEventDispatcher(c, logger),
+      new SameTxProjectionDispatcher(c),
+      logger
+    )
   );
 
   if (options.tracer) {
@@ -251,4 +314,50 @@ export const createV2BrowserContainer = async (
 export const createV2BrowserNoopContainer = (): DependencyContainer => {
   const c = container.createChildContainer();
   return registerV2BrowserNoopDependencies(c);
+};
+
+/**
+ * Options for {@link flushV2BrowserComputed}.
+ */
+export interface IV2BrowserComputedDrainOptions {
+  /** Worker identity used for lease bookkeeping and logs. */
+  workerId?: string;
+  /** Tasks processed per batch. */
+  limit?: number;
+  /** Safety cap on batches; exceeds throw instead of spinning forever. */
+  maxBatches?: number;
+}
+
+/**
+ * Runs the computed-update worker until the outbox has no more claimable work.
+ *
+ * The browser container does not start a background worker: cross-record
+ * rollups/links converge only when the host drains the queue. This facade is the
+ * supported seam — callers never need to know the DI tokens behind it.
+ *
+ * @returns number of processed tasks across all batches.
+ */
+export const flushV2BrowserComputed = async (
+  c: DependencyContainer,
+  options: IV2BrowserComputedDrainOptions = {}
+): Promise<number> => {
+  const worker = c.resolve<ComputedUpdateWorker>(
+    v2RecordRepositoryPostgresTokens.computedUpdateWorker
+  );
+  const workerId = options.workerId ?? 'browser-computed-drain';
+  const limit = options.limit ?? 100;
+  const maxBatches = options.maxBatches ?? 100;
+  let processed = 0;
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const result = await worker.runOnce({ workerId, limit });
+    if (result.isErr()) {
+      const error: DomainError = result.error;
+      throw new Error(error.message);
+    }
+    processed += result.value;
+    if (result.value === 0) {
+      return processed;
+    }
+  }
+  throw new Error(`Computed drain exceeded ${maxBatches} batches`);
 };

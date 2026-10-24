@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
@@ -21,6 +22,8 @@ import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { SelectOption } from '../domain/table/fields/types/SelectOption';
+import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
@@ -69,12 +72,13 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordsApplicationService } from './UpdateRecordsApplicationService';
 import { UpdateRecordsCommand } from './UpdateRecordsCommand';
 import { UpdateRecordsHandler } from './UpdateRecordsHandler';
 
-const createContext = (): IExecutionContext => {
+const createContext = (config?: IExecutionContext['config']): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId, windowId: 'test-window' };
+  return { actorId, windowId: 'test-window', config };
 };
 
 class FakeSpan implements ISpan {
@@ -548,7 +552,10 @@ class FakeUndoRedoService {
 class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
   readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
     [];
+  readonly events: string[] = [];
   releaseCount = 0;
+  failMode?: TableSchemaCoordinationMode;
+  onAcquire?: (mode: TableSchemaCoordinationMode) => void;
 
   constructor(private readonly failure?: DomainError) {}
 
@@ -558,12 +565,15 @@ class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
     mode: TableSchemaCoordinationMode
   ) {
     this.calls.push({ tableIds, mode });
-    if (this.failure) {
+    this.events.push(`acquire:${mode}`);
+    if (this.failure && (this.failMode === undefined || this.failMode === mode)) {
       return err(this.failure);
     }
+    this.onAcquire?.(mode);
     return ok(
       createTableSchemaCoordinationLease(mode, tableIds, async () => {
         this.releaseCount += 1;
+        this.events.push(`release:${mode}`);
       })
     );
   }
@@ -603,11 +613,19 @@ const createHandler = (
   );
 
   return new UpdateRecordsHandler(
-    new TableQueryService(tableRepository),
-    recordBulkUpdateService,
-    options?.tableSchemaCoordination
+    new UpdateRecordsApplicationService(
+      new TableQueryService(tableRepository),
+      recordBulkUpdateService,
+      options?.tableSchemaCoordination
+    )
   );
 };
+
+it('keeps the handler limited to application forwarding', () => {
+  const source = readFileSync(new URL('./UpdateRecordsHandler.ts', import.meta.url), 'utf8');
+  expect(source).not.toMatch(/order|typecast|FieldKeyResolver|select.option|acquire|release/i);
+  expect(source).toContain('return this.applicationService.execute(context, command)');
+});
 
 describe('UpdateRecordsHandler', () => {
   it('updates matched records and publishes batch event', async () => {
@@ -1649,8 +1667,14 @@ describe('UpdateRecordsHandler', () => {
 describe('UpdateRecordsHandler schema coordination', () => {
   const recordId = `rec${'q'.repeat(16)}`;
 
-  const setup = (coordination: ITableSchemaCoordination, options: { omitTable?: boolean } = {}) => {
-    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+  const setup = (
+    coordination: ITableSchemaCoordination,
+    options: {
+      omitTable?: boolean;
+      plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
+    } = {}
+  ) => {
+    const { table, tableId, textFieldId, numberFieldId, singleSelectFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
     if (!options.omitTable) {
       tableRepository.tables.push(table);
@@ -1676,10 +1700,18 @@ describe('UpdateRecordsHandler schema coordination', () => {
       new FakeEventBus(),
       new FakeUnitOfWork(),
       new FakeUndoRedoService(),
-      { tableSchemaCoordination: coordination }
+      { tableSchemaCoordination: coordination, plugins: options.plugins }
     );
 
-    return { table, tableId, textFieldId, numberFieldId, tableRepository, handler };
+    return {
+      table,
+      tableId,
+      textFieldId,
+      numberFieldId,
+      singleSelectFieldId,
+      tableRepository,
+      handler,
+    };
   };
 
   const createCommand = (input: Record<string, unknown>) =>
@@ -1705,9 +1737,9 @@ describe('UpdateRecordsHandler schema coordination', () => {
     expect(coordination.releaseCount).toBe(1);
   });
 
-  it('holds an exclusive lease for typecast bulk updates', async () => {
+  it('keeps a shared lease for typecast bulk updates that do not change metadata', async () => {
     const coordination = new RecordingTableSchemaCoordination();
-    const { tableId, textFieldId, handler } = setup(coordination);
+    const { tableId, textFieldId, handler, tableRepository } = setup(coordination);
 
     const result = await handler.handle(
       createContext(),
@@ -1716,9 +1748,193 @@ describe('UpdateRecordsHandler schema coordination', () => {
         typecast: true,
       })
     );
+
     expect(result.isOk()).toBe(true);
-    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(coordination.events).toEqual(['acquire:shared', 'release:shared']);
+    expect(tableRepository.findOneCalls).toBe(1);
+  });
+
+  it('releases the shared lease before acquiring exclusive for new select options', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, handler, tableRepository } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([
+      { tableIds: [tableId.toString()], mode: 'shared' },
+      { tableIds: [tableId.toString()], mode: 'exclusive' },
+    ]);
+    expect(coordination.events).toEqual([
+      'acquire:shared',
+      'release:shared',
+      'acquire:exclusive',
+      'release:exclusive',
+    ]);
+    expect(tableRepository.updated).toHaveLength(1);
+    expect(tableRepository.findOneCalls).toBe(2);
+  });
+
+  it('reloads table metadata after the lease gap and keeps a concurrent option', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { table, tableId, singleSelectFieldId, handler, tableRepository } = setup(coordination);
+    const tableWithClosedOption = table
+      .update((mutator) =>
+        mutator.addSelectOptions(singleSelectFieldId, [
+          SelectOption.create({ name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ])
+      )
+      ._unsafeUnwrap().table;
+    // Another writer created the option while this command held only the shared
+    // lease. The exclusive attempt must see it instead of persisting its own.
+    coordination.onAcquire = (mode) => {
+      if (mode === 'exclusive') {
+        tableRepository.tables = [tableWithClosedOption];
+      }
+    };
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    expect(result._unsafeUnwrap().updatedCount).toBe(1);
+    expect(coordination.events).toEqual([
+      'acquire:shared',
+      'release:shared',
+      'acquire:exclusive',
+      'release:exclusive',
+    ]);
+    expect(tableRepository.updated).toHaveLength(0);
+    const statusField = tableRepository.tables[0]!.getField((field) =>
+      field.id().equals(singleSelectFieldId)
+    )._unsafeUnwrap() as SingleSelectField;
+    expect(statusField.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Closed',
+    ]);
+  });
+
+  it('considers explicit record fields when choosing the exclusive lease', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        tableId: tableId.toString(),
+        typecast: true,
+        records: [
+          {
+            id: recordId,
+            fields: { [singleSelectFieldId.toString()]: 'Closed' },
+          },
+        ],
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([
+      { tableIds: [tableId.toString()], mode: 'shared' },
+      { tableIds: [tableId.toString()], mode: 'exclusive' },
+    ]);
+  });
+
+  it('keeps unsupported bulk input on the exclusive lease when the full-input probe errors', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext({ allowSelectOptionAutoCreate: false }),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    // The full input errors, but filtering can remove that record while another
+    // authorized record still adds an option. Widen the lease instead of
+    // assuming the error means no metadata write.
+    expect(result._unsafeUnwrapErr().code).toBe(
+      'permission.field.update_required_for_select_options'
+    );
+    expect(coordination.calls.map((call) => call.mode)).toEqual(['shared', 'exclusive']);
+    expect(coordination.releaseCount).toBe(2);
+  });
+
+  it('releases the shared lease when the exclusive acquisition fails', async () => {
+    const coordination = new RecordingTableSchemaCoordination(
+      domainError.infrastructure({
+        code: 'schema_coordination.acquire_failed',
+        message: 'Failed to acquire table schema coordination locks',
+      })
+    );
+    coordination.failMode = 'exclusive';
+    const { tableId, singleSelectFieldId, handler } = setup(coordination);
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('schema_coordination.acquire_failed');
+    expect(coordination.events).toEqual(['acquire:shared', 'release:shared', 'acquire:exclusive']);
     expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('releases the exclusive lease when table metadata disappears during the gap', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, handler, tableRepository } = setup(coordination);
+    coordination.onAcquire = (mode) => {
+      if (mode === 'exclusive') {
+        tableRepository.tables = [];
+      }
+    };
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(coordination.releaseCount).toBe(2);
+    expect(tableRepository.updated).toHaveLength(0);
+  });
+
+  it('runs plugin prepare and guard once while upgrading to the exclusive lease', async () => {
+    const tracked = createTrackedRecordWritePlugin([RecordWriteOperationKind.updateMany]);
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, handler } = setup(coordination, {
+      plugins: [tracked.plugin],
+    });
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand({
+        ...selectorInput(tableId, { [singleSelectFieldId.toString()]: 'Closed' }),
+        typecast: true,
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls.map((call) => call.mode)).toEqual(['shared', 'exclusive']);
+    expect(tracked.calls.prepare).toHaveLength(1);
+    expect(tracked.calls.guard).toHaveLength(1);
   });
 
   it('does not coordinate ordered bulk updates because row-order CIC cannot run inside the lease', async () => {

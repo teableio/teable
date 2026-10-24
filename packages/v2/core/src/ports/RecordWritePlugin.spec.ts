@@ -17,6 +17,7 @@ describe('recordWriteOperationMayCreateRecords', () => {
     );
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.importAppend)).toBe(true);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.paste)).toBe(true);
+    expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.upsertRecords)).toBe(true);
   });
 
   it('returns false for operations that do not create records', () => {

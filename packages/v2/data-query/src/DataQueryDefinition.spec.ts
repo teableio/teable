@@ -316,15 +316,15 @@ describe('DataQueryDefinition v2 relations', () => {
     expect(result.isOk()).toBe(true);
   });
 
-  it('rejects relation declarations on aggregate definitions', () => {
-    expect(
-      DataQueryDefinition.create({
-        version: 2,
-        kind: 'aggregate',
-        tableId,
-        relations: { project: { linkFieldId: fieldId, tableId: targetTableId } },
-        aggregates: [{ fieldId, statisticFunc: 'count', alias: 'count' }],
-      }).isErr()
-    ).toBe(true);
+  it('accepts to-one relations and source groupBy on aggregate definitions', () => {
+    const result = DataQueryDefinition.create({
+      version: 2,
+      kind: 'aggregate',
+      tableId,
+      relations: { project: { linkFieldId: fieldId, tableId: targetTableId } },
+      aggregates: [{ fieldId, statisticFunc: 'count', alias: 'count' }],
+      groupBy: [{ source: 'project', fieldId: targetFieldId, alias: 'projectName' }],
+    });
+    expect(result.isOk()).toBe(true);
   });
 });
