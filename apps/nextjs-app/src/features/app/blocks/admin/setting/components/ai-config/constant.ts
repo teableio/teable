@@ -46,6 +46,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.COHERE]: Cohere,
   [LLMProviderType.MISTRAL]: Mistral,
   [LLMProviderType.DEEPSEEK]: Deepseek,
+  [LLMProviderType.MINIMAX]: Minimax,
   [LLMProviderType.QWEN]: Qwen,
   [LLMProviderType.ZHIPU]: Zhipu,
   [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
@@ -76,6 +77,13 @@ export const LLM_PROVIDERS: readonly LLMProviderOption[] = [
     modelsPlaceholder: 'deepseek-chat,deepseek-reasoner',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
     hideInProviderSelect: true,
+  },
+  {
+    value: LLMProviderType.MINIMAX,
+    label: 'MiniMax',
+    baseUrlPlaceholder: 'https://api.minimax.io/v1',
+    modelsPlaceholder: 'image-01,image-01-live',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.MINIMAX],
   },
   {
     value: LLMProviderType.OPENAI,

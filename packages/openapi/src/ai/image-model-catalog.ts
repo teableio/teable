@@ -192,6 +192,28 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
     modelType: 'image',
   },
 
+  // MiniMax image generation uses a provider-specific endpoint and response shape.
+  {
+    provider: 'minimax',
+    model: 'image-01',
+    displayName: 'MiniMax image-01',
+    sizeType: 'flexible',
+    supportedAspectRatios: STANDARD_ASPECT_RATIOS,
+    supportsSeed: true,
+    modelType: 'image',
+    tags: ['image-generation'],
+  },
+  {
+    provider: 'minimax',
+    model: 'image-01-live',
+    displayName: 'MiniMax image-01-live',
+    sizeType: 'flexible',
+    supportedAspectRatios: STANDARD_ASPECT_RATIOS,
+    supportsSeed: true,
+    modelType: 'image',
+    tags: ['image-generation'],
+  },
+
   // Amazon Bedrock
   {
     provider: 'amazonBedrock',
