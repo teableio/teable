@@ -1,3 +1,4 @@
+import { FieldType } from '@teable/core';
 import type { IFieldVo } from '@teable/core';
 import { HelpCircle, ChevronDown, Check } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
@@ -44,6 +45,7 @@ interface IDownloadContentProps {
   tableId: string;
   fieldId: string;
   fieldName: string;
+  fieldIds?: string[];
   viewId?: string;
   shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
@@ -54,6 +56,7 @@ export const DownloadContent = ({
   tableId,
   fieldId,
   fieldName,
+  fieldIds,
   viewId,
   shareId,
   personalViewCommonQuery,
@@ -70,11 +73,19 @@ export const DownloadContent = ({
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldStaticGetter = useFieldStaticGetter();
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>(
+    fieldIds?.length ? fieldIds : [fieldId]
+  );
 
   // Filter fields suitable for naming (text-based fields)
   const namingFields = useMemo(() => {
     return allFields.filter((field) => isFieldSuitableForNaming(field as unknown as IFieldVo));
   }, [allFields]);
+  const attachmentFields = useMemo(
+    () =>
+      allFields.filter((field) => field.type === FieldType.Attachment && field.canReadFieldRecord),
+    [allFields]
+  );
 
   // Get the selected naming field instance for download
   // When namingFieldId is undefined, return undefined (use row number prefix)
@@ -109,7 +120,7 @@ export const DownloadContent = ({
       try {
         const previewData = await getAttachmentPreview(
           tableId,
-          fieldId,
+          selectedFieldIds,
           viewId,
           shareId,
           personalViewCommonQuery
@@ -125,7 +136,7 @@ export const DownloadContent = ({
     };
 
     loadPreview();
-  }, [tableId, fieldId, viewId, shareId, personalViewCommonQuery, onClose, t]);
+  }, [tableId, fieldId, selectedFieldIds, viewId, shareId, personalViewCommonQuery, onClose, t]);
 
   const handleStartDownload = useCallback(async () => {
     if (!preview || preview.totalAttachments === 0) return;
@@ -187,6 +198,7 @@ export const DownloadContent = ({
         tableId,
         fieldId,
         fieldName,
+        fieldIds: selectedFieldIds,
         viewId,
         shareId,
         personalViewCommonQuery,
@@ -222,6 +234,7 @@ export const DownloadContent = ({
     preview,
     tableId,
     fieldId,
+    selectedFieldIds,
     fieldName,
     viewId,
     shareId,
@@ -304,6 +317,33 @@ export const DownloadContent = ({
           ))}
         </div>
 
+        <div className="rounded-md border bg-muted/20 p-3">
+          <div className="mb-2 text-sm font-medium text-foreground">附件列</div>
+          <div className="grid gap-2">
+            {attachmentFields.map((field) => (
+              <label key={field.id} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={selectedFieldIds.includes(field.id)}
+                  onCheckedChange={(checked) =>
+                    setSelectedFieldIds((current) =>
+                      checked
+                        ? Array.from(new Set([...current, field.id]))
+                        : current.length > 1
+                          ? current.filter((id) => id !== field.id)
+                          : current
+                    )
+                  }
+                />
+                <span className="truncate">{field.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+          <Checkbox id="groupByRow" checked={groupByRow} onCheckedChange={(checked) => setGroupByRow(checked === true)} />
+          <Label htmlFor="groupByRow" className="cursor-pointer text-sm font-medium">归档到文件夹（按行整理）</Label>
+        </div>
+
         {/* Advanced options */}
         <Collapsible>
           <CollapsibleTrigger className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -314,7 +354,9 @@ export const DownloadContent = ({
             {/* Naming field selector */}
             <div className="space-y-1.5">
               <Label className="text-sm font-normal text-foreground">
-                {t('table:download.allAttachments.namingFieldLabel')}
+                {groupByRow
+                  ? '文件夹名称字段'
+                  : t('table:download.allAttachments.namingFieldLabel')}
               </Label>
               <Popover open={selectorOpen} onOpenChange={setSelectorOpen} modal>
                 <PopoverTrigger asChild>
@@ -424,28 +466,6 @@ export const DownloadContent = ({
                   </Command>
                 </PopoverContent>
               </Popover>
-            </div>
-
-            {/* Group by row option */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="groupByRow"
-                checked={groupByRow}
-                onCheckedChange={(checked) => setGroupByRow(checked === true)}
-              />
-              <Label htmlFor="groupByRow" className="cursor-pointer text-sm">
-                {t('table:download.allAttachments.groupByRow')}
-              </Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="size-4 cursor-pointer text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={5}>
-                    <p className="max-w-xs">{t('table:download.allAttachments.groupByRowTip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
           </CollapsibleContent>
         </Collapsible>
