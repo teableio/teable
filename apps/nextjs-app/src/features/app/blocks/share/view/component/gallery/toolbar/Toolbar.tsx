@@ -4,6 +4,7 @@ import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
+import { PresentToggle } from '@/features/app/blocks/view/tool-bar/components/PresentToggle';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
 import { Sort } from '../../grid/toolbar/Sort';
 import { ShareViewFilter } from '../../share-view-filter';
@@ -50,6 +51,7 @@ export const GalleryToolbar: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Sort>
+      <PresentToggle />
       <div className="flex w-10 flex-1 justify-end">
         <SearchButton shareView />
       </div>
