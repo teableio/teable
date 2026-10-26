@@ -1,7 +1,7 @@
-import { mkdtemp, open, rm, type FileHandle } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { deserialize, serialize } from 'node:v8';
+import type { FileHandle, mkdtemp, open, rm } from 'node:fs/promises';
+import type { tmpdir } from 'node:os';
+import type { join } from 'node:path';
+import type { deserialize, serialize } from 'node:v8';
 import {
   BaseId,
   FieldId,
@@ -20,6 +20,35 @@ import {
   type IImportEventSpoolFactory,
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
+
+/** The subset of Node builtins this spool uses; type-only, erased from the bundle. */
+type NodeBuiltins = {
+  fsPromises: { mkdtemp: typeof mkdtemp; open: typeof open; rm: typeof rm };
+  os: { tmpdir: typeof tmpdir };
+  path: { join: typeof join };
+  v8: { serialize: typeof serialize; deserialize: typeof deserialize };
+};
+
+let loadedNodeBuiltins: NodeBuiltins | undefined;
+
+/**
+ * Resolved on first use through `process.getBuiltinModule` so the adapter barrel
+ * stays importable by a browser bundle. This spool itself is Node-only: a
+ * browser host must inject a different `IImportEventSpoolFactory`.
+ */
+const nodeBuiltins = (): NodeBuiltins => {
+  if (loadedNodeBuiltins) return loadedNodeBuiltins;
+  if (typeof process === 'undefined' || typeof process.getBuiltinModule !== 'function') {
+    throw new Error('NodeImportEventSpool requires a Node host');
+  }
+  loadedNodeBuiltins = {
+    fsPromises: process.getBuiltinModule('node:fs/promises'),
+    os: process.getBuiltinModule('node:os'),
+    path: process.getBuiltinModule('node:path'),
+    v8: process.getBuiltinModule('node:v8'),
+  };
+  return loadedNodeBuiltins;
+};
 
 type EventBody =
   | {
@@ -158,16 +187,18 @@ const restore = (stored: StoredEvent): Result<IDomainEvent, DomainError> =>
   });
 
 export class NodeImportEventSpoolFactory implements IImportEventSpoolFactory {
-  constructor(private readonly rootDirectory = tmpdir()) {}
+  constructor(private readonly rootDirectory?: string) {}
 
   async create(): Promise<Result<IImportEventSpool, DomainError>> {
+    const node = nodeBuiltins();
     let directory: string | undefined;
     try {
-      directory = await mkdtemp(join(this.rootDirectory, 'teable-import-events-'));
-      const file = await open(join(directory, 'snapshots'), 'wx+', 0o600);
+      const root = this.rootDirectory ?? node.os.tmpdir();
+      directory = await node.fsPromises.mkdtemp(node.path.join(root, 'teable-import-events-'));
+      const file = await node.fsPromises.open(node.path.join(directory, 'snapshots'), 'wx+', 0o600);
       return ok(new NodeImportEventSpool(directory, file));
     } catch (error) {
-      if (directory) await rm(directory, { recursive: true, force: true });
+      if (directory) await node.fsPromises.rm(directory, { recursive: true, force: true });
       return err(domainError.fromUnknown(error, { code: 'import.event_spool_create_failed' }));
     }
   }
@@ -189,9 +220,10 @@ class NodeImportEventSpool implements IImportEventSpool {
         if (result.isErr()) return err(result.error);
         stored.push(result.value);
       }
-      const bytes = serialize(stored);
-      const header = Buffer.allocUnsafe(4);
-      header.writeUInt32LE(bytes.length);
+      const node = nodeBuiltins();
+      const bytes = node.v8.serialize(stored);
+      const header = new Uint8Array(4);
+      new DataView(header.buffer).setUint32(0, bytes.length, true);
       await this.file.writeFile(header);
       await this.file.writeFile(bytes);
       this.byteLength += header.length + bytes.length;
@@ -205,10 +237,10 @@ class NodeImportEventSpool implements IImportEventSpool {
     try {
       let position = 0;
       while (position < this.byteLength) {
-        const header = Buffer.allocUnsafe(4);
+        const header = new Uint8Array(4);
         await this.readExactly(header, position);
         position += header.length;
-        const length = header.readUInt32LE();
+        const length = new DataView(header.buffer).getUint32(0, true);
         if (length > this.byteLength - position) {
           yield err(
             domainError.infrastructure({
@@ -218,11 +250,11 @@ class NodeImportEventSpool implements IImportEventSpool {
           );
           return;
         }
-        const bytes = Buffer.allocUnsafe(length);
+        const bytes = new Uint8Array(length);
         await this.readExactly(bytes, position);
         position += length;
         const events: IDomainEvent[] = [];
-        for (const stored of deserialize(bytes) as StoredEvent[]) {
+        for (const stored of nodeBuiltins().v8.deserialize(bytes) as StoredEvent[]) {
           const result = restore(stored);
           if (result.isErr()) {
             yield err(result.error);
@@ -237,7 +269,7 @@ class NodeImportEventSpool implements IImportEventSpool {
     }
   }
 
-  private async readExactly(buffer: Buffer, position: number): Promise<void> {
+  private async readExactly(buffer: Uint8Array, position: number): Promise<void> {
     let offset = 0;
     while (offset < buffer.length) {
       const { bytesRead } = await this.file.read(
@@ -255,7 +287,7 @@ class NodeImportEventSpool implements IImportEventSpool {
     try {
       await this.file.close();
     } finally {
-      await rm(this.directory, { recursive: true, force: true });
+      await nodeBuiltins().fsPromises.rm(this.directory, { recursive: true, force: true });
     }
   }
 }

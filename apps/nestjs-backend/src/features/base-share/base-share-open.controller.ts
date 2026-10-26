@@ -141,7 +141,9 @@ export class BaseShareOpenController {
       });
 
       if (!targetBase) {
-        throw new CustomHttpException('Target project not found', HttpErrorCode.VALIDATION_ERROR);
+        throw new CustomHttpException('Target project not found', HttpErrorCode.VALIDATION_ERROR, {
+          localization: { i18nKey: 'httpErrors.base.notFound' },
+        });
       }
 
       if (targetBase.spaceId !== spaceId) {

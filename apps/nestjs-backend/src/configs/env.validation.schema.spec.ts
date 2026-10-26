@@ -118,12 +118,37 @@ describe('envValidationSchema', () => {
         PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
         DATABASE_POOL_MAX: '8',
         BYODB_DATA_DB_POOL_MAX: '4',
+        BYODB_DATA_DB_PG_MAX_CONNECTIONS: '100',
+        BYODB_DATA_DB_DATABASES_PER_SERVER: '20',
+        BYODB_APP_NODES: '2',
+        BYODB_DATA_DB_QUEUE_LIMIT: '0',
+        BYODB_DATA_DB_QUEUE_TIMEOUT_MS: '2500',
+        V2_SCHEMA_COORDINATION_MAX_CONNECTIONS: '4',
+        V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS: '5000',
       })
     );
 
     expect(error).toBeUndefined();
     expect(value.DATABASE_POOL_MAX).toBe(8);
     expect(value.BYODB_DATA_DB_POOL_MAX).toBe(4);
+    expect(value.BYODB_DATA_DB_PG_MAX_CONNECTIONS).toBe(100);
+    expect(value.BYODB_DATA_DB_DATABASES_PER_SERVER).toBe(20);
+    expect(value.BYODB_APP_NODES).toBe(2);
+    expect(value.BYODB_DATA_DB_QUEUE_LIMIT).toBe(0);
+    expect(value.BYODB_DATA_DB_QUEUE_TIMEOUT_MS).toBe(2500);
+    expect(value.V2_SCHEMA_COORDINATION_MAX_CONNECTIONS).toBe(4);
+    expect(value.V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS).toBe(5000);
+  });
+
+  it('rejects a non-positive BYODB server connection budget', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        BYODB_DATA_DB_PG_MAX_CONNECTIONS: '0',
+      })
+    );
+
+    expect(error?.message).toContain('BYODB_DATA_DB_PG_MAX_CONNECTIONS');
   });
 
   it('rejects missing meta database envs', () => {

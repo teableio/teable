@@ -158,6 +158,7 @@ export class AttachmentValueResolverService implements ICellValueSpecResolver<Se
                 domainError.validation({
                   code: 'validation.field.attachment_not_found',
                   message: `Attachment(${token}) not found`,
+                  localization: { i18nKey: 'httpErrors.attachment.notFound' },
                 })
               );
             }

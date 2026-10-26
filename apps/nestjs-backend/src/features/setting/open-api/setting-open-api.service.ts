@@ -91,6 +91,16 @@ const describeProviderTestError = (error: unknown, exposeUpstreamErrors: boolean
   return 'Could not get a valid response from the provider';
 };
 
+/**
+ * Our own AI Gateway image-test rejection keeps its specific copy when the
+ * test wraps it; any other failure gets the generic one.
+ */
+const getTestLLMFailedI18nKey = (error: unknown) =>
+  error instanceof CustomHttpException &&
+  error.data?.localization?.i18nKey === 'httpErrors.ai.imageTestUnsupportedForGateway'
+    ? ('httpErrors.ai.imageTestUnsupportedForGateway' as const)
+    : ('httpErrors.ai.testLLMFailed' as const);
+
 // Audit rows about instance settings are instance-scoped: no space/base, one fixed resource.
 const INSTANCE_AUDIT_RESOURCE_ID = 'instance';
 // Settings whose values are shown in the audit row (booleans are shown too): nothing secret.
@@ -749,7 +759,8 @@ export class SettingOpenApiService {
           // Gemini image models via Gateway use generateText, not generateImage
           throw new CustomHttpException(
             'Image generation testing not supported for AI Gateway models yet',
-            HttpErrorCode.VALIDATION_ERROR
+            HttpErrorCode.VALIDATION_ERROR,
+            { localization: { i18nKey: 'httpErrors.ai.imageTestUnsupportedForGateway' } }
           );
         }
 
@@ -820,7 +831,7 @@ export class SettingOpenApiService {
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
-            i18nKey: 'httpErrors.ai.testLLMFailed',
+            i18nKey: getTestLLMFailedI18nKey(error),
           },
         }
       );

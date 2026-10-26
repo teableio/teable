@@ -1,6 +1,8 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { createAxios } from '@teable/openapi';
 import type { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { RawOpType } from '../interface';
 
@@ -27,7 +29,7 @@ export class ReadonlyService {
     }
     const { version, deletedTime } = record;
     if (version < 1) {
-      throw new BadRequestException('Version is less than 1');
+      throw new CustomHttpException('Version is less than 1', HttpErrorCode.VALIDATION_ERROR);
     }
 
     if (deletedTime) {

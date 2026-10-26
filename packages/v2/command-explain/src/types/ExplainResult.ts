@@ -1,3 +1,5 @@
+import type { SchemaComplexityProfile } from '@teable/v2-complexity';
+
 /**
  * Types for command explain results.
  */
@@ -352,5 +354,7 @@ export type ExplainResult = {
   readonly linkLocks?: LinkRecordLocksInfo | null;
   readonly sqlExplains: ReadonlyArray<SqlExplainInfo>;
   readonly complexity: import('./ComplexityAssessment').ComplexityAssessment;
+  /** Additive schema vector; never interpret the legacy complexity score as this profile. */
+  readonly schemaComplexityProfile?: SchemaComplexityProfile;
   readonly timing: ExplainTiming;
 };

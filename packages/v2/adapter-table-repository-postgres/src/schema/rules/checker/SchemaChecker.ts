@@ -14,6 +14,7 @@ import {
   runningResult,
   successResult,
   errorResult,
+  domainErrorResult,
   warnResult,
 } from './SchemaCheckResult';
 
@@ -109,7 +110,7 @@ export class SchemaChecker {
           const validationResult = await this.checkRuleValidity(ctx, rule);
 
           if (validationResult.isErr()) {
-            yield errorResult(pending, validationResult.error.message);
+            yield domainErrorResult(pending, validationResult.error);
             validatedRules.set(rule.id, false);
             continue;
           }
@@ -221,7 +222,7 @@ export class SchemaChecker {
           const validationResult = await this.checkRuleValidity(ctx, rule);
 
           if (validationResult.isErr()) {
-            yield errorResult(pending, validationResult.error.message);
+            yield domainErrorResult(pending, validationResult.error);
             validatedRules.set(rule.id, false);
             continue;
           }

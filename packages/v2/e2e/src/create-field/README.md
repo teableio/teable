@@ -45,3 +45,11 @@ Empty linked-record display values are presentation-only: the grid label, expand
 record link card, and empty expanded-record heading use the localized `untitled`
 placeholder (`无标题` in Simplified Chinese). No placeholder is written to record
 data. Expanded link cards remain clickable and support unlinking and selection.
+
+## Grid field visibility across views
+
+`../createFieldViewVisibility.e2e.spec.ts` covers the persisted visibility decision
+when another grid view creates a field: a view with no hidden fields shows it,
+including after hiding a column and selecting **Show all** (`hidden: false`). A
+view with at least one hidden field hides it by default. Existing columns retain
+their visibility, and the view creating the field continues to show it.

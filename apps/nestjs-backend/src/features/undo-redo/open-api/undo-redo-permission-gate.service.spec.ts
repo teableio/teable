@@ -272,5 +272,53 @@ describe('UndoRedoService permission gate', () => {
         engine: 'v2',
       });
     });
+
+    it('carries the translation of a localized refusal on the stream', async () => {
+      const localizedDenied = new CustomHttpException(
+        denied.message,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' } }
+      );
+      permissionService.validPermissions.mockRejectedValue(localizedDenied);
+
+      const events = [];
+      for await (const event of service().undoStream(tableId, windowId)) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        expect.objectContaining({
+          id: 'error',
+          code: HttpErrorCode.RESTRICTED_RESOURCE,
+          localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' },
+        }),
+      ]);
+    });
+
+    it('carries the domain error translation of a failed replay', async () => {
+      const localization = { i18nKey: 'httpErrors.table.nameRequired' } as const;
+      const failure = () =>
+        err(domainError.validation({ message: 'Invalid TableName', localization }));
+      v2StackService.applyUndo.mockResolvedValue(failure());
+
+      await expect(service().undo(tableId, windowId)).resolves.toMatchObject({
+        body: {
+          status: 'failed',
+          errorMessage: 'Invalid TableName',
+          errorLocalization: localization,
+        },
+      });
+
+      v2StackService.applyUndo.mockResolvedValue(failure());
+      const events = [];
+      for await (const event of service().undoStream(tableId, windowId)) {
+        events.push(event);
+      }
+      expect(events.at(-1)).toMatchObject({
+        id: 'error',
+        message: 'Invalid TableName',
+        localization,
+      });
+    });
   });
 });

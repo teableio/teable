@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -12,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import type {
   ICreateMobileAuthCodeRo,
   ICreateMobileAuthCodeVo,
@@ -27,6 +27,7 @@ import {
 } from '@teable/openapi';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import type { ISessionData } from '../../../types/session';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -97,7 +98,10 @@ export class MobileAuthController {
     @Res() res: Response
   ) {
     if (!client) {
-      throw new BadRequestException('This link can only be opened by the Teable app');
+      throw new CustomHttpException(
+        'This link can only be opened by the Teable app',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const { user, parentSessionId } = await this.mobileAuthService.consumeWebSessionCode(
       query.code

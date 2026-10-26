@@ -674,4 +674,39 @@ describe('PostgresDataQueryExecutor real SQL', () => {
       JSON.parse('{"__proto__":{"x":1},"constructor":"ok"}')
     );
   });
+
+  it('groups a bucket whose alias equals the field id without duplicating rows', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'aggregate',
+      tableId,
+      aggregates: [{ fieldId: titleId, statisticFunc: 'count', alias: 'rows' }],
+      groupBy: [
+        {
+          fieldId: amountId,
+          alias: amountId,
+          bucket: {
+            kind: 'numericRange',
+            edges: [{ maxExclusive: 15, label: 'low' }],
+            fallbackLabel: 'high',
+            nullLabel: 'missing',
+          },
+        },
+      ],
+      sort: [{ alias: amountId, order: 'asc' }],
+      page: { limit: 10, includeTotal: true },
+    })._unsafeUnwrap();
+
+    const result = await executor.execute(context, table, definition.bind({})._unsafeUnwrap(), {});
+
+    const rows = result._unsafeUnwrap().rows;
+    expect(rows.map((row) => row[amountId])).toEqual(['high', 'low', 'missing']);
+    expect(rows).toEqual([
+      { [amountId]: 'high', rows: 1 },
+      { [amountId]: 'low', rows: 2 },
+      { [amountId]: 'missing', rows: 1 },
+    ]);
+    expect(rows.length).toBe(result._unsafeUnwrap().page?.total);
+    expect(result._unsafeUnwrap().page).toEqual({ limit: 10, offset: 0, total: 3 });
+  });
 });

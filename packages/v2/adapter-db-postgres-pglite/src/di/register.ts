@@ -8,19 +8,24 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { container } from '@teable/v2-di';
 
-import { createV2PostgresPgliteDb } from '../createDb';
+import { createV2PostgresPgliteDb, type IV2PostgresPgliteOptions } from '../createDb';
+
+export type IV2PostgresPgliteRegisterConfig = Partial<IV2PostgresDbConfig> & {
+  pglite?: IV2PostgresPgliteOptions;
+};
 
 export const registerV2PostgresPgliteDb = async (
   c: DependencyContainer = container,
-  rawConfig: Partial<IV2PostgresDbConfig> = {}
+  rawConfig: IV2PostgresPgliteRegisterConfig = {}
 ): Promise<DependencyContainer> => {
-  const parsed = v2PostgresDbConfigSchema.safeParse(rawConfig);
+  const { pglite, ...pgConfig } = rawConfig;
+  const parsed = v2PostgresDbConfigSchema.safeParse(pgConfig);
   if (!parsed.success) {
     throw new Error('Invalid v2 postgres db config');
   }
 
   const config = parsed.data;
-  const db = await createV2PostgresPgliteDb(config);
+  const db = await createV2PostgresPgliteDb({ ...config, pglite });
 
   c.registerInstance(v2MetaDbTokens.db, db);
   c.registerInstance(v2MetaDbTokens.config, config);

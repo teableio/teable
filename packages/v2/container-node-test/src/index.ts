@@ -27,6 +27,7 @@ import {
   FormulaSourceBudgetCommandBusMiddleware,
   type ComputedUpdateWorker,
   type ComputedUpdateOutboxConfig,
+  computedRuntimeConfigFromEnv,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
@@ -171,6 +172,10 @@ export interface IV2NodeTestContainerOptions {
     | {
         /** Session application name while a coordination lease is held. */
         applicationName?: string;
+        /** Dedicated coordination connections for this container. Defaults to 8. */
+        maxConnections?: number;
+        /** Milliseconds to establish a coordination connection. Defaults to 10000. */
+        connectionTimeoutMillis?: number;
       }
     | false;
   // Kept for call-site compatibility. Delete now writes id-only record_trash
@@ -352,6 +357,12 @@ export const createV2NodeTestContainer = async (
         ...(coordinationOptions?.applicationName !== undefined
           ? { applicationName: coordinationOptions.applicationName }
           : {}),
+        ...(coordinationOptions?.maxConnections !== undefined
+          ? { maxConnections: coordinationOptions.maxConnections }
+          : {}),
+        ...(coordinationOptions?.connectionTimeoutMillis !== undefined
+          ? { connectionTimeoutMillis: coordinationOptions.connectionTimeoutMillis }
+          : {}),
       })
     );
   }
@@ -391,6 +402,7 @@ export const createV2NodeTestContainer = async (
     registerV2TableRepositoryPostgresAdapter(c, {
       db: dataDb,
       metaDb,
+      runtime: computedRuntimeConfigFromEnv(process.env),
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
         ...options.computedUpdate,

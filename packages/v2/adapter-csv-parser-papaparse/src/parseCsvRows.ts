@@ -233,6 +233,14 @@ class CsvChunkParser {
         message: `CSV parse error at row ${firstError.row}: ${firstError.message}`,
         code: "csv.parse_error",
         details: { errors: parsed.errors },
+        // Papa leaves `row` unset for file-level errors; without it the copy
+        // has nothing to interpolate, so the English message is shown instead.
+        ...(firstError.row !== undefined && {
+          localization: {
+            i18nKey: 'httpErrors.import.csvParseError',
+            context: { row: firstError.row, detail: firstError.message },
+          },
+        }),
       });
     }
     const consumed = parsed.meta.cursor;

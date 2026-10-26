@@ -38,7 +38,7 @@ import {
   MultiNumberDisplayType,
   SingleNumberDisplayType,
   TimeFormatting,
-  TIME_ZONE_LIST,
+  timeZoneValueSchema,
   FieldValueTypeVisitor,
   optionalForeignBaseIdSchema,
 } from '@teable/v2-core';
@@ -284,7 +284,7 @@ const checkboxOptionsSchema = z.object({
 const dateFormattingSchema = z.object({
   date: z.string(),
   time: z.enum([TimeFormatting.Hour24, TimeFormatting.Hour12, TimeFormatting.None]),
-  timeZone: z.enum(TIME_ZONE_LIST),
+  timeZone: timeZoneValueSchema,
 });
 
 const dateOptionsSchema = z.object({
@@ -346,14 +346,14 @@ const formulaShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSch
 
 const formulaOptionsSchema = z.object({
   expression: z.string(),
-  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  timeZone: timeZoneValueSchema.optional(),
   formatting: formulaFormattingSchema.optional(),
   showAs: formulaShowAsSchema.optional(),
 });
 
 const rollupOptionsSchema = z.object({
   expression: z.string(),
-  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  timeZone: timeZoneValueSchema.optional(),
   formatting: formulaFormattingSchema.optional(),
   showAs: formulaShowAsSchema.optional(),
 });

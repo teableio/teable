@@ -1042,28 +1042,33 @@
       "invalidPath": "Geçersiz ek yolu",
       "fileSizeExceedsMaximumLimit": "Dosya boyutu maksimum sınır {{maxSize}} aşıyor",
       "invalidUploadType": "Geçersiz yükleme türü",
-      "urlReject": "URL reddedildi veya erişilemiyor"
+      "urlReject": "URL reddedildi veya erişilemiyor",
+      "avatarTypeUnsupported": "Desteklenmeyen dosya türü. Yalnızca JPEG, PNG ve WebP kullanılabilir."
     },
     "email": {
-      "testEmailError": "Posta yapılandırma hatası {{message}}"
+      "testEmailError": "Posta yapılandırma hatası {{message}}",
+      "transporterInvalid": "E-posta yapılandırması geçersiz: {{detail}}"
     },
     "auth": {
-      "invalidConfirm": "Invalid confirmation input",
-      "emailNotRegistered": "This email is not registered",
-      "passwordNotSet": "Password has not been set for this account",
-      "systemUser": "This is a system user account",
-      "alreadyRegistered": "This email is already registered",
-      "passwordIncorrect": "The password is incorrect",
-      "tokenInvalid": "The token is invalid or has expired",
-      "passwordAlreadyExists": "Password has already been set for this account",
-      "verificationCodeInvalid": "The verification code is invalid or has expired",
-      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
-      "emailAlreadyRegistered": "This email address is already registered",
-      "waitlistNotEnabled": "The waitlist feature is not enabled",
-      "emailOrPasswordIncorrect": "Email or password is incorrect",
-      "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "Parola ile giriş devre dışı bırakıldı"
+      "invalidConfirm": "Geçersiz onay girdisi",
+      "emailNotRegistered": "Bu e-posta kayıtlı değil",
+      "passwordNotSet": "Bu hesap için parola belirlenmemiş",
+      "systemUser": "Bu bir sistem kullanıcısı hesabıdır",
+      "alreadyRegistered": "Bu e-posta zaten kayıtlı",
+      "passwordIncorrect": "Parola yanlış",
+      "tokenInvalid": "Token geçersiz veya süresi dolmuş",
+      "passwordAlreadyExists": "Bu hesap için parola zaten belirlenmiş",
+      "verificationCodeInvalid": "Doğrulama kodu geçersiz veya süresi dolmuş",
+      "newEmailSameAsCurrentEmail": "Yeni e-posta adresi mevcut adresle aynı",
+      "emailAlreadyRegistered": "Bu e-posta adresi zaten kayıtlı",
+      "waitlistNotEnabled": "Bekleme listesi özelliği etkin değil",
+      "emailOrPasswordIncorrect": "E-posta veya parola yanlış",
+      "accountDeactivated": "Bu hesap yönetici tarafından devre dışı bırakıldı",
+      "accountLockedOut": "Çok fazla başarısız giriş denemesi nedeniyle hesabınız kilitlendi. Lütfen daha sonra tekrar deneyin.",
+      "passwordLoginDisabled": "Parola ile giriş devre dışı bırakıldı",
+      "captchaFailed": "İnsan doğrulaması başarısız oldu. Sayfayı yenileyip tekrar deneyin.",
+      "captchaServiceUnavailable": "Doğrulama hizmeti geçici olarak kullanılamıyor. Lütfen tekrar deneyin.",
+      "mobileExchangeInvalid": "Oturum açma isteği geçersiz veya süresi dolmuş. Lütfen uygulamadan tekrar oturum açın."
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
@@ -1111,7 +1116,16 @@
       "webhookTriggerNotFound": "Webhook tetikleyicisi bulunamadı",
       "emailReceivedTriggerNotFound": "E-posta alım tetikleyicisi bulunamadı",
       "emailConnectorNotAvailable": "E-posta bağlayıcı hizmeti kullanılamıyor",
-      "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}"
+      "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}",
+      "codeUploadFailed": "Derlenmiş kod yüklenemedi: {{detail}}",
+      "invalidInput": "Geçersiz girdi: {{detail}}",
+      "recordsRequired": "Kayıtlar gereklidir",
+      "codeRequired": "Kod gereklidir ve boş olamaz",
+      "scriptCompileFailed": "Betik derlenemedi: {{detail}}",
+      "scriptExecutionFailed": "Betik çalıştırılamadı: {{detail}}",
+      "scriptTimeout": "Betik çalıştırma zaman aşımına uğradı ({{timeout}}ms içinde yanıt gelmedi)",
+      "sandboxUnavailable": "Sandbox sunucusuna bağlanılamıyor. Sandbox sunucusunun çalıştığını kontrol edin.",
+      "sandboxError": "Sandbox sunucusu hatası: {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "Kazıma servisi yapılandırılmamış",
@@ -1121,10 +1135,11 @@
       "runOverLimit": "Bu tarama en fazla {{maxCredits}} kredi tutabilir, bu da tek bir çalıştırma için izin verilen {{limit}} kredilik sınırı aşıyor."
     },
     "integration": {
-      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
-      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
-      "providerUnsupported": "{{provider}} bağlantıları artık desteklenmiyor ve yetkilendirilemez"
+      "oauthCodeExchangeFailed": "OAuth kodu değiştirilemedi: {{detail}}",
+      "oauthTokenRefreshFailed": "OAuth tokenı yenilenemedi: {{detail}}",
+      "userInfoFetchFailed": "Kullanıcı bilgileri alınamadı: {{detail}}",
+      "providerUnsupported": "{{provider}} bağlantıları artık desteklenmiyor ve yetkilendirilemez",
+      "callbackFailed": "Yetkilendirme geri çağrısı işlenemedi: {{detail}}"
     },
     "space": {
       "notFound": "Alan bulunamadı",
@@ -1132,19 +1147,23 @@
       "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
       "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
       "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez",
-      "deleted": "Space has been deleted",
+      "deleted": "Alan silindi",
       "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
       "notBelongToOrg": "Bu alan organizasyona ait değil",
       "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}",
-      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+      "freeOwnedSpaceLimitExceeded": "Sahip olabileceğiniz ücretsiz alan sayısı sınırına ulaştınız ({{max}}). Yeni bir ücretsiz alan oluşturmak için mevcut bir alanı yükseltin veya birini silin.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}}, sahip olabileceği ücretsiz alan sayısı sınırına ulaştı ({{max}}).",
+      "dataDbTargetError": "Hedef veritabanı hatası: {{detail}}",
+      "migrationUnavailableCrossSpace": "Alanlar arası referanslar etkinken alan bazında veri veritabanı geçişi kullanılamaz"
     },
     "base": {
       "notFound": "Proje bulunamadı",
       "cannotAccess": "Proje {{baseId}} erişim izniniz yok",
       "anchorNotFound": "Referans proje {{anchorId}} bulunamadı",
       "baseAndSpaceMismatch": "Proje {{baseId}} ve alan {{spaceId}} eşleşmiyor",
-      "templateNotFound": "Şablon {{templateId}} bulunamadı"
+      "templateNotFound": "Şablon {{templateId}} bulunamadı",
+      "crossDataDbDuplicateUnsupported": "Kayıtları farklı alan veri veritabanları arasında çoğaltma henüz desteklenmiyor",
+      "moveJobNotCancellable": "Taşıma işi {{state}} durumundayken iptal edilemez"
     },
     "baseNode": {
       "baseIdIsRequired": "Proje ID gereklidir",
@@ -1184,7 +1203,8 @@
       "notFound": "Sohbet bulunamadı",
       "accessDenied": "Bu sohbete erişim izniniz yok",
       "archived": "Sohbet arşivlenmiş",
-      "serverAuthoredType": "{{type}} türündeki sohbetler sunucu tarafından oluşturulur"
+      "serverAuthoredType": "{{type}} türündeki sohbetler sunucu tarafından oluşturulur",
+      "messageTooLong": "Mesaj çok uzun ({{length}} karakter, en fazla {{max}})"
     },
     "dashboard": {
       "notFound": "Gösterge paneli bulunamadı"
@@ -1291,7 +1311,12 @@
       "exceedMaxReadRows": "Maksimum okuma satırı sınırı aşıldı",
       "invalidCellValueType": "Geçersiz hücre değeri türü",
       "exceedMaxCopyCells": "Maksimum kopyalama hücresi sınırı aşıldı",
-      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
+      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı",
+      "linkAutoCreateSelfLinkUnsupported": "Kendi tablosuna bağlanan bir bağlantı alanında yapıştırma sırasında bağlantılı kayıtlar otomatik oluşturulamaz. Bunun yerine mevcut kayıtların başlıklarını yapıştırın.",
+      "linkAutoCreateRequiresPrimaryLookup": "Bu bağlantı alanı bağlı tablonun birincil olmayan bir alanını gösterdiğinden yapıştırma sırasında bağlantılı kayıtlar otomatik oluşturulamaz.",
+      "linkAutoCreateRequiresTextPrimary": "Bağlı tablonun birincil alanı tek bir metin değeri olmadığından yapıştırma sırasında bağlantılı kayıtlar otomatik oluşturulamaz.",
+      "linkAutoCreateComputedPrimaryUnsupported": "Bağlı tablonun birincil alanı hesaplanan bir alan olduğundan yapıştırma sırasında bağlantılı kayıtlar otomatik oluşturulamaz.",
+      "linkAutoCreateMissingRequiredFields": "Bağlı tabloda varsayılan değeri olmayan zorunlu alanlar bulunduğundan yapıştırma sırasında bağlantılı kayıtlar otomatik oluşturulamaz: {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
@@ -1358,7 +1383,21 @@
         "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
       },
       "primaryCannotBeLookup": "Birincil alan Lookup alanı olarak yapılandırılamaz",
-      "primaryFieldAlreadyExists": "Tablonun zaten bir birincil alanı var"
+      "primaryFieldAlreadyExists": "Tablonun zaten bir birincil alanı var",
+      "nameRequired": "Alan adı boş olamaz",
+      "rollupFormattingMismatch": "Toplama alanının biçimi sonuç türüyle eşleşmiyor. Lütfen biçimi yeniden seçip tekrar deneyin.",
+      "conditionalRollupFormattingMismatch": "Biçim, koşullu toplama sonuç türüyle eşleşmiyor. Lütfen biçimi yeniden seçip tekrar deneyin.",
+      "conditionalRollupLookupFieldUnavailable": "Toplanan alan veya tablosu kullanılamadığından bu koşullu toplamanın sonuç türü belirlenemiyor. Lütfen yeniden seçin.",
+      "selectDefaultValueNotInChoices": "Varsayılan değer \"{{value}}\" seçenekler arasında değil. Lütfen varsayılan değeri yeniden seçin.",
+      "timeZoneInvalid": "Desteklenmeyen saat dilimi: {{timeZone}}. Lütfen başka bir saat dilimi seçin.",
+      "formulaCompileFailed": "Bu formül hesaplanamıyor. Lütfen formülü sadeleştirin veya başvurulan alanları kontrol edin.",
+      "formulaParamTextNotAllowed": "{{func}}, {{index}}. parametre olarak metin değeri kabul etmez. Başvurulan alanların türlerini kontrol edin.",
+      "formulaParamNumberOrDateRequired": "{{func}}, {{index}}. parametre olarak yalnızca sayı veya tarih değeri kabul eder. Başvurulan alanların türlerini kontrol edin.",
+      "formulaParamTextRequired": "{{func}}, {{index}}. parametre olarak yalnızca metin değeri kabul eder. Başvurulan alanların türlerini kontrol edin.",
+      "linkTitleFillLimitExceeded": "Bir bağlantı hücresine her yazma işleminde en fazla {{max}} kayıt eklenebilir",
+      "buttonClickConflict": "Düğme başka bir istek tarafından değiştirildi. Lütfen tekrar tıklayın.",
+      "buttonUndoConflict": "Geri alma veya yineleme sırasında düğme değişti. Lütfen tekrar deneyin.",
+      "linkTitlePrimaryNotText": "Bağlı tablonun birincil alanı tek bir metin değeri olmadığından bağlantılı kayıtlar metne göre eşleştirilemiyor."
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
@@ -1375,7 +1414,11 @@
       "notEnoughGapToShuffleRow": "Satırı karıştırmak için yeterli boşluk yok",
       "shareNotEnabled": "Görünüm paylaşımı etkinleştirilmedi",
       "shareAlreadyEnabled": "Görünüm paylaşımı zaten etkinleştirildi",
-      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
+      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı",
+      "versionConflict": "Bu görünüm az önce başka bir işlem tarafından değiştirildi. Lütfen sayfayı yenileyip tekrar deneyin.",
+      "nameAlreadyExists": "Bu tabloda {{name}} adlı bir görünüm zaten var",
+      "manualSortUnsupportedViewType": "Manuel sıralama yalnızca ızgara görünümlerinde desteklenir",
+      "formRequiredFieldsMissing": "Göndermeden önce lütfen tüm zorunlu alanları doldurun"
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi",
@@ -1389,7 +1432,11 @@
       "planNotAvailable": "Bu plan artık yeni abonelikler için mevcut değildir.",
       "seatLimitExceeded": "Satın alınan koltuk sayısı yetersiz. Daha fazla iş ortağı davet etmek için koltuk ekleyin.",
       "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı.",
-      "creditAddOnRetired": "Yinelenen kredi eklentisi kaldırıldı. Bunun yerine planınızda daha büyük bir kredi kademesi seçin."
+      "creditAddOnRetired": "Yinelenen kredi eklentisi kaldırıldı. Bunun yerine planınızda daha büyük bir kredi kademesi seçin.",
+      "trialUsed": "Deneme süresi zaten kullanılmış",
+      "subscriptionPaused": "Aboneliğiniz duraklatıldı. Yeni bir abonelik başlatmadan önce devam ettirmek veya iptal etmek için destekle iletişime geçin.",
+      "noSubscriptionToRevert": "Geri alınacak bir Stripe aboneliği yok",
+      "portalUnavailable": "Faturalandırma portalı açılamıyor. Lütfen daha sonra tekrar deneyin."
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",
@@ -1424,7 +1471,9 @@
       "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
       "generateFailed": "AI üretimi başarısız oldu",
       "unsupportedActionType": "Desteklenmeyen AI eylem türü",
-      "geminiImageNotSupportedViaGateway": "Gemini görsel üretimi AI Gateway üzerinden desteklenmiyor. Bunun yerine doğrudan bir Google sağlayıcısı yapılandırın."
+      "geminiImageNotSupportedViaGateway": "Gemini görsel üretimi AI Gateway üzerinden desteklenmiyor. Bunun yerine doğrudan bir Google sağlayıcısı yapılandırın.",
+      "requestFailed": "AI isteği başarısız oldu: {{detail}}",
+      "imageTestUnsupportedForGateway": "AI Gateway modelleri için görsel oluşturma testi henüz desteklenmiyor"
     },
     "skill": {
       "notFound": "Beceri bulunamadı",
@@ -1487,7 +1536,9 @@
       "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
       "createTableIndexError": "Tablo dizini oluşturulamadı",
       "dropTableIndexError": "Tablo dizini silinemedi",
-      "notFoundPrimaryField": "Tabloda birincil alan bulunamadı"
+      "notFoundPrimaryField": "Tabloda birincil alan bulunamadı",
+      "duplicateCrossSpaceField": "Bu tablo alanlar arası alanlar içeriyor ve çoğaltılamaz",
+      "nameRequired": "Tablo adı boş olamaz"
     },
     "export": {
       "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
@@ -1496,7 +1547,14 @@
       "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
       "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
       "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "Devam eden çok fazla içe aktarma görevi var ({{current}}/{{max}}). Lütfen daha sonra tekrar deneyin.",
+      "failed": "İçe aktarma başarısız oldu: {{detail}}",
+      "noImportableData": "Seçili sekmelerde içe aktarılabilir veri bulunamadı",
+      "csvParseError": "{{row}}. satırda CSV ayrıştırma hatası: {{detail}}",
+      "csvNoColumns": "CSV dosyasında içe aktarılacak sütun yok",
+      "excelSheetNoColumns": "Çalışma sayfasında içe aktarılacak sütun yok",
+      "columnIndexOutOfRange": "{{index}}. sütun aralık dışında. Başlık satırında yalnızca {{count}} sütun var.",
+      "invalidDotteaStructure": ".tea dosya yapısı geçersiz veya desteklenmiyor. Lütfen projeyi yeniden dışa aktarıp tekrar deneyin."
     },
     "invitation": {
       "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
@@ -1518,7 +1576,8 @@
       "parentBaseOrSpaceTrashed": "Üst proje veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
       "parentBaseTrashed": "Üst proje de çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
       "parentNotFound": "Üst kaynak bulunamadı",
-      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
+      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı",
+      "restoreFieldInvalidSnapshot": "Silinen alanın yapılandırması geçersiz olduğundan alan geri yüklenemez."
     },
     "license": {
       "invalid": "Lisans geçersiz",
@@ -1542,7 +1601,9 @@
       "emailNotSpaceUser": "E-posta alan kullanıcısı değil"
     },
     "mail": {
-      "failedToSendEmail": "E-posta gönderimi başarısız"
+      "failedToSendEmail": "E-posta gönderimi başarısız",
+      "recipientRequired": "\"to\" veya \"bcc\" alanlarından en az biri geçerli alıcı e-postaları içermelidir",
+      "allUnsubscribed": "Tüm alıcılar abonelikten çıkmış. Abonelikten çıkma listesini kontrol edin."
     },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
@@ -1570,7 +1631,9 @@
       "updateFailed": "Kayıt güncelleme başarısız",
       "noFileOrUrlProvided": "Dosya veya URL sağlanmadı",
       "createRecordsEmpty": "Kayıt oluşturma boş olamaz",
-      "duplicateFailed": "Kayıt çoğaltma başarısız"
+      "duplicateFailed": "Kayıt çoğaltma başarısız",
+      "linkedRecordNotExist": "Kaydedilemiyor: bağlantılı bir kayıt artık mevcut değil. Lütfen sayfayı yenileyip tekrar deneyin.",
+      "fieldValueInvalid": "\"{{fieldName}}\" alanı için geçersiz değer"
     },
     "typecast": {
       "cellValueValidationFailed": "Hücre değeri doğrulama başarısız"
@@ -1615,7 +1678,32 @@
       "siteInfoBeforeGeneration": "Site bilgilerini özelleştirmeden önce uygulamayı oluşturun",
       "generationEditingConflict": "Bir yapay zekâ üretimi şu anda bu uygulamayı düzenliyor. İşlem bittikten sonra dosya güncellemesini yeniden deneyin.",
       "siteInfoLayoutNotEditable": "Bu uygulamanın kodu site bilgilerinin burada düzenlenmesine uygun değil. Bunun yerine sohbette yapay zekâdan site başlığını, açıklamasını veya simgesini değiştirmesini isteyin.",
-      "siteInfoManagedInCode": "Bu uygulama site başlığını ve açıklamasını kod içinde yönetiyor. Bunun yerine sohbette yapay zekâdan bunları değiştirmesini isteyin."
+      "siteInfoManagedInCode": "Bu uygulama site başlığını ve açıklamasını kod içinde yönetiyor. Bunun yerine sohbette yapay zekâdan bunları değiştirmesini isteyin.",
+      "accessLinkSetupFailed": "Erişim bağlantısı ayarlanamadı: {{detail}}",
+      "zipNotAppProject": "İçe aktarılan ZIP geçerli bir uygulama projesi değil: proje kökünde package.json yok",
+      "zipExceedsLimits": "İçe aktarılan ZIP uygulama arşivi sınırlarını aşıyor ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "E-posta hizmeti yapılandırılmadığı için kod gönderilemiyor",
+        "googleNotConfigured": "Google ile oturum açma kimlik bilgileri yapılandırılmamış",
+        "loginDisabled": "Bu uygulama için oturum açma etkin değil",
+        "googleDisabled": "Bu uygulama için Google ile oturum açma etkin değil",
+        "teableDisabled": "Bu uygulama için Teable ile oturum açma etkin değil",
+        "userTableMissing": "Seçilen kullanıcı tablosu bu projede yok",
+        "emailFieldMissing": "Seçilen kullanıcı tablosunda e-posta alanı yok",
+        "emailFieldType": "E-posta alanı yazılabilir bir tek satırlık metin alanı olmalıdır",
+        "signInStateInvalid": "Oturum açma oturumu geçersiz veya süresi dolmuş. Lütfen tekrar oturum açın.",
+        "domainNotAllowed": "Kayıt, belirli e-posta alan adlarıyla sınırlıdır. E-posta alan adınız izin verilenler listesinde değil.",
+        "inviteOnly": "Bu uygulama yalnızca davetliler içindir. Erişim istemek için uygulama yöneticisiyle iletişime geçin.",
+        "emailMissing": "E-posta adresiniz alınamadı"
+      },
+      "previewOriginNotReady": "Önizleme uygulaması hazır değil. Önizlemeyi yenileyip tekrar deneyin.",
+      "publishedOriginNotReady": "Yayımlanan uygulama hazır değil. Uygulamayı yayımlayıp tekrar deneyin.",
+      "versionSourceMissing": "{{version}} sürümü için kaynak dosya bulunamadı",
+      "accessLink": {
+        "dnsMisconfigured": "Erişim bağlantısı ayarlanamadı: alan adının DNS yapılandırması doğru değil"
+      },
+      "customDomainNotConfigured": "Özel alan adı yapılandırılmamış",
+      "vercelTokenNotConfigured": "App Builder ayarlarında Vercel tokenı yapılandırılmamış"
     },
     "reward": {
       "notFound": "Ödül bulunamadı",
@@ -1643,6 +1731,49 @@
     "connectorEvent": {
       "accountNotGranted": "Bağlayıcı olay tetikleyicisi için bu kaynağa verilmiş bağlı bir hesap gerekir",
       "notEnabled": "Bu dağıtımda bağlayıcı olayları etkin değil"
+    },
+    "requestFailed": "İstek başarısız oldu",
+    "operationFailed": "İşlem başarısız oldu: {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "{{operator}} operatörü başka bir alanla karşılaştırılamaz"
+    },
+    "oauth": {
+      "invalidRequest": "Geçersiz OAuth isteği: {{detail}}",
+      "deviceCodeUsed": "Bu kod zaten kullanılmış. Cihazınızdan yeni bir kod alın."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "Geçersiz parametre: {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "AI Proxy API Key bulunamadı"
+    },
+    "github": {
+      "linkStateInvalid": "GitHub bağlantı durumu geçersiz veya süresi dolmuş",
+      "accountMismatch": "GitHub sizi {{authorizedLogin}} olarak yetkilendirdi, ancak seçilen bağlantı {{accountLogin}} hesabına ait. GitHub'da {{accountLogin}} olarak oturum açıp tekrar deneyin.",
+      "registryNotConfigured": "GitHub senkronizasyonu için git registry gerekir, ancak bu dağıtımda yapılandırılmamış",
+      "repoNameInvalid": "Depo adları yalnızca harf, rakam, \".\", \"-\" ve \"_\" içerebilir",
+      "installStateInvalid": "GitHub kurulum durumu geçersiz veya süresi dolmuş",
+      "installationIdInvalid": "Geçersiz kurulum kimliği"
+    },
+    "im": {
+      "feishuNotConfigured": "Feishu uygulama kimlik bilgileri yapılandırılmamış",
+      "slackNotConfigured": "Slack yapılandırılmamış. Bir yönetici, IM entegrasyonu ayarlarında Slack uygulamasını yapılandırmalıdır."
+    },
+    "tableProvisionPending": "Tablo yapısı güncelleniyor. Lütfen kısa süre sonra tekrar deneyin.",
+    "computed": {
+      "pausedWriteBlocked": "Hesaplamalar bakım nedeniyle duraklatıldı, bu yüzden bu değişiklik şu anda kaydedilemiyor. Lütfen daha sonra tekrar deneyin."
+    },
+    "undoRedo": {
+      "inProgress": "Bir geri alma veya yineleme işlemi hâlâ sürüyor. Lütfen biraz bekleyip tekrar deneyin.",
+      "busy": "Geri alma ve yineleme şu anda meşgul. Lütfen tekrar deneyin.",
+      "unsupportedCommandVersion": "Bu işlem eski bir sürüm tarafından kaydedildiği için artık geri alınamaz veya yinelenemez."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "Bu tabloda devam eden bir dizin görevi zaten var ({{taskId}}). Lütfen tamamlanmasını bekleyip tekrar deneyin."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "Bağlı tablo artık mevcut değil, bu nedenle bu bağlantı otomatik olarak onarılamaz."
     }
   },
   "usageLimitBanner": {

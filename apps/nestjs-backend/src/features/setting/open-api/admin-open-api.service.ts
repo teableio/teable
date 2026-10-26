@@ -1,13 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Session } from 'node:inspector';
 import { Readable } from 'node:stream';
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
-import { heicMimetypes, NotificationTypeEnum } from '@teable/core';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { heicMimetypes, HttpErrorCode, NotificationTypeEnum } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAdminSendNotificationRo } from '@teable/openapi';
 import { PluginStatus, UploadType } from '@teable/openapi';
@@ -15,6 +10,7 @@ import { Response } from 'express';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { PerformanceCacheService } from '../../../performance-cache';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
@@ -208,7 +204,7 @@ export class AdminOpenApiService {
 
   async deletePerformanceCache(key?: string) {
     if (!key) {
-      throw new BadRequestException('key is required');
+      throw new CustomHttpException('key is required', HttpErrorCode.VALIDATION_ERROR);
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await this.performanceCacheService.del(key as any);

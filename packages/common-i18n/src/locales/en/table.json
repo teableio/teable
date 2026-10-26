@@ -750,7 +750,14 @@
           "systemColumn": "System column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
-          "unexpected": "Unexpected error"
+          "unexpected": "Unexpected error",
+          "tableExists": "Physical table exists",
+          "orphanedLinkStorage": "Orphaned link storage",
+          "primaryField": "Primary field",
+          "metadata": "Field metadata",
+          "selectOptions": "Select options",
+          "defaultBackfill": "Default value backfill",
+          "conditionalMatchIndex": "Conditional match index"
         },
         "detail": {
           "systemColumnMissing": "System column \"{{columnName}}\" not found",
@@ -974,6 +981,7 @@
       "preparingImport": "Preparing import...",
       "importFinished": "Import finished",
       "importFinishedPartial": "Import finished with row limits",
+      "importFinishedWithErrors": "Import finished, some sheets failed",
       "importSheetImported": "{{rowCount}} rows",
       "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
       "importSheetFailed": "Failed ({{error}})",

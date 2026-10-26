@@ -30,12 +30,14 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordRepository, RecordStoredSnapshot } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateRecordCommand } from './CreateRecordCommand';
@@ -78,6 +80,8 @@ class FakeTableRepository implements ITableRepository {
   updated: Table[] = [];
   lastContext: IExecutionContext | undefined;
   failFind: DomainError | undefined;
+  findOneCalls = 0;
+  queuedFindResults: Table[] = [];
 
   async insert(_context: IExecutionContext, table: Table) {
     this.tables.push(table);
@@ -101,7 +105,10 @@ class FakeTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     this.lastContext = context;
+    this.findOneCalls++;
     if (this.failFind) return err(this.failFind);
+    const queued = this.queuedFindResults.shift();
+    if (queued) return ok(queued);
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
     if (!match) return err(domainError.notFound({ message: 'Table not found' }));
     return ok(match);
@@ -412,7 +419,9 @@ const createHandler = (
   recordRepository: FakeTableRecordRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork | RollbackFakeUnitOfWork,
-  recordWritePluginRunner = createRecordWritePluginRunner()
+  recordWritePluginRunner = createRecordWritePluginRunner(),
+  coordination?: ITableSchemaCoordination,
+  orderColumnPreparer?: IRecordOrderColumnPreparer
 ) =>
   new CreateRecordHandler(
     tableQueryService,
@@ -426,7 +435,10 @@ const createHandler = (
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)
-    )
+    ),
+    new RecordWriteSideEffectService(),
+    coordination,
+    orderColumnPreparer
   );
 
 const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
@@ -597,6 +609,275 @@ describe('CreateRecordHandler', () => {
       ._unsafeUnwrap() as MultipleSelectField;
     const multiNames = multiField.selectOptions().map((option) => option.name().toString());
     expect(multiNames).toContain('Tag B');
+  });
+
+  it.each([
+    { typecast: false, value: 'Open', modes: ['shared'] },
+    { typecast: true, value: 'Open', modes: ['shared'] },
+    { typecast: true, value: 'In Progress', modes: ['shared', 'exclusive'] },
+  ])(
+    'selects create coordination coverage ($value, typecast=$typecast)',
+    async ({ typecast, value, modes }) => {
+      const { table, singleSelectFieldId } = createTestTable(baseId, tableId);
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordRepository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const acquisitions: string[] = [];
+
+      const handler = createHandler(
+        tableQueryService,
+        tableRepository,
+        recordRepository,
+        eventBus,
+        unitOfWork,
+        undefined,
+        {
+          acquire: async (_context, tableIds, mode) => {
+            acquisitions.push(mode);
+            return ok({ mode, tableIds, release: async () => undefined });
+          },
+        }
+      );
+
+      const command = CreateRecordCommand.create({
+        tableId,
+        typecast,
+        fields: { [singleSelectFieldId]: value },
+      })._unsafeUnwrap();
+      (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+      expect(acquisitions).toEqual(modes);
+      expect(tableRepository.findOneCalls).toBe(modes.length);
+      expect(recordRepository.records.length).toBe(1);
+    }
+  );
+
+  it('prepares an ordered create before the shared lease', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const events: string[] = [];
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      {
+        acquire: async (_context, tableIds, mode) => {
+          events.push(mode);
+          return ok({
+            mode,
+            tableIds,
+            release: async () => {
+              events.push(`release-${mode}`);
+            },
+          });
+        },
+      },
+      {
+        prepareOrderColumn: async () => {
+          events.push('prepare-order');
+          return ok(true);
+        },
+      }
+    );
+
+    const command = CreateRecordCommand.create({
+      tableId,
+      fields: { [textFieldId]: 'ordered' },
+      order: {
+        viewId: `viw${'v'.repeat(16)}`,
+        anchorId: `rec${'r'.repeat(16)}`,
+        position: 'after',
+      },
+    })._unsafeUnwrap();
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(events).toEqual(['prepare-order', 'shared', 'release-shared']);
+    expect(tableRepository.findOneCalls).toBe(2);
+    expect(recordRepository.lastTable).toBe(table);
+  });
+
+  it('releases shared and reloads before writing an ordered option change', async () => {
+    const initial = createTestTable(baseId, tableId);
+    const reloaded = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(initial.table);
+    tableRepository.queuedFindResults.push(initial.table, reloaded.table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const events: string[] = [];
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      {
+        acquire: async (_context, tableIds, mode) => {
+          events.push(mode);
+          return ok({
+            mode,
+            tableIds,
+            release: async () => {
+              events.push(`release-${mode}`);
+            },
+          });
+        },
+      },
+      {
+        prepareOrderColumn: async () => {
+          events.push('prepare-order');
+          return ok(true);
+        },
+      }
+    );
+
+    const command = CreateRecordCommand.create({
+      tableId,
+      typecast: true,
+      fields: { [initial.singleSelectFieldId]: 'In Progress' },
+      order: {
+        viewId: `viw${'v'.repeat(16)}`,
+        anchorId: `rec${'r'.repeat(16)}`,
+        position: 'after',
+      },
+    })._unsafeUnwrap();
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(events).toEqual([
+      'prepare-order',
+      'shared',
+      'release-shared',
+      'exclusive',
+      'release-exclusive',
+    ]);
+    expect(tableRepository.findOneCalls).toBe(3);
+    expect(recordRepository.records).toHaveLength(1);
+    const updated = tableRepository.updated[0];
+    expect(updated).toBeDefined();
+    const statusField = updated
+      .getField((field) => field.id().toString() === initial.singleSelectFieldId)
+      ._unsafeUnwrap() as SingleSelectField;
+    expect(statusField.selectOptions().map((option) => option.name().toString())).toContain(
+      'In Progress'
+    );
+  });
+
+  it.each([
+    { typecast: false, value: 'Open', events: ['shared', 'release-shared'] },
+    {
+      typecast: true,
+      value: 'In Progress',
+      events: ['shared', 'release-shared', 'exclusive', 'release-exclusive'],
+    },
+  ])(
+    'releases every lease when the create fails (typecast=$typecast)',
+    async ({ typecast, value, events: expectedEvents }) => {
+      const { table, singleSelectFieldId } = createTestTable(baseId, tableId);
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordRepository = new FakeTableRecordRepository();
+      recordRepository.failInsert = domainError.unexpected({ message: 'insert failed' });
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const events: string[] = [];
+
+      const handler = createHandler(
+        tableQueryService,
+        tableRepository,
+        recordRepository,
+        eventBus,
+        unitOfWork,
+        undefined,
+        {
+          acquire: async (_context, tableIds, mode) => {
+            events.push(mode);
+            return ok({
+              mode,
+              tableIds,
+              release: async () => {
+                events.push(`release-${mode}`);
+              },
+            });
+          },
+        }
+      );
+
+      const command = CreateRecordCommand.create({
+        tableId,
+        typecast,
+        fields: { [singleSelectFieldId]: value },
+      })._unsafeUnwrap();
+      const result = await handler.handle(createContext(), command);
+
+      expect(result.isErr()).toBe(true);
+      expect(events).toEqual(expectedEvents);
+    }
+  );
+
+  it('does not take a lease when order preparation fails', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const events: string[] = [];
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      {
+        acquire: async (_context, tableIds, mode) => {
+          events.push(mode);
+          return ok({ mode, tableIds, release: async () => undefined });
+        },
+      },
+      {
+        prepareOrderColumn: async () => {
+          events.push('prepare-order');
+          return err(domainError.unexpected({ message: 'column preparation failed' }));
+        },
+      }
+    );
+
+    const command = CreateRecordCommand.create({
+      tableId,
+      fields: { [textFieldId]: 'ordered' },
+      order: {
+        viewId: `viw${'v'.repeat(16)}`,
+        anchorId: `rec${'r'.repeat(16)}`,
+        position: 'after',
+      },
+    })._unsafeUnwrap();
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(events).toEqual(['prepare-order']);
+    expect(tableRepository.findOneCalls).toBe(1);
+    expect(recordRepository.records).toHaveLength(0);
   });
 
   it('returns error when table not found', async () => {

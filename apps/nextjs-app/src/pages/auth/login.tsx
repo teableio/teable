@@ -1,15 +1,9 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import {
-  dehydrate,
-  HydrationBoundary,
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { createQueryClient } from '@teable/sdk/context';
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
-import { useState } from 'react';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
+import { TranslatedQueryClientProvider } from '@/features/app/components/TranslatedQueryClientProvider';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { authConfig } from '@/features/i18n/auth.config';
 import ensureLogin from '@/lib/ensureLogin';
@@ -23,14 +17,12 @@ export default function LoginRoute(
     dehydratedState: DehydratedState;
   }
 ) {
-  const [queryClient] = useState(() => createQueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
+    <TranslatedQueryClientProvider>
       <HydrationBoundary state={props.dehydratedState}>
         <LoginPage />
       </HydrationBoundary>
-    </QueryClientProvider>
+    </TranslatedQueryClientProvider>
   );
 }
 

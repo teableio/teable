@@ -8,8 +8,10 @@ import type { ISpecification } from '../../domain/shared/specification/ISpecific
 import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
+import { FieldType } from '../../domain/table/fields/FieldType';
 import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../domain/table/fields/types/CellValueType';
+import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
 import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
 import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -51,6 +53,8 @@ import type { ICellValueSpecResolver } from './SpecResolver';
 export interface LinkTitleResolveRequest {
   readonly fieldId: FieldId;
   readonly foreignTableId: TableId;
+  /** Link display field. Defaults to the foreign primary field when absent. */
+  readonly lookupFieldId?: FieldId;
   readonly titles: ReadonlyArray<string>;
 }
 
@@ -58,6 +62,25 @@ export interface LinkTitleResolveResult {
   readonly fieldId: FieldId;
   readonly resolvedIds: ReadonlyArray<{ id: string; title: string }>;
 }
+
+/**
+ * Comparable numeric form of a pasted title or a stored numeric cell value.
+ * Display formatting (currency, thousands separators, decimals) is not parsed.
+ */
+const numericTitleValue = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   private readonly collected: SetLinkValueByTitleSpec[] = [];
@@ -194,56 +217,71 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
 
       for (const [foreignTableIdStr, tableRequests] of byForeignTable) {
         const foreignTableId = tableRequests[0]!.request.foreignTableId;
-        const foreignTableResult = yield* await service.loadForeignTable(context, foreignTableId);
+        const foreignTable = yield* await service.loadForeignTable(context, foreignTableId);
+        const primaryFieldId = foreignTable.primaryFieldId();
 
-        const primaryFieldId = foreignTableResult.primaryFieldId();
-        const primaryFieldResult = foreignTableResult.getField((f) =>
-          f.id().equals(primaryFieldId)
-        );
-        if (primaryFieldResult.isErr()) {
-          return err(
-            domainError.notFound({
-              message: `Primary field not found in foreign table ${foreignTableIdStr}`,
-            })
+        // Different link fields into the same table may display different
+        // columns; group so each group resolves against its own display field.
+        const byTitleField = new Map<
+          string,
+          Array<{
+            index: number;
+            request: LinkTitleResolveRequest;
+            titleFieldId: FieldId;
+          }>
+        >();
+        for (const entry of tableRequests) {
+          const titleFieldId = entry.request.lookupFieldId ?? primaryFieldId;
+          const titleFieldKey = titleFieldId.toString();
+          const existing = byTitleField.get(titleFieldKey) ?? [];
+          existing.push({ ...entry, titleFieldId });
+          byTitleField.set(titleFieldKey, existing);
+        }
+
+        for (const [titleFieldKey, fieldRequests] of byTitleField) {
+          const titleFieldId = fieldRequests[0]!.titleFieldId;
+          const titleFieldResult = foreignTable.getField((field) =>
+            field.id().equals(titleFieldId)
           );
-        }
-
-        const allTitles = new Set<string>();
-        for (const entry of tableRequests) {
-          for (const title of entry.request.titles) {
-            if (title) allTitles.add(title);
+          if (titleFieldResult.isErr()) {
+            return err(
+              domainError.notFound({
+                message: `Title field ${titleFieldKey} not found in foreign table ${foreignTableIdStr}`,
+              })
+            );
           }
-        }
+          const titleField = titleFieldResult.value;
 
-        if (allTitles.size === 0) {
-          for (const entry of tableRequests) {
-            results[entry.index] = {
-              fieldId: entry.request.fieldId,
-              resolvedIds: [],
-            };
-          }
-          continue;
-        }
-
-        const titleToId = yield* await service.queryRecordsByTitles(
-          context,
-          foreignTableResult,
-          primaryFieldId,
-          [...allTitles]
-        );
-
-        for (const entry of tableRequests) {
-          const resolvedIds: Array<{ id: string; title: string }> = [];
-          for (const title of entry.request.titles) {
-            const recordId = titleToId.get(title);
-            if (recordId) {
-              resolvedIds.push({ id: recordId, title });
+          const allTitles = new Set<string>();
+          for (const entry of fieldRequests) {
+            for (const title of entry.request.titles) {
+              if (title) allTitles.add(title);
             }
           }
-          results[entry.index] = {
-            fieldId: entry.request.fieldId,
-            resolvedIds,
-          };
+
+          let titleToId = new Map<string, string>();
+          if (allTitles.size > 0) {
+            titleToId = yield* await service.queryRecordsByTitles(
+              context,
+              foreignTable,
+              titleField,
+              [...allTitles]
+            );
+          }
+
+          for (const entry of fieldRequests) {
+            const resolvedIds: Array<{ id: string; title: string }> = [];
+            for (const title of entry.request.titles) {
+              const recordId = titleToId.get(title);
+              if (recordId) {
+                resolvedIds.push({ id: recordId, title });
+              }
+            }
+            results[entry.index] = {
+              fieldId: entry.request.fieldId,
+              resolvedIds,
+            };
+          }
         }
       }
 
@@ -261,38 +299,154 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
   private async queryRecordsByTitles(
     context: IExecutionContext,
     table: Table,
-    primaryFieldId: FieldId,
+    titleField: Field,
     titles: ReadonlyArray<string>
   ): Promise<Result<Map<string, string>, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<Map<string, string>, DomainError>(async function* () {
-      const primaryFieldResult = table.getField((f) => f.id().equals(primaryFieldId));
-      if (primaryFieldResult.isErr()) {
-        return err(primaryFieldResult.error);
-      }
-      const primaryField = primaryFieldResult.value;
-
-      const valueTypeResult = primaryField.accept(new FieldValueTypeVisitor());
+      const valueTypeResult = titleField.accept(new FieldValueTypeVisitor());
       if (valueTypeResult.isErr()) {
         return err(valueTypeResult.error);
       }
+      const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
+      const titleFieldKey = titleField.id().toString();
+      const fieldType = titleField.type();
 
+      // The read model renders a checkbox display column with the foreign
+      // primary title (v1 parity), so resolution must follow that fallback.
+      if (fieldType.equals(FieldType.checkbox())) {
+        const primaryFieldId = table.primaryFieldId();
+        if (!primaryFieldId.equals(titleField.id())) {
+          const primaryFieldResult = table.getField((field) => field.id().equals(primaryFieldId));
+          if (primaryFieldResult.isErr()) {
+            return err(primaryFieldResult.error);
+          }
+          const resolved = yield* await service.queryRecordsByTitles(
+            context,
+            table,
+            primaryFieldResult.value,
+            titles
+          );
+          return ok(resolved);
+        }
+      }
+
+      // A multi-value or non-text display column cannot be compared against a
+      // single pasted token; leave those titles unresolved instead of failing
+      // the surrounding write.
+      if (!isMultipleCellValue.equals(CellValueMultiplicity.single())) {
+        return ok(new Map());
+      }
       if (
-        !valueTypeResult.value.cellValueType.equals(CellValueType.string()) ||
-        !valueTypeResult.value.isMultipleCellValue.equals(CellValueMultiplicity.single())
+        fieldType.equals(FieldType.user()) ||
+        fieldType.equals(FieldType.createdBy()) ||
+        fieldType.equals(FieldType.lastModifiedBy())
       ) {
-        return err(
-          domainError.validation({
-            message: 'Primary field must resolve to a single string value for title resolution',
-            details: {
-              primaryFieldId: primaryField.id().toString(),
-              primaryFieldType: primaryField.type().toString(),
-              cellValueType: valueTypeResult.value.cellValueType.toString(),
-              isMultipleCellValue: valueTypeResult.value.isMultipleCellValue.toBoolean(),
-            },
-          })
+        return ok(new Map());
+      }
+
+      if (cellValueType.equals(CellValueType.number())) {
+        const requestedNumbers = new Map<string, number>();
+        const queryValues = new Set<number>();
+        for (const title of titles) {
+          const value = numericTitleValue(title);
+          if (value === null) continue;
+          requestedNumbers.set(title, value);
+          queryValues.add(value);
+        }
+        if (queryValues.size === 0) {
+          return ok(new Map());
+        }
+
+        const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
+        const queryResult = yield* await service.recordQueryRepository.find(
+          context,
+          table,
+          querySpec,
+          { mode: 'stored' }
         );
+
+        const valueToId = new Map<string, string>();
+        for (const record of queryResult.records) {
+          const stored = numericTitleValue(record.fields[titleFieldKey]);
+          if (stored === null) continue;
+          const key = String(stored);
+          if (!valueToId.has(key)) valueToId.set(key, record.id);
+        }
+
+        const titleToId = new Map<string, string>();
+        for (const [title, value] of requestedNumbers) {
+          const recordId = valueToId.get(String(value));
+          if (recordId) titleToId.set(title, recordId);
+        }
+        return ok(titleToId);
+      }
+
+      if (!cellValueType.equals(CellValueType.string())) {
+        return ok(new Map());
+      }
+
+      if (fieldType.equals(FieldType.singleSelect())) {
+        // Select cells may store the choice name or its id depending on the
+        // write path; query and compare both forms of the displayed option.
+        const optionByName = new Map<string, { id: string; name: string }>();
+        const optionIds = new Set<string>();
+        for (const option of (titleField as SingleSelectField).selectOptions()) {
+          const optionId = option.id().toString();
+          const optionName = option.name().toString();
+          optionByName.set(optionName, { id: optionId, name: optionName });
+          optionIds.add(optionId);
+        }
+
+        const titleToKeys = new Map<string, string[]>();
+        const queryValues = new Set<string>();
+        for (const title of titles) {
+          if (!title) continue;
+          const option = optionByName.get(title) ?? optionByName.get(title.trim());
+          if (option) {
+            // v2 stores the choice name; older rows may still hold the id.
+            titleToKeys.set(title, [option.name, option.id]);
+            queryValues.add(option.name);
+            queryValues.add(option.id);
+            continue;
+          }
+          if (optionIds.has(title)) {
+            titleToKeys.set(title, [title]);
+            queryValues.add(title);
+          }
+        }
+        if (queryValues.size === 0) {
+          return ok(new Map());
+        }
+
+        const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
+        const queryResult = yield* await service.recordQueryRepository.find(
+          context,
+          table,
+          querySpec,
+          { mode: 'stored' }
+        );
+
+        const valueToId = new Map<string, string>();
+        for (const record of queryResult.records) {
+          const stored = record.fields[titleFieldKey];
+          if (stored === null || stored === undefined) continue;
+          const key = String(stored);
+          if (!valueToId.has(key)) valueToId.set(key, record.id);
+        }
+
+        const titleToId = new Map<string, string>();
+        for (const [title, keys] of titleToKeys) {
+          for (const key of keys) {
+            const recordId = valueToId.get(key);
+            if (recordId) {
+              titleToId.set(title, recordId);
+              break;
+            }
+          }
+        }
+        return ok(titleToId);
       }
 
       const queryTitles = new Set<string>();
@@ -303,14 +457,14 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         // A nonempty original title stays eligible for an exact match, even when
         // normalization yields nothing (for example a tab-only primary).
         queryTitles.add(title);
-        const key = titleKeyForPrimaryField(primaryField, title);
+        const key = titleKeyForPrimaryField(titleField, title);
         if (key) queryTitles.add(key);
       }
       if (queryTitles.size === 0) {
         return ok(new Map());
       }
 
-      const querySpec = yield* service.buildTitleQuerySpec(primaryField, [...queryTitles]);
+      const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryTitles]);
       const queryResult = yield* await service.recordQueryRepository.find(
         context,
         table,
@@ -321,11 +475,11 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       const exactRecordId = new Map<string, string>();
       const normalizedRecordId = new Map<string, string>();
       for (const record of queryResult.records) {
-        const primaryValue = record.fields[primaryFieldId.toString()];
-        if (primaryValue === null || primaryValue === undefined) continue;
-        const stored = String(primaryValue);
+        const titleValue = record.fields[titleFieldKey];
+        if (titleValue === null || titleValue === undefined) continue;
+        const stored = String(titleValue);
         if (!exactRecordId.has(stored)) exactRecordId.set(stored, record.id);
-        const key = titleKeyForPrimaryField(primaryField, stored);
+        const key = titleKeyForPrimaryField(titleField, stored);
         if (key && !normalizedRecordId.has(key)) normalizedRecordId.set(key, record.id);
       }
 
@@ -336,7 +490,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           titleToId.set(title, exact);
           continue;
         }
-        const key = titleKeyForPrimaryField(primaryField, title);
+        const key = titleKeyForPrimaryField(titleField, title);
         const normalized = key ? normalizedRecordId.get(key) : undefined;
         if (normalized) titleToId.set(title, normalized);
       }
@@ -346,13 +500,13 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
   }
 
   private buildTitleQuerySpec(
-    primaryField: Field,
-    titles: ReadonlyArray<string>
+    titleField: Field,
+    titles: ReadonlyArray<string | number>
   ): Result<
     ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     DomainError
   > {
-    const uniqueTitles = [...new Set(titles.filter(Boolean))];
+    const uniqueTitles = [...new Set(titles)].filter((title) => title !== '');
     if (uniqueTitles.length === 0) {
       return ok(undefined);
     }
@@ -364,7 +518,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         return err(titleValue.error);
       }
 
-      const titleSpec = primaryField.spec().create({
+      const titleSpec = titleField.spec().create({
         operator: 'is',
         value: titleValue.value,
       });
@@ -408,6 +562,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           request: {
             fieldId: spec.fieldId,
             foreignTableId: spec.foreignTableId,
+            lookupFieldId: spec.lookupFieldId,
             titles: spec.titles,
           },
         });
@@ -464,6 +619,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           request: {
             fieldId: titleSpec.fieldId,
             foreignTableId: titleSpec.foreignTableId,
+            lookupFieldId: titleSpec.lookupFieldId,
             titles: titleSpec.titles,
           },
         });

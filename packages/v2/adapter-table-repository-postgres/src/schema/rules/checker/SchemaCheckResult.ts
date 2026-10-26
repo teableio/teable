@@ -1,3 +1,5 @@
+import type { DomainError } from '@teable/v2-core';
+
 import type { SchemaRuleDetailItem, SchemaRuleRepairHint } from '../core/ISchemaRule';
 
 /**
@@ -29,6 +31,9 @@ export interface SchemaCheckResult {
 
   /** Success/error/warning message */
   message?: string;
+
+  /** Translation of `message` (frontend `sdk` namespace) when the error carries one. */
+  localization?: DomainError['localization'];
 
   /** Detailed information about missing/extra schema objects */
   details?: {
@@ -183,3 +188,14 @@ export const getRuleDescription = (ruleId: string): string => {
       return ruleId;
   }
 };
+
+/**
+ * Creates an error result from a domain error, keeping its translation.
+ */
+export const domainErrorResult = (
+  pending: SchemaCheckResult,
+  error: Pick<DomainError, 'message' | 'localization'>
+): SchemaCheckResult => ({
+  ...errorResult(pending, error.message),
+  ...(error.localization ? { localization: error.localization } : {}),
+});

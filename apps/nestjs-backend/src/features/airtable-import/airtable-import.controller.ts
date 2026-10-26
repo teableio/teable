@@ -1,13 +1,5 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  ForbiddenException,
-  Logger,
-  Post,
-  Res,
-} from '@nestjs/common';
-import { type Action } from '@teable/core';
+import { Body, Controller, ForbiddenException, Logger, Post, Res } from '@nestjs/common';
+import { HttpErrorCode, type Action } from '@teable/core';
 import {
   importAirtableAnalyzeRoSchema,
   importAirtableRoSchema,
@@ -17,6 +9,7 @@ import {
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
@@ -25,7 +18,8 @@ import { BaseNodeService } from '../base-node/base-node.service';
 import { AirtableApiError } from './airtable-api.client';
 import { AirtableImportService } from './airtable-import.service';
 
-const formatAirtableImportError = (error: unknown): string => {
+/** `prefixed: false` leaves out the "Airtable API error:" label, for callers that add their own prefix. */
+const formatAirtableImportError = (error: unknown, { prefixed = true } = {}): string => {
   if (error instanceof AirtableApiError) {
     if (error.status === 401) {
       return 'Airtable rejected the access token. Check that the token is valid.';
@@ -33,7 +27,7 @@ const formatAirtableImportError = (error: unknown): string => {
     if (error.status === 403 || error.status === 404) {
       return 'Airtable base not accessible. Grant the token access to the base and the "data.records:read" and "schema.bases:read" scopes.';
     }
-    return `Airtable API error: ${error.message}`;
+    return prefixed ? `Airtable API error: ${error.message}` : error.message;
   }
   return error instanceof Error && error.message ? error.message : 'Unknown import error';
 };
@@ -81,7 +75,17 @@ export class AirtableImportController {
       return await this.airtableImportService.analyze(analyzeRo);
     } catch (error) {
       if (error instanceof AirtableApiError) {
-        throw new BadRequestException(formatAirtableImportError(error));
+        throw new CustomHttpException(
+          formatAirtableImportError(error),
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.import.failed',
+              // the localized "Import failed:" prefix stands in for the English label
+              context: { detail: formatAirtableImportError(error, { prefixed: false }) },
+            },
+          }
+        );
       }
       throw error;
     }
@@ -102,7 +106,10 @@ export class AirtableImportController {
     if (!targetResourceId) {
       // Unreachable via the zod schema (spaceId is required when baseId is absent),
       // but keep the guard so the permission target is always a concrete resource.
-      throw new BadRequestException('Either baseId or spaceId is required.');
+      throw new CustomHttpException(
+        'Either baseId or spaceId is required.',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const requiredPermissions: Action[] = importAirtableRo.baseId
       ? ['base|table_import']

@@ -1,18 +1,13 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import {
   CellValueType,
   ColorConfigType,
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
+  HttpErrorCode,
   ViewType,
   generateFieldId,
   generateOperationId,
@@ -60,6 +55,7 @@ import { groupBy, isEqual, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { FieldReferenceCompatibilityException } from '../../../db-provider/filter-query/cell-value-filter.abstract';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
@@ -1572,7 +1568,23 @@ export class FieldOpenApiService {
     });
 
     if (hasDuplicated) {
-      throw new BadRequestException(`Field ${key} ${value} already exists`);
+      throw new CustomHttpException(
+        `Field ${key} ${value} already exists`,
+        HttpErrorCode.VALIDATION_ERROR,
+        key === 'name'
+          ? {
+              localization: {
+                i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+                context: { name: value },
+              },
+            }
+          : {
+              localization: {
+                i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+                context: { dbFieldName: value },
+              },
+            }
+      );
     }
 
     return FieldOpBuilder.editor.setFieldProperty.build({
@@ -1589,8 +1601,9 @@ export class FieldOpenApiService {
       updateFieldRo.notNull !== undefined ||
       updateFieldRo.options !== undefined
     ) {
-      throw new BadRequestException(
-        'Patching constraints and options requires v2; use field conversion on v1'
+      throw new CustomHttpException(
+        'Patching constraints and options requires v2; use field conversion on v1',
+        HttpErrorCode.VALIDATION_ERROR
       );
     }
     const ops: IOtOperation[] = [];

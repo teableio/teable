@@ -17,7 +17,7 @@ import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { ILoggerConfig } from '../configs/logger.config';
-import { TemplateAppTokenNotAllowedException } from '../custom.exception';
+import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../custom.exception';
 import {
   getV2Attribution,
   getV2AttributionLogContext,
@@ -100,6 +100,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       enableGlobalErrorLogging ||
       !(
         exception instanceof BadRequestException ||
+        // a localized 400 is the same routine rejection, just with translatable copy
+        (exception instanceof CustomHttpException && exception.getStatus() === 400) ||
         exception instanceof UnauthorizedException ||
         exception instanceof ForbiddenException ||
         exception instanceof NotFoundException ||

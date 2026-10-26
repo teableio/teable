@@ -1,6 +1,8 @@
 import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as ReliabilityMaintenance from '../../../global/computed-reliability-maintenance';
+
 const mocks = vi.hoisted(() => ({
   ready: vi.fn(),
   destroy: vi.fn(),
@@ -19,7 +21,8 @@ vi.mock('./computed-reliability.metrics', () => ({
 vi.mock('../../../cache/cache.service', () => ({ CacheService: class {} }));
 vi.mock('../v2-container.service', () => ({ V2ContainerService: class {} }));
 vi.mock('knex', () => ({ default: mocks.createDb }));
-vi.mock('../../../global/computed-reliability-maintenance', () => ({
+vi.mock('../../../global/computed-reliability-maintenance', async (importOriginal) => ({
+  ...(await importOriginal<typeof ReliabilityMaintenance>()),
   applyComputedReliabilityBaseFilter: (query: unknown) => query,
   isComputedReliabilityReady: mocks.ready,
   reliabilityTable: mocks.table,

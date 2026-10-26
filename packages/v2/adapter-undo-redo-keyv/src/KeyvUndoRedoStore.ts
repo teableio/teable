@@ -208,6 +208,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
           domainError.conflict({
             code: 'undo_redo.reservation_conflict',
             message: 'Undo/redo reservation already held for this window',
+            localization: { i18nKey: 'httpErrors.undoRedo.inProgress' },
           })
         );
       }
@@ -230,6 +231,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
           message: 'Undo/redo reservation already held for this window',
+          localization: { i18nKey: 'httpErrors.undoRedo.inProgress' },
         })
       );
     }
@@ -315,6 +317,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
           message: 'Undo/redo reservation already held for this window',
+          localization: { i18nKey: 'httpErrors.undoRedo.inProgress' },
         })
       );
     }
@@ -328,6 +331,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
           domainError.conflict({
             code: 'undo_redo.reservation_conflict',
             message: 'Undo/redo reservation already held for this window',
+            localization: { i18nKey: 'httpErrors.undoRedo.inProgress' },
           })
         );
       }
@@ -633,6 +637,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
       domainError.conflict({
         code: 'undo_redo.scope_lock_timeout',
         message: 'Undo/redo scope lock timeout',
+        localization: { i18nKey: 'httpErrors.undoRedo.busy' },
       })
     );
     return timeout as T;

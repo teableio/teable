@@ -23,6 +23,10 @@ export const buildFilledLinkValueExpression = (params: {
         domainError.validation({
           code: 'validation.field.link_title_fill_limit_exceeded',
           message: `Link title fill supports at most ${MAX_FILLED_LINK_VALUE_ITEMS} items per write`,
+          localization: {
+            i18nKey: 'httpErrors.field.linkTitleFillLimitExceeded',
+            context: { max: MAX_FILLED_LINK_VALUE_ITEMS },
+          },
         })
       );
     }

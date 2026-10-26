@@ -745,7 +745,14 @@
           "systemColumn": "עמודת מערכת \"{{columnName}}\"",
           "connection": "חיבור",
           "completion": "סיום",
-          "unexpected": "שגיאה בלתי צפויה"
+          "unexpected": "שגיאה בלתי צפויה",
+          "tableExists": "הטבלה הפיזית קיימת",
+          "orphanedLinkStorage": "אחסון קישורים יתום",
+          "primaryField": "שדה ראשי",
+          "metadata": "מטא-נתוני שדה",
+          "selectOptions": "אפשרויות בחירה",
+          "defaultBackfill": "מילוי ערך ברירת מחדל",
+          "conditionalMatchIndex": "אינדקס התאמה מותנית"
         },
         "detail": {
           "systemColumnMissing": "עמודת המערכת \"{{columnName}}\" לא נמצאה",
@@ -969,6 +976,7 @@
       "preparingImport": "בהכנת הייבוא...",
       "importFinished": "הייבוא הסתיים",
       "importFinishedPartial": "הייבוא הסתיים במסגרת מגבלת השורות",
+      "importFinishedWithErrors": "הייבוא הסתיים, חלק מהגיליונות נכשלו",
       "importSheetImported": "{{rowCount}} שורות",
       "importSheetTruncated": "יובאו {{rowCount}} שורות (הושגה מגבלת השורות, שאר השורות דולגו)",
       "importSheetFailed": "נכשל ({{error}})",

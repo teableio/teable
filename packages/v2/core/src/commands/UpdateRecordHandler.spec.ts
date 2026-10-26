@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
@@ -19,6 +20,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
+import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { isRecordUpdatedEvent } from '../domain/table/events/RecordUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -30,6 +32,7 @@ import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
+import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { SetUserValueByIdentifierSpec } from '../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import {
   SetUserValueSpec,
@@ -72,6 +75,7 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordApplicationService } from './UpdateRecordApplicationService';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
 import { UpdateRecordHandler } from './UpdateRecordHandler';
 
@@ -294,7 +298,9 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastUpdateOptions: UpdateOptions | undefined;
   omitUpdateSnapshot = false;
   mutationApplied: boolean | undefined = true;
+  updateSnapshotVersions = { oldVersion: 1, newVersion: 2 };
   changedFields: ReadonlyMap<string, unknown> | undefined;
+  streamedUpdates: RecordUpdateResult[] = [];
 
   async insert(
     _: IExecutionContext,
@@ -348,8 +354,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
                 recordId: recordId.toString(),
                 fields: {},
               },
-              oldVersion: 1,
-              newVersion: 2,
+              oldVersion: this.updateSnapshotVersions.oldVersion,
+              newVersion: this.updateSnapshotVersions.newVersion,
             },
           }
     );
@@ -367,8 +373,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async updateManyStream(
     _: IExecutionContext,
     __: Table,
-    ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
+    batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
   ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    for (const batch of batches) {
+      if (batch.isOk()) this.streamedUpdates.push(...batch.value);
+    }
     return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
@@ -432,7 +441,10 @@ class FakeRecordOrderCalculator implements IRecordOrderCalculator {
 class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
   readonly calls: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
     [];
+  readonly events: string[] = [];
   releaseCount = 0;
+  failMode?: TableSchemaCoordinationMode;
+  onAcquire?: (mode: TableSchemaCoordinationMode) => void;
 
   constructor(private readonly failure?: DomainError) {}
 
@@ -442,12 +454,15 @@ class RecordingTableSchemaCoordination implements ITableSchemaCoordination {
     mode: TableSchemaCoordinationMode
   ) {
     this.calls.push({ tableIds, mode });
-    if (this.failure) {
+    this.events.push(`acquire:${mode}`);
+    if (this.failure && (this.failMode === undefined || this.failMode === mode)) {
       return err(this.failure);
     }
+    this.onAcquire?.(mode);
     return ok(
       createTableSchemaCoordinationLease(mode, tableIds, async () => {
         this.releaseCount += 1;
+        this.events.push(`release:${mode}`);
       })
     );
   }
@@ -463,25 +478,33 @@ const createHandler = (
   eventBus: IEventBus,
   undoRedoStackService: UndoRedoStackService,
   unitOfWork: IUnitOfWork,
-  foreignTableLoader?: ConstructorParameters<typeof UpdateRecordHandler>[12],
-  tableSchemaCoordination?: ConstructorParameters<typeof UpdateRecordHandler>[13]
+  foreignTableLoader?: ConstructorParameters<typeof UpdateRecordApplicationService>[12],
+  tableSchemaCoordination?: ConstructorParameters<typeof UpdateRecordApplicationService>[13]
 ) =>
   new UpdateRecordHandler(
-    tableQueryService,
-    recordRepository,
-    recordQueryRepository,
-    new FakeRecordOrderCalculator(),
-    recordMutationSpecResolver,
-    noopRecordChangedValueDecoratorService,
-    recordWritePluginRunner,
-    new RecordWriteSideEffectService(),
-    noopRecordWriteUndoRedoPlanService,
-    tableUpdateFlow,
-    new EventBusDomainWriteTransaction(unitOfWork, eventBus),
-    undoRedoStackService,
-    foreignTableLoader,
-    tableSchemaCoordination
+    new UpdateRecordApplicationService(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      recordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
+      recordWritePluginRunner,
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      tableUpdateFlow,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      undoRedoStackService,
+      foreignTableLoader,
+      tableSchemaCoordination
+    )
   );
+
+it('keeps the handler limited to application forwarding', () => {
+  const source = readFileSync(new URL('./UpdateRecordHandler.ts', import.meta.url), 'utf8');
+  expect(source).not.toMatch(/order|typecast|FieldKeyResolver|select.option|acquire|release/i);
+  expect(source).toContain('return this.applicationService.execute(context, command)');
+});
 
 class FakeRecordMutationSpecResolverService {
   needsResolutionValue = false;
@@ -1591,9 +1614,20 @@ describe('UpdateRecordHandler', () => {
 describe('UpdateRecordHandler schema coordination', () => {
   const setup = (
     coordination: ITableSchemaCoordination,
-    options: { failFindOne?: DomainError } = {}
+    options: {
+      failFindOne?: DomainError;
+      plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
+    } = {}
   ) => {
-    const { table, tableId, textFieldId } = buildTable();
+    const {
+      table,
+      tableId,
+      textFieldId,
+      numberFieldId,
+      singleSelectFieldId,
+      multiSelectFieldId,
+      userFieldId,
+    } = buildTable();
     const recordResult = table
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
@@ -1610,22 +1644,38 @@ describe('UpdateRecordHandler schema coordination', () => {
     if (options.failFindOne) {
       recordQueryRepository.failFindOne = options.failFindOne;
     }
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
 
     const handler = createHandler(
       new TableQueryService(tableRepository),
-      new FakeTableRecordRepository(),
+      recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      createRecordWritePluginRunner(),
-      createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
-      new FakeEventBus(),
+      createRecordWritePluginRunner(options.plugins),
+      createTableUpdateFlow(tableRepository, eventBus, new FakeUnitOfWork()),
+      eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
       new FakeUnitOfWork(),
       undefined,
       coordination
     );
 
-    return { table, tableId, textFieldId, recordId, handler, recordQueryRepository };
+    return {
+      table,
+      tableId,
+      textFieldId,
+      numberFieldId,
+      singleSelectFieldId,
+      multiSelectFieldId,
+      userFieldId,
+      recordId,
+      handler,
+      recordRepository,
+      eventBus,
+      recordQueryRepository,
+      tableRepository,
+    };
   };
 
   it('holds a shared lease for an ordinary update', async () => {
@@ -1644,9 +1694,21 @@ describe('UpdateRecordHandler schema coordination', () => {
     expect(coordination.releaseCount).toBe(1);
   });
 
-  it('holds an exclusive lease for typecast updates', async () => {
+  it('uses the persisted version pair when a concurrent update wins the version race', async () => {
     const coordination = new RecordingTableSchemaCoordination();
-    const { tableId, textFieldId, recordId, handler } = setup(coordination);
+    const {
+      tableId,
+      textFieldId,
+      recordId,
+      handler,
+      eventBus,
+      recordRepository,
+      recordQueryRepository,
+    } = setup(coordination);
+    // The pre-transaction read observed v3, while the update statement actually
+    // replaced v8 with v9 after another shared-lease update committed.
+    recordQueryRepository.record = { ...recordQueryRepository.record!, version: 3 };
+    recordRepository.updateSnapshotVersions = { oldVersion: 8, newVersion: 9 };
     const command = UpdateRecordCommand.create({
       tableId: tableId.toString(),
       recordId,
@@ -1657,8 +1719,223 @@ describe('UpdateRecordHandler schema coordination', () => {
     const result = await handler.handle(createContext(), command);
 
     expect(result.isOk()).toBe(true);
-    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'exclusive' }]);
+    const event = eventBus.published.filter(isRecordUpdatedEvent)[0];
+    expect(event?.oldVersion).toBe(8);
+    expect(event?.newVersion).toBe(9);
+  });
+
+  it('keeps a shared lease for typecast updates that do not change metadata', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, numberFieldId, singleSelectFieldId, recordId, handler } =
+      setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: {
+        [textFieldId.toString()]: 'New Title',
+        [numberFieldId.toString()]: '42',
+        [singleSelectFieldId.toString()]: 'Open',
+      },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(coordination.events).toEqual(['acquire:shared', 'release:shared']);
+  });
+
+  it('defers option-creation permission errors to the shared write path', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, recordId, handler } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({ allowSelectOptionAutoCreate: false }),
+      command
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe(
+      'permission.field.update_required_for_select_options'
+    );
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(command.fieldValues.get(singleSelectFieldId.toString())).toBe('Closed');
+  });
+
+  it('keeps command values intact when the metadata probe rejects an option', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, textFieldId, singleSelectFieldId, recordId, handler, tableRepository } =
+      setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: {
+        [textFieldId.toString()]: 'New Title',
+        [singleSelectFieldId.toString()]: 'TooLongName',
+      },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({ tableLimits: { fieldOptions: { maxSelectChoiceNameLength: 4 } } }),
+      command
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([{ tableIds: [tableId.toString()], mode: 'shared' }]);
+    expect(command.fieldValues.get(singleSelectFieldId.toString())).toBe('TooLongName');
+    expect(tableRepository.updated).toHaveLength(0);
+  });
+
+  it('releases the shared lease before acquiring exclusive for a new select option', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, recordId, handler, tableRepository } =
+      setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls).toEqual([
+      { tableIds: [tableId.toString()], mode: 'shared' },
+      { tableIds: [tableId.toString()], mode: 'exclusive' },
+    ]);
+    expect(coordination.events).toEqual([
+      'acquire:shared',
+      'release:shared',
+      'acquire:exclusive',
+      'release:exclusive',
+    ]);
+    expect(tableRepository.updated).toHaveLength(1);
+    const statusField = tableRepository.updated[0]!.getField((field) =>
+      field.id().equals(singleSelectFieldId)
+    )._unsafeUnwrap() as SingleSelectField;
+    expect(statusField.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Open',
+      'Closed',
+    ]);
+  });
+
+  it('reloads table metadata after the lease gap and keeps a concurrent option', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { table, tableId, singleSelectFieldId, recordId, handler, tableRepository } =
+      setup(coordination);
+    const tableWithClosedOption = table
+      .update((mutator) =>
+        mutator.addSelectOptions(singleSelectFieldId, [
+          SelectOption.create({ name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ])
+      )
+      ._unsafeUnwrap().table;
+    // Another writer created the option while this command held only the shared
+    // lease. The exclusive attempt must see it instead of persisting its own.
+    coordination.onAcquire = (mode) => {
+      if (mode === 'exclusive') {
+        tableRepository.tables = [tableWithClosedOption];
+      }
+    };
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.events).toEqual([
+      'acquire:shared',
+      'release:shared',
+      'acquire:exclusive',
+      'release:exclusive',
+    ]);
+    expect(tableRepository.updated).toHaveLength(0);
+    const statusField = tableRepository.tables[0]!.getField((field) =>
+      field.id().equals(singleSelectFieldId)
+    )._unsafeUnwrap() as SingleSelectField;
+    expect(statusField.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Open',
+      'Closed',
+    ]);
+  });
+
+  it('reports field.not_found when the field is deleted during the lease gap', async () => {
+    const coordination = new RecordingTableSchemaCoordination();
+    const { table, tableId, singleSelectFieldId, recordId, handler, tableRepository } =
+      setup(coordination);
+    const tableWithoutStatus = table.removeField(singleSelectFieldId)._unsafeUnwrap();
+    coordination.onAcquire = (mode) => {
+      if (mode === 'exclusive') {
+        tableRepository.tables = [tableWithoutStatus];
+      }
+    };
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().code).toBe('field.not_found');
+    expect(coordination.releaseCount).toBe(2);
+    expect(tableRepository.updated).toHaveLength(0);
+  });
+
+  it('releases the shared lease when the exclusive acquisition fails', async () => {
+    const acquireError = domainError.infrastructure({
+      code: 'schema_coordination.acquire_failed',
+      message: 'Failed to acquire table schema coordination locks',
+    });
+    const coordination = new RecordingTableSchemaCoordination(acquireError);
+    coordination.failMode = 'exclusive';
+    const { tableId, singleSelectFieldId, recordId, handler } = setup(coordination);
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().code).toBe('schema_coordination.acquire_failed');
+    expect(coordination.events).toEqual(['acquire:shared', 'release:shared', 'acquire:exclusive']);
     expect(coordination.releaseCount).toBe(1);
+  });
+
+  it('runs plugin prepare and guard once while upgrading to the exclusive lease', async () => {
+    const tracked = createTrackedRecordWritePlugin([RecordWriteOperationKind.updateOne]);
+    const coordination = new RecordingTableSchemaCoordination();
+    const { tableId, singleSelectFieldId, recordId, handler } = setup(coordination, {
+      plugins: [tracked.plugin],
+    });
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: { [singleSelectFieldId.toString()]: 'Closed' },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(coordination.calls.map((call) => call.mode)).toEqual(['shared', 'exclusive']);
+    expect(tracked.calls.prepare).toHaveLength(1);
+    expect(tracked.calls.guard).toHaveLength(1);
   });
 
   it('does not coordinate ordered updates because row-order CIC cannot run inside the lease', async () => {
@@ -1717,5 +1994,107 @@ describe('UpdateRecordHandler schema coordination', () => {
 
     expect(result.isErr()).toBe(true);
     expect(coordination.releaseCount).toBe(1);
+  });
+});
+
+describe('UpdateRecordHandler order-only updates', () => {
+  const setup = () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Title']]))
+      ._unsafeUnwrap();
+    const recordId = recordResult.record.id().toString();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordId,
+      version: 1,
+      fields: { [textFieldId.toString()]: 'Title' },
+      autoNumber: 1,
+    };
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+
+    const handler = createHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      undoRedoService as unknown as UndoRedoStackService,
+      unitOfWork
+    );
+
+    return {
+      table,
+      tableId,
+      textFieldId,
+      recordId,
+      handler,
+      recordRepository,
+      eventBus,
+      undoRedoService,
+    };
+  };
+
+  it('persists the row order without a field mutation when fields are empty', async () => {
+    const {
+      table,
+      tableId,
+      textFieldId,
+      recordId,
+      handler,
+      recordRepository,
+      eventBus,
+      undoRedoService,
+    } = setup();
+    const viewId = table.views()[0]!.id();
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: {},
+      order: { viewId: viewId.toString(), anchorId: recordId, position: 'after' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    const payload = result._unsafeUnwrap();
+    expect(payload.record.fields().get(textFieldId)?.toValue()).toBe('Title');
+    expect(recordRepository.lastMutateSpec).toBeUndefined();
+    expect(recordRepository.streamedUpdates).toHaveLength(1);
+    const orderSpec = recordRepository.streamedUpdates[0]!.mutateSpec;
+    expect(orderSpec).toBeInstanceOf(SetRowOrderValueSpec);
+    expect((orderSpec as SetRowOrderValueSpec).orderValue).toBe(1024);
+    expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(false);
+    const reordered = eventBus.published.filter(
+      (event): event is RecordReordered => event instanceof RecordReordered
+    );
+    expect(reordered).toHaveLength(1);
+    expect(reordered[0]!.ordersByRecordId).toEqual({ [recordId]: 1024 });
+    expect(reordered[0]!.previousOrdersByRecordId).toEqual({ [recordId]: 1 });
+    expect(undoRedoService.calls).toHaveLength(0);
+    expect(undoRedoService.entryCalls).toHaveLength(1);
+  });
+
+  it('still rejects an update with neither field values nor order', async () => {
+    const { tableId, recordId, handler, recordRepository, eventBus } = setup();
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId,
+      fields: {},
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().message).toBe('No field values to set');
+    expect(recordRepository.lastMutateSpec).toBeUndefined();
+    expect(recordRepository.streamedUpdates).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
   });
 });

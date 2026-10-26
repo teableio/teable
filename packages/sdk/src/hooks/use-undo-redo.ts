@@ -1,7 +1,10 @@
+import type { IUndoVo } from '@teable/openapi';
 import { redoStream, undoStream } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
 import { useCallback } from 'react';
+import type { ILocaleFunction } from '../context/app/i18n';
 import { useTranslation } from '../context/app/i18n';
+import { getHttpErrorMessage, getLocalizationMessage } from '../context/app/queryClient';
 import { useTableId } from './use-table-id';
 
 const { toast } = sonner;
@@ -16,12 +19,18 @@ const formatProgressMessage = (label: string, processedCount: number, totalCount
   return `${label} ${processedCount}/${totalCount}`;
 };
 
-const getErrorMessage = (error: unknown) => {
+// A request rejected before the stream opened is an HttpError, which may carry a translation.
+const getErrorMessage = (error: unknown, t: ILocaleFunction) => {
   if (error instanceof Error) {
-    return error.message;
+    return getHttpErrorMessage(error, t) || error.message;
   }
   return String(error);
 };
+
+// A failed replay arrives as a stream event: show its translation when it carries one.
+export const getUndoRedoFailureMessage = (data: IUndoVo, t: ILocaleFunction) =>
+  (data.errorLocalization && getLocalizationMessage(data.errorLocalization, t)) ||
+  data.errorMessage;
 
 const showTransientToastAfterLoading = (toastId: string | number, message: string) => {
   toast.dismiss(toastId);
@@ -58,9 +67,9 @@ export const useUndoRedo = () => {
         showTransientToastAfterLoading(toastId, t('undoRedo.nothingToUndo'));
         return;
       }
-      throw new Error(res.data.errorMessage);
+      throw new Error(getUndoRedoFailureMessage(res.data, t));
     } catch (e) {
-      toast.error(`${t('undoRedo.undoFailed')}: ${getErrorMessage(e)}`, {
+      toast.error(`${t('undoRedo.undoFailed')}: ${getErrorMessage(e, t)}`, {
         id: toastId,
       });
     }
@@ -94,9 +103,9 @@ export const useUndoRedo = () => {
         showTransientToastAfterLoading(toastId, t('undoRedo.nothingToRedo'));
         return;
       }
-      throw new Error(res.data.errorMessage);
+      throw new Error(getUndoRedoFailureMessage(res.data, t));
     } catch (e) {
-      toast.error(`${t('undoRedo.redoFailed')}: ${getErrorMessage(e)}`, {
+      toast.error(`${t('undoRedo.redoFailed')}: ${getErrorMessage(e, t)}`, {
         id: toastId,
       });
     }

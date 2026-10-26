@@ -102,7 +102,15 @@ export class FormulaTypeVisitor
 
     const field = this.dependencies[fieldId];
     if (!field) {
-      return err(domainError.validation({ message: `FieldId ${fieldId} is a invalid field id` }));
+      return err(
+        domainError.validation({
+          message: `FieldId ${fieldId} is a invalid field id`,
+          localization: {
+            i18nKey: 'httpErrors.field.formulaReferenceNotFound',
+            context: { fieldIds: fieldId },
+          },
+        })
+      );
     }
     return ok(new TypedValue(null, field.cellValueType, field.isMultipleCellValue, field));
   }

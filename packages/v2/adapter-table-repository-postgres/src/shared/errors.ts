@@ -336,6 +336,7 @@ export const wrapDatabaseError = (
     return domainError.validation({
       message: `Cannot complete ${operation}: a linked record does not exist`,
       code: 'validation.link.invalid_reference',
+      localization: { i18nKey: 'httpErrors.record.linkedRecordNotExist' },
       ...(fieldId && { details: { fieldId, fieldType: 'link' } }),
     });
   }

@@ -501,6 +501,7 @@ export class ForeignKeyRule implements ISchemaRule {
       return err(
         domainError.validation({
           message: 'Foreign key target table does not exist',
+          localization: { i18nKey: 'httpErrors.integrity.linkTargetTableMissing' },
           details: {
             fieldId: this.field.id().toString(),
             targetTable: resolvedTargetTable,

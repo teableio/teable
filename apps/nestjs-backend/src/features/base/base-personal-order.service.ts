@@ -1,8 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { LastVisitResourceType } from '@teable/openapi';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -93,7 +95,10 @@ export class BasePersonalOrderService {
     }
     if (!siblings.some((sibling) => sibling.id === anchorId)) {
       // Also covers an anchor from another space: personal order is per space.
-      throw new BadRequestException('Anchor base must be an accessible base of the same space');
+      throw new CustomHttpException(
+        'Anchor base must be an accessible base of the same space',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     if (anchorId === baseId) return;
 

@@ -75,6 +75,7 @@ import {
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
+  updateField,
 } from './utils/init-app';
 
 describe('OpenAPI SelectionController (e2e)', () => {
@@ -2347,7 +2348,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
           { label: 'v2', useV2: true },
         ];
 
-    it('rejects v2 paste-by-id into a non-primary link display field without partial writes', async () => {
+    it('v2 paste-by-id matches a non-primary link display field', async () => {
       const targets = await createTable(baseId, {
         name: 'Paste display targets',
         fields: [
@@ -2371,7 +2372,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
             options: {
               relationship: Relationship.ManyOne,
               foreignTableId: targets.id,
-              lookupFieldId: targets.fields[1].id,
+              lookupFieldId: targets.fields[0].id,
               isOneWay: true,
             },
           },
@@ -2380,74 +2381,104 @@ describe('OpenAPI SelectionController (e2e)', () => {
         records: [{ fields: { Name: 'Row A', 'Copy source': 'Missing target' } }],
       });
       try {
-        const fieldsBefore = (await getFields(sources.id)).data;
-        const cases = [
+        const sourceRecordId = sources.records[0].id;
+        const targetFieldId = sources.fields[1].id;
+
+        const pasteLink = async (value: string) => {
+          await pasteByIdWithCanary(
+            sources.id,
+            {
+              viewId: sources.views[0].id,
+              selection: { recordIds: [sourceRecordId], fieldIds: [targetFieldId] },
+              content: [[value]],
+            },
+            true
+          );
+          const record = await getRecord(sources.id, sourceRecordId);
+          return record.fields[targetFieldId] ?? null;
+        };
+
+        // While the link displays the foreign primary, a display-column value
+        // from another column does not match.
+        expect(await pasteLink('A')).toBeNull();
+
+        // Switch "show by" to the non-primary Code column.
+        await updateField(sources.id, targetFieldId, {
+          options: { lookupFieldId: targets.fields[1].id },
+        });
+        const fieldsAfterSwitch = (await getFields(sources.id)).data;
+        expect(
+          fieldsAfterSwitch.find((field) => field.id === targetFieldId)?.options
+        ).toMatchObject({ lookupFieldId: targets.fields[1].id });
+
+        // The display value resolves, and the same request still writes its
+        // other columns.
+        const resolved = await axios.patch(
+          urlBuilder(PASTE_BY_ID_URL, { tableId: sources.id }),
           {
-            fieldIds: [sources.fields[0].id, sources.fields[1].id],
-            content: [['Changed name', 'Missing target']],
+            viewId: sources.views[0].id,
+            selection: {
+              recordIds: [sourceRecordId],
+              fieldIds: [sources.fields[0].id, targetFieldId],
+            },
+            content: [['Changed name', 'A']],
             header: [sources.fields[0], sources.fields[2]],
           },
-          {
-            fieldIds: [sources.fields[1].id],
-            content: [['Missing target', 'Extra column']],
-            header: [sources.fields[2], sources.fields[2]],
-          },
-          {
-            fieldIds: [sources.fields[0].id],
-            content: [['Changed name', 'Missing target']],
-            header: [sources.fields[0], sources.fields[1]],
-          },
-          {
-            fieldIds: [sources.fields[0].id, sources.fields[1].id],
-            content: [
-              ['Changed name', ''],
-              ['New row', 'Missing target'],
-            ],
-            header: [sources.fields[0], sources.fields[2]],
-          },
-        ];
-        for (const { fieldIds, content, header } of cases) {
-          const response = await axios.patch(
+          { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
+        );
+        expect(resolved.status).toBe(200);
+        expect(resolved.headers['x-teable-v2']).toBe('true');
+
+        let sourceAfter = await getRecord(sources.id, sourceRecordId);
+        expect(sourceAfter.fields[sources.fields[0].id]).toBe('Changed name');
+        expect(sourceAfter.fields[targetFieldId]).toMatchObject({
+          id: targets.records[0].id,
+          title: 'A',
+        });
+        expect((await getRecordsWithCanary(targets.id, {}, true)).data.records).toHaveLength(3);
+
+        // A value that matches no displayed row would need a foreign row this
+        // show-by column cannot fill; the paste is refused and writes nothing.
+        for (const value of ['Missing target', 'Target A']) {
+          const refused = await axios.patch(
             urlBuilder(PASTE_BY_ID_URL, { tableId: sources.id }),
             {
               viewId: sources.views[0].id,
-              selection: { recordIds: [sources.records[0].id], fieldIds },
-              content,
-              header,
+              selection: { recordIds: [sourceRecordId], fieldIds: [targetFieldId] },
+              content: [[value]],
             },
             { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
           );
-          expect(response.status).toBe(400);
-          expect(response.headers['x-teable-v2']).toBe('true');
-          expect(response.data).toMatchObject({
+          expect(refused.status).toBe(400);
+          expect(refused.data).toMatchObject({
             data: { domainCode: 'paste.link_auto_create_requires_primary_lookup' },
           });
-          expect((await getFields(sources.id)).data).toEqual(fieldsBefore);
-          const sourceAfter = await getRecord(sources.id, sources.records[0].id);
-          expect(sourceAfter.fields[sources.fields[0].id]).toBe('Row A');
-          expect(sourceAfter.fields[sources.fields[1].id] ?? null).toBeNull();
-          expect((await getRecordsWithCanary(sources.id, {}, true)).data.records).toHaveLength(1);
+          sourceAfter = await getRecord(sources.id, sourceRecordId);
+          expect(sourceAfter.fields[targetFieldId]).toMatchObject({
+            id: targets.records[0].id,
+            title: 'A',
+          });
           expect((await getRecordsWithCanary(targets.id, {}, true)).data.records).toHaveLength(3);
         }
 
+        // Record ids still link, and the cell reports the display value.
         for (const value of [targets.records[0].id, null]) {
           await pasteByIdWithCanary(
             sources.id,
             {
               viewId: sources.views[0].id,
-              selection: {
-                recordIds: [sources.records[0].id],
-                fieldIds: [sources.fields[1].id],
-              },
+              selection: { recordIds: [sourceRecordId], fieldIds: [targetFieldId] },
               content: [[value]],
             },
             true
           );
-          const sourceAfter = await getRecord(sources.id, sources.records[0].id);
-          expect(sourceAfter.fields[sources.fields[1].id] ?? null).toEqual(
+          sourceAfter = await getRecord(sources.id, sourceRecordId);
+          expect(sourceAfter.fields[targetFieldId] ?? null).toEqual(
             value ? { id: value, title: 'A' } : null
           );
         }
+
+        expect((await getFields(sources.id)).data).toEqual(fieldsAfterSwitch);
       } finally {
         await permanentDeleteTable(baseId, sources.id);
         await permanentDeleteTable(baseId, targets.id);

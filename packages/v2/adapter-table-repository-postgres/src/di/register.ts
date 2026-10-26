@@ -15,6 +15,7 @@ import {
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
+import { defaultComputedRuntimeConfig, type ComputedRuntimeConfig } from '../config/runtimeConfig';
 import { PostgresBaseDataBulkCopier } from '../duplicate';
 import {
   PostgresTransactionalProjectionMessageJournal,
@@ -49,7 +50,7 @@ import {
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   normalizeComputedUpdateOutboxConfig,
-  resolveComputedWorkerLane,
+  DEFAULT_COMPUTED_WORKER_LANE,
   noopComputedOutboxWakeupPublisher,
   ComputedUpdateWorker,
   UserRenamePropagationService,
@@ -121,6 +122,12 @@ export interface IV2TableRepositoryPostgresConfig {
   recordQuery?: {
     statementBudgetMs?: number;
   };
+  /**
+   * Explicit runtime configuration for the computed pipeline. The composition
+   * root supplies it (Node containers map their environment with
+   * `computedRuntimeConfigFromEnv`); adapters never read host globals.
+   */
+  runtime?: ComputedRuntimeConfig;
 }
 
 /**
@@ -272,9 +279,11 @@ export const registerV2TableRepositoryPostgresAdapter = (
     ...defaultHybridWithOutboxStrategyConfig,
     ...config.computedUpdate?.hybridConfig,
   };
+  const computedRuntimeConfig = config.runtime ?? defaultComputedRuntimeConfig;
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedRuntimeConfig, computedRuntimeConfig);
   const outboxConfig: ComputedUpdateOutboxConfig = normalizeComputedUpdateOutboxConfig({
     ...defaultComputedUpdateOutboxConfig,
-    workerLane: resolveComputedWorkerLane(),
+    workerLane: computedRuntimeConfig.workerLane ?? DEFAULT_COMPUTED_WORKER_LANE,
     ...config.computedUpdate?.outboxConfig,
   });
   const lockConfig: ComputedUpdateLockConfig = {
@@ -290,6 +299,12 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig, runtimeConfig);
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)) {
+    c.registerInstance(
+      v2RecordRepositoryPostgresTokens.computedRuntimeConfig,
+      defaultComputedRuntimeConfig
+    );
+  }
 
   const fieldBackfillConfig: FieldBackfillConfig = {
     ...defaultFieldBackfillConfig,
@@ -345,6 +360,10 @@ export const registerV2TableRepositoryPostgresAdapter = (
   });
 
   c.register(v2CoreTokens.recordOrderCalculator, PostgresRecordOrderCalculator, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
+  c.register(v2CoreTokens.recordOrderColumnPreparer, PostgresRecordOrderCalculator, {
     lifecycle: Lifecycle.Singleton,
   });
 

@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -65,6 +67,10 @@ export class DeviceAuthorizationError extends BadRequestException {
     super(description);
   }
 }
+
+/** getOAuthApp rejects an unknown client_id with a 400; anything else is a server failure. */
+const isBadRequest = (error: unknown) =>
+  error instanceof HttpException && error.getStatus() === HttpStatus.BAD_REQUEST;
 
 export type IDevicePollResult =
   | { status: 'pending' }
@@ -143,7 +149,10 @@ export class OAuthDeviceService {
   private async getOAuthApp(clientId: string) {
     const app = await this.prismaService.txClient().oAuthApp.findUnique({ where: { clientId } });
     if (!app) {
-      throw new BadRequestException('Invalid client');
+      const message = 'Invalid client';
+      throw new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR, {
+        localization: { i18nKey: 'httpErrors.oauth.invalidRequest', context: { detail: message } },
+      });
     }
     return nullsToUndefined({
       ...app,
@@ -161,7 +170,7 @@ export class OAuthDeviceService {
   }): Promise<IDeviceCodeVo> {
     await this.checkDeviceCodeRateLimit(params.ip);
     const app = await this.getOAuthApp(params.clientId).catch((error) => {
-      if (error instanceof BadRequestException) {
+      if (isBadRequest(error)) {
         throw new DeviceAuthorizationError('invalid_client', 'Unknown client');
       }
       throw error;
@@ -264,7 +273,13 @@ export class OAuthDeviceService {
       throw new NotFoundException('This code has expired or does not exist');
     }
     if (entry.state.status !== 'pending') {
-      throw new BadRequestException('This code has already been used');
+      throw new CustomHttpException(
+        'This code has already been used',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.oauth.deviceCodeUsed' },
+        }
+      );
     }
     const app = await this.getAppIfDeviceFlowAllowed(entry.state.clientId);
     return {
@@ -299,7 +314,13 @@ export class OAuthDeviceService {
       }
     );
     if (!ran || !decided) {
-      throw new BadRequestException('This code has already been used');
+      throw new CustomHttpException(
+        'This code has already been used',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.oauth.deviceCodeUsed' },
+        }
+      );
     }
     return decided;
   }
@@ -314,7 +335,13 @@ export class OAuthDeviceService {
       throw new NotFoundException('This code has expired or does not exist');
     }
     if (entry.state.status !== 'pending') {
-      throw new BadRequestException('This code has already been used');
+      throw new CustomHttpException(
+        'This code has already been used',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.oauth.deviceCodeUsed' },
+        }
+      );
     }
     await this.getAppIfDeviceFlowAllowed(entry.state.clientId);
 
@@ -379,7 +406,7 @@ export class OAuthDeviceService {
     try {
       await this.getAppIfDeviceFlowAllowed(state.clientId);
     } catch (error) {
-      if (error instanceof ForbiddenException || error instanceof BadRequestException) {
+      if (error instanceof ForbiddenException || isBadRequest(error)) {
         await this.forget(deviceCode, state.userCode);
         return { status: 'denied' };
       }

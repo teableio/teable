@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -11,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { HttpErrorCode } from '@teable/core';
 import type {
   IPublicSettingVo,
   ISetSettingMailTransportConfigVo,
@@ -43,6 +43,7 @@ import {
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { IMailConfig, MailConfig } from '../../../configs/mail.config';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { resolveBuildVersion } from '../../../utils/build-version';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AiService } from '../../ai/ai.service';
@@ -146,7 +147,10 @@ export class SettingOpenApiController {
         if (file.mimetype.startsWith('image/')) {
           callback(null, true);
         } else {
-          callback(new BadRequestException('Invalid file type'), false);
+          callback(
+            new CustomHttpException('Invalid file type', HttpErrorCode.VALIDATION_ERROR),
+            false
+          );
         }
       },
       limits: {

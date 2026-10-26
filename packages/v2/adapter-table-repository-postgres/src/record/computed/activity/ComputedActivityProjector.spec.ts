@@ -184,34 +184,28 @@ describe('ComputedActivityProjector', () => {
   );
 
   it('reports unknown impact for a source failure before any field plan exists and honors UI rollback', async () => {
-    vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
-    vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'true');
-    try {
-      for (const statement of computedReliabilitySchemaSql
-        .split(';')
-        .filter((item) => item.trim())) {
-        await sql.raw(statement).execute(db);
-      }
-      const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
-      await store.recordFailure({
-        taskId: 'unknown-failure',
-        baseId: BASE_ID,
-        sourceTableId: TABLE_ID,
-        error: 'seed failed',
-      });
-      const reader = new PostgresComputedActivityReader(db, projector);
-      const visible = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
-      expect(visible.fields).toEqual([]);
-      expect(visible.diagnostics.reliability).toMatchObject({
-        unresolvedCount: 1,
-        scopeComplete: false,
-      });
-      vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'false');
-      const hidden = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
-      expect(hidden.diagnostics.reliability).toBeUndefined();
-    } finally {
-      vi.unstubAllEnvs();
+    for (const statement of computedReliabilitySchemaSql.split(';').filter((item) => item.trim())) {
+      await sql.raw(statement).execute(db);
     }
+    const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+    await store.recordFailure({
+      taskId: 'unknown-failure',
+      baseId: BASE_ID,
+      sourceTableId: TABLE_ID,
+      error: 'seed failed',
+    });
+    const reader = new PostgresComputedActivityReader(db, projector);
+    const visible = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(visible.fields).toEqual([]);
+    expect(visible.diagnostics.reliability).toMatchObject({
+      unresolvedCount: 1,
+      scopeComplete: false,
+    });
+    const hiddenReader = new PostgresComputedActivityReader(db, projector, db, {
+      reliability: { uiVisible: false },
+    });
+    const hidden = (await hiddenReader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(hidden.diagnostics.reliability).toBeUndefined();
   });
 
   it('uses SQL scoped issue counts and marks missing reliability capabilities unavailable', async () => {
@@ -648,10 +642,10 @@ describe('ComputedActivityProjector', () => {
     }
   });
 
-  it('keeps an explicit false environment value as the synchronous rollback switch', async () => {
-    const previous = process.env.COMPUTED_ACTIVITY_ASYNC_PROJECTION;
-    process.env.COMPUTED_ACTIVITY_ASYNC_PROJECTION = 'false';
-    const synchronousProjector = new ComputedActivityProjector(db, new NoopLogger());
+  it('keeps an explicit false async projection switch synchronous', async () => {
+    const synchronousProjector = new ComputedActivityProjector(db, new NoopLogger(), null, {
+      activity: { asyncProjection: false },
+    });
 
     try {
       await ensureOutboxTasks(['task-explicit-sync']);
@@ -673,8 +667,6 @@ describe('ComputedActivityProjector', () => {
       ).toMatchObject({ status: 'queued', active_task_count: 1 });
     } finally {
       synchronousProjector.disposeAsyncFlusher();
-      if (previous === undefined) delete process.env.COMPUTED_ACTIVITY_ASYNC_PROJECTION;
-      else process.env.COMPUTED_ACTIVITY_ASYNC_PROJECTION = previous;
     }
   });
 

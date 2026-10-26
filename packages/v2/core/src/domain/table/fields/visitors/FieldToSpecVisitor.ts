@@ -432,13 +432,14 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (parsed.type === 'titles' && this.typecast) {
-      // Title format: ['Title1', 'Title2'] → need Repository to do SQL lookup
+      // Title format: ['Title1', 'Title2'] → resolved against the link display field
       return ok(
         SetLinkValueByTitleSpec.create(
           field.id(),
           field.foreignTableId(),
           parsed.value as string[],
-          isMultiple
+          isMultiple,
+          field.lookupFieldId()
         )
       );
     }

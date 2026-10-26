@@ -1,8 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import type { Request } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { CustomHttpException } from '../../../custom.exception';
+import { TurnstileRejectedException } from '../local-auth/local-auth.service';
 import { LocalStrategy } from './local.strategy';
 
 const EMAIL = 'ada@example.com';
@@ -85,13 +85,53 @@ describe('LocalStrategy sign-in failure audit', () => {
 
   it('records a failed captcha', async () => {
     const fixture = createFixture({
-      validate: vi.fn().mockRejectedValue(new BadRequestException('Turnstile token is required')),
+      validate: vi
+        .fn()
+        .mockRejectedValue(
+          new TurnstileRejectedException(
+            'Turnstile token is required',
+            HttpErrorCode.VALIDATION_ERROR
+          )
+        ),
     });
 
     await expect(fixture.strategy.validate(fixture.req, EMAIL, 'right')).rejects.toBeDefined();
     expect(fixture.userService.recordSigninFailure).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'captcha' })
     );
+  });
+
+  it('surfaces the captcha reason and does not count it toward the lockout', async () => {
+    const fixture = createFixture({
+      signin: lockout,
+      validate: vi.fn().mockRejectedValue(
+        new TurnstileRejectedException('Verification failed', HttpErrorCode.VALIDATION_ERROR, {
+          localization: { i18nKey: 'httpErrors.auth.captchaFailed' },
+        })
+      ),
+    });
+
+    await expect(fixture.strategy.validate(fixture.req, EMAIL, 'right')).rejects.toMatchObject({
+      data: { localization: { i18nKey: 'httpErrors.auth.captchaFailed' } },
+    });
+    expect(fixture.cacheService.incr).not.toHaveBeenCalled();
+    expect(fixture.userService.recordSigninFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'captcha' })
+    );
+  });
+
+  it('does not count a sign-in sent without a captcha token toward the lockout', async () => {
+    const missingToken = new TurnstileRejectedException(
+      'Turnstile token is required',
+      HttpErrorCode.VALIDATION_ERROR
+    );
+    const fixture = createFixture({
+      signin: lockout,
+      validate: vi.fn().mockRejectedValue(missingToken),
+    });
+
+    await expect(fixture.strategy.validate(fixture.req, EMAIL, 'right')).rejects.toBe(missingToken);
+    expect(fixture.cacheService.incr).not.toHaveBeenCalled();
   });
 
   it('leaves the reason to the account state when an account check rejects', async () => {

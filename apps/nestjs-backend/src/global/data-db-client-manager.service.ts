@@ -17,6 +17,7 @@ import { DataDbMigrationService } from '../features/space/data-db-migration.serv
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../utils/meta-ancestry-cache';
+import { resolveByodbDataDbPoolSettings } from './byodb-data-db-pool-budget';
 import {
   buildComputedOutboxAnomalyListQuery,
   buildComputedOutboxDeadLetterBatchSelectionQuery,
@@ -409,6 +410,8 @@ export const restoreComputedOutboxDeadLetterRows = async (
 
 @Injectable()
 export class DataDbClientManager {
+  private readonly byodbPoolSettings = resolveByodbDataDbPoolSettings();
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly metaFallbackDataPrismaService: DataPrismaService,
@@ -1213,11 +1216,10 @@ export class DataDbClientManager {
   ): Promise<T> {
     const resolved = await this.resolveSpaceDataDb(spaceId, options);
     const connectionString = resolved.isMetaFallback ? getMetaDatabaseUrl() : resolved.url;
-    const poolLease = this.pgPoolRegistry.acquire(connectionString, {
-      ...(!resolved.isMetaFallback
-        ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) }
-        : undefined),
-    });
+    const poolLease = this.pgPoolRegistry.acquire(
+      connectionString,
+      resolved.isMetaFallback ? undefined : this.byodbPoolSettings
+    );
     let connection: PoolClient | undefined;
     try {
       connection = await poolLease.pool.connect();
@@ -1239,9 +1241,7 @@ export class DataDbClientManager {
       DATA_DB_PRISMA_CACHE_NAMESPACE,
       resolved.connectionId,
       async () => {
-        const poolLease = this.pgPoolRegistry.acquire(resolved.url, {
-          max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5),
-        });
+        const poolLease = this.pgPoolRegistry.acquire(resolved.url, this.byodbPoolSettings);
         try {
           return createScopedDataPrismaClient(poolLease, resolved.internalSchema);
         } catch (error) {

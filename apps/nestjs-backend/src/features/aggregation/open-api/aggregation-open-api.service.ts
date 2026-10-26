@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { StatisticsFunc } from '@teable/core';
-import { getValidStatisticFunc } from '@teable/core';
+import { getValidStatisticFunc, HttpErrorCode } from '@teable/core';
 import type {
   ISearchIndexByQueryRo,
   IAggregationRo,
@@ -17,6 +17,7 @@ import type {
   ISelectionAggregationRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
+import { CustomHttpException } from '../../../custom.exception';
 import { RecordService } from '../../record/record.service';
 import { IAggregationService } from '../aggregation.service.interface';
 import type { IWithView } from '../aggregation.service.interface';
@@ -110,13 +111,17 @@ export class AggregationOpenApiService {
     fieldStatistics.forEach(({ fieldId, statisticFunc }) => {
       const fieldInstance = fieldInstanceMap[fieldId];
       if (!fieldInstance) {
-        throw new BadRequestException(`field: '${fieldId}' is invalid`);
+        throw new CustomHttpException(
+          `field: '${fieldId}' is invalid`,
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
 
       const validStatisticFunc = getValidStatisticFunc(fieldInstance);
       if (!validStatisticFunc.includes(statisticFunc)) {
-        throw new BadRequestException(
-          `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`
+        throw new CustomHttpException(
+          `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`,
+          HttpErrorCode.VALIDATION_ERROR
         );
       }
 

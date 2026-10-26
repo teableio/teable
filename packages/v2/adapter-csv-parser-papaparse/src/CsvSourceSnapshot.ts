@@ -87,7 +87,9 @@ const snapshotStorageError = (cause: unknown): DomainError =>
 export async function snapshotCsvSource(
   url: string
 ): Promise<Result<CsvSourceSnapshot, DomainError>> {
-  const configuredMaxBytes = Number(process.env[CSV_SOURCE_MAX_BYTES_ENV]);
+  const configuredMaxBytes = Number(
+    typeof process !== 'undefined' ? process.env[CSV_SOURCE_MAX_BYTES_ENV] : undefined
+  );
   const maxBytes =
     Number.isFinite(configuredMaxBytes) && configuredMaxBytes > 0
       ? configuredMaxBytes

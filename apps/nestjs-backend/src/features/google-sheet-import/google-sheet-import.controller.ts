@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -9,7 +8,7 @@ import {
   Post,
   Res,
 } from '@nestjs/common';
-import { type Action } from '@teable/core';
+import { HttpErrorCode, type Action } from '@teable/core';
 import {
   importGoogleSheetAnalyzeRoSchema,
   importGoogleSheetRoSchema,
@@ -20,6 +19,7 @@ import {
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
@@ -30,7 +30,8 @@ import {
   GoogleSheetImportService,
 } from './google-sheet-import.service';
 
-const formatGoogleSheetImportError = (error: unknown): string => {
+/** `prefixed: false` leaves out the "Google Sheets API error:" label, for callers that add their own prefix. */
+const formatGoogleSheetImportError = (error: unknown, { prefixed = true } = {}): string => {
   if (error instanceof GoogleSheetApiError) {
     if (error.status === 401) {
       return 'Google rejected the access token. Reconnect the Google Sheets integration.';
@@ -40,7 +41,7 @@ const formatGoogleSheetImportError = (error: unknown): string => {
         ? 'Spreadsheet not accessible without signing in. Share it as "anyone with the link", or connect the Google Sheets integration and pick it in the Google Picker.'
         : 'Spreadsheet not accessible. The drive.file grant only covers files picked through the Google Picker — pick the spreadsheet again.';
     }
-    return `Google Sheets API error: ${error.message}`;
+    return prefixed ? `Google Sheets API error: ${error.message}` : error.message;
   }
   return error instanceof Error && error.message ? error.message : 'Unknown import error';
 };
@@ -120,7 +121,17 @@ export class GoogleSheetImportController {
       return await this.googleSheetImportService.analyze(analyzeRo);
     } catch (error) {
       if (error instanceof GoogleSheetApiError) {
-        throw new BadRequestException(formatGoogleSheetImportError(error));
+        throw new CustomHttpException(
+          formatGoogleSheetImportError(error),
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.import.failed',
+              // the localized "Import failed:" prefix stands in for the English label
+              context: { detail: formatGoogleSheetImportError(error, { prefixed: false }) },
+            },
+          }
+        );
       }
       throw error;
     }
@@ -141,7 +152,10 @@ export class GoogleSheetImportController {
     if (!targetResourceId) {
       // Unreachable via the zod schema (spaceId is required when baseId is absent),
       // but keep the guard so the permission target is always a concrete resource.
-      throw new BadRequestException('Either baseId or spaceId is required.');
+      throw new CustomHttpException(
+        'Either baseId or spaceId is required.',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const requiredPermissions: Action[] = importGoogleSheetRo.baseId
       ? ['base|table_import']

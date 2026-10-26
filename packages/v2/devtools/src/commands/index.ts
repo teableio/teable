@@ -1,4 +1,5 @@
 import { Command } from '@effect/cli';
+import { complexity } from './complexity';
 import {
   computedPause,
   computedPauses,
@@ -24,6 +25,7 @@ import {
 import { mockGenerate } from './mock';
 import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
+import { reproComputed } from './repro';
 import { schemaTable, schemaField, schemaRepair } from './schema';
 import {
   schemaOperationList,
@@ -164,10 +166,17 @@ export const underlying = Command.make('underlying').pipe(
   ])
 );
 
+// repro subcommand group (local, disposable PGlite reproduction)
+export const repro = Command.make('repro').pipe(
+  Command.withDescription('Reproduce a computed failure on a disposable in-memory runtime'),
+  Command.withSubcommands([reproComputed])
+);
+
 // Root command
 export const root = Command.make('teable-devtools').pipe(
   Command.withDescription('Teable v2 developer tools CLI'),
   Command.withSubcommands([
+    complexity,
     computed,
     dataDb,
     explain,
@@ -180,7 +189,8 @@ export const root = Command.make('teable-devtools').pipe(
     tables,
     underlying,
     dottea,
+    repro,
   ])
 );
 
-export { dataDbMigrationStatus, dottea, relations };
+export { complexity, dataDbMigrationStatus, dottea, relations };

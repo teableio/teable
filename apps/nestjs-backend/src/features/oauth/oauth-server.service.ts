@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   HttpException,
   Injectable,
   Logger,
@@ -37,6 +36,10 @@ import { DEVICE_CODE_GRANT_TYPE, OAuthDeviceService } from './oauth-device.servi
 import { OAuthTxStore } from './oauth-tx-store';
 import { PkceService } from './pkce.service';
 import type { IAuthorizeClient, ITokenClient, IOAuth2Server, IAuthorizeRequest } from './types';
+
+/** A malformed OAuth request: the message names the offending parameter. */
+const invalidOAuthRequest = (message: string) =>
+  new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR);
 
 @Injectable()
 export class OAuthServerService {
@@ -180,24 +183,24 @@ export class OAuthServerService {
       // Self-registered clients have no secret: without PKCE the code could
       // never be exchanged, so refuse before putting the person through consent.
       if (dynamicRegistration && !codeChallenge) {
-        return done(new BadRequestException('code_challenge is required'));
+        return done(invalidOAuthRequest('code_challenge is required'));
       }
       if (invalidScopes.length > 0) {
-        return done(new BadRequestException('Invalid scopes: ' + invalidScopes.join(',')));
+        return done(invalidOAuthRequest('Invalid scopes: ' + invalidScopes.join(',')));
       }
 
       // valid redirectUri
       if (!redirectUris.length) {
-        return done(new BadRequestException('Redirect uri not configured'));
+        return done(invalidOAuthRequest('Redirect uri not configured'));
       }
       const redirectUri = redirectURI || redirectUris[0];
       const clientScopes = queryScopes ?? scopes;
       if (codeChallenge) {
         if (codeChallengeMethod !== 'S256') {
-          return done(new BadRequestException('Invalid code challenge method'));
+          return done(invalidOAuthRequest('Invalid code challenge method'));
         }
         if (!this.pkceService.isValidCodeChallenge(codeChallenge)) {
-          return done(new BadRequestException('Invalid code challenge'));
+          return done(invalidOAuthRequest('Invalid code challenge'));
         }
         this.validateRedirectUri(redirectUri, redirectUris, 'pkce');
         return done(
@@ -454,7 +457,7 @@ export class OAuthServerService {
       this.verifyCodeVerifier(client.codeVerifier, state);
     } else if (client.type === 'secret') {
       if (!client.clientSecret) {
-        throw new BadRequestException('client_secret is required');
+        throw invalidOAuthRequest('client_secret is required');
       }
       // A confidential client that sent code_challenge at authorize proves
       // both (OAuth 2.1 wants PKCE from every client): RFC 7636, once
@@ -463,22 +466,22 @@ export class OAuthServerService {
         this.verifyCodeVerifier(client.codeVerifier, state);
       }
     } else {
-      throw new BadRequestException('Invalid client type');
+      throw invalidOAuthRequest('Invalid client type');
     }
   }
 
   private verifyCodeVerifier(codeVerifier: string | undefined, state: IOAuthCodeState) {
     if (!codeVerifier) {
-      throw new BadRequestException('code_verifier is required');
+      throw invalidOAuthRequest('code_verifier is required');
     }
     if (!this.pkceService.isValidCodeVerifier(codeVerifier)) {
-      throw new BadRequestException('Invalid code_verifier format');
+      throw invalidOAuthRequest('Invalid code_verifier format');
     }
     if (!state.codeChallenge) {
-      throw new BadRequestException('code_challenge is required');
+      throw invalidOAuthRequest('code_challenge is required');
     }
     if (!state.codeChallengeMethod || state.codeChallengeMethod !== 'S256') {
-      throw new BadRequestException('Invalid code_challenge method');
+      throw invalidOAuthRequest('Invalid code_challenge method');
     }
     const valid = this.pkceService.validateCodeVerifier(
       state.codeChallenge,

@@ -1,3 +1,5 @@
+import { utf8ByteLength } from '@teable/v2-core';
+
 import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryDefinitionInput } from './types';
 
@@ -9,6 +11,10 @@ export const dataQueryLintCodes = {
   combinatorialManifest: 'COMBINATORIAL_MANIFEST',
   unusedQuery: 'UNUSED_QUERY',
   queryUsageUnknown: 'QUERY_USAGE_UNKNOWN',
+  /** SQL retirement freeze: new `mode: sql-query` entries are not accepted. */
+  sqlQueryFrozen: 'data_query.sql_query_frozen',
+  /** A declared `mode: auto` SQL fallback, reported at info so `--strict` stays off. */
+  autoSqlFallback: 'data_query.auto_sql_fallback',
 } as const;
 
 export type DataQueryLintCode = (typeof dataQueryLintCodes)[keyof typeof dataQueryLintCodes];
@@ -106,6 +112,36 @@ const variantShape = (definition: DataQueryDefinitionInput): string =>
   });
 
 const definitionLocation = (queryId: string): string => `queries.${queryId}.definition`;
+
+/**
+ * SQL retirement freeze, authoring-time only. `mode: sql-query` is a warning so
+ * `--strict` fails; `mode: auto` keeps a declared SQL fallback and is reported as
+ * info, which never changes the exit code. Neither finding is a schema rejection.
+ */
+export const sqlFreezeFindings = (manifest: DataQueryManifest): DataQueryLintFinding[] => {
+  const findings: DataQueryLintFinding[] = [];
+  for (const queryId of Object.keys(manifest.queries).sort(compare)) {
+    const mode = manifest.queries[queryId].mode ?? 'structured';
+    if (mode === 'sql-query') {
+      findings.push({
+        code: dataQueryLintCodes.sqlQueryFrozen,
+        severity: 'warning',
+        queryId,
+        location: `queries.${queryId}.mode`,
+        message: `Query \`${queryId}\` is frozen to \`mode: sql-query\`. New SQL-only queries are not accepted: declare a structured definition, or use \`mode: auto\` with a structured definition and a SQL fallback while the operation is still unsupported. Migrate existing SQL-only query IDs instead of extending them.`,
+      });
+    } else if (mode === 'auto') {
+      findings.push({
+        code: dataQueryLintCodes.autoSqlFallback,
+        severity: 'info',
+        queryId,
+        location: `queries.${queryId}.mode`,
+        message: `Query \`${queryId}\` uses \`mode: auto\`, so it still executes its SQL fallback after a \`data_query.unsupported_*\` error. This declared migration state is allowed and reported as info only, which never fails \`--strict\`; remove the fallback once the structured definition is fully supported.`,
+      });
+    }
+  }
+  return findings;
+};
 
 const duplicateFindings = (manifest: DataQueryManifest): DataQueryLintFinding[] => {
   const seen = new Map<string, string[]>();
@@ -234,7 +270,7 @@ export function lintDataQueryManifest(input: DataQueryLintInput): DataQueryLintF
   const limits: DataQueryLintLimits = { ...dataQueryLintDefaultLimits, ...input.limits };
   const findings: DataQueryLintFinding[] = [];
   const queryIds = Object.keys(input.manifest.queries);
-  const manifestBytes = Buffer.byteLength(input.text, 'utf8');
+  const manifestBytes = utf8ByteLength(input.text);
 
   if (queryIds.length > limits.maxQueries) {
     findings.push({
@@ -263,6 +299,7 @@ export function lintDataQueryManifest(input: DataQueryLintInput): DataQueryLintF
       message: `Generated client is ${input.generatedClientBytes} bytes, over the limit of ${limits.maxClientBytes}. Reduce query count or aliases; raise --max-client-bytes only with a deliberate reason.`,
     });
   }
+  findings.push(...sqlFreezeFindings(input.manifest));
   findings.push(...duplicateFindings(input.manifest));
   findings.push(...combinatorialFindings(input.manifest, limits.maxCombinatorialVariants));
   if (input.usage) findings.push(...unusedFindings(input.manifest, input.usage));

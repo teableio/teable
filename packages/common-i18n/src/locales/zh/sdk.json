@@ -1038,10 +1038,12 @@
       "invalidPath": "无效的附件路径",
       "fileSizeExceedsMaximumLimit": "文件大小超过最大限制 {{maxSize}}",
       "invalidUploadType": "无效的上传类型",
-      "urlReject": "URL 被拒绝或无法访问"
+      "urlReject": "URL 被拒绝或无法访问",
+      "avatarTypeUnsupported": "不支持的文件类型，仅支持 JPEG、PNG 和 WebP"
     },
     "email": {
-      "testEmailError": "Mail config error {{message}}"
+      "testEmailError": "邮件配置错误：{{message}}",
+      "transporterInvalid": "邮件服务配置无效：{{detail}}"
     },
     "auth": {
       "invalidConfirm": "确认输入无效",
@@ -1059,7 +1061,10 @@
       "emailOrPasswordIncorrect": "邮箱或密码错误",
       "accountDeactivated": "该账户已被管理员停用",
       "accountLockedOut": "由于登录失败次数过多，您的账户已被锁定，请稍后再试",
-      "passwordLoginDisabled": "密码登录已被禁用"
+      "passwordLoginDisabled": "密码登录已被禁用",
+      "captchaFailed": "人机验证失败，请刷新后重试",
+      "captchaServiceUnavailable": "验证服务暂时不可用，请稍后重试",
+      "mobileExchangeInvalid": "登录请求无效或已过期，请重新打开 App 登录"
     },
     "connectorEvent": {
       "accountNotGranted": "连接器事件触发器需要一个已授权给该资源的已连接账号",
@@ -1111,7 +1116,16 @@
       "webhookTriggerNotFound": "Webhook 触发器未找到",
       "emailReceivedTriggerNotFound": "邮件接收触发器未找到",
       "emailConnectorNotAvailable": "邮件连接器服务不可用",
-      "listMailboxesFailed": "获取邮箱文件夹列表失败: {{detail}}"
+      "listMailboxesFailed": "获取邮箱文件夹列表失败: {{detail}}",
+      "codeUploadFailed": "上传编译后的代码失败：{{detail}}",
+      "invalidInput": "输入无效：{{detail}}",
+      "recordsRequired": "请提供记录",
+      "codeRequired": "代码不能为空",
+      "scriptCompileFailed": "脚本编译失败：{{detail}}",
+      "scriptExecutionFailed": "脚本执行失败：{{detail}}",
+      "scriptTimeout": "脚本执行超时（{{timeout}}ms 内无响应）",
+      "sandboxUnavailable": "无法连接脚本沙盒服务，请检查沙盒服务是否运行",
+      "sandboxError": "脚本沙盒服务错误：{{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "抓取服务未配置",
@@ -1124,7 +1138,8 @@
       "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
       "oauthTokenRefreshFailed": "OAuth 令牌刷新失败：{{detail}}",
       "userInfoFetchFailed": "获取用户信息失败：{{detail}}",
-      "providerUnsupported": "{{provider}} 连接已不再支持,无法授权"
+      "providerUnsupported": "{{provider}} 连接已不再支持,无法授权",
+      "callbackFailed": "处理授权回调失败：{{detail}}"
     },
     "space": {
       "notFound": "空间不存在",
@@ -1137,14 +1152,18 @@
       "notBelongToOrg": "此空间不属于该组织",
       "invalidSpaceIds": "空间ID无效: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "您已达到可拥有的免费空间数量上限（{{max}}），请升级现有空间或删除一个免费空间后再创建新空间。",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} 已达到可拥有的免费空间数量上限（{{max}}）。"
+      "freeOwnedSpaceLimitExceededOther": "{{name}} 已达到可拥有的免费空间数量上限（{{max}}）。",
+      "dataDbTargetError": "目标数据库错误：{{detail}}",
+      "migrationUnavailableCrossSpace": "开启跨空间引用时无法进行空间级数据库迁移"
     },
     "base": {
       "notFound": "项目不存在",
       "cannotAccess": "没有权限访问项目 {{baseId}}",
       "anchorNotFound": "锚点项目 {{anchorId}} 不存在",
       "baseAndSpaceMismatch": "项目 {{baseId}} 与空间 {{spaceId}} 不匹配",
-      "templateNotFound": "模板 {{templateId}} 不存在"
+      "templateNotFound": "模板 {{templateId}} 不存在",
+      "crossDataDbDuplicateUnsupported": "目标空间使用了不同的数据库，暂不支持连同记录一起复制",
+      "moveJobNotCancellable": "迁移作业当前状态 {{state}} 无法取消"
     },
     "baseNode": {
       "baseIdIsRequired": "项目ID是必需的",
@@ -1184,7 +1203,8 @@
       "notFound": "会话不存在",
       "accessDenied": "你无权访问此会话",
       "archived": "会话已归档",
-      "serverAuthoredType": "{{type}} 类型的会话由服务端创建"
+      "serverAuthoredType": "{{type}} 类型的会话由服务端创建",
+      "messageTooLong": "消息过长（{{length}} 字，最多 {{max}} 字）"
     },
     "dashboard": {
       "notFound": "仪表板不存在"
@@ -1291,7 +1311,12 @@
       "exceedMaxReadRows": "超出最大读取行数限制",
       "invalidCellValueType": "无效的单元格值类型",
       "exceedMaxCopyCells": "超出最大复制单元格数限制",
-      "exceedMaxPasteCells": "超出最大粘贴单元格数限制"
+      "exceedMaxPasteCells": "超出最大粘贴单元格数限制",
+      "linkAutoCreateSelfLinkUnsupported": "链接到本表的链接字段不支持粘贴时自动创建关联记录，请粘贴已存在记录的标题。",
+      "linkAutoCreateRequiresPrimaryLookup": "该链接字段显示的不是关联表的主字段，粘贴时无法自动创建关联记录。",
+      "linkAutoCreateRequiresTextPrimary": "关联表的主字段不是单一文本值，粘贴时无法自动创建关联记录。",
+      "linkAutoCreateComputedPrimaryUnsupported": "关联表的主字段为计算字段，粘贴时无法自动创建关联记录。",
+      "linkAutoCreateMissingRequiredFields": "关联表存在未设置默认值的必填字段（{{fieldNames}}），粘贴时无法自动创建关联记录。"
     },
     "field": {
       "unsupportedFieldType": "不支持的字段类型 {{type}}",
@@ -1358,7 +1383,21 @@
         "notSupportReset": "按钮不支持重置"
       },
       "primaryCannotBeLookup": "主字段不能配置为 Lookup 字段",
-      "primaryFieldAlreadyExists": "表已经有主字段"
+      "primaryFieldAlreadyExists": "表已经有主字段",
+      "nameRequired": "字段名不能为空",
+      "rollupFormattingMismatch": "汇总字段的格式与计算结果类型不匹配，请重新选择格式后再试。",
+      "conditionalRollupFormattingMismatch": "格式设置与条件汇总结果类型不匹配，请重新选择格式后再试。",
+      "conditionalRollupLookupFieldUnavailable": "无法确定该条件汇总字段的结果类型：被汇总的字段或其所在表不可用，请重新选择。",
+      "selectDefaultValueNotInChoices": "默认值“{{value}}”不在选项中，请重新选择默认值。",
+      "timeZoneInvalid": "不支持的时区：{{timeZone}}，请选择其他时区。",
+      "formulaCompileFailed": "该公式无法计算，请简化公式或检查引用的字段。",
+      "formulaParamTextNotAllowed": "{{func}} 的第 {{index}} 个参数不能是文本，请检查引用字段的类型。",
+      "formulaParamNumberOrDateRequired": "{{func}} 的第 {{index}} 个参数只能是数字或日期，请检查引用字段的类型。",
+      "formulaParamTextRequired": "{{func}} 的第 {{index}} 个参数只能是文本，请检查引用字段的类型。",
+      "linkTitleFillLimitExceeded": "单个关联单元格每次最多写入 {{max}} 条记录",
+      "buttonClickConflict": "按钮已被其他请求修改，请重新点击。",
+      "buttonUndoConflict": "撤销或重做时按钮已发生变化，请重试。",
+      "linkTitlePrimaryNotText": "关联表的主字段不是单一文本值，无法按文本匹配关联记录。"
     },
     "view": {
       "notFound": "视图不存在",
@@ -1375,7 +1414,11 @@
       "notEnoughGapToShuffleRow": "没有足够的间隙来重新排列记录顺序",
       "shareNotEnabled": "视图分享未启用",
       "shareAlreadyEnabled": "视图分享已启用",
-      "shareAlreadyDisabled": "视图分享已禁用"
+      "shareAlreadyDisabled": "视图分享已禁用",
+      "versionConflict": "该视图刚被其他操作修改，请刷新后重试。",
+      "nameAlreadyExists": "该表中已存在名为 {{name}} 的视图",
+      "manualSortUnsupportedViewType": "仅表格视图支持手动排序",
+      "formRequiredFieldsMissing": "请先填写所有必填字段再提交"
     },
     "billing": {
       "insufficientCredit": "算力不足",
@@ -1389,7 +1432,11 @@
       "planNotAvailable": "该订阅方案已停止新购。",
       "seatLimitExceeded": "已购席位不足，请增购席位后再邀请协作者。",
       "customerNotFound": "未找到此空间的账单客户记录。",
-      "creditAddOnRetired": "按月增购算力包已停售，请改为在套餐中选择更大的算力档位。"
+      "creditAddOnRetired": "按月增购算力包已停售，请改为在套餐中选择更大的算力档位。",
+      "trialUsed": "试用期已使用过",
+      "subscriptionPaused": "你的订阅已暂停，请联系支持团队恢复或取消后再开始新的订阅",
+      "noSubscriptionToRevert": "没有可撤销的 Stripe 订阅",
+      "portalUnavailable": "无法打开账单管理页面，请稍后重试"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",
@@ -1424,7 +1471,9 @@
       "validateActionFailed": "验证字段AI操作失败",
       "generateFailed": "AI生成失败",
       "unsupportedActionType": "不支持的AI操作类型",
-      "geminiImageNotSupportedViaGateway": "AI Gateway 不支持 Gemini 图像生成。请改为配置直连 Google 服务商。"
+      "geminiImageNotSupportedViaGateway": "AI Gateway 不支持 Gemini 图像生成。请改为配置直连 Google 服务商。",
+      "requestFailed": "AI 请求失败：{{detail}}",
+      "imageTestUnsupportedForGateway": "AI Gateway 模型暂不支持图片生成测试"
     },
     "skill": {
       "notFound": "技能未找到",
@@ -1487,7 +1536,9 @@
       "notSupportTableIndex": "不支持的表格索引类型",
       "createTableIndexError": "创建表格索引失败",
       "dropTableIndexError": "删除表格索引失败",
-      "notFoundPrimaryField": "表格中未找到主字段"
+      "notFoundPrimaryField": "表格中未找到主字段",
+      "duplicateCrossSpaceField": "该表包含跨空间字段，无法复制",
+      "nameRequired": "表名不能为空"
     },
     "export": {
       "notSupportViewType": "{{viewType}} 视图类型不支持导出"
@@ -1496,7 +1547,14 @@
       "notSupportedFileFormat": "文件格式不支持，仅支持 {{supportType}}，您的文件内容类型是 {{fileFormat}}",
       "notSupportedFileType": "不支持的导入文件类型",
       "exceedMaxFieldsLength": "表格中的字段数不能超过 {{maxFieldsLength}}，当前为 {{length}}",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "进行中的导入任务过多（{{current}}/{{max}}），请稍后再试。",
+      "failed": "导入失败：{{detail}}",
+      "noImportableData": "所选工作表中没有可导入的数据",
+      "csvParseError": "CSV 解析失败（第 {{row}} 行）：{{detail}}",
+      "csvNoColumns": "CSV 文件中没有可导入的列",
+      "excelSheetNoColumns": "该工作表中没有可导入的列",
+      "columnIndexOutOfRange": "第 {{index}} 列超出范围，表头行只有 {{count}} 列。",
+      "invalidDotteaStructure": ".tea 文件结构无效或不受支持，请重新导出该项目后再试。"
     },
     "invitation": {
       "disallowSpaceInvitation": "当前实例管理员已禁止空间邀请",
@@ -1518,7 +1576,8 @@
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父项目或空间也在回收站中",
       "parentBaseTrashed": "无法恢复此项目，因为其父项目也在回收站中",
       "parentNotFound": "父级资源未找到",
-      "tableNotFound": "表格回收站项目未找到"
+      "tableNotFound": "表格回收站项目未找到",
+      "restoreFieldInvalidSnapshot": "已删除字段的配置无效，无法恢复。"
     },
     "license": {
       "invalid": "许可证无效",
@@ -1542,7 +1601,9 @@
       "emailNotSpaceUser": "邮箱不是空间用户"
     },
     "mail": {
-      "failedToSendEmail": "发送邮件失败"
+      "failedToSendEmail": "发送邮件失败",
+      "recipientRequired": "收件人或密送中至少需要一个有效邮箱",
+      "allUnsubscribed": "所有收件人均已退订，请检查退订列表"
     },
     "user": {
       "disallowSignUp": "管理员已禁止当前实例的用户注册",
@@ -1570,7 +1631,9 @@
       "updateFailed": "更新记录失败",
       "noFileOrUrlProvided": "未提供文件或URL",
       "createRecordsEmpty": "创建记录不能为空",
-      "duplicateFailed": "复制记录失败"
+      "duplicateFailed": "复制记录失败",
+      "linkedRecordNotExist": "无法保存：关联的记录已不存在，请刷新后重试。",
+      "fieldValueInvalid": "字段“{{fieldName}}”的值无效"
     },
     "typecast": {
       "cellValueValidationFailed": "单元格值验证失败"
@@ -1615,7 +1678,32 @@
       "siteInfoBeforeGeneration": "请先生成应用，再自定义站点信息",
       "generationEditingConflict": "AI 正在编辑这个应用，请等它完成后再试",
       "siteInfoLayoutNotEditable": "这个应用的代码结构暂不支持在这里编辑站点信息，请在聊天中让 AI 帮你修改站点标题、描述或图标",
-      "siteInfoManagedInCode": "这个应用的站点标题和描述由代码管理，请在聊天中让 AI 帮你修改"
+      "siteInfoManagedInCode": "这个应用的站点标题和描述由代码管理，请在聊天中让 AI 帮你修改",
+      "accessLinkSetupFailed": "访问链接设置失败：{{detail}}",
+      "zipNotAppProject": "导入的 ZIP 不是有效的应用项目：根目录缺少 package.json",
+      "zipExceedsLimits": "导入的 ZIP 超出应用压缩包限制（{{detail}}）",
+      "auth": {
+        "smtpNotConfigured": "未配置邮件服务，无法发送验证码",
+        "googleNotConfigured": "未配置 Google 登录凭据",
+        "loginDisabled": "此应用未开启登录",
+        "googleDisabled": "此应用未开启 Google 登录",
+        "teableDisabled": "此应用未开启 Teable 登录",
+        "userTableMissing": "所选用户表在此项目中不存在",
+        "emailFieldMissing": "所选用户表中不存在邮箱字段",
+        "emailFieldType": "邮箱字段必须是可写的单行文本字段",
+        "signInStateInvalid": "登录状态已失效，请重新登录",
+        "domainNotAllowed": "此应用仅允许特定邮箱域名注册，你的邮箱域名不在允许列表中",
+        "inviteOnly": "此应用仅限受邀用户使用，请联系应用管理员申请访问",
+        "emailMissing": "未获取到你的邮箱"
+      },
+      "previewOriginNotReady": "预览应用尚未就绪，请刷新预览后重试",
+      "publishedOriginNotReady": "已发布应用尚未就绪，请发布后重试",
+      "versionSourceMissing": "版本 {{version}} 没有源文件",
+      "accessLink": {
+        "dnsMisconfigured": "访问链接设置失败：域名 DNS 配置不正确"
+      },
+      "customDomainNotConfigured": "未配置自定义域名",
+      "vercelTokenNotConfigured": "App Builder 设置中未配置 Vercel 令牌"
     },
     "reward": {
       "notFound": "奖励记录不存在",
@@ -1640,7 +1728,49 @@
       "linkedInAuthorNotFound": "未找到 LinkedIn 作者：{{postId}}",
       "fetchLinkedInUserFailed": "获取 LinkedIn 用户失败：{{error}}"
     },
-    "tableProvisionPending": "表结构更新中，请稍后重试。"
+    "tableProvisionPending": "表结构更新中，请稍后重试。",
+    "requestFailed": "操作失败",
+    "operationFailed": "操作失败：{{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "运算符 {{operator}} 不支持与其他字段比较"
+    },
+    "oauth": {
+      "invalidRequest": "OAuth 请求无效：{{detail}}",
+      "deviceCodeUsed": "此授权码已被使用，请在设备上重新获取"
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "参数无效：{{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "AI Proxy API Key 不存在"
+    },
+    "github": {
+      "linkStateInvalid": "GitHub 关联状态无效或已过期",
+      "accountMismatch": "GitHub 当前登录的是 {{authorizedLogin}}，但所选连接属于 {{accountLogin}}，请以 {{accountLogin}} 登录 GitHub 后重试",
+      "registryNotConfigured": "GitHub 同步需要 git registry，当前部署未配置",
+      "repoNameInvalid": "仓库名只能包含字母、数字、“.”、“-”和“_”",
+      "installStateInvalid": "GitHub 安装状态无效或已过期",
+      "installationIdInvalid": "安装 ID 无效"
+    },
+    "im": {
+      "feishuNotConfigured": "未配置飞书应用凭据",
+      "slackNotConfigured": "尚未配置 Slack，请管理员在 IM 集成设置中配置 Slack 应用"
+    },
+    "computed": {
+      "pausedWriteBlocked": "计算正在维护暂停中，暂时无法保存此修改，请稍后再试。"
+    },
+    "undoRedo": {
+      "inProgress": "撤销或重做仍在进行中，请稍候再试。",
+      "busy": "撤销和重做暂时繁忙，请稍后重试。",
+      "unsupportedCommandVersion": "该操作由旧版本记录，无法再撤销或重做。"
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "该表已有进行中的索引任务（{{taskId}}），请等待完成后重试。"
+    },
+    "integrity": {
+      "linkTargetTableMissing": "关联的目标表已不存在，无法自动修复该关联。"
+    }
   },
   "usageLimitBanner": {
     "viewDetail": "查看明细",

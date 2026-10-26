@@ -150,6 +150,7 @@ export const toRestoreFieldCreateInput = (
       domainError.validation({
         message: 'Invalid restore field create input',
         code: 'restore_field_stream.invalid_field_create_input',
+        localization: { i18nKey: 'httpErrors.trash.restoreFieldInvalidSnapshot' },
         details: z.formatError(parsed.error),
       })
     );

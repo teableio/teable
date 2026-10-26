@@ -885,14 +885,18 @@ describe('DataQueryRelationBinding', () => {
     )._unsafeUnwrap();
 
     expect(binding.sources).toEqual([
-      expect.objectContaining({ alias: 'owner', linkFieldId: linkId }),
+      expect.objectContaining({
+        alias: 'owner',
+        linkFieldId: linkId,
+        linkStorage: { kind: 'root-fk', column: 'fk_partner' },
+      }),
     ]);
     expect(binding.rootDependencies).toEqual(
       expect.arrayContaining([expect.objectContaining({ fieldId: linkId, usages: ['relation'] })])
     );
   });
 
-  it('rejects an inverse one-one link whose foreign key lives on the target', () => {
+  it('accepts an inverse one-one link whose foreign key lives on the target', () => {
     const root = mapper
       .toDomain(
         withLinkOptions({
@@ -912,13 +916,105 @@ describe('DataQueryRelationBinding', () => {
       select: [{ source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' }],
     })._unsafeUnwrap();
 
-    expect(
-      DataQueryRelationBinding.prepare(
-        definition,
-        root,
-        new Map([['owner', target]])
-      )._unsafeUnwrapErr().code
-    ).toBe('data_query.join_relationship');
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.sources).toEqual([
+      expect.objectContaining({
+        alias: 'owner',
+        linkFieldId: linkId,
+        linkStorage: { kind: 'target-fk', column: 'fk_back' },
+      }),
+    ]);
+  });
+
+  it('binds a target filter and source sort as target dependencies', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: {
+        owner: {
+          linkFieldId: linkId,
+          tableId: targetTableId,
+          filter: { fieldId: targetTitleId, operator: 'is', value: 'Target' },
+        },
+      },
+      sort: [{ source: 'owner', fieldId: targetTitleId, order: 'asc' }],
+      select: [
+        { fieldId: textId, alias: 'title' },
+        { source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' },
+      ],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.sources[0]?.dependencies).toEqual([
+      expect.objectContaining({
+        fieldId: targetTitleId,
+        usages: expect.arrayContaining(['projection', 'filter', 'sort']),
+      }),
+    ]);
+    expect(binding.rootDependencies.map((dependency) => dependency.fieldId)).toEqual([
+      textId,
+      linkId,
+    ]);
+  });
+
+  it('binds every allow-listed relation sort target as a target dependency', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      parameters: { by: { type: 'string' } },
+      sort: [
+        {
+          field: { type: 'parameter', name: 'by' },
+          order: 'asc',
+          allowed: [{ source: 'owner', fieldId: targetTitleId }],
+        },
+      ],
+      select: [{ fieldId: textId, alias: 'title' }],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+
+    expect(binding.sources[0]?.dependencies).toEqual([
+      expect.objectContaining({ fieldId: targetTitleId, usages: ['sort'] }),
+    ]);
+    expect(binding.rootDependencies.map((dependency) => dependency.fieldId)).toEqual([
+      textId,
+      linkId,
+    ]);
+  });
+
+  it('rejects a source sort that names an undeclared relation', () => {
+    const result = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      sort: [{ source: 'missing', fieldId: targetTitleId, order: 'asc' }],
+      select: [{ fieldId: textId, alias: 'title' }],
+    });
+
+    expect(result._unsafeUnwrapErr().code).toBe('data_query.join_source_unknown');
   });
 
   it('rejects a many-one link whose foreign key is not hosted by the root table', () => {

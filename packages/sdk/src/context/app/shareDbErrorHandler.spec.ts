@@ -171,9 +171,10 @@ describe('handleShareDbReceive', () => {
     });
 
     expect(sonner.toast.info).toHaveBeenCalledTimes(1);
+    // the translated title alone: an unlocalized 5xx does not show the server's English
     expect(toastError).toHaveBeenCalledWith(
       'httpErrors.databaseConnectionUnavailable',
-      expect.objectContaining({ description: 'Physical table is not ready' })
+      expect.objectContaining({ description: undefined })
     );
     connection.close();
   });

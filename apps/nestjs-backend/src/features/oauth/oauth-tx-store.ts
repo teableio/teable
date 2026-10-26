@@ -1,11 +1,18 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable/core';
+import { Injectable } from '@nestjs/common';
+import { getRandomString, HttpErrorCode } from '@teable/core';
 import type { IUserMeVo } from '@teable/openapi';
 import type { Request } from 'express';
 import type { OAuth2, OAuth2Req } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
 import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
+import { CustomHttpException } from '../../custom.exception';
 import type { IAuthorizeClient } from './types';
+
+/** A malformed OAuth request: the message names the offending parameter, so it is the detail. */
+const invalidOAuthRequest = (message: string) =>
+  new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR, {
+    localization: { i18nKey: 'httpErrors.oauth.invalidRequest', context: { detail: message } },
+  });
 
 @Injectable()
 export class OAuthTxStore {
@@ -17,16 +24,18 @@ export class OAuthTxStore {
   async load(req: Request, cb: (err: unknown, txn?: OAuth2<IAuthorizeClient, IUserMeVo>) => void) {
     const transactionID = req.body?.['transaction_id'];
     if (!transactionID) {
-      return cb(new BadRequestException('transaction_id is required'));
+      return cb(
+        new CustomHttpException('transaction_id is required', HttpErrorCode.VALIDATION_ERROR)
+      );
     }
 
     const txnStore = await this.cacheService.get(`oauth:txn:${transactionID}`);
     if (!txnStore) {
-      return cb(new BadRequestException('Invalid transaction ID'));
+      return cb(invalidOAuthRequest('Invalid transaction ID'));
     }
     const user = req.user as IUserMeVo;
     if (txnStore.userId !== user.id) {
-      return cb(new BadRequestException('Invalid user'));
+      return cb(invalidOAuthRequest('Invalid user'));
     }
     cb(null, {
       transactionID,

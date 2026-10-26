@@ -2028,6 +2028,7 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
         return err(
           domainError.validation({
             message: `Cannot determine result type for conditional rollup update: ${valuesTypeResult.error.message}`,
+            localization: { i18nKey: 'httpErrors.field.conditionalRollupLookupFieldUnavailable' },
           })
         );
       }

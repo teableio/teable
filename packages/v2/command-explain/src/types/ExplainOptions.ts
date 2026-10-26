@@ -39,6 +39,13 @@ export type ExplainOptions = {
    * Optional PostgreSQL statement_timeout for SQL EXPLAIN calls, in milliseconds.
    */
   readonly statementTimeoutMs?: number;
+
+  /**
+   * If true, load opt-in catalog statistics and attach a data-aware estimate.
+   * Default false: no statistics query and no behavior/perf change.
+   * @default false
+   */
+  readonly includeDataEstimate?: boolean;
 };
 
 /**
@@ -51,4 +58,5 @@ export const DEFAULT_EXPLAIN_OPTIONS: Required<ExplainOptions> = {
   includeLocks: true,
   sqlExplainMode: 'json',
   statementTimeoutMs: 0,
+  includeDataEstimate: false,
 };

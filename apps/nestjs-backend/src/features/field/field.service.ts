@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   FieldOpBuilder,
   HttpErrorCode,
@@ -467,8 +467,9 @@ export class FieldService implements IReadonlyAdapterService {
       // Early validation: creating a field with NOT NULL is not allowed
       // Do this before generating/issuing any SQL to avoid DB-level 23502 errors
       if (notNull) {
-        throw new BadRequestException(
-          `Field type "${type}" does not support field validation when creating a new field`
+        throw new CustomHttpException(
+          `Field type "${type}" does not support field validation when creating a new field`,
+          HttpErrorCode.VALIDATION_ERROR
         );
       }
 
@@ -1192,7 +1193,7 @@ export class FieldService implements IReadonlyAdapterService {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);
         if (!ctx) {
-          throw new CustomHttpException('unknown field editing op', HttpErrorCode.VALIDATION_ERROR);
+          throw new Error('unknown field editing op');
         }
         return ctx as IOpContext;
       });
@@ -1456,10 +1457,7 @@ export class FieldService implements IReadonlyAdapterService {
     const handler = opHandlers[opContext.name];
 
     if (!handler) {
-      throw new CustomHttpException(
-        `Unknown context ${opContext.name} for field update`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Unknown context ${opContext.name} for field update`);
     }
 
     return handler.constructor.name === 'AsyncFunction'

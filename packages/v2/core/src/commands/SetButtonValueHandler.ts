@@ -119,6 +119,7 @@ export class SetButtonValueHandler implements ICommandHandler<
                 domainError.conflict({
                   code: 'button.replay_conflict',
                   message: 'Button changed while replaying undo/redo.',
+                  localization: { i18nKey: 'httpErrors.field.buttonUndoConflict' },
                 })
               );
             }

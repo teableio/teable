@@ -20,19 +20,49 @@ import {
   type DurableSubscriptionCatalogEntry,
 } from './ImmutableDurableSubscriptionCatalog';
 
+/**
+ * `consumerId` for handlers that only dispatch in-process. It is a log/metric
+ * label, so it is derived from decorator input where possible and made unique
+ * per event instead of trusting `class.name`, which production bundlers rename
+ * (two handlers can collapse to the same minified name).
+ */
+const directConsumerId = (
+  event: EventType<IDomainEvent>,
+  handler: EventHandlerClass<IDomainEvent>,
+  usedIds: ReadonlySet<string>
+): string => {
+  const eventName = event.name;
+  const handlerName =
+    'name' in handler && typeof handler.name === 'string' && handler.name
+      ? handler.name
+      : 'anonymous';
+  const base = `teable.direct.${eventName}.${handlerName}`;
+  if (!usedIds.has(base)) {
+    return base;
+  }
+  let ordinal = 2;
+  while (usedIds.has(`${base}#${ordinal}`)) {
+    ordinal += 1;
+  }
+  return `${base}#${ordinal}`;
+};
+
 export const legacyDirectTargetsForEventType = (
   event: EventType<IDomainEvent>,
   sameTxHandlers: ReadonlySet<EventHandlerClass<IDomainEvent>>
-): LegacyProjectionTarget[] =>
-  getEventHandlerTokens(event)
-    .filter((handler) => !sameTxHandlers.has(handler))
-    .map((handler) => ({
-      consumerId: `teable.direct.${event.name}.${
-        'name' in handler && typeof handler.name === 'string' ? handler.name : 'anonymous'
-      }`,
-      handler,
-      dispatchMode: 'background' as const,
-    }));
+): LegacyProjectionTarget[] => {
+  const usedIds = new Set<string>();
+  const targets: LegacyProjectionTarget[] = [];
+  for (const handler of getEventHandlerTokens(event)) {
+    if (sameTxHandlers.has(handler)) {
+      continue;
+    }
+    const consumerId = directConsumerId(event, handler, usedIds);
+    usedIds.add(consumerId);
+    targets.push({ consumerId, handler, dispatchMode: 'background' as const });
+  }
+  return targets;
+};
 
 export const uncataloguedLegacyDirectTargets = (event: IDomainEvent): LegacyProjectionTarget[] => {
   const sameTxHandlers = new Set<EventHandlerClass<IDomainEvent>>(
@@ -48,18 +78,20 @@ export const compileDurableSubscriptionCatalog = (
   events: ReadonlyArray<EventType<IDomainEvent>>,
   generation = 1
 ): Result<ImmutableDurableSubscriptionCatalog, DomainError> => {
-  const sameTxByEvent = new Map<string, SameTxProjectionTarget[]>();
+  // Registrations are grouped by the event class object, never by its name:
+  // minified builds legitimately give several distinct events the same name.
+  const sameTxByEvent = new Map<EventType<IDomainEvent>, SameTxProjectionTarget[]>();
   const sameTxHandlers = new Set<EventHandlerClass<IDomainEvent>>();
   for (const registration of getSameTxProjectionRegistrations()) {
-    const eventName = registration.event.name;
-    const targets = sameTxByEvent.get(eventName) ?? [];
+    const eventType = registration.event as EventType<IDomainEvent>;
+    const targets = sameTxByEvent.get(eventType) ?? [];
     targets.push({ consumerId: registration.id, handler: registration.handler });
-    sameTxByEvent.set(eventName, targets);
+    sameTxByEvent.set(eventType, targets);
     sameTxHandlers.add(registration.handler);
   }
 
   const durableByEvent = new Map<
-    string,
+    EventType<IDomainEvent>,
     {
       messageName: string;
       targets: DurableProjectionTarget[];
@@ -84,8 +116,8 @@ export const compileDurableSubscriptionCatalog = (
         })
       );
     }
-    const eventName = registration.event.name;
-    const current = durableByEvent.get(eventName) ?? {
+    const eventType = registration.event as EventType<IDomainEvent>;
+    const current = durableByEvent.get(eventType) ?? {
       messageName: registration.messageName,
       targets: [],
     };
@@ -97,12 +129,12 @@ export const compileDurableSubscriptionCatalog = (
       idempotency: registration.idempotency,
       replay: registration.replay,
     });
-    durableByEvent.set(eventName, current);
+    durableByEvent.set(eventType, current);
   }
 
   const entries: DurableSubscriptionCatalogEntry[] = events.map((event) => {
-    const durable = durableByEvent.get(event.name);
-    const sameTxTargets = sameTxByEvent.get(event.name) ?? [];
+    const durable = durableByEvent.get(event);
+    const sameTxTargets = sameTxByEvent.get(event) ?? [];
     const excluded = new Set<EventHandlerClass<IDomainEvent>>(sameTxHandlers);
     const directTargets = legacyDirectTargetsForEventType(event, excluded);
     return {

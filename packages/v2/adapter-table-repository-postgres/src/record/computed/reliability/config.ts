@@ -1,23 +1,37 @@
-/** Default on after storage readiness checks; explicit flags still support rollback. */
-const enabled = (value: string | undefined): boolean => value === undefined || value === 'true';
+import type { ComputedReliabilityRuntimeConfig } from '../../../config/runtimeConfig';
+
+/**
+ * The switches are explicit configuration now: adapters no longer read the host
+ * environment, so a browser bundle can import every module. Defaults preserve
+ * the documented production behaviour (capture, reconciliation and display on).
+ */
+const DEFAULT_CONFIG: ComputedReliabilityRuntimeConfig = Object.freeze({
+  enabled: true,
+  reconciliationEnabled: true,
+  uiVisible: true,
+});
 
 /** Master switch, independent of whether a caller has resolved a Base yet. */
-export const isComputedReliabilityConfigured = (): boolean =>
-  enabled(process.env.COMPUTED_RELIABILITY_ENABLED);
+export const isComputedReliabilityConfigured = (
+  config: ComputedReliabilityRuntimeConfig = DEFAULT_CONFIG
+): boolean => config.enabled !== false;
 
-export const isComputedReliabilityReconciliationEnabled = (): boolean =>
-  isComputedReliabilityConfigured() &&
-  enabled(process.env.COMPUTED_RELIABILITY_RECONCILIATION_ENABLED);
+export const isComputedReliabilityReconciliationEnabled = (
+  config: ComputedReliabilityRuntimeConfig = DEFAULT_CONFIG
+): boolean =>
+  isComputedReliabilityConfigured(config) && config.reconciliationEnabled !== false;
 
 /** An empty allowlist means every compatible data database. */
-export const isComputedReliabilityEnabled = (baseId?: string): boolean => {
-  if (!isComputedReliabilityConfigured()) return false;
-  const allowlist = (process.env.COMPUTED_RELIABILITY_BASE_IDS ?? '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean);
+export const isComputedReliabilityEnabled = (
+  baseId?: string,
+  config: ComputedReliabilityRuntimeConfig = DEFAULT_CONFIG
+): boolean => {
+  if (!isComputedReliabilityConfigured(config)) return false;
+  const allowlist = config.baseIds ?? [];
   return allowlist.length === 0 || (baseId !== undefined && allowlist.includes(baseId));
 };
 
-export const isComputedReliabilityVisible = (baseId?: string): boolean =>
-  isComputedReliabilityEnabled(baseId) && enabled(process.env.COMPUTED_RELIABILITY_UI_ENABLED);
+export const isComputedReliabilityVisible = (
+  baseId?: string,
+  config: ComputedReliabilityRuntimeConfig = DEFAULT_CONFIG
+): boolean => isComputedReliabilityEnabled(baseId, config) && config.uiVisible !== false;

@@ -1,6 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
 import { sendResetPasswordEmail } from '@teable/openapi';
+import { getHttpErrorMessage } from '@teable/sdk/context';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -42,7 +44,7 @@ export const ForgetPasswordPage = () => {
         setError(t('auth:forgetPassword.sendMailRateLimit', { seconds: err.data.seconds }));
         return;
       }
-      setError(err.message);
+      setError(getHttpErrorMessage(err, t as unknown as ILocaleFunction, 'sdk'));
     },
   });
 

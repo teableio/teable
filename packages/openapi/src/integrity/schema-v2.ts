@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { localizationSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
@@ -155,6 +156,8 @@ export const v2SchemaIntegrityCheckResultSchema = z.object({
   ruleDescription: z.string(),
   status: v2SchemaIntegrityCheckStatusSchema,
   message: z.string().optional(),
+  // Translation of `message` in the frontend `sdk` namespace, when the error carries one.
+  localization: localizationSchema.optional(),
   details: v2SchemaIntegrityDetailsSchema.optional(),
   repair: v2SchemaIntegrityRepairCapabilitySchema.optional(),
   required: z.boolean(),
@@ -193,6 +196,8 @@ export const v2SchemaIntegrityRepairResultSchema = z.object({
   status: v2SchemaIntegrityRepairStatusSchema,
   outcome: v2SchemaIntegrityRepairOutcomeSchema.optional(),
   message: z.string().optional(),
+  // Translation of `message` in the frontend `sdk` namespace, when the error carries one.
+  localization: localizationSchema.optional(),
   details: v2SchemaIntegrityDetailsSchema.optional(),
   repair: v2SchemaIntegrityRepairCapabilitySchema.optional(),
   required: z.boolean(),

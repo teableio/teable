@@ -112,8 +112,9 @@ export class AppNotificationService {
       target.password ||
       !hosts.has(target.hostname.toLowerCase())
     ) {
+      const hostList = [...hosts].join(', ') || 'none registered';
       throw new CustomHttpException(
-        `The url must be https on the app's own host (${[...hosts].join(', ') || 'none registered'})`,
+        `The url must be https on the app's own host (${hostList})`,
         HttpErrorCode.VALIDATION_ERROR
       );
     }

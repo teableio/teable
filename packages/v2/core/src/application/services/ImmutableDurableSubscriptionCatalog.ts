@@ -13,6 +13,7 @@ import type {
 } from '../../ports/DurableSubscriptionCatalog';
 import type { EventType } from '../../ports/EventHandler';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
+import { EventTypeIndex } from './EventTypeIndex';
 
 export type DurableSubscriptionCatalogEntry = Readonly<{
   event: EventType<IDomainEvent>;
@@ -33,7 +34,7 @@ export class ImmutableDurableSubscriptionCatalog
 {
   private constructor(
     readonly generation: number,
-    private readonly entriesByEventName: ReadonlyMap<string, DurableSubscriptionCatalogEntry>
+    private readonly entriesByEvent: EventTypeIndex<DurableSubscriptionCatalogEntry>
   ) {}
 
   static create(
@@ -43,11 +44,11 @@ export class ImmutableDurableSubscriptionCatalog
     if (validation.isErr()) {
       return err(validation.error);
     }
-    const entriesByEventName = new Map<string, DurableSubscriptionCatalogEntry>();
+    const entriesByEvent = new EventTypeIndex<DurableSubscriptionCatalogEntry>();
     for (const entry of definition.entries) {
-      entriesByEventName.set(entry.event.name, Object.freeze(entry));
+      entriesByEvent.set(entry.event, Object.freeze(entry));
     }
-    return ok(new ImmutableDurableSubscriptionCatalog(definition.generation, entriesByEventName));
+    return ok(new ImmutableDurableSubscriptionCatalog(definition.generation, entriesByEvent));
   }
 
   snapshot(_context: IExecutionContext): Result<IDurableSubscriptionCatalogSnapshot, DomainError> {
@@ -55,9 +56,7 @@ export class ImmutableDurableSubscriptionCatalog
   }
 
   resolve(event: IDomainEvent): Result<ProjectionEventRoutingDecision, DomainError> {
-    const entry =
-      this.entriesByEventName.get(event.constructor.name) ??
-      this.entriesByEventName.get(event.name.toString());
+    const entry = this.entriesByEvent.resolve(event);
     if (!entry) {
       return ok({
         messageName: event.name.toString(),
@@ -87,13 +86,16 @@ const validateDefinition = (
       })
     );
   }
-  const eventNames = new Set<string>();
+  // Entries are identified by the event class itself. Names are minifiable, so
+  // two distinct events can share one, and using names here would either drop
+  // an entry or reject a valid catalog.
+  const eventTypes = new Set<EventType<IDomainEvent>>();
   const consumerIds = new Set<string>();
   for (const entry of definition.entries) {
-    if (eventNames.has(entry.event.name)) {
+    if (eventTypes.has(entry.event)) {
       return err(catalogError(`Duplicate catalog entry for ${entry.event.name}`));
     }
-    eventNames.add(entry.event.name);
+    eventTypes.add(entry.event);
     if (!entry.messageName.trim()) {
       return err(catalogError(`Missing message name for ${entry.event.name}`));
     }

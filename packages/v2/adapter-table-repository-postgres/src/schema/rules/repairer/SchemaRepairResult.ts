@@ -1,3 +1,5 @@
+import type { DomainError } from '@teable/v2-core';
+
 import type { SchemaRuleDetailItem, SchemaRuleRepairHint } from '../core/ISchemaRule';
 
 export type SchemaRepairStatus = 'success' | 'error' | 'warn' | 'pending' | 'running' | 'skipped';
@@ -27,6 +29,8 @@ export interface SchemaRepairResult {
   status: SchemaRepairStatus;
   outcome?: SchemaRepairOutcome;
   message?: string;
+  /** Translation of `message` (frontend `sdk` namespace) when the error carries one. */
+  localization?: DomainError['localization'];
   details?: SchemaRepairDetails;
   repair?: SchemaRuleRepairHint;
   required: boolean;
@@ -113,4 +117,13 @@ export const errorResult = (
   message,
   details,
   timestamp: Date.now(),
+});
+
+export const domainErrorResult = (
+  pending: SchemaRepairResult,
+  error: Pick<DomainError, 'message' | 'localization'>,
+  details?: SchemaRepairDetails
+): SchemaRepairResult => ({
+  ...errorResult(pending, error.message, details),
+  ...(error.localization ? { localization: error.localization } : {}),
 });

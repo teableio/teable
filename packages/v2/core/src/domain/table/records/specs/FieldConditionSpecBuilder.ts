@@ -236,6 +236,7 @@ export class FieldConditionSpecBuilder {
             operator: resolved.operator,
             validOperators: resolved.supportedOperators,
           },
+          localization: { i18nKey: 'httpErrors.view.filterInvalidOperator' },
         })
       );
     }

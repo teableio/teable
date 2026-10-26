@@ -13,6 +13,8 @@ import {
   sendSigninVerificationCode,
   sendSigninVerificationCodeRoSchema,
 } from '@teable/openapi';
+import { getHttpErrorMessage } from '@teable/sdk/context';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import { Spin, Error as ErrorCom } from '@teable/ui-lib/base';
 import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
@@ -40,6 +42,11 @@ export interface ISignForm {
 export const SignForm: FC<ISignForm> = (props) => {
   const { className, type = 'signin', onSuccess } = props;
   const { t } = useTranslation(authConfig.i18nNamespaces);
+  // Server copy when the error carries a localization, its raw message otherwise
+  const getErrorMessage = useCallback(
+    (error: HttpError) => getHttpErrorMessage(error, t as unknown as ILocaleFunction, 'sdk'),
+    [t]
+  );
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>();
   const [signupVerificationCode, setSignupVerificationCode] = useState<string>();
   const router = useRouter();
@@ -136,7 +143,7 @@ export const SignForm: FC<ISignForm> = (props) => {
               setCountdown(signupVerificationSendCodeMailRate);
             }
           } else {
-            setError(error.message);
+            setError(getErrorMessage(error));
           }
           break;
         case HttpErrorCode.CONFLICT:
@@ -152,11 +159,11 @@ export const SignForm: FC<ISignForm> = (props) => {
           if (error.data && typeof error.data === 'object' && 'minutes' in error.data) {
             setError(t('auth:signError.tooManyRequests', { minutes: error.data.minutes }));
           } else {
-            setError(error.message);
+            setError(getErrorMessage(error));
           }
           break;
         default:
-          setError(error.message);
+          setError(getErrorMessage(error));
       }
       // Reset turnstile token on any error to force re-verification
       setTurnstileToken(undefined);
@@ -221,7 +228,7 @@ export const SignForm: FC<ISignForm> = (props) => {
         setError(t('auth:signupError.sendMailRateLimit', { seconds: error.data.seconds }));
         return;
       }
-      setError(error.message);
+      setError(getErrorMessage(error));
     },
     meta: {
       preventGlobalError: true,
@@ -253,7 +260,7 @@ export const SignForm: FC<ISignForm> = (props) => {
         setError(t('auth:signupError.sendMailRateLimit', { seconds: error.data.seconds }));
         return;
       }
-      setError(error.message);
+      setError(getErrorMessage(error));
     },
     meta: {
       preventGlobalError: true,

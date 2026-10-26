@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
@@ -11,6 +11,10 @@ import { type IRecordChangedValueDecoratorService } from '../application/service
 import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
 import { requireStoredRecordSnapshots } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import {
+  preLeasePlan,
+  sharedRecordWritePlan,
+} from '../application/services/RecordWriteCoordinationPlan';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -20,16 +24,24 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
+import { withRecordWriteCoordination } from '../application/services/withRecordWriteCoordination';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import type { Table } from '../domain/table/Table';
+import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -90,7 +102,11 @@ export class CreateRecordsHandler implements ICommandHandler<
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
     @inject(v2CoreTokens.recordOrderCalculator)
-    private readonly recordOrderCalculator?: IRecordOrderCalculator
+    private readonly recordOrderCalculator?: IRecordOrderCalculator,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
+    @inject(v2CoreTokens.recordOrderColumnPreparer)
+    private readonly orderColumnPreparer: IRecordOrderColumnPreparer = new NoopRecordOrderColumnPreparer()
   ) {}
 
   @TraceSpan()
@@ -98,11 +114,57 @@ export class CreateRecordsHandler implements ICommandHandler<
     context: ExecutionContextPort.IExecutionContext,
     command: CreateRecordsCommand
   ): Promise<Result<CreateRecordsResult, DomainError>> {
+    const preparation = await this.prepareOrder(context, command);
+    if (preparation.isErr()) return err(preparation.error);
+    const orderColumnPrepared = preparation.value;
+    return withRecordWriteCoordination({
+      context,
+      tableId: command.tableId,
+      coordination: this.tableSchemaCoordination,
+      initialPlan:
+        command.order && !orderColumnPrepared
+          ? preLeasePlan({ hasOrder: true })
+          : sharedRecordWritePlan,
+      loadTable: () => this.tableQueryService.getById(context, command.tableId),
+      planForTable: (table) =>
+        this.recordWriteSideEffectService.planCreateCoordination(context, table, {
+          recordsFieldValues: command.recordsFieldValues,
+          fieldKeyType: command.fieldKeyType,
+          typecast: command.typecast,
+          // Row-limit plugins truncate this batch after planning, so an
+          // inconclusive probe must reload metadata instead of staying shared.
+          conservativeOnProbeError: true,
+        }),
+      execute: (table) => this.executeCreateRecords(context, command, table, orderColumnPrepared),
+    });
+  }
+
+  /**
+   * T8080: prepare the view row-order column on the request's
+   * non-transactional context before the coordination lease. The wrapper
+   * reloads metadata under the shared lease on purpose, so the probe decides on
+   * state the lease protects; ordered creates therefore read metadata once
+   * here and once for the write.
+   */
+  private async prepareOrder(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateRecordsCommand
+  ): Promise<Result<boolean, DomainError>> {
+    if (!command.order) return ok(false);
+
+    const table = await this.tableQueryService.getById(context, command.tableId);
+    if (table.isErr()) return err(table.error);
+    return this.orderColumnPreparer.prepareOrderColumn(context, table.value, command.order.viewId);
+  }
+
+  private async executeCreateRecords(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateRecordsCommand,
+    table: Table,
+    orderColumnPrepared: boolean
+  ): Promise<Result<CreateRecordsResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateRecordsResult, DomainError>(async function* () {
-      // 1. Get the table
-      const table = yield* await handler.tableQueryService.getById(context, command.tableId);
-
       // Resolve field keys to field IDs if using name or dbFieldName
       const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(
         table,
@@ -191,7 +253,9 @@ export class CreateRecordsHandler implements ICommandHandler<
         }
       }
 
-      if (command.order && handler.recordOrderCalculator) {
+      // Legacy hosts without a real order-column preparer keep the original
+      // pre-transaction preparation, including its row-order compaction.
+      if (command.order && !orderColumnPrepared && handler.recordOrderCalculator) {
         yield* await handler.recordOrderCalculator.calculateOrders(
           context,
           tableForCreate,
@@ -201,7 +265,6 @@ export class CreateRecordsHandler implements ICommandHandler<
           records.length
         );
       }
-
       // 4. Persist all records within a transaction
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,

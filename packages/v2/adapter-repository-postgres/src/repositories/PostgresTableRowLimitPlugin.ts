@@ -187,6 +187,9 @@ export class PostgresTableRowLimitPlugin implements core.IRecordWritePlugin<
       case core.RecordWriteOperationKind.paste:
         return context.payload.createRecordCount;
       default:
+        // Upsert counts only rows it actually inserts: the nested createMany
+        // context enforces that per created row, so counting the request here
+        // would reject update-only batches at the cap.
         return 0;
     }
   }

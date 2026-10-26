@@ -1,8 +1,4 @@
-import {
-  collectDataQueryFieldUsages,
-  collectDataQuerySourceFieldUsages,
-  sortDataQueryFieldUsages,
-} from './DataQueryFieldUsage';
+import { collectDataQuerySourceFieldUsages, sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryFieldUsage } from './types';
 

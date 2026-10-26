@@ -1061,10 +1061,12 @@
       "invalidPath": "مسار مرفق غير صالح",
       "fileSizeExceedsMaximumLimit": "يتجاوز حجم الملف الحد الأقصى {{maxSize}}",
       "invalidUploadType": "نوع رفع غير صالح",
-      "urlReject": "الرابط مرفوض أو يتعذّر الوصول إليه"
+      "urlReject": "الرابط مرفوض أو يتعذّر الوصول إليه",
+      "avatarTypeUnsupported": "نوع ملف غير مدعوم. يُسمح فقط بـ JPEG وPNG وWebP."
     },
     "email": {
-      "testEmailError": "خطأ في إعدادات البريد {{message}}"
+      "testEmailError": "خطأ في إعدادات البريد {{message}}",
+      "transporterInvalid": "إعدادات البريد غير صالحة: {{detail}}"
     },
     "auth": {
       "invalidConfirm": "إدخال تأكيد غير صالح",
@@ -1082,7 +1084,10 @@
       "emailOrPasswordIncorrect": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
       "accountDeactivated": "تم إلغاء تنشيط هذا الحساب من قبل المسؤول",
       "accountLockedOut": "تم قفل حسابك بسبب كثرة محاولات تسجيل الدخول الفاشلة. يُرجى المحاولة لاحقًا.",
-      "passwordLoginDisabled": "تسجيل الدخول بكلمة المرور معطّل"
+      "passwordLoginDisabled": "تسجيل الدخول بكلمة المرور معطّل",
+      "captchaFailed": "فشل التحقق من أنك لست روبوتًا. يُرجى تحديث الصفحة والمحاولة مرة أخرى.",
+      "captchaServiceUnavailable": "خدمة التحقق غير متاحة مؤقتًا. يُرجى المحاولة مرة أخرى.",
+      "mobileExchangeInvalid": "طلب تسجيل الدخول غير صالح أو انتهت صلاحيته. يُرجى تسجيل الدخول من التطبيق مرة أخرى."
     },
     "automation": {
       "buttonClickTriggerDuplicated": "حقل الزر هذا مرتبط بالفعل بعملية الأتمتة {{name}}[{{id}}]، يُرجى اختيار حقل زر آخر",
@@ -1130,7 +1135,16 @@
       "webhookTriggerNotFound": "مُشغِّل Webhook غير موجود",
       "emailReceivedTriggerNotFound": "مُشغِّل استقبال البريد غير موجود",
       "emailConnectorNotAvailable": "خدمة موصّل البريد غير متاحة",
-      "listMailboxesFailed": "فشل سرد صناديق البريد: {{detail}}"
+      "listMailboxesFailed": "فشل سرد صناديق البريد: {{detail}}",
+      "codeUploadFailed": "فشل رفع الشيفرة المُجمَّعة: {{detail}}",
+      "invalidInput": "إدخال غير صالح: {{detail}}",
+      "recordsRequired": "السجلات مطلوبة",
+      "codeRequired": "الشيفرة مطلوبة ولا يمكن أن تكون فارغة",
+      "scriptCompileFailed": "فشل تجميع البرنامج النصي: {{detail}}",
+      "scriptExecutionFailed": "فشل تنفيذ البرنامج النصي: {{detail}}",
+      "scriptTimeout": "انتهت مهلة تنفيذ البرنامج النصي (لا توجد استجابة خلال {{timeout}}ms)",
+      "sandboxUnavailable": "تعذّر الاتصال بخادم البيئة المعزولة. تحقّق من أن خادم البيئة المعزولة قيد التشغيل.",
+      "sandboxError": "خطأ في خادم البيئة المعزولة: {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "لم يتم إعداد خدمة استخراج البيانات",
@@ -1143,7 +1157,8 @@
       "oauthCodeExchangeFailed": "فشل تبادل رمز OAuth: {{detail}}",
       "oauthTokenRefreshFailed": "فشل تحديث رمز OAuth: {{detail}}",
       "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}",
-      "providerUnsupported": "لم تعد اتصالات {{provider}} مدعومة ولا يمكن منحها"
+      "providerUnsupported": "لم تعد اتصالات {{provider}} مدعومة ولا يمكن منحها",
+      "callbackFailed": "فشلت معالجة استدعاء التفويض: {{detail}}"
     },
     "space": {
       "notFound": "المساحة غير موجودة",
@@ -1156,14 +1171,18 @@
       "notBelongToOrg": "هذه المساحة لا تنتمي إلى المؤسسة",
       "invalidSpaceIds": "معرّفات المساحات غير صالحة: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "بلغت الحد الأقصى لعدد المساحات المجانية التي يمكنك امتلاكها ({{max}}). يُرجى ترقية مساحة قائمة أو حذف إحداها لإنشاء مساحة مجانية جديدة.",
-      "freeOwnedSpaceLimitExceededOther": "بلغ {{name}} الحد الأقصى لعدد المساحات المجانية التي يمكنه امتلاكها ({{max}})."
+      "freeOwnedSpaceLimitExceededOther": "بلغ {{name}} الحد الأقصى لعدد المساحات المجانية التي يمكنه امتلاكها ({{max}}).",
+      "dataDbTargetError": "خطأ في قاعدة البيانات الهدف: {{detail}}",
+      "migrationUnavailableCrossSpace": "ترحيل قاعدة البيانات على مستوى المساحة غير متاح أثناء تفعيل المراجع بين المساحات"
     },
     "base": {
       "notFound": "المشروع غير موجود",
       "cannotAccess": "ليست لديك صلاحية الوصول إلى المشروع {{baseId}}",
       "anchorNotFound": "المشروع المرجعي {{anchorId}} غير موجود",
       "baseAndSpaceMismatch": "عدم تطابق بين المشروع {{baseId}} والمساحة {{spaceId}}",
-      "templateNotFound": "القالب {{templateId}} غير موجود"
+      "templateNotFound": "القالب {{templateId}} غير موجود",
+      "crossDataDbDuplicateUnsupported": "نسخ السجلات بين قواعد بيانات مختلفة للمساحات غير مدعوم بعد",
+      "moveJobNotCancellable": "لا يمكن إلغاء مهمة النقل في الحالة {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "معرّف المشروع مطلوب",
@@ -1203,7 +1222,8 @@
       "notFound": "المحادثة غير موجودة",
       "accessDenied": "غير مسموح لك بالوصول إلى هذه المحادثة",
       "archived": "المحادثة مؤرشفة",
-      "serverAuthoredType": "المحادثات من النوع {{type}} ينشئها الخادم"
+      "serverAuthoredType": "المحادثات من النوع {{type}} ينشئها الخادم",
+      "messageTooLong": "الرسالة طويلة جدًا ({{length}} حرف، الحد الأقصى {{max}})"
     },
     "dashboard": {
       "notFound": "لوحة المعلومات غير موجودة"
@@ -1310,7 +1330,12 @@
       "exceedMaxReadRows": "تم تجاوز الحد الأقصى لعدد الصفوف المقروءة",
       "invalidCellValueType": "نوع قيمة خلية غير صالح",
       "exceedMaxCopyCells": "تم تجاوز الحد الأقصى لعدد الخلايا المنسوخة",
-      "exceedMaxPasteCells": "تم تجاوز الحد الأقصى لعدد الخلايا الملصوقة"
+      "exceedMaxPasteCells": "تم تجاوز الحد الأقصى لعدد الخلايا الملصوقة",
+      "linkAutoCreateSelfLinkUnsupported": "لا يمكن إنشاء سجلات مرتبطة تلقائيًا عند اللصق في حقل ربط يرتبط بجدوله نفسه. الصق عناوين سجلات موجودة بدلًا من ذلك.",
+      "linkAutoCreateRequiresPrimaryLookup": "تعذّر إنشاء سجلات مرتبطة تلقائيًا عند اللصق لأن حقل الربط هذا يعرض حقلًا غير أساسي من الجدول المرتبط.",
+      "linkAutoCreateRequiresTextPrimary": "تعذّر إنشاء سجلات مرتبطة تلقائيًا عند اللصق لأن الحقل الأساسي في الجدول المرتبط ليس قيمة نصية مفردة.",
+      "linkAutoCreateComputedPrimaryUnsupported": "تعذّر إنشاء سجلات مرتبطة تلقائيًا عند اللصق لأن الحقل الأساسي في الجدول المرتبط حقل محسوب.",
+      "linkAutoCreateMissingRequiredFields": "تعذّر إنشاء سجلات مرتبطة تلقائيًا عند اللصق لأن الجدول المرتبط يحتوي على حقول مطلوبة بلا قيم افتراضية: {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "نوع حقل غير مدعوم {{type}}",
@@ -1377,7 +1402,21 @@
         "notSupportReset": "حقل الزر لا يدعم إعادة التعيين"
       },
       "primaryCannotBeLookup": "لا يمكن تهيئة الحقل الأساسي كحقل بحث",
-      "primaryFieldAlreadyExists": "يحتوي الجدول على حقل أساسي بالفعل"
+      "primaryFieldAlreadyExists": "يحتوي الجدول على حقل أساسي بالفعل",
+      "nameRequired": "لا يمكن ترك اسم الحقل فارغًا",
+      "rollupFormattingMismatch": "تنسيق التجميع لا يتطابق مع نوع نتيجته. يُرجى إعادة اختيار التنسيق والمحاولة مرة أخرى.",
+      "conditionalRollupFormattingMismatch": "التنسيق لا يتطابق مع نوع نتيجة التجميع الشرطي. يُرجى إعادة اختيار التنسيق والمحاولة مرة أخرى.",
+      "conditionalRollupLookupFieldUnavailable": "تعذّر تحديد نوع نتيجة هذا التجميع الشرطي لأن الحقل المُجمَّع أو جدوله غير متاح. يُرجى إعادة اختياره.",
+      "selectDefaultValueNotInChoices": "القيمة الافتراضية \"{{value}}\" ليست ضمن الخيارات. يُرجى إعادة اختيار القيمة الافتراضية.",
+      "timeZoneInvalid": "المنطقة الزمنية غير مدعومة: {{timeZone}}. يُرجى اختيار منطقة زمنية أخرى.",
+      "formulaCompileFailed": "تعذّر حساب هذه الصيغة. يُرجى تبسيطها أو التحقق من الحقول المشار إليها.",
+      "formulaParamTextNotAllowed": "لا تقبل الدالة {{func}} قيمة نصية في المعامل {{index}}. تحقّق من أنواع الحقول المشار إليها.",
+      "formulaParamNumberOrDateRequired": "لا تقبل الدالة {{func}} في المعامل {{index}} إلا رقمًا أو تاريخًا. تحقّق من أنواع الحقول المشار إليها.",
+      "formulaParamTextRequired": "لا تقبل الدالة {{func}} في المعامل {{index}} إلا قيمة نصية. تحقّق من أنواع الحقول المشار إليها.",
+      "linkTitleFillLimitExceeded": "يمكن أن تتضمن خلية الربط {{max}} سجل كحد أقصى في كل عملية كتابة",
+      "buttonClickConflict": "عدّل طلبٌ آخر هذا الزر. يُرجى النقر عليه مرة أخرى.",
+      "buttonUndoConflict": "تغيّر الزر أثناء التراجع أو الإعادة. يُرجى المحاولة مرة أخرى.",
+      "linkTitlePrimaryNotText": "تعذّرت مطابقة السجلات المرتبطة حسب النص لأن الحقل الأساسي في الجدول المرتبط ليس قيمة نصية مفردة."
     },
     "view": {
       "notFound": "طريقة العرض غير موجودة",
@@ -1394,7 +1433,11 @@
       "notEnoughGapToShuffleRow": "لا توجد فجوة كافية لإعادة ترتيب الصف",
       "shareNotEnabled": "مشاركة طريقة العرض غير مفعّلة",
       "shareAlreadyEnabled": "مشاركة طريقة العرض مفعّلة بالفعل",
-      "shareAlreadyDisabled": "مشاركة طريقة العرض معطّلة بالفعل"
+      "shareAlreadyDisabled": "مشاركة طريقة العرض معطّلة بالفعل",
+      "versionConflict": "عُدّلت طريقة العرض هذه للتو بواسطة عملية أخرى. يُرجى التحديث والمحاولة مرة أخرى.",
+      "nameAlreadyExists": "توجد بالفعل طريقة عرض باسم {{name}} في هذا الجدول",
+      "manualSortUnsupportedViewType": "الفرز اليدوي مدعوم في عرض الشبكة فقط",
+      "formRequiredFieldsMissing": "يُرجى تعبئة كل الحقول المطلوبة قبل الإرسال"
     },
     "billing": {
       "insufficientCredit": "الرصيد غير كافٍ",
@@ -1408,7 +1451,11 @@
       "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة.",
       "planNotAvailable": "خيار الخطة هذا لم يعد متاحًا للاشتراكات الجديدة.",
       "seatLimitExceeded": "المقاعد المشتراة غير كافية. أضف مقاعد لدعوة المزيد من المتعاونين.",
-      "creditAddOnRetired": "تمت إزالة إضافة الأرصدة المتكررة. اختر بدلًا من ذلك مستوى أرصدة أكبر في خطتك."
+      "creditAddOnRetired": "تمت إزالة إضافة الأرصدة المتكررة. اختر بدلًا من ذلك مستوى أرصدة أكبر في خطتك.",
+      "trialUsed": "تم استخدام الفترة التجريبية بالفعل",
+      "subscriptionPaused": "اشتراكك متوقف مؤقتًا. تواصل مع الدعم لاستئنافه أو إلغائه قبل بدء اشتراك جديد.",
+      "noSubscriptionToRevert": "لا يوجد اشتراك Stripe للتراجع عنه",
+      "portalUnavailable": "تعذّر فتح بوابة الفوترة. يُرجى المحاولة لاحقًا."
     },
     "aggregation": {
       "searchQueryRequired": "استعلام البحث مطلوب",
@@ -1443,7 +1490,9 @@
       "validateActionFailed": "فشل التحقق من إجراء الذكاء الاصطناعي للحقل",
       "generateFailed": "فشل التوليد بالذكاء الاصطناعي",
       "unsupportedActionType": "نوع إجراء ذكاء اصطناعي غير مدعوم",
-      "geminiImageNotSupportedViaGateway": "توليد صور Gemini غير مدعوم عبر AI Gateway. يُرجى إعداد مزوّد Google مباشر بدلًا من ذلك."
+      "geminiImageNotSupportedViaGateway": "توليد صور Gemini غير مدعوم عبر AI Gateway. يُرجى إعداد مزوّد Google مباشر بدلًا من ذلك.",
+      "requestFailed": "فشل طلب الذكاء الاصطناعي: {{detail}}",
+      "imageTestUnsupportedForGateway": "اختبار توليد الصور غير مدعوم بعد لنماذج AI Gateway"
     },
     "skill": {
       "notFound": "المهارة غير موجودة",
@@ -1506,7 +1555,9 @@
       "notSupportTableIndex": "نوع فهرس الجدول غير مدعوم",
       "createTableIndexError": "فشل إنشاء فهرس الجدول",
       "dropTableIndexError": "فشل حذف فهرس الجدول",
-      "notFoundPrimaryField": "لم يتم العثور على الحقل الأساسي في الجدول"
+      "notFoundPrimaryField": "لم يتم العثور على الحقل الأساسي في الجدول",
+      "duplicateCrossSpaceField": "يحتوي هذا الجدول على حقول عابرة للمساحات ولا يمكن تكراره",
+      "nameRequired": "لا يمكن ترك اسم الجدول فارغًا"
     },
     "export": {
       "notSupportViewType": "نوع طريقة العرض {{viewType}} غير مدعوم للتصدير"
@@ -1515,7 +1566,14 @@
       "notSupportedFileFormat": "صيغة الملف غير مدعومة، الصيغ المدعومة هي {{supportType}} فقط، ونوع محتوى ملفك هو {{fileFormat}}",
       "notSupportedFileType": "نوع ملف الاستيراد غير مدعوم",
       "exceedMaxFieldsLength": "لا يمكن أن يتجاوز عدد الحقول في الجدول {{maxFieldsLength}}، والعدد الحالي {{length}}",
-      "tooManyConcurrentImports": "عدد مهام الاستيراد الجارية كبير جدًا ({{current}}/{{max}}). يُرجى المحاولة لاحقًا."
+      "tooManyConcurrentImports": "عدد مهام الاستيراد الجارية كبير جدًا ({{current}}/{{max}}). يُرجى المحاولة لاحقًا.",
+      "failed": "فشل الاستيراد: {{detail}}",
+      "noImportableData": "لا توجد بيانات قابلة للاستيراد في الأوراق المحددة",
+      "csvParseError": "خطأ في تحليل CSV في الصف {{row}}: {{detail}}",
+      "csvNoColumns": "لا يحتوي ملف CSV على أعمدة لاستيرادها",
+      "excelSheetNoColumns": "لا تحتوي ورقة العمل على أعمدة لاستيرادها",
+      "columnIndexOutOfRange": "العمود {{index}} خارج النطاق. يحتوي صف العناوين على {{count}} عمود فقط.",
+      "invalidDotteaStructure": "بنية ملف .tea غير صالحة أو غير مدعومة. يُرجى تصدير المشروع مرة أخرى ثم إعادة المحاولة."
     },
     "invitation": {
       "disallowSpaceInvitation": "عطّل المسؤول دعوات المساحة في هذه النسخة",
@@ -1537,7 +1595,8 @@
       "parentBaseOrSpaceTrashed": "تعذّر استعادة هذا الجدول لأن المشروع أو المساحة الأم موجودة أيضًا في سلة المهملات",
       "parentBaseTrashed": "تعذّر استعادة هذا العنصر لأن المشروع الأصلي موجود أيضًا في سلة المهملات",
       "parentNotFound": "المورد الأب غير موجود",
-      "tableNotFound": "عنصر سلة مهملات الجدول غير موجود"
+      "tableNotFound": "عنصر سلة مهملات الجدول غير موجود",
+      "restoreFieldInvalidSnapshot": "إعدادات الحقل المحذوف غير صالحة، ولا يمكن استعادته."
     },
     "license": {
       "invalid": "الترخيص غير صالح",
@@ -1561,7 +1620,9 @@
       "emailNotSpaceUser": "البريد الإلكتروني ليس لمستخدم في المساحة"
     },
     "mail": {
-      "failedToSendEmail": "فشل إرسال البريد الإلكتروني"
+      "failedToSendEmail": "فشل إرسال البريد الإلكتروني",
+      "recipientRequired": "يجب أن يحتوي الحقل \"to\" أو \"bcc\" على عنوان بريد إلكتروني صالح واحد على الأقل",
+      "allUnsubscribed": "ألغى جميع المستلمين اشتراكهم. تحقق من قائمة إلغاء الاشتراك."
     },
     "user": {
       "disallowSignUp": "عطّل المسؤول التسجيل في هذه النسخة",
@@ -1589,7 +1650,9 @@
       "updateFailed": "فشل تحديث السجل",
       "noFileOrUrlProvided": "لم يتم توفير ملف أو رابط",
       "createRecordsEmpty": "لا يمكن أن تكون السجلات المراد إنشاؤها فارغة",
-      "duplicateFailed": "فشل تكرار السجل"
+      "duplicateFailed": "فشل تكرار السجل",
+      "linkedRecordNotExist": "تعذّر الحفظ: أحد السجلات المرتبطة لم يعد موجودًا. يُرجى التحديث والمحاولة مرة أخرى.",
+      "fieldValueInvalid": "قيمة غير صالحة للحقل \"{{fieldName}}\""
     },
     "typecast": {
       "cellValueValidationFailed": "فشل التحقق من قيمة الخلية"
@@ -1634,7 +1697,32 @@
       "siteInfoBeforeGeneration": "أنشئ التطبيق قبل تخصيص معلومات موقعه",
       "generationEditingConflict": "تجري عملية توليد بالذكاء الاصطناعي تعديل هذا التطبيق حاليًا. يُرجى إعادة محاولة تحديث الملف بعد انتهائها.",
       "siteInfoLayoutNotEditable": "كود هذا التطبيق غير مهيأ لقبول تعديلات معلومات الموقع من هنا. اطلب من الذكاء الاصطناعي عبر المحادثة تغيير عنوان الموقع أو وصفه أو أيقونته بدلًا من ذلك.",
-      "siteInfoManagedInCode": "يدير هذا التطبيق عنوان الموقع ووصفه داخل الكود. اطلب من الذكاء الاصطناعي عبر المحادثة تغييرهما بدلًا من ذلك."
+      "siteInfoManagedInCode": "يدير هذا التطبيق عنوان الموقع ووصفه داخل الكود. اطلب من الذكاء الاصطناعي عبر المحادثة تغييرهما بدلًا من ذلك.",
+      "accessLinkSetupFailed": "فشل إعداد رابط الوصول: {{detail}}",
+      "zipNotAppProject": "ملف ZIP المستورد ليس مشروع تطبيق صالحًا: ملف package.json مفقود في جذر المشروع",
+      "zipExceedsLimits": "يتجاوز ملف ZIP المستورد حدود أرشيف التطبيق ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "خدمة البريد الإلكتروني غير مُعدّة، لذا لا يمكن إرسال الرمز",
+        "googleNotConfigured": "بيانات اعتماد تسجيل الدخول عبر Google غير مُعدّة",
+        "loginDisabled": "تسجيل الدخول غير مفعّل لهذا التطبيق",
+        "googleDisabled": "تسجيل الدخول عبر Google غير مفعّل لهذا التطبيق",
+        "teableDisabled": "تسجيل الدخول عبر Teable غير مفعّل لهذا التطبيق",
+        "userTableMissing": "جدول المستخدمين المحدد غير موجود في هذا المشروع",
+        "emailFieldMissing": "لا يحتوي جدول المستخدمين المحدد على حقل بريد إلكتروني",
+        "emailFieldType": "يجب أن يكون حقل البريد الإلكتروني حقل نص من سطر واحد وقابلًا للكتابة",
+        "signInStateInvalid": "جلسة تسجيل الدخول غير صالحة أو انتهت صلاحيتها. يُرجى تسجيل الدخول مرة أخرى.",
+        "domainNotAllowed": "التسجيل مقصور على نطاقات بريد إلكتروني محددة. نطاق بريدك الإلكتروني غير مدرج في القائمة المسموح بها.",
+        "inviteOnly": "هذا التطبيق متاح بالدعوة فقط. تواصل مع مسؤول التطبيق لطلب الوصول.",
+        "emailMissing": "تعذّر الحصول على عنوان بريدك الإلكتروني"
+      },
+      "previewOriginNotReady": "تطبيق المعاينة غير جاهز. أعد تحميل المعاينة وحاول مرة أخرى.",
+      "publishedOriginNotReady": "التطبيق المنشور غير جاهز. انشر التطبيق وحاول مرة أخرى.",
+      "versionSourceMissing": "لا توجد ملفات مصدرية للإصدار {{version}}",
+      "accessLink": {
+        "dnsMisconfigured": "فشل إعداد رابط الوصول: إعدادات DNS للنطاق غير صحيحة"
+      },
+      "customDomainNotConfigured": "لم يتم إعداد نطاق مخصص",
+      "vercelTokenNotConfigured": "رمز Vercel غير مُعدّ في إعدادات App Builder"
     },
     "reward": {
       "notFound": "المكافأة غير موجودة",
@@ -1662,6 +1750,49 @@
     "connectorEvent": {
       "accountNotGranted": "يحتاج مشغّل حدث الموصل إلى حساب مرتبط ممنوح لهذا المورد",
       "notEnabled": "أحداث الموصل غير مفعّلة في هذا النشر"
+    },
+    "requestFailed": "فشل الطلب",
+    "operationFailed": "فشلت العملية: {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "لا يمكن للمُشغِّل {{operator}} المقارنة بحقل آخر"
+    },
+    "oauth": {
+      "invalidRequest": "طلب OAuth غير صالح: {{detail}}",
+      "deviceCodeUsed": "تم استخدام هذا الرمز بالفعل. احصل على رمز جديد من جهازك."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "معامل غير صالح: {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "AI Proxy API Key غير موجود"
+    },
+    "github": {
+      "linkStateInvalid": "حالة ربط GitHub غير صالحة أو انتهت صلاحيتها",
+      "accountMismatch": "فوّضك GitHub بصفتك {{authorizedLogin}}، لكن الاتصال المحدد يعود إلى {{accountLogin}}. سجّل الدخول إلى GitHub بالحساب {{accountLogin}} وحاول مرة أخرى.",
+      "registryNotConfigured": "تتطلب مزامنة GitHub وجود git registry، وهو غير مُعدّ في هذا النشر",
+      "repoNameInvalid": "يمكن أن تحتوي أسماء المستودعات على أحرف وأرقام و\".\" و\"-\" و\"_\" فقط",
+      "installStateInvalid": "حالة تثبيت GitHub غير صالحة أو انتهت صلاحيتها",
+      "installationIdInvalid": "معرّف التثبيت غير صالح"
+    },
+    "im": {
+      "feishuNotConfigured": "بيانات اعتماد تطبيق Feishu غير مُعدّة",
+      "slackNotConfigured": "Slack غير مُعدّ. يجب على المسؤول إعداد تطبيق Slack في إعدادات تكامل IM."
+    },
+    "tableProvisionPending": "يجري تحديث بنية الجدول. يُرجى المحاولة مرة أخرى بعد قليل.",
+    "computed": {
+      "pausedWriteBlocked": "الحسابات متوقفة مؤقتًا للصيانة، لذا يتعذّر حفظ هذا التغيير الآن. يُرجى المحاولة لاحقًا."
+    },
+    "undoRedo": {
+      "inProgress": "لا تزال عملية تراجع أو إعادة قيد التنفيذ. يُرجى الانتظار قليلًا ثم المحاولة مرة أخرى.",
+      "busy": "التراجع والإعادة مشغولان حاليًا. يُرجى المحاولة مرة أخرى.",
+      "unsupportedCommandVersion": "سُجّلت هذه العملية بإصدار أقدم، ولم يعد بالإمكان التراجع عنها أو إعادتها."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "يحتوي هذا الجدول بالفعل على مهمة فهرسة قيد التنفيذ ({{taskId}}). يُرجى الانتظار حتى تكتمل ثم المحاولة مرة أخرى."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "الجدول المرتبط لم يعد موجودًا، لذا يتعذّر إصلاح هذا الربط تلقائيًا."
     }
   },
   "usageLimitBanner": {

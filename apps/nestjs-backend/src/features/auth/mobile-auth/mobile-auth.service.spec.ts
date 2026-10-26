@@ -1,7 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CacheService } from '../../../cache/cache.service';
 import type { IAuthConfig } from '../../../configs/auth.config';
+import { CustomHttpException } from '../../../custom.exception';
 import type { UserService } from '../../user/user.service';
 import type { SessionStoreService } from '../session/session-store.service';
 import { MobileAuthService } from './mobile-auth.service';
@@ -103,7 +103,7 @@ describe('MobileAuthService', () => {
     expect(ctx.users.refreshLastSignTime).toHaveBeenCalledWith('usr1');
     expect(ctx.users.refreshLastSignTime).toHaveBeenCalledTimes(1);
     await expect(ctx.service.exchange({ code, codeVerifier: VERIFIER })).rejects.toBeInstanceOf(
-      BadRequestException
+      CustomHttpException
     );
   });
 
@@ -147,7 +147,7 @@ describe('MobileAuthService', () => {
     ]) {
       await expect(
         ctx.service.createCode('usr1', { codeChallenge: CHALLENGE, state: 'st', redirectUri })
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toBeInstanceOf(CustomHttpException);
     }
     expect(ctx.cache.set).not.toHaveBeenCalled();
   });

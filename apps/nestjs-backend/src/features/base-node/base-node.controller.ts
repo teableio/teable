@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import {
   BaseNodeResourceType,
   moveBaseNodeRoSchema,
@@ -31,6 +32,8 @@ import {
 } from '@teable/openapi';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { z } from 'zod';
+import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -49,6 +52,12 @@ import { BaseNodeMoveService } from './base-node-move.service';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeAction } from './types';
+
+// A blank name gets through the body pipe so `update` can answer a table node with its
+// localized reason; every other node keeps the schema's own rejection.
+export const updateBaseNodeBodySchema = updateBaseNodeRoSchema.extend({
+  name: z.string().trim().optional(),
+});
 
 @Controller('api/base/:baseId/node')
 @UseGuards(BaseNodePermissionGuard)
@@ -194,9 +203,23 @@ export class BaseNodeController {
   async update(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
-    @Body(new ZodValidationPipe(updateBaseNodeRoSchema)) ro: IUpdateBaseNodeRo
+    @Body(new ZodValidationPipe(updateBaseNodeBodySchema)) ro: IUpdateBaseNodeRo
   ): Promise<IBaseNodeVo> {
+    if (ro.name === '') {
+      await this.rejectBlankNodeName(baseId, nodeId, ro);
+    }
     return this.baseNodeService.update(baseId, nodeId, ro);
+  }
+
+  protected async rejectBlankNodeName(baseId: string, nodeId: string, ro: IUpdateBaseNodeRo) {
+    const node = await this.baseNodeService.getNode(baseId, nodeId);
+    if (node.resourceType === BaseNodeResourceType.Table) {
+      throw new CustomHttpException('Table name cannot be empty', HttpErrorCode.VALIDATION_ERROR, {
+        localization: { i18nKey: 'httpErrors.table.nameRequired' },
+      });
+    }
+    // Throws the schema's own "Too small" rejection.
+    new ZodValidationPipe(updateBaseNodeRoSchema).transform(ro, { type: 'body' });
   }
 
   @Put(':nodeId/move')

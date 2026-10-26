@@ -483,9 +483,34 @@ export const TIME_ZONE_LIST = [
   'Etc/UTC',
 ] as const;
 
-export const timeZoneValueSchema = z.enum(TIME_ZONE_LIST);
+/**
+ * Any IANA zone name. The list above is the curated set; anything else must be a named
+ * zone the runtime's IANA database (Intl, the same source dayjs `.tz()` uses in V1)
+ * recognizes, e.g. `Europe/Kyiv`.
+ */
+export type TimeZoneValue = string;
 
-export type TimeZoneValue = z.infer<typeof timeZoneValueSchema>;
+const knownTimeZones: ReadonlySet<string> = new Set(TIME_ZONE_LIST);
+
+// Named zones only (`Area/Location`, `UTC`, `EST5EDT`, `Etc/GMT+5`). Intl also accepts
+// numeric offsets such as `+05:00`, but Postgres reads those as POSIX offsets with the
+// sign inverted, so they must never reach `AT TIME ZONE`.
+const namedTimeZonePattern = /^[a-z][\w+-]*(?:\/[\w+-]+)*$/i;
+
+export const isValidTimeZone = (value: string): boolean => {
+  if (knownTimeZones.has(value)) return true;
+  if (!namedTimeZonePattern.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const timeZoneValueSchema = z
+  .string()
+  .refine(isValidTimeZone, { message: 'Invalid time zone' });
 
 export class TimeZone extends ValueObject {
   private constructor(private readonly value: TimeZoneValue) {
@@ -495,15 +520,18 @@ export class TimeZone extends ValueObject {
   static create(raw: unknown): Result<TimeZone, DomainError> {
     // Handle case-insensitive 'UTC' for backwards compatibility
     const normalized = typeof raw === 'string' && raw.toUpperCase() === 'UTC' ? 'utc' : raw;
-    const parsed = timeZoneValueSchema.safeParse(normalized);
-    if (!parsed.success)
+    if (typeof normalized !== 'string' || !isValidTimeZone(normalized))
       return err(
         domainError.validation({
           message: `Invalid TimeZone: ${String(raw)}`,
+          localization: {
+            i18nKey: 'httpErrors.field.timeZoneInvalid',
+            context: { timeZone: String(raw) },
+          },
           details: { value: raw },
         })
       );
-    return ok(new TimeZone(parsed.data));
+    return ok(new TimeZone(normalized));
   }
 
   static utc(): TimeZone {

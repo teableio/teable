@@ -313,6 +313,7 @@ export class ImportOpenApiV2Service {
             importedCount: 0,
             truncated: false,
             error: result.error.message,
+            ...(result.error.localization && { localization: result.error.localization }),
           });
           continue;
         }

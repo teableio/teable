@@ -62,7 +62,11 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'percent':
         return `ROUND(CAST(${expr} * 100 AS NUMERIC), ${precision ?? 0})::TEXT || '%'`;
       case 'currency': {
-        const symbol = (formatting as ICurrencyFormatting).symbol || '$';
+        // Escape the user-controlled currency symbol before embedding it in a
+        // single-quoted SQL literal, exactly as the date timeZone/pattern
+        // literals below do; an unescaped quote would otherwise break out of the
+        // literal and inject SQL.
+        const symbol = this.escapeLiteral((formatting as ICurrencyFormatting).symbol || '$');
         if (typeof precision === 'number') {
           return `'${symbol}' || ROUND(CAST(${expr} AS NUMERIC), ${precision})::TEXT`;
         }

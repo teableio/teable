@@ -46,6 +46,12 @@ export interface IRecordCreationInput {
   operationKind: RecordCreationOperationKind;
   sourceRecordId?: RecordId;
   order?: RecordInsertOrder;
+  /**
+   * T8080: the caller prepared the view row-order column before taking the
+   * table schema lease. Skip the legacy pre-transaction preparation below so
+   * it cannot repeat under the held lease.
+   */
+  orderColumnPrepared?: boolean;
 }
 
 export interface IRecordCreationResult {
@@ -201,7 +207,10 @@ export class RecordCreationService {
         });
 
       try {
-        if (input.order && service.recordOrderCalculator) {
+        // T7251: direct callers keep preparing the row-order column before the
+        // request transaction. Coordinated callers (T8080) already ran that
+        // preparation before taking the schema lease.
+        if (input.order && !input.orderColumnPrepared && service.recordOrderCalculator) {
           yield* await service.recordOrderCalculator.calculateOrders(
             context,
             tableForCreate,

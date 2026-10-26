@@ -190,6 +190,12 @@ export class ImportTabularTableService {
             domainError.validation({
               message: emptyColumnsMessage,
               code: emptyColumnsCode,
+              localization: {
+                i18nKey:
+                  source === 'excel'
+                    ? 'httpErrors.import.excelSheetNoColumns'
+                    : 'httpErrors.import.csvNoColumns',
+              },
             })
           );
         }
@@ -509,6 +515,10 @@ export class ImportTabularTableService {
           domainError.validation({
             code: 'import.column_index_out_of_range',
             message: `Column index ${column.sourceColumnIndex} is out of range`,
+            localization: {
+              i18nKey: 'httpErrors.import.columnIndexOutOfRange',
+              context: { index: column.sourceColumnIndex + 1, count: headers.length },
+            },
             details: {
               sourceColumnIndex: column.sourceColumnIndex,
               columnCount: headers.length,

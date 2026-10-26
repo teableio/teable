@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { randomIntBelow } from './random';
 import type {
   IUnitOfWorkOptions,
   IExecutionContext,
@@ -18,7 +19,7 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { sql, type Kysely, type Transaction } from 'kysely';
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IV2PostgresDbConfig } from './config';
@@ -220,6 +221,8 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     private readonly dataConfig: IV2PostgresDbConfig
   ) {}
 
+  private savepointSequence = 0;
+
   private usesSinglePhysicalDatabase(): boolean {
     return (
       this.metaDb === this.dataDb ||
@@ -382,6 +385,72 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
 
     return this.executeWithRetries(context, work, scope, options?.retry !== false);
   }
+
+  /**
+   * Runs `work` inside `SAVEPOINT` / `RELEASE SAVEPOINT`, rolling back to the
+   * savepoint when `work` fails. PostgreSQL aborts the whole transaction after a
+   * statement error, so recovery from a deliberate error (unique constraint race)
+   * is only possible inside a savepoint.
+   */
+  async savepoint<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, DomainError>> {
+    const transaction = getPostgresTransaction<DB>(context, 'data');
+    if (!transaction) {
+      return err(
+        domainError.infrastructure({
+          code: 'unit_of_work.transaction_required',
+          message: 'Savepoint requires an active data transaction',
+        })
+      );
+    }
+
+    const name = `v2_sp_${(this.savepointSequence = (this.savepointSequence + 1) % 1_000_000)}_${randomInt(1_000_000)}`;
+
+    try {
+      await sql`savepoint ${sql.id(name)}`.execute(transaction);
+    } catch (error) {
+      return err(toUnexpectedUnitOfWorkError(error));
+    }
+
+    let result: Result<T, DomainError>;
+    try {
+      result = await work(context);
+    } catch (error) {
+      await this.rollbackSavepoint(transaction, name);
+      throw error;
+    }
+
+    if (result.isErr()) {
+      const rollbackResult = await this.rollbackSavepoint(transaction, name);
+      if (rollbackResult.isErr()) {
+        return err(rollbackResult.error);
+      }
+      return result;
+    }
+
+    try {
+      await sql`release savepoint ${sql.id(name)}`.execute(transaction);
+    } catch (error) {
+      return err(toUnexpectedUnitOfWorkError(error));
+    }
+
+    return result;
+  }
+
+  private async rollbackSavepoint(
+    transaction: Transaction<DB>,
+    name: string
+  ): Promise<Result<void, DomainError>> {
+    try {
+      await sql`rollback to savepoint ${sql.id(name)}`.execute(transaction);
+      await sql`release savepoint ${sql.id(name)}`.execute(transaction);
+      return ok(undefined);
+    } catch (error) {
+      return err(toUnexpectedUnitOfWorkError(error));
+    }
+  }
 }
 
 const sleep = async (ms: number): Promise<void> => {
@@ -390,7 +459,7 @@ const sleep = async (ms: number): Promise<void> => {
 
 const backoffMs = (attempt: number): number => {
   const base = 5 * 2 ** attempt;
-  const jitter = randomInt(10);
+  const jitter = randomIntBelow(10);
   return base + jitter;
 };
 

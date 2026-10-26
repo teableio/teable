@@ -24,6 +24,7 @@ export const importSheetSummarySchema = z.object({
   importedCount: z.number(),
   truncated: z.boolean(),
   error: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const importStreamDoneEventSchema = z.object({

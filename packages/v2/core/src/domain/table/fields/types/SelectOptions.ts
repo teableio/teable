@@ -64,7 +64,13 @@ export const validateSelectOptions = (
     for (const value of values) {
       if (!names.has(value))
         return err(
-          domainError.validation({ message: 'SelectField defaultValue must match an option name' })
+          domainError.validation({
+            message: 'SelectField defaultValue must match an option name',
+            localization: {
+              i18nKey: 'httpErrors.field.selectDefaultValueNotInChoices',
+              context: { value },
+            },
+          })
         );
     }
   }

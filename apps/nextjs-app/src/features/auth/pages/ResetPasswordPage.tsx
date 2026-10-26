@@ -1,6 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { type HttpError } from '@teable/core';
 import { resetPassword, passwordSchema } from '@teable/openapi';
+import { getHttpErrorMessage } from '@teable/sdk/context';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -34,7 +36,7 @@ export const ResetPasswordPage = () => {
       }, 2000);
     },
     onError: (err: HttpError) => {
-      setError(err.message);
+      setError(getHttpErrorMessage(err, t as unknown as ILocaleFunction, 'sdk'));
     },
   });
 

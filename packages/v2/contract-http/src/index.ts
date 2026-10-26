@@ -1,4 +1,5 @@
 export * from './contract';
+export * from './complexity';
 export * from './dataQuery';
 export * from './dataQueryExplain';
 export * from './shared/container';

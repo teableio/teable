@@ -1,4 +1,6 @@
 import { Edit } from '@teable/icons';
+import { getHttpErrorMessage } from '@teable/sdk/context';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import { useField, useFieldPermission } from '@teable/sdk/hooks';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -75,7 +77,13 @@ export const FieldPropertyEditor = ({
                 setIsEditing(false);
                 return;
               }
-              await field.update({ [propKey]: newValue });
+              try {
+                await field.update({ [propKey]: newValue });
+              } catch (error) {
+                // A direct call, not a mutation: the global error toast never sees it.
+                toast.error(getHttpErrorMessage(error, t as unknown as ILocaleFunction, 'sdk'));
+                return;
+              }
               setIsEditing(false);
               toast(t('common:actions.updateSucceed'));
             }}

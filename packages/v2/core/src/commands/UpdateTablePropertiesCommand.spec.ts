@@ -35,4 +35,24 @@ describe('UpdateTablePropertiesCommand', () => {
   ])('rejects invalid input %#', (input) => {
     expect(UpdateTablePropertiesCommand.create(input).isErr()).toBe(true);
   });
+
+  it('localizes only the description length violation', () => {
+    const tooLong = UpdateTablePropertiesCommand.create({
+      baseId,
+      tableId,
+      description: 'x'.repeat(2_001),
+    })._unsafeUnwrapErr();
+    expect(tooLong.message).toBe('Invalid UpdateTablePropertiesCommand input');
+    expect(tooLong.localization).toEqual({
+      i18nKey: 'httpErrors.limit.descriptionMaxLength',
+      context: { max: 2_000 },
+    });
+
+    const badIcon = UpdateTablePropertiesCommand.create({
+      baseId,
+      tableId,
+      icon: 'not-an-emoji',
+    })._unsafeUnwrapErr();
+    expect(badIcon.localization).toBeUndefined();
+  });
 });

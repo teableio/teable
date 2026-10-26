@@ -22,6 +22,11 @@ const NETWORK_ERROR_TOAST_ID = 'network-error-toast';
 const NETWORK_ERROR_COOLDOWN_MS = 10 * 1000; // 10 seconds cooldown
 let lastNetworkErrorTime = 0;
 
+// The translator of the app's query client, for errors reported outside a query or mutation
+// (requestWrap, model methods) that have no `t` of their own. The page reloads on a language
+// switch, so the last one registered is the current language.
+let fallbackTranslator: ILocaleFunction | undefined;
+
 // Validation error deduplication - same message won't show within cooldown period
 const VALIDATION_ERROR_COOLDOWN_MS = 5 * 1000; // 5 seconds cooldown
 const lastValidationErrorTimes = new Map<string, number>();
@@ -52,6 +57,22 @@ export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?:
   const { message, data } = error as IHttpError;
   const { localization } = (data as ICustomHttpExceptionData) || {};
   return localization ? getLocalizationMessage(localization, t, prefix) : message;
+};
+
+// validation_error is the default code of every 400, so most of these are business-rule
+// rejections rather than bad input; without a localized message the generic title fits better.
+const getHttpErrorTitle = (error: unknown, t: ILocaleFunction) => {
+  const { code, data } = error as IHttpError;
+  if (!code) {
+    return t('httpErrors.unknownErrorCode');
+  }
+  if (
+    code === HttpErrorCode.VALIDATION_ERROR &&
+    !(data as ICustomHttpExceptionData | undefined)?.localization
+  ) {
+    return t('httpErrors.requestFailed' as TKey);
+  }
+  return t(`httpErrors.${toCamelCaseErrorCode(code)}` as TKey);
 };
 
 const handleNetworkError = (t?: ILocaleFunction): void => {
@@ -112,6 +133,7 @@ export const errorRequestHandler = (
   t?: ILocaleFunction,
   options?: { isQuery?: boolean }
 ) => {
+  t ??= fallbackTranslator;
   if (isTableProvisionPending(error)) {
     toast.info(
       t
@@ -123,7 +145,7 @@ export const errorRequestHandler = (
     );
     return;
   }
-  const { code, message, status } = error as IHttpError;
+  const { code, message, status, data } = error as IHttpError;
 
   if (code === HttpErrorCode.NETWORK_ERROR) {
     handleNetworkError(t);
@@ -154,10 +176,13 @@ export const errorRequestHandler = (
   }
 
   if (t) {
-    const description = getHttpErrorMessage(error, t);
-    const title = code
-      ? t(`httpErrors.${toCamelCaseErrorCode(code)}` as TKey)
-      : t('httpErrors.unknownErrorCode');
+    // An unlocalized 5xx carries the server's English (often just "Internal Server Error");
+    // the translated title already says what the user can know, so it stands alone.
+    const description =
+      status >= 500 && !(data as ICustomHttpExceptionData | undefined)?.localization
+        ? undefined
+        : getHttpErrorMessage(error, t);
+    const title = getHttpErrorTitle(error, t);
     return toast.error(title, { description, id: getErrorToastId(title, description) });
   }
 
@@ -169,6 +194,7 @@ export const errorRequestHandler = (
 };
 
 export const createQueryClient = (t?: ILocaleFunction) => {
+  if (t) fallbackTranslator = t;
   return new QueryClient({
     defaultOptions: {
       queries: {

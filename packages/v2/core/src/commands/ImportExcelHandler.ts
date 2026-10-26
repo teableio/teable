@@ -77,6 +77,7 @@ export const excelParseResultToCsvParseResult = (
       domainError.validation({
         message: 'Excel sheet has no columns',
         code: 'import.excel.no_columns',
+        localization: { i18nKey: 'httpErrors.import.excelSheetNoColumns' },
       })
     );
   }

@@ -28,6 +28,7 @@ import {
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
+import { enqueueViewUpdate } from './view-update-queue';
 
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
@@ -39,54 +40,80 @@ export abstract class View extends ViewCore {
   ): Promise<AxiosResponse<void, any>> | void;
 
   async apiEnableShare() {
-    return await requestWrap(enableShareView)({ tableId: this.tableId, viewId: this.id });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(enableShareView)({ tableId: this.tableId, viewId: this.id })
+    );
   }
 
   async disableShare() {
-    return await requestWrap(disableShareView)({ tableId: this.tableId, viewId: this.id });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(disableShareView)({ tableId: this.tableId, viewId: this.id })
+    );
   }
 
   async manualSort(sortRo: IManualSortRo) {
-    return await requestWrap(manualSortView)(this.tableId, this.id, sortRo);
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(manualSortView)(this.tableId, this.id, sortRo)
+    );
   }
 
   async updateColumnMeta(columnMetaRo: IColumnMetaRo) {
-    return await requestWrap(updateViewColumnMeta)(this.tableId, this.id, columnMetaRo);
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewColumnMeta)(this.tableId, this.id, columnMetaRo)
+    );
   }
 
   async updateFilter(filter: IFilter) {
-    return await requestWrap(updateViewFilter)(this.tableId, this.id, { filter });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewFilter)(this.tableId, this.id, { filter })
+    );
   }
 
   async updateSort(sort: ISort) {
-    return await requestWrap(updateViewSort)(this.tableId, this.id, { sort });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewSort)(this.tableId, this.id, { sort })
+    );
   }
 
   async updateGroup(group: IGroup) {
-    return await requestWrap(updateViewGroup)(this.tableId, this.id, { group });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewGroup)(this.tableId, this.id, { group })
+    );
   }
 
   async updateOrder(orderRo: IUpdateOrderRo) {
-    return await requestWrap(updateViewOrder)(this.tableId, this.id, orderRo);
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewOrder)(this.tableId, this.id, orderRo)
+    );
   }
 
   async updateName(name: string) {
-    return await requestWrap(updateViewName)(this.tableId, this.id, { name });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewName)(this.tableId, this.id, { name })
+    );
   }
 
   async updateDescription(description: string) {
-    return await requestWrap(updateViewDescription)(this.tableId, this.id, { description });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewDescription)(this.tableId, this.id, { description })
+    );
   }
 
   async setRefreshLink() {
-    return await requestWrap(refreshViewShareId)(this.tableId, this.id);
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(refreshViewShareId)(this.tableId, this.id)
+    );
   }
 
   async setShareMeta(shareMeta: IShareViewMeta) {
-    return await requestWrap(updateViewShareMeta)(this.tableId, this.id, shareMeta);
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewShareMeta)(this.tableId, this.id, shareMeta)
+    );
   }
 
   async updateLocked(isLocked: boolean) {
-    return await requestWrap(updateViewLocked)(this.tableId, this.id, { isLocked });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewLocked)(this.tableId, this.id, { isLocked })
+    );
   }
 }

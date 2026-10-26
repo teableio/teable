@@ -44,6 +44,7 @@ import {
   X_TEABLE_V2_REASON_HEADER,
 } from '../../canary/interceptors/v2-indicator.interceptor';
 import { TableBaseScopeGuard } from '../../table/guard/table-base-scope.guard';
+import { getErrorLocalization } from '../../v2/v2-http-error';
 import { ImportOpenApiV2Service } from './import-open-api-v2.service';
 import { ImportOpenApiService } from './import-open-api.service';
 
@@ -210,10 +211,12 @@ export class ImportController {
         this.sendImportSseEvent(response, event);
       }
     } catch (error) {
-      this.sendImportSseEvent(
-        response,
-        createErrorEvent(error instanceof Error ? error.message : 'Import stream failed')
-      );
+      const localization = getErrorLocalization(error);
+      this.sendImportSseEvent(response, {
+        ...createErrorEvent(error instanceof Error ? error.message : 'Import stream failed'),
+        // the stream already answered 200, so the translation travels in the event
+        ...(localization ? { localization } : {}),
+      });
     } finally {
       clearInterval(heartbeat);
       response.end();

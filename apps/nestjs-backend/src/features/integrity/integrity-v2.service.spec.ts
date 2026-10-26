@@ -667,6 +667,24 @@ describe('IntegrityV2Service repair telemetry', () => {
     expect(tracer.spans[0]?.errors).toContain('Schema repair failed');
   });
 
+  it('keeps the translation a repair result carries when serializing it', async () => {
+    const service = new IntegrityV2Service({} as never, {} as never);
+    const table = createTable();
+    const localization = { i18nKey: 'httpErrors.table.nameRequired' } as const;
+
+    const serialized = await collect(
+      service['decorateRepairStream'](
+        table,
+        (async function* () {
+          yield { ...createRepairResult(), localization };
+        })(),
+        undefined
+      )
+    );
+
+    expect(serialized[0]).toMatchObject({ status: 'error', localization });
+  });
+
   it('captures thrown repair stream exceptions to sentry and trace spans', async () => {
     const service = new IntegrityV2Service({} as never, {} as never);
     const tracer = new FakeTracer();

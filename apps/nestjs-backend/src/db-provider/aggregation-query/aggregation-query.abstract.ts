@@ -1,8 +1,14 @@
-import { BadRequestException } from '@nestjs/common';
 import type { FieldCore } from '@teable/core';
-import { CellValueType, DbFieldType, getValidStatisticFunc, StatisticsFunc } from '@teable/core';
+import {
+  CellValueType,
+  DbFieldType,
+  getValidStatisticFunc,
+  HttpErrorCode,
+  StatisticsFunc,
+} from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
+import { CustomHttpException } from '../../custom.exception';
 import type { IRecordQueryAggregateContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryExtra } from '../db.provider.interface';
 import type { AbstractAggregationFunction } from './aggregation-function.abstract';
@@ -97,13 +103,17 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
         const field = this.fields?.[fieldId];
 
         if (!field) {
-          throw new BadRequestException(`field: '${fieldId}' is invalid`);
+          throw new CustomHttpException(
+            `field: '${fieldId}' is invalid`,
+            HttpErrorCode.VALIDATION_ERROR
+          );
         }
 
         const validStatisticFunc = getValidStatisticFunc(field);
         if (statisticFunc && !validStatisticFunc.includes(statisticFunc)) {
-          throw new BadRequestException(
-            `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`
+          throw new CustomHttpException(
+            `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`,
+            HttpErrorCode.VALIDATION_ERROR
           );
         }
       });

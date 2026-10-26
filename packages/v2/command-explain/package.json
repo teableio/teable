@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
+    "@teable/v2-complexity": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",

@@ -1,6 +1,9 @@
 import {
   registerCommandExplainModule,
   v2CommandExplainTokens,
+  type ComplexityAssessInput,
+  type ComplexityAssessResult,
+  type IComplexityService,
   type IExplainService,
   type ExplainResult,
 } from '@teable/v2-command-explain';
@@ -56,6 +59,9 @@ export const CommandExplainLive = Layer.effect(
     const explainService = container.resolve(
       v2CommandExplainTokens.explainService
     ) as IExplainService;
+    const complexityService = container.resolve(
+      v2CommandExplainTokens.complexityService
+    ) as IComplexityService;
     const tableRepository = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
 
     const resolveBaseId = (tableIdRaw: string): Effect.Effect<string, CliError> =>
@@ -310,6 +316,21 @@ export const CommandExplainLive = Layer.effect(
                 includeGraph: false,
                 includeLocks: true,
               });
+              if (result.isErr()) throw result.error;
+              return result.value;
+            },
+            catch: (e) => CliError.fromUnknown(e),
+          });
+        }),
+
+      assessComplexity: (
+        input: ComplexityAssessInput
+      ): Effect.Effect<ComplexityAssessResult, CliError> =>
+        Effect.gen(function* () {
+          const context = yield* createContext();
+          return yield* Effect.tryPromise({
+            try: async () => {
+              const result = await complexityService.assess(context, input);
               if (result.isErr()) throw result.error;
               return result.value;
             },

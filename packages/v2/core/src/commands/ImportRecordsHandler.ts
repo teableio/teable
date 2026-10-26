@@ -598,6 +598,10 @@ export class ImportRecordsHandler implements ICommandHandler<
           domainError.validation({
             message: `Field ${fieldId} not found in table`,
             code: 'import.field_not_found',
+            localization: {
+              i18nKey: 'httpErrors.field.notFoundInTable',
+              context: { fieldId, tableId: table.id().toString() },
+            },
           })
         );
       }
@@ -606,6 +610,10 @@ export class ImportRecordsHandler implements ICommandHandler<
           domainError.validation({
             message: `Column index ${columnIndex} out of range (headers length: ${headers.length})`,
             code: 'import.column_index_out_of_range',
+            localization: {
+              i18nKey: 'httpErrors.import.columnIndexOutOfRange',
+              context: { index: columnIndex + 1, count: headers.length },
+            },
           })
         );
       }

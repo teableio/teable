@@ -1,6 +1,7 @@
 import { iterateFormulaSourceReferences } from '@teable/formula';
 import {
   getPostgresTransaction,
+  pgErrorCode,
   PostgresSqlExecutionError,
   resolvePostgresDbOrTx,
 } from '@teable/v2-adapter-db-postgres-shared';
@@ -49,6 +50,10 @@ import {
 } from '../../schema/visitors/PostgresTableSchemaFieldColumn';
 import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
+import {
+  defaultComputedRuntimeConfig,
+  type ComputedRuntimeConfig,
+} from '../../config/runtimeConfig';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
@@ -511,6 +516,13 @@ export type PreparedDirtyState = {
 type ComputedUpdateLockOptions = {
   logContext?: Record<string, unknown>;
   wait?: boolean;
+  /**
+   * Bound for a waiting acquire, applied as a transaction-local `lock_timeout`.
+   * A queued acquire is fair (PostgreSQL grants it ahead of later shared
+   * requests), so this only caps how long the worker blocks on one holder.
+   * Expiry surfaces as `computed_update.lock_unavailable`, not a task failure.
+   */
+  waitTimeoutMs?: number;
 };
 
 const lockUnavailable = (statement: ComputedUpdateLockStatement) =>
@@ -613,7 +625,9 @@ export class ComputedFieldUpdater {
     @inject(v2CoreTokens.tableDataSafetyLimitComposer)
     private readonly tableDataSafetyLimitComposer: TableDataSafetyLimitComposer = new TableDataSafetyLimitComposer(),
     @inject(formulaSqlPgTokens.compileBudget)
-    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig,
+    @inject(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)
+    private readonly runtimeConfig: ComputedRuntimeConfig = defaultComputedRuntimeConfig
   ) {}
 
   private async executeComputedQuery(
@@ -643,6 +657,8 @@ export class ComputedFieldUpdater {
       /** Track selected source tables and invalidate evidence for excluded tables. */
       valueFrontier?: { tableIds: ReadonlyArray<string> };
       lockWait?: boolean;
+      /** Bound for the waiting acquire; ignored unless `lockWait` is true. */
+      lockWaitTimeoutMs?: number;
       maxDirtyRecords?: number;
       dirtyBudgetMode?: 'abort' | 'partial';
       maxStatements?: number;
@@ -878,6 +894,7 @@ export class ComputedFieldUpdater {
             collectChanges,
             {
               wait: options?.lockWait,
+              waitTimeoutMs: options?.lockWaitTimeoutMs,
               logContext: toRunLogContext(resolvedRun),
             },
             options?.isolateOversizedComputedCells ?? false,
@@ -1000,7 +1017,36 @@ export class ComputedFieldUpdater {
 
     const runWork = async (): Promise<Result<ComputedUpdateLockSummary, DomainError>> => {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      // A waiting (queued) acquire only makes progress once PostgreSQL grants the
+      // key; bound it so a long-lived holder cannot pin the worker transaction.
+      // The bound is transaction-local and restored before the steps run, so it
+      // only applies where an advisory xact lock is meaningful at all.
+      const waitTimeoutMs =
+        waitForLocks && getPostgresTransaction(context) ? options?.waitTimeoutMs : undefined;
+      const boundedWait = waitTimeoutMs !== undefined && waitTimeoutMs > 0;
+      const deadlineMs = boundedWait ? Date.now() + (waitTimeoutMs as number) : undefined;
+      let previousLockTimeout: string | undefined;
+      let pendingStatement: ComputedUpdateLockStatement | undefined;
+      // PostgreSQL applies lock_timeout per statement, so a multi-key plan would
+      // otherwise stretch the bound to one timeout per key. Re-arm it with the
+      // time left so the whole acquisition stays inside the advertised bound.
+      const armLockTimeout = async (): Promise<void> => {
+        const remainingMs = Math.max(1, (deadlineMs as number) - Date.now());
+        await db.executeQuery(
+          sql`select set_config('lock_timeout', ${String(remainingMs)}, true)`.compile(db)
+        );
+      };
+      const expireLockWait = (): Result<ComputedUpdateLockSummary, DomainError> | undefined =>
+        deadlineMs !== undefined && deadlineMs - Date.now() <= 0 && pendingStatement
+          ? lockUnavailable(pendingStatement)
+          : undefined;
       try {
+        if (boundedWait) {
+          const current = await db.executeQuery<{ value: string }>(
+            sql<{ value: string }>`select current_setting('lock_timeout') as value`.compile(db)
+          );
+          previousLockTimeout = current.rows[0]?.value;
+        }
         // Table locks (shared covering or exclusive fallback) first, in tableId
         // order, then exclusive record/batch keys. Mixing shared and exclusive
         // in one unnest would take the covering key exclusively and serialize
@@ -1018,12 +1064,32 @@ export class ComputedFieldUpdater {
           .sort((left, right) => left.localeCompare(right));
 
         for (const statement of tableStatements) {
+          pendingStatement = statement;
+          const expired = expireLockWait();
+          if (expired) return expired;
+          if (boundedWait) await armLockTimeout();
           const unavailable = await acquireTableLock(db, statement, waitForLocks);
           if (unavailable) return unavailable;
         }
+        pendingStatement = lockPlan.statements.find((statement) => statement.scope !== 'table');
+        const expired = expireLockWait();
+        if (expired) return expired;
         if (exclusiveKeys.length > 0) {
           if (waitForLocks) {
-            await db.executeQuery(buildAdvisoryLockBatchQuery(db, exclusiveKeys));
+            if (boundedWait) {
+              // PostgreSQL arms lock_timeout per lock acquisition, including the
+              // ones inside a batch unnest, so a batched waiting acquire can
+              // outlive the bound once per key. Take the keys one statement at a
+              // time and re-arm with the time left instead.
+              for (const key of exclusiveKeys) {
+                const keyExpired = expireLockWait();
+                if (keyExpired) return keyExpired;
+                await armLockTimeout();
+                await db.executeQuery(buildAdvisoryLockQuery(db, key));
+              }
+            } else {
+              await db.executeQuery(buildAdvisoryLockBatchQuery(db, exclusiveKeys));
+            }
           } else {
             const result = await db.executeQuery(buildTryAdvisoryLockBatchQuery(db, exclusiveKeys));
             const lockedByKey = new Map(result.rows.map((row) => [row.key, row.locked]));
@@ -1036,11 +1102,33 @@ export class ComputedFieldUpdater {
           }
         }
       } catch (error) {
+        // lock_timeout: the waiting acquire queued behind an existing holder and
+        // gave up. A statement timeout that fires during the lock phase is a lock
+        // wait too (SQLSTATE 57014 when taskStatementTimeoutMs <= the wait bound).
+        // Report both as lock-unavailable so the caller requeues with the
+        // lock-contention delay and no attempt budget is consumed.
+        const lockPhaseCode = pgErrorCode(error);
+        if (
+          boundedWait &&
+          pendingStatement &&
+          (lockPhaseCode === '55P03' || lockPhaseCode === '57014')
+        ) {
+          return lockUnavailable(pendingStatement);
+        }
         return err(
           domainError.infrastructure({
             message: `Failed to acquire computed update locks: ${describeError(error)}`,
           })
         );
+      }
+      if (boundedWait) {
+        // The keys are already held; a failed restore must not turn a granted
+        // acquire into an error, and the bound stays transaction-local anyway.
+        await db
+          .executeQuery(
+            sql`select set_config('lock_timeout', ${previousLockTimeout ?? '0'}, true)`.compile(db)
+          )
+          .catch(() => undefined);
       }
 
       this.logger.debug('computed:locks:acquired', logContext);
@@ -1110,6 +1198,7 @@ export class ComputedFieldUpdater {
 
     const result = await this.acquireLocks(lockPlan, context, {
       wait: options?.wait,
+      waitTimeoutMs: options?.waitTimeoutMs,
       logContext: {
         ...options?.logContext,
         lockScope: 'dirty_targets',
@@ -1545,6 +1634,7 @@ export class ComputedFieldUpdater {
     // different seed locks while both writing Order computed columns.
     const dirtyLockResult = await this.acquireDirtyTargetLocks(plan, context, prepared, {
       wait: lockOptions?.wait,
+      waitTimeoutMs: lockOptions?.waitTimeoutMs,
       logContext: lockOptions?.logContext,
     });
     if (dirtyLockResult.isErr()) return err(dirtyLockResult.error);
@@ -2148,6 +2238,7 @@ export class ComputedFieldUpdater {
                   typeValidationStrategy: this.typeValidationStrategy,
                   forceLookupArrayOutput: true,
                   formulaCompileBudget: this.formulaCompileBudget,
+                  conditionalQuery: this.runtimeConfig.conditionalQuery,
                 })
                   .from(table)
                   .select(fieldChunk)
@@ -2211,6 +2302,7 @@ export class ComputedFieldUpdater {
                     typeValidationStrategy: this.typeValidationStrategy,
                     forceLookupArrayOutput: true,
                     formulaCompileBudget: this.formulaCompileBudget,
+                    conditionalQuery: this.runtimeConfig.conditionalQuery,
                   })
                     .from(table)
                     .select(fieldChunk)
@@ -3237,6 +3329,13 @@ const splitIntoChunks = <T>(values: ReadonlyArray<T>, chunkSize: number): T[][] 
   return chunks;
 };
 
+// Scratch tables are session-scoped, not `on commit drop`. PGlite exposes one
+// session, so a Kysely transaction opened by another scope interleaves
+// BEGIN/COMMIT on it, and a foreign COMMIT drops a table the in-flight computed
+// update is still using: under `idb://` the seed step failed with
+// `relation "pg_temp.tmp_computed_dirty" does not exist` after a successful
+// reset. Each writer already drops and recreates these tables before use, so
+// keeping them for the session lifetime changes no observable state.
 const resetDirtyTable = async (db: Kysely<DynamicDB>): Promise<Result<void, DomainError>> => {
   try {
     await db.executeQuery(sql`drop table if exists ${sql.table(DIRTY_TABLE)}`.compile(db));
@@ -3246,7 +3345,7 @@ const resetDirtyTable = async (db: Kysely<DynamicDB>): Promise<Result<void, Doma
         ${sql.raw(DIRTY_RECORD_ID_COL)} text not null,
         ${sql.raw(DIRTY_GENERATION_COL)} integer not null default 0,
         primary key (${sql.raw(DIRTY_TABLE_ID_COL)}, ${sql.raw(DIRTY_RECORD_ID_COL)})
-      ) on commit drop`.compile(db)
+      )`.compile(db)
     );
     await db.executeQuery(
       sql`create index tmp_computed_dirty_frontier_idx on ${sql.table(DIRTY_TABLE)} (
@@ -3274,7 +3373,7 @@ const resetBeforeImageTable = async (db: Kysely<DynamicDB>): Promise<Result<void
         ${sql.raw(DIRTY_RECORD_ID_COL)} text not null,
         ${sql.raw(BEFORE_IMAGE_SNAPSHOT_COL)} jsonb not null,
         primary key (${sql.raw(DIRTY_TABLE_ID_COL)}, ${sql.raw(DIRTY_RECORD_ID_COL)})
-      ) on commit drop`.compile(db)
+      )`.compile(db)
     );
     return ok(undefined);
   } catch (error) {
@@ -4608,7 +4707,7 @@ const buildPropagationSelect = (
           );
           await sql`create temp table ${sql.raw(
             quoteIdentifier(sourceRelationName)
-          )} on commit drop as ${sourceRowsQuery}`.execute(runDb);
+          )} as ${sourceRowsQuery}`.execute(runDb);
           await sql`analyze ${sql.table(`pg_temp.${sourceRelationName}`)}`.execute(runDb);
         },
       };

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -644,7 +644,10 @@ export class FieldSupplementService {
     }
 
     if (!isLinkLookupOptions(lookupOptions)) {
-      throw new BadRequestException('lookupOptions.linkFieldId is required for lookup fields');
+      throw new CustomHttpException(
+        'lookupOptions.linkFieldId is required for lookup fields',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
 
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
@@ -1906,8 +1909,9 @@ export class FieldSupplementService {
     const result = (schema as z.Schema).safeParse(value);
 
     if (!result.success) {
+      const detail = String(fromZodError(result.error));
       throw new CustomHttpException(
-        `${name} is invalid: ${fromZodError(result.error)}`,
+        `${name} is invalid: ${detail}`,
         HttpErrorCode.VALIDATION_ERROR
       );
     }

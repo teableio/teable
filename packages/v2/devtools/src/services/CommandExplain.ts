@@ -1,4 +1,8 @@
-import type { ExplainResult } from '@teable/v2-command-explain';
+import type {
+  ComplexityAssessInput,
+  ComplexityAssessResult,
+  ExplainResult,
+} from '@teable/v2-command-explain';
 import type {
   ICreateFieldCommandInput,
   IDeleteFieldCommandInput,
@@ -80,5 +84,8 @@ export class CommandExplain extends Context.Tag('CommandExplain')<
     readonly explainUpdate: (input: ExplainUpdateInput) => Effect.Effect<ExplainResult, CliError>;
     readonly explainDelete: (input: ExplainDeleteInput) => Effect.Effect<ExplainResult, CliError>;
     readonly explainPaste: (input: ExplainPasteInput) => Effect.Effect<ExplainResult, CliError>;
+    readonly assessComplexity: (
+      input: ComplexityAssessInput
+    ) => Effect.Effect<ComplexityAssessResult, CliError>;
   }
 >() {}

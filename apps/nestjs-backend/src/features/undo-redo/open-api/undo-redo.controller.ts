@@ -9,6 +9,7 @@ import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { markUnsupportedV2FeatureFallback } from '../../canary/v2-attribution';
+import { getErrorLocalization } from '../../v2/v2-http-error';
 import {
   UndoRedoService,
   X_TEABLE_UNDO_REDO_ENGINE_HEADER,
@@ -164,6 +165,7 @@ export class UndoRedoController {
         this.sendUndoRedoSseEvent(response, event);
       }
     } catch (error) {
+      const localization = getErrorLocalization(error);
       this.sendUndoRedoSseEvent(response, {
         id: 'error',
         mode,
@@ -171,6 +173,7 @@ export class UndoRedoController {
         // A refused v1 replay surfaces here (the stream already answered 200):
         // keep the http error code so the client can tell a 403 from a failure.
         ...(error instanceof CustomHttpException ? { code: error.code } : {}),
+        ...(localization ? { localization } : {}),
       });
     } finally {
       clearInterval(heartbeat);

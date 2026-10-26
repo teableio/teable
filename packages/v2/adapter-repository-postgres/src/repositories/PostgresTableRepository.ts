@@ -1436,6 +1436,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           domainError.conflict({
             code: 'view.version_conflict',
             message: `View version conflict: ${viewId}`,
+            localization: { i18nKey: 'httpErrors.view.versionConflict' },
             details: {
               tableId,
               viewId,

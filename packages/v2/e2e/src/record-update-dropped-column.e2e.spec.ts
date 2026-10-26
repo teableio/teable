@@ -13,12 +13,14 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 
 /**
  * T7946: table schema writes and record writes coordinate through
- * transaction-scoped advisory locks on the shared meta pool.
+ * transaction-scoped advisory locks on a dedicated pool connected to meta.
  *
  * - An ordinary update holds a `shared` lease from before its metadata read
  *   until its commit, undo capture and events settle.
  * - Field deletion holds an `exclusive` lease from before its first metadata
  *   read until completion.
+ * - T8078: typecast alone does not change schema; existing options retain shared
+ *   concurrency, while missing options require exclusive and fresh metadata.
  *
  * Every race below uses real HTTP requests and real PostgreSQL locks; the test
  * observes blocked waiters through `pg_locks` instead of sleeping.
@@ -38,10 +40,12 @@ interface RaceFixture {
   tableId: string;
   recordId: string;
   secondRecordId: string;
+  thirdRecordId: string;
   statusFieldId: string;
   statusDbFieldName: string;
   sentinelFieldId: string;
   sentinelDbFieldName: string;
+  amountFieldId: string;
   initialVersion: number;
 }
 
@@ -139,6 +143,7 @@ const createRaceFixture = async (ctx: SharedTestContext, suffix: string): Promis
         },
       },
       { name: 'Sentinel', type: 'singleLineText' },
+      { name: 'Amount', type: 'number' },
     ],
     views: [{ type: 'grid' }],
   });
@@ -146,11 +151,13 @@ const createRaceFixture = async (ctx: SharedTestContext, suffix: string): Promis
   const primaryField = table.fields.find((field) => field.isPrimary);
   const statusField = table.fields.find((field) => field.name === 'Status');
   const sentinelField = table.fields.find((field) => field.name === 'Sentinel');
+  const amountField = table.fields.find((field) => field.name === 'Amount');
   expect(primaryField?.id).toBeTruthy();
   expect(statusField?.id).toBeTruthy();
   expect(statusField?.dbFieldName).toBeTruthy();
   expect(sentinelField?.id).toBeTruthy();
   expect(sentinelField?.dbFieldName).toBeTruthy();
+  expect(amountField?.id).toBeTruthy();
 
   // `Beta` already exists so the side-effect service does not auto-create an
   // option or update the table (which would take a write lease on its own).
@@ -164,6 +171,11 @@ const createRaceFixture = async (ctx: SharedTestContext, suffix: string): Promis
     [statusField!.id]: 'Alpha',
     [sentinelField!.id]: 'second-before',
   });
+  const thirdRecord = await ctx.createRecord(table.id, {
+    [primaryField!.id]: 'row-c',
+    [statusField!.id]: 'Alpha',
+    [sentinelField!.id]: 'third-before',
+  });
 
   const stored = await readStoredRecord(ctx, table.id, record.id, sentinelField!.dbFieldName!);
 
@@ -171,11 +183,13 @@ const createRaceFixture = async (ctx: SharedTestContext, suffix: string): Promis
     tableId: table.id,
     recordId: record.id,
     secondRecordId: secondRecord.id,
+    thirdRecordId: thirdRecord.id,
     statusFieldId: statusField!.id,
     statusDbFieldName: statusField!.dbFieldName!,
     sentinelFieldId: sentinelField!.id,
     sentinelDbFieldName: sentinelField!.dbFieldName!,
     initialVersion: stored.version,
+    amountFieldId: amountField!.id,
   };
 };
 
@@ -254,13 +268,35 @@ const submitUpdate = (
   ctx: SharedTestContext,
   tableId: string,
   recordId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  typecast?: boolean
 ): Promise<Response> =>
   fetch(`${ctx.baseUrl}/tables/updateRecord`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tableId, recordId, fields }),
+    body: JSON.stringify({ tableId, recordId, fields, typecast }),
   });
+
+const submitTypecastUpdate = (
+  ctx: SharedTestContext,
+  tableId: string,
+  recordId: string,
+  fields: Record<string, unknown>,
+  variant: 'single' | 'selector' | 'explicit'
+): Promise<Response> => {
+  if (variant === 'single') return submitUpdate(ctx, tableId, recordId, fields, true);
+  return fetch(`${ctx.baseUrl}/tables/updateRecords`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      tableId,
+      typecast: true,
+      ...(variant === 'explicit'
+        ? { records: [{ id: recordId, fields }] }
+        : { recordIds: [recordId], fields }),
+    }),
+  });
+};
 
 const submitDeleteField = (
   ctx: SharedTestContext,
@@ -291,107 +327,125 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
     ctx = await getSharedTestContext({ dbMode: 'postgres' });
   }, 60_000);
 
-  it('lets an in-flight update finish before deleting the field', async () => {
-    const fixture = await createRaceFixture(ctx, 'update-first');
-    const entered = createGate();
-    const release = createGate();
-    const removePlugin = addRecordPlugin(
-      ctx,
-      createUpdateGatePlugin({
-        name: `e2e-update-first-${Date.now()}`,
-        tableId: fixture.tableId,
-        recordId: fixture.recordId,
-        hook: 'guard',
-        entered,
-        gate: release,
-      })
-    );
-
-    let updatePromise: Promise<Response> | undefined;
-    let deletePromise: Promise<Response> | undefined;
-    try {
-      updatePromise = submitUpdate(ctx, fixture.tableId, fixture.recordId, {
-        [fixture.statusFieldId]: 'Beta',
-        [fixture.sentinelFieldId]: 'sentinel-after',
-      });
-      await entered.wait;
-
-      deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.statusFieldId);
-      await waitForSchemaWaiter(ctx);
-
-      release.open();
-      const [updateResponse, deleteResponse] = await Promise.all([updatePromise, deletePromise]);
-
-      expect(updateResponse.status).toBe(200);
-      const updateBody = (await updateResponse.json()) as { ok?: boolean };
-      expect(updateBody.ok).toBe(true);
-      expect(deleteResponse.status).toBe(200);
-
-      await waitForNoSchemaWaiter(ctx);
-      expect(await columnExists(ctx, fixture.tableId, fixture.statusDbFieldName)).toBe(false);
-      const freshTable = await ctx.getTableById(fixture.tableId);
-      expect(freshTable.fields.some((field) => field.id === fixture.statusFieldId)).toBe(false);
-
-      const stored = await readStoredRecord(
+  it.each([false, true])(
+    'lets an in-flight update finish before deleting the field (typecast=%s)',
+    async (typecast) => {
+      const fixture = await createRaceFixture(ctx, 'update-first');
+      const entered = createGate();
+      const release = createGate();
+      const removePlugin = addRecordPlugin(
         ctx,
-        fixture.tableId,
-        fixture.recordId,
-        fixture.sentinelDbFieldName
+        createUpdateGatePlugin({
+          name: `e2e-update-first-${Date.now()}`,
+          tableId: fixture.tableId,
+          recordId: fixture.recordId,
+          hook: 'guard',
+          entered,
+          gate: release,
+        })
       );
-      expect(stored.version).toBe(fixture.initialVersion + 1);
-      expect(stored.sentinel).toBe('sentinel-after');
-    } finally {
-      release.open();
-      removePlugin();
-      await Promise.allSettled([updatePromise, deletePromise]);
+
+      let updatePromise: Promise<Response> | undefined;
+      let deletePromise: Promise<Response> | undefined;
+      try {
+        updatePromise = submitUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.recordId,
+          {
+            [fixture.statusFieldId]: typecast ? 'Gamma' : 'Beta',
+            [fixture.sentinelFieldId]: 'sentinel-after',
+          },
+          typecast
+        );
+        await entered.wait;
+
+        deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.statusFieldId);
+        await waitForSchemaWaiter(ctx);
+
+        release.open();
+        const [updateResponse, deleteResponse] = await Promise.all([updatePromise, deletePromise]);
+
+        expect(updateResponse.status).toBe(200);
+        const updateBody = (await updateResponse.json()) as { ok?: boolean };
+        expect(updateBody.ok).toBe(true);
+        expect(deleteResponse.status).toBe(200);
+
+        await waitForNoSchemaWaiter(ctx);
+        expect(await columnExists(ctx, fixture.tableId, fixture.statusDbFieldName)).toBe(false);
+        const freshTable = await ctx.getTableById(fixture.tableId);
+        expect(freshTable.fields.some((field) => field.id === fixture.statusFieldId)).toBe(false);
+
+        const stored = await readStoredRecord(
+          ctx,
+          fixture.tableId,
+          fixture.recordId,
+          fixture.sentinelDbFieldName
+        );
+        expect(stored.version).toBe(fixture.initialVersion + 1);
+        expect(stored.sentinel).toBe('sentinel-after');
+      } finally {
+        release.open();
+        removePlugin();
+        await Promise.allSettled([updatePromise, deletePromise]);
+      }
     }
-  });
+  );
 
-  it('applies a delete first and rejects the waiting update on missing field', async () => {
-    const fixture = await createRaceFixture(ctx, 'delete-first');
-    const entered = createGate();
-    const release = createGate();
-    const removePlugin = addFieldPlugin(
-      ctx,
-      createDeleteGatePlugin({
-        name: `e2e-delete-first-${Date.now()}`,
-        tableId: fixture.tableId,
-        fieldId: fixture.statusFieldId,
-        entered,
-        gate: release,
-      })
-    );
+  it.each([false, true])(
+    'applies a delete first and rejects the waiting update on missing field (typecast=%s)',
+    async (typecast) => {
+      const fixture = await createRaceFixture(ctx, 'delete-first');
+      const entered = createGate();
+      const release = createGate();
+      const removePlugin = addFieldPlugin(
+        ctx,
+        createDeleteGatePlugin({
+          name: `e2e-delete-first-${Date.now()}`,
+          tableId: fixture.tableId,
+          fieldId: fixture.statusFieldId,
+          entered,
+          gate: release,
+        })
+      );
 
-    let deletePromise: Promise<Response> | undefined;
-    let updatePromise: Promise<Response> | undefined;
-    try {
-      deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.statusFieldId);
-      await entered.wait;
+      let deletePromise: Promise<Response> | undefined;
+      let updatePromise: Promise<Response> | undefined;
+      try {
+        deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.statusFieldId);
+        await entered.wait;
 
-      updatePromise = submitUpdate(ctx, fixture.tableId, fixture.recordId, {
-        [fixture.statusFieldId]: 'Beta',
-        [fixture.sentinelFieldId]: 'sentinel-after',
-      });
-      await waitForSchemaWaiter(ctx);
+        updatePromise = submitUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.recordId,
+          {
+            [fixture.statusFieldId]: typecast ? 'Gamma' : 'Beta',
+            [fixture.sentinelFieldId]: 'sentinel-after',
+          },
+          typecast
+        );
+        await waitForSchemaWaiter(ctx);
 
-      release.open();
-      const deleteResponse = await deletePromise;
-      expect(deleteResponse.status).toBe(200);
+        release.open();
+        const deleteResponse = await deletePromise;
+        expect(deleteResponse.status).toBe(200);
 
-      const updateResponse = await updatePromise;
-      const updateBody = (await updateResponse.json()) as UpdateRecordErrorBody;
-      expect(updateResponse.status).toBe(404);
-      expect(updateBody.ok).toBe(false);
-      expect(updateBody.error?.code).toBe('field.not_found');
-      expect(await columnExists(ctx, fixture.tableId, fixture.statusDbFieldName)).toBe(false);
+        const updateResponse = await updatePromise;
+        const updateBody = (await updateResponse.json()) as UpdateRecordErrorBody;
+        expect(updateResponse.status).toBe(404);
+        expect(updateBody.ok).toBe(false);
+        expect(updateBody.error?.code).toBe('field.not_found');
+        expect(await columnExists(ctx, fixture.tableId, fixture.statusDbFieldName)).toBe(false);
 
-      await expectRecordRolledBack(ctx, fixture);
-    } finally {
-      release.open();
-      removePlugin();
-      await Promise.allSettled([deletePromise, updatePromise]);
+        await expectRecordRolledBack(ctx, fixture);
+      } finally {
+        release.open();
+        removePlugin();
+        await Promise.allSettled([deletePromise, updatePromise]);
+      }
     }
-  });
+  );
 
   it('allows ordinary updates on different records to run concurrently', async () => {
     const fixture = await createRaceFixture(ctx, 'shared-shared');
@@ -447,6 +501,257 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
       release.open();
       removePlugin();
       await Promise.allSettled([firstPromise]);
+    }
+  });
+
+  it.each(['single', 'selector', 'explicit'] as const)(
+    '[T8078] allows ordinary typecast updates on different records to run concurrently (%s)',
+    async (variant) => {
+      const fixture = await createRaceFixture(ctx, 'typecast-shared');
+      const entered = createGate();
+      const release = createGate();
+      const removePlugin = addRecordPlugin(
+        ctx,
+        createUpdateGatePlugin({
+          name: `e2e-typecast-parallel-${Date.now()}`,
+          tableId: fixture.tableId,
+          recordId: fixture.recordId,
+          hook: 'guard',
+          entered,
+          gate: release,
+        })
+      );
+
+      let firstPromise: Promise<Response> | undefined;
+      let secondPromise: Promise<Response> | undefined;
+      try {
+        firstPromise = submitUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.recordId,
+          {
+            [fixture.statusFieldId]: 'Beta',
+            [fixture.sentinelFieldId]: 'first-after',
+            [fixture.amountFieldId]: '12',
+          },
+          true
+        );
+        await entered.wait;
+
+        let secondSettled = false;
+        secondPromise = submitTypecastUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.secondRecordId,
+          {
+            [fixture.statusFieldId]: 'Beta',
+            [fixture.sentinelFieldId]: 'second-after',
+            [fixture.amountFieldId]: '34',
+          },
+          variant
+        ).finally(() => {
+          secondSettled = true;
+        });
+
+        // Observe the real PostgreSQL waiter, not a wall-clock latency threshold.
+        // The second request must complete while the first still holds its lease.
+        await vi.waitFor(
+          async () => {
+            expect(secondSettled || (await countSchemaCoordinationWaiters(ctx)) > 0).toBe(true);
+          },
+          { timeout: 10_000, interval: 25 }
+        );
+        expect(
+          secondSettled,
+          'ordinary typecast update must not wait for an exclusive schema lease'
+        ).toBe(true);
+        expect((await secondPromise).status).toBe(200);
+
+        release.open();
+        expect((await firstPromise).status).toBe(200);
+        expect(
+          (
+            await readStoredRecord(
+              ctx,
+              fixture.tableId,
+              fixture.recordId,
+              fixture.sentinelDbFieldName
+            )
+          ).sentinel
+        ).toBe('first-after');
+        expect(
+          (
+            await readStoredRecord(
+              ctx,
+              fixture.tableId,
+              fixture.secondRecordId,
+              fixture.sentinelDbFieldName
+            )
+          ).sentinel
+        ).toBe('second-after');
+        const records = await ctx.listRecords(fixture.tableId);
+        expect(
+          records.find((record) => record.id === fixture.recordId)?.fields[fixture.amountFieldId]
+        ).toBe(12);
+        expect(
+          records.find((record) => record.id === fixture.secondRecordId)?.fields[
+            fixture.amountFieldId
+          ]
+        ).toBe(34);
+      } finally {
+        release.open();
+        removePlugin();
+        await Promise.allSettled([firstPromise, secondPromise]);
+      }
+    }
+  );
+
+  it.each([
+    { variant: 'single', option: 'Delta' },
+    { variant: 'selector', option: 'Delta' },
+    { variant: 'explicit', option: 'Delta' },
+    { variant: 'single', option: 'Gamma' },
+  ] as const)(
+    '[T8078] reloads select metadata before concurrent option creation ($variant/$option)',
+    async ({ variant, option }) => {
+      const fixture = await createRaceFixture(ctx, `typecast-options-${variant}`);
+      const entered = createGate();
+      const release = createGate();
+      const removePlugin = addRecordPlugin(
+        ctx,
+        createUpdateGatePlugin({
+          name: `e2e-typecast-options-${Date.now()}`,
+          tableId: fixture.tableId,
+          recordId: fixture.recordId,
+          hook: 'guard',
+          entered,
+          gate: release,
+        })
+      );
+      let firstPromise: Promise<Response> | undefined;
+      let secondPromise: Promise<Response> | undefined;
+      try {
+        firstPromise = submitUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.recordId,
+          { [fixture.statusFieldId]: 'Gamma' },
+          true
+        );
+        await entered.wait;
+        secondPromise = submitTypecastUpdate(
+          ctx,
+          fixture.tableId,
+          fixture.secondRecordId,
+          { [fixture.statusFieldId]: option },
+          variant
+        );
+        await waitForSchemaWaiter(ctx);
+        release.open();
+        expect((await firstPromise).status).toBe(200);
+        expect((await secondPromise).status).toBe(200);
+
+        const fresh = await ctx.getTableById(fixture.tableId);
+        const status = fresh.fields.find((field) => field.id === fixture.statusFieldId);
+        expect(status?.options).toMatchObject({
+          choices: expect.arrayContaining([
+            expect.objectContaining({ name: 'Alpha' }),
+            expect.objectContaining({ name: 'Beta' }),
+            expect.objectContaining({ name: 'Gamma' }),
+            expect.objectContaining({ name: option }),
+          ]),
+        });
+        expect(status?.options).toHaveProperty('choices.length', option === 'Gamma' ? 3 : 4);
+        const records = await ctx.listRecords(fixture.tableId);
+        expect(
+          records.find((record) => record.id === fixture.recordId)?.fields[fixture.statusFieldId]
+        ).toBe('Gamma');
+        expect(
+          records.find((record) => record.id === fixture.secondRecordId)?.fields[
+            fixture.statusFieldId
+          ]
+        ).toBe(option);
+        await waitForNoSchemaWaiter(ctx);
+      } finally {
+        release.open();
+        removePlugin();
+        await Promise.allSettled([firstPromise, secondPromise]);
+      }
+    }
+  );
+
+  it('[T8078] reloads metadata after the lease gap before creating the same option twice', async () => {
+    const fixture = await createRaceFixture(ctx, 'typecast-upgrade-gap');
+    const entered = createGate();
+    const release = createGate();
+    const removePlugin = addRecordPlugin(
+      ctx,
+      createUpdateGatePlugin({
+        name: `e2e-typecast-gap-${Date.now()}`,
+        tableId: fixture.tableId,
+        recordId: fixture.recordId,
+        hook: 'guard',
+        entered,
+        gate: release,
+      })
+    );
+    let holderPromise: Promise<Response> | undefined;
+    let firstWriterPromise: Promise<Response> | undefined;
+    let secondWriterPromise: Promise<Response> | undefined;
+    try {
+      // The holder keeps the shared lease so both option writers finish their
+      // metadata probe and queue for exclusive before either can commit.
+      holderPromise = submitUpdate(
+        ctx,
+        fixture.tableId,
+        fixture.recordId,
+        { [fixture.statusFieldId]: 'Beta' },
+        true
+      );
+      await entered.wait;
+
+      firstWriterPromise = submitTypecastUpdate(
+        ctx,
+        fixture.tableId,
+        fixture.secondRecordId,
+        { [fixture.statusFieldId]: 'Gamma' },
+        'single'
+      );
+      secondWriterPromise = submitTypecastUpdate(
+        ctx,
+        fixture.tableId,
+        fixture.thirdRecordId,
+        { [fixture.statusFieldId]: 'Gamma' },
+        'single'
+      );
+      await vi.waitFor(
+        async () => {
+          expect(await countSchemaCoordinationWaiters(ctx)).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 10_000, interval: 25 }
+      );
+
+      release.open();
+      expect((await holderPromise).status).toBe(200);
+      expect((await firstWriterPromise).status).toBe(200);
+      expect((await secondWriterPromise).status).toBe(200);
+
+      const fresh = await ctx.getTableById(fixture.tableId);
+      const status = fresh.fields.find((field) => field.id === fixture.statusFieldId);
+      expect(status?.options).toHaveProperty('choices.length', 3);
+      const records = await ctx.listRecords(fixture.tableId);
+      expect(
+        records.find((record) => record.id === fixture.secondRecordId)?.fields[
+          fixture.statusFieldId
+        ]
+      ).toBe('Gamma');
+      expect(
+        records.find((record) => record.id === fixture.thirdRecordId)?.fields[fixture.statusFieldId]
+      ).toBe('Gamma');
+    } finally {
+      release.open();
+      removePlugin();
+      await Promise.allSettled([holderPromise, firstWriterPromise, secondWriterPromise]);
     }
   });
 

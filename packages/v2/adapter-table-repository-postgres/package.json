@@ -27,6 +27,7 @@
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent --bail 1",
+    "test-pglite": "TEABLE_V2_TEST_DATABASE_URL=memory:// vitest run --bail 1 $(find src -name \"*.pglite.spec.ts\" | sort)",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "oxlint --fix && oxfmt"
   },

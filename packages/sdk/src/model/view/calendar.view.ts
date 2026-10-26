@@ -3,6 +3,7 @@ import { updateViewOptions } from '@teable/openapi';
 import { Mixin } from 'ts-mixer';
 import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';
+import { enqueueViewUpdate } from './view-update-queue';
 
 export class CalendarView extends Mixin(CalendarViewCore, View) {
   async updateOption({
@@ -11,8 +12,10 @@ export class CalendarView extends Mixin(CalendarViewCore, View) {
     titleFieldId,
     colorConfig,
   }: CalendarView['options']) {
-    return await requestWrap(updateViewOptions)(this.tableId, this.id, {
-      options: { startDateFieldId, endDateFieldId, titleFieldId, colorConfig },
-    });
+    return await enqueueViewUpdate(this.id, () =>
+      requestWrap(updateViewOptions)(this.tableId, this.id, {
+        options: { startDateFieldId, endDateFieldId, titleFieldId, colorConfig },
+      })
+    );
   }
 }

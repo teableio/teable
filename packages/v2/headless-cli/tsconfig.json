@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-headless-cli",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext", "dom"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": false,
+    "outDir": "dist",
+    "paths": {
+      "@teable/core": ["../../core/src"],
+      "@teable/v2-contract-http-client": ["../contract-http-client/dist/index.d.ts"],
+      "@teable/v2-contract-http-hono": ["../contract-http-hono/dist/index.d.ts"],
+      "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
+      "@teable/v2-headless-http": ["../headless-http/src"],
+      "@teable/v2-headless-runtime": ["../headless-runtime/src"],
+      "@teable/v2-local-attachments": ["../local-attachments/src"]
+    },
+    "types": ["vitest/globals", "node"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": ["src"]
+}

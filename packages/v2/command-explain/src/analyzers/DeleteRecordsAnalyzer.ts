@@ -55,6 +55,7 @@ import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
+import { collectSchemaComplexityProfile } from '../profile/collectSchemaComplexityProfile';
 
 type LinkCleanupStatement = {
   stepDescription: string;
@@ -483,6 +484,17 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
         computedLocks,
         sqlExplains,
         complexity,
+        schemaComplexityProfile: collectSchemaComplexityProfile({
+          tables: tableById ? [...tableById.values()] : [table],
+          graph: graphData ?? { fieldsById: new Map(), edges: [] },
+          ...(plan ? { plan } : {}),
+          operation: {
+            kind: 'delete',
+            tableId: commandInfo.tableId,
+            changedFieldIds: commandInfo.changedFieldIds ?? [],
+          },
+          completeness: 'partial',
+        }),
         timing: {
           totalMs: Date.now() - startTime,
           dependencyGraphMs,

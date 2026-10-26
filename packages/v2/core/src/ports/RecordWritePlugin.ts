@@ -29,6 +29,7 @@ export const RecordWriteOperationKind = {
   archiveMany: 'archiveMany',
   importAppend: 'importAppend',
   paste: 'paste',
+  upsertRecords: 'upsertRecords',
 } as const;
 
 export type RecordWriteOperationKind =
@@ -45,7 +46,8 @@ export const recordWriteOperationMayCreateRecords = (
     operation === RecordWriteOperationKind.duplicate ||
     operation === RecordWriteOperationKind.duplicateStream ||
     operation === RecordWriteOperationKind.importAppend ||
-    operation === RecordWriteOperationKind.paste
+    operation === RecordWriteOperationKind.paste ||
+    operation === RecordWriteOperationKind.upsertRecords
   );
 };
 
@@ -198,6 +200,20 @@ export type RecordWritePastePayload = {
   readonly recordCount: number;
 };
 
+/**
+ * Upsert writes both create and update rows in one operation: `recordsFieldValues`
+ * covers every requested row, so field/row scopes must be prepared for both
+ * branches. Only rows the matcher could not find are actually created.
+ */
+export type RecordWriteUpsertRecordsPayload = {
+  readonly recordsFieldValues: ReadonlyArray<RecordWriteFieldValues>;
+  readonly matchFieldId: string;
+  readonly onConflict: 'error' | 'ignore' | 'update';
+  readonly fieldKeyType: FieldKeyType;
+  readonly typecast: boolean;
+  readonly recordCount: number;
+};
+
 export type IRecordWriteCreateOneContext = IRecordWritePluginContextBase<
   'createOne',
   RecordWriteCreateOnePayload
@@ -251,6 +267,10 @@ export type IRecordWritePasteContext = IRecordWritePluginContextBase<
   'paste',
   RecordWritePastePayload
 >;
+export type IRecordWriteUpsertRecordsContext = IRecordWritePluginContextBase<
+  'upsertRecords',
+  RecordWriteUpsertRecordsPayload
+>;
 
 export type RecordWritePluginContextMap = {
   createOne: IRecordWriteCreateOneContext;
@@ -266,6 +286,7 @@ export type RecordWritePluginContextMap = {
   archiveMany: IRecordWriteArchiveManyContext;
   importAppend: IRecordWriteImportAppendContext;
   paste: IRecordWritePasteContext;
+  upsertRecords: IRecordWriteUpsertRecordsContext;
 };
 
 export type RecordWritePluginContext = RecordWritePluginContextMap[RecordWriteOperationKind];

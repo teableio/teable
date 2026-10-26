@@ -1,6 +1,7 @@
 export * from './get';
 export * from './get-list';
 export * from './create';
+export * from './upsert';
 export * from './update';
 export * from './update-records';
 export * from './delete';

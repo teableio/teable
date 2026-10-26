@@ -573,9 +573,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       const newVal = inputRef.current?.value ?? '';
       if (oldVal === newVal) return;
       const nodeId = item.getId();
-      curdHooks.updateNode(nodeId, {
-        name: newVal,
-      });
+      // The global mutation error handler shows the failure; keep it from going unhandled.
+      curdHooks.updateNode(nodeId, { name: newVal }).catch(() => undefined);
     };
     if (editingNodeId) {
       update(editingNodeId);
@@ -614,8 +613,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           <EmojiPicker
             className="flex size-full items-center justify-center hover:bg-muted-foreground/60"
             icon={icon}
-            onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
-            onRemove={() => curdHooks.updateNode(nodeId, { icon: null })}
+            onChange={(icon: string) =>
+              curdHooks.updateNode(nodeId, { icon }).catch(() => undefined)
+            }
+            onRemove={() => curdHooks.updateNode(nodeId, { icon: null }).catch(() => undefined)}
             disabled={!canUpdateTable}
           >
             {icon ? <Emoji emoji={icon} size="1rem" /> : <IconComponent className="size-full" />}
@@ -821,7 +822,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;
                               if (newVal && newVal !== item.getItemName()) {
-                                curdHooks.updateNode(nodeId, { name: newVal });
+                                curdHooks
+                                  .updateNode(nodeId, { name: newVal })
+                                  .catch(() => undefined);
                               }
                               setEditingNodeId(null);
                             } else if (e.key === 'Escape') {

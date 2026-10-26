@@ -23,10 +23,15 @@ const cli = Command.run(root, {
 // Run - Effect CLI expects full process.argv, it handles slicing internally
 const connectionString = getConnectionFromArgs(process.argv);
 const isDotteaInspect = process.argv.includes('dottea') && process.argv.includes('inspect');
+// Repro builds its own in-memory runtime; the Database layer would eagerly open
+// the default local connection even for a --structure-only run.
+const isRepro = process.argv.includes('repro');
 
 const appLayer = isDotteaInspect
   ? (await import('../src/layers/OutputLive')).OutputLive
-  : (await import('../src/layers/AppLayer')).FullLayer(connectionString);
+  : isRepro
+    ? (await import('../src/layers/ReproLayer')).ReproLayer
+    : (await import('../src/layers/AppLayer')).FullLayer(connectionString);
 
 const program = cli(process.argv).pipe(
   Effect.provide(appLayer),

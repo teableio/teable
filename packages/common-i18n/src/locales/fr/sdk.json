@@ -1046,28 +1046,33 @@
       "invalidPath": "Chemin de pièce jointe non valide",
       "fileSizeExceedsMaximumLimit": "La taille du fichier dépasse la limite maximale de {{maxSize}}",
       "invalidUploadType": "Type de téléchargement non valide",
-      "urlReject": "URL rejetée ou inaccessible"
+      "urlReject": "URL rejetée ou inaccessible",
+      "avatarTypeUnsupported": "Type de fichier non pris en charge. Seuls les formats JPEG, PNG et WebP sont autorisés."
     },
     "email": {
-      "testEmailError": "Erreur de configuration du courrier {{message}}"
+      "testEmailError": "Erreur de configuration du courrier {{message}}",
+      "transporterInvalid": "Configuration e-mail non valide : {{detail}}"
     },
     "auth": {
-      "invalidConfirm": "Invalid confirmation input",
-      "emailNotRegistered": "This email is not registered",
-      "passwordNotSet": "Password has not been set for this account",
-      "systemUser": "This is a system user account",
-      "alreadyRegistered": "This email is already registered",
-      "passwordIncorrect": "The password is incorrect",
-      "tokenInvalid": "The token is invalid or has expired",
-      "passwordAlreadyExists": "Password has already been set for this account",
-      "verificationCodeInvalid": "The verification code is invalid or has expired",
-      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
-      "emailAlreadyRegistered": "This email address is already registered",
-      "waitlistNotEnabled": "The waitlist feature is not enabled",
-      "emailOrPasswordIncorrect": "Email or password is incorrect",
-      "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "La connexion par mot de passe est désactivée"
+      "invalidConfirm": "Saisie de confirmation non valide",
+      "emailNotRegistered": "Cette adresse e-mail n'est pas enregistrée",
+      "passwordNotSet": "Aucun mot de passe n'a été défini pour ce compte",
+      "systemUser": "Il s'agit d'un compte utilisateur système",
+      "alreadyRegistered": "Cette adresse e-mail est déjà enregistrée",
+      "passwordIncorrect": "Le mot de passe est incorrect",
+      "tokenInvalid": "Le jeton n'est pas valide ou a expiré",
+      "passwordAlreadyExists": "Un mot de passe a déjà été défini pour ce compte",
+      "verificationCodeInvalid": "Le code de vérification n'est pas valide ou a expiré",
+      "newEmailSameAsCurrentEmail": "La nouvelle adresse e-mail est identique à l'adresse actuelle",
+      "emailAlreadyRegistered": "Cette adresse e-mail est déjà enregistrée",
+      "waitlistNotEnabled": "La liste d'attente n'est pas activée",
+      "emailOrPasswordIncorrect": "L'adresse e-mail ou le mot de passe est incorrect",
+      "accountDeactivated": "Ce compte a été désactivé par l'administrateur",
+      "accountLockedOut": "Votre compte a été verrouillé en raison de trop nombreuses tentatives de connexion échouées. Veuillez réessayer plus tard.",
+      "passwordLoginDisabled": "La connexion par mot de passe est désactivée",
+      "captchaFailed": "La vérification humaine a échoué. Actualisez la page et réessayez.",
+      "captchaServiceUnavailable": "Le service de vérification est temporairement indisponible. Veuillez réessayer.",
+      "mobileExchangeInvalid": "La demande de connexion n'est pas valide ou a expiré. Reconnectez-vous depuis l'application."
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
@@ -1115,7 +1120,16 @@
       "webhookTriggerNotFound": "Déclencheur webhook introuvable",
       "emailReceivedTriggerNotFound": "Déclencheur de réception d'e-mail introuvable",
       "emailConnectorNotAvailable": "Service de connecteur e-mail non disponible",
-      "listMailboxesFailed": "Échec de la récupération des boîtes mail : {{detail}}"
+      "listMailboxesFailed": "Échec de la récupération des boîtes mail : {{detail}}",
+      "codeUploadFailed": "Échec du téléversement du code compilé : {{detail}}",
+      "invalidInput": "Entrée non valide : {{detail}}",
+      "recordsRequired": "Des enregistrements sont requis",
+      "codeRequired": "Le code est requis et ne peut pas être vide",
+      "scriptCompileFailed": "Échec de la compilation du script : {{detail}}",
+      "scriptExecutionFailed": "Échec de l'exécution du script : {{detail}}",
+      "scriptTimeout": "Délai d'exécution du script dépassé (aucune réponse en {{timeout}}ms)",
+      "sandboxUnavailable": "Impossible de se connecter au serveur sandbox. Vérifiez qu'il est en cours d'exécution.",
+      "sandboxError": "Erreur du serveur sandbox : {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "Le service de scraping n'est pas configuré",
@@ -1125,10 +1139,11 @@
       "runOverLimit": "Ce scraping peut coûter jusqu'à {{maxCredits}} crédits, au-delà de la limite de {{limit}} crédits par exécution."
     },
     "integration": {
-      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
-      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
-      "providerUnsupported": "Les connexions {{provider}} ne sont plus prises en charge et ne peuvent pas être accordées"
+      "oauthCodeExchangeFailed": "Échec de l'échange du code OAuth : {{detail}}",
+      "oauthTokenRefreshFailed": "Échec de l'actualisation du jeton OAuth : {{detail}}",
+      "userInfoFetchFailed": "Échec de la récupération des informations utilisateur : {{detail}}",
+      "providerUnsupported": "Les connexions {{provider}} ne sont plus prises en charge et ne peuvent pas être accordées",
+      "callbackFailed": "Échec du traitement du rappel d'autorisation : {{detail}}"
     },
     "space": {
       "notFound": "Espace non trouvé",
@@ -1136,19 +1151,23 @@
       "disallowSpaceCreation": "La création d'espaces a été désactivée par l'administrateur",
       "cannotChangeOnlyOwnerRole": "Impossible de modifier le rôle du seul propriétaire de l'espace",
       "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace",
-      "deleted": "Space has been deleted",
+      "deleted": "L'espace a été supprimé",
       "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
       "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
       "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}",
-      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+      "freeOwnedSpaceLimitExceeded": "Vous avez atteint le nombre maximal d'espaces gratuits que vous pouvez posséder ({{max}}). Passez un espace existant à une offre supérieure ou supprimez-en un pour créer un nouvel espace gratuit.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} a atteint le nombre maximal d'espaces gratuits qu'il peut posséder ({{max}}).",
+      "dataDbTargetError": "Erreur de la base de données cible : {{detail}}",
+      "migrationUnavailableCrossSpace": "La migration de base de données par espace n'est pas disponible tant que les références inter-espaces sont activées"
     },
     "base": {
       "notFound": "Projet non trouvé",
       "cannotAccess": "Vous n'avez pas la permission d'accéder au projet {{baseId}}",
       "anchorNotFound": "Projet d'ancrage {{anchorId}} non trouvé",
       "baseAndSpaceMismatch": "Le projet {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
-      "templateNotFound": "Modèle {{templateId}} non trouvé"
+      "templateNotFound": "Modèle {{templateId}} non trouvé",
+      "crossDataDbDuplicateUnsupported": "La duplication d'enregistrements entre des espaces utilisant des bases de données différentes n'est pas encore prise en charge",
+      "moveJobNotCancellable": "La tâche de déplacement ne peut pas être annulée à l'état {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "ID de projet requis",
@@ -1188,7 +1207,8 @@
       "notFound": "Conversation introuvable",
       "accessDenied": "Vous n'êtes pas autorisé à accéder à cette conversation",
       "archived": "La conversation est archivée",
-      "serverAuthoredType": "Les conversations de type {{type}} sont créées par le serveur"
+      "serverAuthoredType": "Les conversations de type {{type}} sont créées par le serveur",
+      "messageTooLong": "Le message est trop long ({{length}} caractères, maximum {{max}})"
     },
     "dashboard": {
       "notFound": "Tableau de bord non trouvé"
@@ -1295,7 +1315,12 @@
       "exceedMaxReadRows": "Limite maximale de lignes à lire dépassée",
       "invalidCellValueType": "Type de valeur de cellule invalide",
       "exceedMaxCopyCells": "Limite maximale de cellules à copier dépassée",
-      "exceedMaxPasteCells": "Limite maximale de cellules à coller dépassée"
+      "exceedMaxPasteCells": "Limite maximale de cellules à coller dépassée",
+      "linkAutoCreateSelfLinkUnsupported": "Impossible de créer automatiquement des enregistrements liés lors du collage pour un champ de lien qui pointe vers sa propre table. Collez plutôt les titres d'enregistrements existants.",
+      "linkAutoCreateRequiresPrimaryLookup": "Impossible de créer automatiquement des enregistrements liés lors du collage, car ce champ de lien affiche un champ non principal de la table liée.",
+      "linkAutoCreateRequiresTextPrimary": "Impossible de créer automatiquement des enregistrements liés lors du collage, car le champ principal de la table liée n'est pas une valeur texte unique.",
+      "linkAutoCreateComputedPrimaryUnsupported": "Impossible de créer automatiquement des enregistrements liés lors du collage, car le champ principal de la table liée est un champ calculé.",
+      "linkAutoCreateMissingRequiredFields": "Impossible de créer automatiquement des enregistrements liés lors du collage, car la table liée contient des champs obligatoires sans valeur par défaut : {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "Type de champ non pris en charge {{type}}",
@@ -1362,7 +1387,21 @@
         "notSupportReset": "Le champ de bouton ne prend pas en charge la réinitialisation"
       },
       "primaryCannotBeLookup": "Le champ principal ne peut pas être configuré comme un champ Lookup",
-      "primaryFieldAlreadyExists": "La table a déjà un champ principal"
+      "primaryFieldAlreadyExists": "La table a déjà un champ principal",
+      "nameRequired": "Le nom du champ ne peut pas être vide",
+      "rollupFormattingMismatch": "La mise en forme du résumé ne correspond pas à son type de résultat. Veuillez resélectionner la mise en forme et réessayer.",
+      "conditionalRollupFormattingMismatch": "La mise en forme ne correspond pas au type de résultat du résumé conditionnel. Veuillez resélectionner la mise en forme et réessayer.",
+      "conditionalRollupLookupFieldUnavailable": "Impossible de déterminer le type de résultat de ce résumé conditionnel, car le champ résumé ou sa table n'est pas disponible. Veuillez le resélectionner.",
+      "selectDefaultValueNotInChoices": "La valeur par défaut \"{{value}}\" ne fait pas partie des choix. Veuillez resélectionner la valeur par défaut.",
+      "timeZoneInvalid": "Fuseau horaire non pris en charge : {{timeZone}}. Veuillez choisir un autre fuseau horaire.",
+      "formulaCompileFailed": "Cette formule ne peut pas être calculée. Veuillez la simplifier ou vérifier les champs référencés.",
+      "formulaParamTextNotAllowed": "{{func}} n'accepte pas de valeur texte comme paramètre {{index}}. Vérifiez les types des champs référencés.",
+      "formulaParamNumberOrDateRequired": "{{func}} n'accepte qu'un nombre ou une date comme paramètre {{index}}. Vérifiez les types des champs référencés.",
+      "formulaParamTextRequired": "{{func}} n'accepte qu'une valeur texte comme paramètre {{index}}. Vérifiez les types des champs référencés.",
+      "linkTitleFillLimitExceeded": "Une cellule de lien peut contenir au maximum {{max}} enregistrements par écriture",
+      "buttonClickConflict": "Le bouton a été modifié par une autre requête. Veuillez cliquer à nouveau.",
+      "buttonUndoConflict": "Le bouton a changé pendant l'annulation ou le rétablissement. Veuillez réessayer.",
+      "linkTitlePrimaryNotText": "Impossible de faire correspondre les enregistrements liés par texte, car le champ principal de la table liée n'est pas une valeur texte unique."
     },
     "view": {
       "notFound": "Vue introuvable",
@@ -1379,7 +1418,11 @@
       "notEnoughGapToShuffleRow": "Pas assez d'espace pour mélanger la ligne",
       "shareNotEnabled": "Le partage de vue n'est pas activé",
       "shareAlreadyEnabled": "Le partage de vue est déjà activé",
-      "shareAlreadyDisabled": "Le partage de vue est déjà désactivé"
+      "shareAlreadyDisabled": "Le partage de vue est déjà désactivé",
+      "versionConflict": "Cette vue vient d'être modifiée par une autre opération. Veuillez actualiser et réessayer.",
+      "nameAlreadyExists": "Une vue nommée {{name}} existe déjà dans cette table",
+      "manualSortUnsupportedViewType": "Le tri manuel n'est pris en charge que dans les vues en grille",
+      "formRequiredFieldsMissing": "Veuillez remplir tous les champs obligatoires avant de soumettre"
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant",
@@ -1393,7 +1436,11 @@
       "planNotAvailable": "Ce forfait n'est plus disponible pour les nouveaux abonnements.",
       "seatLimitExceeded": "Sièges achetés insuffisants. Ajoutez des sièges pour inviter plus de collaborateurs.",
       "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace.",
-      "creditAddOnRetired": "L'extension de crédits récurrente a été retirée. Choisissez plutôt un palier de crédits supérieur dans votre forfait."
+      "creditAddOnRetired": "L'extension de crédits récurrente a été retirée. Choisissez plutôt un palier de crédits supérieur dans votre forfait.",
+      "trialUsed": "La période d'essai a déjà été utilisée",
+      "subscriptionPaused": "Votre abonnement est suspendu. Contactez le support pour le reprendre ou l'annuler avant de souscrire un nouvel abonnement.",
+      "noSubscriptionToRevert": "Aucun abonnement Stripe à rétablir",
+      "portalUnavailable": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer plus tard."
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",
@@ -1428,7 +1475,9 @@
       "validateActionFailed": "Échec de la validation de l'action IA du champ",
       "generateFailed": "Échec de la génération IA",
       "unsupportedActionType": "Type d'action IA non pris en charge",
-      "geminiImageNotSupportedViaGateway": "La génération d’images Gemini n’est pas prise en charge via AI Gateway. Veuillez configurer un fournisseur Google direct."
+      "geminiImageNotSupportedViaGateway": "La génération d’images Gemini n’est pas prise en charge via AI Gateway. Veuillez configurer un fournisseur Google direct.",
+      "requestFailed": "Échec de la requête IA : {{detail}}",
+      "imageTestUnsupportedForGateway": "Le test de génération d'images n'est pas encore pris en charge pour les modèles AI Gateway"
     },
     "skill": {
       "notFound": "Compétence introuvable",
@@ -1491,7 +1540,9 @@
       "notSupportTableIndex": "Le type d'index de table n'est pas pris en charge",
       "createTableIndexError": "Échec de la création de l'index de table",
       "dropTableIndexError": "Échec de la suppression de l'index de table",
-      "notFoundPrimaryField": "Champ primaire non trouvé dans la table"
+      "notFoundPrimaryField": "Champ primaire non trouvé dans la table",
+      "duplicateCrossSpaceField": "Cette table contient des champs inter-espaces et ne peut pas être dupliquée",
+      "nameRequired": "Le nom de la table ne peut pas être vide"
     },
     "export": {
       "notSupportViewType": "Le type de vue {{viewType}} n'est pas pris en charge pour l'exportation"
@@ -1500,7 +1551,14 @@
       "notSupportedFileFormat": "Format de fichier non pris en charge, seuls {{supportType}} sont pris en charge, le type de contenu de votre fichier est {{fileFormat}}",
       "notSupportedFileType": "Type de fichier d'importation non pris en charge",
       "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "Trop de tâches d'importation en cours ({{current}}/{{max}}). Veuillez réessayer plus tard.",
+      "failed": "Échec de l'importation : {{detail}}",
+      "noImportableData": "Aucune donnée importable trouvée dans les onglets sélectionnés",
+      "csvParseError": "Erreur d'analyse CSV à la ligne {{row}} : {{detail}}",
+      "csvNoColumns": "Le fichier CSV ne contient aucune colonne à importer",
+      "excelSheetNoColumns": "La feuille de calcul ne contient aucune colonne à importer",
+      "columnIndexOutOfRange": "La colonne {{index}} est hors limites. La ligne d'en-tête ne contient que {{count}} colonnes.",
+      "invalidDotteaStructure": "La structure du fichier .tea n'est pas valide ou n'est pas prise en charge. Veuillez exporter à nouveau le projet et réessayer."
     },
     "invitation": {
       "disallowSpaceInvitation": "L'instance actuelle interdit les invitations d'espace par l'administrateur",
@@ -1522,7 +1580,8 @@
       "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car son projet ou son espace parent est également dans la corbeille",
       "parentBaseTrashed": "Impossible de restaurer cet élément car son projet parent est également dans la corbeille",
       "parentNotFound": "Ressource parente non trouvée",
-      "tableNotFound": "Élément de corbeille de table introuvable"
+      "tableNotFound": "Élément de corbeille de table introuvable",
+      "restoreFieldInvalidSnapshot": "La configuration du champ supprimé n'est pas valide et ne peut pas être restaurée."
     },
     "license": {
       "invalid": "La licence n'est pas valide",
@@ -1546,7 +1605,9 @@
       "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace"
     },
     "mail": {
-      "failedToSendEmail": "Échec de l'envoi de l'e-mail"
+      "failedToSendEmail": "Échec de l'envoi de l'e-mail",
+      "recipientRequired": "\"to\" ou \"bcc\" doit contenir au moins une adresse e-mail de destinataire valide",
+      "allUnsubscribed": "Tous les destinataires se sont désabonnés. Vérifiez la liste de désabonnement."
     },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
@@ -1574,7 +1635,9 @@
       "updateFailed": "Échec de la mise à jour de l'enregistrement",
       "noFileOrUrlProvided": "Aucun fichier ou URL fourni",
       "createRecordsEmpty": "La création d'enregistrements ne peut pas être vide",
-      "duplicateFailed": "Échec de la duplication de l'enregistrement"
+      "duplicateFailed": "Échec de la duplication de l'enregistrement",
+      "linkedRecordNotExist": "Impossible d'enregistrer : un enregistrement lié n'existe plus. Veuillez actualiser et réessayer.",
+      "fieldValueInvalid": "Valeur non valide pour le champ \"{{fieldName}}\""
     },
     "typecast": {
       "cellValueValidationFailed": "Échec de la validation de la valeur de cellule"
@@ -1619,7 +1682,32 @@
       "siteInfoBeforeGeneration": "Générez l’application avant de personnaliser les informations de son site",
       "generationEditingConflict": "Une génération par IA modifie actuellement cette application. Réessayez la mise à jour du fichier une fois terminée.",
       "siteInfoLayoutNotEditable": "Le code de cette application ne permet pas de modifier ici les informations du site. Demandez plutôt à l’IA, par message, de changer le titre, la description ou l’icône du site.",
-      "siteInfoManagedInCode": "Cette application gère le titre et la description du site dans le code. Demandez plutôt à l’IA, par message, de les modifier."
+      "siteInfoManagedInCode": "Cette application gère le titre et la description du site dans le code. Demandez plutôt à l’IA, par message, de les modifier.",
+      "accessLinkSetupFailed": "Échec de la configuration du lien d'accès : {{detail}}",
+      "zipNotAppProject": "Le ZIP importé n'est pas un projet d'application valide : package.json est absent à la racine du projet",
+      "zipExceedsLimits": "Le ZIP importé dépasse les limites de l'archive d'application ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "Le service e-mail n'est pas configuré, impossible d'envoyer un code",
+        "googleNotConfigured": "Les identifiants de connexion Google ne sont pas configurés",
+        "loginDisabled": "La connexion n'est pas activée pour cette application",
+        "googleDisabled": "La connexion Google n'est pas activée pour cette application",
+        "teableDisabled": "La connexion Teable n'est pas activée pour cette application",
+        "userTableMissing": "La table des utilisateurs sélectionnée n'existe pas dans ce projet",
+        "emailFieldMissing": "La table des utilisateurs sélectionnée n'a pas de champ e-mail",
+        "emailFieldType": "Le champ e-mail doit être un champ de texte sur une seule ligne modifiable",
+        "signInStateInvalid": "La session de connexion n'est pas valide ou a expiré. Veuillez vous reconnecter.",
+        "domainNotAllowed": "L'inscription est limitée à certains domaines e-mail. Votre domaine e-mail ne figure pas dans la liste autorisée.",
+        "inviteOnly": "Cette application est accessible uniquement sur invitation. Contactez l'administrateur de l'application pour demander l'accès.",
+        "emailMissing": "Impossible de récupérer votre adresse e-mail"
+      },
+      "previewOriginNotReady": "L'application d'aperçu n'est pas prête. Rechargez l'aperçu et réessayez.",
+      "publishedOriginNotReady": "L'application publiée n'est pas prête. Publiez l'application et réessayez.",
+      "versionSourceMissing": "Aucun fichier source trouvé pour la version {{version}}",
+      "accessLink": {
+        "dnsMisconfigured": "Échec de la configuration du lien d'accès : le DNS du domaine n'est pas configuré correctement"
+      },
+      "customDomainNotConfigured": "Aucun domaine personnalisé configuré",
+      "vercelTokenNotConfigured": "Le jeton Vercel n'est pas configuré dans les paramètres d'App Builder"
     },
     "reward": {
       "notFound": "Récompense non trouvée",
@@ -1647,6 +1735,49 @@
     "connectorEvent": {
       "accountNotGranted": "Le déclencheur d'événement du connecteur a besoin d'un compte connecté autorisé pour cette ressource",
       "notEnabled": "Les événements du connecteur ne sont pas activés sur ce déploiement"
+    },
+    "requestFailed": "Échec de la requête",
+    "operationFailed": "Échec de l'opération : {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "L'opérateur {{operator}} ne permet pas de comparer avec un autre champ"
+    },
+    "oauth": {
+      "invalidRequest": "Requête OAuth non valide : {{detail}}",
+      "deviceCodeUsed": "Ce code a déjà été utilisé. Obtenez-en un nouveau sur votre appareil."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "Paramètre non valide : {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "API Key AI Proxy introuvable"
+    },
+    "github": {
+      "linkStateInvalid": "L'état de liaison GitHub n'est pas valide ou a expiré",
+      "accountMismatch": "GitHub vous a autorisé en tant que {{authorizedLogin}}, mais la connexion sélectionnée appartient à {{accountLogin}}. Connectez-vous à GitHub en tant que {{accountLogin}} et réessayez.",
+      "registryNotConfigured": "La synchronisation GitHub nécessite le git registry, qui n'est pas configuré sur ce déploiement",
+      "repoNameInvalid": "Les noms de dépôt ne peuvent contenir que des lettres, des chiffres, \".\", \"-\" et \"_\"",
+      "installStateInvalid": "L'état d'installation GitHub n'est pas valide ou a expiré",
+      "installationIdInvalid": "ID d'installation non valide"
+    },
+    "im": {
+      "feishuNotConfigured": "Les identifiants de l'application Feishu ne sont pas configurés",
+      "slackNotConfigured": "Slack n'est pas configuré. Un administrateur doit configurer l'application Slack dans les paramètres d'intégration IM."
+    },
+    "tableProvisionPending": "La structure de la table est en cours de mise à jour. Veuillez réessayer dans un instant.",
+    "computed": {
+      "pausedWriteBlocked": "Les calculs sont suspendus pour maintenance, cette modification ne peut donc pas être enregistrée pour le moment. Veuillez réessayer plus tard."
+    },
+    "undoRedo": {
+      "inProgress": "Une annulation ou un rétablissement est encore en cours. Veuillez patienter un instant et réessayer.",
+      "busy": "L'annulation et le rétablissement sont occupés pour le moment. Veuillez réessayer.",
+      "unsupportedCommandVersion": "Cette opération a été enregistrée par une ancienne version et ne peut plus être annulée ni rétablie."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "Cette table a déjà une tâche d'indexation en cours ({{taskId}}). Veuillez attendre qu'elle se termine et réessayer."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "La table liée n'existe plus, ce lien ne peut donc pas être réparé automatiquement."
     }
   },
   "usageLimitBanner": {

@@ -462,14 +462,20 @@ const initSharedContext = async (
 
   const app = express();
   const selectOptionAutoCreatePolicy = new AsyncLocalStorage<boolean>();
+  const requestIdStore = new AsyncLocalStorage<string>();
   app.use((req, _res, next) => {
     const header = req.headers['x-teable-allow-select-option-auto-create'];
     const raw = Array.isArray(header) ? header[0] : header;
+    const requestIdHeader = req.headers['x-request-id'];
+    const requestId = Array.isArray(requestIdHeader) ? requestIdHeader[0] : requestIdHeader;
+    const withRequestId = requestId
+      ? () => requestIdStore.run(requestId, () => next())
+      : () => next();
     if (raw === 'false' || raw === 'true') {
-      selectOptionAutoCreatePolicy.run(raw === 'true', () => next());
+      selectOptionAutoCreatePolicy.run(raw === 'true', withRequestId);
       return;
     }
-    next();
+    withRequestId();
   });
   await time('register-router', async () => {
     app.use(
@@ -477,9 +483,11 @@ const initSharedContext = async (
         createContainer: () => testContainer.container,
         createExecutionContext: () => {
           const allowSelectOptionAutoCreate = selectOptionAutoCreatePolicy.getStore();
+          const requestId = requestIdStore.getStore();
           return {
             actorId,
             windowId: 'e2e-window',
+            ...(requestId === undefined ? {} : { requestId }),
             ...(allowSelectOptionAutoCreate === undefined
               ? {}
               : { config: { allowSelectOptionAutoCreate } }),

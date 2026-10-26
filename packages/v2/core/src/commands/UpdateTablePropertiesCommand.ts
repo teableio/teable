@@ -44,6 +44,14 @@ export class UpdateTablePropertiesCommand extends TableUpdateCommand {
         domainError.validation({
           message: 'Invalid UpdateTablePropertiesCommand input',
           details: { issues: parsed.error.issues },
+          ...(parsed.error.issues.some(
+            (issue) => issue.path[0] === 'description' && issue.code === 'too_big'
+          ) && {
+            localization: {
+              i18nKey: 'httpErrors.limit.descriptionMaxLength',
+              context: { max: DEFAULT_TABLE_DATA_SAFETY_LIMITS.displayText.maxDescriptionLength },
+            },
+          }),
         })
       );
     }

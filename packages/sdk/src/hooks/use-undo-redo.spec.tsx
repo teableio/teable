@@ -85,4 +85,36 @@ describe('useUndoRedo', () => {
       mockToast.mock.invocationCallOrder[0]
     );
   });
+
+  it('shows the translated reason when a failed undo carries localization', async () => {
+    mockUndoStream.mockResolvedValue({
+      data: {
+        status: 'failed',
+        errorMessage: 'Invalid TableName',
+        errorLocalization: { i18nKey: 'httpErrors.table.nameRequired' },
+      },
+    });
+
+    const { result } = renderHook(() => useUndoRedo(), { wrapper: createWrapper('tblTest') });
+
+    await result.current.undo();
+
+    expect(mockToast.error).toHaveBeenCalledWith('Undo failed: Table name cannot be empty', {
+      id: 'loading-toast-id',
+    });
+  });
+
+  it('falls back to the raw message when a failed redo carries no localization', async () => {
+    mockRedoStream.mockResolvedValue({
+      data: { status: 'failed', errorMessage: 'Replay conflict' },
+    });
+
+    const { result } = renderHook(() => useUndoRedo(), { wrapper: createWrapper('tblTest') });
+
+    await result.current.redo();
+
+    expect(mockToast.error).toHaveBeenCalledWith('Redo failed: Replay conflict', {
+      id: 'loading-toast-id',
+    });
+  });
 });

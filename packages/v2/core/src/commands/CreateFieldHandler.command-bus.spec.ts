@@ -26,6 +26,7 @@ import {
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 const buildFieldSpec = (build: (builder: FieldSpecBuilder) => FieldSpecBuilder) =>
@@ -48,6 +49,8 @@ const getFieldById = (table: CreateFieldResult['table'], id: string) => {
 };
 
 describe('CreateFieldHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('creates all field types with configured options', async () => {
     const { container, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

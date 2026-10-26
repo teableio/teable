@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FieldKeyType } from '@teable/core';
+import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   createRecordsRoSchema,
@@ -29,6 +29,7 @@ import {
   formSubmitRoSchema,
   optionalRecordOrderSchema,
   insertAttachmentRoSchema,
+  upsertRecordsRoSchema,
 } from '@teable/openapi';
 import type {
   IAutoFillCellVo,
@@ -48,9 +49,14 @@ import type {
   IUpdateRecordRo,
   IUpdateRecordsRo,
   IFormSubmitRo,
+  IUpsertRecordsRo,
+  IUpsertRecordsVo,
   IInsertAttachmentRo,
 } from '@teable/openapi';
+import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
+import { domainError } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
 import { PerformanceCacheService } from '../../../performance-cache';
@@ -60,11 +66,13 @@ import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { PermissionService } from '../../auth/permission.service';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { InteractiveQueryCancellation } from '../../v2/interactive-query-cancellation.interceptor';
+import { throwV2Error } from '../../v2/v2-http-error';
 import { RecordService } from '../record.service';
 import { ShareViewScopeService } from '../share-view-scope.service';
 import { AccessTokenTakeLimitPipe } from './access-token-take-limit.pipe';
@@ -72,6 +80,7 @@ import { FieldKeyPipe } from './field-key.pipe';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
+import { upsertRequiredPermissions } from './upsert-permissions';
 
 @UseGuards(V2FeatureGuard)
 @UseInterceptors(V2IndicatorInterceptor)
@@ -89,7 +98,8 @@ export class RecordOpenApiController {
     // assertXxx from its own write methods — subclass methods bypass the
     // community implementations, so scope enforcement must be reachable.
     protected readonly shareViewScopeService: ShareViewScopeService,
-    protected readonly spaceDataDbMigrationGuardService: SpaceDataDbMigrationGuardService
+    protected readonly spaceDataDbMigrationGuardService: SpaceDataDbMigrationGuardService,
+    protected readonly permissionService: PermissionService
   ) {}
 
   @UseV2Feature('getRecordHistory')
@@ -316,6 +326,79 @@ export class RecordOpenApiController {
       createRecordsRo,
       undefined,
       isAiInternal
+    );
+  }
+
+  // v2-only: there is no v1 upsert, so a disabled canary fails closed instead of
+  // silently degrading to the strict create route.
+  @UseV2Feature('createRecord')
+  @Permissions('record|create')
+  @Post('upsert')
+  async upsertRecords(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(upsertRecordsRoSchema)) upsertRecordsRo: IUpsertRecordsRo,
+    @Headers('x-ai-internal') isAiInternal?: string
+  ): Promise<IUpsertRecordsVo> {
+    await this.assertUpsertAccess(tableId, upsertRecordsRo);
+    return this.recordOpenApiV2Service.upsertRecords(tableId, upsertRecordsRo, isAiInternal);
+  }
+
+  protected assertV2UpsertEnabled(): void {
+    if (this.cls.get('useV2')) {
+      return;
+    }
+    const error = domainError.validation({
+      code: 'record.upsert.v2_required',
+      message: 'Record upsert requires the v2 engine for this table',
+    });
+    throwV2Error(mapDomainErrorToHttpError(error), mapDomainErrorToHttpStatus(error));
+  }
+
+  /**
+   * v2 gate + write permissions. Both the community route and the EE override
+   * call this before touching the database.
+   */
+  protected async assertUpsertAccess(
+    tableId: string,
+    upsertRecordsRo: IUpsertRecordsRo
+  ): Promise<void> {
+    this.assertV2UpsertEnabled();
+
+    // The match runs against the physical unique index with no share-view row
+    // filter or field masks, and ignore/update return matched stored rows. Until
+    // that scope is threaded through the matcher, share-view upsert fails closed
+    // instead of leaking rows the share filter or field set hides.
+    if (this.cls.get('shareViewId')) {
+      throw new CustomHttpException(
+        'Record upsert is not available through a share view',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' } }
+      );
+    }
+
+    await this.assertUpsertPermissions(tableId, upsertRecordsRo.onConflict);
+  }
+
+  /**
+   * `error` only inserts, so create is enough. `ignore`/`update` also write matched
+   * rows, so both actions are required before any transaction starts.
+   */
+  protected async assertUpsertPermissions(
+    tableId: string,
+    onConflict: IUpsertRecordsRo['onConflict']
+  ): Promise<void> {
+    // Fail closed: a DI regression must not widen access to updates.
+    if (!this.permissionService) {
+      throw new CustomHttpException(
+        'Permission service is unavailable for record upsert',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' } }
+      );
+    }
+    await this.permissionService.validPermissions(
+      tableId,
+      [...upsertRequiredPermissions(onConflict)],
+      this.cls.get('accessTokenId')
     );
   }
 

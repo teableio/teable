@@ -24,6 +24,10 @@ const validateOnlyNumber = (fnName: FunctionName, params: TypedValue[]) => {
       return err(
         domainError.validation({
           message: `${fnName} can't process string type param at ${index + 1}`,
+          localization: {
+            i18nKey: 'httpErrors.field.formulaParamTextNotAllowed',
+            context: { func: fnName, index: index + 1 },
+          },
         })
       );
     }
@@ -80,6 +84,10 @@ export class Max extends NumericFunc {
         return err(
           domainError.validation({
             message: `${FunctionName.Max} can only process number or datetime type param at ${index + 1}`,
+            localization: {
+              i18nKey: 'httpErrors.field.formulaParamNumberOrDateRequired',
+              context: { func: FunctionName.Max, index: index + 1 },
+            },
           })
         );
       }
@@ -110,6 +118,10 @@ export class Min extends NumericFunc {
         return err(
           domainError.validation({
             message: `${FunctionName.Min} can only process number or datetime type param at ${index + 1}`,
+            localization: {
+              i18nKey: 'httpErrors.field.formulaParamNumberOrDateRequired',
+              context: { func: FunctionName.Min, index: index + 1 },
+            },
           })
         );
       }
@@ -391,6 +403,10 @@ export class Value extends NumericFunc {
         return err(
           domainError.validation({
             message: `${FunctionName.Value} can't process string type param at ${index + 1}`,
+            localization: {
+              i18nKey: 'httpErrors.field.formulaParamTextRequired',
+              context: { func: FunctionName.Value, index: index + 1 },
+            },
           })
         );
       }

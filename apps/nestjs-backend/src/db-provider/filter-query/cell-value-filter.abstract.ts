@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  InternalServerErrorException,
-  NotImplementedException,
-} from '@nestjs/common';
+import { InternalServerErrorException, NotImplementedException } from '@nestjs/common';
 import {
   CellValueType,
   contains,
@@ -13,6 +9,7 @@ import {
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
+  HttpErrorCode,
   isNotExactly,
   is,
   isAfter,
@@ -46,21 +43,20 @@ import type {
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
+import { CustomHttpException } from '../../custom.exception';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import type { IDbProvider } from '../db.provider.interface';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
-export class FieldReferenceCompatibilityException extends BadRequestException {
+export class FieldReferenceCompatibilityException extends CustomHttpException {
   static readonly CODE = 'FIELD_REFERENCE_INCOMPATIBLE';
 
   constructor(sourceField: string, referenceField: string) {
-    super({
-      errorCode: FieldReferenceCompatibilityException.CODE,
-      message: `Field '${referenceField}' is not compatible with '${sourceField}' for filter comparisons`,
-      sourceField,
-      referenceField,
-    });
+    super(
+      `Field '${referenceField}' is not compatible with '${sourceField}' for filter comparisons`,
+      HttpErrorCode.VALIDATION_ERROR
+    );
   }
 }
 
@@ -83,8 +79,15 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
   protected ensureLiteralValue(value: IFilterValue, operator: IFilterOperator): void {
     if (isFieldReferenceValue(value)) {
-      throw new BadRequestException(
-        `Operator '${operator}' does not support comparing against another field`
+      throw new CustomHttpException(
+        `Operator '${operator}' does not support comparing against another field`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.filter.operatorNoFieldReference',
+            context: { operator },
+          },
+        }
       );
     }
   }
@@ -94,12 +97,16 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const referenceMap = this.context?.fieldReferenceSelectionMap;
     if (!referenceMap) {
-      throw new BadRequestException('Field reference comparisons are not available here');
+      throw new CustomHttpException(
+        'Field reference comparisons are not available here',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const reference = referenceMap.get(value.fieldId);
     if (!reference) {
-      throw new BadRequestException(
-        `Field '${value.fieldId}' is not available for reference comparisons`
+      throw new CustomHttpException(
+        `Field '${value.fieldId}' is not available for reference comparisons`,
+        HttpErrorCode.VALIDATION_ERROR
       );
     }
     return reference;
@@ -112,8 +119,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   protected getComparableReferenceField(value: IFieldReferenceValue): FieldCore {
     const referenceField = this.getFieldReferenceMetadata(value.fieldId);
     if (!referenceField) {
-      throw new BadRequestException(
-        `Field '${value.fieldId}' is not available for reference comparisons`
+      throw new CustomHttpException(
+        `Field '${value.fieldId}' is not available for reference comparisons`,
+        HttpErrorCode.VALIDATION_ERROR
       );
     }
 
@@ -414,7 +422,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     // Helper function to calculate date range for offset days from current date.
     const calculateDateRangeForOffsetDays = (isPast: boolean): [Dayjs, Dayjs] => {
       if (!numberOfDays) {
-        throw new BadRequestException('Number of days must be entered');
+        throw new CustomHttpException(
+          'Number of days must be entered',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       const offsetDays = isPast ? -numberOfDays : numberOfDays;
       return [
@@ -426,7 +437,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     // Helper function to determine date range for a given exact date.
     const determineDateRangeForExactDate = (): [Dayjs, Dayjs] => {
       if (!exactDate) {
-        throw new BadRequestException('Exact date must be entered');
+        throw new CustomHttpException('Exact date must be entered', HttpErrorCode.VALIDATION_ERROR);
       }
 
       const parsedDate = dateUtil.date(exactDate);
@@ -435,7 +446,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const determineDateRangeForExactDateTime = (): [Dayjs, Dayjs] => {
       if (!exactDate) {
-        throw new BadRequestException('Exact date must be entered');
+        throw new CustomHttpException('Exact date must be entered', HttpErrorCode.VALIDATION_ERROR);
       }
 
       const parsedDate = dateUtil.date(exactDate);
@@ -445,7 +456,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     // Helper function to determine date range for a given exact formatted date.
     const determineDateRangeForExactFormatDate = (): [Dayjs, Dayjs] => {
       if (!exactDate) {
-        throw new BadRequestException('Exact date must be entered');
+        throw new CustomHttpException('Exact date must be entered', HttpErrorCode.VALIDATION_ERROR);
       }
 
       const parsedDate = dateUtil.date(exactDate);
@@ -470,7 +481,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       numberOfDays?: number
     ): [Dayjs, Dayjs] => {
       if (numberOfDays === undefined || numberOfDays === null) {
-        throw new BadRequestException('Number of days must be entered');
+        throw new CustomHttpException(
+          'Number of days must be entered',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
 
       const currentDate = dateUtil.date();
@@ -514,11 +528,17 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     // Helper function to determine date range for a custom date range (from exactDate to exactDateEnd).
     const determineDateRangeForDateRange = (): [Dayjs, Dayjs] => {
       if (!exactDate) {
-        throw new BadRequestException('Start date must be entered for date range');
+        throw new CustomHttpException(
+          'Start date must be entered for date range',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       const exactDateEnd = filterValueByDate.exactDateEnd;
       if (!exactDateEnd) {
-        throw new BadRequestException('End date must be entered for date range');
+        throw new CustomHttpException(
+          'End date must be entered for date range',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
 
       const startDate = dateUtil.date(exactDate);
@@ -526,7 +546,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
       // Validate that start date is not after end date
       if (startDate.isAfter(endDate)) {
-        throw new BadRequestException('Start date cannot be after end date');
+        throw new CustomHttpException(
+          'Start date cannot be after end date',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
 
       const hasTimeFormat = timeFormat && timeFormat !== TimeFormatting.None;
