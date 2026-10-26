@@ -513,7 +513,7 @@ describe('PasteLinkAutoResolveService', () => {
     expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_self_link_unsupported');
   });
 
-  it('rejects auto-create when lookup field is not the foreign primary field', async () => {
+  it('resolves a non-primary display field and refuses missing values it cannot create', async () => {
     const foreignTable = buildTextTable('c', 'Foreign');
     const altFieldId = foreignTable
       .getFields()
@@ -527,22 +527,79 @@ describe('PasteLinkAutoResolveService', () => {
     expect(linkField).toBeDefined();
     if (!linkField) return;
 
+    const existingRecordId = 'recAltDisplayRecord';
     const service = new PasteLinkAutoResolveService(
       new TableQueryService(new FakeTableRepository([foreignTable, hostTable])),
       new LinkTitleResolverService(
         new FakeTableRepository([foreignTable, hostTable]),
-        new FakeRecordQueryRepository([])
+        new FakeRecordQueryRepository([
+          {
+            id: existingRecordId,
+            fields: { [altFieldId]: 'Alpha' },
+            version: 1,
+          },
+        ])
       ),
       { create: async () => err(domainError.unexpected({ message: 'should not create' })) } as never
     );
 
-    const result = await service.resolve(createContext(), {
+    const resolvedResult = await service.resolve(createContext(), {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['Alpha']],
+    });
+
+    const resolved = resolvedResult._unsafeUnwrap();
+    expect(resolved.resolvedValues.get(linkField.id().toString())?.get('Alpha')).toEqual({
+      id: existingRecordId,
+      title: 'Alpha',
+    });
+
+    const missingResult = await service.resolve(createContext(), {
       table: hostTable,
       editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
       rowDataList: [['Missing']],
     });
 
-    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_primary_lookup');
+    expect(missingResult._unsafeUnwrapErr().code).toBe(
+      'paste.link_auto_create_requires_primary_lookup'
+    );
+  });
+
+  it('preflights non-primary display matches and still refuses uncreatable titles', async () => {
+    const foreignTable = buildTextTable('e', 'Foreign');
+    const altFieldId = foreignTable
+      .getFields()
+      .find((field) => !field.id().equals(foreignTable.primaryFieldId()))!
+      .id()
+      .toString();
+    const hostTable = buildHostTable(foreignTable.baseId(), foreignTable, altFieldId);
+    const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link')!;
+
+    const service = new PasteLinkAutoResolveService(
+      new TableQueryService(new FakeTableRepository([foreignTable, hostTable])),
+      new LinkTitleResolverService(
+        new FakeTableRepository([foreignTable, hostTable]),
+        new FakeRecordQueryRepository([
+          { id: 'recAltMatch', fields: { [altFieldId]: 'Alpha' }, version: 1 },
+        ])
+      ),
+      { create: async () => err(domainError.unexpected({ message: 'should not create' })) } as never
+    );
+
+    const matched = await service.validateTitleResolutionTargets(createContext(), {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['Alpha']],
+    });
+    expect(matched).toEqual(ok(undefined));
+
+    const missing = await service.validateTitleResolutionTargets(createContext(), {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['Missing']],
+    });
+    expect(missing._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_primary_lookup');
   });
 
   it('rejects auto-create when the foreign primary field is computed', async () => {

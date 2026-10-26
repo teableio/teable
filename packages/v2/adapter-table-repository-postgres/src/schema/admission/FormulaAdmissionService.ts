@@ -183,6 +183,9 @@ export class FormulaAdmissionService implements IFormulaAdmissionService {
             domainError.validation({
               ...compiled.error,
               details: { ...compiled.error.details, fieldId: id },
+              localization: compiled.error.localization ?? {
+                i18nKey: 'httpErrors.field.formulaCompileFailed',
+              },
             })
           );
         // A single field has no cross-field duplication; only the batch statement is capped.

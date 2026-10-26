@@ -45,6 +45,8 @@ const recordsFromContext = (
         ...context.payload.updateRecordsFieldValues,
         ...context.payload.createRecordsFieldValues,
       ];
+    case RecordWriteOperationKind.upsertRecords:
+      return context.payload.recordsFieldValues;
     case RecordWriteOperationKind.deleteMany:
     case RecordWriteOperationKind.archiveMany:
       return [];
@@ -73,6 +75,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
     case RecordWriteOperationKind.updateMany:
       return context.payload.recordCount ?? recordsFromContext(context).length;
     case RecordWriteOperationKind.paste:
+    case RecordWriteOperationKind.upsertRecords:
       return context.payload.recordCount;
   }
 };

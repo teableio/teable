@@ -1,3 +1,4 @@
+// oxlint-disable sonarjs/cognitive-complexity -- projection, storage and hop branches each encode a contract
 import {
   buildRecordConditionSpec,
   buildRecordConditionValue,
@@ -33,10 +34,13 @@ import {
 } from './DataQueryDefinition';
 import type {
   DataQueryAggregate,
+  DataQueryBucket,
   DataQueryDefinitionInput,
   DataQueryFieldDependency,
   DataQueryFieldUsage,
+  DataQueryFilter,
   DataQueryOutput,
+  DataQueryRelationAggregate,
 } from './types';
 
 const describeField = (
@@ -238,19 +242,26 @@ const queryFieldUsages = (
   };
   if (snapshot.kind === 'records') {
     snapshot.select.forEach((projection) => {
+      if ('statisticFunc' in projection) {
+        if (projection.fieldId !== undefined) add(projection.fieldId, 'aggregate');
+        return;
+      }
       if ('fieldId' in projection) add(projection.fieldId, 'projection');
     });
   } else {
     for (const group of snapshot.groupBy ?? []) add(group.fieldId, 'group');
-    for (const aggregate of snapshot.aggregates) add(aggregate.fieldId, 'aggregate');
+    for (const aggregate of snapshot.aggregates) {
+      // A relation metric reads its target field; the flat walk has no source map.
+      if (aggregate.fieldId !== undefined) add(aggregate.fieldId, 'aggregate');
+    }
   }
   snapshot.sort?.forEach((sort) => {
-    if ('fieldId' in sort) add(sort.fieldId, 'sort');
+    if ('fieldId' in sort && !('source' in sort)) add(sort.fieldId, 'sort');
     // Every allow-listed target must exist and be readable, even when the runtime
     // parameter selects only one of them: the choice is not a permission boundary.
     if ('field' in sort) {
       for (const target of sort.allowed) {
-        if ('fieldId' in target) add(target.fieldId, 'sort');
+        if ('fieldId' in target && !('source' in target)) add(target.fieldId, 'sort');
       }
     }
   });
@@ -265,27 +276,43 @@ const queryFieldUsages = (
   return usages;
 };
 
-const validateDefinitionFilters = (
-  snapshot: DataQueryDefinitionInput,
-  table: ITableReadModel
-): Result<void, DomainError> => {
-  if (!snapshot.filter) return ok(undefined);
-  const parameters = snapshot.parameters ?? {};
+type ParameterValueMaps = {
+  readonly representative: ReadonlyMap<string, RecordFilterValue>;
+  readonly defaults: ReadonlyMap<string, RecordFilterValue>;
+};
+
+const parameterValueMaps = (
+  parameters: DataQueryDefinitionInput['parameters']
+): ParameterValueMaps => {
   const representative = new Map<string, RecordFilterValue>();
   const defaults = new Map<string, RecordFilterValue>();
-  for (const [name, parameter] of Object.entries(parameters)) {
+  for (const [name, parameter] of Object.entries(parameters ?? {})) {
     const sample = representativeParameterValue(parameter);
     representative.set(name, sample);
     defaults.set(name, Object.hasOwn(parameter, 'default') ? parameter.default! : sample);
   }
-  return safeTry(function* () {
-    const representativeFilter = yield* resolveDataQueryFilter(snapshot.filter, representative);
-    const defaultFilter = yield* resolveDataQueryFilter(snapshot.filter, defaults);
+  return { representative, defaults };
+};
+
+const validateFilterAgainstTable = (
+  filter: DataQueryFilter | undefined,
+  table: ITableReadModel,
+  values: ParameterValueMaps
+): Result<void, DomainError> =>
+  safeTry(function* () {
+    if (!filter) return ok(undefined);
+    const representativeFilter = yield* resolveDataQueryFilter(filter, values.representative);
+    const defaultFilter = yield* resolveDataQueryFilter(filter, values.defaults);
     yield* validateDataQueryFilter(table, representativeFilter);
     yield* validateDataQueryFilter(table, defaultFilter);
     return ok(undefined);
   });
-};
+
+const validateDefinitionFilters = (
+  snapshot: DataQueryDefinitionInput,
+  table: ITableReadModel
+): Result<void, DomainError> =>
+  validateFilterAgainstTable(snapshot.filter, table, parameterValueMaps(snapshot.parameters));
 
 const aggregateOutput = (
   aggregate: DataQueryAggregate,
@@ -345,6 +372,42 @@ const storedFieldWireTypes: Readonly<Partial<Record<string, DataQueryOutput['wir
   checkbox: 'boolean',
 };
 
+const bucketOutputType = (alias: string, bucket: DataQueryBucket): DataQueryOutput =>
+  bucket.kind === 'dateTrunc'
+    ? {
+        alias,
+        wireType: 'string',
+        cellValueType: 'string',
+        isMultipleCellValue: false,
+        nullable: true,
+      }
+    : {
+        alias,
+        wireType: 'string',
+        cellValueType: 'string',
+        isMultipleCellValue: false,
+        nullable: bucket.nullLabel === undefined,
+      };
+
+const validateBucketField = (
+  bucket: DataQueryBucket,
+  dependency: DataQueryFieldDependency,
+  details: Readonly<Record<string, unknown>>
+): Result<void, DomainError> => {
+  const expected = bucket.kind === 'numericRange' ? 'number' : 'dateTime';
+  return !dependency.isMultipleCellValue && dependency.cellValueType === expected
+    ? ok(undefined)
+    : err(
+        queryError(
+          'bucket_field',
+          `A ${bucket.kind} bucket requires a single-value ${expected} field`,
+          details
+        )
+      );
+};
+
+// oxlint-disable-next-line sonarjs/cognitive-complexity -- output types enumerate every projection shape
+// eslint-disable-next-line sonarjs/cognitive-complexity -- output types enumerate every projection shape
 const describeOutputs = (
   snapshot: DataQueryDefinitionInput,
   fields: ReadonlyMap<string, Field>,
@@ -352,20 +415,41 @@ const describeOutputs = (
 ): Result<DataQueryOutput[], DomainError> =>
   safeTry(function* () {
     const outputs: DataQueryOutput[] = [];
-    const projectionOutput = (fieldId: string, alias: string): DataQueryOutput => {
+    const projectionOutput = (
+      fieldId: string,
+      alias: string,
+      bucket?: DataQueryBucket
+    ): Result<DataQueryOutput, DomainError> => {
       const dependency = dependencies.get(fieldId)!;
-      return {
-        alias,
-        wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
-        cellValueType: dependency.cellValueType,
-        isMultipleCellValue: dependency.isMultipleCellValue,
-        nullable: true,
-      };
+      if (bucket === undefined) {
+        return ok({
+          alias,
+          wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+          cellValueType: dependency.cellValueType,
+          isMultipleCellValue: dependency.isMultipleCellValue,
+          nullable: true,
+        });
+      }
+      const validated = validateBucketField(bucket, dependency, { fieldId });
+      return validated.map(() => bucketOutputType(alias, bucket));
     };
     if (snapshot.kind === 'records') {
       for (const projection of snapshot.select) {
+        // A relation aggregate always implies a version 2 relation query and is
+        // bound by DataQueryRelationBinding, never by this single-table path.
+        if ('statisticFunc' in projection) {
+          return err(
+            queryError('join_version', 'Relation aggregates require a version 2 relation binding')
+          );
+        }
         if ('fieldId' in projection) {
-          outputs.push(projectionOutput(projection.fieldId, projection.alias));
+          outputs.push(
+            yield* projectionOutput(
+              projection.fieldId,
+              projection.alias,
+              'bucket' in projection ? projection.bucket : undefined
+            )
+          );
         } else {
           const cellValueTypes = {
             id: 'string',
@@ -388,10 +472,28 @@ const describeOutputs = (
       }
       return ok(outputs);
     }
-    for (const group of snapshot.groupBy ?? [])
-      outputs.push(projectionOutput(group.fieldId, group.alias));
-    for (const aggregate of snapshot.aggregates)
+    for (const group of snapshot.groupBy ?? []) {
+      outputs.push(
+        yield* projectionOutput(
+          group.fieldId,
+          group.alias,
+          'bucket' in group ? group.bucket : undefined
+        )
+      );
+    }
+    for (const aggregate of snapshot.aggregates) {
+      // A relation metric cannot be bound without its declared relation sources.
+      if ('source' in aggregate) {
+        return err(
+          queryError(
+            'join_source_unknown',
+            'A relation metric requires a declared relation source',
+            { source: aggregate.source }
+          )
+        );
+      }
       outputs.push(yield* aggregateOutput(aggregate, fields.get(aggregate.fieldId)!));
+    }
     return ok(outputs);
   });
 
@@ -403,10 +505,30 @@ export type DataQueryBindingPrepareOptions = {
   readonly deferOperatorRejection?: boolean;
 };
 
+export type DataQueryRelationCardinality = 'one' | 'many';
+
+export type DataQueryRelationLinkStorage =
+  | { readonly kind: 'root-fk'; readonly column: string }
+  | { readonly kind: 'target-fk'; readonly column: string }
+  /** A two-way one-many link keeps its foreign key on the target table. */
+  | { readonly kind: 'target-fk-many'; readonly column: string }
+  /** A many-many or one-way one-many link stores its edges in a junction table. */
+  | {
+      readonly kind: 'junction';
+      readonly schema: string | null;
+      readonly tableName: string;
+      readonly selfKeyName: string;
+      readonly foreignKeyName: string;
+    };
+
 export type DataQueryRelationSourceBinding = {
   readonly alias: string;
   readonly table: ITableReadModel;
   readonly linkFieldId: string;
+  /** Source whose row key this hop joins against: `root` or an earlier alias. */
+  readonly parentAlias: string;
+  readonly cardinality: DataQueryRelationCardinality;
+  readonly linkStorage: DataQueryRelationLinkStorage;
   readonly dependencies: ReadonlyArray<DataQueryFieldDependency>;
 };
 
@@ -418,10 +540,213 @@ const isRootProjection = (projection: object): boolean => {
   return source === undefined || source === 'root';
 };
 
+type PhysicalName = { schema: string | null; tableName: string };
+
+const samePhysical = (left: PhysicalName, right: PhysicalName): boolean =>
+  left.schema === right.schema && left.tableName === right.tableName;
+
+/**
+ * Derive the physical relation from persisted Link metadata. The caller supplies
+ * only field/table IDs; FK host, key names and junction placement always come
+ * from the domain object, never from the query definition.
+ */
+
+// oxlint-disable-next-line sonarjs/cognitive-complexity -- one branch per Link storage contract
+// eslint-disable-next-line sonarjs/cognitive-complexity -- one branch per Link storage contract
+const deriveRelationStorage = (params: {
+  alias: string;
+  relationship: string;
+  isOneWay: boolean;
+  fkHost: PhysicalName;
+  selfKeyName: string;
+  foreignKeyName: string;
+  parentPhysical: PhysicalName;
+  targetPhysical: PhysicalName;
+}): Result<
+  { cardinality: DataQueryRelationCardinality; storage: DataQueryRelationLinkStorage },
+  DomainError
+> => {
+  const {
+    alias,
+    relationship,
+    isOneWay,
+    fkHost,
+    selfKeyName,
+    foreignKeyName,
+    parentPhysical,
+    targetPhysical,
+  } = params;
+  const hosted = samePhysical(fkHost, parentPhysical);
+  const inverse = samePhysical(fkHost, targetPhysical);
+  const junction = !hosted && !inverse;
+  // Keep the historical terminal code: a link whose metadata contradicts the
+  // declared relationship is a relationship error, not an input-shape error.
+  const fail = (message: string) =>
+    err(queryError('join_relationship', message, { source: alias }));
+  if (relationship === 'manyOne') {
+    if (!hosted || selfKeyName !== '__id' || foreignKeyName === '__id') {
+      return fail('A many-one link must keep its foreign key on the parent table');
+    }
+    return ok({ cardinality: 'one', storage: { kind: 'root-fk', column: foreignKeyName } });
+  }
+  if (relationship === 'oneOne') {
+    if (hosted && selfKeyName === '__id' && foreignKeyName !== '__id') {
+      return ok({ cardinality: 'one', storage: { kind: 'root-fk', column: foreignKeyName } });
+    }
+    if (inverse && foreignKeyName === '__id' && selfKeyName !== '__id') {
+      return ok({ cardinality: 'one', storage: { kind: 'target-fk', column: selfKeyName } });
+    }
+    return fail('A one-one link must keep its foreign key on one of the two record tables');
+  }
+  if (relationship === 'oneMany') {
+    if (!isOneWay && inverse && foreignKeyName === '__id' && selfKeyName !== '__id') {
+      return ok({
+        cardinality: 'many',
+        storage: { kind: 'target-fk-many', column: selfKeyName },
+      });
+    }
+    if (isOneWay && junction && selfKeyName !== '__id' && foreignKeyName !== '__id') {
+      return ok({
+        cardinality: 'many',
+        storage: {
+          kind: 'junction',
+          schema: fkHost.schema,
+          tableName: fkHost.tableName,
+          selfKeyName,
+          foreignKeyName,
+        },
+      });
+    }
+    return fail(
+      isOneWay
+        ? 'A one-way one-many link must keep its edges in a junction table'
+        : 'A two-way one-many link must keep its foreign key on the target table'
+    );
+  }
+  if (relationship === 'manyMany') {
+    if (junction && selfKeyName !== '__id' && foreignKeyName !== '__id') {
+      return ok({
+        cardinality: 'many',
+        storage: {
+          kind: 'junction',
+          schema: fkHost.schema,
+          tableName: fkHost.tableName,
+          selfKeyName,
+          foreignKeyName,
+        },
+      });
+    }
+    return fail('A many-many link must keep its edges in a junction table');
+  }
+  return err(queryError('join_relationship', 'Unsupported link relationship', { source: alias }));
+};
+
+const relationAggregateOutput = (
+  aggregate: DataQueryRelationAggregate,
+  dependency: DataQueryFieldDependency | undefined,
+  source: string
+): Result<DataQueryOutput, DomainError> => {
+  const base = { alias: aggregate.alias, isMultipleCellValue: false } as const;
+  if (aggregate.statisticFunc === 'count') {
+    return ok({
+      ...base,
+      wireType: 'numberOrString',
+      cellValueType: 'number',
+      nullable: false,
+    });
+  }
+  if (!dependency) {
+    return err(
+      queryError('field_missing', 'A required related field is missing', {
+        source,
+        fieldId: aggregate.fieldId,
+      })
+    );
+  }
+  if (dependency.isMultipleCellValue) {
+    return err(
+      queryError('relation_aggregate_type', 'A relation aggregate requires a single-value field', {
+        source,
+        fieldId: dependency.fieldId,
+      })
+    );
+  }
+  if (aggregate.statisticFunc === 'unique') {
+    return ok({
+      ...base,
+      wireType: 'numberOrString',
+      cellValueType: 'number',
+      nullable: false,
+    });
+  }
+  if (aggregate.statisticFunc === 'sum' || aggregate.statisticFunc === 'average') {
+    if (dependency.cellValueType !== 'number') {
+      return err(
+        queryError('relation_aggregate_type', 'sum and average require a number field', {
+          source,
+          fieldId: dependency.fieldId,
+        })
+      );
+    }
+    return ok({
+      ...base,
+      wireType: 'numberOrString',
+      cellValueType: 'number',
+      nullable: true,
+    });
+  }
+  const date = dependency.cellValueType === 'dateTime';
+  if (!date && dependency.cellValueType !== 'number') {
+    return err(
+      queryError('relation_aggregate_type', 'min and max require a number or date field', {
+        source,
+        fieldId: dependency.fieldId,
+      })
+    );
+  }
+  return ok(
+    date
+      ? { ...base, wireType: 'string', cellValueType: 'dateTime', nullable: true }
+      : { ...base, wireType: 'numberOrString', cellValueType: 'number', nullable: true }
+  );
+};
+
+const buildSourceDependencies = (
+  table: ITableReadModel,
+  usages: ReadonlyMap<string, DataQueryFieldUsage[]>,
+  source?: string
+): Result<
+  {
+    dependencies: DataQueryFieldDependency[];
+    map: Map<string, DataQueryFieldDependency>;
+  },
+  DomainError
+> =>
+  safeTry(function* () {
+    const dependencies: DataQueryFieldDependency[] = [];
+    const map = new Map<string, DataQueryFieldDependency>();
+    for (const [fieldId, fieldUsages] of usages) {
+      const field = yield* table
+        .getField((candidate) => candidate.id().toString() === fieldId)
+        .mapErr(() =>
+          queryError('field_missing', 'A required related field is missing', {
+            ...(source ? { source } : {}),
+            fieldId,
+          })
+        );
+      const dependency = yield* describeField(table, field, fieldUsages);
+      map.set(fieldId, dependency);
+      dependencies.push(dependency);
+    }
+    return ok({ dependencies, map });
+  });
+
 /**
  * A version-2 records binding keeps each source's dependencies separate so the
- * host authorizes every joined table with that table's own scope. Filters and
- * sorts stay root-only in this version.
+ * host authorizes every joined table with that table's own scope. Relations may
+ * be to-one joins or to-many aggregate sources, may chain through `via`, and a
+ * source may declare a target filter, so each source's dependencies include the
+ * fields that filter, sort or aggregate reads, plus the link edge its child hops use.
  */
 export class DataQueryRelationBinding {
   private constructor(
@@ -452,9 +777,6 @@ export class DataQueryRelationBinding {
       if (snapshot.version !== 2) {
         return err(queryError('join_version', 'Relation binding requires definition version 2'));
       }
-      if (snapshot.kind !== 'records') {
-        return err(queryError('join_aggregate', 'Aggregate queries cannot declare relations'));
-      }
       if (snapshot.tableId !== rootTable.id().toString())
         return err(queryError('table_mismatch', 'Query table does not match the loaded table'));
       const filterValidation = validateDefinitionFilters(snapshot, rootTable);
@@ -466,36 +788,95 @@ export class DataQueryRelationBinding {
           : undefined;
       if (filterValidation.isErr() && !deferredFilterError) return err(filterValidation.error);
 
-      const rootProjections = snapshot.select.filter((projection) => isRootProjection(projection));
-      const rootSnapshot = {
-        ...snapshot,
-        select: rootProjections,
-      } as DataQueryDefinitionInput;
-      const rootUsages = queryFieldUsages(rootSnapshot);
-      const rootDependencyMap = new Map<string, DataQueryFieldDependency>();
-      const rootDependencies: DataQueryFieldDependency[] = [];
-      for (const [fieldId, usages] of rootUsages) {
-        const field = yield* rootTable
-          .getField((candidate) => candidate.id().toString() === fieldId)
-          .mapErr(() => queryError('field_missing', 'A required query field is missing'));
-        const dependency = yield* describeField(rootTable, field, usages);
-        rootDependencyMap.set(fieldId, dependency);
-        rootDependencies.push(dependency);
-      }
+      const parameterValues = parameterValueMaps(snapshot.parameters);
 
+      const rootUsages = new Map<string, DataQueryFieldUsage[]>();
       const targetUsages = new Map<string, Map<string, DataQueryFieldUsage[]>>();
-      for (const projection of snapshot.select) {
-        if (!('fieldId' in projection) || isRootProjection(projection)) continue;
-        const alias = projectionSource(projection)!;
-        const usages = targetUsages.get(alias) ?? new Map<string, DataQueryFieldUsage[]>();
-        const fieldUsages = usages.get(projection.fieldId) ?? [];
-        if (!fieldUsages.includes('projection')) fieldUsages.push('projection');
-        usages.set(projection.fieldId, fieldUsages);
-        targetUsages.set(alias, usages);
+      const usageMap = (source: string): Map<string, DataQueryFieldUsage[]> => {
+        if (source === 'root') return rootUsages;
+        const existing = targetUsages.get(source) ?? new Map<string, DataQueryFieldUsage[]>();
+        targetUsages.set(source, existing);
+        return existing;
+      };
+      const addUsage = (source: string, fieldId: string, usage: DataQueryFieldUsage) => {
+        const usages = usageMap(source);
+        const fieldUsages = usages.get(fieldId) ?? [];
+        if (!fieldUsages.includes(usage)) fieldUsages.push(usage);
+        usages.set(fieldId, fieldUsages);
+      };
+      if (snapshot.kind === 'records') {
+        for (const projection of snapshot.select) {
+          if ('statisticFunc' in projection) {
+            if (projection.fieldId !== undefined) {
+              addUsage(projection.source, projection.fieldId, 'aggregate');
+            }
+            continue;
+          }
+          const source = projectionSource(projection) ?? 'root';
+          if ('fieldId' in projection) addUsage(source, projection.fieldId, 'projection');
+        }
+      } else {
+        for (const group of snapshot.groupBy ?? []) {
+          addUsage(projectionSource(group) ?? 'root', group.fieldId, 'group');
+        }
+        for (const aggregate of snapshot.aggregates) {
+          if ('source' in aggregate) {
+            if (aggregate.fieldId !== undefined) {
+              addUsage(aggregate.source, aggregate.fieldId, 'aggregate');
+            }
+            continue;
+          }
+          addUsage('root', aggregate.fieldId, 'aggregate');
+        }
+      }
+      // The executor compiles the root filter for relation queries too, so its
+      // fields must be dependencies there as well (the non-relation binding does this).
+      if (snapshot.filter) {
+        collectFilterUsages(
+          mapQueryFilter(snapshot.filter, (reference) =>
+            representativeParameterValue(snapshot.parameters![reference.name])
+          ),
+          (fieldId, usage) => addUsage('root', fieldId, usage)
+        );
+      }
+      for (const [alias, relation] of Object.entries(snapshot.relations ?? {})) {
+        // Create the map before any child hop can attach its link-edge dependency.
+        usageMap(alias);
+        if (!relation.filter) continue;
+        collectFilterUsages(
+          mapQueryFilter(relation.filter, (reference) =>
+            representativeParameterValue(snapshot.parameters![reference.name])
+          ),
+          (fieldId, usage) => addUsage(alias, fieldId, usage)
+        );
+      }
+      for (const sort of snapshot.sort ?? []) {
+        if ('source' in sort) {
+          if ('fieldId' in sort) addUsage(sort.source, sort.fieldId, 'sort');
+          continue;
+        }
+        if ('fieldId' in sort) {
+          addUsage('root', sort.fieldId, 'sort');
+          continue;
+        }
+        if ('field' in sort) {
+          for (const target of sort.allowed) {
+            if ('fieldId' in target) {
+              addUsage('source' in target ? target.source : 'root', target.fieldId, 'sort');
+            }
+          }
+        }
       }
 
-      const sources: DataQueryRelationSourceBinding[] = [];
-      const sourceDependencies = new Map<string, Map<string, DataQueryFieldDependency>>();
+      type ResolvedRelation = {
+        alias: string;
+        table: ITableReadModel;
+        linkFieldId: string;
+        parentAlias: string;
+        cardinality: DataQueryRelationCardinality;
+        linkStorage: DataQueryRelationLinkStorage;
+      };
+      const resolved = new Map<string, ResolvedRelation>();
       for (const [alias, relation] of Object.entries(snapshot.relations ?? {})) {
         const target = targetTables.get(alias);
         if (!target) {
@@ -519,7 +900,16 @@ export class DataQueryRelationBinding {
             })
           );
         }
-        const link = yield* rootTable
+        const parentAlias = relation.via ?? 'root';
+        const parent = parentAlias === 'root' ? rootTable : resolved.get(parentAlias)?.table;
+        if (!parent) {
+          return err(
+            queryError('join_via', 'A relation `via` names an unknown earlier relation', {
+              source: alias,
+            })
+          );
+        }
+        const link = yield* parent
           .getField((candidate) => candidate.id().toString() === relation.linkFieldId)
           .mapErr(() =>
             queryError('join_link_missing', 'A relation link field is missing', { source: alias })
@@ -532,14 +922,6 @@ export class DataQueryRelationBinding {
           );
         }
         const linkField = link as LinkField;
-        const relationship = linkField.relationship().toString();
-        if (relationship !== 'manyOne' && relationship !== 'oneOne') {
-          return err(
-            queryError('join_relationship', 'Only root-hosted to-one relations are supported', {
-              source: alias,
-            })
-          );
-        }
         if (!linkField.foreignTableId().equals(target.id())) {
           return err(
             queryError('join_link_target', 'A relation link points at another table', {
@@ -547,7 +929,7 @@ export class DataQueryRelationBinding {
             })
           );
         }
-        const fkHostTableName = yield* linkField
+        const fkHost = yield* linkField
           .fkHostTableNameString()
           .andThen((raw) => DbTableName.rehydrate(raw))
           .andThen((name) => name.split({ defaultSchema: 'public' }))
@@ -566,122 +948,355 @@ export class DataQueryRelationBinding {
             source: alias,
           })
         );
-        const rootPhysical = yield* rootTable
+        const parentPhysical = yield* parent
           .dbTableName()
           .andThen((name) => name.split({ defaultSchema: 'public' }))
           .mapErr(() =>
-            queryError('join_link_metadata', 'The root table physical name is unavailable')
+            queryError('join_link_metadata', 'The parent table physical name is unavailable')
           );
+        const targetPhysical = yield* target
+          .dbTableName()
+          .andThen((name) => name.split({ defaultSchema: 'public' }))
+          .mapErr(() =>
+            queryError('join_link_metadata', 'The target table physical name is unavailable')
+          );
+        const derived = yield* deriveRelationStorage({
+          alias,
+          relationship: linkField.relationship().toString(),
+          isOneWay: linkField.isOneWay(),
+          fkHost,
+          selfKeyName,
+          foreignKeyName,
+          parentPhysical,
+          targetPhysical,
+        });
+        // A to-many parent has many rows per root; a to-one child would then no
+        // longer be one row per root, so multi-hop branches stay to-many only.
         if (
-          fkHostTableName.schema !== rootPhysical.schema ||
-          fkHostTableName.tableName !== rootPhysical.tableName ||
-          selfKeyName !== '__id' ||
-          foreignKeyName === '__id'
+          parentAlias !== 'root' &&
+          resolved.get(parentAlias)!.cardinality === 'many' &&
+          derived.cardinality !== 'many'
         ) {
           return err(
-            queryError(
-              'join_relationship',
-              'A relation foreign key is not hosted by the root table',
-              { source: alias }
-            )
+            queryError('join_via', 'A to-many hop may only lead to another to-many relation', {
+              source: alias,
+            })
           );
         }
-        const linkDependency = yield* describeField(rootTable, link, ['relation']);
-        const existing = rootDependencyMap.get(linkDependency.fieldId);
-        if (existing) {
-          const usages = [...new Set([...existing.usages, 'relation'])] as DataQueryFieldUsage[];
-          const merged = { ...existing, usages };
-          rootDependencyMap.set(linkDependency.fieldId, merged);
-          const index = rootDependencies.findIndex(
-            (dependency) => dependency.fieldId === linkDependency.fieldId
-          );
-          if (index >= 0) rootDependencies[index] = merged;
-        } else {
-          rootDependencyMap.set(linkDependency.fieldId, linkDependency);
-          rootDependencies.push(linkDependency);
-        }
-
-        const dependencies: DataQueryFieldDependency[] = [];
-        const dependencyMap = new Map<string, DataQueryFieldDependency>();
-        for (const [fieldId, usages] of targetUsages.get(alias) ?? []) {
-          const field = yield* target
-            .getField((candidate) => candidate.id().toString() === fieldId)
-            .mapErr(() =>
-              queryError('field_missing', 'A required related field is missing', {
-                source: alias,
-              })
-            );
-          const dependency = yield* describeField(target, field, usages);
-          dependencyMap.set(fieldId, dependency);
-          dependencies.push(dependency);
-        }
-        sourceDependencies.set(alias, dependencyMap);
-        sources.push({
+        yield* validateFilterAgainstTable(relation.filter, target, parameterValues);
+        // The link edge itself is a dependency of the table that hosts it.
+        addUsage(parentAlias, linkField.id().toString(), 'relation');
+        resolved.set(alias, {
           alias,
           table: target,
           linkFieldId: relation.linkFieldId,
-          dependencies,
+          parentAlias,
+          cardinality: derived.cardinality,
+          linkStorage: derived.storage,
+        });
+      }
+
+      // Count has no field dependency, so aggregates are checked by declared source.
+      const relationMetrics: DataQueryRelationAggregate[] = [
+        ...(snapshot.kind === 'records'
+          ? snapshot.select.filter(
+              (projection): projection is DataQueryRelationAggregate =>
+                'statisticFunc' in projection
+            )
+          : []),
+        ...(snapshot.kind === 'aggregate'
+          ? snapshot.aggregates.filter(
+              (aggregate): aggregate is DataQueryRelationAggregate => 'source' in aggregate
+            )
+          : []),
+      ];
+      for (const metric of relationMetrics) {
+        const info = resolved.get(metric.source);
+        if (info !== undefined && info.cardinality !== 'many') {
+          return err(
+            queryError(
+              'join_aggregate_cardinality',
+              'Relation aggregates require a to-many relation',
+              {
+                source: metric.source,
+              }
+            )
+          );
+        }
+      }
+      if (snapshot.kind === 'aggregate') {
+        // A to-many source has many values per root, so it may only feed metrics;
+        // it can never define a group key or a direct sort target.
+        for (const [alias, info] of resolved) {
+          if (info.cardinality !== 'many') continue;
+          for (const [fieldId, usages] of targetUsages.get(alias) ?? []) {
+            if (usages.includes('group')) {
+              return err(
+                queryError(
+                  'join_aggregate_cardinality',
+                  'A to-many relation cannot define a group key',
+                  { source: alias, fieldId }
+                )
+              );
+            }
+            if (usages.includes('sort')) {
+              return err(
+                queryError(
+                  'join_sort_multi',
+                  'A to-many relation cannot be sorted directly; sort by an aggregate alias',
+                  { source: alias, fieldId }
+                )
+              );
+            }
+          }
+          for (const sort of snapshot.sort ?? []) {
+            if ('source' in sort && sort.source === alias) {
+              return err(
+                queryError(
+                  'join_sort_multi',
+                  'A to-many relation cannot be sorted directly; sort by an aggregate alias',
+                  { source: alias }
+                )
+              );
+            }
+          }
+        }
+      } else {
+        // A to-many source has no single row per root, so it may only feed aggregates.
+        for (const [alias, info] of resolved) {
+          const many = info.cardinality === 'many';
+          for (const [fieldId, usages] of targetUsages.get(alias) ?? []) {
+            if (many && usages.includes('projection')) {
+              return err(
+                queryError(
+                  'join_projection_multi',
+                  'A to-many relation supports aggregate projections only',
+                  { source: alias, fieldId }
+                )
+              );
+            }
+            if (many && usages.includes('sort')) {
+              return err(
+                queryError(
+                  'join_sort_multi',
+                  'A to-many relation cannot be sorted directly; sort by an aggregate alias',
+                  { source: alias, fieldId }
+                )
+              );
+            }
+            if (!many && usages.includes('aggregate')) {
+              return err(
+                queryError(
+                  'join_aggregate_cardinality',
+                  'Relation aggregates require a to-many relation',
+                  { source: alias, fieldId }
+                )
+              );
+            }
+          }
+          if (!many) continue;
+          for (const projection of snapshot.select) {
+            if (projectionSource(projection) === alias && !('statisticFunc' in projection)) {
+              return err(
+                queryError(
+                  'join_projection_multi',
+                  'A to-many relation supports aggregate projections only',
+                  { source: alias }
+                )
+              );
+            }
+          }
+          for (const sort of snapshot.sort ?? []) {
+            const targets = 'field' in sort ? sort.allowed : [sort];
+            if (targets.some((target) => 'source' in target && target.source === alias)) {
+              return err(
+                queryError(
+                  'join_sort_multi',
+                  'A to-many relation cannot be sorted directly; sort by an aggregate alias',
+                  { source: alias }
+                )
+              );
+            }
+          }
+        }
+      }
+
+      const root = yield* buildSourceDependencies(rootTable, rootUsages);
+      const targetDependencyMaps = new Map<string, Map<string, DataQueryFieldDependency>>();
+      const sources: DataQueryRelationSourceBinding[] = [];
+      for (const info of resolved.values()) {
+        const built = yield* buildSourceDependencies(
+          info.table,
+          targetUsages.get(info.alias) ?? new Map(),
+          info.alias
+        );
+        targetDependencyMaps.set(info.alias, built.map);
+        sources.push({
+          alias: info.alias,
+          table: info.table,
+          linkFieldId: info.linkFieldId,
+          parentAlias: info.parentAlias,
+          cardinality: info.cardinality,
+          linkStorage: info.linkStorage,
+          dependencies: built.dependencies,
         });
       }
 
       const outputs: DataQueryOutput[] = [];
-      for (const projection of snapshot.select) {
-        if ('system' in projection) {
-          const cellValueTypes = {
-            id: 'string',
-            createdTime: 'dateTime',
-            lastModifiedTime: 'dateTime',
-            autoNumber: 'number',
-            version: 'number',
-          };
+      if (snapshot.kind === 'records') {
+        for (const projection of snapshot.select) {
+          if ('statisticFunc' in projection) {
+            const info = resolved.get(projection.source);
+            if (!info) {
+              return err(
+                queryError('join_source_unknown', 'A projection references an undeclared source', {
+                  source: projection.source,
+                })
+              );
+            }
+            const dependency =
+              projection.fieldId === undefined
+                ? undefined
+                : targetDependencyMaps.get(projection.source)?.get(projection.fieldId);
+            if (projection.fieldId !== undefined && !dependency) {
+              return err(
+                queryError('field_missing', 'A required related field is missing', {
+                  source: projection.source,
+                  fieldId: projection.fieldId,
+                })
+              );
+            }
+            outputs.push(yield* relationAggregateOutput(projection, dependency, projection.source));
+            continue;
+          }
+          if ('system' in projection) {
+            const cellValueTypes = {
+              id: 'string',
+              createdTime: 'dateTime',
+              lastModifiedTime: 'dateTime',
+              autoNumber: 'number',
+              version: 'number',
+            };
+            outputs.push({
+              alias: projection.alias,
+              wireType:
+                projection.system === 'autoNumber' || projection.system === 'version'
+                  ? 'numberOrString'
+                  : 'string',
+              cellValueType: cellValueTypes[projection.system],
+              isMultipleCellValue: false,
+              // A LEFT JOIN can miss for any target row, so target system columns are
+              // always nullable; the root keeps its stored-column invariants.
+              nullable: !isRootProjection(projection) || projection.system === 'lastModifiedTime',
+            });
+            continue;
+          }
+          const rawSource = projectionSource(projection);
+          const source = rawSource === 'root' ? undefined : rawSource;
+          const dependency = source
+            ? targetDependencyMaps.get(source)?.get(projection.fieldId)
+            : root.map.get(projection.fieldId);
+          if (!dependency) {
+            return err(
+              queryError('field_missing', 'A selected field is not part of the query binding', {
+                ...(source ? { source } : {}),
+              })
+            );
+          }
+          if (projection.arrayDistinct === true && dependency.isMultipleCellValue !== true) {
+            return err(
+              queryError(
+                'array_distinct_incompatible',
+                'Array-distinct projection requires a multiple-value field'
+              )
+            );
+          }
+          const bucket = 'bucket' in projection ? projection.bucket : undefined;
+          if (bucket !== undefined) {
+            yield* validateBucketField(bucket, dependency, {
+              ...(source ? { source } : {}),
+              fieldId: projection.fieldId,
+            });
+            outputs.push(bucketOutputType(projection.alias, bucket));
+            continue;
+          }
           outputs.push({
             alias: projection.alias,
-            wireType:
-              projection.system === 'autoNumber' || projection.system === 'version'
-                ? 'numberOrString'
-                : 'string',
-            cellValueType: cellValueTypes[projection.system],
-            isMultipleCellValue: false,
-            // A LEFT JOIN can miss for any target row, so target system columns are
-            // always nullable; the root keeps its stored-column invariants.
-            nullable: !isRootProjection(projection) || projection.system === 'lastModifiedTime',
+            wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+            cellValueType: dependency.cellValueType,
+            isMultipleCellValue: dependency.isMultipleCellValue,
+            nullable: true,
           });
-          continue;
         }
-        const rawSource = projectionSource(projection);
-        const source = rawSource === 'root' ? undefined : rawSource;
-        const dependency = source
-          ? sourceDependencies.get(source)?.get(projection.fieldId)
-          : rootDependencyMap.get(projection.fieldId);
-        if (!dependency) {
-          return err(
-            queryError('field_missing', 'A selected field is not part of the query binding', {
+      } else {
+        for (const group of snapshot.groupBy ?? []) {
+          const rawSource = projectionSource(group);
+          const source = rawSource === 'root' ? undefined : rawSource;
+          const dependency = source
+            ? targetDependencyMaps.get(source)?.get(group.fieldId)
+            : root.map.get(group.fieldId);
+          if (!dependency) {
+            return err(
+              queryError('field_missing', 'A grouping field is not part of the query binding', {
+                ...(source ? { source } : {}),
+                fieldId: group.fieldId,
+              })
+            );
+          }
+          const bucket = 'bucket' in group ? group.bucket : undefined;
+          if (bucket !== undefined) {
+            yield* validateBucketField(bucket, dependency, {
               ...(source ? { source } : {}),
-            })
-          );
+              fieldId: group.fieldId,
+            });
+            outputs.push(bucketOutputType(group.alias, bucket));
+            continue;
+          }
+          outputs.push({
+            alias: group.alias,
+            wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+            cellValueType: dependency.cellValueType,
+            isMultipleCellValue: dependency.isMultipleCellValue,
+            nullable: true,
+          });
         }
-        if (projection.arrayDistinct === true && dependency.isMultipleCellValue !== true) {
-          return err(
-            queryError(
-              'array_distinct_incompatible',
-              'Array-distinct projection requires a multiple-value field'
-            )
-          );
+        for (const aggregate of snapshot.aggregates) {
+          if ('source' in aggregate) {
+            const info = resolved.get(aggregate.source);
+            if (!info) {
+              return err(
+                queryError('join_source_unknown', 'A projection references an undeclared source', {
+                  source: aggregate.source,
+                })
+              );
+            }
+            const dependency =
+              aggregate.fieldId === undefined
+                ? undefined
+                : targetDependencyMaps.get(aggregate.source)?.get(aggregate.fieldId);
+            if (aggregate.fieldId !== undefined && !dependency) {
+              return err(
+                queryError('field_missing', 'A required related field is missing', {
+                  source: aggregate.source,
+                  fieldId: aggregate.fieldId,
+                })
+              );
+            }
+            outputs.push(yield* relationAggregateOutput(aggregate, dependency, aggregate.source));
+            continue;
+          }
+          const field = yield* rootTable
+            .getField((candidate) => candidate.id().toString() === aggregate.fieldId)
+            .mapErr(() => queryError('field_missing', 'A required query field is missing'));
+          outputs.push(yield* aggregateOutput(aggregate, field));
         }
-        outputs.push({
-          alias: projection.alias,
-          wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
-          cellValueType: dependency.cellValueType,
-          isMultipleCellValue: dependency.isMultipleCellValue,
-          nullable: true,
-        });
       }
 
       return ok(
         new DataQueryRelationBinding(
           definition,
           rootTable,
-          rootDependencies,
+          root.dependencies,
           sources,
           outputs,
           deferredFilterError
@@ -737,6 +1352,7 @@ export class DataQueryBinding {
         for (const projection of snapshot.select) {
           if (
             'fieldId' in projection &&
+            'arrayDistinct' in projection &&
             projection.arrayDistinct === true &&
             descriptions.get(projection.fieldId)?.isMultipleCellValue !== true
           ) {

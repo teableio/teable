@@ -70,6 +70,10 @@ export class SetFieldValueSpecFactory {
           domainError.validation({
             code: 'validation.field.invalid_value',
             message: `Invalid value for field "${field.name().toString()}": ${errorMessage}`,
+            localization: {
+              i18nKey: 'httpErrors.record.fieldValueInvalid',
+              context: { fieldName: field.name().toString() },
+            },
             details: {
               fieldId: field.id().toString(),
               fieldName: field.name().toString(),

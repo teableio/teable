@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import type {
   ICreateMobileAuthCodeRo,
   ICreateMobileAuthCodeVo,
@@ -9,12 +10,19 @@ import type {
 import { MOBILE_AUTH_CODE_CHALLENGE_RE } from '@teable/openapi';
 import { CacheService } from '../../../cache/cache.service';
 import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { UserService } from '../../user/user.service';
 import { SessionStoreService } from '../session/session-store.service';
 import { pickUserMe } from '../utils';
 import { hashCode, randomCode, verifyS256 } from './pkce';
 
 const INVALID_CODE = 'Invalid or expired code';
+
+/** Every rejected step of the app sign-in asks the user to start over from the app. */
+const invalidExchange = (message: string) =>
+  new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR, {
+    localization: { i18nKey: 'httpErrors.auth.mobileExchangeInvalid' },
+  });
 /** Child (WebView) sessions are tracked for as long as the default session lifetime. */
 const CHILD_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -41,7 +49,7 @@ export class MobileAuthService {
 
   async createCode(userId: string, ro: ICreateMobileAuthCodeRo): Promise<ICreateMobileAuthCodeVo> {
     if (!MOBILE_AUTH_CODE_CHALLENGE_RE.test(ro.codeChallenge)) {
-      throw new BadRequestException('Invalid code_challenge');
+      throw invalidExchange('Invalid code_challenge');
     }
     const redirect = this.parseRedirectUri(ro.redirectUri);
     const code = randomCode();
@@ -66,10 +74,10 @@ export class MobileAuthService {
     // Atomic consume: of two concurrent requests only the one that deletes the key goes on,
     // and the code is burned even when the verifier turns out wrong (one guess per code).
     if (!stored || !(await this.cacheService.del(key))) {
-      throw new BadRequestException(INVALID_CODE);
+      throw new CustomHttpException(INVALID_CODE, HttpErrorCode.VALIDATION_ERROR);
     }
     if (!verifyS256(ro.codeVerifier, stored.codeChallenge)) {
-      throw new BadRequestException('Invalid code_verifier');
+      throw new CustomHttpException('Invalid code_verifier', HttpErrorCode.VALIDATION_ERROR);
     }
     const user = await this.loadUser(stored.userId);
     await this.recordSignin(user.id);
@@ -93,11 +101,11 @@ export class MobileAuthService {
     const key = `auth:mobile-web-session:${hashCode(code)}` as const;
     const stored = await this.cacheService.get(key);
     if (!stored || !(await this.cacheService.del(key))) {
-      throw new BadRequestException(INVALID_CODE);
+      throw new CustomHttpException(INVALID_CODE, HttpErrorCode.VALIDATION_ERROR);
     }
     // The native session that minted the code must still be alive.
     if (!(await this.sessionExists(stored.parentSessionId))) {
-      throw new BadRequestException(INVALID_CODE);
+      throw new CustomHttpException(INVALID_CODE, HttpErrorCode.VALIDATION_ERROR);
     }
     return { user: await this.loadUser(stored.userId), parentSessionId: stored.parentSessionId };
   }
@@ -132,14 +140,14 @@ export class MobileAuthService {
     try {
       url = new URL(raw);
     } catch {
-      throw new BadRequestException('Invalid redirect_uri');
+      throw invalidExchange('Invalid redirect_uri');
     }
     const scheme = url.protocol.replace(/:$/, '').toLowerCase();
     if (!this.authConfig.mobileAuth.redirectSchemes.includes(scheme)) {
-      throw new BadRequestException(`redirect_uri scheme "${scheme}" is not allowed`);
+      throw invalidExchange(`redirect_uri scheme "${scheme}" is not allowed`);
     }
     if (url.hash) {
-      throw new BadRequestException('redirect_uri must not carry a fragment');
+      throw invalidExchange('redirect_uri must not carry a fragment');
     }
     return url;
   }
@@ -147,7 +155,7 @@ export class MobileAuthService {
   private async loadUser(userId: string): Promise<IUserMeVo> {
     const user = await this.userService.getUserById(userId);
     if (!user || user.deactivatedTime) {
-      throw new BadRequestException(INVALID_CODE);
+      throw new CustomHttpException(INVALID_CODE, HttpErrorCode.VALIDATION_ERROR);
     }
     return pickUserMe(user);
   }

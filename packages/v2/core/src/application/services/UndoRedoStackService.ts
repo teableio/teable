@@ -1146,6 +1146,7 @@ export class UndoRedoStackService {
     return err(
       domainError.validation({
         message: `Unsupported undo/redo command version for ${commandData.type}: ${commandData.version}, expected ${undoRedoCommandVersions[commandData.type]}`,
+        localization: { i18nKey: 'httpErrors.undoRedo.unsupportedCommandVersion' },
       })
     );
   }

@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { ILocalization } from '@teable/core';
 import type {
   IV2BaseSchemaIntegrityRepairRo,
   IV2SchemaIntegrityFilterStatus,
@@ -38,6 +39,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import { getErrorLocalization } from '../v2/v2-http-error';
 import { IntegrityV2Service } from './integrity-v2.service';
 
 type IFlushableResponse = ExpressResponse & { flush?: () => void };
@@ -115,7 +117,8 @@ export class IntegrityV2Controller {
           'completion',
           'Schema integrity check completed'
         ),
-      createErrorEvent: (message) => this.createCheckErrorResult(message),
+      createErrorEvent: (message, localization) =>
+        this.createCheckErrorResult(message, localization),
     });
   }
 
@@ -143,7 +146,8 @@ export class IntegrityV2Controller {
           'completion',
           'Project schema integrity check completed'
         ),
-      createErrorEvent: (message) => this.createCheckErrorResult(message),
+      createErrorEvent: (message, localization) =>
+        this.createCheckErrorResult(message, localization),
     });
   }
 
@@ -193,7 +197,8 @@ export class IntegrityV2Controller {
           'completion',
           'Schema integrity repair completed'
         ),
-      createErrorEvent: (message) => this.createRepairErrorResult(message),
+      createErrorEvent: (message, localization) =>
+        this.createRepairErrorResult(message, localization),
     });
   }
 
@@ -231,7 +236,8 @@ export class IntegrityV2Controller {
           'completion',
           'Project schema integrity repair completed'
         ),
-      createErrorEvent: (message) => this.createRepairErrorResult(message),
+      createErrorEvent: (message, localization) =>
+        this.createRepairErrorResult(message, localization),
     });
   }
 
@@ -241,7 +247,7 @@ export class IntegrityV2Controller {
       createStream: () => Promise<AsyncGenerator<T>>;
       createConnectEvent: () => T;
       createCompleteEvent: () => T;
-      createErrorEvent: (message: string) => T;
+      createErrorEvent: (message: string, localization?: ILocalization) => T;
     }
   ): Promise<void> {
     const heartbeat = this.startHeartbeat(res);
@@ -263,7 +269,10 @@ export class IntegrityV2Controller {
 
       this.sendSseEvent(res, options.createCompleteEvent());
     } catch (error) {
-      this.sendSseEvent(res, options.createErrorEvent(this.getErrorMessage(error)));
+      this.sendSseEvent(
+        res,
+        options.createErrorEvent(this.getErrorMessage(error), getErrorLocalization(error))
+      );
     } finally {
       clearInterval(heartbeat);
       res.end();
@@ -318,7 +327,10 @@ export class IntegrityV2Controller {
     return res.writableEnded || res.destroyed;
   }
 
-  private createCheckErrorResult(message: string): IV2SchemaIntegrityCheckResult {
+  private createCheckErrorResult(
+    message: string,
+    localization?: ILocalization
+  ): IV2SchemaIntegrityCheckResult {
     return {
       ...this.createLifecycleEventBase(
         'error:unexpected',
@@ -327,10 +339,14 @@ export class IntegrityV2Controller {
         'error',
         message
       ),
+      ...(localization ? { localization } : {}),
     };
   }
 
-  private createRepairErrorResult(message: string): IV2SchemaIntegrityRepairResult {
+  private createRepairErrorResult(
+    message: string,
+    localization?: ILocalization
+  ): IV2SchemaIntegrityRepairResult {
     return {
       ...this.createLifecycleEventBase(
         'error:unexpected',
@@ -339,6 +355,7 @@ export class IntegrityV2Controller {
         'error',
         message
       ),
+      ...(localization ? { localization } : {}),
       outcome: 'manual',
     };
   }

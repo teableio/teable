@@ -1,5 +1,7 @@
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle } from '@teable/v2-di';
+import { UpdateRecordApplicationService } from '../commands/UpdateRecordApplicationService';
+import { UpdateRecordsApplicationService } from '../commands/UpdateRecordsApplicationService';
 
 import { AttachmentValueDecoratorService } from '../application/services/AttachmentValueDecoratorService';
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
@@ -18,6 +20,7 @@ import { LinkTitleResolverService } from '../application/services/LinkTitleResol
 import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import { RecordUpsertService } from '../application/services/RecordUpsertService';
 import { NullRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
@@ -65,6 +68,7 @@ import { NoopComputedOutboxAdmin } from '../ports/defaults/NoopComputedOutboxAdm
 import { NoopFieldDeleteSnapshotSink } from '../ports/defaults/NoopFieldDeleteSnapshotSink';
 import { NoopFieldTrashRepository } from '../ports/defaults/NoopFieldTrashRepository';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
+import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
 import { NoopTableQueryObservability } from '../ports/defaults/NoopTableQueryObservability';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import { NoopViewPluginRepository } from '../ports/defaults/NoopViewPluginRepository';
@@ -550,6 +554,26 @@ export const registerV2CoreServices = (
     });
   }
 
+  if (!container.isRegistered(v2CoreTokens.updateRecordApplicationService)) {
+    container.register(
+      v2CoreTokens.updateRecordApplicationService,
+      UpdateRecordApplicationService,
+      { lifecycle }
+    );
+  }
+  if (!container.isRegistered(v2CoreTokens.updateRecordsApplicationService)) {
+    container.register(
+      v2CoreTokens.updateRecordsApplicationService,
+      UpdateRecordsApplicationService,
+      { lifecycle }
+    );
+  }
+  if (!container.isRegistered(v2CoreTokens.recordUpsertService)) {
+    container.register(v2CoreTokens.recordUpsertService, RecordUpsertService, {
+      lifecycle,
+    });
+  }
+
   if (!container.isRegistered(v2CoreTokens.recordReorderService)) {
     container.register(v2CoreTokens.recordReorderService, RecordReorderService, {
       lifecycle,
@@ -626,6 +650,15 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.recordOrderCalculator, NoopRecordOrderCalculator, {
       lifecycle,
     });
+  }
+
+  // Row-order column preparation - default no-op (adapter provides DDL)
+  if (!container.isRegistered(v2CoreTokens.recordOrderColumnPreparer)) {
+    container.register(
+      v2CoreTokens.recordOrderColumnPreparer,
+      NoopRecordOrderColumnPreparer,
+      { lifecycle }
+    );
   }
 
   // UndoRedoStore - default no-op store

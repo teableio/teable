@@ -7,6 +7,7 @@ import type {
   IRecordCreationResult,
   RecordCreationService,
 } from '../application/services/RecordCreationService';
+import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { TableQueryService } from '../application/services/TableQueryService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -14,6 +15,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
@@ -21,6 +23,7 @@ import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { CloneViewVisitor } from '../domain/table/views/visitors/CloneViewVisitor';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind, type IRecordWritePlugin } from '../ports/RecordWritePlugin';
+import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
@@ -40,6 +43,7 @@ const createTestTable = () => {
   const tableName = TableName.create('Submit Form Table')._unsafeUnwrap();
   const textFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
   const hiddenFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+  const selectFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
 
   const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
   builder
@@ -48,6 +52,13 @@ const createTestTable = () => {
     .withId(textFieldId)
     .withName(FieldName.create('Title')._unsafeUnwrap())
     .primary()
+    .done();
+  builder
+    .field()
+    .singleSelect()
+    .withId(selectFieldId)
+    .withName(FieldName.create('Status')._unsafeUnwrap())
+    .withOptions([SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap()])
     .done();
   builder
     .field()
@@ -69,6 +80,7 @@ const createTestTable = () => {
     table,
     textFieldId: textFieldId.toString(),
     hiddenFieldId: hiddenFieldId.toString(),
+    selectFieldId: selectFieldId.toString(),
     gridViewId: gridView.id().toString(),
     formViewId: formView.id().toString(),
   };
@@ -207,7 +219,11 @@ describe('SubmitRecordHandler', () => {
       },
     } as unknown as RecordCreationService;
 
-    const handler = new SubmitRecordHandler(tableQueryService, recordCreationService);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: table.id().toString(),
       formId: formViewId,
@@ -240,7 +256,11 @@ describe('SubmitRecordHandler', () => {
       RecordWriteOperationKind.createOne,
     ]);
 
-    const handler = new SubmitRecordHandler(tableQueryService, service);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      service,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: table.id().toString(),
       formId: formViewId,
@@ -274,7 +294,11 @@ describe('SubmitRecordHandler', () => {
       },
     ]);
 
-    const handler = new SubmitRecordHandler(tableQueryService, service);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      service,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: table.id().toString(),
       formId: formViewId,
@@ -306,7 +330,11 @@ describe('SubmitRecordHandler', () => {
       },
     } as unknown as RecordCreationService;
 
-    const handler = new SubmitRecordHandler(tableQueryService, recordCreationService);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: table.id().toString(),
       formId: gridViewId,
@@ -339,7 +367,11 @@ describe('SubmitRecordHandler', () => {
       },
     } as unknown as RecordCreationService;
 
-    const handler = new SubmitRecordHandler(tableQueryService, recordCreationService);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: table.id().toString(),
       formId: formViewId,
@@ -373,7 +405,11 @@ describe('SubmitRecordHandler', () => {
       },
     } as unknown as RecordCreationService;
 
-    const handler = new SubmitRecordHandler(tableQueryService, recordCreationService);
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService()
+    );
     const command = SubmitRecordCommand.create({
       tableId: tableWithRequiredField.id().toString(),
       formId: formViewId,
@@ -389,5 +425,108 @@ describe('SubmitRecordHandler', () => {
     expect(error.details).toEqual({
       missingFieldIds: [textFieldId],
     });
+  });
+
+  it('releases shared and reloads before an exclusive submission', async () => {
+    const initial = createTestTable();
+    const reloaded = createTestTable();
+    const reads: string[] = [];
+    const tableQueryService = {
+      getById: async () => {
+        const table = reads.length === 0 ? initial.table : reloaded.table;
+        reads.push(table.id().toString());
+        return ok(table);
+      },
+    } as unknown as TableQueryService;
+    const events: string[] = [];
+    let executedWith: Table | undefined;
+    const recordCreationService = {
+      create: async (_context: IExecutionContext, input: IRecordCreationInput) => {
+        executedWith = input.table;
+        const createResult = input.table.createRecord(
+          new Map([[reloaded.textFieldId, 'submitted']]),
+          { typecast: false, source: { type: 'form', formId: reloaded.formViewId } }
+        );
+        if (createResult.isErr()) return err(createResult.error);
+        return ok({
+          record: createResult.value.record,
+          events: [],
+          fieldKeyMapping: new Map(),
+        } satisfies IRecordCreationResult);
+      },
+    } as unknown as RecordCreationService;
+    const coordination: ITableSchemaCoordination = {
+      acquire: async (_context, tableIds, mode) => {
+        events.push(mode);
+        return ok({
+          mode,
+          tableIds,
+          release: async () => {
+            events.push(`release-${mode}`);
+          },
+        });
+      },
+    };
+
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService(),
+      coordination
+    );
+    const command = SubmitRecordCommand.create({
+      tableId: reloaded.table.id().toString(),
+      formId: reloaded.formViewId,
+      fields: { [reloaded.selectFieldId]: 'In Progress' },
+      typecast: true,
+    })._unsafeUnwrap();
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(events).toEqual(['shared', 'release-shared', 'exclusive', 'release-exclusive']);
+    expect(reads).toHaveLength(2);
+    expect(executedWith).toBe(reloaded.table);
+  });
+
+  it('releases the shared lease when submission creation fails', async () => {
+    const { table, textFieldId, formViewId } = createTestTable();
+    let readCount = 0;
+    const tableQueryService = {
+      getById: async () => {
+        readCount++;
+        return ok(table);
+      },
+    } as unknown as TableQueryService;
+    const recordCreationService = {
+      create: async () => err(domainError.unexpected({ message: 'create failed' })),
+    } as unknown as RecordCreationService;
+    const events: string[] = [];
+    const handler = new SubmitRecordHandler(
+      tableQueryService,
+      recordCreationService,
+      new RecordWriteSideEffectService(),
+      {
+        acquire: async (_context, tableIds, mode) => {
+          events.push(mode);
+          return ok({
+            mode,
+            tableIds,
+            release: async () => {
+              events.push(`release-${mode}`);
+            },
+          });
+        },
+      }
+    );
+    const command = SubmitRecordCommand.create({
+      tableId: table.id().toString(),
+      formId: formViewId,
+      fields: { [textFieldId]: 'value' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(events).toEqual(['shared', 'release-shared']);
+    expect(readCount).toBe(1);
   });
 });

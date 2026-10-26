@@ -670,7 +670,12 @@ export class RollupField
 
     if (cellValueType.equals(CellValueType.number())) {
       if (formatting && !(formatting instanceof NumberFormattingValue))
-        return err(domainError.validation({ message: 'Invalid RollupField formatting' }));
+        return err(
+          domainError.validation({
+            message: 'Invalid RollupField formatting',
+            localization: { i18nKey: 'httpErrors.field.rollupFormattingMismatch' },
+          })
+        );
       if (showAs && !(showAs instanceof NumberShowAsValue))
         return err(domainError.validation({ message: 'Invalid RollupField showAs' }));
       if (showAs) {
@@ -686,7 +691,12 @@ export class RollupField
 
     if (cellValueType.equals(CellValueType.dateTime())) {
       if (formatting && !(formatting instanceof DateTimeFormattingValue))
-        return err(domainError.validation({ message: 'Invalid RollupField formatting' }));
+        return err(
+          domainError.validation({
+            message: 'Invalid RollupField formatting',
+            localization: { i18nKey: 'httpErrors.field.rollupFormattingMismatch' },
+          })
+        );
       if (showAs) return err(domainError.validation({ message: 'Invalid RollupField showAs' }));
       return ok(undefined);
     }

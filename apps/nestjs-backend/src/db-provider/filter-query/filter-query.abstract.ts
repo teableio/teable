@@ -1,4 +1,4 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Logger } from '@nestjs/common';
 import type {
   FieldCore,
   IConjunction,
@@ -24,6 +24,7 @@ import {
 import type { Knex } from 'knex';
 import { includes, invert } from 'lodash';
 import { ZodError } from 'zod';
+import { CustomHttpException } from '../../custom.exception';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
@@ -283,7 +284,13 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   }
 
   private isSkippableCompilerError(error: unknown) {
-    return error instanceof BadRequestException || error instanceof ZodError;
+    // Filter compilers reject incomplete values with a 400 (BadRequestException or a
+    // localized CustomHttpException); both mean "skip this item", not "fail the query".
+    return (
+      error instanceof BadRequestException ||
+      (error instanceof CustomHttpException && error.getStatus() === HttpStatus.BAD_REQUEST) ||
+      error instanceof ZodError
+    );
   }
 
   private getFilterAdapter(field: FieldCore): AbstractCellValueFilter {

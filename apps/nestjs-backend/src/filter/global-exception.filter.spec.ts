@@ -2,6 +2,7 @@
 import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CustomHttpException } from '../custom.exception';
 import { MailDeliveryException } from '../features/mail-sender/mail-delivery-error';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
@@ -257,6 +258,26 @@ describe('GlobalExceptionFilter', () => {
 
     expect(withScope).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('does not error-log a localized 400, but still logs other localized statuses', () => {
+    const loggerError = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const filter = new GlobalExceptionFilter(configService as never);
+    const localization = { i18nKey: 'httpErrors.auth.emailOrPasswordIncorrect' as const };
+
+    filter.catch(
+      new CustomHttpException('Email or password is incorrect', HttpErrorCode.VALIDATION_ERROR, {
+        localization,
+      }),
+      host as never
+    );
+    expect(loggerError).not.toHaveBeenCalled();
+
+    filter.catch(
+      new CustomHttpException('Sandbox down', HttpErrorCode.GATEWAY_TIMEOUT, { localization }),
+      host as never
+    );
+    expect(loggerError).toHaveBeenCalledTimes(1);
   });
 
   it('answers a user SMTP rejection with 424 instead of capturing it', () => {

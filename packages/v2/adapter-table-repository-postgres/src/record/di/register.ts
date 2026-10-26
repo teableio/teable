@@ -4,6 +4,10 @@ import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
+import {
+  defaultComputedRuntimeConfig,
+  type ComputedRuntimeConfig,
+} from '../../config/runtimeConfig';
 import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
@@ -67,6 +71,8 @@ export interface IV2RecordRepositoryPostgresConfig {
      */
     fieldBackfillConfig?: Partial<FieldBackfillConfig>;
   };
+  /** Explicit computed runtime configuration; supplied by the composition root. */
+  runtime?: ComputedRuntimeConfig;
 }
 
 export const registerV2RecordRepositoryPostgresAdapter = (
@@ -153,6 +159,12 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig, runtimeConfig);
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)) {
+    c.registerInstance(
+      v2RecordRepositoryPostgresTokens.computedRuntimeConfig,
+      config.runtime ?? defaultComputedRuntimeConfig
+    );
+  }
 
   const fieldBackfillConfig: FieldBackfillConfig = {
     ...defaultFieldBackfillConfig,

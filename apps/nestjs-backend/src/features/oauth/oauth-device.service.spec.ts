@@ -288,7 +288,7 @@ describe('OAuthDeviceService', () => {
       await service.decide({ userCode, approve: true, user: USER });
 
       await expect(service.decide({ userCode, approve: false, user: USER })).rejects.toThrow(
-        BadRequestException
+        CustomHttpException
       );
     });
 

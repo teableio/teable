@@ -3,6 +3,7 @@
  */
 export const v2CommandExplainTokens = {
   explainService: Symbol('v2.commandExplain.explainService'),
+  complexityService: Symbol('v2.commandExplain.complexityService'),
   sqlExplainRunner: Symbol('v2.commandExplain.sqlExplainRunner'),
   complexityCalculator: Symbol('v2.commandExplain.complexityCalculator'),
   createFieldAnalyzer: Symbol('v2.commandExplain.createFieldAnalyzer'),

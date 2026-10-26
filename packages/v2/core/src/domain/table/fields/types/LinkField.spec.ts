@@ -1313,27 +1313,6 @@ const buildLinkAutoCreateTables = (params?: {
   };
 };
 
-describe('LinkField.validateTitleResolutionTarget', () => {
-  it('allows title resolution when lookup targets a single string formula primary', () => {
-    const { hostTable, foreignTable, linkField } = buildLinkAutoCreateTables({
-      foreignPrimaryType: 'formulaText',
-    });
-
-    const result = linkField.validateTitleResolutionTarget(hostTable, foreignTable);
-    expect(result).toEqual(ok(undefined));
-  });
-
-  it('rejects title resolution when the foreign primary does not resolve to text', () => {
-    const { hostTable, foreignTable, linkField } = buildLinkAutoCreateTables({
-      foreignPrimaryType: 'number',
-    });
-
-    const result = linkField.validateTitleResolutionTarget(hostTable, foreignTable);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_text_primary');
-  });
-});
-
 describe('LinkField.validateAutoCreateTarget', () => {
   it('rejects self-link auto-create targets', () => {
     const { hostTable, linkField } = buildLinkAutoCreateTables({ selfLink: true });

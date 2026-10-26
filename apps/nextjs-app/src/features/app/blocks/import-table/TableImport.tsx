@@ -20,7 +20,8 @@ import {
   BaseNodeResourceType,
   SUPPORTEDTYPE,
 } from '@teable/openapi';
-import { useBase, LocalStorageKeys } from '@teable/sdk';
+import { getLocalizationMessage, useBase, LocalStorageKeys } from '@teable/sdk';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import {
   Dialog,
   DialogContent,
@@ -172,16 +173,19 @@ const ImportProgressPanel = ({ progress }: { progress: IImportStreamProgressEven
 };
 
 const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
-  const { t } = useTranslation(['table']);
-  const hasIssue = sheets.some((sheet) => sheet.truncated || Boolean(sheet.error));
+  const { t } = useTranslation(['table', 'sdk']);
+  const hasError = sheets.some((sheet) => Boolean(sheet.error));
+  const hasTruncated = sheets.some((sheet) => sheet.truncated);
 
   return (
     <div className="row-start-2 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-1">
       <div>
         <h3 className="text-base font-medium">
-          {hasIssue
-            ? t('table:import.tips.importFinishedPartial')
-            : t('table:import.tips.importFinished')}
+          {hasError
+            ? t('table:import.tips.importFinishedWithErrors')
+            : hasTruncated
+              ? t('table:import.tips.importFinishedPartial')
+              : t('table:import.tips.importFinished')}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('table:import.tips.importSummaryHint')}
@@ -213,7 +217,15 @@ const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
                 }`}
               >
                 {isError
-                  ? t('table:import.tips.importSheetFailed', { error: sheet.error ?? '' })
+                  ? t('table:import.tips.importSheetFailed', {
+                      error: sheet.localization
+                        ? getLocalizationMessage(
+                            sheet.localization,
+                            t as unknown as ILocaleFunction,
+                            'sdk'
+                          )
+                        : (sheet.error ?? ''),
+                    })
                   : isTruncated
                     ? t('table:import.tips.importSheetTruncated', {
                         rowCount: sheet.importedCount,

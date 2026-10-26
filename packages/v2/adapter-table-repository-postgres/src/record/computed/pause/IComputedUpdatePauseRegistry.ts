@@ -96,6 +96,7 @@ export const computedPausedWriteBlockedError = (details: {
     code: COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
     message:
       'Computation is paused; writes that require computed propagation are blocked until the pause resumes',
+    localization: { i18nKey: 'httpErrors.computed.pausedWriteBlocked' },
     details: {
       ...details,
       writePolicy: 'block' as const,
@@ -132,6 +133,11 @@ export interface IComputedUpdatePauseRegistry {
    * User-write admission for a seed table. `block` fails with
    * COMPUTE_PAUSED_WRITE_BLOCKED. `allow_bounded` auto-releases at the backlog
    * watermark so a pause cannot grow into a generic 503.
+   *
+   * Must run on the caller transaction's connection when `context` carries one:
+   * a nested checkout already holds that connection, and a second checkout from
+   * a small (BYODB) pool would wait on itself until it times out. Outside a
+   * transaction the pool handle keeps the auto-release committing on its own.
    */
   admitComputedWrite(
     params: AdmitComputedWriteParams,

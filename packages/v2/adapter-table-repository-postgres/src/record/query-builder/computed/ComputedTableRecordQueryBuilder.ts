@@ -1,3 +1,4 @@
+import type { ConditionalQueryRuntimeConfig } from '../../../config/runtimeConfig';
 import {
   AndSpec,
   CellValueType,
@@ -136,20 +137,7 @@ type ResolvedConditionalOrderBy = {
   tieBreaker?: LinkOrderBy;
 };
 
-const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return Math.floor(parsed);
-};
-
-const CONDITIONAL_QUERY_MAX_LIMIT = parsePositiveInt(process.env.CONDITIONAL_QUERY_MAX_LIMIT, 5000);
-const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
-  parsePositiveInt(process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT, CONDITIONAL_QUERY_MAX_LIMIT),
-  CONDITIONAL_QUERY_MAX_LIMIT
-);
+const DEFAULT_CONDITIONAL_QUERY_MAX_LIMIT = 5000;
 const SIMPLE_CONDITIONAL_ROLLUP_OPERATORS: ReadonlySet<string> = new Set(['is', 'isAnyOf']);
 /**
  * Value-less operators acceptable as residual constants on the set-based
@@ -771,6 +759,8 @@ export interface IComputedQueryBuilderOptions {
   readonly resolveSystemUserSnapshotsFromUsers?: boolean;
   /** Full-table computed backfills may aggregate all host rows before the outer UPDATE. */
   readonly allowFullTableSetBasedRollups?: boolean;
+  /** Limits for conditional/derived rollup subqueries; supplied by the composition root. */
+  readonly conditionalQuery?: ConditionalQueryRuntimeConfig;
 }
 
 /**
@@ -798,6 +788,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private userSnapshotActorFallback?: UserSnapshotActorFallback;
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
   private readonly allowFullTableSetBasedRollups: boolean;
+  private readonly conditionalQueryMaxLimit: number;
+  private readonly conditionalQueryDefaultLimit: number;
   private unchunkedDirtySetHostKeyColumns: ReadonlyArray<string> = [];
   private danglingFieldRefs: IDanglingComputedFieldReference[] = [];
 
@@ -816,6 +808,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.userSnapshotActorFallback = options.userSnapshotActorFallback;
     this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
     this.allowFullTableSetBasedRollups = options.allowFullTableSetBasedRollups ?? false;
+    this.conditionalQueryMaxLimit = Math.max(
+      1,
+      Math.floor(options.conditionalQuery?.maxLimit ?? DEFAULT_CONDITIONAL_QUERY_MAX_LIMIT)
+    );
+    this.conditionalQueryDefaultLimit = Math.min(
+      Math.max(
+        1,
+        Math.floor(options.conditionalQuery?.defaultLimit ?? this.conditionalQueryMaxLimit)
+      ),
+      this.conditionalQueryMaxLimit
+    );
   }
 
   from(table: Table): this {
@@ -1998,7 +2001,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const limitValue = canUseUnboundedOrderlessRollup
             ? undefined
             : isConditionalDerived
-              ? (configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT)
+              ? (configuredLimit ?? this.conditionalQueryDefaultLimit)
               : configuredLimit;
           const useUncorrelatedRollupFastPath =
             this.shouldUseConditionalRollupFastPath(foreignTable, firstColumnType) &&
@@ -2297,7 +2300,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         }
 
         const rankedAlias = `${alias}_src`;
-        const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
+        const limitValue = group.limit ?? this.conditionalQueryDefaultLimit;
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
         const foreignProjectionColumns = yield* this.collectConditionalForeignProjectionColumns(
           foreignTable,
@@ -2396,7 +2399,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
         const needsRanking = !group.orderInsensitive || group.limit !== undefined;
         const limitValue = needsRanking
-          ? (group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT)
+          ? (group.limit ?? this.conditionalQueryDefaultLimit)
           : undefined;
 
         if (needsRanking && limitValue !== undefined) {

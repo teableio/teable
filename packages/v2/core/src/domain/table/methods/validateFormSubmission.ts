@@ -67,6 +67,7 @@ export function validateFormSubmission(
       domainError.validation({
         code: 'view.required_fields_missing',
         message: 'Required form fields are missing.',
+        localization: { i18nKey: 'httpErrors.view.formRequiredFieldsMissing' },
         details: { missingFieldIds: missingRequiredFieldIds },
       })
     );

@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Type } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { HttpErrorCode } from '@teable/core';
 import type { Profile } from 'passport-google-oauth20';
 import { Strategy } from 'passport-google-oauth20';
 import { AuthConfig } from '../../../configs/auth.config';
 import type { authConfig } from '../../../configs/auth.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { UserService } from '../../user/user.service';
 import { OauthStoreService } from '../oauth/oauth.store';
 import { pickUserMe } from '../utils';
@@ -49,7 +51,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy as Type<Strategy>,
       throw new UnauthorizedException('Failed to create user from Google profile');
     }
     if (user.deactivatedTime) {
-      throw new BadRequestException('Your account has been deactivated by the administrator');
+      throw new CustomHttpException(
+        'Your account has been deactivated by the administrator',
+        HttpErrorCode.VALIDATION_ERROR,
+        { localization: { i18nKey: 'httpErrors.auth.accountDeactivated' } }
+      );
     }
     await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);

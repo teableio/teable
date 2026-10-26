@@ -23,9 +23,13 @@ export const sdkErrorI18nKeys = {
     cycleDetectedCreateFieldGeneric: 'httpErrors.field.cycleDetectedCreateFieldGeneric',
     lookupFieldNotBelongToTable: 'httpErrors.field.lookupFieldNotBelongToTable',
     choiceNameAlreadyExists: 'httpErrors.field.choiceNameAlreadyExists',
+    dbFieldNameAlreadyExists: 'httpErrors.field.dbFieldNameAlreadyExists',
   },
   user: {
     notFound: 'httpErrors.user.notFound',
+  },
+  view: {
+    versionConflict: 'httpErrors.view.versionConflict',
   },
   limit: {
     fieldOptionsMaxBytes: 'httpErrors.limit.fieldOptionsMaxBytes',
@@ -76,6 +80,51 @@ export type SdkErrorI18nKey =
   | 'httpErrors.field.cycleDetectedCreateFieldGeneric'
   | 'httpErrors.field.lookupFieldNotBelongToTable'
   | 'httpErrors.field.choiceNameAlreadyExists'
+  | 'httpErrors.field.dbFieldNameAlreadyExists'
+  | 'httpErrors.view.versionConflict'
+  | 'httpErrors.attachment.notFound'
+  | 'httpErrors.computed.pausedWriteBlocked'
+  | 'httpErrors.field.buttonClickConflict'
+  | 'httpErrors.field.buttonUndoConflict'
+  | 'httpErrors.field.conditionalRollupFormattingMismatch'
+  | 'httpErrors.field.conditionalRollupLookupFieldUnavailable'
+  | 'httpErrors.field.cycleDetected'
+  | 'httpErrors.field.fieldNameAlreadyExists'
+  | 'httpErrors.field.formulaCompileFailed'
+  | 'httpErrors.field.formulaParamNumberOrDateRequired'
+  | 'httpErrors.field.formulaParamTextNotAllowed'
+  | 'httpErrors.field.formulaParamTextRequired'
+  | 'httpErrors.field.formulaReferenceNotFound'
+  | 'httpErrors.field.linkTitleFillLimitExceeded'
+  | 'httpErrors.field.linkTitlePrimaryNotText'
+  | 'httpErrors.field.nameRequired'
+  | 'httpErrors.field.notFoundInTable'
+  | 'httpErrors.field.rollupFormattingMismatch'
+  | 'httpErrors.field.selectDefaultValueNotInChoices'
+  | 'httpErrors.field.timeZoneInvalid'
+  | 'httpErrors.import.columnIndexOutOfRange'
+  | 'httpErrors.import.csvNoColumns'
+  | 'httpErrors.import.csvParseError'
+  | 'httpErrors.import.excelSheetNoColumns'
+  | 'httpErrors.import.invalidDotteaStructure'
+  | 'httpErrors.integrity.linkTargetTableMissing'
+  | 'httpErrors.record.fieldValueInvalid'
+  | 'httpErrors.record.linkedRecordNotExist'
+  | 'httpErrors.selection.linkAutoCreateComputedPrimaryUnsupported'
+  | 'httpErrors.selection.linkAutoCreateMissingRequiredFields'
+  | 'httpErrors.selection.linkAutoCreateRequiresPrimaryLookup'
+  | 'httpErrors.selection.linkAutoCreateRequiresTextPrimary'
+  | 'httpErrors.selection.linkAutoCreateSelfLinkUnsupported'
+  | 'httpErrors.table.nameRequired'
+  | 'httpErrors.tableQueryOps.tableTaskConflict'
+  | 'httpErrors.trash.restoreFieldInvalidSnapshot'
+  | 'httpErrors.undoRedo.busy'
+  | 'httpErrors.undoRedo.inProgress'
+  | 'httpErrors.undoRedo.unsupportedCommandVersion'
+  | 'httpErrors.view.filterInvalidOperator'
+  | 'httpErrors.view.formRequiredFieldsMissing'
+  | 'httpErrors.view.manualSortUnsupportedViewType'
+  | 'httpErrors.view.nameAlreadyExists'
   | 'httpErrors.limit.fieldOptionsMaxBytes'
   | 'httpErrors.limit.selectChoicesMax'
   | 'httpErrors.limit.selectChoiceNameMaxLength'

@@ -368,6 +368,66 @@ describe('V2ContainerService', () => {
     );
   });
 
+  it('fails BYODB coordination acquires fast by default', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService, dataDbClientManager } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PRISMA_META_DATABASE_URL') return 'postgres://meta-db';
+      return undefined;
+    });
+    dataDbClientManager.getDataDatabaseForSpace.mockResolvedValue({
+      cacheKey: 'spc-byodb',
+      url: 'postgres://data-db',
+      internalSchema: 'teable_meta_x',
+      isMetaFallback: false,
+    });
+
+    await service.getContainerForSpace('spc1');
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaCoordination: { maxConnections: 32, connectionTimeoutMillis: 2000 },
+      })
+    );
+  });
+
+  it('sizes BYODB pools and coordination from the connection budget', async () => {
+    vi.stubEnv('BYODB_DATA_DB_PG_MAX_CONNECTIONS', '100');
+    vi.stubEnv('BYODB_DATA_DB_DATABASES_PER_SERVER', '20');
+    vi.stubEnv('BYODB_APP_NODES', '1');
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService, dataDbClientManager, pgPoolRegistry } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PRISMA_META_DATABASE_URL') return 'postgres://meta-db';
+      if (key === 'V2_SCHEMA_COORDINATION_MAX_CONNECTIONS') return '3';
+      if (key === 'V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS') return '2500';
+      return undefined;
+    });
+    dataDbClientManager.getDataDatabaseForSpace.mockResolvedValue({
+      cacheKey: 'spc-byodb',
+      url: 'postgres://data-db',
+      internalSchema: 'teable_meta_x',
+      isMetaFallback: false,
+    });
+
+    await service.getContainerForSpace('spc1');
+
+    expect(pgPoolRegistry.snapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ host: 'meta-db', max: 20 }),
+        // 80 / (1 pod × 20 databases) = 4 minus two auxiliary connections.
+        expect.objectContaining({ host: 'data-db', max: 2 }),
+      ])
+    );
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaCoordination: { maxConnections: 3, connectionTimeoutMillis: 2500 },
+      })
+    );
+  });
+
   it('publishes outbox wakeups without configuring a polling worker', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);

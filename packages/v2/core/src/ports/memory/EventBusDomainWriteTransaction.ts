@@ -170,4 +170,21 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
       directDelivery: emptyDirectDelivery,
     });
   }
+
+  /** In-memory transactions have no SQL state to poison, so a savepoint is a pass-through. */
+  async savepoint<T>(
+    context: IExecutionContext,
+    work: () => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    if (!getUnitOfWorkTransaction(context, 'data')) {
+      return err(
+        domainError.infrastructure({
+          code: 'domain_event.transaction_required',
+          message: 'Domain write savepoint requires an active data transaction',
+        })
+      );
+    }
+
+    return work();
+  }
 }

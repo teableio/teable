@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { HttpErrorCode } from '@teable/core';
 import type { Request } from 'express';
@@ -9,7 +9,7 @@ import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { CustomHttpException } from '../../../custom.exception';
 import type { ISigninFailedReason } from '../../user/user.service';
 import { UserService } from '../../user/user.service';
-import { LocalAuthService } from '../local-auth/local-auth.service';
+import { LocalAuthService, TurnstileRejectedException } from '../local-auth/local-auth.service';
 import { pickUserMe } from '../utils';
 
 /**
@@ -21,6 +21,9 @@ import { pickUserMe } from '../utils';
  */
 const isRejectedByCredentials = (error: unknown): error is HttpException =>
   error instanceof HttpException && error.getStatus() < 500;
+
+/** Whether the credential check rejected the attempt at the Turnstile captcha step. */
+const isCaptchaRejection = (error: unknown) => error instanceof TurnstileRejectedException;
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -48,8 +51,8 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       const user = await this.authService
         .validateUserByEmailWithTurnstile(email, password, turnstileToken, remoteIp)
         .catch((error: unknown) => {
-          // Turnstile rejects with a plain BadRequestException, the account checks don't.
-          if (error instanceof BadRequestException) reason = 'captcha';
+          // Turnstile rejects with its own captcha i18n keys, the account checks don't.
+          if (isCaptchaRejection(error)) reason = 'captcha';
           throw error;
         });
       if (!user) {
@@ -83,6 +86,12 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       // counter alone, so a transient outage neither reads as a wrong password nor locks
       // the account.
       if (!isRejectedByCredentials(error)) {
+        throw error;
+      }
+      // The password was never checked, so the attempt neither counts toward the lockout nor
+      // reads as a wrong password; the user needs the captcha's own reason to retry.
+      if (reason === 'captcha') {
+        await this.userService.recordSigninFailure({ email, method: 'password', reason });
         throw error;
       }
       const { lockoutEnabled, maxLoginAttempts, accountLockoutMinutes } = this.authConfig.signin;

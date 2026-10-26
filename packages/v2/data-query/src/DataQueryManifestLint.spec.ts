@@ -240,6 +240,59 @@ describe('lintDataQueryManifest', () => {
     });
     expect(codesOf(findings)).not.toContain(dataQueryLintCodes.combinatorialManifest);
   });
+
+  it('passes structured queries and warns on mode: sql-query at the mode location', () => {
+    const { text, manifest } = parse({
+      structured: { definition: recordsDefinition() },
+      sqlOnly: {
+        mode: 'sql-query',
+        fallback: {
+          sql: 'SELECT "title" FROM "bse"."tbl"',
+          outputs: [{ alias: 'title', wireType: 'string' }],
+        },
+      },
+    });
+    const findings = lintDataQueryManifest({ text, manifest });
+    expect(findings).toEqual([
+      expect.objectContaining({
+        code: dataQueryLintCodes.sqlQueryFrozen,
+        severity: 'warning',
+        queryId: 'sqlOnly',
+        location: 'queries.sqlOnly.mode',
+      }),
+    ]);
+    expect(findings[0].message).toContain('mode: sql-query');
+  });
+
+  it('reports mode: auto as info because its SQL fallback is a migration state', () => {
+    const { text, manifest } = parse({
+      automatic: {
+        mode: 'auto',
+        definition: recordsDefinition(),
+        fallback: { sql: 'SELECT "title" FROM "bse"."tbl"' },
+      },
+    });
+    const findings = lintDataQueryManifest({ text, manifest });
+    expect(findings).toEqual([
+      expect.objectContaining({
+        code: dataQueryLintCodes.autoSqlFallback,
+        severity: 'info',
+        queryId: 'automatic',
+        location: 'queries.automatic.mode',
+      }),
+    ]);
+    expect(findings.filter((finding) => finding.severity === 'warning')).toEqual([]);
+  });
+
+  it('does not flag a structured query that declares a SQL fallback', () => {
+    const { text, manifest } = parse({
+      planned: {
+        definition: recordsDefinition(),
+        fallback: { sql: 'SELECT "title" FROM "bse"."tbl"' },
+      },
+    });
+    expect(codesOf(lintDataQueryManifest({ text, manifest }))).toEqual([]);
+  });
 });
 
 describe('scanDataQueryUsage', () => {

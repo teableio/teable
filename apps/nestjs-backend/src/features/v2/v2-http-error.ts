@@ -48,3 +48,23 @@ export function throwV2Error(error: IV2DomainErrorLike, status: number): never {
   }
   throw exception;
 }
+
+/**
+ * The translation an error carries for a stream (SSE) error event, which cannot
+ * go through the global exception filter: a `CustomHttpException`'s
+ * `data.localization`, or the `localization` a thrown DomainError exception holds.
+ */
+export function getErrorLocalization(error: unknown): IDomainErrorLocalization | undefined {
+  if (error instanceof CustomHttpException) {
+    return error.data?.localization as IDomainErrorLocalization | undefined;
+  }
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+  const localization = (error as { localization?: unknown }).localization;
+  return typeof localization === 'object' &&
+    localization !== null &&
+    typeof (localization as { i18nKey?: unknown }).i18nKey === 'string'
+    ? (localization as IDomainErrorLocalization)
+    : undefined;
+}

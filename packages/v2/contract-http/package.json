@@ -22,6 +22,18 @@
       "import": "./dist/index.js",
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./complexityPaths": {
+      "@teable/source": "./src/complexityPaths.ts",
+      "types": "./src/complexityPaths.ts",
+      "import": "./src/complexityPaths.ts",
+      "require": "./src/complexityPaths.ts"
+    },
+    "./complexityInput": {
+      "@teable/source": "./src/complexityInput.ts",
+      "types": "./src/complexityInput.ts",
+      "import": "./src/complexityInput.ts",
+      "require": "./src/complexityInput.ts"
     }
   },
   "files": [
@@ -40,6 +52,7 @@
   },
   "dependencies": {
     "@orpc/contract": "1.15.7",
+    "@teable/v2-complexity": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-data-query": "workspace:*",
     "neverthrow": "8.2.0",

@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { localizationSchema } from '@teable/core';
 import type { AxiosResponse } from 'axios';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -10,6 +11,8 @@ export const undoVoSchema = z.object({
   status: z.enum(['fulfilled', 'failed', 'empty']),
   errorMessage: z.string().optional(),
   errorCode: z.string().optional(),
+  // Translation of `errorMessage` in the frontend `sdk` namespace, when the failure carries one.
+  errorLocalization: localizationSchema.optional(),
 });
 
 export type IUndoVo = z.infer<typeof undoVoSchema>;

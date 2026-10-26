@@ -1,5 +1,5 @@
-import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { FieldKeyType, ViewType } from '@teable/core';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { FieldKeyType, HttpErrorCode, ViewType } from '@teable/core';
 import type {
   IImportGoogleSheetAnalyzeRo,
   IImportGoogleSheetAnalyzeVo,
@@ -8,6 +8,7 @@ import type {
   IImportGoogleSheetVo,
 } from '@teable/openapi';
 import { CreateRecordAction } from '@teable/openapi';
+import { CustomHttpException } from '../../custom.exception';
 import { Events } from '../../event-emitter/events';
 import { AuditScope } from '../audit/audit-scope';
 import { auditBaseCreated } from '../base/base-create-audit';
@@ -105,8 +106,9 @@ export class GoogleSheetImportService {
     if (ro.integrationId) {
       const resolver = this.tokenResolver;
       if (!resolver) {
-        throw new BadRequestException(
-          'Google Sheets integrations are not available on this instance'
+        throw new CustomHttpException(
+          'Google Sheets integrations are not available on this instance',
+          HttpErrorCode.VALIDATION_ERROR
         );
       }
       const integrationId = ro.integrationId;
@@ -133,8 +135,9 @@ export class GoogleSheetImportService {
         GoogleSheetImportService.publicClients.set(publicApiKey, client);
         return client;
       }
-      throw new BadRequestException(
-        'Provide integrationId or accessToken — public-link imports are not configured on this instance'
+      throw new CustomHttpException(
+        'Provide integrationId or accessToken — public-link imports are not configured on this instance',
+        HttpErrorCode.VALIDATION_ERROR
       );
     }
     const accessToken = ro.accessToken;
@@ -265,7 +268,10 @@ export class GoogleSheetImportService {
       ? sheets.filter((sheet) => ro.sheetIds!.includes(sheet.sheetId))
       : sheets;
     if (selectedSheets.length === 0) {
-      throw new BadRequestException('The spreadsheet has no importable tabs');
+      throw new CustomHttpException(
+        'The spreadsheet has no importable tabs',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const credentialSource = ro.integrationId ? 'integration' : ro.accessToken ? 'token' : 'public';
     this.logger.log(
@@ -279,7 +285,10 @@ export class GoogleSheetImportService {
       base = await this.baseService.getBaseById(ro.baseId);
     } else {
       if (!ro.spaceId) {
-        throw new BadRequestException('spaceId is required when baseId is not provided.');
+        throw new CustomHttpException(
+          'spaceId is required when baseId is not provided.',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       progress({ phase: 'creating_base', detail: ro.baseName ?? title });
       base = await this.baseService.createBase({
@@ -297,7 +306,10 @@ export class GoogleSheetImportService {
     try {
       for (const [index, sheet] of selectedSheets.entries()) {
         if (isAborted?.()) {
-          throw new BadRequestException('Import aborted: the client disconnected');
+          throw new CustomHttpException(
+            'Import aborted: the client disconnected',
+            HttpErrorCode.VALIDATION_ERROR
+          );
         }
         const tableIndex = index + 1;
         const declaredColumnCount = sheet.gridProperties?.columnCount ?? 26;
@@ -402,7 +414,11 @@ export class GoogleSheetImportService {
         // Every selected tab was skipped (all empty): reporting success would
         // leave the user a zero-table base. Route through the failure handler,
         // which deletes a freshly created base.
-        throw new BadRequestException('No importable data found in the selected tabs');
+        throw new CustomHttpException(
+          'No importable data found in the selected tabs',
+          HttpErrorCode.VALIDATION_ERROR,
+          { localization: { i18nKey: 'httpErrors.import.noImportableData' } }
+        );
       }
     } catch (error) {
       await this.handleImportFailure(error, ro, base, tableIdMap, issues);
@@ -519,7 +535,10 @@ export class GoogleSheetImportService {
         // The SSE client is gone: nobody can see progress or the result, and a
         // padded multi-million-row grid would otherwise keep burning the
         // Google quota for nothing.
-        throw new BadRequestException('Import aborted: the client disconnected');
+        throw new CustomHttpException(
+          'Import aborted: the client disconnected',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       const endRow = Math.min(startRow + fetchChunkRows - 1, rowCount);
       const { values = [] } = await client.getValues(

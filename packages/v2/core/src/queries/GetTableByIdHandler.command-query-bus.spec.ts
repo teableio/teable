@@ -15,9 +15,12 @@ import type {
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
+import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
 
 describe('GetTableByIdHandler', () => {
+  useV2NodeUnitTestContainer();
+
   it('returns ok for existing table', async () => {
     const { container, baseId } = getV2NodeUnitTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

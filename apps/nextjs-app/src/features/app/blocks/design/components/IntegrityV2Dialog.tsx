@@ -133,7 +133,11 @@ export const IntegrityV2Dialog = ({
       }
     } catch (error) {
       if (!controller.signal.aborted) {
-        const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+        const message = getErrorMessage(
+          error,
+          t('table:table.integrity.v2.streamError'),
+          t as Translate
+        );
         setStreamError(message);
         toast.error(message);
       }
@@ -188,7 +192,11 @@ export const IntegrityV2Dialog = ({
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          const message = getErrorMessage(
+            error,
+            t('table:table.integrity.v2.streamError'),
+            t as Translate
+          );
           setStreamError(message);
           toast.error(message);
         }
@@ -239,7 +247,11 @@ export const IntegrityV2Dialog = ({
         );
       } catch (error) {
         if (!controller.signal.aborted) {
-          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          const message = getErrorMessage(
+            error,
+            t('table:table.integrity.v2.streamError'),
+            t as Translate
+          );
           setStreamError(message);
           toast.error(message);
           return false;
@@ -292,7 +304,11 @@ export const IntegrityV2Dialog = ({
         );
       } catch (error) {
         if (!controller.signal.aborted) {
-          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          const message = getErrorMessage(
+            error,
+            t('table:table.integrity.v2.streamError'),
+            t as Translate
+          );
           setStreamError(message);
           toast.error(message);
         }

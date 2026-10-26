@@ -63,7 +63,12 @@ export const resolveFormulaFields = (
         continue;
       }
       if (active.has(id))
-        return err(domainError.invariant({ message: 'Formula field dependency cycle detected' }));
+        return err(
+          domainError.invariant({
+            message: 'Formula field dependency cycle detected',
+            localization: { i18nKey: 'httpErrors.field.cycleDetected' },
+          })
+        );
       const violation = budget.check?.('referenceDepth', frame.depth);
       if (!budget.check || violation) {
         const limit = ensureWithinTableDataSafetyLimit(
@@ -166,6 +171,7 @@ export const resolveFormulaFields = (
     return err(
       domainError.invariant({
         message: `Formula field dependency cycle detected: ${cycleMessage}`,
+        localization: { i18nKey: 'httpErrors.field.cycleDetected' },
       })
     );
   }

@@ -48,6 +48,10 @@ import { ClsService } from 'nestjs-cls';
 import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import {
+  resolveByodbDataDbPoolSettings,
+  resolveByodbSchemaCoordinationSettings,
+} from '../../global/byodb-data-db-pool-budget';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import type {
   IComputedOutboxMaintenanceTarget,
@@ -165,6 +169,7 @@ const parseAllowedRemediationKinds = (
 @Injectable()
 export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(V2ContainerService.name);
+  private readonly byodbPoolSettings = resolveByodbDataDbPoolSettings();
   private readonly tableQueryOpsRunnerHandles = new WeakMap<
     DependencyContainer,
     ReadonlyArray<TableQueryOpsRunnerHandle>
@@ -301,8 +306,53 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       return metaPoolLease;
     }
     return this.pgPoolRegistry.acquire(dataConnectionString, {
-      ...(dataSchema ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) } : undefined),
+      ...(dataSchema ? this.byodbPoolSettings : undefined),
     });
+  }
+
+  /**
+   * A coordination pool is created per cached data-database container and uses
+   * the **meta** connection string, so the process-wide coordination connections
+   * are `containers × maxConnections` against the meta server — not against the
+   * BYODB customer database.
+   *
+   * BYODB containers use the larger coordination default and a short acquire
+   * timeout (`resolveByodbSchemaCoordinationSettings`), because their lease can
+   * span a customer data-pool wait; the meta-server budget must still fit
+   * `pods × warm containers × maxConnections`. Shared-database containers keep
+   * the adapter defaults unless the deployment sets the knobs explicitly.
+   */
+  private resolveSchemaCoordinationOptions(
+    isByodb: boolean
+  ): { connectionTimeoutMillis?: number; maxConnections?: number } | undefined {
+    const maxConnections = resolvePositiveInteger(
+      this.configService.get('V2_SCHEMA_COORDINATION_MAX_CONNECTIONS')
+    );
+    const connectionTimeoutMillis = resolveNonNegativeInteger(
+      this.configService.get('V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS')
+    );
+    if (isByodb) {
+      const settings = resolveByodbSchemaCoordinationSettings({
+        ...process.env,
+        ...(maxConnections !== undefined
+          ? { V2_SCHEMA_COORDINATION_MAX_CONNECTIONS: String(maxConnections) }
+          : {}),
+        ...(connectionTimeoutMillis !== undefined
+          ? { V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS: String(connectionTimeoutMillis) }
+          : {}),
+      });
+      return {
+        maxConnections: settings.maxConnections,
+        connectionTimeoutMillis: settings.connectionTimeoutMillis,
+      };
+    }
+    if (maxConnections === undefined && connectionTimeoutMillis === undefined) {
+      return undefined;
+    }
+    return {
+      ...(maxConnections !== undefined ? { maxConnections } : {}),
+      ...(connectionTimeoutMillis !== undefined ? { connectionTimeoutMillis } : {}),
+    };
   }
 
   private resolveComputedOutboxAdminOption(): {
@@ -381,6 +431,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         this.configService.get('V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED'),
         true
       );
+      const lockStarvationEscalationAgeMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS')
+      );
+      const lockStarvationEscalationWaitMs = resolveNonNegativeInteger(
+        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_WAIT_MS')
+      );
       const claimDefaults = this.claimConcurrency?.processDefault;
       const computedUpdate = buildComputedUpdateOptions(
         computedUpdateMode,
@@ -388,6 +444,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         {
           ...(taskStatementTimeoutMs !== undefined ? { taskStatementTimeoutMs } : {}),
           ...(fieldBackfillBatchSize !== undefined ? { fieldBackfillBatchSize } : {}),
+          ...(lockStarvationEscalationAgeMs !== undefined ? { lockStarvationEscalationAgeMs } : {}),
+          ...(lockStarvationEscalationWaitMs !== undefined
+            ? { lockStarvationEscalationWaitMs }
+            : {}),
           continuationRelayClaimEnabled,
           ...(claimDefaults
             ? {
@@ -400,6 +460,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       );
 
       this.logger.log('Initializing V2 container');
+      const schemaCoordination = this.resolveSchemaCoordinationOptions(Boolean(dataSchema));
       const container = await createV2NodePgContainer({
         metaConnectionString,
         dataConnectionString,
@@ -418,6 +479,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         // transaction, so the delete-undo purge guard is sound here.
         undoRedoRestorePurgeGuard: true,
         ...this.resolveComputedOutboxAdminOption(),
+        schemaCoordination,
         ...this.resolveTableRowLimitOption(),
       });
 

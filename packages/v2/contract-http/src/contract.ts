@@ -61,6 +61,14 @@ import {
 import { createBaseOkResponseSchema } from './base/createBase';
 import { duplicateBaseOkResponseSchema } from './base/duplicateBase';
 import { listBasesOkResponseSchema } from './base/listBases';
+import {
+  COMPLEXITY_ASSESS_MATRIX_PATH,
+  COMPLEXITY_ASSESS_PATH,
+  complexityAssessInputSchema,
+  complexityAssessMatrixInputSchema,
+  complexityAssessMatrixOkResponseSchema,
+  complexityAssessOkResponseSchema,
+} from './complexity';
 import { clearOkResponseSchema } from './table/clear';
 import { createFieldOkResponseSchema } from './table/createField';
 import { createRecordOkResponseSchema } from './table/createRecord';
@@ -826,6 +834,28 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(explainDeleteRecordsInputSchema)
       .output(explainOkResponseSchema),
+  },
+  complexity: {
+    assess: oc
+      .route({
+        method: 'POST',
+        path: COMPLEXITY_ASSESS_PATH,
+        successStatus: 200,
+        summary: 'Assess table complexity',
+        tags: ['complexity'],
+      })
+      .input(complexityAssessInputSchema)
+      .output(complexityAssessOkResponseSchema),
+    assessMatrix: oc
+      .route({
+        method: 'POST',
+        path: COMPLEXITY_ASSESS_MATRIX_PATH,
+        successStatus: 200,
+        summary: 'Assess a field by operation matrix for one table',
+        tags: ['complexity'],
+      })
+      .input(complexityAssessMatrixInputSchema)
+      .output(complexityAssessMatrixOkResponseSchema),
   },
 } as const satisfies AnyContractRouter;
 

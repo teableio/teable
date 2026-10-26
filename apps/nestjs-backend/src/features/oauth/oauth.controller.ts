@@ -1,15 +1,5 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Patch,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import {
   IUpdateAuthorizedNotificationsRo,
   OAuthCreateRo,
@@ -26,6 +16,7 @@ import type {
   OAuthGetVo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
@@ -98,7 +89,8 @@ export class OAuthController {
   async revokeTokenGet(@Param('clientId') clientId: string) {
     const accessTokenId = this.cls.get('accessTokenId');
     if (!accessTokenId) {
-      throw new BadRequestException('only access token request can use this endpoint');
+      const message = 'only access token request can use this endpoint';
+      throw new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR);
     }
     return this.oauthService.revokeToken(clientId);
   }

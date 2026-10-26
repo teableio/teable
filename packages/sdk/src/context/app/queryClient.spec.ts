@@ -338,6 +338,73 @@ describe('errorRequestHandler dedup', () => {
   });
 });
 
+describe('errorRequestHandler title', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let toastError: any;
+  const lastTitle = () => toastError.mock.calls.at(-1)?.[0];
+
+  beforeEach(async () => {
+    const { sonner } = await import('@teable/ui-lib');
+    toastError = sonner.toast.error;
+    toastError.mockClear();
+  });
+
+  it('uses the generic request-failed title for an unlocalized validation error', () => {
+    errorRequestHandler(
+      { code: 'validation_error', message: 'Trial already used', status: 400 },
+      t
+    );
+
+    expect(lastTitle()).toBe('httpErrors.requestFailed');
+  });
+
+  it('keeps the error code title once the server attached a localization', () => {
+    errorRequestHandler(
+      {
+        code: 'validation_error',
+        message: 'Email or password is incorrect',
+        status: 400,
+        data: { localization: { i18nKey: 'httpErrors.auth.emailOrPasswordIncorrect' } },
+      },
+      t
+    );
+
+    expect(lastTitle()).toBe('httpErrors.validationError');
+  });
+
+  it('shows only the translated title for an unlocalized 5xx', () => {
+    errorRequestHandler(
+      { code: 'internal_server_error', message: 'Internal Server Error', status: 500 },
+      t
+    );
+
+    expect(lastTitle()).toBe('httpErrors.internalServerError');
+    expect(toastError.mock.calls.at(-1)?.[1]?.description).toBeUndefined();
+  });
+
+  it('keeps the translated description of a localized 5xx', () => {
+    errorRequestHandler(
+      {
+        code: 'gateway_timeout',
+        message: 'Script execution timed out',
+        status: 504,
+        data: { localization: { i18nKey: 'httpErrors.automation.scriptTimeout' } },
+      },
+      t
+    );
+
+    expect(toastError.mock.calls.at(-1)?.[1]?.description).toBe(
+      'httpErrors.automation.scriptTimeout'
+    );
+  });
+
+  it('keeps the error code title for other codes', () => {
+    errorRequestHandler({ code: 'not_found', message: 'App not found', status: 404 }, t);
+
+    expect(lastTitle()).toBe('httpErrors.notFound');
+  });
+});
+
 it('retries only pending reads with a finite budget and never configures mutation retries', () => {
   const client = createQueryClient();
   const options = client.getDefaultOptions();
@@ -351,4 +418,24 @@ it('retries only pending reads with a finite budget and never configures mutatio
   expect(retry(0, new Error('Query is busy'))).toBe(false);
   expect(options.mutations?.retry).toBeFalsy();
   client.clear();
+});
+
+// Last in the file: registering a translator is module state that the earlier no-`t` cases must not see.
+it('translates errors reported without a translator once a query client has one', async () => {
+  const { sonner } = await import('@teable/ui-lib');
+  const toastError = vi.mocked(sonner.toast.error);
+  toastError.mockClear();
+  createQueryClient(t).clear();
+
+  errorRequestHandler({
+    code: 'validation_error',
+    message: 'View version conflict: viwA',
+    status: 400,
+    data: { localization: { i18nKey: 'httpErrors.view.versionConflict' } },
+  });
+
+  expect(toastError).toHaveBeenCalledWith(
+    'httpErrors.validationError',
+    expect.objectContaining({ description: 'httpErrors.view.versionConflict' })
+  );
 });

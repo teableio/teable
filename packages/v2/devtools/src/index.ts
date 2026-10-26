@@ -13,9 +13,11 @@ export * from './utils';
 // Commands
 export {
   root,
+  complexity,
   computed,
   explain,
   mock,
+  repro,
   schemaOperation,
   tableQueryOps,
   underlying,

@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { localizationSchema } from '@teable/core';
 import { axios, ensureUndoRedoWindowIdHeader } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
@@ -30,6 +31,7 @@ export const undoRedoStreamErrorEventSchema = z.object({
   message: z.string(),
   engine: z.enum(['v1', 'v2']).optional(),
   code: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const undoRedoStreamEventSchema = z.union([
@@ -140,6 +142,7 @@ const streamUndoRedo = async <TData extends IUndoVo | IRedoVo>(
         data: schema.parse({
           status: 'failed',
           errorMessage: lastError.message,
+          ...(lastError.localization ? { errorLocalization: lastError.localization } : {}),
         }) as TData,
         done: {
           id: 'done',

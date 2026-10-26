@@ -9,7 +9,10 @@ import {
 } from '@teable/v2-adapter-db-postgres-pglite';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
-import { registerV2TableRepositoryPostgresAdapter } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  installUndoCaptureGlobals,
+  registerV2TableRepositoryPostgresAdapter,
+} from '@teable/v2-adapter-table-repository-postgres';
 import {
   BaseId,
   DefaultTableMapper,
@@ -26,6 +29,7 @@ import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { Database, DatabaseConfig } from '../services/Database';
 import { getAbsolutePgliteDataDir } from '../utils/connection';
 import { NodeCryptoHasher } from './NodeCryptoHasher';
@@ -168,6 +172,33 @@ export const DatabasePgliteLive = Layer.effect(
         catch: (error) => new Error(`Failed to initialize space/base: ${error}`),
       });
     }
+
+    // Same local bootstrap as the headless runtime: record mutations need the
+    // undo-capture globals and resolve actors through `public.users`.
+    yield* Effect.tryPromise({
+      try: () => installUndoCaptureGlobals(metaDb as unknown as Kysely<unknown>),
+      catch: (error) => new Error(`Failed to install pglite undo capture globals: ${error}`),
+    });
+
+    yield* Effect.tryPromise({
+      try: async () => {
+        await sql`
+          create table if not exists public.users (
+            id varchar(255) primary key,
+            name varchar(255) not null,
+            email varchar(255)
+          )
+        `.execute(metaDb);
+        for (const actorId of ['cli-mock-records', 'cli-record-mutation', 'cli-pglite', 'system']) {
+          await sql`
+            insert into public.users (id, name)
+            values (${actorId}, ${actorId})
+            on conflict (id) do nothing
+          `.execute(metaDb);
+        }
+      },
+      catch: (error) => new Error(`Failed to bootstrap pglite users: ${error}`),
+    });
 
     return {
       container: c,

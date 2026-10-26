@@ -34,8 +34,12 @@ import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
-import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import {
+  domainWrite,
+  type DomainWriteDecision,
+  type IDomainWriteTransaction,
+} from '../../ports/DomainWriteTransaction';
+import { getUnitOfWorkTransaction, type IExecutionContext } from '../../ports/ExecutionContext';
 import type { ILogger } from '../../ports/Logger';
 import {
   RecordWriteOperationKind,
@@ -75,6 +79,12 @@ import { type IRecordChangedValueDecoratorService } from './RecordChangedValueDe
 import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
+import {
+  preLeasePlan,
+  sharedRecordWritePlan,
+  exclusiveRecordWritePlan,
+  type RecordWriteCoordinationPlan,
+} from './RecordWriteCoordinationPlan';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
@@ -174,6 +184,23 @@ export interface IRecordBulkUpdateResult {
   readonly fieldKeyMapping?: FieldKeyMapping;
 }
 
+/**
+ * Explicit-record update executed inside a caller-owned transaction.
+ *
+ * The caller owns commit ordering, event publication and undo bookkeeping;
+ * this variant therefore returns the commands instead of appending them.
+ */
+export interface IRecordBulkUpdateTransactionResult {
+  readonly updatedCount: number;
+  readonly events: ReadonlyArray<IDomainEvent>;
+  readonly records: ReadonlyArray<TableRecord>;
+  /** Rows whose stored values actually changed (mutation applied by SQL). */
+  readonly changedRecordIds: ReadonlyArray<RecordId>;
+  readonly undoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
+  readonly redoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
+  readonly afterCommit: () => Promise<void>;
+}
+
 const emptyUndoRedoPlan = (): RecordWriteUndoRedoPlan => ({
   undoCommands: [],
   redoCommands: [],
@@ -199,6 +226,24 @@ const buildBulkUpdateDomainEvents = (
 
 const toBulkUpdateWrite = (table: Table, result: BulkUpdateWriteResult) =>
   domainWrite.fromEvents(result, buildBulkUpdateDomainEvents(table, result), { tables: [table] });
+
+/**
+ * Interprets a transaction body executed in the caller's transaction. Events stay
+ * with the caller, which publishes one aggregate decision for the whole request.
+ */
+const runBoundExplicitUpdate = async <T>(
+  body: Promise<Result<DomainWriteDecision<T>, DomainError>>
+): Promise<
+  Result<{ readonly value: T; readonly events: ReadonlyArray<IDomainEvent> }, DomainError>
+> => {
+  const decisionResult = await body;
+  if (decisionResult.isErr()) return err(decisionResult.error);
+  const decision = decisionResult.value;
+  return ok({
+    value: decision.value,
+    events: decision.kind === 'changed' ? [...decision.events] : [],
+  });
+};
 
 const buildUpdateRecordsUndoRedoCommand = (
   tableId: string,
@@ -564,6 +609,91 @@ export class RecordBulkUpdateService {
     });
   }
 
+  /**
+   * Applies explicit per-record field updates inside the caller's transaction.
+   *
+   * Undo/redo commands and `afterCommit` are returned instead of appended so a
+   * coordinating write (for example an upsert batch) can keep a single undo entry
+   * and one event batch for the whole operation.
+   */
+  async updateWithinTransaction(
+    context: IExecutionContext,
+    input: IRecordBulkUpdateInput
+  ): Promise<Result<IRecordBulkUpdateTransactionResult, DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+
+    if (!input.records) {
+      return err(
+        domainError.validation({
+          code: 'record.update.explicit_records_required',
+          message: 'updateWithinTransaction requires explicit record updates',
+        })
+      );
+    }
+    if (input.order) {
+      return err(
+        domainError.validation({
+          code: 'record.update.order_not_supported',
+          message: 'updateWithinTransaction does not support row-order changes',
+        })
+      );
+    }
+    if (!getUnitOfWorkTransaction(context, 'data')) {
+      return err(
+        domainError.infrastructure({
+          code: 'domain_event.transaction_required',
+          message: 'updateWithinTransaction requires an active data transaction',
+        })
+      );
+    }
+
+    const records = input.records;
+    const executionResult = await service.executeExplicitRecordUpdates(context, input, records, {
+      transactionBound: true,
+    });
+    if (executionResult.isErr()) {
+      return err(executionResult.error);
+    }
+
+    const result = executionResult.value;
+    const tableIdText = input.table.id().toString();
+    const undoCommands: UndoRedoCommandLeafData[] =
+      result.eventData.length > 0
+        ? [
+            buildUpdateRecordsUndoRedoCommand(
+              tableIdText,
+              result.eventData,
+              (change) => change.oldValue
+            ),
+          ]
+        : [];
+    const redoCommands: UndoRedoCommandLeafData[] =
+      result.eventData.length > 0
+        ? [
+            buildUpdateRecordsUndoRedoCommand(
+              tableIdText,
+              result.eventData,
+              (change) => change.newValue
+            ),
+          ]
+        : [];
+
+    return ok({
+      updatedCount: result.updatedCount,
+      events: result.events,
+      records: result.records ?? [],
+      changedRecordIds: result.eventData.map((update) => {
+        const recordId = RecordId.create(update.recordId);
+        return recordId._unsafeUnwrap();
+      }),
+      undoCommands: [...undoCommands, ...result.sideEffectUndoRedoPlan.undoCommands],
+      redoCommands: [...result.sideEffectUndoRedoPlan.redoCommands, ...redoCommands],
+      afterCommit: async () => {
+        await result.pluginExecution.afterCommit();
+      },
+    });
+  }
+
   private async executeSelectorBulkUpdate(
     context: IExecutionContext,
     input: IRecordBulkUpdateInput
@@ -737,7 +867,8 @@ export class RecordBulkUpdateService {
   private async executeExplicitRecordUpdates(
     context: IExecutionContext,
     input: IRecordBulkUpdateInput,
-    records: ReadonlyArray<IRecordBulkUpdateItem>
+    records: ReadonlyArray<IRecordBulkUpdateItem>,
+    binding?: { readonly transactionBound: boolean }
   ): Promise<Result<BulkUpdateExecutionResult, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const explicitTraceAttributes: SpanAttributes = {
@@ -784,7 +915,7 @@ export class RecordBulkUpdateService {
                 recordIds: resolvedUpdates.map((update) => update.recordId),
                 recordCount: resolvedUpdates.length,
               },
-              isTransactionBound: false,
+              isTransactionBound: binding?.transactionBound ?? false,
             },
             {
               runnerOptions: input.recordWritePluginRunnerOptions,
@@ -866,458 +997,453 @@ export class RecordBulkUpdateService {
         );
       }
 
-      const committed = yield* await service.domainWriteTransaction.execute(
-        context,
-        async (transactionContext) =>
-          safeTry(async function* () {
-            const fieldUpdateTargets = authorizedUpdates.filter(
-              (update) => update.fieldValues.size > 0
-            );
-            const transactionTraceAttributes: SpanAttributes = {
-              ...resolvedTraceAttributes,
-              'record.update.authorizedRecordCount': authorizedUpdates.length,
-              'record.update.fieldUpdateTargetCount': fieldUpdateTargets.length,
-              'record.update.missingRecordCount': explicitAuthorization.missingRecordIds.length,
-              'record.update.pluginFilteredRecordCount':
-                explicitAuthorization.pluginFilteredRecordIds.length,
-            };
-            const preparedWrite = yield* await traceRecordBulkUpdatePhase(
-              transactionContext,
-              'prepareTableForWrite',
-              transactionTraceAttributes,
-              () =>
-                service.prepareTableForWrite(
-                  transactionContext,
-                  input.table,
-                  fieldUpdateTargets.map((update) => update.fieldValues),
-                  input.typecast
-                )
-            );
-
-            yield* await traceRecordBulkUpdatePhase(
-              transactionContext,
-              'pluginBeforePersist',
-              transactionTraceAttributes,
-              () => pluginExecution.beforePersist(transactionContext)
-            );
-
-            const order = input.order;
-            const reorderResult = order
-              ? yield* await traceRecordBulkUpdatePhase(
-                  transactionContext,
-                  'reorderRecords',
-                  transactionTraceAttributes,
-                  () =>
-                    service.recordReorderService.reorder(transactionContext, {
-                      table: preparedWrite.tableForWrite,
-                      recordIds: authorizedUpdates.map((update) => update.recordId),
-                      currentRecords: authorizedUpdates.map((update) => update.currentRecord),
-                      order,
-                    })
-                )
-              : emptyRecordReorderResult();
-
-            let updatedCount = reorderResult.updatedCount;
-            const pendingEventData: PendingExplicitEventData[] = [];
-            const eventData: RecordUpdateDTO[] = [];
-            const updatedRecordMap = new Map<string, TableRecord>();
-
-            if (fieldUpdateTargets.length > 0) {
-              let currentBatchTraceCollector: BulkUpdateBatchTraceCollector | undefined;
-              const updateBatches = yield* await traceRecordBulkUpdatePhase(
+      const transactionBody = async (transactionContext: IExecutionContext) =>
+        safeTry<DomainWriteDecision<BulkUpdateWriteResult>, DomainError>(async function* () {
+          const fieldUpdateTargets = authorizedUpdates.filter(
+            (update) => update.fieldValues.size > 0
+          );
+          const transactionTraceAttributes: SpanAttributes = {
+            ...resolvedTraceAttributes,
+            'record.update.authorizedRecordCount': authorizedUpdates.length,
+            'record.update.fieldUpdateTargetCount': fieldUpdateTargets.length,
+            'record.update.missingRecordCount': explicitAuthorization.missingRecordIds.length,
+            'record.update.pluginFilteredRecordCount':
+              explicitAuthorization.pluginFilteredRecordIds.length,
+          };
+          const preparedWrite = yield* await traceRecordBulkUpdatePhase(
+            transactionContext,
+            'prepareTableForWrite',
+            transactionTraceAttributes,
+            () =>
+              service.prepareTableForWrite(
                 transactionContext,
-                'createUpdateRecordsStream',
+                input.table,
+                fieldUpdateTargets.map((update) => update.fieldValues),
+                input.typecast
+              )
+          );
+
+          yield* await traceRecordBulkUpdatePhase(
+            transactionContext,
+            'pluginBeforePersist',
+            transactionTraceAttributes,
+            () => pluginExecution.beforePersist(transactionContext)
+          );
+
+          const order = input.order;
+          const reorderResult = order
+            ? yield* await traceRecordBulkUpdatePhase(
+                transactionContext,
+                'reorderRecords',
                 transactionTraceAttributes,
                 () =>
-                  ok(
-                    preparedWrite.tableForWrite.updateRecordsStream(
-                      fieldUpdateTargets.map((update) => ({
-                        recordId: update.recordId,
-                        fieldValues: update.fieldValues,
-                      })),
-                      {
-                        typecast: input.typecast,
-                        maxBatchSize: EXPLICIT_UPDATE_MAX_BATCH_SIZE,
-                        trace: (event, callback) =>
-                          currentBatchTraceCollector
-                            ? currentBatchTraceCollector.traceStream(event, callback)
-                            : callback(),
-                        traceRecord: (event, callback) =>
-                          currentBatchTraceCollector
-                            ? currentBatchTraceCollector.traceRecord(event, callback)
-                            : callback(),
-                      }
-                    )
+                  service.recordReorderService.reorder(transactionContext, {
+                    table: preparedWrite.tableForWrite,
+                    recordIds: authorizedUpdates.map((update) => update.recordId),
+                    currentRecords: authorizedUpdates.map((update) => update.currentRecord),
+                    order,
+                  })
+              )
+            : emptyRecordReorderResult();
+
+          let updatedCount = reorderResult.updatedCount;
+          const pendingEventData: PendingExplicitEventData[] = [];
+          const eventData: RecordUpdateDTO[] = [];
+          const updatedRecordMap = new Map<string, TableRecord>();
+
+          if (fieldUpdateTargets.length > 0) {
+            let currentBatchTraceCollector: BulkUpdateBatchTraceCollector | undefined;
+            const updateBatches = yield* await traceRecordBulkUpdatePhase(
+              transactionContext,
+              'createUpdateRecordsStream',
+              transactionTraceAttributes,
+              () =>
+                ok(
+                  preparedWrite.tableForWrite.updateRecordsStream(
+                    fieldUpdateTargets.map((update) => ({
+                      recordId: update.recordId,
+                      fieldValues: update.fieldValues,
+                    })),
+                    {
+                      typecast: input.typecast,
+                      maxBatchSize: EXPLICIT_UPDATE_MAX_BATCH_SIZE,
+                      trace: (event, callback) =>
+                        currentBatchTraceCollector
+                          ? currentBatchTraceCollector.traceStream(event, callback)
+                          : callback(),
+                      traceRecord: (event, callback) =>
+                        currentBatchTraceCollector
+                          ? currentBatchTraceCollector.traceRecord(event, callback)
+                          : callback(),
+                    }
+                  )
+                )
+            );
+
+            const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];
+            const fillLinkTitleSpecs: ICellValueSpec[] = [];
+            let resolvedIndex = 0;
+            let maxBatchSize = 0;
+            let batchIndex = 0;
+
+            const updateBatchIterator = updateBatches[Symbol.iterator]();
+            while (true) {
+              const nextBatch = yield* await traceRecordBulkUpdatePhase(
+                transactionContext,
+                'generateUpdateBatch',
+                {
+                  ...transactionTraceAttributes,
+                  'record.update.batchIndex': batchIndex,
+                },
+                (span) => {
+                  currentBatchTraceCollector = new BulkUpdateBatchTraceCollector(
+                    transactionContext.tracer,
+                    {
+                      ...transactionTraceAttributes,
+                      'record.update.batchIndex': batchIndex,
+                    }
+                  );
+                  try {
+                    return ok(updateBatchIterator.next());
+                  } finally {
+                    if (span) {
+                      currentBatchTraceCollector.flushToSpan(span);
+                    }
+                    currentBatchTraceCollector = undefined;
+                  }
+                }
+              );
+              if (nextBatch.done) {
+                break;
+              }
+              const batchResult = nextBatch.value;
+              if (batchResult.isErr()) {
+                return err(batchResult.error);
+              }
+
+              const batchTraceAttributes: SpanAttributes = {
+                ...transactionTraceAttributes,
+                'record.update.batchIndex': batchIndex,
+                'record.update.batchInputSize': batchResult.value.length,
+              };
+              const resolvedBatch = yield* await traceRecordBulkUpdatePhase(
+                transactionContext,
+                'resolveUpdateBatch',
+                batchTraceAttributes,
+                () =>
+                  service.resolveUpdateBatch(
+                    transactionContext,
+                    preparedWrite.tableForWrite.id(),
+                    batchResult.value
                   )
               );
 
-              const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];
-              const fillLinkTitleSpecs: ICellValueSpec[] = [];
-              let resolvedIndex = 0;
-              let maxBatchSize = 0;
-              let batchIndex = 0;
+              for (const updateResult of batchResult.value) {
+                fillLinkTitleSpecs.push(updateResult.mutateSpec);
+              }
 
-              const updateBatchIterator = updateBatches[Symbol.iterator]();
-              while (true) {
-                const nextBatch = yield* await traceRecordBulkUpdatePhase(
+              persistedBatches.push(
+                ok({
+                  table: preparedWrite.tableForWrite,
+                  updates: resolvedBatch,
+                })
+              );
+              maxBatchSize = Math.max(maxBatchSize, resolvedBatch.length);
+
+              yield* await traceRecordBulkUpdatePhase(
+                transactionContext,
+                'materializeResolvedBatch',
+                {
+                  ...batchTraceAttributes,
+                  'record.update.resolvedBatchSize': resolvedBatch.length,
+                },
+                async () =>
+                  safeTry<void, DomainError>(async function* () {
+                    const changedValuesByRecord = new Map<string, ReadonlyMap<string, unknown>>();
+                    const previousFieldsByRecord = new Map<string, Record<string, unknown>>();
+                    const pendingMaterialized: Array<{
+                      recordId: RecordId;
+                      changes: ReadonlyArray<RecordFieldChangeDTO>;
+                      updatedFields: Map<string, unknown>;
+                      currentFields: Record<string, unknown>;
+                    }> = [];
+
+                    for (const updateResult of resolvedBatch) {
+                      const pending = fieldUpdateTargets[resolvedIndex];
+                      if (!pending) {
+                        return err(
+                          domainError.unexpected({
+                            code: 'record.update_many.event_mismatch',
+                            message:
+                              'Failed to map bulk record updates to resolved v2 batch results',
+                          })
+                        );
+                      }
+
+                      const changes = yield* service.buildRecordChangesFromUpdateResult(
+                        preparedWrite.tableForWrite,
+                        pending.currentRecord,
+                        updateResult
+                      );
+                      const changedValues =
+                        changes.length > 0
+                          ? new Map(changes.map((change) => [change.fieldId, change.newValue]))
+                          : undefined;
+                      const recordIdText = pending.recordId.toString();
+                      if (changedValues) {
+                        changedValuesByRecord.set(recordIdText, changedValues);
+                        previousFieldsByRecord.set(recordIdText, pending.currentRecord.fields);
+                      }
+                      const updatedFields = new Map(
+                        updateResult.record
+                          .fields()
+                          .entries()
+                          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+                      );
+                      pendingMaterialized.push({
+                        recordId: pending.recordId,
+                        changes,
+                        updatedFields,
+                        currentFields: pending.currentRecord.fields,
+                      });
+                      resolvedIndex += 1;
+                    }
+
+                    const decoratedValuesByRecord =
+                      yield* await service.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+                        preparedWrite.tableForWrite,
+                        changedValuesByRecord,
+                        previousFieldsByRecord
+                      );
+
+                    for (const item of pendingMaterialized) {
+                      const recordIdText = item.recordId.toString();
+                      const decoratedValues = decoratedValuesByRecord?.get(recordIdText);
+                      const decoratedChanges = item.changes.map((change) => ({
+                        ...change,
+                        newValue: decoratedValues?.get(change.fieldId) ?? change.newValue,
+                      }));
+                      pendingEventData.push({
+                        recordId: recordIdText,
+                        changes: decoratedChanges,
+                      });
+                      for (const [fieldId, value] of decoratedValues ?? []) {
+                        item.updatedFields.set(fieldId, value);
+                      }
+                      const mergedFields = {
+                        ...Object.fromEntries(
+                          Object.entries(item.currentFields).filter(
+                            ([, value]) => value !== null && value !== undefined
+                          )
+                        ),
+                        ...Object.fromEntries(item.updatedFields),
+                      };
+                      const mergedRecord = yield* TableRecord.fromRawFieldValues({
+                        id: recordIdText,
+                        tableId: input.table.id(),
+                        fields: mergedFields,
+                      });
+                      updatedRecordMap.set(recordIdText, mergedRecord);
+                    }
+
+                    return ok(undefined);
+                  })
+              );
+              batchIndex += 1;
+            }
+
+            const authorizedSummary = summarizeExplicitUpdates(authorizedUpdates);
+            activeSpan?.setAttributes({
+              'record.update.batchCount': persistedBatches.length,
+              'record.update.maxBatchSize': maxBatchSize,
+              'record.update.authorizedRecordsWithFieldChanges':
+                authorizedSummary.recordsWithFieldChanges,
+            });
+            service.logger.info('RecordBulkUpdateService.explicitUpdatesPrepared', {
+              tableId: input.table.id().toString(),
+              recordCount: authorizedSummary.recordCount,
+              recordsWithFieldChanges: authorizedSummary.recordsWithFieldChanges,
+              uniqueFieldCount: authorizedSummary.uniqueFieldCount,
+              totalFieldAssignments: authorizedSummary.totalFieldAssignments,
+              batchCount: persistedBatches.length,
+              maxBatchSize,
+              typecast: input.typecast,
+              hasOrder: Boolean(input.order),
+            });
+
+            if (resolvedIndex !== fieldUpdateTargets.length) {
+              return err(
+                domainError.unexpected({
+                  code: 'record.update_many.count_mismatch',
+                  message: 'Bulk record update results did not match the expected record count',
+                })
+              );
+            }
+
+            const fillLinkTitleForeignTables = input.typecast
+              ? yield* await traceRecordBulkUpdatePhase(
                   transactionContext,
-                  'generateUpdateBatch',
+                  'loadForeignTablesForLinkTitleFill',
                   {
                     ...transactionTraceAttributes,
-                    'record.update.batchIndex': batchIndex,
+                    'record.update.fillLinkTitleSpecCount': fillLinkTitleSpecs.length,
                   },
-                  (span) => {
-                    currentBatchTraceCollector = new BulkUpdateBatchTraceCollector(
-                      transactionContext.tracer,
-                      {
-                        ...transactionTraceAttributes,
-                        'record.update.batchIndex': batchIndex,
-                      }
-                    );
-                    try {
-                      return ok(updateBatchIterator.next());
-                    } finally {
-                      if (span) {
-                        currentBatchTraceCollector.flushToSpan(span);
-                      }
-                      currentBatchTraceCollector = undefined;
-                    }
-                  }
-                );
-                if (nextBatch.done) {
-                  break;
-                }
-                const batchResult = nextBatch.value;
-                if (batchResult.isErr()) {
-                  return err(batchResult.error);
-                }
-
-                const batchTraceAttributes: SpanAttributes = {
-                  ...transactionTraceAttributes,
-                  'record.update.batchIndex': batchIndex,
-                  'record.update.batchInputSize': batchResult.value.length,
-                };
-                const resolvedBatch = yield* await traceRecordBulkUpdatePhase(
-                  transactionContext,
-                  'resolveUpdateBatch',
-                  batchTraceAttributes,
                   () =>
-                    service.resolveUpdateBatch(
+                    service.foreignTableLoaderService.loadForLinkTitleFill(
                       transactionContext,
-                      preparedWrite.tableForWrite.id(),
-                      batchResult.value
+                      fillLinkTitleSpecs
                     )
-                );
-
-                for (const updateResult of batchResult.value) {
-                  fillLinkTitleSpecs.push(updateResult.mutateSpec);
-                }
-
-                persistedBatches.push(
-                  ok({
-                    table: preparedWrite.tableForWrite,
-                    updates: resolvedBatch,
-                  })
-                );
-                maxBatchSize = Math.max(maxBatchSize, resolvedBatch.length);
-
-                yield* await traceRecordBulkUpdatePhase(
+                )
+              : new Map();
+            const persistResult = yield* await traceRecordBulkUpdatePhase(
+              transactionContext,
+              'updateManyStream',
+              {
+                ...transactionTraceAttributes,
+                'record.update.batchCount': persistedBatches.length,
+                'record.update.maxBatchSize': maxBatchSize,
+                'record.update.fillLinkTitleForeignTableCount': fillLinkTitleForeignTables.size,
+              },
+              () =>
+                service.tableRecordRepository.updateManyStream(
                   transactionContext,
-                  'materializeResolvedBatch',
+                  preparedWrite.tableForWrite,
+                  service.createSyncUpdateBatchesGenerator(persistedBatches),
                   {
-                    ...batchTraceAttributes,
-                    'record.update.resolvedBatchSize': resolvedBatch.length,
-                  },
-                  async () =>
-                    safeTry<void, DomainError>(async function* () {
-                      const changedValuesByRecord = new Map<string, ReadonlyMap<string, unknown>>();
-                      const previousFieldsByRecord = new Map<string, Record<string, unknown>>();
-                      const pendingMaterialized: Array<{
-                        recordId: RecordId;
-                        changes: ReadonlyArray<RecordFieldChangeDTO>;
-                        updatedFields: Map<string, unknown>;
-                        currentFields: Record<string, unknown>;
-                      }> = [];
-
-                      for (const updateResult of resolvedBatch) {
-                        const pending = fieldUpdateTargets[resolvedIndex];
-                        if (!pending) {
-                          return err(
-                            domainError.unexpected({
-                              code: 'record.update_many.event_mismatch',
-                              message:
-                                'Failed to map bulk record updates to resolved v2 batch results',
-                            })
-                          );
-                        }
-
-                        const changes = yield* service.buildRecordChangesFromUpdateResult(
-                          preparedWrite.tableForWrite,
-                          pending.currentRecord,
-                          updateResult
-                        );
-                        const changedValues =
-                          changes.length > 0
-                            ? new Map(changes.map((change) => [change.fieldId, change.newValue]))
-                            : undefined;
-                        const recordIdText = pending.recordId.toString();
-                        if (changedValues) {
-                          changedValuesByRecord.set(recordIdText, changedValues);
-                          previousFieldsByRecord.set(recordIdText, pending.currentRecord.fields);
-                        }
-                        const updatedFields = new Map(
-                          updateResult.record
+                    deferComputedUpdates: input.deferComputedUpdates,
+                    enqueueDeferredComputedUpdates: input.enqueueDeferredComputedUpdates,
+                    ...(input.typecast ? { fillLinkTitles: true } : {}),
+                    ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                  }
+                )
+            );
+            yield* await traceRecordBulkUpdatePhase(
+              transactionContext,
+              'buildPersistedEventData',
+              {
+                ...transactionTraceAttributes,
+                'record.update.pendingEventCount': pendingEventData.length,
+                'record.update.persistedRecordCount': persistResult.updatedRecords?.length ?? 0,
+              },
+              async () => {
+                const persistedSnapshots = new Map(
+                  (persistResult.updatedRecords ?? []).map((record) => [
+                    record.recordId.toString(),
+                    record,
+                  ])
+                );
+                for (const pendingEvent of pendingEventData) {
+                  const snapshot = persistedSnapshots.get(pendingEvent.recordId);
+                  if (snapshot == null) {
+                    continue;
+                  }
+                  if (pendingEvent.changes.length === 0) {
+                    continue;
+                  }
+                  const changedFields = snapshot.changedFields;
+                  const changes = changedFields?.size
+                    ? pendingEvent.changes.map((change) =>
+                        changedFields.has(change.fieldId)
+                          ? { ...change, newValue: changedFields.get(change.fieldId) }
+                          : change
+                      )
+                    : pendingEvent.changes;
+                  const updatedRecord = updatedRecordMap.get(pendingEvent.recordId);
+                  if (changedFields?.size && updatedRecord) {
+                    const persistedRecord = TableRecord.fromRawFieldValues({
+                      id: pendingEvent.recordId,
+                      tableId: input.table.id(),
+                      fields: {
+                        ...Object.fromEntries(
+                          updatedRecord
                             .fields()
                             .entries()
                             .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-                        );
-                        pendingMaterialized.push({
-                          recordId: pending.recordId,
-                          changes,
-                          updatedFields,
-                          currentFields: pending.currentRecord.fields,
-                        });
-                        resolvedIndex += 1;
-                      }
-
-                      const decoratedValuesByRecord =
-                        yield* await service.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
-                          preparedWrite.tableForWrite,
-                          changedValuesByRecord,
-                          previousFieldsByRecord
-                        );
-
-                      for (const item of pendingMaterialized) {
-                        const recordIdText = item.recordId.toString();
-                        const decoratedValues = decoratedValuesByRecord?.get(recordIdText);
-                        const decoratedChanges = item.changes.map((change) => ({
-                          ...change,
-                          newValue: decoratedValues?.get(change.fieldId) ?? change.newValue,
-                        }));
-                        pendingEventData.push({
-                          recordId: recordIdText,
-                          changes: decoratedChanges,
-                        });
-                        for (const [fieldId, value] of decoratedValues ?? []) {
-                          item.updatedFields.set(fieldId, value);
-                        }
-                        const mergedFields = {
-                          ...Object.fromEntries(
-                            Object.entries(item.currentFields).filter(
-                              ([, value]) => value !== null && value !== undefined
-                            )
-                          ),
-                          ...Object.fromEntries(item.updatedFields),
-                        };
-                        const mergedRecord = yield* TableRecord.fromRawFieldValues({
-                          id: recordIdText,
-                          tableId: input.table.id(),
-                          fields: mergedFields,
-                        });
-                        updatedRecordMap.set(recordIdText, mergedRecord);
-                      }
-
-                      return ok(undefined);
-                    })
-                );
-                batchIndex += 1;
-              }
-
-              const authorizedSummary = summarizeExplicitUpdates(authorizedUpdates);
-              activeSpan?.setAttributes({
-                'record.update.batchCount': persistedBatches.length,
-                'record.update.maxBatchSize': maxBatchSize,
-                'record.update.authorizedRecordsWithFieldChanges':
-                  authorizedSummary.recordsWithFieldChanges,
-              });
-              service.logger.info('RecordBulkUpdateService.explicitUpdatesPrepared', {
-                tableId: input.table.id().toString(),
-                recordCount: authorizedSummary.recordCount,
-                recordsWithFieldChanges: authorizedSummary.recordsWithFieldChanges,
-                uniqueFieldCount: authorizedSummary.uniqueFieldCount,
-                totalFieldAssignments: authorizedSummary.totalFieldAssignments,
-                batchCount: persistedBatches.length,
-                maxBatchSize,
-                typecast: input.typecast,
-                hasOrder: Boolean(input.order),
-              });
-
-              if (resolvedIndex !== fieldUpdateTargets.length) {
-                return err(
-                  domainError.unexpected({
-                    code: 'record.update_many.count_mismatch',
-                    message: 'Bulk record update results did not match the expected record count',
-                  })
-                );
-              }
-
-              const fillLinkTitleForeignTables = input.typecast
-                ? yield* await traceRecordBulkUpdatePhase(
-                    transactionContext,
-                    'loadForeignTablesForLinkTitleFill',
-                    {
-                      ...transactionTraceAttributes,
-                      'record.update.fillLinkTitleSpecCount': fillLinkTitleSpecs.length,
-                    },
-                    () =>
-                      service.foreignTableLoaderService.loadForLinkTitleFill(
-                        transactionContext,
-                        fillLinkTitleSpecs
-                      )
-                  )
-                : new Map();
-              const persistResult = yield* await traceRecordBulkUpdatePhase(
-                transactionContext,
-                'updateManyStream',
-                {
-                  ...transactionTraceAttributes,
-                  'record.update.batchCount': persistedBatches.length,
-                  'record.update.maxBatchSize': maxBatchSize,
-                  'record.update.fillLinkTitleForeignTableCount': fillLinkTitleForeignTables.size,
-                },
-                () =>
-                  service.tableRecordRepository.updateManyStream(
-                    transactionContext,
-                    preparedWrite.tableForWrite,
-                    service.createSyncUpdateBatchesGenerator(persistedBatches),
-                    {
-                      deferComputedUpdates: input.deferComputedUpdates,
-                      enqueueDeferredComputedUpdates: input.enqueueDeferredComputedUpdates,
-                      ...(input.typecast ? { fillLinkTitles: true } : {}),
-                      ...(fillLinkTitleForeignTables.size > 0
-                        ? { fillLinkTitleForeignTables }
-                        : {}),
-                    }
-                  )
-              );
-              yield* await traceRecordBulkUpdatePhase(
-                transactionContext,
-                'buildPersistedEventData',
-                {
-                  ...transactionTraceAttributes,
-                  'record.update.pendingEventCount': pendingEventData.length,
-                  'record.update.persistedRecordCount': persistResult.updatedRecords?.length ?? 0,
-                },
-                async () => {
-                  const persistedSnapshots = new Map(
-                    (persistResult.updatedRecords ?? []).map((record) => [
-                      record.recordId.toString(),
-                      record,
-                    ])
-                  );
-                  for (const pendingEvent of pendingEventData) {
-                    const snapshot = persistedSnapshots.get(pendingEvent.recordId);
-                    if (snapshot == null) {
-                      continue;
-                    }
-                    if (pendingEvent.changes.length === 0) {
-                      continue;
-                    }
-                    const changedFields = snapshot.changedFields;
-                    const changes = changedFields?.size
-                      ? pendingEvent.changes.map((change) =>
-                          changedFields.has(change.fieldId)
-                            ? { ...change, newValue: changedFields.get(change.fieldId) }
-                            : change
-                        )
-                      : pendingEvent.changes;
-                    const updatedRecord = updatedRecordMap.get(pendingEvent.recordId);
-                    if (changedFields?.size && updatedRecord) {
-                      const persistedRecord = TableRecord.fromRawFieldValues({
-                        id: pendingEvent.recordId,
-                        tableId: input.table.id(),
-                        fields: {
-                          ...Object.fromEntries(
-                            updatedRecord
-                              .fields()
-                              .entries()
-                              .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-                          ),
-                          ...Object.fromEntries(changedFields),
-                        },
-                      });
-                      if (persistedRecord.isErr()) return err(persistedRecord.error);
-                      updatedRecordMap.set(pendingEvent.recordId, persistedRecord.value);
-                    }
-                    eventData.push({
-                      recordId: pendingEvent.recordId,
-                      oldVersion: snapshot.oldVersion,
-                      newVersion: snapshot.newVersion,
-                      changes,
+                        ),
+                        ...Object.fromEntries(changedFields),
+                      },
                     });
+                    if (persistedRecord.isErr()) return err(persistedRecord.error);
+                    updatedRecordMap.set(pendingEvent.recordId, persistedRecord.value);
                   }
-                  return ok(undefined);
+                  eventData.push({
+                    recordId: pendingEvent.recordId,
+                    oldVersion: snapshot.oldVersion,
+                    newVersion: snapshot.newVersion,
+                    changes,
+                  });
                 }
-              );
-              // Reorder and field updates can target the same rows; max keeps row count semantics stable.
-              updatedCount = Math.max(updatedCount, persistResult.totalUpdated);
-            }
+                return ok(undefined);
+              }
+            );
+            // Reorder and field updates can target the same rows; max keeps row count semantics stable.
+            updatedCount = Math.max(updatedCount, persistResult.totalUpdated);
+          }
 
-            const committedWrite =
-              updatedCount > 0
-                ? yield* await traceRecordBulkUpdatePhase(
-                    transactionContext,
-                    'commitPreparedTableWrite',
-                    {
-                      ...transactionTraceAttributes,
-                      'record.update.updatedCount': updatedCount,
-                      'record.update.sideEffectCount': preparedWrite.sideEffects.length,
-                    },
-                    () =>
-                      service.commitPreparedTableWrite(
-                        transactionContext,
-                        input.table,
-                        preparedWrite
-                      )
-                  )
-                : preparedWrite;
+          const committedWrite =
+            updatedCount > 0
+              ? yield* await traceRecordBulkUpdatePhase(
+                  transactionContext,
+                  'commitPreparedTableWrite',
+                  {
+                    ...transactionTraceAttributes,
+                    'record.update.updatedCount': updatedCount,
+                    'record.update.sideEffectCount': preparedWrite.sideEffects.length,
+                  },
+                  () =>
+                    service.commitPreparedTableWrite(transactionContext, input.table, preparedWrite)
+                )
+              : preparedWrite;
 
-            const materializedRecords: TableRecord[] = [];
-            yield* await traceRecordBulkUpdatePhase(
-              transactionContext,
-              'materializeResultRecords',
-              {
-                ...transactionTraceAttributes,
-                'record.update.updatedRecordMapSize': updatedRecordMap.size,
-              },
-              async () =>
-                safeTry<void, DomainError>(async function* () {
-                  for (const update of authorizedUpdates) {
-                    const updatedRecord = updatedRecordMap.get(update.recordId.toString());
-                    if (updatedRecord) {
-                      materializedRecords.push(updatedRecord);
-                      continue;
-                    }
-
-                    const currentRecordEntity = yield* TableRecord.fromRawFieldValues({
-                      id: update.currentRecord.id,
-                      tableId: input.table.id(),
-                      fields: Object.fromEntries(
-                        Object.entries(update.currentRecord.fields).filter(
-                          ([, value]) => value !== null && value !== undefined
-                        )
-                      ),
-                    });
-                    materializedRecords.push(currentRecordEntity);
+          const materializedRecords: TableRecord[] = [];
+          yield* await traceRecordBulkUpdatePhase(
+            transactionContext,
+            'materializeResultRecords',
+            {
+              ...transactionTraceAttributes,
+              'record.update.updatedRecordMapSize': updatedRecordMap.size,
+            },
+            async () =>
+              safeTry<void, DomainError>(async function* () {
+                for (const update of authorizedUpdates) {
+                  const updatedRecord = updatedRecordMap.get(update.recordId.toString());
+                  if (updatedRecord) {
+                    materializedRecords.push(updatedRecord);
+                    continue;
                   }
-                  return ok(undefined);
-                })
-            );
 
-            return ok(
-              toBulkUpdateWrite(input.table, {
-                updatedCount,
-                tableEvents: committedWrite.tableEvents,
-                extraEvents: reorderResult.events,
-                eventData,
-                sideEffectUndoRedoPlan: committedWrite.sideEffectUndoRedoPlan,
-                orderUndoCommands: reorderResult.undoCommands,
-                orderRedoCommands: reorderResult.redoCommands,
-                records: materializedRecords,
+                  const currentRecordEntity = yield* TableRecord.fromRawFieldValues({
+                    id: update.currentRecord.id,
+                    tableId: input.table.id(),
+                    fields: Object.fromEntries(
+                      Object.entries(update.currentRecord.fields).filter(
+                        ([, value]) => value !== null && value !== undefined
+                      )
+                    ),
+                  });
+                  materializedRecords.push(currentRecordEntity);
+                }
+                return ok(undefined);
               })
-            );
-          })
-      );
+          );
+
+          return ok(
+            toBulkUpdateWrite(input.table, {
+              updatedCount,
+              tableEvents: committedWrite.tableEvents,
+              extraEvents: reorderResult.events,
+              eventData,
+              sideEffectUndoRedoPlan: committedWrite.sideEffectUndoRedoPlan,
+              orderUndoCommands: reorderResult.undoCommands,
+              orderRedoCommands: reorderResult.redoCommands,
+              records: materializedRecords,
+            })
+          );
+        });
+
+      const committed = binding?.transactionBound
+        ? yield* await runBoundExplicitUpdate(transactionBody(context))
+        : yield* await service.domainWriteTransaction.execute(context, transactionBody);
 
       const fieldKeyMapping =
         input.fieldKeyType === 'id'
@@ -1330,9 +1456,55 @@ export class RecordBulkUpdateService {
                   FieldKeyResolverService.getFieldKey(field, input.fieldKeyType),
                 ])
             );
-
       return ok({ ...committed.value, pluginExecution, fieldKeyMapping, events: committed.events });
     });
+  }
+
+  /**
+   * Lease-selection probe for the command layer: would this bulk input add
+   * select options, i.e. write table metadata? `typecast` alone never does.
+   *
+   * Input is probed before the write path narrows it (plugin filtering, missing
+   * records, or a selector that matches no records), so a new option that would
+   * not be persisted still reports `true`. That only widens the lease, never
+   * weakens it. Errors are conservative: preparing the full superset can fail on
+   * a record or legacy option the write path later filters out, while the
+   * authorized subset still adds an option. Reporting `true` there keeps that
+   * subset exclusive instead of letting it mutate metadata under a shared lease.
+   */
+  planCoordination(
+    context: IExecutionContext,
+    input: Pick<
+      IRecordBulkUpdateInput,
+      'table' | 'fieldValues' | 'records' | 'typecast' | 'fieldKeyType'
+    > & { hasOrder: boolean }
+  ): RecordWriteCoordinationPlan {
+    const initialPlan = preLeasePlan(input);
+    if (initialPlan.mode === 'none' || !input.typecast) return initialPlan;
+
+    const recordFieldValues: Result<
+      ReadonlyArray<ReadonlyMap<string, unknown>>,
+      DomainError
+    > = input.records
+      ? this.resolveExplicitUpdates(input.table, input.records, input.fieldKeyType).map((updates) =>
+          updates.map((update) => update.fieldValues)
+        )
+      : FieldKeyResolverService.resolveFieldKeys(
+          input.table,
+          Object.fromEntries(input.fieldValues),
+          input.fieldKeyType
+        ).map((resolved) => [new Map<string, unknown>(Object.entries(resolved))]);
+
+    // Any unresolved input may still hide an authorized option write.
+    if (recordFieldValues.isErr()) return exclusiveRecordWritePlan;
+
+    const probe = this.recordWriteSideEffectService.wouldUpdateTableMetadata(
+      context,
+      input.table,
+      recordFieldValues.value,
+      true
+    );
+    return probe.isErr() || probe.value ? exclusiveRecordWritePlan : sharedRecordWritePlan;
   }
 
   private async prepareTableForWrite(

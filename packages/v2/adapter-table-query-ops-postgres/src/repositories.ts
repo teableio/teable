@@ -659,6 +659,10 @@ export class PostgresTableQueryRemediationTaskRepository {
               domainError.conflict({
                 code: 'table_query_ops.table_task_conflict',
                 message: `Table already has an active task: ${active.id}`,
+                localization: {
+                  i18nKey: 'httpErrors.tableQueryOps.tableTaskConflict',
+                  context: { taskId: active.id },
+                },
               })
             );
         }

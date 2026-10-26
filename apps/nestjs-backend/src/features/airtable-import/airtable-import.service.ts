@@ -1,5 +1,5 @@
 import { pipeline, Readable, Transform } from 'node:stream';
-import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type {
   IColumnMetaRo,
   IFieldRo,
@@ -10,7 +10,13 @@ import type {
   ViewType,
   CellValueType,
 } from '@teable/core';
-import { FieldAIActionType, FieldKeyType, FieldType, Relationship } from '@teable/core';
+import {
+  FieldAIActionType,
+  FieldKeyType,
+  FieldType,
+  HttpErrorCode,
+  Relationship,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IImportAirtableAnalyzeRo,
@@ -26,6 +32,7 @@ import {
   PrincipalType,
   UploadType,
 } from '@teable/openapi';
+import { CustomHttpException } from '../../custom.exception';
 import { mapWithConcurrency } from '../../utils/map-with-concurrency';
 import { AiService } from '../ai/ai.service';
 import { AttachmentsService } from '../attachments/attachments.service';
@@ -159,13 +166,19 @@ export class AirtableImportService {
     if (ro.integrationId) {
       const resolver = this.tokenResolver;
       if (!resolver) {
-        throw new BadRequestException('Airtable integrations are not available on this instance');
+        throw new CustomHttpException(
+          'Airtable integrations are not available on this instance',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       const integrationId = ro.integrationId;
       return new AirtableApiClient(() => resolver.resolveAccessToken(integrationId));
     }
     if (!ro.accessToken) {
-      throw new BadRequestException('Either integrationId or accessToken is required');
+      throw new CustomHttpException(
+        'Either integrationId or accessToken is required',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const accessToken = ro.accessToken;
     return new AirtableApiClient(() => accessToken);
@@ -263,7 +276,10 @@ export class AirtableImportService {
       base = await this.baseService.getBaseById(ro.baseId);
     } else {
       if (!ro.spaceId) {
-        throw new BadRequestException('spaceId is required when baseId is not provided.');
+        throw new CustomHttpException(
+          'spaceId is required when baseId is not provided.',
+          HttpErrorCode.VALIDATION_ERROR
+        );
       }
       progress({ phase: 'creating_base', detail: ro.baseName });
       base = await this.baseService.createBase({
@@ -590,7 +606,12 @@ export class AirtableImportService {
       shareClient.assertBaseMatch(ro.airtableBaseId);
     } catch (error) {
       if (error instanceof AirtableShareError) {
-        throw new BadRequestException(error.message);
+        throw new CustomHttpException(error.message, HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.import.failed',
+            context: { detail: error.message },
+          },
+        });
       }
       throw error;
     }

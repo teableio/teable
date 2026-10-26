@@ -2,6 +2,8 @@ import { Logger } from '@nestjs/common';
 import type { PgPoolObserver } from '@teable/db-main-prisma';
 import {
   installPgPoolObserver,
+  PgPoolQueueSaturatedError,
+  PgPoolQueueTimeoutError,
   PgPoolRegistry,
   pgPoolObserverFacade,
 } from '@teable/db-main-prisma';
@@ -59,6 +61,7 @@ const createObserver = () => ({
   onPoolError: vi.fn(),
   onAcquireFailure: vi.fn(),
   onAcquireSettled: vi.fn(),
+  onAcquireQueued: vi.fn(),
 });
 
 describe('PgPoolRegistry', () => {
@@ -294,6 +297,74 @@ describe('PgPoolRegistry', () => {
     await lease.release();
   });
 
+  it('reports queue admission but not immediate or physical-connection acquisitions', async () => {
+    vi.useFakeTimers();
+    try {
+      const observer = createObserver();
+      const { factory, pool, connect } = createObservedPoolFactory();
+      const registry = new PgPoolRegistry(factory, observer);
+      const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable', {
+        max: 1,
+        poolName: 'shared',
+      });
+
+      // One idle client and two synchronous callers: pg appends both, then dispenses the
+      // idle client to the first on the next pulse. The second is actually queued.
+      let releaseFirst: (() => void) | undefined;
+      let releaseSecond: (() => void) | undefined;
+      connect.mockImplementationOnce(() => {
+        Object.assign(pool, { waitingCount: pool.waitingCount + 1 });
+        return new Promise((resolve) => {
+          releaseFirst = () => {
+            Object.assign(pool, { idleCount: 0, waitingCount: pool.waitingCount - 1 });
+            resolve({ id: 'idle-client' });
+          };
+        });
+      });
+      connect.mockImplementationOnce(() => {
+        Object.assign(pool, { waitingCount: pool.waitingCount + 1 });
+        return new Promise((resolve) => {
+          releaseSecond = () => {
+            Object.assign(pool, { waitingCount: pool.waitingCount - 1 });
+            resolve({ id: 'queued-client' });
+          };
+        });
+      });
+
+      const first = lease.pool.connect();
+      const second = lease.pool.connect();
+      await vi.advanceTimersByTimeAsync(37);
+      releaseSecond?.();
+      await expect(second).resolves.toEqual({ id: 'queued-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+      expect(observer.onAcquireQueued).toHaveBeenCalledWith(
+        expect.objectContaining({ max: 1, poolName: 'shared' }),
+        37,
+        false
+      );
+
+      releaseFirst?.();
+      await expect(first).resolves.toEqual({ id: 'idle-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      // A physical connection and a synchronously rejected acquisition do not join the
+      // pending queue, so neither emits the queue histogram.
+      Object.assign(pool, { idleCount: 0, totalCount: 0, waitingCount: 0 });
+      connect.mockResolvedValueOnce({ id: 'new-client' });
+      await expect(lease.pool.connect()).resolves.toEqual({ id: 'new-client' });
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      const rejection = new Error('Cannot use a pool after calling end on the pool');
+      connect.mockRejectedValueOnce(rejection);
+      await expect(lease.pool.connect()).rejects.toBe(rejection);
+      expect(observer.onAcquireQueued).toHaveBeenCalledOnce();
+
+      await lease.release();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('measures promise-style acquisitions and keeps a retry as its own attempt', async () => {
     const observer = createObserver();
     const { factory, connect } = createObservedPoolFactory();
@@ -346,6 +417,9 @@ describe('PgPoolRegistry', () => {
       onAcquireSettled: () => {
         throw boom;
       },
+      onAcquireQueued: () => {
+        throw boom;
+      },
     };
     const { factory, connect, emit } = createObservedPoolFactory();
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -387,5 +461,101 @@ describe('PgPoolRegistry', () => {
     expect(() => emit('error', new Error('idle failure'))).not.toThrow();
 
     await lease.release();
+  });
+
+  it('rejects immediately when the pool queue is already full', async () => {
+    const observer = createObserver();
+    const { factory, pool, connect } = createObservedPoolFactory();
+    Object.assign(pool, { idleCount: 0, totalCount: 2, waitingCount: 2 });
+    const registry = new PgPoolRegistry(factory, observer);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable', {
+      max: 2,
+      queueLimit: 2,
+      queueTimeoutMillis: 1000,
+    });
+
+    await expect(lease.pool.connect()).rejects.toMatchObject({
+      name: 'PgPoolQueueSaturatedError',
+      code: 'PG_POOL_QUEUE_SATURATED',
+      queueLimit: 2,
+    });
+    expect(connect).not.toHaveBeenCalled();
+    expect(observer.onAcquireFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ max: 2, waiting: 2 }),
+      expect.any(PgPoolQueueSaturatedError),
+      'acquire',
+      expect.any(Number)
+    );
+
+    await lease.release();
+  });
+
+  it('fails fast through callback-style acquisitions', async () => {
+    const { factory, pool, connect } = createObservedPoolFactory();
+    Object.assign(pool, { idleCount: 0, totalCount: 1, waitingCount: 1 });
+    const registry = new PgPoolRegistry(factory);
+    const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable', {
+      max: 1,
+      queueLimit: 1,
+    });
+    const callback = vi.fn();
+
+    (lease.pool.connect as unknown as (callback: unknown) => void)(callback);
+
+    expect(connect).not.toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledWith(expect.any(PgPoolQueueSaturatedError));
+
+    await lease.release();
+  });
+
+  it('times out a queued acquisition and returns the late client', async () => {
+    vi.useFakeTimers();
+    try {
+      const observer = createObserver();
+      const { factory, pool, connect } = createObservedPoolFactory();
+      Object.assign(pool, { idleCount: 0, totalCount: 1, waitingCount: 0 });
+      const registry = new PgPoolRegistry(factory, observer);
+      const lease = registry.acquire('postgresql://teable:secret@db.example.com:5432/teable', {
+        max: 1,
+        queueLimit: 4,
+        queueTimeoutMillis: 25,
+      });
+      const client = { id: 'late-client', release: vi.fn() };
+      let resolveClient: (() => void) | undefined;
+      connect.mockImplementationOnce(() => {
+        Object.assign(pool, { waitingCount: 1 });
+        const promise = new Promise<typeof client>((resolve) => {
+          resolveClient = () => {
+            Object.assign(pool, { waitingCount: 0 });
+            resolve(client);
+          };
+        });
+        return promise;
+      });
+
+      const pending = lease.pool.connect();
+      const timeoutExpectation = expect(pending).rejects.toMatchObject({
+        name: 'PgPoolQueueTimeoutError',
+        code: 'PG_POOL_QUEUE_TIMEOUT',
+        timeoutMillis: 25,
+      });
+      await vi.advanceTimersByTimeAsync(25);
+      await timeoutExpectation;
+      expect(observer.onAcquireFailure).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(PgPoolQueueTimeoutError),
+        'acquire',
+        25
+      );
+
+      resolveClient?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(client.release).toHaveBeenCalledOnce();
+
+      await lease.release();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1525,7 +1525,7 @@ describe('[B10] v2 http paste (e2e)', () => {
       expect(rawBody.error?.code).toBe('paste.link_auto_create_missing_required_fields');
     });
 
-    it('rejects auto create when the link lookup field is not the foreign primary', async () => {
+    it('matches a non-primary display value without auto-creating foreign records', async () => {
       const foreignPrimaryFieldId = createFieldId();
       const foreignAltFieldId = createFieldId();
       const foreignTable = await ctx.createTable({
@@ -1545,6 +1545,10 @@ describe('[B10] v2 http paste (e2e)', () => {
           },
         ],
         views: [{ type: 'grid' }],
+      });
+      const foreignRecord = await ctx.createRecord(foreignTable.id, {
+        [foreignPrimaryFieldId]: 'Primary A',
+        [foreignAltFieldId]: 'Alpha',
       });
 
       const linkFieldId = createFieldId();
@@ -1568,30 +1572,51 @@ describe('[B10] v2 http paste (e2e)', () => {
         views: [{ type: 'grid' }],
       });
 
-      await ctx.createRecord(hostTable.id, {
+      const hostRecord = await ctx.createRecord(hostTable.id, {
         [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
       });
 
-      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          tableId: hostTable.id,
-          viewId: hostTable.views[0].id,
-          ranges: [
-            [1, 0],
-            [1, 0],
-          ],
-          content: [['lookup-miss']],
-          typecast: true,
-        }),
-      });
-
-      expect(response.status).toBe(400);
-      const rawBody = (await response.json()) as {
-        error?: { code?: string; message?: string };
+      const readLinkCell = async () => {
+        const records = await ctx.listRecords(hostTable.id);
+        const cell = records.find((record) => record.id === hostRecord.id)?.fields[linkFieldId];
+        return Array.isArray(cell) ? cell : cell ? [cell] : [];
       };
-      expect(rawBody.error?.code).toBe('paste.link_auto_create_requires_primary_lookup');
+      const pasteRaw = async (value: string) =>
+        fetch(`${ctx.baseUrl}/tables/paste`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: hostTable.id,
+            viewId: hostTable.views[0].id,
+            ranges: [
+              [1, 0],
+              [1, 0],
+            ],
+            content: [[value]],
+            typecast: true,
+          }),
+        });
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [['Alpha']],
+        typecast: true,
+      });
+      expect(await readLinkCell()).toEqual([{ id: foreignRecord.id, title: 'Alpha' }]);
+
+      for (const value of ['Missing', 'Primary A']) {
+        const response = await pasteRaw(value);
+        expect(response.status).toBe(400);
+        const rawBody = (await response.json()) as { error?: { code?: string } };
+        expect(rawBody.error?.code).toBe('paste.link_auto_create_requires_primary_lookup');
+        expect(await readLinkCell()).toEqual([{ id: foreignRecord.id, title: 'Alpha' }]);
+      }
+      expect(await ctx.listRecords(foreignTable.id)).toHaveLength(1);
     });
 
     it('does not auto-create foreign records when typecast is false', async () => {

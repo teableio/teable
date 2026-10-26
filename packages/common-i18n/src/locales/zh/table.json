@@ -745,7 +745,14 @@
           "systemColumn": "系统列 \"{{columnName}}\"",
           "connection": "连接",
           "completion": "完成",
-          "unexpected": "异常错误"
+          "unexpected": "异常错误",
+          "tableExists": "物理表存在",
+          "orphanedLinkStorage": "孤立的关联存储",
+          "primaryField": "主字段",
+          "metadata": "字段元数据",
+          "selectOptions": "选项列表",
+          "defaultBackfill": "默认值回填",
+          "conditionalMatchIndex": "条件匹配索引"
         },
         "detail": {
           "systemColumnMissing": "系统列 \"{{columnName}}\" 不存在",
@@ -969,6 +976,7 @@
       "preparingImport": "正在准备导入...",
       "importFinished": "导入完成",
       "importFinishedPartial": "导入完成（部分表达到行数上限）",
+      "importFinishedWithErrors": "导入完成（部分表导入失败）",
       "importSheetImported": "{{rowCount}} 行",
       "importSheetTruncated": "已导入 {{rowCount}} 行（超出上限，已跳过剩余行）",
       "importSheetFailed": "失败（{{error}}）",

@@ -23,6 +23,7 @@ const explainOptionsSchema = {
   includeLocks: z.boolean().optional().default(true),
   sqlExplainMode: sqlExplainModeSchema.optional().default('json'),
   statementTimeoutMs: z.number().int().nonnegative().optional().default(0),
+  includeDataEstimate: z.boolean().optional().default(false),
 };
 
 // Input schemas for explain endpoints
@@ -382,6 +383,25 @@ const explainTimingSchema = z.object({
   sqlExplainMs: z.number(),
 });
 
+/**
+ * Additive schema vector. Nested structural/formula details stay passthrough so
+ * the producing package remains the single source; this schema only pins the
+ * stable envelope. It deliberately carries no `runtimeCost`: the pure package
+ * removed that always-null block until Phase 3 records real runtime evidence.
+ */
+const schemaComplexityProfileSchema = z
+  .object({
+    version: z.literal(1),
+    basis: z.literal('schema-only'),
+    structural: z.record(z.string(), z.unknown()),
+    formulas: z.array(z.record(z.string(), z.unknown())),
+    operation: z.record(z.string(), z.unknown()).nullable(),
+    dataEstimate: z.record(z.string(), z.unknown()).optional(),
+    evidence: z.record(z.string(), z.unknown()),
+    warnings: z.array(z.string()),
+  })
+  .passthrough();
+
 export const explainResultSchema = z.object({
   command: commandExplainInfoSchema,
   computedImpact: computedImpactInfoSchema.nullable(),
@@ -389,6 +409,7 @@ export const explainResultSchema = z.object({
   linkLocks: linkRecordLocksInfoSchema,
   sqlExplains: z.array(sqlExplainInfoSchema),
   complexity: complexityAssessmentSchema,
+  schemaComplexityProfile: schemaComplexityProfileSchema.optional(),
   timing: explainTimingSchema,
 });
 

@@ -15,7 +15,12 @@ export class FieldName extends ValueObject {
     }
     const value = raw.trim();
     if (value.length === 0) {
-      return err(domainError.validation({ message: 'Invalid FieldName' }));
+      return err(
+        domainError.validation({
+          message: 'Invalid FieldName',
+          localization: { i18nKey: 'httpErrors.field.nameRequired' },
+        })
+      );
     }
     return ok(new FieldName(value));
   }

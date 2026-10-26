@@ -10,6 +10,7 @@ import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
+import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { isRecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
@@ -216,11 +217,206 @@ describe('LinkTitleResolverService', () => {
     expect(recordQueryRepository.lastSpec).toBeInstanceOf(OrSpec);
   });
 
-  it('returns validation error for non-text primary field', async () => {
+  it('resolves titles against the link display field instead of the primary', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Targets')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.field().singleLineText().withName(FieldName.create('Code')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const primaryFieldId = table.primaryFieldId().toString();
+    const displayFieldId = table
+      .getFields()
+      .find((field) => !field.id().equals(table.primaryFieldId()))!
+      .id();
+    const recordId = `rec${'v'.repeat(16)}`;
+
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        {
+          id: recordId,
+          fields: { [primaryFieldId]: 'Primary A', [displayFieldId.toString()]: 'Alpha' },
+          version: 1,
+        },
+      ])
+    );
+
+    const fieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      {
+        fieldId,
+        foreignTableId: table.id(),
+        lookupFieldId: displayFieldId,
+        titles: ['Alpha', 'Primary A'],
+      },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([{ id: recordId, title: 'Alpha' }]);
+  });
+
+  it('does not resolve titles against a multi-value display field', async () => {
+    const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Targets')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.field().multipleSelect().withName(FieldName.create('Tags')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const displayFieldId = table
+      .getFields()
+      .find((field) => !field.id().equals(table.primaryFieldId()))!
+      .id();
+
+    const recordQueryRepository = new FakeRecordQueryRepository([]);
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      recordQueryRepository
+    );
+
+    const fieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      {
+        fieldId,
+        foreignTableId: table.id(),
+        lookupFieldId: displayFieldId,
+        titles: ['Alpha'],
+      },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([]);
+    expect(recordQueryRepository.findCalls).toBe(0);
+  });
+
+  it('resolves a single-select display value stored as the option name', async () => {
+    const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Targets')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleSelect()
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([
+        SelectOption.create({ id: 'choDone', name: 'Done', color: 'green' })._unsafeUnwrap(),
+        SelectOption.create({ id: 'choTrap', name: 'choDone', color: 'blue' })._unsafeUnwrap(),
+      ])
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const displayFieldId = table
+      .getFields()
+      .find((field) => !field.id().equals(table.primaryFieldId()))!
+      .id();
+    const recordId = `rec${'s'.repeat(16)}`;
+    const trapRecordId = `rec${'t'.repeat(16)}`;
+
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        {
+          id: recordId,
+          fields: { [displayFieldId.toString()]: 'Done' },
+          version: 1,
+        },
+        {
+          id: trapRecordId,
+          fields: { [displayFieldId.toString()]: 'choDone' },
+          version: 1,
+        },
+      ])
+    );
+
+    const fieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      {
+        fieldId,
+        foreignTableId: table.id(),
+        lookupFieldId: displayFieldId,
+        titles: ['Done'],
+      },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([{ id: recordId, title: 'Done' }]);
+  });
+
+  it('falls back to the foreign primary when the display field is a checkbox', async () => {
+    const baseId = BaseId.create(`bse${'c'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Targets')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.field().checkbox().withName(FieldName.create('Done')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const displayFieldId = table
+      .getFields()
+      .find((field) => !field.id().equals(table.primaryFieldId()))!
+      .id();
+    const recordId = `rec${'c'.repeat(16)}`;
+
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository([
+        {
+          id: recordId,
+          fields: { [table.primaryFieldId().toString()]: 'Alpha' },
+          version: 1,
+        },
+      ])
+    );
+
+    const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      {
+        fieldId,
+        foreignTableId: table.id(),
+        lookupFieldId: displayFieldId,
+        titles: ['Alpha'],
+      },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([{ id: recordId, title: 'Alpha' }]);
+  });
+
+  it('resolves numeric titles when the primary field is a number', async () => {
     const table = buildNumberTable('a', 'g');
+    const recordId = `rec${'h'.repeat(16)}`;
     const records: TableRecordReadModel[] = [
       {
-        id: `rec${'h'.repeat(16)}`,
+        id: recordId,
         fields: {
           [table.primaryFieldId().toString()]: 123,
         },
@@ -235,12 +431,10 @@ describe('LinkTitleResolverService', () => {
 
     const fieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
     const result = await service.resolve(createContext(), [
-      { fieldId, foreignTableId: table.id(), titles: ['123'] },
+      { fieldId, foreignTableId: table.id(), titles: ['123.0'] },
     ]);
 
-    expect(result._unsafeUnwrapErr().message).toBe(
-      'Primary field must resolve to a single string value for title resolution'
-    );
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([{ id: recordId, title: '123.0' }]);
   });
 
   it('resolves titles when the primary field is a string formula', async () => {

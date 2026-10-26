@@ -4,7 +4,7 @@
 import type { OnApplicationShutdown } from '@nestjs/common';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Pool } from 'pg';
-import type { PoolConfig } from 'pg';
+import type { PoolClient, PoolConfig } from 'pg';
 
 const prismaOnlySearchParams = [
   'connection_limit',
@@ -24,10 +24,60 @@ export interface IPgPoolAcquireOptions {
   connectionTimeoutMillis?: number;
   max?: number;
   poolName?: string;
+  /**
+   * Maximum callers already waiting for a client when this request would join
+   * pg's pending queue. Reaching the limit rejects immediately instead of
+   * growing the queue. `0` disables queueing for this pool; unset keeps pg's
+   * unbounded queue.
+   */
+  queueLimit?: number;
+  /**
+   * Milliseconds a queued request may wait for a client. pg's
+   * `connectionTimeoutMillis` only bounds physical connection setup, so this is
+   * the only bound on waiting behind a saturated pool. `0` disables it.
+   */
+  queueTimeoutMillis?: number;
 }
 
 /** Fail fast on TCP connect instead of hanging on OS timeout (~75–130s+). */
 export const DEFAULT_PG_POOL_CONNECTION_TIMEOUT_MS = 5000;
+
+/** Rejected before calling pg because the pool already has enough waiters. */
+export class PgPoolQueueSaturatedError extends Error {
+  readonly code = 'PG_POOL_QUEUE_SATURATED';
+
+  constructor(
+    readonly queueLimit: number,
+    readonly poolName?: string
+  ) {
+    super(
+      `PostgreSQL pool queue is full (limit ${queueLimit}${
+        poolName ? `, pool ${poolName}` : ''
+      }); rejecting instead of waiting`
+    );
+    this.name = 'PgPoolQueueSaturatedError';
+  }
+}
+
+/**
+ * Rejected while waiting for a free client. pg never times out queued callers,
+ * so without this a saturated BYODB pool turns into unbounded request latency.
+ */
+export class PgPoolQueueTimeoutError extends Error {
+  readonly code = 'PG_POOL_QUEUE_TIMEOUT';
+
+  constructor(
+    readonly timeoutMillis: number,
+    readonly poolName?: string
+  ) {
+    super(
+      `Timed out after ${timeoutMillis}ms waiting for a PostgreSQL pool connection${
+        poolName ? ` (pool ${poolName})` : ''
+      }`
+    );
+    this.name = 'PgPoolQueueTimeoutError';
+  }
+}
 
 export interface IPgPoolSnapshot {
   applicationName: string;
@@ -81,6 +131,16 @@ export interface PgPoolObserver {
     durationMs: number,
     isError: boolean
   ): void;
+
+  /**
+   * Called only when the acquisition joined pg's pending queue instead of being dispensed
+   * as an immediate idle checkout or starting its own physical connection. `durationMs` is
+   * the time from `connect()` until the client was handed out; if the queued request later
+   * needed a replacement physical connection, that setup time is included. Immediate
+   * acquisitions never call this method; `onAcquireSettled` remains the complete
+   * per-attempt signal.
+   */
+  onAcquireQueued?(snapshot: IPgPoolSnapshot, durationMs: number, isError: boolean): void;
 }
 
 export const PG_POOL_OBSERVER = Symbol('PG_POOL_OBSERVER');
@@ -91,6 +151,7 @@ export const noopPgPoolObserver: PgPoolObserver = {
   onPoolError: () => undefined,
   onAcquireFailure: () => undefined,
   onAcquireSettled: () => undefined,
+  onAcquireQueued: () => undefined,
 };
 
 let activePgPoolObserver: PgPoolObserver | undefined;
@@ -125,6 +186,8 @@ export const pgPoolObserverFacade: PgPoolObserver = {
     getPgPoolObserver().onAcquireFailure(snapshot, error, phase, durationMs),
   onAcquireSettled: (snapshot, phase, durationMs, isError) =>
     getPgPoolObserver().onAcquireSettled(snapshot, phase, durationMs, isError),
+  onAcquireQueued: (snapshot, durationMs, isError) =>
+    getPgPoolObserver().onAcquireQueued?.(snapshot, durationMs, isError),
 };
 
 /** Driver/PG codes that mean the physical connection attempt itself failed. */
@@ -175,6 +238,8 @@ interface IPgPoolEntry {
   pool: Pool;
   poolName?: string;
   port?: number;
+  queueLimit?: number;
+  queueTimeoutMillis?: number;
   references: number;
 }
 
@@ -186,6 +251,8 @@ interface INormalizedPoolConfig {
   max: number;
   poolName?: string;
   port?: number;
+  queueLimit?: number;
+  queueTimeoutMillis?: number;
 }
 
 const parsePositiveInteger = (value: unknown): number | undefined => {
@@ -196,6 +263,36 @@ const parsePositiveInteger = (value: unknown): number | undefined => {
 const parseNonNegativeInteger = (value: unknown): number | undefined => {
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+};
+
+/**
+ * Whether this call must wait for a client instead of checking one out from the
+ * idle list or opening a new physical connection.
+ */
+const wouldJoinPoolQueue = (pool: Pool, max: number): boolean =>
+  pool.idleCount === 0 && pool.totalCount >= max;
+
+/**
+ * Return a client that arrived after its caller was already failed by the queue
+ * timeout. Without this the checked-out connection would leak until shutdown.
+ */
+const releaseLateClient = (client: unknown, done?: unknown): void => {
+  try {
+    if (typeof done === 'function') {
+      done();
+      return;
+    }
+    if (
+      client &&
+      typeof client === 'object' &&
+      'release' in client &&
+      typeof client.release === 'function'
+    ) {
+      client.release();
+    }
+  } catch {
+    // The pool already disposed the client on the failure path.
+  }
 };
 
 const resolveConnectionTimeoutMillis = (options: IPgPoolAcquireOptions): number =>
@@ -226,6 +323,8 @@ const normalizePoolConfig = (
   const identityUrl = new URL(normalizedConnectionString);
   identityUrl.protocol = 'postgresql:';
   if (!identityUrl.port) identityUrl.port = '5432';
+  const queueLimit = parseNonNegativeInteger(options.queueLimit);
+  const queueTimeoutMillis = parseNonNegativeInteger(options.queueTimeoutMillis);
   return {
     connectionString: normalizedConnectionString,
     database: url.pathname.replace(/^\//, ''),
@@ -234,6 +333,8 @@ const normalizePoolConfig = (
     max,
     ...(options.poolName !== undefined ? { poolName: options.poolName } : {}),
     port: Number(url.port || 5432),
+    ...(queueLimit !== undefined ? { queueLimit } : {}),
+    ...(queueTimeoutMillis !== undefined && queueTimeoutMillis > 0 ? { queueTimeoutMillis } : {}),
   };
 };
 
@@ -277,6 +378,10 @@ export class PgPoolRegistry implements OnApplicationShutdown {
         pool,
         ...(normalized.poolName !== undefined ? { poolName: normalized.poolName } : {}),
         port: normalized.port,
+        ...(normalized.queueLimit !== undefined ? { queueLimit: normalized.queueLimit } : {}),
+        ...(normalized.queueTimeoutMillis !== undefined
+          ? { queueTimeoutMillis: normalized.queueTimeoutMillis }
+          : {}),
         references: 0,
       };
       this.entries.set(normalized.key, created);
@@ -366,31 +471,111 @@ export class PgPoolRegistry implements OnApplicationShutdown {
 
     // `connect` is invoked with the pool as its receiver, so the reporting callback is
     // bound to the registry up front instead of aliasing `this`.
-    const settleAcquire = this.reportAcquireOutcome.bind(this, entry);
+    const reportAcquireOutcome = this.reportAcquireOutcome.bind(this, entry);
+    const saturationError = (): Error | undefined => {
+      if (entry.queueLimit === undefined || !wouldJoinPoolQueue(pool, entry.max)) {
+        return undefined;
+      }
+      return pool.waitingCount >= entry.queueLimit
+        ? new PgPoolQueueSaturatedError(entry.queueLimit, entry.poolName)
+        : undefined;
+    };
+
     const observedConnect = function (this: Pool, ...args: unknown[]): unknown {
       const startedAt = Date.now();
+      const waitingBefore = pool.waitingCount;
+      let queued = false;
       const callback = typeof args[0] === 'function' ? args[0] : undefined;
-      const settle = (error: unknown): void => settleAcquire(startedAt, error);
+      const settle = (error: unknown): void => reportAcquireOutcome(queued, startedAt, error);
+      const shouldWaitForClient = wouldJoinPoolQueue(pool, entry.max);
+      const failFast = saturationError();
+      if (failFast) {
+        reportAcquireOutcome(false, startedAt, failFast);
+        if (typeof callback === 'function') {
+          callback.call(undefined, failFast);
+          return undefined;
+        }
+        return Promise.reject(failFast);
+      }
+      const timeoutMs = shouldWaitForClient ? entry.queueTimeoutMillis : undefined;
 
       if (typeof callback === 'function') {
+        let timedOut = false;
+        let timeout: NodeJS.Timeout | undefined;
         const observedCallback = function (this: unknown, ...callbackArgs: unknown[]): unknown {
+          if (timeout !== undefined) {
+            clearTimeout(timeout);
+            timeout = undefined;
+          }
+          if (timedOut) {
+            releaseLateClient(callbackArgs[1], callbackArgs[2]);
+            return undefined;
+          }
           settle(callbackArgs[0]);
-          return (callback as (...inner: unknown[]) => unknown).apply(this, callbackArgs);
+          return callback.apply(this, callbackArgs);
         };
-        return Reflect.apply(originalConnect, this, [observedCallback]);
+        const result = Reflect.apply(originalConnect, this, [observedCallback]);
+        queued = didJoinPoolQueue(pool, waitingBefore);
+        if (timeoutMs !== undefined && queued) {
+          timeout = setTimeout(() => {
+            timeout = undefined;
+            timedOut = true;
+            const error = new PgPoolQueueTimeoutError(timeoutMs, entry.poolName);
+            reportAcquireOutcome(queued, startedAt, error);
+            callback.call(undefined, error);
+          }, timeoutMs);
+          timeout.unref?.();
+        }
+        return result;
       }
 
       const result = Reflect.apply(originalConnect, this, args);
+      queued = didJoinPoolQueue(pool, waitingBefore);
       if (!(result instanceof Promise)) {
         return result;
       }
-      return result.then(
+      if (timeoutMs === undefined || !queued) {
+        return result.then(
+          (value) => {
+            settle(undefined);
+            return value;
+          },
+          (error: unknown) => {
+            settle(error);
+            throw error;
+          }
+        );
+      }
+
+      let timedOut = false;
+      let timeout: NodeJS.Timeout | undefined;
+      const queueTimeout = new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          timeout = undefined;
+          timedOut = true;
+          const error = new PgPoolQueueTimeoutError(timeoutMs, entry.poolName);
+          reportAcquireOutcome(queued, startedAt, error);
+          reject(error);
+        }, timeoutMs);
+        timeout.unref?.();
+      });
+      // The pool eventually hands out the client this call asked for; returning it
+      // is the only way to avoid leaking a checked-out connection after the timeout.
+      void result.then(
         (value) => {
+          if (timedOut) releaseLateClient(value);
+        },
+        () => undefined
+      );
+      return Promise.race([result, queueTimeout]).then(
+        (value) => {
+          clearTimeout(timeout);
           settle(undefined);
           return value;
         },
         (error: unknown) => {
-          settle(error);
+          clearTimeout(timeout);
+          if (!timedOut) settle(error);
           throw error;
         }
       );
@@ -404,13 +589,23 @@ export class PgPoolRegistry implements OnApplicationShutdown {
    * throwing settle listener cannot swallow the failure detail (and vice versa: each
    * notification has its own guard).
    */
-  private reportAcquireOutcome(entry: IPgPoolEntry, startedAt: number, error: unknown): void {
+  private reportAcquireOutcome(
+    entry: IPgPoolEntry,
+    queuedAtEntry: boolean,
+    startedAt: number,
+    error: unknown
+  ): void {
     const durationMs = Date.now() - startedAt;
     const phase = resolveAcquireFailurePhase(error);
     const snapshot = this.toSnapshot(entry);
     this.notifyObservers((observer) =>
       observer.onAcquireSettled(snapshot, phase, durationMs, error != null)
     );
+    if (queuedAtEntry) {
+      this.notifyObservers((observer) =>
+        observer.onAcquireQueued?.(snapshot, durationMs, error != null)
+      );
+    }
     if (error != null) {
       this.notifyObservers((observer) =>
         observer.onAcquireFailure(snapshot, error, phase, durationMs)
@@ -436,3 +631,15 @@ export class PgPoolRegistry implements OnApplicationShutdown {
     await entry.pool.end();
   }
 }
+
+/**
+ * Whether this `connect()` call was appended to pg's pending queue without an idle client
+ * available for it. pg appends synchronously and only dispenses idle clients on the next
+ * pulse, so `waitingCount` still includes this call; its queue position is
+ * `waitingAfter - 1`, and it is queued when that position is not covered by `idleCount`.
+ * A call that starts a physical connection does not change `waitingCount`.
+ */
+const didJoinPoolQueue = (pool: Pool, waitingBefore: number): boolean => {
+  const waitingAfter = pool.waitingCount;
+  return waitingAfter > waitingBefore && waitingAfter - 1 >= pool.idleCount;
+};

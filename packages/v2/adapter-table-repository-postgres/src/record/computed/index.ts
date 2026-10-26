@@ -26,3 +26,4 @@ export * from './pause/IComputedUpdatePauseRegistry';
 export * from './strategies/index';
 export * from './types/index';
 export * from './worker/ComputedUpdateWorker';
+export * from './complexity/PostgresComplexityStatisticsReader';

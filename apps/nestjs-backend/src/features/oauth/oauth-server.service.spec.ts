@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { HttpErrorCode } from '@teable/core';
@@ -101,7 +101,13 @@ describe('OAuthServerService', () => {
         },
         done
       );
-      expect(done).toHaveBeenCalledWith(new BadRequestException('Invalid scopes: table|read'));
+      expect(done).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Invalid scopes: table|read',
+          code: HttpErrorCode.VALIDATION_ERROR,
+          data: undefined,
+        })
+      );
     });
 
     it('should fail if no redirectUri configured', async () => {
@@ -121,7 +127,13 @@ describe('OAuthServerService', () => {
         },
         done
       );
-      expect(done).toHaveBeenCalledWith(new BadRequestException('Redirect uri not configured'));
+      expect(done).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Redirect uri not configured',
+          code: HttpErrorCode.VALIDATION_ERROR,
+          data: undefined,
+        })
+      );
     });
 
     it('should fail with invalid redirectUri', async () => {

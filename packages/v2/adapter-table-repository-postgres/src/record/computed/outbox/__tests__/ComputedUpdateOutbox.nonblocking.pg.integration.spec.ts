@@ -148,6 +148,13 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       .addColumn('name', 'text')
       .execute();
     await db.schema
+      .createTable('space_data_db_binding')
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('space_id', 'text', (col) => col.notNull())
+      .addColumn('mode', 'text', (col) => col.notNull())
+      .addColumn('state', 'text', (col) => col.notNull())
+      .execute();
+    await db.schema
       .createTable('base')
       .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('space_id', 'text', (col) => col.notNull())
@@ -374,5 +381,52 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
     } finally {
       await releaseLock();
     }
+  });
+
+  it('keeps the oldest enqueue time when a lock-miss retry merges into a newer pending task', async () => {
+    const enqueued = unwrap(await outbox.enqueueOrMerge(createTaskInput('plan-age')));
+    const oldestCreatedAt = new Date(Date.now() - 10 * 60 * 1000);
+    await db
+      .updateTable('computed_update_outbox')
+      .set({ created_at: oldestCreatedAt })
+      .where('id', '=', enqueued.taskId)
+      .execute();
+
+    const claimed = unwrap(await outbox.claimBatch({ workerId: 'it-worker', limit: 1 }));
+    const task = claimed[0];
+    expect(task).toBeDefined();
+    // The driver round-trips timestamptz at second precision; compare seconds.
+    const seconds = (value: Date | string) => Math.floor(new Date(value).getTime() / 1000);
+    expect(seconds(task!.createdAt as Date)).toBe(seconds(oldestCreatedAt));
+
+    // A newer pending task with the same hash appears while the first one is
+    // processing; the lock-miss retry merges into it.
+    await outbox.enqueueOrMerge(createTaskInput('plan-age'));
+    const newerPending = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'created_at'])
+      .where('status', '=', 'pending')
+      .executeTakeFirstOrThrow();
+    expect(String(newerPending.id)).not.toBe(task!.id);
+    expect(seconds(newerPending.created_at as Date)).toBeGreaterThan(seconds(oldestCreatedAt));
+
+    const released = unwrap(
+      await outbox.releaseForRetry({
+        task: task!,
+        reason: 'Computed update lock unavailable: lock-key',
+        retryDelayMs: 250,
+      })
+    );
+    expect(released).toBe(true);
+
+    // The surviving row keeps the age of the task that actually waited, so an
+    // age-based escalation cannot be reset by every merge (T8079).
+    const merged = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'status', 'created_at'])
+      .where('id', '=', String(newerPending.id))
+      .executeTakeFirstOrThrow();
+    expect(merged.status).toBe('pending');
+    expect(seconds(merged.created_at as Date)).toBe(seconds(oldestCreatedAt));
   });
 });

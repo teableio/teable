@@ -1038,28 +1038,33 @@
       "invalidPath": "無効な添付ファイルパス",
       "fileSizeExceedsMaximumLimit": "ファイルサイズが最大制限 {{maxSize}} を超えています",
       "invalidUploadType": "無効なアップロードタイプ",
-      "urlReject": "URLが拒否されたか、アクセスできません"
+      "urlReject": "URLが拒否されたか、アクセスできません",
+      "avatarTypeUnsupported": "サポートされていないファイルタイプです。JPEG、PNG、WebP のみ使用できます。"
     },
     "email": {
-      "testEmailError": "メール設定エラー {{message}}"
+      "testEmailError": "メール設定エラー {{message}}",
+      "transporterInvalid": "メール設定が無効です：{{detail}}"
     },
     "auth": {
-      "invalidConfirm": "Invalid confirmation input",
-      "emailNotRegistered": "This email is not registered",
-      "passwordNotSet": "Password has not been set for this account",
-      "systemUser": "This is a system user account",
-      "alreadyRegistered": "This email is already registered",
-      "passwordIncorrect": "The password is incorrect",
-      "tokenInvalid": "The token is invalid or has expired",
-      "passwordAlreadyExists": "Password has already been set for this account",
-      "verificationCodeInvalid": "The verification code is invalid or has expired",
-      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
-      "emailAlreadyRegistered": "This email address is already registered",
-      "waitlistNotEnabled": "The waitlist feature is not enabled",
-      "emailOrPasswordIncorrect": "Email or password is incorrect",
-      "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "パスワードによるログインは無効になっています"
+      "invalidConfirm": "確認の入力が無効です",
+      "emailNotRegistered": "このメールアドレスは登録されていません",
+      "passwordNotSet": "このアカウントにはパスワードが設定されていません",
+      "systemUser": "これはシステムユーザーのアカウントです",
+      "alreadyRegistered": "このメールアドレスはすでに登録されています",
+      "passwordIncorrect": "パスワードが正しくありません",
+      "tokenInvalid": "トークンが無効か、有効期限が切れています",
+      "passwordAlreadyExists": "このアカウントにはすでにパスワードが設定されています",
+      "verificationCodeInvalid": "認証コードが無効か、有効期限が切れています",
+      "newEmailSameAsCurrentEmail": "新しいメールアドレスが現在のものと同じです",
+      "emailAlreadyRegistered": "このメールアドレスはすでに登録されています",
+      "waitlistNotEnabled": "待機リスト機能は有効になっていません",
+      "emailOrPasswordIncorrect": "メールアドレスまたはパスワードが正しくありません",
+      "accountDeactivated": "このアカウントは管理者によって無効化されています",
+      "accountLockedOut": "ログインの失敗回数が多すぎるため、アカウントがロックされました。しばらくしてからもう一度お試しください。",
+      "passwordLoginDisabled": "パスワードによるログインは無効になっています",
+      "captchaFailed": "ボット対策の認証に失敗しました。ページを更新してもう一度お試しください。",
+      "captchaServiceUnavailable": "認証サービスが一時的に利用できません。しばらくしてからもう一度お試しください。",
+      "mobileExchangeInvalid": "ログインリクエストが無効か、有効期限が切れています。アプリからもう一度ログインしてください。"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
@@ -1107,7 +1112,16 @@
       "webhookTriggerNotFound": "Webhookトリガーが見つかりません",
       "emailReceivedTriggerNotFound": "メール受信トリガーが見つかりません",
       "emailConnectorNotAvailable": "メールコネクタサービスが利用できません",
-      "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}"
+      "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}",
+      "codeUploadFailed": "コンパイル済みコードのアップロードに失敗しました：{{detail}}",
+      "invalidInput": "入力が無効です：{{detail}}",
+      "recordsRequired": "レコードは必須です",
+      "codeRequired": "コードは必須です。空にはできません",
+      "scriptCompileFailed": "スクリプトのコンパイルに失敗しました：{{detail}}",
+      "scriptExecutionFailed": "スクリプトの実行に失敗しました：{{detail}}",
+      "scriptTimeout": "スクリプトの実行がタイムアウトしました（{{timeout}}ms 以内に応答がありませんでした）",
+      "sandboxUnavailable": "サンドボックスサーバーに接続できません。サンドボックスサーバーが起動しているか確認してください。",
+      "sandboxError": "サンドボックスサーバーのエラー：{{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
@@ -1120,7 +1134,8 @@
       "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
       "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",
       "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}",
-      "providerUnsupported": "{{provider}} 接続はサポートが終了したため付与できません"
+      "providerUnsupported": "{{provider}} 接続はサポートが終了したため付与できません",
+      "callbackFailed": "認可コールバックの処理に失敗しました：{{detail}}"
     },
     "space": {
       "notFound": "スペースが見つかりません",
@@ -1132,15 +1147,19 @@
       "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
       "notBelongToOrg": "このスペースは組織に属していません",
       "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}",
-      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+      "freeOwnedSpaceLimitExceeded": "所有できる無料スペースの上限（{{max}} 個）に達しています。新しい無料スペースを作成するには、既存のスペースをアップグレードするか、いずれかを削除してください。",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} さんは、所有できる無料スペースの上限（{{max}} 個）に達しています。",
+      "dataDbTargetError": "接続先データベースのエラー：{{detail}}",
+      "migrationUnavailableCrossSpace": "スペースをまたぐ参照が有効な間は、スペース単位のデータベース移行は利用できません"
     },
     "base": {
       "notFound": "プロジェクトが見つかりません",
       "cannotAccess": "プロジェクト {{baseId}} にアクセスする権限がありません",
       "anchorNotFound": "アンカープロジェクト {{anchorId}} が見つかりません",
       "baseAndSpaceMismatch": "プロジェクト {{baseId}} とスペース {{spaceId}} が一致しません",
-      "templateNotFound": "テンプレート {{templateId}} が見つかりません"
+      "templateNotFound": "テンプレート {{templateId}} が見つかりません",
+      "crossDataDbDuplicateUnsupported": "異なるデータベースを使用するスペース間でのレコードの複製は、まだサポートされていません",
+      "moveJobNotCancellable": "移動ジョブは状態が {{state}} のためキャンセルできません"
     },
     "baseNode": {
       "baseIdIsRequired": "プロジェクトIDが必要です",
@@ -1180,7 +1199,8 @@
       "notFound": "チャットが見つかりません",
       "accessDenied": "このチャットにアクセスする権限がありません",
       "archived": "チャットはアーカイブ済みです",
-      "serverAuthoredType": "{{type}} タイプのチャットはサーバーが作成します"
+      "serverAuthoredType": "{{type}} タイプのチャットはサーバーが作成します",
+      "messageTooLong": "メッセージが長すぎます（{{length}} 文字、最大 {{max}} 文字）"
     },
     "dashboard": {
       "notFound": "ダッシュボードが見つかりません"
@@ -1287,7 +1307,12 @@
       "exceedMaxReadRows": "最大読み取り行数の制限を超えました",
       "invalidCellValueType": "無効なセル値の型",
       "exceedMaxCopyCells": "最大コピーセル数の制限を超えました",
-      "exceedMaxPasteCells": "最大貼り付けセル数の制限を超えました"
+      "exceedMaxPasteCells": "最大貼り付けセル数の制限を超えました",
+      "linkAutoCreateSelfLinkUnsupported": "自身のテーブルにリンクしているリンクフィールドでは、貼り付け時に関連レコードを自動作成できません。既存のレコードのタイトルを貼り付けてください。",
+      "linkAutoCreateRequiresPrimaryLookup": "このリンクフィールドは関連テーブルのプライマリフィールド以外のフィールドを表示しているため、貼り付け時に関連レコードを自動作成できません。",
+      "linkAutoCreateRequiresTextPrimary": "関連テーブルのプライマリフィールドが単一のテキスト値ではないため、貼り付け時に関連レコードを自動作成できません。",
+      "linkAutoCreateComputedPrimaryUnsupported": "関連テーブルのプライマリフィールドが計算フィールドのため、貼り付け時に関連レコードを自動作成できません。",
+      "linkAutoCreateMissingRequiredFields": "関連テーブルにデフォルト値のない必須フィールドがあるため、貼り付け時に関連レコードを自動作成できません：{{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "サポートされていないフィールドタイプ {{type}}",
@@ -1354,7 +1379,21 @@
         "notSupportReset": "ボタンはリセットをサポートしていません"
       },
       "primaryCannotBeLookup": "主フィールドを Lookup フィールドとして設定することはできません",
-      "primaryFieldAlreadyExists": "テーブルには既に主フィールドがあります"
+      "primaryFieldAlreadyExists": "テーブルには既に主フィールドがあります",
+      "nameRequired": "フィールド名は空にできません",
+      "rollupFormattingMismatch": "ロールアップの書式が計算結果の型と一致しません。書式を選び直してから、もう一度お試しください。",
+      "conditionalRollupFormattingMismatch": "書式が条件付きロールアップの計算結果の型と一致しません。書式を選び直してから、もう一度お試しください。",
+      "conditionalRollupLookupFieldUnavailable": "集計対象のフィールドまたはそのテーブルが利用できないため、この条件付きロールアップの結果の型を判定できません。選び直してください。",
+      "selectDefaultValueNotInChoices": "デフォルト値「{{value}}」は選択肢にありません。デフォルト値を選び直してください。",
+      "timeZoneInvalid": "サポートされていないタイムゾーンです：{{timeZone}}。別のタイムゾーンを選択してください。",
+      "formulaCompileFailed": "この数式は計算できません。数式を簡略化するか、参照しているフィールドを確認してください。",
+      "formulaParamTextNotAllowed": "{{func}} の {{index}} 番目の引数にはテキスト値を使用できません。参照しているフィールドの型を確認してください。",
+      "formulaParamNumberOrDateRequired": "{{func}} の {{index}} 番目の引数には数値または日付のみ使用できます。参照しているフィールドの型を確認してください。",
+      "formulaParamTextRequired": "{{func}} の {{index}} 番目の引数にはテキスト値のみ使用できます。参照しているフィールドの型を確認してください。",
+      "linkTitleFillLimitExceeded": "1 つのリンクセルに一度に書き込めるレコードは最大 {{max}} 件です",
+      "buttonClickConflict": "ボタンが別のリクエストによって変更されました。もう一度クリックしてください。",
+      "buttonUndoConflict": "元に戻す／やり直しの実行中にボタンが変更されました。もう一度お試しください。",
+      "linkTitlePrimaryNotText": "関連テーブルのプライマリフィールドが単一のテキスト値ではないため、テキストで関連レコードを照合できません。"
     },
     "view": {
       "notFound": "ビューが見つかりません",
@@ -1371,7 +1410,11 @@
       "notEnoughGapToShuffleRow": "行をシャッフルするための十分なギャップがありません",
       "shareNotEnabled": "ビュー共有が有効になっていません",
       "shareAlreadyEnabled": "ビュー共有はすでに有効になっています",
-      "shareAlreadyDisabled": "ビュー共有はすでに無効になっています"
+      "shareAlreadyDisabled": "ビュー共有はすでに無効になっています",
+      "versionConflict": "このビューは別の操作によって変更されました。ページを更新してから、もう一度お試しください。",
+      "nameAlreadyExists": "このテーブルには「{{name}}」という名前のビューが既に存在します",
+      "manualSortUnsupportedViewType": "手動並べ替えはグリッドビューでのみ使用できます",
+      "formRequiredFieldsMissing": "送信する前に、すべての必須フィールドに入力してください"
     },
     "billing": {
       "insufficientCredit": "クレジット不足",
@@ -1385,7 +1428,11 @@
       "planNotAvailable": "このプランは新規サブスクリプションではご利用いただけません。",
       "seatLimitExceeded": "購入済みシートが不足しています。シートを追加してからコラボレーターを招待してください。",
       "customerNotFound": "このスペースの請求顧客レコードが見つかりません。",
-      "creditAddOnRetired": "クレジットの定期アドオンは提供終了しました。代わりにプランでより大きなクレジット枠をお選びください。"
+      "creditAddOnRetired": "クレジットの定期アドオンは提供終了しました。代わりにプランでより大きなクレジット枠をお選びください。",
+      "trialUsed": "トライアル期間はすでに使用済みです",
+      "subscriptionPaused": "サブスクリプションは一時停止中です。新しいサブスクリプションを開始する前に、サポートに連絡して再開またはキャンセルしてください。",
+      "noSubscriptionToRevert": "元に戻せる Stripe サブスクリプションがありません",
+      "portalUnavailable": "請求ポータルを開けません。しばらくしてからもう一度お試しください。"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",
@@ -1420,7 +1467,9 @@
       "validateActionFailed": "フィールドAIアクションの検証に失敗しました",
       "generateFailed": "AI生成に失敗しました",
       "unsupportedActionType": "サポートされていないAIアクションタイプです",
-      "geminiImageNotSupportedViaGateway": "Gemini の画像生成は AI Gateway 経由ではサポートされていません。代わりに Google プロバイダーを直接設定してください。"
+      "geminiImageNotSupportedViaGateway": "Gemini の画像生成は AI Gateway 経由ではサポートされていません。代わりに Google プロバイダーを直接設定してください。",
+      "requestFailed": "AI リクエストに失敗しました：{{detail}}",
+      "imageTestUnsupportedForGateway": "AI Gateway のモデルでは、画像生成のテストはまだサポートされていません"
     },
     "skill": {
       "notFound": "スキルが見つかりません",
@@ -1483,7 +1532,9 @@
       "notSupportTableIndex": "テーブルインデックスタイプはサポートされていません",
       "createTableIndexError": "テーブルインデックスの作成に失敗しました",
       "dropTableIndexError": "テーブルインデックスの削除に失敗しました",
-      "notFoundPrimaryField": "テーブル内にプライマリフィールドが見つかりません"
+      "notFoundPrimaryField": "テーブル内にプライマリフィールドが見つかりません",
+      "duplicateCrossSpaceField": "このテーブルにはスペースをまたぐフィールドが含まれているため、複製できません",
+      "nameRequired": "テーブル名は空にできません"
     },
     "export": {
       "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
@@ -1492,7 +1543,14 @@
       "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
       "notSupportedFileType": "インポートファイルタイプがサポートされていません",
       "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "実行中のインポートタスクが多すぎます（{{current}}/{{max}}）。しばらくしてからもう一度お試しください。",
+      "failed": "インポートに失敗しました：{{detail}}",
+      "noImportableData": "選択したシートにインポート可能なデータがありません",
+      "csvParseError": "CSV の解析エラー（{{row}} 行目）：{{detail}}",
+      "csvNoColumns": "CSV ファイルにインポートできる列がありません",
+      "excelSheetNoColumns": "このシートにインポートできる列がありません",
+      "columnIndexOutOfRange": "{{index}} 列目は範囲外です。ヘッダー行には {{count}} 列しかありません。",
+      "invalidDotteaStructure": ".tea ファイルの構造が無効か、サポートされていません。プロジェクトを再度エクスポートしてから、もう一度お試しください。"
     },
     "invitation": {
       "disallowSpaceInvitation": "現在のインスタンスでは、管理者によるスペース招待が許可されていません",
@@ -1514,7 +1572,8 @@
       "parentBaseOrSpaceTrashed": "親プロジェクトまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
       "parentBaseTrashed": "親プロジェクトもゴミ箱にあるため、このアイテムを復元できません",
       "parentNotFound": "親リソースが見つかりません",
-      "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
+      "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません",
+      "restoreFieldInvalidSnapshot": "削除されたフィールドの設定が無効なため、復元できません。"
     },
     "license": {
       "invalid": "ライセンスが無効です",
@@ -1538,7 +1597,9 @@
       "emailNotSpaceUser": "メールアドレスはスペースユーザーではありません"
     },
     "mail": {
-      "failedToSendEmail": "メール送信に失敗しました"
+      "failedToSendEmail": "メール送信に失敗しました",
+      "recipientRequired": "\"to\" または \"bcc\" のいずれかに、有効な宛先メールアドレスを指定してください",
+      "allUnsubscribed": "すべての宛先が配信停止済みです。配信停止リストを確認してください。"
     },
     "user": {
       "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
@@ -1566,7 +1627,9 @@
       "updateFailed": "レコードの更新に失敗しました",
       "noFileOrUrlProvided": "ファイルまたはURLが提供されていません",
       "createRecordsEmpty": "レコードの作成を空にすることはできません",
-      "duplicateFailed": "レコードの複製に失敗しました"
+      "duplicateFailed": "レコードの複製に失敗しました",
+      "linkedRecordNotExist": "保存できません：関連レコードが既に存在しません。ページを更新してから、もう一度お試しください。",
+      "fieldValueInvalid": "フィールド「{{fieldName}}」の値が無効です"
     },
     "typecast": {
       "cellValueValidationFailed": "セル値の検証に失敗しました"
@@ -1611,7 +1674,32 @@
       "siteInfoBeforeGeneration": "サイト情報をカスタマイズする前にアプリを生成してください",
       "generationEditingConflict": "AI による生成がこのアプリを編集中です。完了後にファイルの更新を再試行してください。",
       "siteInfoLayoutNotEditable": "このアプリのコードは、ここでのサイト情報の編集に対応していません。代わりにチャットで AI にサイトのタイトル・説明・アイコンの変更を依頼してください。",
-      "siteInfoManagedInCode": "このアプリはサイトのタイトルと説明をコード内で管理しています。代わりにチャットで AI に変更を依頼してください。"
+      "siteInfoManagedInCode": "このアプリはサイトのタイトルと説明をコード内で管理しています。代わりにチャットで AI に変更を依頼してください。",
+      "accessLinkSetupFailed": "アクセスリンクの設定に失敗しました：{{detail}}",
+      "zipNotAppProject": "インポートした ZIP は有効なアプリプロジェクトではありません：プロジェクトのルートに package.json がありません",
+      "zipExceedsLimits": "インポートした ZIP がアプリアーカイブの上限を超えています（{{detail}}）",
+      "auth": {
+        "smtpNotConfigured": "メールサービスが設定されていないため、コードを送信できません",
+        "googleNotConfigured": "Google ログインの認証情報が設定されていません",
+        "loginDisabled": "このアプリではログインが有効になっていません",
+        "googleDisabled": "このアプリでは Google ログインが有効になっていません",
+        "teableDisabled": "このアプリでは Teable ログインが有効になっていません",
+        "userTableMissing": "選択したユーザーテーブルはこのプロジェクトに存在しません",
+        "emailFieldMissing": "選択したユーザーテーブルにメールフィールドがありません",
+        "emailFieldType": "メールフィールドは書き込み可能な1行テキストフィールドである必要があります",
+        "signInStateInvalid": "ログインセッションが無効か、有効期限が切れています。もう一度ログインしてください。",
+        "domainNotAllowed": "新規登録は特定のメールドメインに制限されています。お使いのメールドメインは許可リストに含まれていません。",
+        "inviteOnly": "このアプリは招待制です。アクセスをご希望の場合は、アプリの管理者にお問い合わせください。",
+        "emailMissing": "メールアドレスを取得できませんでした"
+      },
+      "previewOriginNotReady": "プレビューアプリの準備ができていません。プレビューを再読み込みして、もう一度お試しください。",
+      "publishedOriginNotReady": "公開済みアプリの準備ができていません。アプリを公開してから、もう一度お試しください。",
+      "versionSourceMissing": "バージョン {{version}} のソースファイルが見つかりません",
+      "accessLink": {
+        "dnsMisconfigured": "アクセスリンクの設定に失敗しました：ドメインの DNS が正しく設定されていません"
+      },
+      "customDomainNotConfigured": "カスタムドメインが設定されていません",
+      "vercelTokenNotConfigured": "App Builder の設定に Vercel トークンが設定されていません"
     },
     "reward": {
       "notFound": "リワードが見つかりません",
@@ -1639,6 +1727,49 @@
     "connectorEvent": {
       "accountNotGranted": "コネクタイベントトリガーには、このリソースに付与された接続済みアカウントが必要です",
       "notEnabled": "このデプロイではコネクタイベントが有効になっていません"
+    },
+    "requestFailed": "リクエストに失敗しました",
+    "operationFailed": "操作に失敗しました：{{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "演算子 {{operator}} は他のフィールドとの比較をサポートしていません"
+    },
+    "oauth": {
+      "invalidRequest": "OAuth リクエストが無効です：{{detail}}",
+      "deviceCodeUsed": "このコードはすでに使用されています。デバイスで新しいコードを取得してください。"
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "パラメーターが無効です：{{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "AI Proxy の API Key が見つかりません"
+    },
+    "github": {
+      "linkStateInvalid": "GitHub 連携の状態が無効か、有効期限が切れています",
+      "accountMismatch": "GitHub で {{authorizedLogin}} として認可されましたが、選択した接続は {{accountLogin}} のものです。GitHub に {{accountLogin}} としてログインして、もう一度お試しください。",
+      "registryNotConfigured": "GitHub 同期には git registry が必要ですが、このデプロイでは設定されていません",
+      "repoNameInvalid": "リポジトリ名に使用できるのは、英字、数字、\".\"、\"-\"、\"_\" のみです",
+      "installStateInvalid": "GitHub インストールの状態が無効か、有効期限が切れています",
+      "installationIdInvalid": "インストール ID が無効です"
+    },
+    "im": {
+      "feishuNotConfigured": "Feishu アプリの認証情報が設定されていません",
+      "slackNotConfigured": "Slack が設定されていません。管理者が IM 連携設定で Slack アプリを設定する必要があります。"
+    },
+    "tableProvisionPending": "テーブル構造を更新中です。しばらくしてからもう一度お試しください。",
+    "computed": {
+      "pausedWriteBlocked": "メンテナンスのため計算を一時停止しているので、現在この変更は保存できません。しばらくしてからもう一度お試しください。"
+    },
+    "undoRedo": {
+      "inProgress": "元に戻す／やり直しの処理がまだ実行中です。しばらく待ってから、もう一度お試しください。",
+      "busy": "元に戻す／やり直しは現在処理中のため実行できません。もう一度お試しください。",
+      "unsupportedCommandVersion": "この操作は旧バージョンで記録されたため、元に戻す／やり直しはできなくなりました。"
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "このテーブルでは既にインデックスタスク（{{taskId}}）が実行中です。完了するまで待ってから、もう一度お試しください。"
+    },
+    "integrity": {
+      "linkTargetTableMissing": "リンク先のテーブルが既に存在しないため、このリンクを自動修復できません。"
     }
   },
   "usageLimitBanner": {

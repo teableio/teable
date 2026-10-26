@@ -20,6 +20,7 @@ import {
   UNKNOWN_DATABASE_ROLE,
   type DatabaseHealthRole,
 } from './database-instance';
+import { databaseClientPoolAttributes } from './database-pool-identity';
 
 /**
  * Per-database-instance health instrumentation (folder architecture notes).
@@ -39,16 +40,17 @@ import {
  *    the counter and the histogram.
  *
  * 3. Acquire vs connect. Two different events, two different observation points:
- *    - `pg-pool.connect` spans own the acquire series: `pool.acquire.duration` (waiting for
- *      a client plus the attempt) and, for rejected attempts, `pool.acquire.timeouts` and
- *      `connection.failures{failure.phase="acquire"}`. Instrumentation-pg creates that span
- *      for every attempt, so the series is complete.
- *    - The pool observer owns what no span carries: `connection.established` (the pg Pool
- *      `'connect'` event is a real physical connection, not a checkout) and
- *      `connection.failures{failure.phase="idle"}` (the `'error'` event = an established
- *      idle client died). A rejected *physical* attempt has no other reporter, so it is
- *      recorded as `failure.phase="connect"`; `failure.phase` is what tells the producers
- *      apart, so aggregate one phase at a time instead of summing a phase-blind total.
+ *    - `pg-pool.connect` spans own the compatible all-acquire series:
+ *      `pool.acquire.duration` (idle checkout, physical connect or queue wait) and, for
+ *      rejected attempts, `pool.acquire.timeouts` and
+ *      `connection.failures{failure.phase="acquire"}`.
+ *    - The pool observer owns queue-specific `pool.acquire.queued.duration`, emitted only
+ *      when pg appends an acquisition to its pending queue without an idle client to
+ *      dispense. It also owns `connection.established` (the pg Pool `'connect'` event is a
+ *      physical connection, not a checkout),
+ *      `connection.failures{failure.phase="idle"}`, and rejected physical connects. The
+ *      queue histogram is a strict subset of the all-acquire histogram; do not sum their
+ *      counts or buckets.
  *
  * 4. Aggregation. The same instance+pool is reported by every replica that owns it: sum
  *    counters and gauges across replicas (each replica's instrument carries its pod's
@@ -68,6 +70,7 @@ export const DATABASE_HEALTH_METRIC = {
   operations: 'teable.database.client.operations',
   operationDuration: 'teable.database.client.operation.duration',
   acquireDuration: 'teable.database.client.pool.acquire.duration',
+  queuedAcquireDuration: 'teable.database.client.pool.acquire.queued.duration',
   acquireTimeouts: 'teable.database.client.pool.acquire.timeouts',
   connectionsEstablished: 'teable.database.client.connection.established',
   connectionFailures: 'teable.database.client.connection.failures',
@@ -120,6 +123,7 @@ interface IDatabaseHealthInstruments {
   operations: Counter;
   operationDuration: Histogram;
   acquireDuration: Histogram;
+  queuedAcquireDuration: Histogram;
   acquireTimeouts: Counter;
   connectionsEstablished: Counter;
   connectionFailures: Counter;
@@ -342,9 +346,15 @@ export class DatabaseHealthMetricsService implements PgPoolObserver {
     _durationMs: number,
     _isError: boolean
   ): void {
-    // Settled attempts (callback and promise style, including Prisma's retry as its own
-    // attempt) are visible to consumers of the seam; the acquire histogram is recorded from
-    // `pg-pool.connect` spans so every acquisition has exactly one histogram producer.
+    // Settled attempts remain visible to consumers of the seam. The existing all-acquire
+    // histogram stays span-driven so its producer and labels do not change.
+  }
+
+  onAcquireQueued(snapshot: IPgPoolSnapshot, durationMs: number, isError: boolean): void {
+    this.instrument.queuedAcquireDuration.record(durationMs, {
+      ...databaseClientPoolAttributes(snapshot),
+      [DATABASE_HEALTH_ATTRIBUTE.outcome]: isError ? 'error' : 'success',
+    });
   }
 
   private createInstruments(): IDatabaseHealthInstruments {
@@ -361,6 +371,12 @@ export class DatabaseHealthMetricsService implements PgPoolObserver {
       }),
       acquireDuration: meter.createHistogram(DATABASE_HEALTH_METRIC.acquireDuration, {
         description: 'Pool acquisition latency until a client is handed out or the attempt fails',
+        unit: 'ms',
+        advice: { explicitBucketBoundaries: DATABASE_LATENCY_BUCKETS_MS },
+      }),
+      queuedAcquireDuration: meter.createHistogram(DATABASE_HEALTH_METRIC.queuedAcquireDuration, {
+        description:
+          'Queued PostgreSQL pool acquisition latency, including replacement connection setup',
         unit: 'ms',
         advice: { explicitBucketBoundaries: DATABASE_LATENCY_BUCKETS_MS },
       }),

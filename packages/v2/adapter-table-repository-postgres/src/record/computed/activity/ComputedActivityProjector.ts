@@ -31,6 +31,12 @@ import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { pushAll } from '../pushAll';
+import type {
+  ComputedActivityRuntimeConfig,
+  ComputedReliabilityRuntimeConfig,
+  ComputedRuntimeConfig,
+} from '../../../config/runtimeConfig';
+import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
 import { isComputedReliabilityVisible } from '../reliability/config';
 import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
@@ -67,18 +73,12 @@ const ACTIVITY_ADVISORY_LOCK_RETRY_MAX_DELAY_MS = 250;
 // A healthy lock is held for the few milliseconds a projection takes; waiting a
 // full backoff quantum means a convoy is forming, which is worth surfacing per
 // table long before waits reach the 5s skip threshold.
-const ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS = (() => {
-  const parsed = Number(process.env.COMPUTED_ACTIVITY_LOCK_CONTENTION_LOG_THRESHOLD_MS);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 250;
-})();
+const DEFAULT_ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS = 250;
 // Rate-limit the contention warn to one per (operation, table) per interval. The
 // first occurrence carries the convoy signal; hot tables otherwise repeat it on
 // every projection (991 warns in 24h on 2026-08-26, mostly marginal ~300ms waits)
 // and drown the alert channel in noise.
-const ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS = (() => {
-  const parsed = Number(process.env.COMPUTED_ACTIVITY_LOCK_CONTENTION_LOG_INTERVAL_MS);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 60_000;
-})();
+const DEFAULT_ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS = 60_000;
 const ENQUEUE_PROJECTION_GATE_TIMEOUT_MS = 15_000;
 // Async projection mode (default-on): lifecycle hooks write only the task-field ref
 // ledger inside the caller's transaction — no advisory lock, no activity-table
@@ -86,11 +86,7 @@ const ENQUEUE_PROJECTION_GATE_TIMEOUT_MS = 15_000;
 // flusher. The flusher is the single writer of the activity tables, so lock
 // contention no longer scales with task count (the 2026-08-14 CN convoy). Keep
 // an explicit `false` kill switch for emergency rollback to the synchronous path.
-const isAsyncProjectionEnabled = () => process.env.COMPUTED_ACTIVITY_ASYNC_PROJECTION !== 'false';
-const ACTIVITY_ASYNC_FLUSH_DEBOUNCE_MS = (() => {
-  const parsed = Number(process.env.COMPUTED_ACTIVITY_FLUSH_DEBOUNCE_MS);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 300;
-})();
+const DEFAULT_ACTIVITY_ASYNC_FLUSH_DEBOUNCE_MS = 300;
 // The flusher runs on its own connection outside any caller transaction, so a
 // short bounded wait is safe; on timeout the events are requeued and retried.
 const ACTIVITY_ASYNC_FLUSH_LOCK_TIMEOUT_MS = 1_000;
@@ -259,11 +255,11 @@ const storedActivityTargets = (
 @injectable()
 export class ComputedActivityProjector implements IComputedActivityProjector {
   private readonly enqueueProjectionTails = new Map<string, Promise<void>>();
-  private asyncProjectionEnabled = isAsyncProjectionEnabled();
-  private asyncFlushDebounceMs = ACTIVITY_ASYNC_FLUSH_DEBOUNCE_MS;
-  private readonly lockContentionLogThresholdMs =
-    ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS;
-  private readonly lockContentionLogIntervalMs = ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS;
+  private asyncProjectionEnabled: boolean;
+  private asyncFlushDebounceMs: number;
+  private readonly lockContentionLogThresholdMs: number;
+  private readonly lockContentionLogIntervalMs: number;
+  private readonly reliability: ComputedReliabilityRuntimeConfig;
   private readonly lockContentionLogLastAt = new Map<string, number>();
   private asyncFlusherDisposed = false;
   private readonly pendingByTable = new Map<string, PendingTableState>();
@@ -274,8 +270,22 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus | null = null
-  ) {}
+    private readonly eventBus: IEventBus | null = null,
+    @inject(v2RecordRepositoryPostgresTokens.computedRuntimeConfig)
+    runtime: ComputedRuntimeConfig = defaultComputedRuntimeConfig
+  ) {
+    const activity: ComputedActivityRuntimeConfig = runtime.activity ?? {};
+    this.asyncProjectionEnabled = activity.asyncProjection ?? true;
+    this.asyncFlushDebounceMs =
+      activity.flushDebounceMs ?? DEFAULT_ACTIVITY_ASYNC_FLUSH_DEBOUNCE_MS;
+    this.lockContentionLogThresholdMs =
+      activity.lockContentionLogThresholdMs ??
+      DEFAULT_ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS;
+    this.lockContentionLogIntervalMs =
+      activity.lockContentionLogIntervalMs ??
+      DEFAULT_ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS;
+    this.reliability = runtime.reliability ?? {};
+  }
 
   async onTaskEnqueued(
     params: {
@@ -952,7 +962,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         // drift detector joins FROM the activity table and cannot see them.
         const activityFieldIds = new Set(fieldRows.map((row) => String(row.field_id)));
         const reliabilityStore = new PostgresComputedReliabilityStore(trx);
-        const reliabilityVisible = isComputedReliabilityVisible(params.baseId);
+        const reliabilityVisible = isComputedReliabilityVisible(params.baseId, this.reliability);
         const failureTargets = reliabilityVisible
           ? await reliabilityStore.getFieldSummaries(tableId.toString())
           : [];
@@ -1695,7 +1705,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     activity.syncFromTaskRefs({ targets: resolved, now });
     const store = new PostgresComputedReliabilityStore(trx);
     if (
-      resolved.some((target) => isComputedReliabilityVisible(target.baseId.toString())) &&
+      resolved.some((target) => isComputedReliabilityVisible(target.baseId.toString(), this.reliability)) &&
       (loadedReliability || (await store.isReady()))
     ) {
       for (const tableId of new Set(resolved.map((target) => target.tableId.toString()))) {
@@ -1864,7 +1874,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     if (baseIdResult.isErr()) return;
     const event = ComputedActivityBatchChanged.create({
       baseId: baseIdResult.value,
-      fields: isComputedReliabilityVisible(projection.baseId)
+      fields: isComputedReliabilityVisible(projection.baseId, this.reliability)
         ? projection.fields
         : projection.fields.map((field) => ({ ...field, reliability: undefined })),
       tables: projection.tables,

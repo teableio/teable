@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { HttpErrorCode } from '@teable/core';
 import multer from 'multer';
@@ -24,7 +23,11 @@ export const avatarUploadInterceptorOptions: MulterOptions = {
       callback(null, true);
     } else {
       callback(
-        new BadRequestException('Unsupported file type. Only JPEG, PNG, and WebP are allowed.'),
+        new CustomHttpException(
+          'Unsupported file type. Only JPEG, PNG, and WebP are allowed.',
+          HttpErrorCode.VALIDATION_ERROR,
+          { localization: { i18nKey: 'httpErrors.attachment.avatarTypeUnsupported' } }
+        ),
         false
       );
     }

@@ -489,7 +489,8 @@ export class BaseDuplicateService {
 
     throw new CustomHttpException(
       'Duplicating records across different space data databases is not supported yet',
-      HttpErrorCode.VALIDATION_ERROR
+      HttpErrorCode.VALIDATION_ERROR,
+      { localization: { i18nKey: 'httpErrors.base.crossDataDbDuplicateUnsupported' } }
     );
   }
 

@@ -1050,28 +1050,33 @@
       "invalidPath": "Недійсний шлях до вкладення",
       "fileSizeExceedsMaximumLimit": "Розмір файлу перевищує максимальний ліміт {{maxSize}}",
       "invalidUploadType": "Недійсний тип завантаження",
-      "urlReject": "URL відхилено або недоступний"
+      "urlReject": "URL відхилено або недоступний",
+      "avatarTypeUnsupported": "Непідтримуваний тип файлу. Дозволено лише JPEG, PNG і WebP."
     },
     "email": {
-      "testEmailError": "Помилка конфігурації пошти {{message}}"
+      "testEmailError": "Помилка конфігурації пошти {{message}}",
+      "transporterInvalid": "Недійсна конфігурація пошти: {{detail}}"
     },
     "auth": {
-      "invalidConfirm": "Invalid confirmation input",
-      "emailNotRegistered": "This email is not registered",
-      "passwordNotSet": "Password has not been set for this account",
-      "systemUser": "This is a system user account",
-      "alreadyRegistered": "This email is already registered",
-      "passwordIncorrect": "The password is incorrect",
-      "tokenInvalid": "The token is invalid or has expired",
-      "passwordAlreadyExists": "Password has already been set for this account",
-      "verificationCodeInvalid": "The verification code is invalid or has expired",
-      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
-      "emailAlreadyRegistered": "This email address is already registered",
-      "waitlistNotEnabled": "The waitlist feature is not enabled",
-      "emailOrPasswordIncorrect": "Email or password is incorrect",
-      "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "Вхід за паролем вимкнено"
+      "invalidConfirm": "Недійсні дані підтвердження",
+      "emailNotRegistered": "Цю адресу електронної пошти не зареєстровано",
+      "passwordNotSet": "Для цього облікового запису пароль не встановлено",
+      "systemUser": "Це системний обліковий запис користувача",
+      "alreadyRegistered": "Цю адресу електронної пошти вже зареєстровано",
+      "passwordIncorrect": "Неправильний пароль",
+      "tokenInvalid": "Токен недійсний або його термін дії минув",
+      "passwordAlreadyExists": "Для цього облікового запису пароль уже встановлено",
+      "verificationCodeInvalid": "Код підтвердження недійсний або його термін дії минув",
+      "newEmailSameAsCurrentEmail": "Нова адреса електронної пошти збігається з поточною",
+      "emailAlreadyRegistered": "Цю адресу електронної пошти вже зареєстровано",
+      "waitlistNotEnabled": "Функцію списку очікування не ввімкнено",
+      "emailOrPasswordIncorrect": "Неправильна електронна пошта або пароль",
+      "accountDeactivated": "Цей обліковий запис деактивовано адміністратором",
+      "accountLockedOut": "Ваш обліковий запис заблоковано через забагато невдалих спроб входу. Повторіть спробу пізніше.",
+      "passwordLoginDisabled": "Вхід за паролем вимкнено",
+      "captchaFailed": "Перевірку не пройдено. Оновіть сторінку та повторіть спробу.",
+      "captchaServiceUnavailable": "Служба перевірки тимчасово недоступна. Повторіть спробу.",
+      "mobileExchangeInvalid": "Запит на вхід недійсний або його термін дії минув. Увійдіть у додатку ще раз."
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
@@ -1119,7 +1124,16 @@
       "webhookTriggerNotFound": "Тригер вебхука не знайдено",
       "emailReceivedTriggerNotFound": "Тригер отримання електронної пошти не знайдено",
       "emailConnectorNotAvailable": "Служба конектора електронної пошти недоступна",
-      "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}"
+      "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}",
+      "codeUploadFailed": "Не вдалося завантажити скомпільований код: {{detail}}",
+      "invalidInput": "Недійсні вхідні дані: {{detail}}",
+      "recordsRequired": "Записи обов'язкові",
+      "codeRequired": "Код обов'язковий і не може бути порожнім",
+      "scriptCompileFailed": "Не вдалося скомпілювати скрипт: {{detail}}",
+      "scriptExecutionFailed": "Не вдалося виконати скрипт: {{detail}}",
+      "scriptTimeout": "Час виконання скрипта вичерпано (немає відповіді протягом {{timeout}} мс)",
+      "sandboxUnavailable": "Не вдалося підключитися до сервера пісочниці. Перевірте, чи запущено сервер пісочниці.",
+      "sandboxError": "Помилка сервера пісочниці: {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "Сервіс скрейпінгу не налаштовано",
@@ -1129,10 +1143,11 @@
       "runOverLimit": "Цей збір може коштувати до {{maxCredits}} кредитів, що перевищує ліміт у {{limit}} кредитів для одного запуску."
     },
     "integration": {
-      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
-      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
-      "providerUnsupported": "Підключення {{provider}} більше не підтримуються і не можуть бути надані"
+      "oauthCodeExchangeFailed": "Не вдалося обміняти код OAuth: {{detail}}",
+      "oauthTokenRefreshFailed": "Не вдалося оновити токен OAuth: {{detail}}",
+      "userInfoFetchFailed": "Не вдалося отримати дані користувача: {{detail}}",
+      "providerUnsupported": "Підключення {{provider}} більше не підтримуються і не можуть бути надані",
+      "callbackFailed": "Не вдалося обробити зворотний виклик авторизації: {{detail}}"
     },
     "space": {
       "notFound": "Простір не знайдено",
@@ -1140,19 +1155,23 @@
       "disallowSpaceCreation": "Створення просторів вимкнено адміністратором",
       "cannotChangeOnlyOwnerRole": "Неможливо змінити роль єдиного власника простору",
       "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору",
-      "deleted": "Space has been deleted",
+      "deleted": "Простір видалено",
       "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
       "notBelongToOrg": "Цей простір не належить організації",
       "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}",
-      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+      "freeOwnedSpaceLimitExceeded": "Ви досягли максимальної кількості безкоштовних просторів, якими можете володіти ({{max}}). Оновіть наявний простір або видаліть один, щоб створити новий безкоштовний.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} досяг(ла) максимальної кількості безкоштовних просторів, якими можна володіти ({{max}}).",
+      "dataDbTargetError": "Помилка цільової бази даних: {{detail}}",
+      "migrationUnavailableCrossSpace": "Міграція бази даних окремого простору недоступна, поки ввімкнено посилання між просторами"
     },
     "base": {
       "notFound": "Проєкт не знайдено",
       "cannotAccess": "У вас немає дозволу на доступ до проєкту {{baseId}}",
       "anchorNotFound": "Опорний проєкт {{anchorId}} не знайдено",
       "baseAndSpaceMismatch": "Проєкт {{baseId}} та простір {{spaceId}} не співпадають",
-      "templateNotFound": "Шаблон {{templateId}} не знайдено"
+      "templateNotFound": "Шаблон {{templateId}} не знайдено",
+      "crossDataDbDuplicateUnsupported": "Дублювання записів між базами даних різних просторів поки не підтримується",
+      "moveJobNotCancellable": "Завдання переміщення не можна скасувати в стані {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "ID проєкту обов'язковий",
@@ -1192,7 +1211,8 @@
       "notFound": "Чат не знайдено",
       "accessDenied": "У вас немає доступу до цього чату",
       "archived": "Чат в архіві",
-      "serverAuthoredType": "Чати типу {{type}} створює сервер"
+      "serverAuthoredType": "Чати типу {{type}} створює сервер",
+      "messageTooLong": "Повідомлення задовге ({{length}} символів, максимум {{max}})"
     },
     "dashboard": {
       "notFound": "Панель управління не знайдена"
@@ -1299,7 +1319,12 @@
       "exceedMaxReadRows": "Перевищено максимальний ліміт читання рядків",
       "invalidCellValueType": "Недійсний тип значення комірки",
       "exceedMaxCopyCells": "Перевищено максимальний ліміт копіювання комірок",
-      "exceedMaxPasteCells": "Перевищено максимальний ліміт вставки комірок"
+      "exceedMaxPasteCells": "Перевищено максимальний ліміт вставки комірок",
+      "linkAutoCreateSelfLinkUnsupported": "Для поля зв'язку, що посилається на власну таблицю, не можна автоматично створювати пов'язані записи під час вставлення. Натомість вставте назви наявних записів.",
+      "linkAutoCreateRequiresPrimaryLookup": "Не вдається автоматично створити пов'язані записи під час вставлення, оскільки це поле зв'язку показує не основне поле пов'язаної таблиці.",
+      "linkAutoCreateRequiresTextPrimary": "Не вдається автоматично створити пов'язані записи під час вставлення, оскільки основне поле пов'язаної таблиці не є одним текстовим значенням.",
+      "linkAutoCreateComputedPrimaryUnsupported": "Не вдається автоматично створити пов'язані записи під час вставлення, оскільки основне поле пов'язаної таблиці є обчислюваним.",
+      "linkAutoCreateMissingRequiredFields": "Не вдається автоматично створити пов'язані записи під час вставлення, оскільки пов'язана таблиця має обов'язкові поля без значень за замовчуванням: {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "Непідтримуваний тип поля {{type}}",
@@ -1366,7 +1391,21 @@
         "notSupportReset": "Кнопка не підтримує скидання"
       },
       "primaryCannotBeLookup": "Первинне поле не може бути налаштовано як поле Lookup",
-      "primaryFieldAlreadyExists": "У таблиці вже є первинне поле"
+      "primaryFieldAlreadyExists": "У таблиці вже є первинне поле",
+      "nameRequired": "Назва поля не може бути порожньою",
+      "rollupFormattingMismatch": "Формат зведення не відповідає типу його результату. Виберіть формат ще раз і повторіть спробу.",
+      "conditionalRollupFormattingMismatch": "Формат не відповідає типу результату умовного зведення. Виберіть формат ще раз і повторіть спробу.",
+      "conditionalRollupLookupFieldUnavailable": "Не вдається визначити тип результату цього умовного зведення, оскільки поле, що зводиться, або його таблиця недоступні. Виберіть поле ще раз.",
+      "selectDefaultValueNotInChoices": "Значення за замовчуванням «{{value}}» немає серед параметрів. Виберіть значення за замовчуванням ще раз.",
+      "timeZoneInvalid": "Непідтримуваний годинний пояс: {{timeZone}}. Виберіть інший годинний пояс.",
+      "formulaCompileFailed": "Цю формулу неможливо обчислити. Спростіть її або перевірте поля, на які вона посилається.",
+      "formulaParamTextNotAllowed": "{{func}} не приймає текстове значення як параметр {{index}}. Перевірте типи полів, на які є посилання.",
+      "formulaParamNumberOrDateRequired": "{{func}} приймає як параметр {{index}} лише число або дату. Перевірте типи полів, на які є посилання.",
+      "formulaParamTextRequired": "{{func}} приймає як параметр {{index}} лише текстове значення. Перевірте типи полів, на які є посилання.",
+      "linkTitleFillLimitExceeded": "За одну операцію до клітинки зв'язку можна додати не більше {{max}} записів",
+      "buttonClickConflict": "Кнопку змінив інший запит. Натисніть її ще раз.",
+      "buttonUndoConflict": "Кнопка змінилася під час скасування або повторення. Повторіть спробу.",
+      "linkTitlePrimaryNotText": "Не вдається зіставити пов'язані записи за текстом, оскільки основне поле пов'язаної таблиці не є одним текстовим значенням."
     },
     "view": {
       "notFound": "Представлення не знайдено",
@@ -1383,7 +1422,11 @@
       "notEnoughGapToShuffleRow": "Недостатньо місця для перемішування рядка",
       "shareNotEnabled": "Спільний доступ до представлення не ввімкнено",
       "shareAlreadyEnabled": "Спільний доступ до представлення вже ввімкнено",
-      "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено"
+      "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено",
+      "versionConflict": "Це подання щойно змінила інша операція. Оновіть сторінку й повторіть спробу.",
+      "nameAlreadyExists": "У цій таблиці вже є подання з назвою {{name}}",
+      "manualSortUnsupportedViewType": "Ручне сортування підтримується лише в табличному виді",
+      "formRequiredFieldsMissing": "Перш ніж надсилати, заповніть усі обов'язкові поля"
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів",
@@ -1397,7 +1440,11 @@
       "planNotAvailable": "Цей план більше недоступний для нових підписок.",
       "seatLimitExceeded": "Недостатньо куплених місць. Додайте місця, щоб запросити більше співробітників.",
       "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено.",
-      "creditAddOnRetired": "Регулярне доповнення кредитів більше недоступне. Натомість оберіть більший рівень кредитів у вашому тарифі."
+      "creditAddOnRetired": "Регулярне доповнення кредитів більше недоступне. Натомість оберіть більший рівень кредитів у вашому тарифі.",
+      "trialUsed": "Пробний період уже використано",
+      "subscriptionPaused": "Вашу підписку призупинено. Зверніться до підтримки, щоб відновити або скасувати її перед початком нової підписки.",
+      "noSubscriptionToRevert": "Немає підписки Stripe, яку можна скасувати",
+      "portalUnavailable": "Не вдалося відкрити портал оплати. Повторіть спробу пізніше."
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",
@@ -1432,7 +1479,9 @@
       "validateActionFailed": "Не вдалося перевірити дію AI поля",
       "generateFailed": "Не вдалося згенерувати AI",
       "unsupportedActionType": "Непідтримуваний тип дії AI",
-      "geminiImageNotSupportedViaGateway": "Генерація зображень Gemini не підтримується через AI Gateway. Натомість налаштуйте прямого провайдера Google."
+      "geminiImageNotSupportedViaGateway": "Генерація зображень Gemini не підтримується через AI Gateway. Натомість налаштуйте прямого провайдера Google.",
+      "requestFailed": "Запит до AI не вдався: {{detail}}",
+      "imageTestUnsupportedForGateway": "Тестування генерації зображень для моделей AI Gateway поки не підтримується"
     },
     "skill": {
       "notFound": "Навичку не знайдено",
@@ -1495,7 +1544,9 @@
       "notSupportTableIndex": "Тип індексу таблиці не підтримується",
       "createTableIndexError": "Не вдалося створити індекс таблиці",
       "dropTableIndexError": "Не вдалося видалити індекс таблиці",
-      "notFoundPrimaryField": "Первинне поле не знайдено в таблиці"
+      "notFoundPrimaryField": "Первинне поле не знайдено в таблиці",
+      "duplicateCrossSpaceField": "Ця таблиця містить поля між просторами, тому її не можна дублювати",
+      "nameRequired": "Назва таблиці не може бути порожньою"
     },
     "export": {
       "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"
@@ -1504,7 +1555,14 @@
       "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
       "notSupportedFileType": "Тип файлу імпорту не підтримується",
       "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "Забагато завдань імпорту виконується ({{current}}/{{max}}). Повторіть спробу пізніше.",
+      "failed": "Не вдалося імпортувати: {{detail}}",
+      "noImportableData": "У вибраних аркушах немає даних для імпорту",
+      "csvParseError": "Помилка розбору CSV у рядку {{row}}: {{detail}}",
+      "csvNoColumns": "У файлі CSV немає стовпців для імпорту",
+      "excelSheetNoColumns": "На аркуші немає стовпців для імпорту",
+      "columnIndexOutOfRange": "Стовпець {{index}} поза межами діапазону. У рядку заголовків лише {{count}} стовпців.",
+      "invalidDotteaStructure": "Структура файлу .tea недійсна або не підтримується. Експортуйте проєкт ще раз і повторіть спробу."
     },
     "invitation": {
       "disallowSpaceInvitation": "Поточний екземпляр забороняє запрошення до простору адміністратором",
@@ -1526,7 +1584,8 @@
       "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківський проєкт або простір також знаходиться в кошику",
       "parentBaseTrashed": "Неможливо відновити цей елемент, оскільки його батьківський проєкт також знаходиться в кошику",
       "parentNotFound": "Батьківський ресурс не знайдено",
-      "tableNotFound": "Елемент кошика таблиці не знайдено"
+      "tableNotFound": "Елемент кошика таблиці не знайдено",
+      "restoreFieldInvalidSnapshot": "Конфігурація видаленого поля недійсна, тому поле не можна відновити."
     },
     "license": {
       "invalid": "Ліцензія недійсна",
@@ -1550,7 +1609,9 @@
       "emailNotSpaceUser": "Email не є користувачем простору"
     },
     "mail": {
-      "failedToSendEmail": "Не вдалось надіслати електронний лист"
+      "failedToSendEmail": "Не вдалось надіслати електронний лист",
+      "recipientRequired": "Поле \"to\" або \"bcc\" має містити хоча б одну дійсну адресу електронної пошти",
+      "allUnsubscribed": "Усі одержувачі відписалися. Перевірте список відписок."
     },
     "user": {
       "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
@@ -1578,7 +1639,9 @@
       "updateFailed": "Не вдалося оновити запис",
       "noFileOrUrlProvided": "Файл або URL не надано",
       "createRecordsEmpty": "Створення записів не може бути порожнім",
-      "duplicateFailed": "Не вдалося дублювати запис"
+      "duplicateFailed": "Не вдалося дублювати запис",
+      "linkedRecordNotExist": "Не вдається зберегти: пов'язаний запис більше не існує. Оновіть сторінку й повторіть спробу.",
+      "fieldValueInvalid": "Недійсне значення поля «{{fieldName}}»"
     },
     "typecast": {
       "cellValueValidationFailed": "Помилка перевірки значення комірки"
@@ -1623,7 +1686,32 @@
       "siteInfoBeforeGeneration": "Спершу згенеруйте застосунок, а потім налаштовуйте інформацію про сайт",
       "generationEditingConflict": "Генерація ШІ зараз редагує цей застосунок. Повторіть оновлення файлу після її завершення.",
       "siteInfoLayoutNotEditable": "Код цього застосунку не розрахований на редагування інформації про сайт тут. Натомість попросіть ШІ в чаті змінити заголовок, опис або значок сайту.",
-      "siteInfoManagedInCode": "Цей застосунок керує заголовком і описом сайту в коді. Натомість попросіть ШІ в чаті їх змінити."
+      "siteInfoManagedInCode": "Цей застосунок керує заголовком і описом сайту в коді. Натомість попросіть ШІ в чаті їх змінити.",
+      "accessLinkSetupFailed": "Не вдалося налаштувати посилання доступу: {{detail}}",
+      "zipNotAppProject": "Імпортований ZIP не є коректним проєктом додатка: у корені відсутній package.json",
+      "zipExceedsLimits": "Імпортований ZIP перевищує ліміти архіву додатка ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "Поштову службу не налаштовано, тому код не можна надіслати",
+        "googleNotConfigured": "Облікові дані для входу через Google не налаштовано",
+        "loginDisabled": "Вхід не ввімкнено для цього додатка",
+        "googleDisabled": "Вхід через Google не ввімкнено для цього додатка",
+        "teableDisabled": "Вхід через Teable не ввімкнено для цього додатка",
+        "userTableMissing": "Вибраної таблиці користувачів немає в цьому проєкті",
+        "emailFieldMissing": "У вибраній таблиці користувачів немає поля електронної пошти",
+        "emailFieldType": "Поле електронної пошти має бути текстовим полем в один рядок, доступним для запису",
+        "signInStateInvalid": "Сеанс входу недійсний або його термін дії минув. Увійдіть ще раз.",
+        "domainNotAllowed": "Реєстрація обмежена певними доменами електронної пошти. Домену вашої пошти немає в списку дозволених.",
+        "inviteOnly": "Цей додаток доступний лише за запрошенням. Зверніться до адміністратора додатка, щоб отримати доступ.",
+        "emailMissing": "Не вдалося отримати вашу адресу електронної пошти"
+      },
+      "previewOriginNotReady": "Додаток для попереднього перегляду не готовий. Перезавантажте перегляд і повторіть спробу.",
+      "publishedOriginNotReady": "Опублікований додаток не готовий. Опублікуйте додаток і повторіть спробу.",
+      "versionSourceMissing": "Для версії {{version}} не знайдено вихідних файлів",
+      "accessLink": {
+        "dnsMisconfigured": "Не вдалося налаштувати посилання доступу: DNS домену налаштовано неправильно"
+      },
+      "customDomainNotConfigured": "Власний домен не налаштовано",
+      "vercelTokenNotConfigured": "Токен Vercel не налаштовано в налаштуваннях App Builder"
     },
     "reward": {
       "notFound": "Нагороду не знайдено",
@@ -1651,6 +1739,49 @@
     "connectorEvent": {
       "accountNotGranted": "Тригеру події конектора потрібен підключений обліковий запис, наданий цьому ресурсу",
       "notEnabled": "Події конектора не ввімкнено в цьому розгортанні"
+    },
+    "requestFailed": "Запит не вдався",
+    "operationFailed": "Операція не вдалася: {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "Оператор {{operator}} не може порівнювати з іншим полем"
+    },
+    "oauth": {
+      "invalidRequest": "Недійсний запит OAuth: {{detail}}",
+      "deviceCodeUsed": "Цей код уже використано. Отримайте новий код на пристрої."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "Недійсний параметр: {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "API Key AI Proxy не знайдено"
+    },
+    "github": {
+      "linkStateInvalid": "Стан прив'язки GitHub недійсний або його термін дії минув",
+      "accountMismatch": "GitHub авторизував вас як {{authorizedLogin}}, але вибране підключення належить {{accountLogin}}. Увійдіть у GitHub як {{accountLogin}} і повторіть спробу.",
+      "registryNotConfigured": "Для синхронізації з GitHub потрібен git registry, який не налаштовано в цьому розгортанні",
+      "repoNameInvalid": "Назви репозиторіїв можуть містити лише літери, цифри, \".\", \"-\" і \"_\"",
+      "installStateInvalid": "Стан встановлення GitHub недійсний або його термін дії минув",
+      "installationIdInvalid": "Недійсний ID встановлення"
+    },
+    "im": {
+      "feishuNotConfigured": "Облікові дані додатка Feishu не налаштовано",
+      "slackNotConfigured": "Slack не налаштовано. Адміністратор має налаштувати додаток Slack у налаштуваннях інтеграції IM."
+    },
+    "tableProvisionPending": "Структура таблиці оновлюється. Повторіть спробу трохи пізніше.",
+    "computed": {
+      "pausedWriteBlocked": "Обчислення призупинено на час обслуговування, тому цю зміну зараз не можна зберегти. Спробуйте пізніше."
+    },
+    "undoRedo": {
+      "inProgress": "Скасування або повторення ще триває. Зачекайте трохи й повторіть спробу.",
+      "busy": "Скасування й повторення зараз зайняті. Повторіть спробу.",
+      "unsupportedCommandVersion": "Цю операцію записала старіша версія, тому її більше не можна скасувати чи повторити."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "Для цієї таблиці вже виконується завдання індексування ({{taskId}}). Дочекайтеся його завершення й повторіть спробу."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "Пов'язана таблиця більше не існує, тому цей зв'язок не можна відновити автоматично."
     }
   },
   "usageLimitBanner": {

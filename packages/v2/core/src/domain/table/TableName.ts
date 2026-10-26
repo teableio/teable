@@ -15,7 +15,12 @@ export class TableName extends ValueObject {
     }
     const value = raw.trim();
     if (value.length === 0) {
-      return err(domainError.validation({ message: 'Invalid TableName' }));
+      return err(
+        domainError.validation({
+          message: 'Invalid TableName',
+          localization: { i18nKey: 'httpErrors.table.nameRequired' },
+        })
+      );
     }
     return ok(new TableName(value));
   }

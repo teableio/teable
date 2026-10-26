@@ -49,7 +49,15 @@ export class TableRenameViewSpec<
           (view) => !view.id().equals(this.viewIdValue) && view.name().equals(this.nextNameValue)
         )
     ) {
-      return err(domainError.conflict({ message: 'View names must be unique' }));
+      return err(
+        domainError.conflict({
+          message: 'View names must be unique',
+          localization: {
+            i18nKey: 'httpErrors.view.nameAlreadyExists',
+            context: { name: this.nextNameValue.toString() },
+          },
+        })
+      );
     }
 
     const nextViews: View[] = [];

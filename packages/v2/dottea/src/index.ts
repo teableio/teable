@@ -93,6 +93,7 @@ export class DotTeaParser implements IDotTeaParser {
             message: 'Invalid dottea structure.json',
             details: z.formatError(parsed.error),
             code: 'dottea.structure_invalid',
+            localization: { i18nKey: 'httpErrors.import.invalidDotteaStructure' },
           })
         );
       }

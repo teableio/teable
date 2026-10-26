@@ -36,8 +36,10 @@ import type {
   IGetRecordsRo,
   ICreateRecordsRo,
   IUpdateRecordsRo,
-  IPasteRo,
+  IUpsertRecordsRo,
+  IUpsertRecordsVo,
   IPasteByIdStreamRo,
+  IPasteRo,
   IPasteVo,
   IRangesRo,
   IRecordGetCollaboratorsRo,
@@ -130,6 +132,8 @@ import {
   type RecordFilterOperator,
   type RecordFilterValue,
   type RecordQueryPluginRunner,
+  UpsertRecordsCommand,
+  type UpsertRecordsResult,
   type RecordQueryPluginScope,
   type RecordWritePluginRunnerOptions,
   type Table,
@@ -2959,8 +2963,93 @@ export class RecordOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
+  @Span()
+  async upsertRecords(
+    tableId: string,
+    upsertRecordsRo: IUpsertRecordsRo,
+    _isAiInternal?: string
+  ): Promise<IUpsertRecordsVo> {
+    trace.getActiveSpan()?.setAttributes({
+      'teable.table_id': tableId,
+      'teable.record.count': upsertRecordsRo.records.length,
+      'teable.record.upsert.on_conflict': upsertRecordsRo.onConflict,
+    });
+    await this.assertTableRecordWritable(tableId);
+    // Upsert creates/updates records through the same shared write path as
+    // createRecords, so a cross-base link value reaches the foreign table the
+    // same way; run the foreign-table read check before touching it.
+    await this.crossBaseLinkAccess.assertForeignTablesReadable(
+      tableId,
+      upsertRecordsRo.records.flatMap((record) => Object.keys(record.fields ?? {}))
+    );
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+
+    const commandResult = UpsertRecordsCommand.create({
+      tableId,
+      records: upsertRecordsRo.records,
+      matchField: upsertRecordsRo.matchField,
+      onConflict: upsertRecordsRo.onConflict,
+      typecast: upsertRecordsRo.typecast ?? false,
+      fieldKeyType: upsertRecordsRo.fieldKeyType,
+    });
+    if (commandResult.isErr()) {
+      const error = commandResult.error;
+      throwV2Error(mapDomainErrorToHttpError(error), mapDomainErrorToHttpStatus(error));
+    }
+
+    const result = await commandBus.execute<UpsertRecordsCommand, UpsertRecordsResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      const error = result.error;
+      throwV2Error(mapDomainErrorToHttpError(error), mapDomainErrorToHttpStatus(error));
+    }
+
+    const upsertResult = result.value;
+    if (upsertResult.summary.created > 0) {
+      await this.clearUndoRedoEnginePreference(tableId);
+    }
+
+    return {
+      results: upsertResult.results.map((row) => ({
+        index: row.index,
+        status: row.status,
+        ...(row.recordId ? { recordId: row.recordId } : {}),
+        ...(row.record
+          ? {
+              record: {
+                id: row.record.id().toString(),
+                fields: Object.fromEntries(
+                  row.record
+                    .fields()
+                    .entries()
+                    .map((entry) => [
+                      upsertResult.fieldKeyMapping.get(entry.fieldId.toString()) ??
+                        entry.fieldId.toString(),
+                      entry.value.toValue(),
+                    ])
+                ),
+              } as IRecord,
+            }
+          : {}),
+      })),
+      summary: upsertResult.summary,
+    };
+  }
+
   async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
     await this.assertTableRecordWritable(tableId);
+    // Form submit creates the record through the same shared write path as
+    // createRecords, so a cross-base link value reaches the foreign table the
+    // same way. The route guard only authorizes the host table, so repeat the
+    // foreign-table read check here (a no-op for same-base links).
+    await this.crossBaseLinkAccess.assertForeignTablesReadable(
+      tableId,
+      Object.keys(formSubmitRo.fields ?? {})
+    );
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);

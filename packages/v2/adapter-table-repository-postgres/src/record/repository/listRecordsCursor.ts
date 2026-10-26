@@ -8,6 +8,8 @@ import {
 } from '@teable/v2-core';
 import { sql, type RawBuilder, type SqlBool } from 'kysely';
 
+import { decodeBase64Url, encodeBase64Url } from '../../shared/base64Url';
+
 export const CURSOR_ORDER_BY_ERROR =
   'Cursor pagination supports stored scalar order keys plus __auto_number asc';
 
@@ -74,9 +76,7 @@ export const parseCursorToken = (cursor: string | undefined): ParsedCursor | und
 
   let decoded: unknown;
   try {
-    decoded = JSON.parse(
-      Buffer.from(cursor.slice(CURSOR_TOKEN_PREFIX.length), 'base64url').toString('utf8')
-    );
+    decoded = JSON.parse(decodeBase64Url(cursor.slice(CURSOR_TOKEN_PREFIX.length)));
   } catch {
     return undefined;
   }
@@ -103,7 +103,7 @@ export const parseCursorToken = (cursor: string | undefined): ParsedCursor | und
 
 export const encodeCursorToken = (entries: ReadonlyArray<CursorTokenEntry>): string => {
   const payload = entries.map((entry) => [entry.column, entry.direction, entry.value]);
-  return CURSOR_TOKEN_PREFIX + Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return CURSOR_TOKEN_PREFIX + encodeBase64Url(JSON.stringify(payload));
 };
 
 export const getLastAutoNumberCursor = (

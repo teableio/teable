@@ -186,6 +186,7 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
                 domainError.conflict({
                   code: 'button.concurrent_click_conflict',
                   message: 'Button was changed by another request; retry the click.',
+                  localization: { i18nKey: 'httpErrors.field.buttonClickConflict' },
                   details: {
                     recordId: command.recordId.toString(),
                     expectedVersion: currentRecord.version,

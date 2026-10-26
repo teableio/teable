@@ -3,6 +3,7 @@ import { Lifecycle } from '@teable/v2-di';
 
 import { v2CommandExplainTokens } from './tokens';
 import { ExplainService } from '../service/ExplainService';
+import { ComplexityService } from '../service/ComplexityService';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { CreateFieldAnalyzer } from '../analyzers/CreateFieldAnalyzer';
@@ -54,6 +55,9 @@ export const registerCommandExplainModule = (container: DependencyContainer): vo
 
   // Register main service
   container.register(v2CommandExplainTokens.explainService, ExplainService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  container.register(v2CommandExplainTokens.complexityService, ComplexityService, {
     lifecycle: Lifecycle.Singleton,
   });
 };

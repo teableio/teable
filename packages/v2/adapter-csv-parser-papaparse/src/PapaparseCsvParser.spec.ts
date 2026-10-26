@@ -418,6 +418,10 @@ describe('PapaparseCsvParser', () => {
     });
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('csv.parse_error');
+    expect(result._unsafeUnwrapErr().localization).toEqual({
+      i18nKey: 'httpErrors.import.csvParseError',
+      context: { row: expect.any(Number), detail: expect.any(String) },
+    });
   });
 
   it.each(['Alice,30,unexpected', 'Alice'])(

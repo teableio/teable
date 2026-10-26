@@ -443,6 +443,29 @@ describe('RecordOpenApiV2Service', () => {
       expect(check).toHaveBeenCalledWith(tableIdText, Object.keys(linkFields));
       expect(getContainer).not.toHaveBeenCalled();
     });
+
+    it('formSubmit checks the submitted fields before writing', async () => {
+      const check = rejectCheck();
+      await expect(
+        service.formSubmit(tableIdText, {
+          viewId: `viw${'v'.repeat(16)}`,
+          fields: linkFields,
+        } as never)
+      ).rejects.toBe(forbidden);
+      expect(check).toHaveBeenCalledWith(tableIdText, Object.keys(linkFields));
+      expect(getContainer).not.toHaveBeenCalled();
+    });
+
+    it('upsertRecords checks the record fields before writing', async () => {
+      const check = rejectCheck();
+      await expect(
+        service.upsertRecords(tableIdText, {
+          records: [{ fields: linkFields }],
+        } as never)
+      ).rejects.toBe(forbidden);
+      expect(check).toHaveBeenCalledWith(tableIdText, Object.keys(linkFields));
+      expect(getContainer).not.toHaveBeenCalled();
+    });
   });
 
   it('resolves range record ids through the v2 query path', async () => {

@@ -492,15 +492,20 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
 
   async admitComputedWrite(
     params: AdmitComputedWriteParams,
-    _context?: IExecutionContext
+    context?: IExecutionContext
   ): Promise<Result<void, DomainError>> {
-    // Committed pause leases and backlog auto-release must not join the caller
-    // transaction. An already-aborted user tx would hide the original error
-    // (schema-op repair then classifies as transaction_rollback), and a rollback
-    // would undo the watermark auto-release.
+    // T8081: a nested computed checkout already owns the caller transaction's
+    // pooled connection. Admission and the backlog auto-release must reuse that
+    // connection instead of checking out a second one — a BYODB tenant pool
+    // capped at a single connection would otherwise block on the checkout held
+    // by its own caller until connectionTimeoutMillis and fail the write.
+    //
+    // Outside a transaction resolvePostgresDbOrTx falls back to the pool handle,
+    // so the watermark auto-release keeps committing on its own: an aborted user
+    // tx must not hide the original error, and a rollback must not undo it.
     try {
-      const db = this.db as unknown as Kysely<DynamicDB>;
-      const metadataDb = this.metaDb as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      const metadataDb = this.resolveMetadataDb(context);
       const space = (await metadataDb
         .selectFrom('base')
         .select('space_id')
@@ -548,11 +553,14 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
         const pending = await this.countPendingTasks(db, metadataDb, row.scope_type, row.scope_id);
         if (pending < watermark) continue;
 
-        const released = await this.releaseLease({
-          leaseId: row.id,
-          actor: 'computed-pause-backlog-budget',
-          releaseReason: 'backlog_budget',
-        });
+        const released = await this.releaseLease(
+          {
+            leaseId: row.id,
+            actor: 'computed-pause-backlog-budget',
+            releaseReason: 'backlog_budget',
+          },
+          context
+        );
         if (released.isErr()) return err(released.error);
         this.logger.warn('computed:pause_scope:auto_released_backlog_budget', {
           leaseId: row.id,

@@ -24,10 +24,7 @@ export const generateByokProviderName = (
     }
   }
 
-  throw new CustomHttpException(
-    'Unable to generate unique BYOK provider name',
-    HttpErrorCode.VALIDATION_ERROR
-  );
+  throw new Error('Unable to generate unique BYOK provider name');
 };
 
 export const normalizeSpaceAIIntegrationConfig = (

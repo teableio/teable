@@ -2641,6 +2641,72 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     );
   });
 
+  it('treats an exactly full final page as the end of the list', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'has-more-boundary',
+      rows: [
+        { name: 'A', age: 1 },
+        { name: 'B', age: 2 },
+        { name: 'C', age: 3 },
+      ],
+    });
+
+    const find = (limit: number, offset: number) =>
+      fixture.repository.find(fixture.context, fixture.table, undefined, {
+        mode: 'stored',
+        includeTotal: false,
+        pagination: OffsetPagination.create(
+          PageLimit.create(limit)._unsafeUnwrap(),
+          PageOffset.create(offset)._unsafeUnwrap()
+        ),
+      });
+
+    const exact = await find(3, 0);
+    expect(exact.isOk()).toBe(true);
+    if (exact.isErr()) return;
+    expect(exact.value.records).toHaveLength(3);
+    expect(exact.value.hasMore).toBe(false);
+    expect(exact.value.nextCursor).toBeUndefined();
+
+    const partial = await find(2, 0);
+    expect(partial.isOk()).toBe(true);
+    if (partial.isErr()) return;
+    expect(partial.value.records).toHaveLength(2);
+    expect(partial.value.hasMore).toBe(true);
+    expect(partial.value.nextCursor).toBeTruthy();
+
+    const lastOffsetPage = await find(2, 2);
+    expect(lastOffsetPage.isOk()).toBe(true);
+    if (lastOffsetPage.isErr()) return;
+    expect(lastOffsetPage.value.records).toHaveLength(1);
+    expect(lastOffsetPage.value.hasMore).toBe(false);
+    expect(lastOffsetPage.value.nextCursor).toBeUndefined();
+
+    const cursorPage = await fixture.repository.find(
+      fixture.context,
+      fixture.table,
+      undefined,
+      {
+        mode: 'stored',
+        includeTotal: false,
+        cursor: partial.value.nextCursor,
+        pagination: OffsetPagination.create(
+          PageLimit.create(2)._unsafeUnwrap(),
+          PageOffset.zero()
+        ),
+      }
+    );
+    expect(cursorPage.isOk()).toBe(true);
+    if (cursorPage.isErr()) return;
+    expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
+      fixture.insertedRecordIds.slice(2)
+    );
+    expect(cursorPage.value.hasMore).toBe(false);
+    expect(cursorPage.value.nextCursor).toBeUndefined();
+  });
+
   it('pages the view row order with a cursor, including after the anchor row is deleted', async () => {
     const fixture = await setupRepositoryFixture({
       db,

@@ -24,6 +24,7 @@ import {
   warnResult,
   skippedResult,
   errorResult,
+  domainErrorResult,
 } from './SchemaRepairResult';
 
 export interface SchemaRepairerParams extends SchemaRulePlannerParams {}
@@ -186,7 +187,7 @@ export class SchemaRepairer {
           const validationCtx = getRuleValidationCtx(ctx, rule);
           const validationResult = await rule.isValid(validationCtx);
           if (validationResult.isErr()) {
-            yield errorResult(pending, validationResult.error.message);
+            yield domainErrorResult(pending, validationResult.error);
             repairedRules.set(rule.id, false);
             continue;
           }
@@ -239,7 +240,7 @@ export class SchemaRepairer {
 
             if (manualRepairResult.isErr()) {
               yield {
-                ...errorResult(pending, manualRepairResult.error.message, details),
+                ...domainErrorResult(pending, manualRepairResult.error, details),
                 repair,
               };
               repairedRules.set(rule.id, false);
@@ -258,7 +259,7 @@ export class SchemaRepairer {
             const revalidationResult = await rule.isValid(validationCtx);
             if (revalidationResult.isErr()) {
               yield {
-                ...errorResult(pending, revalidationResult.error.message, details),
+                ...domainErrorResult(pending, revalidationResult.error, details),
                 repair,
               };
               repairedRules.set(rule.id, false);
@@ -299,7 +300,7 @@ export class SchemaRepairer {
           const statementsResult = rule.up(validationCtx);
           if (statementsResult.isErr()) {
             yield {
-              ...errorResult(pending, statementsResult.error.message, details),
+              ...domainErrorResult(pending, statementsResult.error, details),
               repair,
             };
             repairedRules.set(rule.id, false);
@@ -340,7 +341,7 @@ export class SchemaRepairer {
           const revalidationResult = await rule.isValid(validationCtx);
           if (revalidationResult.isErr()) {
             yield {
-              ...errorResult(pending, revalidationResult.error.message, {
+              ...domainErrorResult(pending, revalidationResult.error, {
                 ...details,
                 statementCount: statements.length,
               }),

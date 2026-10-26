@@ -1,3 +1,4 @@
+import type { ICustomHttpExceptionData, ILocalization } from '@teable/core';
 import type {
   IV2SchemaIntegrityFilterStatus,
   IV2SchemaIntegrityCheckResult,
@@ -211,9 +212,15 @@ export const groupResultsByTable = (results: IntegrityResult[]): TableResultGrou
   }));
 };
 
-export const getErrorMessage = (error: unknown, fallback: string) => {
+// Server error translations live in the `sdk` namespace (`httpErrors.*`).
+const translateErrorLocalization = (t: Translate, localization?: ILocalization) =>
+  localization?.i18nKey ? t(`sdk:${localization.i18nKey}`, localization.context ?? {}) : undefined;
+
+export const getErrorMessage = (error: unknown, fallback: string, t?: Translate) => {
   if (error instanceof Error) {
-    return error.message;
+    const { localization } =
+      ((error as { data?: unknown }).data as ICustomHttpExceptionData | undefined) ?? {};
+    return (t && translateErrorLocalization(t, localization)) || error.message;
   }
 
   return fallback;
@@ -366,75 +373,62 @@ export const translateIntegrityMessage = (
   return message.fallback;
 };
 
+/** Rule-id prefix → `table:table.integrity.v2.rule.*` key. */
+const RULE_DESCRIPTION_KEY: Readonly<Record<string, string>> = {
+  column: 'column',
+  not_null: 'notNull',
+  column_unique: 'columnUnique',
+  fk_column: 'fkColumn',
+  index: 'index',
+  unique_index: 'uniqueIndex',
+  fk: 'foreignKey',
+  junction_table: 'junctionTable',
+  junction_unique: 'junctionUnique',
+  junction_index: 'junctionIndex',
+  junction_fk: 'junctionForeignKey',
+  reference: 'reference',
+  generated_column: 'generatedColumn',
+  generated_meta: 'generatedMeta',
+  link_value_column: 'linkValueColumn',
+  order_column: 'orderColumn',
+  field_meta: 'fieldMeta',
+  symmetric_field: 'symmetricField',
+  system_not_null: 'notNull',
+  system_unique: 'uniqueIndex',
+  system_primary_key: 'primaryKey',
+  system_default: 'defaultExpression',
+  table_exists: 'tableExists',
+  system_orphaned_link_storage: 'orphanedLinkStorage',
+  table_missing_primary_field: 'primaryField',
+  meta: 'metadata',
+  select_options: 'selectOptions',
+  default_backfill: 'defaultBackfill',
+  cond_match_index: 'conditionalMatchIndex',
+  connection: 'connection',
+  completion: 'completion',
+  unexpected: 'unexpected',
+};
+
 export const getLocalizedRuleDescription = (t: Translate, result: IntegrityResult) => {
   const { type } = getRuleTypeAndTarget(result.ruleId);
 
-  switch (type) {
-    case 'column':
-      return t('table:table.integrity.v2.rule.column');
-    case 'not_null':
-      return t('table:table.integrity.v2.rule.notNull');
-    case 'column_unique':
-      return t('table:table.integrity.v2.rule.columnUnique');
-    case 'fk_column':
-      return t('table:table.integrity.v2.rule.fkColumn');
-    case 'index':
-      return t('table:table.integrity.v2.rule.index');
-    case 'unique_index':
-      return t('table:table.integrity.v2.rule.uniqueIndex');
-    case 'fk':
-      return t('table:table.integrity.v2.rule.foreignKey');
-    case 'junction_table':
-      return t('table:table.integrity.v2.rule.junctionTable');
-    case 'junction_unique':
-      return t('table:table.integrity.v2.rule.junctionUnique');
-    case 'junction_index':
-      return t('table:table.integrity.v2.rule.junctionIndex');
-    case 'junction_fk':
-      return t('table:table.integrity.v2.rule.junctionForeignKey');
-    case 'reference':
-      return t('table:table.integrity.v2.rule.reference');
-    case 'generated_column':
-      return t('table:table.integrity.v2.rule.generatedColumn');
-    case 'generated_meta':
-      return t('table:table.integrity.v2.rule.generatedMeta');
-    case 'link_value_column':
-      return t('table:table.integrity.v2.rule.linkValueColumn');
-    case 'order_column':
-      return t('table:table.integrity.v2.rule.orderColumn');
-    case 'field_meta':
-      return t('table:table.integrity.v2.rule.fieldMeta');
-    case 'symmetric_field':
-      return t('table:table.integrity.v2.rule.symmetricField');
-    case 'system_column': {
-      const dataType = getSystemColumnType(result.ruleDescription);
-      if (dataType) {
-        return t('table:table.integrity.v2.rule.columnTyped', {
-          dataType,
-        });
-      }
-      return t('table:table.integrity.v2.rule.column');
-    }
-    case 'system_not_null':
-      return t('table:table.integrity.v2.rule.notNull');
-    case 'system_unique':
-      return t('table:table.integrity.v2.rule.uniqueIndex');
-    case 'system_primary_key':
-      return t('table:table.integrity.v2.rule.primaryKey');
-    case 'system_default':
-      return t('table:table.integrity.v2.rule.defaultExpression');
-    case 'connection':
-      return t('table:table.integrity.v2.rule.connection');
-    case 'completion':
-      return t('table:table.integrity.v2.rule.completion');
-    case 'unexpected':
-      return t('table:table.integrity.v2.rule.unexpected');
-    default:
-      return result.ruleDescription;
+  if (type === 'system_column') {
+    const dataType = getSystemColumnType(result.ruleDescription);
+    return dataType
+      ? t('table:table.integrity.v2.rule.columnTyped', { dataType })
+      : t('table:table.integrity.v2.rule.column');
   }
+
+  const key = Object.hasOwn(RULE_DESCRIPTION_KEY, type) ? RULE_DESCRIPTION_KEY[type] : undefined;
+  return key ? t(`table:table.integrity.v2.rule.${key}`) : result.ruleDescription;
 };
 
 export const getLocalizedResultMessage = (t: Translate, result: IntegrityResult) => {
+  const translated = translateErrorLocalization(t, result.localization);
+  if (translated) {
+    return translated;
+  }
+
   if (!result.message) {
     return undefined;
   }

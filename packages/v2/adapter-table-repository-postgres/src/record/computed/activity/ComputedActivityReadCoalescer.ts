@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+
+import type { ComputedActivityReadCacheRuntimeConfig } from '../../../config/runtimeConfig';
 
 // Compute-activity polls from every viewer of a table are identical work: the
 // snapshot is a projection of the shared computed_*_activity rows, not per-user
@@ -17,30 +18,31 @@ import { createHash } from 'node:crypto';
 const DEFAULT_READ_CACHE_MS = 1_000;
 const DEFAULT_READ_CACHE_MAX_ENTRIES = 5_000;
 
-/** `COMPUTED_ACTIVITY_READ_CACHE_MS=0` disables reuse and sharing (kill switch). */
-export const computedActivityReadCacheConfig = (): { ttlMs: number; maxEntries: number } => {
-  const ttl = Number(process.env.COMPUTED_ACTIVITY_READ_CACHE_MS);
-  const maxEntries = Number(process.env.COMPUTED_ACTIVITY_READ_CACHE_MAX_ENTRIES);
-  return {
-    ttlMs: Number.isFinite(ttl) && ttl >= 0 ? Math.floor(ttl) : DEFAULT_READ_CACHE_MS,
-    maxEntries:
-      Number.isFinite(maxEntries) && maxEntries >= 0
-        ? Math.floor(maxEntries)
-        : DEFAULT_READ_CACHE_MAX_ENTRIES,
-  };
-};
+/** `ttlMs: 0` disables reuse and sharing (kill switch). */
+export const computedActivityReadCacheConfig = (
+  config: ComputedActivityReadCacheRuntimeConfig = {}
+): { ttlMs: number; maxEntries: number } => ({
+  ttlMs: config.ttlMs !== undefined && config.ttlMs >= 0 ? Math.floor(config.ttlMs) : DEFAULT_READ_CACHE_MS,
+  maxEntries:
+    config.maxEntries !== undefined && config.maxEntries >= 0
+      ? Math.floor(config.maxEntries)
+      : DEFAULT_READ_CACHE_MAX_ENTRIES,
+});
 
 /**
  * Identity of the readable-field scope. An unrestricted reader (`undefined`) and
  * a reader with nothing readable (`[]`) produce different snapshots, so they must
  * never share an entry: coalesce by scope, never by table alone.
+ *
+ * The key stays exact rather than a digest: a digest collision would hand one
+ * reader the snapshot of a different readable-field scope, and `node:crypto`
+ * cannot be imported by a browser bundle at all.
  */
 export const computedActivityScopeKey = (readableFieldIds?: readonly string[]): string => {
   if (readableFieldIds === undefined) return 'scope:all';
   if (readableFieldIds.length === 0) return 'scope:none';
-  return `scope:${createHash('sha256')
-    .update([...readableFieldIds].sort((a, b) => Number(a > b) - Number(a < b)).join('\u0000'))
-    .digest('hex')}`;
+  const sorted = [...readableFieldIds].sort((a, b) => Number(a > b) - Number(a < b));
+  return `scope:${sorted.length}:${sorted.map((id) => id.replaceAll('|', '%7C')).join('|')}`;
 };
 
 /** A caller's own read budget elapsed, either waiting on its read or on a shared one. */
@@ -87,8 +89,8 @@ export class ComputedActivityReadCoalescer<TValue> {
   private readonly cache = new Map<string, { expiresAt: number; value: TValue }>();
   private readonly inFlight = new Map<string, InFlightEntry<TValue>>();
 
-  constructor(config: { ttlMs?: number; maxEntries?: number } = {}) {
-    const defaults = computedActivityReadCacheConfig();
+  constructor(config: ComputedActivityReadCacheRuntimeConfig = {}) {
+    const defaults = computedActivityReadCacheConfig(config);
     this.ttlMs = config.ttlMs ?? defaults.ttlMs;
     this.maxEntries = config.maxEntries ?? defaults.maxEntries;
   }

@@ -298,7 +298,8 @@ describe('Postgres relation data query on PGlite', () => {
     definition: DataQueryDefinition,
     targetTables: ReadonlyMap<string, Table>,
     rootScope: RecordQueryPluginScope,
-    sourceScopes: ReadonlyMap<string, RecordQueryPluginScope>
+    sourceScopes: ReadonlyMap<string, RecordQueryPluginScope>,
+    values: Record<string, unknown> = {}
   ): DataQueryRelationPlan => {
     const binding = DataQueryRelationBinding.prepare(
       definition,
@@ -307,7 +308,7 @@ describe('Postgres relation data query on PGlite', () => {
     )._unsafeUnwrap();
     return {
       definition,
-      query: definition.bind({})._unsafeUnwrap(),
+      query: definition.bind(values)._unsafeUnwrap(),
       rootTable: root,
       rootScope,
       rootDependencies: binding.rootDependencies,
@@ -529,35 +530,138 @@ describe('Postgres relation data query on PGlite', () => {
     ]);
   });
 
-  it('rejects an inverse one-one link through the executor', async () => {
+  it('joins an inverse one-one through the target foreign key', async () => {
     const definition = DataQueryDefinition.create({
       version: 2,
       kind: 'records',
       tableId: rootTableId,
       relations: { inverse: { linkFieldId: inversePartnerId, tableId: targetTableId } },
       page: { limit: 10 },
-      select: [{ source: 'inverse', fieldId: targetNameId, alias: 'inverseName' }],
-    })._unsafeUnwrap();
-    const plan: DataQueryRelationPlan = {
-      definition,
-      query: definition.bind({})._unsafeUnwrap(),
-      rootTable: root,
-      rootScope: {},
-      rootDependencies: [],
-      sources: [
-        {
-          alias: 'inverse',
-          table: target,
-          linkFieldId: inversePartnerId,
-          scope: {},
-          dependencies: [],
-        },
+      select: [
+        { system: 'id', alias: 'id' },
+        { source: 'inverse', fieldId: targetNameId, alias: 'inverseName' },
       ],
-    };
+    })._unsafeUnwrap();
+    const plan = planFor(
+      definition,
+      new Map([['inverse', target]]),
+      {},
+      new Map([['inverse', {}]])
+    );
 
     const result = await executor.executeRelation(context, plan);
 
-    expect(result._unsafeUnwrapErr().code).toBe('data_query.join_relationship');
+    expect(result._unsafeUnwrap().rows).toEqual([
+      { id: 'recA', inverseName: 'One' },
+      { id: 'recB', inverseName: 'Two' },
+      { id: 'recC', inverseName: null },
+      { id: 'recD', inverseName: null },
+    ]);
+  });
+
+  it('sorts by a joined source field and keeps unmatched roots when nulls are last', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: { partner: { linkFieldId: partnerId, tableId: targetTableId } },
+      sort: [{ source: 'partner', fieldId: targetNameId, order: 'asc', nulls: 'last' }],
+      page: { limit: 10 },
+      select: [
+        { system: 'id', alias: 'id' },
+        { source: 'partner', fieldId: targetNameId, alias: 'partnerName' },
+      ],
+    })._unsafeUnwrap();
+    const plan = planFor(
+      definition,
+      new Map([['partner', target]]),
+      {},
+      new Map([['partner', {}]])
+    );
+
+    const result = await executor.executeRelation(context, plan);
+
+    expect(result._unsafeUnwrap().rows).toEqual([
+      { id: 'recA', partnerName: 'One' },
+      { id: 'recB', partnerName: 'Two' },
+      { id: 'recC', partnerName: null },
+      { id: 'recD', partnerName: null },
+    ]);
+  });
+
+  it('binds a parameterized sort to a joined source field', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: { partner: { linkFieldId: partnerId, tableId: targetTableId } },
+      parameters: { by: { type: 'string' } },
+      sort: [
+        {
+          field: { type: 'parameter', name: 'by' },
+          order: 'desc',
+          nulls: 'last',
+          allowed: [{ source: 'partner', fieldId: targetNameId }],
+        },
+      ],
+      page: { limit: 10 },
+      select: [
+        { system: 'id', alias: 'id' },
+        { source: 'partner', fieldId: targetNameId, alias: 'partnerName' },
+      ],
+    })._unsafeUnwrap();
+    const plan = planFor(
+      definition,
+      new Map([['partner', target]]),
+      {},
+      new Map([['partner', {}]]),
+      { by: targetNameId }
+    );
+
+    const result = await executor.executeRelation(context, plan);
+
+    expect(result._unsafeUnwrap().rows).toEqual([
+      { id: 'recB', partnerName: 'Two' },
+      { id: 'recA', partnerName: 'One' },
+      { id: 'recC', partnerName: null },
+      { id: 'recD', partnerName: null },
+    ]);
+  });
+
+  it('applies a target filter inside the left join and keeps the root total', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: {
+        partner: {
+          linkFieldId: partnerId,
+          tableId: targetTableId,
+          filter: { fieldId: targetNameId, operator: 'is', value: 'One' },
+        },
+      },
+      page: { limit: 10, includeTotal: true },
+      select: [
+        { system: 'id', alias: 'id' },
+        { source: 'partner', fieldId: targetNameId, alias: 'partnerName' },
+      ],
+    })._unsafeUnwrap();
+    const plan = planFor(
+      definition,
+      new Map([['partner', target]]),
+      {},
+      new Map([['partner', {}]])
+    );
+
+    const result = (await executor.executeRelation(context, plan))._unsafeUnwrap();
+
+    expect(result.rows).toEqual([
+      { id: 'recA', partnerName: 'One' },
+      { id: 'recB', partnerName: null },
+      { id: 'recC', partnerName: null },
+      { id: 'recD', partnerName: null },
+    ]);
+    expect(result.page).toEqual({ limit: 10, offset: 0, total: 4 });
   });
 
   it('returns null target system projections when the left join misses', async () => {

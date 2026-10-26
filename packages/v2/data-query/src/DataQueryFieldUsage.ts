@@ -1,6 +1,12 @@
+// oxlint-disable sonarjs/cognitive-complexity -- one branch per projection kind or usage source
 import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 
-import type { DataQueryDefinitionInput, DataQueryFieldUsage, DataQueryFilter } from './types';
+import type {
+  DataQueryDefinitionInput,
+  DataQueryFieldUsage,
+  DataQueryFilter,
+  DataQuerySortTarget,
+} from './types';
 
 /**
  * Canonical usage order so every caller that reports the same dependency renders
@@ -58,15 +64,23 @@ const recordFilterUsages = (
   if (isLocalFieldReference(node.value, tableId)) record(node.value.fieldId, 'reference');
 };
 
+// oxlint-disable-next-line sonarjs/cognitive-complexity -- one branch per projection kind
 const recordSourceUsages = (definition: DataQueryDefinitionInput, record: UsageRecorder): void => {
   if (definition.kind === 'records') {
     for (const projection of definition.select) {
+      if ('statisticFunc' in projection) {
+        if (projection.fieldId !== undefined) record(projection.fieldId, 'aggregate');
+        continue;
+      }
       if ('fieldId' in projection) record(projection.fieldId, 'projection');
     }
     return;
   }
   for (const group of definition.groupBy ?? []) record(group.fieldId, 'group');
-  for (const aggregate of definition.aggregates) record(aggregate.fieldId, 'aggregate');
+  for (const aggregate of definition.aggregates) {
+    // A relation metric reads its target field; this walk has no source map.
+    if (aggregate.fieldId !== undefined) record(aggregate.fieldId, 'aggregate');
+  }
 };
 
 /**
@@ -74,18 +88,26 @@ const recordSourceUsages = (definition: DataQueryDefinitionInput, record: UsageR
  * not fields, so neither becomes a dependency. Every allow-listed target of a
  * parameterized sort does, even when the runtime parameter selects only one.
  */
+const recordSortTarget = (
+  target: DataQuerySortTarget,
+  record: (source: string, fieldId: string, usage: DataQueryFieldUsage) => void
+): void => {
+  if ('fieldId' in target) {
+    record('source' in target ? target.source : 'root', target.fieldId, 'sort');
+  }
+};
+
 const recordSortUsages = (
   sort: NonNullable<DataQueryDefinitionInput['sort']>,
-  record: UsageRecorder
+  record: (source: string, fieldId: string, usage: DataQueryFieldUsage) => void
 ): void => {
   for (const item of sort) {
     if ('fieldId' in item) {
-      record(item.fieldId, 'sort');
+      recordSortTarget(item, record);
       continue;
     }
-    if (!('field' in item)) continue;
-    for (const target of item.allowed) {
-      if ('fieldId' in target) record(target.fieldId, 'sort');
+    if ('field' in item) {
+      for (const target of item.allowed) recordSortTarget(target, record);
     }
   }
 };
@@ -105,15 +127,44 @@ export const collectDataQueryFieldUsages = (
     usages.set(fieldId, current);
   };
   recordSourceUsages(definition, record);
-  if (definition.sort) recordSortUsages(definition.sort, record);
+  if (definition.sort) {
+    recordSortUsages(definition.sort, (_source, fieldId, usage) => record(fieldId, usage));
+  }
   if (definition.filter) recordFilterUsages(definition.filter, definition.tableId, record);
+  if (definition.version === 2) {
+    for (const relation of Object.values(definition.relations ?? {})) {
+      if (relation.filter) {
+        recordFilterUsages(relation.filter, relation.tableId, record);
+      }
+    }
+  }
   return usages;
+};
+
+type SourceUsageRecorder = (source: string, fieldId: string, usage: DataQueryFieldUsage) => void;
+
+const recordRelationSourceUsages = (
+  definition: DataQueryDefinitionInput,
+  record: SourceUsageRecorder
+): void => {
+  if (definition.version !== 2) return;
+  for (const [alias, relation] of Object.entries(definition.relations ?? {})) {
+    // A multi-hop link is a field of the table it is declared on, not of the root.
+    record(relation.via ?? 'root', relation.linkFieldId, 'relation');
+    if (!relation.filter) continue;
+    recordFilterUsages(relation.filter, relation.tableId, (fieldId, usage) =>
+      record(alias, fieldId, usage)
+    );
+  }
 };
 
 /**
  * Source-qualified view of the same walk, for v2 relation manifests. `root`
  * always exists, even when the definition only reads system columns.
  */
+
+// oxlint-disable-next-line sonarjs/cognitive-complexity -- one walk over every source-qualified usage
+// eslint-disable-next-line sonarjs/cognitive-complexity -- one walk over every source-qualified usage
 export const collectDataQuerySourceFieldUsages = (
   definition: DataQueryDefinitionInput
 ): Map<string, Map<string, Set<DataQueryFieldUsage>>> => {
@@ -133,6 +184,12 @@ export const collectDataQuerySourceFieldUsages = (
   };
   if (definition.kind === 'records') {
     for (const projection of definition.select) {
+      if ('statisticFunc' in projection) {
+        if (projection.fieldId !== undefined) {
+          record(sourceOf(projection), projection.fieldId, 'aggregate');
+        }
+        continue;
+      }
       if ('fieldId' in projection) {
         record(sourceOf(projection), projection.fieldId, 'projection');
       }
@@ -142,16 +199,13 @@ export const collectDataQuerySourceFieldUsages = (
       record(sourceOf(group), group.fieldId, 'group');
     }
     for (const aggregate of definition.aggregates) {
-      record('root', aggregate.fieldId, 'aggregate');
+      if (aggregate.fieldId === undefined) continue;
+      record(sourceOf(aggregate), aggregate.fieldId, 'aggregate');
     }
   }
   const rootRecord: UsageRecorder = (fieldId, usage) => record('root', fieldId, usage);
-  if (definition.sort) recordSortUsages(definition.sort, rootRecord);
+  if (definition.sort) recordSortUsages(definition.sort, record);
   if (definition.filter) recordFilterUsages(definition.filter, definition.tableId, rootRecord);
-  if (definition.version === 2) {
-    for (const relation of Object.values(definition.relations ?? {})) {
-      record('root', relation.linkFieldId, 'relation');
-    }
-  }
+  recordRelationSourceUsages(definition, record);
   return sources;
 };

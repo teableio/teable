@@ -365,12 +365,18 @@ export class LinkField
     return ok(undefined);
   }
 
-  validateTitleResolutionTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
+  /**
+   * Auto-creation writes a foreign record from the pasted title alone, so it
+   * still requires the display field to be the primary field and that primary
+   * to hold a single text value.
+   */
+  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
     if (foreignTable.id().equals(hostTable.id())) {
       return err(
         domainError.validation({
           code: 'paste.link_auto_create_self_link_unsupported',
           message: 'Auto-creating linked rows from paste is not supported for self links.',
+          localization: { i18nKey: 'httpErrors.selection.linkAutoCreateSelfLinkUnsupported' },
           details: {
             tableId: hostTable.id().toString(),
             fieldId: this.id().toString(),
@@ -386,6 +392,7 @@ export class LinkField
           code: 'paste.link_auto_create_requires_primary_lookup',
           message:
             'Auto-creating linked rows from paste requires the link title field to use the foreign primary field.',
+          localization: { i18nKey: 'httpErrors.selection.linkAutoCreateRequiresPrimaryLookup' },
           details: {
             tableId: hostTable.id().toString(),
             fieldId: this.id().toString(),
@@ -408,8 +415,8 @@ export class LinkField
       !cellValueType.equals(CellValueType.string()) ||
       !isMultipleCellValue.equals(CellValueMultiplicity.single())
     ) {
-      // Text formulas may resolve existing titles, but a computed non-text
-      // primary cannot resolve titles or be populated by paste auto-creation.
+      // Text formulas may still be populated by paste auto-creation; other
+      // computed primaries only pass when the table accepts a primary-only create.
       if (primaryFieldResult.value.computed().toBoolean()) {
         return foreignTable.validateCreateWithPrimaryOnly();
       }
@@ -419,6 +426,7 @@ export class LinkField
           code: 'paste.link_auto_create_requires_text_primary',
           message:
             'Auto-creating linked rows from paste is only supported when the foreign primary field resolves to a single string value.',
+          localization: { i18nKey: 'httpErrors.selection.linkAutoCreateRequiresTextPrimary' },
           details: {
             tableId: foreignTable.id().toString(),
             primaryFieldId: primaryFieldResult.value.id().toString(),
@@ -430,13 +438,7 @@ export class LinkField
       );
     }
 
-    return ok(undefined);
-  }
-
-  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
-    return this.validateTitleResolutionTarget(hostTable, foreignTable).andThen(() =>
-      foreignTable.validateCreateWithPrimaryOnly()
-    );
+    return foreignTable.validateCreateWithPrimaryOnly();
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {

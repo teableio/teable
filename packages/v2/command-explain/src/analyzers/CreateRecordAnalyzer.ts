@@ -57,6 +57,7 @@ import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder'
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 import { buildLinkRecordLocksInfo } from '../utils/LinkRecordLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
+import { collectSchemaComplexityProfile } from '../profile/collectSchemaComplexityProfile';
 
 /**
  * Analyzer for CreateRecordCommand.
@@ -501,6 +502,17 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         linkLocks,
         sqlExplains,
         complexity,
+        schemaComplexityProfile: collectSchemaComplexityProfile({
+          tables: [...tableById.values()],
+          graph: graphData,
+          plan,
+          operation: {
+            kind: 'create',
+            tableId: commandInfo.tableId,
+            changedFieldIds: commandInfo.changedFieldIds ?? [],
+          },
+          completeness: 'partial',
+        }),
         timing: {
           totalMs: Date.now() - startTime,
           dependencyGraphMs,

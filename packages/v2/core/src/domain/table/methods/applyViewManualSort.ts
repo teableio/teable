@@ -39,6 +39,7 @@ export function applyViewManualSort(
         domainError.validation({
           code: 'view.manual_sort_unsupported_type',
           message: `Manual sort requires a Grid view, received ${view.type().toString()}`,
+          localization: { i18nKey: 'httpErrors.view.manualSortUnsupportedViewType' },
         })
       );
     }

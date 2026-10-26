@@ -10,19 +10,23 @@ import type {
   ProjectionMessageDecoderIdentity,
   ProjectionMessageJson,
 } from '../../ports/ProjectionMessage';
+import { EventTypeIndex } from './EventTypeIndex';
 
 type RegisteredCodec = IProjectionMessageCodec<IDomainEvent, ProjectionMessageJson>;
 
 export class ProjectionMessageCodecRegistry implements IProjectionMessageCodecRegistry {
   private constructor(
-    private readonly producerCodecs: ReadonlyMap<string, RegisteredCodec>,
+    private readonly producerCodecs: EventTypeIndex<RegisteredCodec>,
     private readonly decoderCodecs: ReadonlyMap<string, RegisteredCodec>
   ) {}
 
   static create(
     codecs: ReadonlyArray<IProjectionMessageCodec>
   ): Result<ProjectionMessageCodecRegistry, DomainError> {
-    const producerCodecs = new Map<string, RegisteredCodec>();
+    // Producers are keyed by the event class object: bundlers rename classes,
+    // so two unrelated events can share a `name` and a name-keyed map would
+    // either reject a valid registry or route one event to the wrong codec.
+    const producerCodecs = new EventTypeIndex<RegisteredCodec>();
     const decoderCodecs = new Map<string, RegisteredCodec>();
     for (const codec of codecs) {
       const registered = codec as RegisteredCodec;
@@ -42,12 +46,11 @@ export class ProjectionMessageCodecRegistry implements IProjectionMessageCodecRe
           })
         );
       }
-      const producerKey = registered.eventType.name;
-      if (producerCodecs.has(producerKey)) {
+      if (producerCodecs.has(registered.eventType)) {
         return err(
           domainError.invariant({
             code: 'projection_message.codec_not_registered',
-            message: `Duplicate producer codec for ${producerKey}`,
+            message: `Duplicate producer codec for ${registered.eventType.name}`,
           })
         );
       }
@@ -60,7 +63,7 @@ export class ProjectionMessageCodecRegistry implements IProjectionMessageCodecRe
           })
         );
       }
-      producerCodecs.set(producerKey, registered);
+      producerCodecs.set(registered.eventType, registered);
       decoderCodecs.set(decoderKey, registered);
     }
     return ok(new ProjectionMessageCodecRegistry(producerCodecs, decoderCodecs));
@@ -74,9 +77,7 @@ export class ProjectionMessageCodecRegistry implements IProjectionMessageCodecRe
   }
 
   encode(event: IDomainEvent): Result<EncodedProjectionMessage, DomainError> {
-    const codec =
-      this.producerCodecs.get(event.constructor.name) ??
-      this.producerCodecs.get(event.name.toString());
+    const codec = this.producerCodecs.resolve(event);
     if (!codec) {
       return err(
         domainError.invariant({

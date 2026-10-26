@@ -2,6 +2,7 @@ import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
   getUnitOfWorkTransaction,
+  utf8ByteLength,
   registerAfterCommit,
   type DomainError,
   type IExecutionContext,
@@ -88,7 +89,7 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
         continue;
       }
       const payloadJson = serializeProjectionPayload(message.payload);
-      const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
+      const payloadBytes = utf8ByteLength(payloadJson);
       const tooLarge = projectionPayloadTooLargeError(payloadBytes);
       if (tooLarge) {
         return err(tooLarge);

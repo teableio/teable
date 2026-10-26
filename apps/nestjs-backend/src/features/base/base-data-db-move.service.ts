@@ -181,7 +181,13 @@ export class BaseDataDbMoveService {
     if (!(cancelableBaseDataDbMoveJobStates as readonly string[]).includes(job.state)) {
       throw new CustomHttpException(
         `Move job ${jobId} cannot be cancelled in state ${job.state}`,
-        HttpErrorCode.VALIDATION_ERROR
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.base.moveJobNotCancellable',
+            context: { state: job.state },
+          },
+        }
       );
     }
     const updated = await this.prismaService.baseDataDbMoveJob.update({
@@ -468,10 +474,7 @@ export class BaseDataDbMoveService {
   private readInventory(raw: unknown): IBaseMoveInventory {
     const inv = asRecord(raw);
     if (!inv || typeof inv.baseId !== 'string') {
-      throw new CustomHttpException(
-        'Invalid project move inventory',
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error('Invalid project move inventory');
     }
     return {
       baseId: inv.baseId as string,
@@ -645,10 +648,7 @@ export class BaseDataDbMoveService {
         [schemaName]
       );
       if (result.rows[0]?.exists) {
-        throw new CustomHttpException(
-          `Target data database already has schema ${schemaName}`,
-          HttpErrorCode.VALIDATION_ERROR
-        );
+        throw new Error(`Target data database already has schema ${schemaName}`);
       }
     });
   }
@@ -662,10 +662,7 @@ export class BaseDataDbMoveService {
         [schemaName]
       );
       if (!result.rows[0]?.exists) {
-        throw new CustomHttpException(
-          `Target schema ${schemaName} missing after copy`,
-          HttpErrorCode.VALIDATION_ERROR
-        );
+        throw new Error(`Target schema ${schemaName} missing after copy`);
       }
     });
   }

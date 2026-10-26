@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
@@ -35,6 +35,19 @@ import { SessionStoreService } from '../session/session-store.service';
 import { TurnstileService } from '../turnstile/turnstile.service';
 
 type EmailCodeKind = 'signin' | 'signup' | 'change-email';
+
+/**
+ * The request stopped at the Turnstile captcha, before any credential was checked. Sign-in
+ * tells it apart by type: some of these carry no localization (they only reach API callers).
+ */
+export class TurnstileRejectedException extends CustomHttpException {}
+
+const TURNSTILE_UNAVAILABLE_REASONS = new Set([
+  'turnstile_disabled',
+  'api_error',
+  'internal_error',
+  'max_retries_exceeded',
+]);
 
 @Injectable()
 export class LocalAuthService {
@@ -144,7 +157,9 @@ export class LocalAuthService {
 
   private jwtVerifySignupToken(token: string) {
     return this.jwtService.verifyAsync<{ email: string }>(token).catch(() => {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
+        localization: { i18nKey: 'httpErrors.auth.verificationCodeInvalid' },
+      });
     });
   }
 
@@ -227,7 +242,9 @@ export class LocalAuthService {
     }
     const { email: _email } = await this.jwtVerifySignupToken(verification.token);
     if (_email !== email) {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
+        localization: { i18nKey: 'httpErrors.auth.verificationCodeInvalid' },
+      });
     }
     await this.consumeEmailCode(
       'signup',
@@ -284,7 +301,10 @@ export class LocalAuthService {
       this.logger.error(
         `Turnstile token is missing - enabled: ${isTurnstileEnabled}, remoteIp: ${remoteIp}`
       );
-      throw new BadRequestException('Turnstile token is required');
+      throw new TurnstileRejectedException(
+        'Turnstile token is required',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
 
     const validation = await this.turnstileService.validateTurnstileTokenWithRetry(
@@ -318,7 +338,14 @@ export class LocalAuthService {
           break;
       }
 
-      throw new BadRequestException(errorMessage);
+      throw new TurnstileRejectedException(errorMessage, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          // Retrying cannot help while Turnstile itself is down, so the user is told to wait
+          i18nKey: TURNSTILE_UNAVAILABLE_REASONS.has(validation.reason ?? '')
+            ? 'httpErrors.auth.captchaServiceUnavailable'
+            : 'httpErrors.auth.captchaFailed',
+        },
+      });
     }
   }
 
@@ -699,7 +726,8 @@ export class LocalAuthService {
       .catch(() => {
         throw new CustomHttpException(
           'Verification code is invalid',
-          HttpErrorCode.INVALID_CAPTCHA
+          HttpErrorCode.INVALID_CAPTCHA,
+          { localization: { i18nKey: 'httpErrors.auth.verificationCodeInvalid' } }
         );
       });
     if (newEmail.toLowerCase() !== email.toLowerCase() || _currentEmail !== currentEmail) {

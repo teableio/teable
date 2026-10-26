@@ -1,5 +1,5 @@
 import { ORPCError, implement } from '@orpc/server';
-import type { IExplainService } from '@teable/v2-command-explain';
+import type { IComplexityService, IExplainService } from '@teable/v2-command-explain';
 import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 import type {
   HttpErrorStatus,
@@ -21,6 +21,8 @@ import {
 import { executeCreateBaseEndpoint } from './handlers/bases/createBase';
 import { executeDuplicateBaseEndpoint } from './handlers/bases/duplicateBase';
 import { executeListBasesEndpoint } from './handlers/bases/listBases';
+import { executeComplexityAssessEndpoint } from './handlers/complexity/assess';
+import { executeComplexityAssessMatrixEndpoint } from './handlers/complexity/assessMatrix';
 import { executeClearEndpoint } from './handlers/tables/clear';
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
@@ -1449,6 +1451,88 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
+  /**
+   * Host integration note: this router does not authenticate or authorize.
+   * `createExecutionContext` may default to a system actor for local/embedded
+   * mounts, and a system actor is not a permission. Hosts must gate the mount
+   * (session/token verification plus a table read check) before exposing these
+   * complexity reads.
+   */
+  const complexityAssess = os.complexity.assess.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const complexityService = container.resolve<IComplexityService>(
+      v2CommandExplainTokens.complexityService
+    );
+    const result = await executeComplexityAssessEndpoint(
+      executionContext,
+      input,
+      complexityService
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const complexityAssessMatrix = os.complexity.assessMatrix.handler(async ({ input }) => {
+    const container = await resolveContainer();
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const complexityService = container.resolve<IComplexityService>(
+      v2CommandExplainTokens.complexityService
+    );
+    const result = await executeComplexityAssessMatrixEndpoint(
+      executionContext,
+      input,
+      complexityService
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
   const tablesDeleteView = os.tables.deleteView.handler(({ input }) =>
     runViewCommandRoute(input, executeDeleteViewEndpoint)
   );
@@ -1517,6 +1601,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   );
 
   return os.router({
+    complexity: {
+      assess: complexityAssess,
+      assessMatrix: complexityAssessMatrix,
+    },
     bases: {
       create: basesCreate,
       duplicate: basesDuplicate,

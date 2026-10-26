@@ -737,6 +737,9 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
             code: 'paste.link_auto_create_computed_primary_unsupported',
             message:
               'Auto-creating linked rows from paste is not supported when the foreign primary field is computed.',
+            localization: {
+              i18nKey: 'httpErrors.selection.linkAutoCreateComputedPrimaryUnsupported',
+            },
             details: {
               tableId: this.id().toString(),
               primaryFieldId: primaryField.id().toString(),
@@ -784,6 +787,14 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
               code: 'paste.link_auto_create_missing_required_fields',
               message:
                 'Auto-creating linked rows from paste is not supported when the foreign table has required fields without defaults.',
+              localization: {
+                i18nKey: 'httpErrors.selection.linkAutoCreateMissingRequiredFields',
+                context: {
+                  fieldNames: blockingRequiredFields
+                    .map((field) => field.name().toString())
+                    .join(', '),
+                },
+              },
               details: {
                 tableId: this.id().toString(),
                 primaryFieldId: primaryField.id().toString(),
@@ -1305,6 +1316,10 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
         return err(
           domainError.conflict({
             message: `Db Field name ${nextDbFieldNameResult.value} already exists in this table`,
+            localization: {
+              i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+              context: { dbFieldName: nextDbFieldNameResult.value },
+            },
           })
         );
       }
@@ -1586,7 +1601,15 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       (f) => !f.id().equals(fieldId) && f.name().equals(nextName)
     );
     if (nameConflict) {
-      return err(domainError.conflict({ message: 'Field names must be unique' }));
+      return err(
+        domainError.conflict({
+          message: 'Field names must be unique',
+          localization: {
+            i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+            context: { name: nextName.toString() },
+          },
+        })
+      );
     }
 
     const updatedFieldResult = field.withName({
@@ -1650,6 +1673,30 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     if (fieldResult.isErr()) return err(fieldResult.error);
 
     const field = fieldResult.value;
+    const nextDbFieldNameResult = dbFieldName.value();
+    if (nextDbFieldNameResult.isErr()) return err(nextDbFieldNameResult.error);
+    const nextDbFieldName = nextDbFieldNameResult.value;
+    const hasDuplicateDbFieldName = this.fieldsValue.some((existing) => {
+      if (existing.id().equals(fieldId)) return false;
+      const existingDbFieldNameResult = existing
+        .dbFieldName()
+        .andThen((existingDbFieldName) => existingDbFieldName.value());
+      return (
+        existingDbFieldNameResult.isOk() && existingDbFieldNameResult.value === nextDbFieldName
+      );
+    });
+    if (hasDuplicateDbFieldName) {
+      return err(
+        domainError.conflict({
+          message: `Db Field name ${nextDbFieldName} already exists in this table`,
+          localization: {
+            i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+            context: { dbFieldName: nextDbFieldName },
+          },
+        })
+      );
+    }
+
     const renameResult = field.renameDbFieldName(dbFieldName);
     if (renameResult.isErr()) return err(renameResult.error);
 
@@ -1747,7 +1794,15 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
         (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
       );
       if (nameConflict) {
-        return err(domainError.conflict({ message: 'Field names must be unique' }));
+        return err(
+          domainError.conflict({
+            message: 'Field names must be unique',
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+              context: { name: newField.name().toString() },
+            },
+          })
+        );
       }
     }
 
@@ -2002,10 +2057,11 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       return hasHiddenField ? { ...defaultEntry, visible: false } : { ...defaultEntry };
     }
 
-    const hasExplicitHiddenVisibilityConfig = Object.values(currentMeta).some((entry) =>
-      Object.hasOwn(entry, 'hidden')
-    );
-    if (!hasExplicitHiddenVisibilityConfig) {
+    // A view decides by how many fields it actually hides, not by whether any
+    // entry carries a `hidden` key: "show all" leaves `hidden: false` behind,
+    // and such a view must still pick up new fields.
+    const hasHiddenField = Object.values(currentMeta).some((entry) => entry.hidden === true);
+    if (!hasHiddenField) {
       return { ...defaultEntry };
     }
 

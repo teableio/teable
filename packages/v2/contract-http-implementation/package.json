@@ -62,6 +62,7 @@
   "dependencies": {
     "@orpc/server": "1.15.7",
     "@teable/v2-command-explain": "workspace:*",
+    "@teable/v2-complexity": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-contract-http": "workspace:*",
@@ -72,6 +73,7 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.13.2",
+    "neverthrow": "8.2.0",
     "@vitest/coverage-v8": "4.1.12",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",

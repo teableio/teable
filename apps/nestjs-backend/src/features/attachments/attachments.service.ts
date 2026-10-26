@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -17,7 +17,7 @@ import {
   type SignatureVo,
 } from '@teable/openapi';
 // eslint-disable-next-line no-restricted-imports -- Header utilities only; requests use the SSRF-safe shared client.
-import { AxiosHeaders, type RawAxiosHeaders } from 'axios';
+import { AxiosHeaders, type AxiosResponse, type RawAxiosHeaders } from 'axios';
 import type { Request, Response } from 'express';
 import fse from 'fs-extra';
 import mimeTypes from 'mime-types';
@@ -205,7 +205,10 @@ export class AttachmentsService {
     // (never presigned); a client-signed upload under these prefixes could
     // forge or corrupt cold parts and _stats.json
     if (BACKEND_ONLY_UPLOAD_TYPES.has(type)) {
-      throw new BadRequestException('this upload type cannot be signed');
+      throw new CustomHttpException(
+        'this upload type cannot be signed',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
@@ -417,11 +420,7 @@ export class AttachmentsService {
       return await this.notifyToAttachmentItem(token, filename);
     } catch (error) {
       console.error('uploadFromUrl:upload', error);
-      throw new CustomHttpException('Url reject', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.attachment.urlReject',
-        },
-      });
+      throw this.createUrlRejectException();
     } finally {
       if (tempFilePath) {
         await fse.remove(tempFilePath);
@@ -441,6 +440,14 @@ export class AttachmentsService {
         },
       }
     );
+  }
+
+  private createUrlRejectException(): CustomHttpException {
+    return new CustomHttpException('Url reject', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.attachment.urlReject',
+      },
+    });
   }
 
   private extractLocalFilePath(fileUrl: string): ILocalFileRef | null {
@@ -488,11 +495,7 @@ export class AttachmentsService {
     const localFile = this.extractLocalFilePath(fileUrl);
     if (localFile) {
       const headers = await this.authorizeLocalRead(localFile.path, localFile.token).catch(() => {
-        throw new CustomHttpException('Url reject', HttpErrorCode.VALIDATION_ERROR, {
-          localization: {
-            i18nKey: 'httpErrors.attachment.urlReject',
-          },
-        });
+        throw this.createUrlRejectException();
       });
       return this.getLocalFileInfo(localFile.path, maxFileSize, headers['Content-Type']);
     }
@@ -612,12 +615,22 @@ export class AttachmentsService {
   }> {
     let downloadedBytes = 0;
 
-    const response = await axios({
-      method: 'get',
-      url: url,
-      responseType: 'stream',
-      ...getSafeAxiosAgents(),
-    });
+    let response: AxiosResponse;
+    try {
+      response = await axios({
+        method: 'get',
+        url: url,
+        responseType: 'stream',
+        ...getSafeAxiosAgents(),
+      });
+    } catch (error) {
+      // A user-supplied URL that the remote peer refuses or cannot serve is a
+      // rejected input, not a server failure. The axios interceptor in
+      // @teable/openapi would otherwise surface HttpError with the default
+      // internal error code, turning the remote answer into a bare 500.
+      this.logger.warn('Download from URL failed:', error);
+      throw this.createUrlRejectException();
+    }
     const contentType = AxiosHeaders.from(response.headers as RawAxiosHeaders)
       .getContentType()
       ?.toString();

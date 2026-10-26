@@ -1,4 +1,5 @@
-import { DbFieldType } from '@teable/core';
+import type { INumberFormatting } from '@teable/core';
+import { DbFieldType, NumberFormattingType } from '@teable/core';
 import type { Knex } from 'knex';
 import { describe, expect, it } from 'vitest';
 import { PgRecordQueryDialect } from './pg-record-query-dialect';
@@ -113,5 +114,40 @@ describe('PgRecordQueryDialect#coerceToNumericForCompare', () => {
     expect(sql).toContain('THEN NULLIF(');
     expect(sql).toContain('::numeric');
     expect(sql).toContain('ELSE NULL');
+  });
+});
+
+describe('PgRecordQueryDialect#formatNumber currency symbol escaping', () => {
+  const dialect = new PgRecordQueryDialect({} as unknown as Knex);
+  const currency = (symbol: string, precision?: number): INumberFormatting =>
+    ({ type: NumberFormattingType.Currency, symbol, precision }) as INumberFormatting;
+  // A generated fragment with an odd number of single quotes has a dangling
+  // quote — i.e. the symbol broke out of its literal. Balanced quotes prove it did not.
+  const quotesBalanced = (sql: string) => (sql.match(/'/g) ?? []).length % 2 === 0;
+
+  it('embeds a plain symbol as a single-quoted literal', () => {
+    expect(dialect.formatNumber('"t"."price"', currency('$', 0))).toBe(
+      `'$' || ROUND(CAST("t"."price" AS NUMERIC), 0)::TEXT`
+    );
+  });
+
+  it('escapes single quotes in the symbol so it cannot break out of the literal', () => {
+    const sql = dialect.formatNumber('"t"."price"', currency("x'||pg_sleep(3)||'", 0));
+    expect(sql).toBe(
+      `'x''||pg_sleep(3)||''' || ROUND(CAST("t"."price" AS NUMERIC), 0)::TEXT`
+    );
+    expect(quotesBalanced(sql)).toBe(true);
+  });
+
+  it('escapes the symbol on the no-precision branch too', () => {
+    const sql = dialect.formatNumber('"t"."price"', currency("'); DROP TABLE t;--"));
+    expect(sql).toBe(`'''); DROP TABLE t;--' || ("t"."price")::TEXT`);
+    expect(quotesBalanced(sql)).toBe(true);
+  });
+
+  it('propagates the escaping through formatNumberArray', () => {
+    const sql = dialect.formatNumberArray('"t"."prices"', currency("a'b", 0));
+    expect(sql).toContain(`'a''b'`);
+    expect(quotesBalanced(sql)).toBe(true);
   });
 });

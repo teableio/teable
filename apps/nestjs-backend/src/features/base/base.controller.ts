@@ -86,6 +86,7 @@ import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
+import { getErrorLocalization } from '../v2/v2-http-error';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
@@ -183,9 +184,11 @@ export class BaseController {
 
       sendEvent({ type: 'done', data: result });
     } catch (error) {
+      const localization = getErrorLocalization(error);
       sendEvent({
         type: 'error',
         message: formatBaseImportError(error, 'Unknown import error'),
+        ...(localization ? { localization } : {}),
       });
     } finally {
       clearInterval(heartbeat);

@@ -1,9 +1,10 @@
-import { BadRequestException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { ISendMailOptions as NestjsSendMailOptions } from '@nestjs-modules/mailer';
+import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
 import type { SendMailOptions } from 'nodemailer';
+import { CustomHttpException } from '../../custom.exception';
 
 // In-Reply-To is a Message-ID header: nodemailer only takes a string there, the mailer type also allows an Address
 export type ISendMailOptions = Omit<NestjsSendMailOptions, 'inReplyTo'> &
@@ -34,8 +35,13 @@ export const verifyTransport = async (config: IMailTransportConfig) => {
   try {
     await transporter.verify();
   } catch (error) {
-    throw new BadRequestException(
-      `Invalid mail transporter: ${error instanceof Error ? error.message : 'Unknown error'}`
+    const detail = error instanceof Error ? error.message : 'Unknown error';
+    throw new CustomHttpException(
+      `Invalid mail transporter: ${detail}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: { i18nKey: 'httpErrors.email.transporterInvalid', context: { detail } },
+      }
     );
   }
   return true;

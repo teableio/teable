@@ -1148,6 +1148,7 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
       return err(
         domainError.validation({
           message: 'Junction foreign key target table does not exist',
+          localization: { i18nKey: 'httpErrors.integrity.linkTargetTableMissing' },
           details: {
             fieldId: this.field.id().toString(),
             targetTable: resolvedTargetTable,

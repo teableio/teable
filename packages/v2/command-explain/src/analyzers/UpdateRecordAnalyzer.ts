@@ -32,6 +32,7 @@ import {
   type ComputedUpdateLockConfig,
   type SameTableFieldLevel,
   defaultComputedUpdateLockConfig,
+  PostgresComplexityStatisticsReader,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 
@@ -59,6 +60,7 @@ import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder'
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 import { buildLinkRecordLocksInfo } from '../utils/LinkRecordLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
+import { collectSchemaComplexityProfile } from '../profile/collectSchemaComplexityProfile';
 
 /**
  * Analyzer for UpdateRecordCommand.
@@ -697,6 +699,12 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         sqlExplains,
       });
 
+      const statistics = mergedOptions.includeDataEstimate
+        ? yield* await new PostgresComplexityStatisticsReader(analyzer.db).collectMany(context, [
+            ...tableById.values(),
+          ])
+        : null;
+
       return ok({
         command: commandInfo,
         computedImpact,
@@ -704,6 +712,19 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         linkLocks,
         sqlExplains,
         complexity,
+        schemaComplexityProfile: collectSchemaComplexityProfile({
+          tables: [...tableById.values()],
+          graph: graphData,
+          plan,
+          operation: {
+            kind: 'update',
+            tableId: commandInfo.tableId,
+            changedFieldIds: commandInfo.changedFieldIds ?? [],
+          },
+          completeness: 'partial',
+          statistics,
+          seedRecordCount: commandInfo.recordIds.length,
+        }),
         timing: {
           totalMs: Date.now() - startTime,
           dependencyGraphMs,

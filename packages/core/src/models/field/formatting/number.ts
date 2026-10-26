@@ -25,7 +25,9 @@ export const percentFormattingSchema = baseFormatting
 export const currencyFormattingSchema = baseFormatting
   .extend({
     type: z.literal(NumberFormattingType.Currency),
-    symbol: z.string(),
+    // Bound the symbol length as defense-in-depth; real currency symbols are a
+    // few characters at most. The SQL-side escaping is the primary protection.
+    symbol: z.string().max(10),
   })
   .strict();
 

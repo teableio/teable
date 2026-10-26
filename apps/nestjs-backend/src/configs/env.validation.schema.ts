@@ -44,6 +44,18 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string(),
   DATABASE_POOL_MAX: Joi.number().integer().positive().optional(),
   BYODB_DATA_DB_POOL_MAX: Joi.number().integer().positive().optional(),
+  // BYODB data budget: pods × databases × (data pool + 2 auxiliary) ≤ max_connections × 0.8.
+  // All three inputs are required; a partial topology keeps the legacy data pool of 5. The formula
+  // can raise the data pool up to 20, and BYODB_DATA_DB_POOL_MAX stays an explicit ceiling.
+  // The coordination pool uses the meta connection string and is budgeted against the meta server.
+  BYODB_DATA_DB_PG_MAX_CONNECTIONS: Joi.number().integer().positive().optional(),
+  BYODB_DATA_DB_DATABASES_PER_SERVER: Joi.number().integer().positive().optional(),
+  BYODB_APP_NODES: Joi.number().integer().positive().optional(),
+  BYODB_DATA_DB_QUEUE_LIMIT: Joi.number().integer().min(0).optional(),
+  BYODB_DATA_DB_QUEUE_TIMEOUT_MS: Joi.number().integer().min(0).optional(),
+  // Coordination pools are per data-database container: containers × maxConnections.
+  V2_SCHEMA_COORDINATION_MAX_CONNECTIONS: Joi.number().integer().positive().optional(),
+  V2_SCHEMA_COORDINATION_CONNECTION_TIMEOUT_MS: Joi.number().integer().min(0).optional(),
   V2_COMPUTED_UPDATE_MODE: Joi.string().valid('sync').optional(),
 
   STORAGE_PREFIX: Joi.string().uri().optional(),
@@ -126,6 +138,14 @@ export const envValidationSchema = Joi.object({
   V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
   V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
   V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
+  V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS: Joi.number()
+    .integer()
+    .min(0)
+    .default(30000),
+  V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_WAIT_MS: Joi.number()
+    .integer()
+    .min(0)
+    .default(5000),
   V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: Joi.number().integer().positive().default(500),
   V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED: Joi.boolean().optional(),

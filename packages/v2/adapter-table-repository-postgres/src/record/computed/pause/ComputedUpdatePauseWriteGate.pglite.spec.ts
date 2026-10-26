@@ -192,15 +192,79 @@ describe('ComputedUpdatePauseRegistry write gate', () => {
     expect(listed._unsafeUnwrap()).toHaveLength(0);
   });
 
-  it('does not join the caller transaction when admitting writes', async () => {
-    const result = await registry.admitComputedWrite({ tableId: TABLE_ID, baseId: BASE_ID }, {
+  const bindCallerTransaction = (transactionDb: Kysely<V1TeableDatabase>): never =>
+    ({
       transaction: {
         kind: 'unitOfWorkTransaction',
-        get db(): never {
-          throw new Error('admit must not use the caller transaction');
-        },
+        scope: 'data',
+        pending: true,
+        db: transactionDb,
       },
-    } as never);
+    }) as never;
+
+  it('admits writes through the caller transaction instead of a second checkout', async () => {
+    // T8081: a BYODB pool capped at one connection deadlocks when admission
+    // checks out a second connection while the caller transaction holds the
+    // first one. Admission must run on the caller's transaction handle.
+    let queries = 0;
+    const transactionDb = new Proxy(db, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          queries += 1;
+          return (value as (...inner: unknown[]) => unknown).apply(target, args);
+        };
+      },
+    }) as Kysely<V1TeableDatabase>;
+
+    const result = await registry.admitComputedWrite(
+      { tableId: TABLE_ID, baseId: BASE_ID },
+      bindCallerTransaction(transactionDb)
+    );
+
     expect(result.isOk()).toBe(true);
+    expect(queries).toBeGreaterThan(0);
+  });
+
+  it('rolls the backlog auto-release back with the caller transaction', async () => {
+    const paused = await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: BASE_ID,
+      resumeAt: new Date(Date.now() + 30 * 60 * 1000),
+      actor: 'ops',
+      writePolicy: 'allow_bounded',
+    });
+    expect(paused.isOk()).toBe(true);
+
+    for (const taskId of ['cuo-pending-1', 'cuo-pending-2']) {
+      await db
+        .insertInto('computed_update_outbox')
+        .values({
+          id: taskId,
+          base_id: BASE_ID,
+          seed_table_id: TABLE_ID,
+          status: 'pending',
+          affected_table_ids: [TABLE_ID],
+          next_run_at: new Date(),
+          updated_at: new Date(),
+        })
+        .execute();
+    }
+
+    await expect(
+      db.transaction().execute(async (trx) => {
+        const result = await registry.admitComputedWrite(
+          { tableId: TABLE_ID, baseId: BASE_ID, backlogWatermark: 2 },
+          bindCallerTransaction(trx as unknown as Kysely<V1TeableDatabase>)
+        );
+        expect(result.isOk()).toBe(true);
+        throw new Error('rollback caller work');
+      })
+    ).rejects.toThrow('rollback caller work');
+
+    const listed = await registry.listScopes({ activeOnly: true });
+    expect(listed.isOk()).toBe(true);
+    expect(listed._unsafeUnwrap()).toHaveLength(1);
   });
 });

@@ -148,7 +148,7 @@
     "@vitest/coverage-v8": "4.1.12",
     "cross-env": "7.0.3",
     "get-tsconfig": "4.7.3",
-    "happy-dom": "21.0.3",
+    "happy-dom": "21.0.4",
     "microbundle": "0.15.1",
     "npm-run-all2": "6.1.2",
     "oxfmt": "0.74.0",

@@ -69,10 +69,25 @@ export class PasteLinkAutoResolveService {
     context: IExecutionContext,
     input: IPasteLinkAutoResolveInput
   ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
+    return this.resolveInternal(context, input, true);
+  }
+
+  /**
+   * Resolves pasted titles and, when `createForeignRecords` is false, only
+   * validates what the write would need. Preflight uses the same resolution so
+   * a paste that matches the link display field is not refused just because the
+   * display field is not the foreign primary.
+   */
+  private async resolveInternal(
+    context: IExecutionContext,
+    input: IPasteLinkAutoResolveInput,
+    createForeignRecords: boolean,
+    plannedFields?: ReadonlyArray<Field>
+  ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<IPasteLinkAutoResolveResult, DomainError>(async function* () {
-      const entries = yield* await service.collectEntries(input);
+      const entries = yield* await service.collectEntries(input, plannedFields);
       if (entries.length === 0) {
         return ok({
           resolvedValues: new Map(),
@@ -84,13 +99,12 @@ export class PasteLinkAutoResolveService {
       }
 
       const foreignTableCache = new Map<string, Table>();
-      yield* await service.validateEntries(context, input.table, entries, foreignTableCache);
-
       const resolveResults = yield* await service.linkTitleResolverService.resolve(
         context,
         entries.map((entry) => ({
           fieldId: entry.linkField.id(),
           foreignTableId: entry.linkField.foreignTableId(),
+          lookupFieldId: entry.linkField.lookupFieldId(),
           titles: entry.titles,
         }))
       );
@@ -139,6 +153,11 @@ export class PasteLinkAutoResolveService {
           foreignTableCache,
           firstEntry.linkField.foreignTableId()
         );
+        // A missing title asks the paste to create a foreign row. Validation
+        // refuses that when creation cannot work (non-primary display, computed
+        // primary, required fields), so the user sees the reason instead of a
+        // silently empty cell.
+
         const primaryFieldResult = foreignTable.getField((field) =>
           field.id().equals(foreignTable.primaryFieldId())
         );
@@ -166,6 +185,9 @@ export class PasteLinkAutoResolveService {
           foreignTable,
           createdTitles
         );
+        if (!createForeignRecords) {
+          continue;
+        }
         const creationResult = yield* await service.recordBatchCreationService.create(context, {
           table: foreignTable,
           recordsFieldValues: createdTitles.map(
@@ -227,28 +249,8 @@ export class PasteLinkAutoResolveService {
     input: IPasteLinkAutoResolveInput,
     plannedFields?: ReadonlyArray<Field>
   ): Promise<Result<void, DomainError>> {
-    const entries = await this.collectEntries(input, plannedFields);
-    if (entries.isErr()) return err(entries.error);
-    return this.validateEntries(context, input.table, entries.value, new Map());
-  }
-
-  private async validateEntries(
-    context: IExecutionContext,
-    hostTable: Table,
-    entries: ReadonlyArray<LinkResolveEntry>,
-    foreignTableCache: Map<string, Table>
-  ): Promise<Result<void, DomainError>> {
-    for (const entry of entries) {
-      const foreignTable = await this.loadForeignTable(
-        context,
-        foreignTableCache,
-        entry.linkField.foreignTableId()
-      );
-      if (foreignTable.isErr()) return err(foreignTable.error);
-      const result = entry.linkField.validateTitleResolutionTarget(hostTable, foreignTable.value);
-      if (result.isErr()) return result;
-    }
-    return ok(undefined);
+    const result = await this.resolveInternal(context, input, false, plannedFields);
+    return result.map(() => undefined);
   }
 
   private async collectEntries(

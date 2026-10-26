@@ -1,5 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import fs from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
@@ -165,6 +167,73 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       expect(items).toHaveLength(2);
       expect(items[0]!.id).toBe(item.id);
       expect(items[1]!.id).not.toBe(item.id);
+    });
+  });
+
+  describe('url attachment upload', () => {
+    const fileBody = 'remote attachment body';
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+    const previousSsrfDisabled = process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+    let server: http.Server;
+    let origin: string;
+
+    beforeAll(async () => {
+      process.env.FORCE_V2_ALL = 'true';
+      process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+      server = http.createServer((req, res) => {
+        if (req.url === '/refused') {
+          res.statusCode = req.method === 'HEAD' ? 404 : 403;
+          res.end('refused');
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Length', String(Buffer.byteLength(fileBody)));
+        res.end(fileBody);
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    });
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+      if (previousSsrfDisabled == null) {
+        delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+      } else {
+        process.env.TEABLE_SSRF_PROTECTION_DISABLED = previousSsrfDisabled;
+      }
+    });
+
+    it('rejects an unreachable remote url as a validation error', async () => {
+      const field = await createField(table.id, { type: FieldType.Attachment });
+      const recordId = table.records[0].id;
+      const url = `/table/${table.id}/record/${recordId}/${field.id}/uploadAttachment`;
+
+      const refused = await defaultAxios.post(
+        url,
+        { fileUrl: `${origin}/refused` },
+        { validateStatus: () => true }
+      );
+      expect(refused.status).toBe(400);
+      expect(refused.headers['x-teable-v2']).toBe('true');
+      expect(refused.data).toMatchObject({
+        message: 'Url reject',
+        code: 'validation_error',
+        data: { localization: { i18nKey: 'httpErrors.attachment.urlReject' } },
+      });
+
+      const accepted = await defaultAxios.post(
+        url,
+        { fileUrl: `${origin}/file.txt` },
+        { validateStatus: () => true }
+      );
+      expect(accepted.status).toBe(201);
+      expect(accepted.data.fields[field.id]).toHaveLength(1);
     });
   });
 

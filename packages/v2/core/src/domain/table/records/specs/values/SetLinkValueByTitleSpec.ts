@@ -9,27 +9,20 @@ import type { TableRecord } from '../../TableRecord';
 import type { ICellValueSpecVisitor } from './ICellValueSpecVisitor';
 
 /**
- * Specification for setting a link field value by record titles.
+ * Specification for setting a link field value by its display-field titles.
  *
- * This spec is used in typecast mode when the user provides record titles
- * instead of record IDs. The Repository layer will use SQL subquery to
- * look up the actual record IDs from the foreign table.
- *
- * Example:
- * - User provides: ['Project A', 'Project B']
- * - Repository generates SQL like:
- *   UPDATE table SET field = (
- *     SELECT json_agg(json_build_object('id', id, 'title', primary_field))
- *     FROM foreign_table
- *     WHERE primary_field = ANY(['Project A', 'Project B'])
- *   )
+ * Created in typecast mode when the caller provides values copied from the
+ * foreign table instead of record IDs. `lookupFieldId` is the link's display
+ * field; resolution matches its stored value, falling back to the primary
+ * field when the caller does not supply one.
  */
 export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellValueSpecVisitor> {
   private constructor(
     readonly fieldId: FieldId,
     readonly foreignTableId: TableId,
     readonly titles: ReadonlyArray<string>,
-    readonly isMultiple: boolean
+    readonly isMultiple: boolean,
+    readonly lookupFieldId?: FieldId
   ) {
     super();
   }
@@ -38,9 +31,10 @@ export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellVa
     fieldId: FieldId,
     foreignTableId: TableId,
     titles: ReadonlyArray<string>,
-    isMultiple = true
+    isMultiple = true,
+    lookupFieldId?: FieldId
   ): SetLinkValueByTitleSpec {
-    return new SetLinkValueByTitleSpec(fieldId, foreignTableId, titles, isMultiple);
+    return new SetLinkValueByTitleSpec(fieldId, foreignTableId, titles, isMultiple, lookupFieldId);
   }
 
   /**

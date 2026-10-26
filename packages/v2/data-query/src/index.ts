@@ -10,6 +10,7 @@ export {
 export {
   DataQueryBinding,
   DataQueryRelationBinding,
+  type DataQueryRelationLinkStorage,
   validateDataQueryFilter,
 } from './DataQueryBinding';
 export * from './DataQueryService';
@@ -22,3 +23,5 @@ export * from './DataQueryManifestDependencies';
 export * from './DataQueryManifestLint';
 export * from './DataQueryManifestFiles';
 export * from './managedQueryTool.generated';
+
+export * from './DataQueryManifestRepair';

@@ -2,6 +2,7 @@ import type {
   DomainError,
   IExecutionContext,
   IRecordOrderCalculator,
+  IRecordOrderColumnPreparer,
   RecordId,
   Table,
   ViewId,
@@ -19,11 +20,45 @@ import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 
 @injectable()
-export class PostgresRecordOrderCalculator implements IRecordOrderCalculator {
+export class PostgresRecordOrderCalculator
+  implements IRecordOrderCalculator, IRecordOrderColumnPreparer
+{
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
+
+  /**
+   * T8080: ordered creates prepare the view row-order column before they take
+   * a table schema lease. This runs on the request's non-transactional handle,
+   * so `ADD COLUMN`, the chunked backfill and `CREATE INDEX CONCURRENTLY` never
+   * execute while the lease or the write transaction is held.
+   */
+  async prepareOrderColumn(
+    context: IExecutionContext,
+    table: Table,
+    viewId: ViewId
+  ): Promise<Result<boolean, DomainError>> {
+    return safeTry<boolean, DomainError>(
+      async function* (this: PostgresRecordOrderCalculator) {
+        const dbTableName = yield* table.dbTableName();
+        const tableName = yield* dbTableName.value();
+        const dynamicDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+
+        try {
+          await this.ensureOrderColumnExists(dynamicDb, tableName, viewId.toString());
+          return ok(true);
+        } catch (error) {
+          return err(
+            domainError.unexpected({
+              message: error instanceof Error ? error.message : 'Failed to prepare record order',
+              code: 'record_order.prepare_failed',
+            })
+          );
+        }
+      }.bind(this)
+    );
+  }
 
   async calculateOrders(
     context: IExecutionContext,

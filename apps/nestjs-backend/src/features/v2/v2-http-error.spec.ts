@@ -1,10 +1,10 @@
 import { HttpStatus } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { mapDomainErrorToHttpError } from '@teable/v2-contract-http';
-import { domainError, tableProvisionPendingError } from '@teable/v2-core';
+import { domainError, tableProvisionPendingError, toError } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
-import { throwV2Error } from './v2-http-error';
+import { getErrorLocalization, throwV2Error } from './v2-http-error';
 
 describe('throwV2Error', () => {
   it('passes the throw-site localization through to the HTTP exception', () => {
@@ -109,5 +109,27 @@ describe('provisioning HTTP contract', () => {
       return;
     }
     expect.fail('Expected missing table to throw');
+  });
+});
+
+describe('getErrorLocalization', () => {
+  const localization = { i18nKey: 'httpErrors.table.nameRequired' } as const;
+
+  it('reads the translation of an HTTP exception', () => {
+    const error = new CustomHttpException('Invalid TableName', HttpErrorCode.VALIDATION_ERROR, {
+      localization,
+    });
+    expect(getErrorLocalization(error)).toEqual(localization);
+  });
+
+  it('reads the translation a thrown domain error carries', () => {
+    const error = toError(domainError.validation({ message: 'Invalid TableName', localization }));
+    expect(getErrorLocalization(error)).toEqual(localization);
+  });
+
+  it('ignores errors without a translation', () => {
+    expect(getErrorLocalization(new Error('boom'))).toBeUndefined();
+    expect(getErrorLocalization('boom')).toBeUndefined();
+    expect(getErrorLocalization({ localization: { context: {} } })).toBeUndefined();
   });
 });

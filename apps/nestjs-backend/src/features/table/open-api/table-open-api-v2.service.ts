@@ -538,7 +538,8 @@ export class TableOpenApiV2Service {
     if (affected.length > 0) {
       throw new CustomHttpException(
         'v2 will not silently downgrade cross-space fields when duplicating a table',
-        HttpErrorCode.VALIDATION_ERROR
+        HttpErrorCode.VALIDATION_ERROR,
+        { localization: { i18nKey: 'httpErrors.table.duplicateCrossSpaceField' } }
       );
     }
 

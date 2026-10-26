@@ -79,7 +79,10 @@ import type {
   IPostgresRecordMutationSnapshotCaptureSession,
   RecordMutationSnapshotTraceContext,
 } from './PostgresRecordMutationSnapshotCaptureService';
-import { DeferredInsertSeedSpool } from './PostgresTableRecordRepository.seed-spool';
+import {
+  createDeferredInsertSeedSpool,
+  type IDeferredInsertSeedSpool,
+} from './PostgresTableRecordRepository.seed-spool';
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
@@ -2047,7 +2050,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const seedContext = context.requestId ? context : { ...context, requestId: generateUuid() };
     const deferredTables = new Map<string, core.Table>();
-    let deferredSeeds: DeferredInsertSeedSpool | undefined;
+    let deferredSeeds: IDeferredInsertSeedSpool | undefined;
     let deferredScheduled = false;
     let hasEnqueuedSeeds = false;
 
@@ -2096,7 +2099,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             hasEnqueuedSeeds ||= enqueued.value;
           } else {
             if (!deferredSeeds) {
-              deferredSeeds = await DeferredInsertSeedSpool.create();
+              deferredSeeds = await createDeferredInsertSeedSpool();
               const spool = deferredSeeds;
               core
                 .getUnitOfWorkTransaction(context, 'data')
@@ -2226,7 +2229,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   private scheduleDeferredInsertSeeds(
     context: core.IExecutionContext,
     tables: ReadonlyMap<string, core.Table>,
-    spool: DeferredInsertSeedSpool,
+    spool: IDeferredInsertSeedSpool,
     recordCount: number,
     orchestration?: core.IBatchMutationOrchestration
   ): void {

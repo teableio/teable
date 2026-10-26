@@ -1046,10 +1046,12 @@
       "invalidPath": "נתיב הקובץ המצורף אינו חוקי",
       "fileSizeExceedsMaximumLimit": "גודל הקובץ חורג מהמגבלה המרבית של {{maxSize}}",
       "invalidUploadType": "סוג ההעלאה אינו חוקי",
-      "urlReject": "כתובת ה-URL נדחתה או שאינה נגישה"
+      "urlReject": "כתובת ה-URL נדחתה או שאינה נגישה",
+      "avatarTypeUnsupported": "סוג הקובץ אינו נתמך. מותרים רק JPEG, PNG ו-WebP."
     },
     "email": {
-      "testEmailError": "שגיאה בתצורת הדואר {{message}}"
+      "testEmailError": "שגיאה בתצורת הדואר {{message}}",
+      "transporterInvalid": "תצורת הדואר אינה חוקית: {{detail}}"
     },
     "auth": {
       "invalidConfirm": "קלט האישור אינו חוקי",
@@ -1067,7 +1069,10 @@
       "emailOrPasswordIncorrect": "האימייל או הסיסמה שגויים",
       "accountDeactivated": "החשבון הזה הושבת על ידי מנהל המערכת",
       "accountLockedOut": "החשבון ננעל בעקבות יותר מדי ניסיונות כניסה שנכשלו. יש לנסות שוב מאוחר יותר.",
-      "passwordLoginDisabled": "הכניסה באמצעות סיסמה מושבתת"
+      "passwordLoginDisabled": "הכניסה באמצעות סיסמה מושבתת",
+      "captchaFailed": "אימות האנוש נכשל. יש לרענן ולנסות שוב.",
+      "captchaServiceUnavailable": "שירות האימות אינו זמין זמנית. יש לנסות שוב.",
+      "mobileExchangeInvalid": "בקשת הכניסה אינה חוקית או שתוקפה פג. יש להיכנס שוב מהאפליקציה."
     },
     "automation": {
       "buttonClickTriggerDuplicated": "שדה הכפתור הזה כבר משויך לאוטומציה {{name}}[{{id}}], יש לבחור שדה כפתור אחר",
@@ -1115,7 +1120,16 @@
       "webhookTriggerNotFound": "טריגר ה-webhook לא נמצא",
       "emailReceivedTriggerNotFound": "הטריגר EmailReceived לא נמצא",
       "emailConnectorNotAvailable": "שירות מחבר האימייל אינו זמין",
-      "listMailboxesFailed": "טעינת רשימת תיבות הדואר נכשלה: {{detail}}"
+      "listMailboxesFailed": "טעינת רשימת תיבות הדואר נכשלה: {{detail}}",
+      "codeUploadFailed": "העלאת הקוד המהודר נכשלה: {{detail}}",
+      "invalidInput": "הקלט אינו חוקי: {{detail}}",
+      "recordsRequired": "נדרשות רשומות",
+      "codeRequired": "נדרש קוד והוא אינו יכול להיות ריק",
+      "scriptCompileFailed": "הידור הסקריפט נכשל: {{detail}}",
+      "scriptExecutionFailed": "הרצת הסקריפט נכשלה: {{detail}}",
+      "scriptTimeout": "הרצת הסקריפט חרגה מהזמן המוקצב (אין תגובה תוך {{timeout}}ms)",
+      "sandboxUnavailable": "לא ניתן להתחבר לשרת ה-sandbox. יש לוודא ששרת ה-sandbox פועל.",
+      "sandboxError": "שגיאה בשרת ה-sandbox: {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "שירות גריפת הנתונים אינו מוגדר",
@@ -1128,7 +1142,8 @@
       "oauthCodeExchangeFailed": "החלפת קוד ה-OAuth נכשלה: {{detail}}",
       "oauthTokenRefreshFailed": "רענון אסימון ה-OAuth נכשל: {{detail}}",
       "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}",
-      "providerUnsupported": "חיבורי {{provider}} אינם נתמכים עוד ולא ניתן להעניק אותם"
+      "providerUnsupported": "חיבורי {{provider}} אינם נתמכים עוד ולא ניתן להעניק אותם",
+      "callbackFailed": "טיפול בקריאה החוזרת של ההרשאה נכשל: {{detail}}"
     },
     "space": {
       "notFound": "המרחב לא נמצא",
@@ -1141,14 +1156,18 @@
       "notBelongToOrg": "המרחב הזה אינו שייך לארגון",
       "invalidSpaceIds": "מזהי המרחבים אינם חוקיים: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "הושג המספר המרבי של מרחבים חינמיים בבעלותך ({{max}}). כדי ליצור מרחב חינמי חדש יש לשדרג מרחב קיים או למחוק אחד.",
-      "freeOwnedSpaceLimitExceededOther": "עבור {{name}} הושג המספר המרבי של מרחבים חינמיים בבעלות ({{max}})."
+      "freeOwnedSpaceLimitExceededOther": "עבור {{name}} הושג המספר המרבי של מרחבים חינמיים בבעלות ({{max}}).",
+      "dataDbTargetError": "שגיאה במסד נתוני היעד: {{detail}}",
+      "migrationUnavailableCrossSpace": "העברת מסד נתונים ברמת המרחב אינה זמינה כאשר הפניות בין מרחבים מופעלות"
     },
     "base": {
       "notFound": "הפרויקט לא נמצא",
       "cannotAccess": "אין הרשאה לגשת לפרויקט {{baseId}}",
       "anchorNotFound": "פרויקט העוגן {{anchorId}} לא נמצא",
       "baseAndSpaceMismatch": "הפרויקט {{baseId}} והמרחב {{spaceId}} אינם תואמים",
-      "templateNotFound": "התבנית {{templateId}} לא נמצאה"
+      "templateNotFound": "התבנית {{templateId}} לא נמצאה",
+      "crossDataDbDuplicateUnsupported": "שכפול רשומות בין מסדי נתונים שונים של מרחבים עדיין אינו נתמך",
+      "moveJobNotCancellable": "לא ניתן לבטל את משימת ההעברה במצב {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "נדרש מזהה פרויקט",
@@ -1188,7 +1207,8 @@
       "notFound": "הצ'אט לא נמצא",
       "accessDenied": "אין לך הרשאה לגשת לצ'אט הזה",
       "archived": "השיחה בארכיון",
-      "serverAuthoredType": "צ'אטים מסוג {{type}} נוצרים על ידי השרת"
+      "serverAuthoredType": "צ'אטים מסוג {{type}} נוצרים על ידי השרת",
+      "messageTooLong": "ההודעה ארוכה מדי ({{length}} תווים, מקסימום {{max}})"
     },
     "dashboard": {
       "notFound": "לוח הבקרה לא נמצא"
@@ -1295,7 +1315,12 @@
       "exceedMaxReadRows": "חריגה ממגבלת השורות המרבית לקריאה",
       "invalidCellValueType": "סוג ערך התא אינו חוקי",
       "exceedMaxCopyCells": "חריגה ממגבלת התאים המרבית להעתקה",
-      "exceedMaxPasteCells": "חריגה ממגבלת התאים המרבית להדבקה"
+      "exceedMaxPasteCells": "חריגה ממגבלת התאים המרבית להדבקה",
+      "linkAutoCreateSelfLinkUnsupported": "לא ניתן ליצור רשומות מקושרות אוטומטית בהדבקה לשדה קישור שמקשר לטבלה שלו עצמו. במקום זאת, יש להדביק כותרות של רשומות קיימות.",
+      "linkAutoCreateRequiresPrimaryLookup": "לא ניתן ליצור רשומות מקושרות אוטומטית בהדבקה, כי שדה הקישור הזה מציג שדה שאינו השדה הראשי של הטבלה המקושרת.",
+      "linkAutoCreateRequiresTextPrimary": "לא ניתן ליצור רשומות מקושרות אוטומטית בהדבקה, כי השדה הראשי של הטבלה המקושרת אינו ערך טקסט יחיד.",
+      "linkAutoCreateComputedPrimaryUnsupported": "לא ניתן ליצור רשומות מקושרות אוטומטית בהדבקה, כי השדה הראשי של הטבלה המקושרת הוא שדה מחושב.",
+      "linkAutoCreateMissingRequiredFields": "לא ניתן ליצור רשומות מקושרות אוטומטית בהדבקה, כי בטבלה המקושרת יש שדות חובה ללא ערכי ברירת מחדל: {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "סוג השדה {{type}} אינו נתמך",
@@ -1362,7 +1387,21 @@
         "notSupportReset": "שדה כפתור אינו תומך באיפוס"
       },
       "primaryCannotBeLookup": "לא ניתן להגדיר את השדה הראשי כשדה שליפה",
-      "primaryFieldAlreadyExists": "לטבלה כבר יש שדה ראשי"
+      "primaryFieldAlreadyExists": "לטבלה כבר יש שדה ראשי",
+      "nameRequired": "שם השדה לא יכול להיות ריק",
+      "rollupFormattingMismatch": "העיצוב של שדה הצבירה אינו תואם לסוג התוצאה שלו. יש לבחור עיצוב מחדש ולנסות שוב.",
+      "conditionalRollupFormattingMismatch": "העיצוב אינו תואם לסוג התוצאה של הצבירה המותנית. יש לבחור עיצוב מחדש ולנסות שוב.",
+      "conditionalRollupLookupFieldUnavailable": "לא ניתן לקבוע את סוג התוצאה של הצבירה המותנית הזו, כי השדה הנצבר או הטבלה שלו אינם זמינים. יש לבחור אותו מחדש.",
+      "selectDefaultValueNotInChoices": "ערך ברירת המחדל \"{{value}}\" אינו אחת מהאפשרויות. יש לבחור ערך ברירת מחדל מחדש.",
+      "timeZoneInvalid": "אזור הזמן {{timeZone}} אינו נתמך. יש לבחור אזור זמן אחר.",
+      "formulaCompileFailed": "לא ניתן לחשב את הנוסחה הזו. יש לפשט אותה או לבדוק את השדות שהיא מפנה אליהם.",
+      "formulaParamTextNotAllowed": "הפונקציה {{func}} אינה מקבלת ערך טקסט בפרמטר {{index}}. יש לבדוק את סוגי השדות שהיא מפנה אליהם.",
+      "formulaParamNumberOrDateRequired": "הפונקציה {{func}} מקבלת בפרמטר {{index}} רק מספר או תאריך. יש לבדוק את סוגי השדות שהיא מפנה אליהם.",
+      "formulaParamTextRequired": "הפונקציה {{func}} מקבלת בפרמטר {{index}} רק ערך טקסט. יש לבדוק את סוגי השדות שהיא מפנה אליהם.",
+      "linkTitleFillLimitExceeded": "בכל כתיבה אפשר להוסיף לתא קישור עד {{max}} רשומות",
+      "buttonClickConflict": "הכפתור שונה על ידי בקשה אחרת. יש ללחוץ עליו שוב.",
+      "buttonUndoConflict": "הכפתור השתנה במהלך ביטול הפעולה או הביצוע החוזר. יש לנסות שוב.",
+      "linkTitlePrimaryNotText": "לא ניתן להתאים רשומות מקושרות לפי טקסט, כי השדה הראשי של הטבלה המקושרת אינו ערך טקסט יחיד."
     },
     "view": {
       "notFound": "התצוגה לא נמצאה",
@@ -1379,7 +1418,11 @@
       "notEnoughGapToShuffleRow": "אין מספיק מרווח לסידור מחדש של השורה",
       "shareNotEnabled": "שיתוף התצוגה אינו מופעל",
       "shareAlreadyEnabled": "שיתוף התצוגה כבר מופעל",
-      "shareAlreadyDisabled": "שיתוף התצוגה כבר מושבת"
+      "shareAlreadyDisabled": "שיתוף התצוגה כבר מושבת",
+      "versionConflict": "התצוגה הזו שונתה זה עתה על ידי פעולה אחרת. יש לרענן ולנסות שוב.",
+      "nameAlreadyExists": "כבר קיימת בטבלה הזו תצוגה בשם {{name}}",
+      "manualSortUnsupportedViewType": "מיון ידני נתמך רק בתצוגות רשת",
+      "formRequiredFieldsMissing": "יש למלא את כל שדות החובה לפני השליחה"
     },
     "billing": {
       "insufficientCredit": "אין מספיק קרדיטים",
@@ -1390,7 +1433,14 @@
       "exceedMaxAutomationRunLimit": "חריגה ממגבלת ההרצות המרבית של האוטומציות",
       "manualSubscriptionNotSupported": "ניהול מנוי עצמאי אינו זמין במרחב הזה. לשדרוג, להורדת דרגה או לשינויים אחרים במנוי, יש לפנות לתמיכה של Teable.",
       "appSumoSubscriptionNotSupported": "לא ניתן לשנות מנויי AppSumo דרך הממשק הזה. יש לנהל את המנוי ב-AppSumo.",
-      "customerNotFound": "לא נמצאה רשומת לקוח לחיוב עבור המרחב הזה."
+      "customerNotFound": "לא נמצאה רשומת לקוח לחיוב עבור המרחב הזה.",
+      "trialUsed": "תקופת הניסיון כבר נוצלה",
+      "subscriptionPaused": "המנוי שלך מושהה. יש לפנות לתמיכה כדי לחדש או לבטל אותו לפני תחילת מנוי חדש.",
+      "noSubscriptionToRevert": "אין מנוי Stripe לביטול",
+      "portalUnavailable": "לא ניתן לפתוח את פורטל החיוב. יש לנסות שוב מאוחר יותר.",
+      "planNotAvailable": "אפשרות התוכנית הזו אינה זמינה עוד למנויים חדשים.",
+      "seatLimitExceeded": "אין מספיק מושבים שנרכשו. יש להוסיף מושבים כדי להזמין עוד משתפי פעולה.",
+      "creditAddOnRetired": "תוספת הקרדיטים החוזרת הופסקה. במקומה יש לבחור בתוכנית שלך רמת קרדיטים גדולה יותר."
     },
     "aggregation": {
       "searchQueryRequired": "נדרשת מחרוזת חיפוש",
@@ -1425,7 +1475,9 @@
       "validateActionFailed": "אימות פעולת ה-AI של השדה נכשל",
       "generateFailed": "ההפקה באמצעות AI נכשלה",
       "unsupportedActionType": "סוג פעולת ה-AI אינו נתמך",
-      "geminiImageNotSupportedViaGateway": "הפקת תמונות ב-Gemini אינה נתמכת דרך AI Gateway. יש להגדיר במקום זאת ספק Google ישיר."
+      "geminiImageNotSupportedViaGateway": "הפקת תמונות ב-Gemini אינה נתמכת דרך AI Gateway. יש להגדיר במקום זאת ספק Google ישיר.",
+      "requestFailed": "בקשת ה-AI נכשלה: {{detail}}",
+      "imageTestUnsupportedForGateway": "בדיקת יצירת תמונות עדיין אינה נתמכת במודלים של AI Gateway"
     },
     "skill": {
       "notFound": "המיומנות לא נמצאה",
@@ -1488,7 +1540,9 @@
       "notSupportTableIndex": "סוג האינדקס של הטבלה אינו נתמך",
       "createTableIndexError": "יצירת האינדקס לטבלה נכשלה",
       "dropTableIndexError": "מחיקת האינדקס של הטבלה נכשלה",
-      "notFoundPrimaryField": "לא נמצא שדה ראשי בטבלה"
+      "notFoundPrimaryField": "לא נמצא שדה ראשי בטבלה",
+      "duplicateCrossSpaceField": "הטבלה הזו מכילה שדות בין מרחבים ולא ניתן לשכפל אותה",
+      "nameRequired": "שם הטבלה לא יכול להיות ריק"
     },
     "export": {
       "notSupportViewType": "סוג התצוגה {{viewType}} אינו נתמך לייצוא"
@@ -1497,7 +1551,14 @@
       "notSupportedFileFormat": "פורמט הקובץ אינו נתמך, נתמכים רק {{supportType}}, וסוג התוכן של הקובץ הוא {{fileFormat}}",
       "notSupportedFileType": "סוג הקובץ לייבוא אינו נתמך",
       "exceedMaxFieldsLength": "מספר השדות בטבלה אינו יכול לעלות על {{maxFieldsLength}}, וכעת יש {{length}}",
-      "tooManyConcurrentImports": "יותר מדי משימות ייבוא פעילות ({{current}}/{{max}}). יש לנסות שוב מאוחר יותר."
+      "tooManyConcurrentImports": "יותר מדי משימות ייבוא פעילות ({{current}}/{{max}}). יש לנסות שוב מאוחר יותר.",
+      "failed": "הייבוא נכשל: {{detail}}",
+      "noImportableData": "לא נמצאו נתונים לייבוא בלשוניות שנבחרו",
+      "csvParseError": "שגיאה בניתוח CSV בשורה {{row}}: {{detail}}",
+      "csvNoColumns": "אין בקובץ ה-CSV עמודות לייבוא",
+      "excelSheetNoColumns": "אין בגיליון עמודות לייבוא",
+      "columnIndexOutOfRange": "עמודה {{index}} מחוץ לטווח. בשורת הכותרות יש רק {{count}} עמודות.",
+      "invalidDotteaStructure": "מבנה קובץ ה-.tea אינו חוקי או אינו נתמך. יש לייצא שוב את הפרויקט ולנסות שוב."
     },
     "invitation": {
       "disallowSpaceInvitation": "מנהל המערכת חסם הזמנות למרחבים במופע הנוכחי",
@@ -1519,7 +1580,8 @@
       "parentBaseOrSpaceTrashed": "לא ניתן לשחזר את הטבלה הזו מכיוון שגם הפרויקט או המרחב שמכיל אותה נמצא באשפה",
       "parentBaseTrashed": "לא ניתן לשחזר את הפריט הזה מכיוון שגם הפרויקט שמכיל אותו נמצא באשפה",
       "parentNotFound": "משאב האב לא נמצא",
-      "tableNotFound": "פריט הטבלה לא נמצא באשפה"
+      "tableNotFound": "פריט הטבלה לא נמצא באשפה",
+      "restoreFieldInvalidSnapshot": "התצורה של השדה שנמחק אינה חוקית, ולכן לא ניתן לשחזר אותו."
     },
     "license": {
       "invalid": "הרישיון אינו חוקי",
@@ -1543,7 +1605,9 @@
       "emailNotSpaceUser": "כתובת האימייל אינה שייכת למשתמש במרחב"
     },
     "mail": {
-      "failedToSendEmail": "שליחת האימייל נכשלה"
+      "failedToSendEmail": "שליחת האימייל נכשלה",
+      "recipientRequired": "אחד מהשדות \"to\" או \"bcc\" חייב להכיל כתובות אימייל חוקיות של נמענים",
+      "allUnsubscribed": "כל הנמענים ביטלו את המינוי. יש לבדוק את רשימת המבטלים."
     },
     "user": {
       "disallowSignUp": "מנהל המערכת חסם הרשמה במופע הנוכחי",
@@ -1571,7 +1635,9 @@
       "updateFailed": "עדכון הרשומה נכשל",
       "noFileOrUrlProvided": "לא סופק קובץ או URL",
       "createRecordsEmpty": "רשימת הרשומות ליצירה אינה יכולה להיות ריקה",
-      "duplicateFailed": "שכפול הרשומה נכשל"
+      "duplicateFailed": "שכפול הרשומה נכשל",
+      "linkedRecordNotExist": "לא ניתן לשמור: אחת הרשומות המקושרות כבר לא קיימת. יש לרענן ולנסות שוב.",
+      "fieldValueInvalid": "ערך לא חוקי בשדה \"{{fieldName}}\""
     },
     "typecast": {
       "cellValueValidationFailed": "אימות ערך התא נכשל"
@@ -1616,7 +1682,32 @@
       "siteInfoBeforeGeneration": "יש ליצור את האפליקציה לפני התאמת פרטי האתר שלה",
       "generationEditingConflict": "הפקה באמצעות AI עורכת כעת את האפליקציה הזו. יש לנסות שוב את עדכון הקובץ לאחר שהיא תסתיים.",
       "siteInfoLayoutNotEditable": "הקוד של האפליקציה הזו אינו בנוי לקבל עריכות של פרטי האתר כאן. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות את כותרת האתר, התיאור או הסמל.",
-      "siteInfoManagedInCode": "האפליקציה הזו מנהלת את כותרת האתר והתיאור בקוד. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות אותם."
+      "siteInfoManagedInCode": "האפליקציה הזו מנהלת את כותרת האתר והתיאור בקוד. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות אותם.",
+      "accessLinkSetupFailed": "הגדרת קישור הגישה נכשלה: {{detail}}",
+      "zipNotAppProject": "קובץ ה-ZIP שיובא אינו פרויקט אפליקציה חוקי: חסר package.json בשורש הפרויקט",
+      "zipExceedsLimits": "קובץ ה-ZIP שיובא חורג ממגבלות ארכיון האפליקציה ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "שירות האימייל לא הוגדר, ולכן אי אפשר לשלוח קוד",
+        "googleNotConfigured": "פרטי הכניסה עם Google לא הוגדרו",
+        "loginDisabled": "הכניסה אינה מופעלת באפליקציה הזו",
+        "googleDisabled": "הכניסה עם Google אינה מופעלת באפליקציה הזו",
+        "teableDisabled": "הכניסה עם Teable אינה מופעלת באפליקציה הזו",
+        "userTableMissing": "טבלת המשתמשים שנבחרה אינה קיימת בפרויקט הזה",
+        "emailFieldMissing": "בטבלת המשתמשים שנבחרה אין שדה אימייל",
+        "emailFieldType": "שדה האימייל חייב להיות שדה טקסט בשורה אחת הניתן לכתיבה",
+        "signInStateInvalid": "מצב הכניסה אינו חוקי או שתוקפו פג. יש להיכנס שוב.",
+        "domainNotAllowed": "ההרשמה מוגבלת לדומיינים מסוימים של אימייל. הדומיין של האימייל שלך אינו ברשימת המותרים.",
+        "inviteOnly": "האפליקציה הזו זמינה רק בהזמנה. יש לפנות למנהל האפליקציה כדי לבקש גישה.",
+        "emailMissing": "לא ניתן היה לאחזר את כתובת האימייל שלך"
+      },
+      "previewOriginNotReady": "אפליקציית התצוגה המקדימה אינה מוכנה. יש לרענן את התצוגה המקדימה ולנסות שוב.",
+      "publishedOriginNotReady": "האפליקציה שפורסמה אינה מוכנה. יש לפרסם את האפליקציה ולנסות שוב.",
+      "versionSourceMissing": "לא נמצאו קובצי מקור עבור גרסה {{version}}",
+      "accessLink": {
+        "dnsMisconfigured": "הגדרת קישור הגישה נכשלה: ה-DNS של הדומיין לא הוגדר כראוי"
+      },
+      "customDomainNotConfigured": "לא הוגדר דומיין מותאם אישית",
+      "vercelTokenNotConfigured": "אסימון Vercel לא הוגדר בהגדרות App Builder"
     },
     "reward": {
       "notFound": "התגמול לא נמצא",
@@ -1644,6 +1735,49 @@
     "connectorEvent": {
       "accountNotGranted": "טריגר אירוע המחבר זקוק לחשבון מחובר שהוענק למשאב זה",
       "notEnabled": "אירועי מחבר אינם מופעלים בפריסה זו"
+    },
+    "requestFailed": "הבקשה נכשלה",
+    "operationFailed": "הפעולה נכשלה: {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "האופרטור {{operator}} אינו תומך בהשוואה לשדה אחר"
+    },
+    "oauth": {
+      "invalidRequest": "בקשת OAuth אינה חוקית: {{detail}}",
+      "deviceCodeUsed": "הקוד הזה כבר נוצל. יש לקבל קוד חדש במכשיר."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "הפרמטר אינו חוקי: {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "מפתח ה-API של AI Proxy לא נמצא"
+    },
+    "github": {
+      "linkStateInvalid": "מצב הקישור ל-GitHub אינו חוקי או שתוקפו פג",
+      "accountMismatch": "GitHub אימת אותך כ-{{authorizedLogin}}, אך החיבור שנבחר שייך ל-{{accountLogin}}. יש להיכנס ל-GitHub כ-{{accountLogin}} ולנסות שוב.",
+      "registryNotConfigured": "סנכרון GitHub דורש git registry, שלא הוגדר בפריסה הזו",
+      "repoNameInvalid": "שמות מאגרים יכולים להכיל רק אותיות, ספרות, \".\", \"-\" ו-\"_\"",
+      "installStateInvalid": "מצב ההתקנה של GitHub אינו חוקי או שתוקפו פג",
+      "installationIdInvalid": "מזהה ההתקנה אינו חוקי"
+    },
+    "im": {
+      "feishuNotConfigured": "פרטי הגישה של אפליקציית Feishu לא הוגדרו",
+      "slackNotConfigured": "Slack לא הוגדר. מנהל המערכת צריך להגדיר את אפליקציית Slack בהגדרות שילוב IM."
+    },
+    "tableProvisionPending": "מבנה הטבלה מתעדכן. יש לנסות שוב בעוד רגע.",
+    "computed": {
+      "pausedWriteBlocked": "החישובים מושהים לצורך תחזוקה, ולכן לא ניתן לשמור את השינוי הזה כרגע. יש לנסות שוב מאוחר יותר."
+    },
+    "undoRedo": {
+      "inProgress": "פעולת ביטול או ביצוע חוזר עדיין מתבצעת. יש להמתין רגע ולנסות שוב.",
+      "busy": "ביטול פעולה וביצוע חוזר עסוקים כרגע. יש לנסות שוב.",
+      "unsupportedCommandVersion": "הפעולה הזו נרשמה בגרסה ישנה יותר, ולא ניתן עוד לבטל אותה או לבצע אותה מחדש."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "בטבלה הזו כבר מתבצעת משימת אינדקס ({{taskId}}). יש להמתין לסיומה ולנסות שוב."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "הטבלה המקושרת כבר לא קיימת, ולכן לא ניתן לתקן את הקישור הזה אוטומטית."
     }
   },
   "usageLimitBanner": {

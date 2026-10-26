@@ -48,7 +48,7 @@ overrides:
   sqlite3>tar: ^7.5.22
   sqlite3>node-gyp: ^12.4.0
   '@storybook/builder-webpack5>webpack-dev-middleware': ^7.4.6
-  rollup-plugin-terser>serialize-javascript: ^7.1.2
+  rollup-plugin-terser>serialize-javascript: ^7.1.4
   rollup-plugin-postcss>cssnano: ^7.1.9
   sockjs>uuid: ^11.1.1
   istanbul-lib-processinfo>uuid: ^11.1.1
@@ -61,3 +61,10 @@ overrides:
   follow-redirects: ^1.16.1
   dompurify: ^3.4.17
   '@effect/cli>toml': ^5.0.1
+  'body-parser@1': ^1.20.9
+  'body-parser@2': ^2.4.0
+  'undici@6': ^6.29.1
+  'undici@8': ^8.12.3
+  'fast-uri@3': ^3.1.9
+  'fast-uri@4': ^4.2.3
+  '@nestjs/platform-express>multer': 2.5.0

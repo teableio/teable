@@ -21,6 +21,10 @@ export const selectFieldOptionCountExceededError = (maxChoicesPerField: number):
   domainError.validation({
     code: 'validation.field.select_options_limit',
     message: `Select field options cannot exceed ${maxChoicesPerField} choices`,
+    localization: {
+      i18nKey: 'httpErrors.limit.selectChoicesMax',
+      context: { max: maxChoicesPerField },
+    },
   });
 
 export const ensureSelectFieldOptionCountWithinLimit = (

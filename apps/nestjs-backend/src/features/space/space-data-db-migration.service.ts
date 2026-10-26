@@ -1019,7 +1019,8 @@ export class SpaceDataDbMigrationService {
     if (!isCrossSpaceReferenceAllowed()) return;
     throw new CustomHttpException(
       'Per-space data DB migration is unavailable while ALLOW_CROSS_SPACE_REFERENCE is enabled',
-      HttpErrorCode.VALIDATION_ERROR
+      HttpErrorCode.VALIDATION_ERROR,
+      { localization: { i18nKey: 'httpErrors.space.migrationUnavailableCrossSpace' } }
     );
   }
 
@@ -1759,10 +1760,7 @@ export class SpaceDataDbMigrationService {
       throw new CustomHttpException(`Migration job ${jobId} not found`, HttpErrorCode.NOT_FOUND);
     }
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
 
     const context = this.buildBaseSchemaCopyContext(job, options);
@@ -3062,10 +3060,7 @@ export class SpaceDataDbMigrationService {
   ): Promise<IDeltaReplayStats> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const sourceDataDb = await this.getSourceDataDbForJob(job);
@@ -4188,10 +4183,7 @@ export class SpaceDataDbMigrationService {
   async pauseTargetComputedForJob(jobId: string): Promise<{ created: boolean }> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
     const client = this.clientFactory(decryptDataDbUrl(job.targetConnection.encryptedUrl));
 
@@ -4231,10 +4223,7 @@ export class SpaceDataDbMigrationService {
   async resumeTargetComputedForJob(jobId: string): Promise<{ deleted: number }> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
     const client = this.clientFactory(decryptDataDbUrl(job.targetConnection.encryptedUrl));
 
@@ -4313,10 +4302,7 @@ export class SpaceDataDbMigrationService {
   async normalizeTargetComputedOutboxForJob(jobId: string): Promise<{ reset: number }> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
     const baseIds = this.normalizeInventory(job.inventory, job.spaceId).baseIds;
     if (!baseIds.length) {
@@ -4430,11 +4416,10 @@ export class SpaceDataDbMigrationService {
     pause: { conflictedScopeIds: string[] }
   ) {
     if (!pause.conflictedScopeIds.length) return;
-    throw new CustomHttpException(
+    throw new Error(
       `Migration job ${jobId} could not own the ${side} computed pause for scope(s) ${pause.conflictedScopeIds.join(
         ', '
-      )}; another active pause holds them. Release it before continuing.`,
-      HttpErrorCode.VALIDATION_ERROR
+      )}; another active pause holds them. Release it before continuing.`
     );
   }
 
@@ -4626,10 +4611,7 @@ export class SpaceDataDbMigrationService {
       );
     }
     if (!job.completedAt) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no switch timestamp`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no switch timestamp`);
     }
     this.assertRollbackSourceSupported(job);
     await this.migrationJobClient.spaceDataDbMigrationJob.update({
@@ -5189,10 +5171,7 @@ export class SpaceDataDbMigrationService {
       throw new CustomHttpException(`Migration job ${jobId} not found`, HttpErrorCode.NOT_FOUND);
     }
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
 
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
@@ -5550,10 +5529,7 @@ export class SpaceDataDbMigrationService {
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const spaceIds = this.getInventorySpaceIds(inventory);
     if (!job.targetConnectionId) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
 
     const switchOnCompletion = job.switchOnCompletion === true;
@@ -5747,10 +5723,7 @@ export class SpaceDataDbMigrationService {
   ): Promise<IValidationStats> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
 
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
@@ -6219,11 +6192,11 @@ export class SpaceDataDbMigrationService {
       if (!preflight.ok) {
         throw this.buildMigrationPreflightException(preflight);
       }
-      throw new CustomHttpException(
-        this.sanitizeTargetErrorMessage(error, dataDb.url),
-        HttpErrorCode.VALIDATION_ERROR,
-        { preflight }
-      );
+      const detail = this.sanitizeTargetErrorMessage(error, dataDb.url);
+      throw new CustomHttpException(detail, HttpErrorCode.VALIDATION_ERROR, {
+        preflight,
+        localization: { i18nKey: 'httpErrors.space.dataDbTargetError', context: { detail } },
+      });
     }
   }
 
@@ -7326,10 +7299,7 @@ export class SpaceDataDbMigrationService {
       throw new CustomHttpException(`Migration job ${jobId} not found`, HttpErrorCode.NOT_FOUND);
     }
     if (!job.targetConnection?.encryptedUrl) {
-      throw new CustomHttpException(
-        `Migration job ${jobId} has no target connection`,
-        HttpErrorCode.VALIDATION_ERROR
-      );
+      throw new Error(`Migration job ${jobId} has no target connection`);
     }
     if (job.state === 'succeeded' && job.switchOnCompletion === true) {
       throw new CustomHttpException(

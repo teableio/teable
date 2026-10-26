@@ -207,6 +207,38 @@ describe('parameterized sort', () => {
     expect(query.bind({ by: sortableId, dir: 'asc', extra: 1 }).isErr()).toBe(true);
   });
 
+  it('binds an allow-listed relation target and rejects an undeclared source', () => {
+    const targetTableId = `tbl${'b'.repeat(16)}`;
+    const linkFieldId = `fld${'d'.repeat(16)}`;
+    const targetFieldId = `fld${'e'.repeat(16)}`;
+    const sourceSort = (source: string) => ({
+      field: { type: 'parameter', name: 'by' },
+      order: { type: 'parameter', name: 'dir' },
+      allowed: [{ source, fieldId: targetFieldId }],
+    });
+    const query = DataQueryDefinition.create({
+      ...records,
+      version: 2,
+      relations: { owner: { linkFieldId, tableId: targetTableId } },
+      parameters: { by: { type: 'string' }, dir: { type: 'string' } },
+      sort: [sourceSort('owner')],
+    })._unsafeUnwrap();
+
+    expect(query.bind({ by: targetFieldId, dir: 'asc' })._unsafeUnwrap().sort).toEqual([
+      { source: 'owner', fieldId: targetFieldId, order: 'asc' },
+    ]);
+    expect(query.bind({ by: sortableId, dir: 'asc' }).isErr()).toBe(true);
+
+    const undeclared = DataQueryDefinition.create({
+      ...records,
+      version: 2,
+      relations: { owner: { linkFieldId, tableId: targetTableId } },
+      parameters: { by: { type: 'string' }, dir: { type: 'string' } },
+      sort: [sourceSort('missing')],
+    });
+    expect(undeclared._unsafeUnwrapErr().code).toBe('data_query.join_source_unknown');
+  });
+
   it('skips an absent optional sort but rejects an undeclared or mistyped parameter', () => {
     const query = DataQueryDefinition.create({
       ...records,

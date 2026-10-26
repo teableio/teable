@@ -844,7 +844,10 @@ export class ConditionalRollupField
     if (cellValueType.equals(CellValueType.number())) {
       if (formatting && !(formatting instanceof NumberFormattingValue))
         return err(
-          domainError.validation({ message: 'Invalid ConditionalRollupField formatting' })
+          domainError.validation({
+            message: 'Invalid ConditionalRollupField formatting',
+            localization: { i18nKey: 'httpErrors.field.conditionalRollupFormattingMismatch' },
+          })
         );
       if (showAs && !(showAs instanceof NumberShowAsValue))
         return err(domainError.validation({ message: 'Invalid ConditionalRollupField showAs' }));
@@ -862,7 +865,10 @@ export class ConditionalRollupField
     if (cellValueType.equals(CellValueType.dateTime())) {
       if (formatting && !(formatting instanceof DateTimeFormattingValue))
         return err(
-          domainError.validation({ message: 'Invalid ConditionalRollupField formatting' })
+          domainError.validation({
+            message: 'Invalid ConditionalRollupField formatting',
+            localization: { i18nKey: 'httpErrors.field.conditionalRollupFormattingMismatch' },
+          })
         );
       if (showAs)
         return err(domainError.validation({ message: 'Invalid ConditionalRollupField showAs' }));

@@ -1,5 +1,16 @@
+import {
+  computedRuntimeConfigFromEnv,
+  type ComputedReliabilityRuntimeConfig,
+} from '@teable/v2-adapter-table-repository-postgres';
 import { computedReliabilityReadinessSql } from '@teable/v2-postgres-schema';
 import type { Knex } from 'knex';
+
+/**
+ * Composition root: the adapter takes explicit configuration, so every host caller
+ * resolves the switches from the process environment at the point of use.
+ */
+export const computedReliabilityConfig = (): ComputedReliabilityRuntimeConfig =>
+  computedRuntimeConfigFromEnv(process.env).reliability ?? {};
 
 export const reliabilityTable = (db: Knex, schema: string | undefined, name: string) =>
   schema ? db(name).withSchema(schema) : db(name);
@@ -41,10 +52,7 @@ export const applyComputedReliabilityBaseFilter = (
   routedAway: ReadonlyArray<string>,
   column = 'base_id'
 ): Knex.QueryBuilder => {
-  const allowed = (process.env.COMPUTED_RELIABILITY_BASE_IDS ?? '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean);
+  const allowed = computedReliabilityConfig().baseIds ?? [];
   if (allowed.length) query.whereIn(column, allowed);
   if (target.storage === 'byodb')
     query.whereIn(

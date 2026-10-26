@@ -26,6 +26,7 @@ import { RecordRemovalTombstoneService } from '../../record-removal-cold/record-
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { getErrorLocalization } from '../../v2/v2-http-error';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 import {
@@ -330,10 +331,7 @@ export class UndoRedoService {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
         return {
-          body: {
-            status: 'failed',
-            errorMessage: error.message,
-          },
+          body: this.toFailedBody(error),
           engine: 'v1',
         };
       }
@@ -383,10 +381,7 @@ export class UndoRedoService {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
         return {
-          body: {
-            status: 'failed',
-            errorMessage: error.message,
-          },
+          body: this.toFailedBody(error),
           engine: 'v1',
         };
       }
@@ -408,11 +403,25 @@ export class UndoRedoService {
     };
   }
 
-  private toV2FailedBody(error: { message: string; code?: string }): IUndoVo {
+  private toV2FailedBody(error: {
+    message: string;
+    code?: string;
+    localization?: IUndoVo['errorLocalization'];
+  }): IUndoVo {
     return {
       status: 'failed',
       errorMessage: error.message,
       ...(error.code ? { errorCode: error.code } : {}),
+      ...(error.localization ? { errorLocalization: error.localization } : {}),
+    };
+  }
+
+  private toFailedBody(error: Error): IUndoVo {
+    const localization = getErrorLocalization(error);
+    return {
+      status: 'failed',
+      errorMessage: error.message,
+      ...(localization ? { errorLocalization: localization } : {}),
     };
   }
 
@@ -485,10 +494,7 @@ export class UndoRedoService {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
         return {
-          body: {
-            status: 'failed',
-            errorMessage: error.message,
-          },
+          body: this.toFailedBody(error),
           engine: 'v2',
         };
       }
@@ -563,6 +569,7 @@ export class UndoRedoService {
             engine: 'v2',
             message: replayResult.error.message,
             code: replayResult.error.code,
+            localization: replayResult.error.localization,
           });
           return;
         }
@@ -592,6 +599,7 @@ export class UndoRedoService {
           // The stream already answered 200, so a refused replay travels as an
           // error event carrying the http error code instead of a 403.
           ...(error instanceof CustomHttpException ? { code: error.code } : {}),
+          localization: getErrorLocalization(error),
         });
       } finally {
         queue.close();
@@ -670,6 +678,9 @@ export class UndoRedoService {
         mode,
         engine: response.engine,
         message: response.body.errorMessage ?? 'Undo/redo failed',
+        ...(response.body.errorLocalization
+          ? { localization: response.body.errorLocalization }
+          : {}),
       };
     }
     return {

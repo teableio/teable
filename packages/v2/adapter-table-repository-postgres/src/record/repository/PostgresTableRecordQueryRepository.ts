@@ -50,6 +50,8 @@ import {
   type TableRecordOrderBy,
   createSearchTraceAttributes,
   createTableQueryTraceAttributes,
+  recordPageProbeLimit,
+  resolveRecordPageBoundary,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -937,6 +939,10 @@ export class PostgresTableRecordQueryRepository
             tableNameOnly,
             fieldMaskSqlMap
           );
+          // The page boundary rule lives in core; this read only honors it by
+          // fetching the probe row.
+          const pageLimit = options?.pagination?.limit().toNumber();
+          const pageFetchLimit = recordPageProbeLimit(pageLimit);
           if (options?.cursor) {
             if (cursorSeekPlan === null) {
               return err(
@@ -953,8 +959,8 @@ export class PostgresTableRecordQueryRepository
                 })
               );
             }
-            if (options.pagination) {
-              queryBuilder.limit(options.pagination.limit().toNumber());
+            if (pageFetchLimit !== undefined) {
+              queryBuilder.limit(pageFetchLimit);
             }
             if (cursorSeekPlan === 'auto-number') {
               if (parsedCursor.kind !== 'auto-number') {
@@ -991,8 +997,8 @@ export class PostgresTableRecordQueryRepository
                 ) as Expression<SqlBool>
               );
             }
-          } else if (options?.pagination) {
-            queryBuilder.limit(options.pagination.limit().toNumber());
+          } else if (options?.pagination && pageFetchLimit !== undefined) {
+            queryBuilder.limit(pageFetchLimit);
             queryBuilder.offset(options.pagination.offset().toNumber());
           }
 
@@ -1291,7 +1297,11 @@ export class PostgresTableRecordQueryRepository
               groupsPromise,
             ]);
 
-            const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
+            // The probe row proves a successor; core drops it so it never
+            // reaches records, match indexes, or the cursor.
+            const { page: pageRows, hasMore } = resolveRecordPageBoundary(rows, pageLimit);
+
+            const records = mapRowsToReadModels(fieldColumns, pageRows, orderColumns);
             const groups = groupResult?.groups;
             const total = groupResult
               ? groupResult.total
@@ -1299,12 +1309,12 @@ export class PostgresTableRecordQueryRepository
                 ? Number.parseInt(countResult.count, 10)
                 : records.length;
             const pageRecordIds = options?.includeSearchFieldMatches
-              ? rows.map((row) => String(row[RECORD_ID_COLUMN]))
+              ? pageRows.map((row) => String(row[RECORD_ID_COLUMN]))
               : [];
             const shouldLoadMatchFlags =
               options?.includeSearchFieldMatches &&
               searchFieldMatches.length > 0 &&
-              rows.length > 0;
+              pageRows.length > 0;
             const matchFlagsDbSpan = shouldLoadMatchFlags
               ? context.tracer?.startSpan('teable.table.query.db.search_match', {
                   ...actualSearchAttributes,
@@ -1343,7 +1353,7 @@ export class PostgresTableRecordQueryRepository
             );
             const searchMatches = options?.includeSearchFieldMatches
               ? yield* this.mapSearchMatches(
-                  rows,
+                  pageRows,
                   searchFieldMatches,
                   options.pagination?.offset().toNumber() ?? 0,
                   options.searchIndexMode ?? 'matched',
@@ -1351,14 +1361,11 @@ export class PostgresTableRecordQueryRepository
                   matchFlagsByRecordId
                 )
               : undefined;
-
-            const pageLimit = options?.pagination?.limit().toNumber();
-            const pageIsFull = pageLimit != null && records.length === pageLimit;
             const nextCursor =
-              pageIsFull && cursorSeekPlan !== null
+              hasMore && cursorSeekPlan !== null
                 ? cursorSeekPlan === 'auto-number'
                   ? getLastAutoNumberCursor(records)
-                  : buildCursorToken(cursorSeekPlan, rows[rows.length - 1])
+                  : buildCursorToken(cursorSeekPlan, pageRows[pageRows.length - 1])
                 : undefined;
             return ok({
               records,
@@ -1366,7 +1373,7 @@ export class PostgresTableRecordQueryRepository
               ...(groups ? { groups } : {}),
               ...(searchAccessPath ? { searchAccessPath } : {}),
               ...(searchMatches ? { searchMatches } : {}),
-              ...(pageLimit != null ? { hasMore: pageIsFull } : {}),
+              ...(pageLimit !== undefined ? { hasMore } : {}),
               ...(nextCursor ? { nextCursor } : {}),
             });
           } catch (error) {

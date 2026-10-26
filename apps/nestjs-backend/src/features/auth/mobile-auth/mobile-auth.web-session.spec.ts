@@ -1,7 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { ClsService } from 'nestjs-cls';
 import { describe, expect, it, vi } from 'vitest';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import type { SessionService } from '../session/session.service';
 import { MobileAuthController } from './mobile-auth.controller';
@@ -113,7 +114,7 @@ describe('MobileAuthController.webSession', () => {
 
     await expect(
       controller.webSession(query, undefined, asReq(makeRequest()), asRes(makeResponse()))
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(CustomHttpException);
     expect(service.consumeWebSessionCode).not.toHaveBeenCalled();
   });
 

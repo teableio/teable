@@ -1043,10 +1043,12 @@
       "invalidPath": "Invalid attachment path",
       "fileSizeExceedsMaximumLimit": "File size exceeds the maximum limit of {{maxSize}}",
       "invalidUploadType": "Invalid upload type",
-      "urlReject": "URL rejected or inaccessible"
+      "urlReject": "URL rejected or inaccessible",
+      "avatarTypeUnsupported": "Unsupported file type. Only JPEG, PNG, and WebP are allowed."
     },
     "email": {
-      "testEmailError": "Mail config error {{message}}"
+      "testEmailError": "Mail config error {{message}}",
+      "transporterInvalid": "Invalid mail configuration: {{detail}}"
     },
     "auth": {
       "invalidConfirm": "Invalid confirmation input",
@@ -1064,7 +1066,10 @@
       "emailOrPasswordIncorrect": "Email or password is incorrect",
       "accountDeactivated": "This account has been deactivated by the administrator",
       "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "Password login is disabled"
+      "passwordLoginDisabled": "Password login is disabled",
+      "captchaFailed": "Human verification failed. Please refresh and try again.",
+      "captchaServiceUnavailable": "Verification service is temporarily unavailable. Please try again.",
+      "mobileExchangeInvalid": "The sign-in request is invalid or has expired. Please sign in from the app again."
     },
     "connectorEvent": {
       "accountNotGranted": "The connector event trigger needs a connected account granted to this resource",
@@ -1116,7 +1121,16 @@
       "webhookTriggerNotFound": "Webhook trigger not found",
       "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
       "emailConnectorNotAvailable": "Email connector service not available",
-      "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
+      "listMailboxesFailed": "Failed to list mailboxes: {{detail}}",
+      "codeUploadFailed": "Failed to upload compiled code: {{detail}}",
+      "invalidInput": "Invalid input: {{detail}}",
+      "recordsRequired": "Records are required",
+      "codeRequired": "Code is required and cannot be empty",
+      "scriptCompileFailed": "Script compilation failed: {{detail}}",
+      "scriptExecutionFailed": "Script execution failed: {{detail}}",
+      "scriptTimeout": "Script execution timed out (no response within {{timeout}}ms)",
+      "sandboxUnavailable": "Cannot connect to the sandbox server. Check that the sandbox server is running.",
+      "sandboxError": "Sandbox server error: {{detail}}"
     },
     "scrape": {
       "apiKeyNotConfigured": "Scrape service is not configured",
@@ -1129,7 +1143,8 @@
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
       "userInfoFetchFailed": "Failed to get user info: {{detail}}",
-      "providerUnsupported": "{{provider}} connections are no longer supported and cannot be granted"
+      "providerUnsupported": "{{provider}} connections are no longer supported and cannot be granted",
+      "callbackFailed": "Failed to handle the authorization callback: {{detail}}"
     },
     "space": {
       "notFound": "Space not found",
@@ -1142,14 +1157,18 @@
       "notBelongToOrg": "This space not belong to the organization",
       "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
-      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}}).",
+      "dataDbTargetError": "Target database error: {{detail}}",
+      "migrationUnavailableCrossSpace": "Per-space data database migration is unavailable while cross-space references are enabled"
     },
     "base": {
       "notFound": "Project not found",
       "cannotAccess": "You don't have permission to access project {{baseId}}",
       "anchorNotFound": "Anchor project {{anchorId}} not found",
       "baseAndSpaceMismatch": "Project {{baseId}} and space {{spaceId}} mismatch",
-      "templateNotFound": "Template {{templateId}} not found"
+      "templateNotFound": "Template {{templateId}} not found",
+      "crossDataDbDuplicateUnsupported": "Duplicating records across different space data databases is not supported yet",
+      "moveJobNotCancellable": "Move job cannot be cancelled in state {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "Project ID is required",
@@ -1189,7 +1208,8 @@
       "notFound": "Chat not found",
       "accessDenied": "You are not allowed to access this chat",
       "archived": "Chat is archived",
-      "serverAuthoredType": "Chats of type {{type}} are created by the server"
+      "serverAuthoredType": "Chats of type {{type}} are created by the server",
+      "messageTooLong": "Message is too long ({{length}} characters, max {{max}})"
     },
     "dashboard": {
       "notFound": "Dashboard not found"
@@ -1296,7 +1316,12 @@
       "exceedMaxReadRows": "Exceed max read rows limit",
       "invalidCellValueType": "Invalid cell value type",
       "exceedMaxCopyCells": "Exceed max copy cells limit",
-      "exceedMaxPasteCells": "Exceed max paste cells limit"
+      "exceedMaxPasteCells": "Exceed max paste cells limit",
+      "linkAutoCreateSelfLinkUnsupported": "Cannot auto-create linked records from paste for a link field that links to its own table. Paste titles of existing records instead.",
+      "linkAutoCreateRequiresPrimaryLookup": "Cannot auto-create linked records from paste because this link field displays a non-primary field of the linked table.",
+      "linkAutoCreateRequiresTextPrimary": "Cannot auto-create linked records from paste because the primary field of the linked table is not a single text value.",
+      "linkAutoCreateComputedPrimaryUnsupported": "Cannot auto-create linked records from paste because the primary field of the linked table is a computed field.",
+      "linkAutoCreateMissingRequiredFields": "Cannot auto-create linked records from paste because the linked table has required fields without default values: {{fieldNames}}"
     },
     "field": {
       "unsupportedFieldType": "Unsupported field type {{type}}",
@@ -1363,7 +1388,21 @@
         "notSupportReset": "Button field does not support reset"
       },
       "primaryCannotBeLookup": "Primary field cannot be configured as a lookup field",
-      "primaryFieldAlreadyExists": "Table already has a primary field"
+      "primaryFieldAlreadyExists": "Table already has a primary field",
+      "nameRequired": "Field name cannot be empty",
+      "rollupFormattingMismatch": "The rollup formatting does not match its result type. Please reselect the formatting and try again.",
+      "conditionalRollupFormattingMismatch": "The formatting does not match the conditional rollup result type. Please reselect the formatting and try again.",
+      "conditionalRollupLookupFieldUnavailable": "Cannot determine the result type of this conditional rollup because the rolled-up field or its table is unavailable. Please reselect it.",
+      "selectDefaultValueNotInChoices": "The default value \"{{value}}\" is not one of the options. Please reselect the default value.",
+      "timeZoneInvalid": "Unsupported time zone: {{timeZone}}. Please choose another time zone.",
+      "formulaCompileFailed": "This formula cannot be calculated. Please simplify it or check the referenced fields.",
+      "formulaParamTextNotAllowed": "{{func}} cannot take a text value as parameter {{index}}. Check the referenced field types.",
+      "formulaParamNumberOrDateRequired": "{{func}} only accepts a number or date value as parameter {{index}}. Check the referenced field types.",
+      "formulaParamTextRequired": "{{func}} only accepts a text value as parameter {{index}}. Check the referenced field types.",
+      "linkTitleFillLimitExceeded": "A link cell can contain at most {{max}} records per write",
+      "buttonClickConflict": "The button was changed by another request. Please click it again.",
+      "buttonUndoConflict": "The button changed while undoing or redoing. Please try again.",
+      "linkTitlePrimaryNotText": "Cannot match linked records by text because the primary field of the linked table is not a single text value."
     },
     "view": {
       "notFound": "View not found",
@@ -1380,7 +1419,11 @@
       "notEnoughGapToShuffleRow": "Not enough gap to shuffle the row",
       "shareNotEnabled": "View sharing is not enabled",
       "shareAlreadyEnabled": "View sharing is already enabled",
-      "shareAlreadyDisabled": "View sharing is already disabled"
+      "shareAlreadyDisabled": "View sharing is already disabled",
+      "versionConflict": "This view was just changed by another operation. Please refresh and try again.",
+      "nameAlreadyExists": "A view named {{name}} already exists in this table",
+      "manualSortUnsupportedViewType": "Manual sort is only supported in grid views",
+      "formRequiredFieldsMissing": "Please fill in all required fields before submitting"
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
@@ -1394,7 +1437,11 @@
       "planNotAvailable": "This plan option is no longer available for new subscriptions.",
       "seatLimitExceeded": "Not enough purchased seats. Add seats to invite more collaborators.",
       "customerNotFound": "No billing customer record found for this space.",
-      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead."
+      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead.",
+      "trialUsed": "Trial period has already been used",
+      "subscriptionPaused": "Your subscription is paused. Contact support to resume or cancel it before starting a new subscription.",
+      "noSubscriptionToRevert": "There is no Stripe subscription to revert",
+      "portalUnavailable": "Unable to open the billing portal. Please try again later."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1429,7 +1476,9 @@
       "validateActionFailed": "Validate field AI action failed",
       "generateFailed": "AI generation failed",
       "unsupportedActionType": "Unsupported AI action type",
-      "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead."
+      "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead.",
+      "requestFailed": "AI request failed: {{detail}}",
+      "imageTestUnsupportedForGateway": "Image generation testing is not supported for AI Gateway models yet"
     },
     "skill": {
       "notFound": "Skill not found",
@@ -1492,7 +1541,9 @@
       "notSupportTableIndex": "Table index type is not supported",
       "createTableIndexError": "Failed to create table index",
       "dropTableIndexError": "Failed to drop table index",
-      "notFoundPrimaryField": "Primary field not found in table"
+      "notFoundPrimaryField": "Primary field not found in table",
+      "duplicateCrossSpaceField": "This table contains cross-space fields and cannot be duplicated",
+      "nameRequired": "Table name cannot be empty"
     },
     "export": {
       "notSupportViewType": "{{viewType}} view type is not supported for export"
@@ -1501,7 +1552,14 @@
       "notSupportedFileFormat": "File format is not supported, only {{supportType}} are supported, your file's content type is {{fileFormat}}",
       "notSupportedFileType": "Import file type not supported",
       "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}",
-      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later.",
+      "failed": "Import failed: {{detail}}",
+      "noImportableData": "No importable data found in the selected tabs",
+      "csvParseError": "CSV parse error at row {{row}}: {{detail}}",
+      "csvNoColumns": "The CSV file has no columns to import",
+      "excelSheetNoColumns": "The worksheet has no columns to import",
+      "columnIndexOutOfRange": "Column {{index}} is out of range. The header row only has {{count}} columns.",
+      "invalidDotteaStructure": "The .tea file structure is invalid or not supported. Please export the project again and retry."
     },
     "invitation": {
       "disallowSpaceInvitation": "The current instance disallow space invitation by the administrator",
@@ -1523,7 +1581,8 @@
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent project or space is also in trash",
       "parentBaseTrashed": "Unable to restore this item because its parent project is also in trash",
       "parentNotFound": "Parent resource not found",
-      "tableNotFound": "Table trash item not found"
+      "tableNotFound": "Table trash item not found",
+      "restoreFieldInvalidSnapshot": "The deleted field configuration is invalid and cannot be restored."
     },
     "license": {
       "invalid": "The license is invalid",
@@ -1547,7 +1606,9 @@
       "emailNotSpaceUser": "Email is not a space user"
     },
     "mail": {
-      "failedToSendEmail": "Failed to send email"
+      "failedToSendEmail": "Failed to send email",
+      "recipientRequired": "Either \"to\" or \"bcc\" must contain valid recipient emails",
+      "allUnsubscribed": "All recipients have unsubscribed. Check the unsubscribe list."
     },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",
@@ -1575,7 +1636,9 @@
       "updateFailed": "Failed to update record",
       "noFileOrUrlProvided": "No file or URL provided",
       "createRecordsEmpty": "Create records cannot be empty",
-      "duplicateFailed": "Failed to duplicate record"
+      "duplicateFailed": "Failed to duplicate record",
+      "linkedRecordNotExist": "Cannot save: a linked record no longer exists. Please refresh and try again.",
+      "fieldValueInvalid": "Invalid value for field \"{{fieldName}}\""
     },
     "typecast": {
       "cellValueValidationFailed": "Cell value validation failed"
@@ -1620,7 +1683,32 @@
       "siteInfoBeforeGeneration": "Generate the app before customizing its site info",
       "generationEditingConflict": "An AI generation is currently editing this app. Please retry the file update after it finishes.",
       "siteInfoLayoutNotEditable": "This app's code isn't set up to accept site info edits here. Send a chat message asking the AI to change the site title, description or icon instead.",
-      "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead."
+      "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead.",
+      "accessLinkSetupFailed": "Access link setup failed: {{detail}}",
+      "zipNotAppProject": "The imported ZIP is not a valid app project: package.json is missing at the project root",
+      "zipExceedsLimits": "The imported ZIP exceeds app archive limits ({{detail}})",
+      "auth": {
+        "smtpNotConfigured": "Email service is not configured, so a code cannot be sent",
+        "googleNotConfigured": "Google sign-in credentials are not configured",
+        "loginDisabled": "Login is not enabled for this app",
+        "googleDisabled": "Google sign-in is not enabled for this app",
+        "teableDisabled": "Teable sign-in is not enabled for this app",
+        "userTableMissing": "The selected user table does not exist in this project",
+        "emailFieldMissing": "The selected user table has no email field",
+        "emailFieldType": "The email field must be a writable single line text field",
+        "signInStateInvalid": "The sign-in session is invalid or has expired. Please sign in again.",
+        "domainNotAllowed": "Sign-up is restricted to specific email domains. Your email domain is not on the allowed list.",
+        "inviteOnly": "This app is invite-only. Contact the app administrator to request access.",
+        "emailMissing": "Your email address could not be retrieved"
+      },
+      "previewOriginNotReady": "The preview app is not ready. Reload the preview and try again.",
+      "publishedOriginNotReady": "The published app is not ready. Publish the app and try again.",
+      "versionSourceMissing": "No source files found for version {{version}}",
+      "accessLink": {
+        "dnsMisconfigured": "Access link setup failed: the domain DNS is not configured correctly"
+      },
+      "customDomainNotConfigured": "No custom domain configured",
+      "vercelTokenNotConfigured": "Vercel token is not configured in App Builder settings"
     },
     "reward": {
       "notFound": "Reward not found",
@@ -1645,7 +1733,49 @@
       "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
       "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
     },
-    "tableProvisionPending": "Table structure is updating. Please try again shortly."
+    "tableProvisionPending": "Table structure is updating. Please try again shortly.",
+    "requestFailed": "Request failed",
+    "operationFailed": "Operation failed: {{detail}}",
+    "filter": {
+      "operatorNoFieldReference": "Operator {{operator}} cannot compare against another field"
+    },
+    "oauth": {
+      "invalidRequest": "Invalid OAuth request: {{detail}}",
+      "deviceCodeUsed": "This code has already been used. Get a new code on your device."
+    },
+    "admin": {
+      "operationRejected": "{{detail}}",
+      "invalidParameter": "Invalid parameter: {{detail}}"
+    },
+    "aiProxy": {
+      "apiKeyNotFound": "AI proxy API key not found"
+    },
+    "github": {
+      "linkStateInvalid": "The GitHub link state is invalid or has expired",
+      "accountMismatch": "GitHub authorized you as {{authorizedLogin}}, but the selected connection belongs to {{accountLogin}}. Sign in to GitHub as {{accountLogin}} and try again.",
+      "registryNotConfigured": "GitHub sync requires the git registry, which is not configured on this deployment",
+      "repoNameInvalid": "Repository names may only contain letters, digits, \".\", \"-\" and \"_\"",
+      "installStateInvalid": "The GitHub install state is invalid or has expired",
+      "installationIdInvalid": "Invalid installation id"
+    },
+    "im": {
+      "feishuNotConfigured": "Feishu app credentials are not configured",
+      "slackNotConfigured": "Slack is not configured. An admin must configure the Slack app in IM integration settings."
+    },
+    "computed": {
+      "pausedWriteBlocked": "Calculations are paused for maintenance, so this change cannot be saved right now. Please try again later."
+    },
+    "undoRedo": {
+      "inProgress": "An undo or redo is still in progress. Please wait a moment and try again.",
+      "busy": "Undo and redo are busy right now. Please try again.",
+      "unsupportedCommandVersion": "This operation was recorded by an older version and can no longer be undone or redone."
+    },
+    "tableQueryOps": {
+      "tableTaskConflict": "This table already has an index task in progress ({{taskId}}). Please wait for it to finish and try again."
+    },
+    "integrity": {
+      "linkTargetTableMissing": "The linked table no longer exists, so this link cannot be repaired automatically."
+    }
   },
   "usageLimitBanner": {
     "viewDetail": "View details",

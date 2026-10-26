@@ -496,7 +496,7 @@ describe('v2 http createField (e2e)', () => {
       const viewAMeta = { ...(viewA.columnMeta as Record<string, { hidden?: boolean }>) };
       viewAMeta[notesFieldId] = {
         ...(viewAMeta[notesFieldId] ?? {}),
-        hidden: false,
+        hidden: true,
       };
 
       await ctx.testContainer.db
@@ -536,7 +536,7 @@ describe('v2 http createField (e2e)', () => {
         | undefined;
 
       expect(responseViewAMeta?.[newFieldId]?.hidden).toBe(true);
-      expect(responseViewAMeta?.[notesFieldId]?.hidden).toBe(false);
+      expect(responseViewAMeta?.[notesFieldId]?.hidden).toBe(true);
       expect(responseViewBMeta?.[newFieldId]?.hidden).toBeUndefined();
 
       const fetchedTable = await getTableById(table.id);
@@ -550,7 +550,7 @@ describe('v2 http createField (e2e)', () => {
         | undefined;
 
       expect(fetchedViewAMeta?.[newFieldId]?.hidden).toBe(true);
-      expect(fetchedViewAMeta?.[notesFieldId]?.hidden).toBe(false);
+      expect(fetchedViewAMeta?.[notesFieldId]?.hidden).toBe(true);
       expect(fetchedViewBMeta?.[newFieldId]?.hidden).toBeUndefined();
     } finally {
       await ctx.deleteTable(table.id).catch(() => undefined);
