@@ -50,7 +50,7 @@ export const fieldSnapshotSchema = z.object({
     .array(
       z.object({
         recordId: z.string(),
-        value: z.unknown(),
+        value: z.unknown().optional(),
       })
     )
     .optional(),

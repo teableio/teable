@@ -1346,6 +1346,10 @@
         "nextQuestion": "Next question"
       },
       "completion": {
+        "workedFor": "Worked for {{time}}",
+        "worked": "Worked",
+        "stoppedAfter": "You stopped after {{time}}",
+        "stopped": "You stopped this reply",
         "noDetails": "No details available",
         "model": "Model",
         "contextWindow": "Context Window",
@@ -1487,7 +1491,7 @@
       "next": "Next",
       "submit": "Submit"
     },
-    "newChat": "New Chat",
+    "newChat": "New chat",
     "alreadyInNewChat": "You're already in a new chat",
     "initChatFailed": "Failed to initialize chat",
     "clearChat": "Clear Chat",
@@ -1496,6 +1500,7 @@
     "close": "Collapse",
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
+    "clearChatHint": "Deletes the chat history and starts a new chat. The app itself is unaffected.",
     "dontShowAgain": "Don't show again",
     "modelSwitchTitle": "Switch model",
     "modelSwitchHint": "This conversation is currently handled by {{previous}}, and the new model takes over on next send.",
@@ -1643,7 +1648,8 @@
       "skill": "Loading skill",
       "foundFiles": "Found {{count}} files",
       "listedEntries": "{{count}} entries",
-      "moreTools": "+{{count}} more tools",
+      "ranCommands_one": "Ran {{count}} command",
+      "ranCommands_other": "Ran {{count}} commands",
       "moreItems": "+{{count}} more",
       "fallbackName": "Tool",
       "questionCount_one": "{{count}} question",
@@ -1722,8 +1728,6 @@
       "passwordSubmit": "Confirm",
       "shareNotFound": "This shared artifact is unavailable",
       "gallery": "My Artifacts",
-      "galleryEmpty": "No artifacts yet — ask AI to create one in any chat.",
-      "searchPlaceholder": "Search artifacts",
       "fixWithAi": "Fix with AI",
       "noPermission": "You do not have access to this artifact"
     },

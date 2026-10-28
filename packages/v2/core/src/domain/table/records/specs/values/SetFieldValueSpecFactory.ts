@@ -39,8 +39,10 @@ export class SetFieldValueSpecFactory {
     value: unknown,
     schema?: FieldCellValueSchema
   ): Result<ICellValueSpec, DomainError> {
-    // Null values use ClearFieldValueSpec for optimized SQL generation
-    if (value === null || value === undefined) {
+    const cleared = (): Result<ICellValueSpec, DomainError> => {
+      // Null values use ClearFieldValueSpec for optimized SQL generation, but a schema may
+      // normalize an emptied cell (e.g. an empty link list) to null after this guard, so the
+      // not-null rule must be applied to that normalized value too.
       if (field.notNull().toBoolean()) {
         return err(
           domainError.validation({
@@ -59,6 +61,11 @@ export class SetFieldValueSpecFactory {
         );
       }
       return ok(ClearFieldValueSpec.create(field));
+    };
+
+    // Null values use ClearFieldValueSpec for optimized SQL generation
+    if (value === null || value === undefined) {
+      return cleared();
     }
     const schemaResult = schema ? ok(schema) : field.accept(FieldCellValueSchemaVisitor.create());
     return schemaResult.andThen((schema) => {
@@ -86,6 +93,11 @@ export class SetFieldValueSpecFactory {
       }
 
       // Step 3: Create the SetValueSpec with the validated value
+      // Schemas may normalize an emptied cell (e.g. an empty link list or a cleared string)
+      // to null; use the same guarded clear the raw null input takes instead of a typed set.
+      if (parseResult.data === null) {
+        return cleared();
+      }
       const factoryVisitor = new SetFieldValueSpecFactoryVisitor(parseResult.data, {
         // Strict (non-typecast) writes are API input, so bare `{ id }` user
         // references must resolve within the table's collaborators (v1 scope).

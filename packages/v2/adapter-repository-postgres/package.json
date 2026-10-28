@@ -41,7 +41,7 @@
     "neverthrow": "8.2.0",
     "transliteration": "2.3.5",
     "ts-pattern": "5.8.0",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

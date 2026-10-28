@@ -8,6 +8,7 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableDataSafetyLimitFieldOperationPlugin } from '../application/services/TableDataSafetyLimitFieldOperationPlugin';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -18,6 +19,8 @@ import { TableProvisionReady } from '../domain/table/events/TableProvisionReady'
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -133,6 +136,7 @@ const addTextFields = (table: Table, count: number, prefix: string): Table => {
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
+  updated: Table[] = [];
   nextUpdateResult: TableUpdatePersistResult | void = undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -170,6 +174,7 @@ class FakeTableRepository implements ITableRepository {
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
+    this.updated.push(table);
     const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
     if (index >= 0) {
       this.tables[index] = table;
@@ -1222,5 +1227,150 @@ describe('UpdateFieldHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expectFieldOperationPluginToBeSkipped(calls, FieldOperationKind.update);
+  });
+
+  it('vetoes two-way to one-way reciprocal deletion before host persistence', async () => {
+    const baseId = `bse${'m'.repeat(16)}`;
+    const hostTableId = `tbl${'n'.repeat(16)}`;
+    const foreignTableId = `tbl${'o'.repeat(16)}`;
+    const hostPrimaryId = `fld${'p'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'q'.repeat(16)}`;
+    const hostLinkId = `fld${'r'.repeat(16)}`;
+    const foreignLinkId = `fld${'s'.repeat(16)}`;
+    const base = BaseId.create(baseId)._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withId(TableId.create(hostTableId)._unsafeUnwrap())
+      .withBaseId(base)
+      .withName(TableName.create('Host')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(hostPrimaryId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .link()
+      .withId(FieldId.create(hostLinkId)._unsafeUnwrap())
+      .withName(FieldName.create('Foreign')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+          symmetricFieldId: foreignLinkId,
+          isOneWay: false,
+          fkHostTableName: 'host_foreign_link',
+          selfKeyName: '__fk_host',
+          foreignKeyName: '__fk_foreign',
+        })._unsafeUnwrap()
+      )
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+    const foreignTable = Table.builder()
+      .withId(TableId.create(foreignTableId)._unsafeUnwrap())
+      .withBaseId(base)
+      .withName(TableName.create('Foreign')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(foreignPrimaryId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .link()
+      .withId(FieldId.create(foreignLinkId)._unsafeUnwrap())
+      .withName(FieldName.create('Host')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: hostTableId,
+          lookupFieldId: hostPrimaryId,
+          symmetricFieldId: hostLinkId,
+          isOneWay: false,
+          fkHostTableName: 'host_foreign_link',
+          selfKeyName: '__fk_foreign',
+          foreignKeyName: '__fk_host',
+        })._unsafeUnwrap()
+      )
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(hostTable, foreignTable);
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    let undoAppendCount = 0;
+    const undoRedoService = {
+      async appendEntry() {
+        undoAppendCount += 1;
+        return ok(undefined);
+      },
+    } as unknown as UndoRedoStackService;
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      tableMapper,
+      tableUpdateFlow,
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([
+        {
+          name: 'reciprocal-update-delete-veto',
+          supports: (kind) => kind === FieldOperationKind.delete,
+          guard: () => err(domainError.forbidden({ message: 'reciprocal delete forbidden' })),
+        },
+      ]),
+      undoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateFieldCommand.create({
+        tableId: hostTableId,
+        fieldId: hostLinkId,
+        field: { options: { isOneWay: true } },
+      })._unsafeUnwrap()
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('reciprocal delete forbidden');
+    expect(tableRepository.updated).toEqual([]);
+    const storedHostLink = tableRepository.tables[0]?.getField(
+      (field) => field.id().toString() === hostLinkId
+    );
+    expect(storedHostLink?.isOk()).toBe(true);
+    const unchangedHostLink = storedHostLink?._unsafeUnwrap() as LinkField;
+    expect(unchangedHostLink.isOneWay()).toBe(false);
+    expect(unchangedHostLink.config().toDto()._unsafeUnwrap()).toMatchObject({
+      relationship: 'manyMany',
+      foreignTableId,
+      lookupFieldId: foreignPrimaryId,
+      symmetricFieldId: foreignLinkId,
+      isOneWay: false,
+      fkHostTableName: 'host_foreign_link',
+      selfKeyName: '__fk_host',
+      foreignKeyName: '__fk_foreign',
+    });
+    expect(undoAppendCount).toBe(0);
   });
 });

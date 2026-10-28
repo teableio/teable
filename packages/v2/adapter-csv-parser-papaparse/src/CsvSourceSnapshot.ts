@@ -9,6 +9,7 @@ import {
   isDomainError,
   type DomainError,
 } from '@teable/v2-core';
+import type { ISsrfSafeFetchFn } from '@teable/v2-utils';
 import { safeFetch } from '@teable/v2-utils/fetch';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -85,7 +86,8 @@ const snapshotStorageError = (cause: unknown): DomainError =>
   });
 
 export async function snapshotCsvSource(
-  url: string
+  url: string,
+  fetchFn: ISsrfSafeFetchFn = safeFetch
 ): Promise<Result<CsvSourceSnapshot, DomainError>> {
   const configuredMaxBytes = Number(
     typeof process !== 'undefined' ? process.env[CSV_SOURCE_MAX_BYTES_ENV] : undefined
@@ -117,7 +119,7 @@ export async function snapshotCsvSource(
   try {
     let response: Response;
     try {
-      response = await safeFetch(url);
+      response = await fetchFn(url);
     } catch (error) {
       throw sourceReadError(0, maxBytes, error);
     }

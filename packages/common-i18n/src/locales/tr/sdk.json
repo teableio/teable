@@ -1077,6 +1077,7 @@
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
       "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
       "runFailed": "Otomasyon çalıştırması başarısız oldu",
+      "runInterrupted": "Yürütme kesintiye uğradı; sonuç doğrulanamadı",
       "activatorDeactivated": "Bu otomasyonu etkinleştiren hesap devre dışı bırakıldı",
       "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",

@@ -184,7 +184,7 @@
     "tailwind-scrollbar": "3.1.0",
     "tailwindcss": "3.4.1",
     "type-fest": "4.14.0",
-    "zod": "4.1.8",
+    "zod": "4.6.7",
     "zod-validation-error": "4.0.2",
     "zustand": "4.5.2"
   }

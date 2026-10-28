@@ -1081,6 +1081,7 @@
       "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
       "testFailed": "Test d'automatisation échoué, veuillez vérifier la configuration d'automatisation",
       "runFailed": "L'exécution de l'automatisation a échoué",
+      "runInterrupted": "Exécution interrompue ; résultat non confirmé",
       "activatorDeactivated": "Le compte qui a activé cette automatisation a été désactivé",
       "nodeParseError": "{{name}} la configuration du nœud est incomplète ou contient des erreurs, veuillez vérifier la configuration du nœud",
       "nodeNeedTest": "{{name}} le nœud doit être testé",

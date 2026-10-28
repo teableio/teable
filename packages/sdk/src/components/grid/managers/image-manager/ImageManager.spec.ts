@@ -3,6 +3,8 @@ import { ImageManager } from './ImageManager';
 
 type Listener = () => void;
 
+const assignedSrcs: string[] = [];
+
 // happy-dom never fetches images, so drive load/error from the url itself.
 class FakeImage {
   width = 10;
@@ -14,9 +16,14 @@ class FakeImage {
   }
 
   set src(value: string) {
-    if (!value) return;
-    const outcome = value.includes('broken') ? 'error' : 'load';
-    setTimeout(() => this.listeners[outcome]?.forEach((listener) => listener()), 0);
+    assignedSrcs.push(value);
+    // Browsers fire `error` for an empty src too.
+    const outcome = !value || value.includes('broken') ? 'error' : 'load';
+    setTimeout(() => {
+      const listeners = this.listeners[outcome] ?? [];
+      this.listeners[outcome] = [];
+      listeners.forEach((listener) => listener());
+    }, 0);
   }
 
   decode() {
@@ -33,6 +40,7 @@ describe('ImageManager', () => {
 
   afterEach(() => {
     globalThis.Image = originalImage;
+    vi.unstubAllGlobals();
   });
 
   it('tells a failed load apart from one still in flight, and redraws its cells', async () => {
@@ -58,5 +66,43 @@ describe('ImageManager', () => {
     expect(manager.loadOrGetImage(url, 0, 0)).toBeUndefined();
     await vi.waitFor(() => expect(manager.loadOrGetImage(url, 0, 0)).toBeInstanceOf(FakeImage));
     expect(manager.hasFailed(url)).toBe(false);
+  });
+
+  it('drops a load evicted before its frame without fetching or an unhandled rejection', async () => {
+    // Frames come after already queued tasks, like the `error` an empty src fires.
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(0), 16)
+    );
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      const manager = new ImageManager();
+      manager.setCallback(vi.fn());
+      manager.setWindow({ x: 0, y: 0, width: 5, height: 20 }, 0);
+      for (let row = 0; row < 14; row++) {
+        manager.loadOrGetImage(`https://example.com/${row}.png`, 0, row);
+      }
+      await vi.waitFor(() =>
+        expect(manager.loadOrGetImage('https://example.com/13.png', 0, 13)).toBeInstanceOf(
+          FakeImage
+        )
+      );
+      // Scrolling rows 0-12 away fills the shared pool.
+      manager.setWindow({ x: 0, y: 13, width: 5, height: 20 }, 0);
+
+      // The active cell is drawn even when scrolled away, then evicted by the same draw;
+      // with the pool full, cancel() empties src and the element fires `error`.
+      const evictedUrl = 'https://example.com/active.png';
+      manager.loadOrGetImage(evictedUrl, 0, 0);
+      manager.setWindow({ x: 0, y: 40, width: 5, height: 20 }, 0);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(unhandled).toEqual([]);
+      expect(assignedSrcs).not.toContain(evictedUrl);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
   });
 });

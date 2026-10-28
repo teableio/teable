@@ -3,16 +3,17 @@ import { create } from 'zustand';
 export enum PersonalSettingTab {
   Profile = 'profile',
   System = 'system',
-  Notifications = 'notifications',
   Integration = 'integration',
+  DeveloperTools = 'developer-tools',
+  // Developer tools' sub-tabs: opening one selects Developer tools with that sub-tab shown.
   PersonalAccessToken = 'personal-access-token',
   OAuthApp = 'oauth-app',
-  EnvVariable = 'env-variable',
-  License = 'license',
   TeableSkill = 'teable-skill',
   Mcp = 'mcp',
+  EnvVariable = 'env-variable',
+  License = 'license',
+  Artifacts = 'artifacts',
   ArchivedChats = 'archived-chats',
-  DeviceSessions = 'device-sessions',
 }
 
 export type SettingDialogTab = string;

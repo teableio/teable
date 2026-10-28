@@ -45,7 +45,7 @@ import {
   type QueryResult,
 } from 'kysely';
 import { err } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import type { DynamicDB } from '../../query-builder';
@@ -972,7 +972,24 @@ describe('ComputedFieldUpdater', () => {
       },
     } as unknown as IExecutionContext;
 
-    const result = await updater.acquireLocks(plan, context, { wait: true, waitTimeoutMs: 5_000 });
+    // The deadline is read from Date.now(), and an awaited query (reading the
+    // current lock_timeout) runs before the first arm, so on real time a busy
+    // runner shaves a millisecond or two off the first budget. Drive the clock
+    // from the recorded queries instead: each waiting lock statement takes 1s.
+    const waitedLocks = () =>
+      driver.queries.filter(
+        (query) => query.sql.includes('pg_advisory_xact_lock') && !query.sql.includes('pg_try')
+      ).length;
+    const clockStart = Date.now();
+    const clock = vi
+      .spyOn(Date, 'now')
+      .mockImplementation(() => clockStart + waitedLocks() * 1_000);
+    let result: Awaited<ReturnType<typeof updater.acquireLocks>>;
+    try {
+      result = await updater.acquireLocks(plan, context, { wait: true, waitTimeoutMs: 5_000 });
+    } finally {
+      clock.mockRestore();
+    }
     expect(result.isOk()).toBe(true);
 
     // Record keys are acquired one statement at a time so lock_timeout can be
@@ -988,13 +1005,9 @@ describe('ComputedFieldUpdater', () => {
     const armed = driver.queries
       .filter((query) => query.sql.includes("set_config('lock_timeout'"))
       .map((query) => Number(query.parameters[0]));
-    // One arm per waiting statement (covering key + 2 record keys) then a restore.
-    expect(armed).toHaveLength(4);
-    expect(armed.slice(0, 3).every((value) => value > 0 && value <= 5_000)).toBe(true);
-    expect(armed[0]).toBe(5_000);
-    expect(armed[1]).toBeLessThanOrEqual(armed[0] as number);
-    expect(armed[2]).toBeLessThanOrEqual(armed[1] as number);
-    expect(armed[3]).toBe(0);
+    // One arm per waiting statement (covering key + 2 record keys) then a
+    // restore; each arm gets what is left of the single 5s deadline.
+    expect(armed).toEqual([5_000, 4_000, 3_000, 0]);
   });
 
   it('loads tables referenced only by seedAllTableIds before dirty seeding', async () => {

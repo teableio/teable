@@ -35,7 +35,12 @@ import { DataDbBadge } from './DataDbBadge';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
 
-export const SpaceInnerPage: React.FC = () => {
+/**
+ * The space's page: its name, plan and actions above its projects and collaborators. With
+ * `title`, a page about the space's projects instead (the chat-first shell's Projects page):
+ * that title in place of the space's name and badges, and only creating and importing projects.
+ */
+export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isCloud = useIsCloud();
@@ -210,7 +215,9 @@ export const SpaceInnerPage: React.FC = () => {
             'flex shrink-0 px-5 sm:px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
           )}
         >
-          {isMobile ? (
+          {title ? (
+            <h1 className="min-w-0 truncate text-2xl font-semibold">{title}</h1>
+          ) : isMobile ? (
             <div className="flex min-w-0 flex-col items-start justify-start gap-2">
               <div className="flex w-full items-center justify-start gap-2 text-start">
                 <SpaceRenaming
@@ -245,9 +252,10 @@ export const SpaceInnerPage: React.FC = () => {
 
           <SpaceActionBar
             space={space}
-            buttonSize={'xs'}
+            buttonSize="sm"
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             disallowSpaceInvitation={disallowSpaceInvitation}
+            variant={title ? 'projects' : 'space'}
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}

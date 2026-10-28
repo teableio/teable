@@ -57,7 +57,8 @@ export const deleteUserSchemaRo = z.object({
   confirm: z
     .string()
     .describe('Please enter DELETE to confirm')
-    .refine((val) => val === 'DELETE', {
+    // `: boolean` keeps `confirm` typed as string; since zod 4.2 a predicate refine narrows it.
+    .refine((val): boolean => val === 'DELETE', {
       message: 'Please enter DELETE to confirm',
     })
     .meta({ type: 'string' }),

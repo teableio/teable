@@ -1057,13 +1057,18 @@ export class CollaboratorService {
     return spaceId;
   }
 
-  async getCurrentUserCollaboratorsBaseAndSpaceArray(searchRoles?: IRole[]) {
+  /** `resourceIds` narrows the answer to those spaces and bases, when all of them aren't needed. */
+  async getCurrentUserCollaboratorsBaseAndSpaceArray(
+    searchRoles?: IRole[],
+    resourceIds?: string[]
+  ) {
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         principalId: { in: [userId, ...(departmentIds || [])] },
         ...(searchRoles && searchRoles.length > 0 ? { roleName: { in: searchRoles } } : {}),
+        ...(resourceIds ? { resourceId: { in: resourceIds } } : {}),
       },
       select: {
         roleName: true,

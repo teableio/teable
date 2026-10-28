@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isoDateTimeWithOffsetSchema } from '../domain/shared/isoDateTimeSchema';
 import {
   recordConditionDateModeSchema,
   recordConditionOperatorSchema,
@@ -18,8 +19,8 @@ const dateValueSchema = z
   .object({
     mode: recordFilterDateModeSchema,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ offset: true }).optional(),
-    exactDateEnd: z.string().datetime({ offset: true }).optional(),
+    exactDate: isoDateTimeWithOffsetSchema().optional(),
+    exactDateEnd: isoDateTimeWithOffsetSchema().optional(),
     timeZone: z.string(),
   })
   .superRefine((val, ctx) => {

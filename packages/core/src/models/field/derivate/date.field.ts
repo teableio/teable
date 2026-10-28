@@ -3,6 +3,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
+import { isoDateTimeSchema } from '../../../utils/iso-datetime';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -17,7 +18,7 @@ extend(utc);
 // Stored date/time values can come from client-side `Date.toISOString()` (millisecond precision)
 // or from database JSON aggregation (which may omit fractional seconds when zero).
 // Accept both, while still requiring an explicit timezone offset (e.g. `Z`, `+00:00`).
-export const dataFieldCellValueSchema = z.string().datetime({ offset: true });
+export const dataFieldCellValueSchema = isoDateTimeSchema({ offset: true });
 
 export type IDateCellValue = z.infer<typeof dataFieldCellValueSchema>;
 

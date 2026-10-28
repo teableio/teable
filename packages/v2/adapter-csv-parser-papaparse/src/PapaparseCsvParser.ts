@@ -6,6 +6,7 @@ import type {
   ICsvParser,
 } from '@teable/v2-core';
 import { domainError } from '@teable/v2-core';
+import type { ISsrfSafeFetchFn } from '@teable/v2-utils';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import Papa from 'papaparse';
@@ -22,6 +23,13 @@ import { parseCsvRows } from './parseCsvRows';
  * - 远程 URL 流式下载解析
  */
 export class PapaparseCsvParser implements ICsvParser {
+  private fetchFn?: ISsrfSafeFetchFn;
+
+  withFetch(fetchFn: ISsrfSafeFetchFn): this {
+    this.fetchFn = fetchFn;
+    return this;
+  }
+
   parse(source: CsvSource, options?: CsvParseOptions): Result<CsvParseResult, DomainError> {
     const delimiter = options?.delimiter;
     const hasHeader = options?.hasHeader ?? true;
@@ -106,6 +114,7 @@ export class PapaparseCsvParser implements ICsvParser {
       delimiter: options?.delimiter,
       encoding: options?.encoding,
       skipEmptyLines: (options?.skipEmptyLines ?? true) ? 'greedy' : false,
+      fetchFn: this.fetchFn,
     });
     try {
       const first = await iterator.next();

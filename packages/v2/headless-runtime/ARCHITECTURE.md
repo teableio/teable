@@ -44,11 +44,15 @@ be shared with other applications.
 Writes that change formula, lookup, or rollup values enqueue computed work:
 
 ```ts
-await runtime.flushComputed();
+const report = await runtime.flushComputed();
 ```
 
-Callers must drain before reading dependent computed values. The worker is not
-started automatically, and `close()` does not drain pending work.
+This is a bounded work attempt, not a global idle barrier. The report includes
+live `pending`, `scheduled`, `processing`, `paused`, `deadLetter`, `nextRunAt`
+and `drained`; `pending > 0` is never idle and dead letters keep `drained: false`.
+`close()` rejects new work, performs bounded computed and durable flush attempts, and throws
+`runtime.close_incomplete` after disposal when pending or dead-letter work remains. A settlement
+timeout does not dispose the runtime, so the host may retry close.
 
 ## Realtime
 
@@ -58,10 +62,13 @@ inject another `IRealtimeEngine`; the runtime registers the same record, table,
 field, and view projections exactly once against the selected engine.
 
 The host owns an injected engine's lifecycle. Runtime `close()` does not dispose
-it. Projection delivery is deferred: `flushRealtime()` waits several event-loop
-ticks for projection scheduling, but does not acknowledge delivery or persistence
-by a custom transport. The local default has no cross-process transport or
-conflict resolution.
+it. For `LocalRealtimeEngine`, `flushRealtime()` settles both the event bus and
+tracked direct projection tasks before reporting failures. A custom transport
+returns `unsupported` without a host acknowledgement. `flushBackground()` polls
+the durable domain-event worker when registered, settles work it scheduled, and
+reports durable counts. PGlite uses an in-memory projection journal (no durable
+worker), so fresh writes create no orphan rows; pre-existing rows without a
+worker surface as `worker_unavailable`.
 
 ## Attachments
 
@@ -89,9 +96,9 @@ projections remain PostgreSQL-first.
 
 ## Known limitations
 
-- PGlite is single-writer; multi-process or multi-tab concurrent writes are not
-  supported.
-- Realtime is single-process and deferred; collaboration requires a server.
+- Persistent Node/Bun PGlite is protected by a fail-fast cross-process directory
+  lock; `memory://` and browser `idb://` do not use that filesystem lock.
+- Realtime is single-process; collaboration requires a server.
 - The local attachment store is Node/Bun-only; thumbnails require a host-provided
   thumbnailer. GC is explicit, not a background scheduler.
 - `@teable/v2-app-bundle` composes on top of this package; app-bundle

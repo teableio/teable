@@ -18,7 +18,8 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 
-export const AddPassword = () => {
+/** Sets a first password on an account that signed up without one; `children` opens it. */
+export const AddPassword = ({ children }: Readonly<{ children: React.ReactNode }>) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const { t } = useTranslation('common');
@@ -56,11 +57,7 @@ export const AddPassword = () => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={'link'} className="text-xs text-blue-500 hover:text-blue-700">
-          {t('settings.account.addPassword.title')}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="md:w-80">
         <DialogHeader>
           <DialogTitle className="text-center text-sm">

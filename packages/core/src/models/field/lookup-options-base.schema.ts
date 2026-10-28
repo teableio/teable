@@ -1,4 +1,4 @@
-import { z } from '../../zod';
+import { strictUnionMember, z } from '../../zod';
 import { filterSchema } from '../view/filter';
 import { SortFunc } from '../view/sort';
 import { CONDITIONAL_QUERY_MAX_LIMIT } from './conditional.constants';
@@ -170,21 +170,28 @@ function getLookupOptionsError(input: Record<string, unknown>) {
   return undefined;
 }
 
-export const lookupOptionsVoSchema = z.union(
-  [lookupLinkOptionsVoSchema.strict(), lookupConditionalOptionsVoSchema.strict()],
-  {
-    error: (issue) => {
-      if (issue.input && typeof issue.input === 'object') {
-        return getLookupOptionsError(issue.input as Record<string, unknown>);
-      }
-      return undefined;
-    },
-  }
-);
+const lookupOptionsVoMembers = [
+  strictUnionMember(lookupLinkOptionsVoSchema),
+  strictUnionMember(lookupConditionalOptionsVoSchema),
+] as const;
+
+const lookupOptionsRoMembers = [
+  strictUnionMember(lookupLinkOptionsRoSchema),
+  strictUnionMember(lookupConditionalOptionsRoSchema),
+] as const;
+
+export const lookupOptionsVoSchema = z.union(lookupOptionsVoMembers, {
+  error: (issue) => {
+    if (issue.input && typeof issue.input === 'object') {
+      return getLookupOptionsError(issue.input as Record<string, unknown>);
+    }
+    return undefined;
+  },
+});
 
 export const lookupOptionsRoSchema = z.preprocess(
   normalizeLookupOptionsRoInput,
-  z.union([lookupLinkOptionsRoSchema.strict(), lookupConditionalOptionsRoSchema.strict()], {
+  z.union(lookupOptionsRoMembers, {
     error: (issue) => {
       if (issue.input && typeof issue.input === 'object') {
         const input = issue.input as Record<string, unknown>;

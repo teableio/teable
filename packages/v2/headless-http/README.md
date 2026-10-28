@@ -12,14 +12,34 @@ const runtime = await createHeadlessRuntime({
 });
 
 const app = createHeadlessHttpApp(runtime, {
-  actorHeader: "x-teable-actor",
+  resolveIdentity: async (request) => {
+    const actorId = await authenticate(request);
+    return actorId ? { status: "accepted", actorId } : { status: "rejected", statusCode: 401 };
+  },
 });
 
-serve({ fetch: app.fetch, port: 3000 });
+serve({ fetch: app.fetch, port: 3000, hostname: "127.0.0.1" });
 ```
 
-Authentication stays in the host. The adapter only resolves a request to an
-actor id; use `resolveActorId` to plug in your session/token verification.
+Authentication stays in the host. `resolveIdentity` can explicitly accept or
+reject; a rejection never falls back to headers or `system`. The legacy
+`resolveActorId` seam remains for compatible trusted hosts, but configuring both
+fails fast. A request with no actor and no `defaultActorId` is rejected with 401;
+`allowAnonymousActor: true` opts back into the legacy `system` actor. `/health`
+(liveness) and `/ready` (database probe) bypass identity.
+
+Every adapter-owned response uses `{ok,data}` / `{ok:false,error}`, including
+404, resolver failures, and internal errors; unexpected messages and stacks are
+not reflected. Drain routes return structured reports:
+
+```text
+POST /runtime/flushComputed
+POST /runtime/flushRealtime
+POST /runtime/flushBackground
+```
+
+This package is not an auth boundary. Do not expose it to an untrusted network
+without a host authentication and authorization layer.
 
 `createHeadlessClient` re-exports the typed `@teable/v2-contract-http-client`
-factory for the same contract.
+factory for the table contract.

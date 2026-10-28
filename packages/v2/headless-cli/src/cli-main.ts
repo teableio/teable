@@ -14,7 +14,8 @@ Environment:
   TEABLE_BOOTSTRAP            true/false; PostgreSQL bootstrap is off by default
   TEABLE_ATTACHMENTS_DIR      Local attachment directory
   TEABLE_ACTOR_HEADER         Actor header (default x-teable-actor)
-  TEABLE_DEFAULT_ACTOR        Fallback actor (default system)
+  TEABLE_DEFAULT_ACTOR        Explicit fallback actor (default: none; missing actor is 401)
+  TEABLE_ALLOW_ANONYMOUS      true/false; allow the legacy anonymous system actor (default false)
   PORT                        HTTP port (default 3000)
   HOST                        Bind host (default 127.0.0.1)
 `;
@@ -49,12 +50,20 @@ export const runHeadlessCli = async (options: IHeadlessCliOptions = {}): Promise
     attachmentsDir: process.env.TEABLE_ATTACHMENTS_DIR,
     actorHeader: process.env.TEABLE_ACTOR_HEADER,
     defaultActorId: process.env.TEABLE_DEFAULT_ACTOR,
+    allowAnonymousActor: process.env.TEABLE_ALLOW_ANONYMOUS === 'true',
   });
 
   console.log(`teable-headless listening on http://${hostname}:${port}`);
   const shutdown = async (): Promise<void> => {
-    await server.close();
-    process.exit(0);
+    try {
+      await server.close();
+      process.exit(0);
+    } catch (error) {
+      console.error(
+        error instanceof Error ? `teable-headless close failed: ${error.message}` : String(error)
+      );
+      process.exit(1);
+    }
   };
   process.once('SIGINT', () => {
     void shutdown();

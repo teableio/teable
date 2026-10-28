@@ -53,6 +53,7 @@ import {
   type TableDataSafetyLimitConfig,
   type ITracer,
   type DomainError,
+  type IImportEventSpoolFactory,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -78,6 +79,7 @@ export interface IV2BrowserPgliteContainerOptions {
   tracer?: ITracer;
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
+  importEventSpoolFactory?: IImportEventSpoolFactory;
 }
 
 const resolvePgliteDataDir = (options: IV2BrowserPgliteContainerOptions): string => {
@@ -192,19 +194,24 @@ export const registerV2BrowserPgliteDependencies = async (
     throw new Error(codecResult.error.message);
   }
   c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
-  if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
-    c.registerInstance(v2CoreTokens.projectionMessageJournal, new NoopProjectionMessageJournal());
-  }
+  // PGlite has no durable delivery worker; keep projections SameTx/in-memory
+  // instead of accumulating unconsumed domain_event_outbox rows. Register the
+  // exact journal instance passed to DomainWriteTransaction.
+  const projectionJournal = new NoopProjectionMessageJournal();
+  c.registerInstance(v2CoreTokens.projectionMessageJournal, projectionJournal);
   c.registerInstance(
     v2CoreTokens.domainWriteTransaction,
     new DomainWriteTransaction(
       c.resolve(v2CoreTokens.unitOfWork),
       codecResult.value,
       catalogResult.value,
-      c.resolve(v2CoreTokens.projectionMessageJournal),
+      projectionJournal,
       new TargetedLegacyEventDispatcher(c, logger),
       new SameTxProjectionDispatcher(c),
-      logger
+      logger,
+      undefined,
+      c.resolve(v2CoreTokens.eventBus),
+      options.importEventSpoolFactory
     )
   );
 

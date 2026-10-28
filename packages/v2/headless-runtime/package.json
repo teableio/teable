@@ -30,6 +30,7 @@
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
+    "@teable/v2-adapter-csv-parser-papaparse": "workspace:*",
     "@teable/v2-adapter-db-postgres-shared": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/v2-container-browser": "workspace:*",
@@ -37,12 +38,16 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "kysely": "0.28.17",
-    "neverthrow": "8.2.0"
+    "@teable/v2-import": "workspace:*",
+    "@teable/v2-utils": "workspace:*",
+    "neverthrow": "8.2.0",
+    "proper-lockfile": "4.1.2"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/v2-local-attachments": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
+    "@types/proper-lockfile": "4.1.4",
     "@types/node": "24.13.2",
     "@vitest/coverage-v8": "4.1.12",
     "oxfmt": "0.74.0",

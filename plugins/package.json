@@ -29,7 +29,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "14.1.0",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "24.13.2",

@@ -346,6 +346,7 @@ export * from './domain/shared/DomainError';
 export * from './domain/shared/IdGenerator';
 export * from './domain/shared/RehydratedValueObject';
 export * from './domain/shared/TableDataSafetyLimits';
+export * from './domain/shared/isoDateTimeSchema';
 export * from './domain/shared/pagination/OffsetPagination';
 export * from './domain/shared/pagination/PageLimit';
 export * from './domain/shared/pagination/PageOffset';

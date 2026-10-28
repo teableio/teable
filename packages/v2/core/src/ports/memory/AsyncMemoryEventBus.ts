@@ -1,8 +1,7 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
-import { isDomainError } from '../../domain/shared/DomainError';
+import { domainError, isDomainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
@@ -83,8 +82,13 @@ export class AsyncMemoryEventBus implements IEventBus {
     event: IDomainEvent;
     seq: number;
   }> = [];
-  private readonly waiters: Array<{ targetSeq: number; resolve: () => void }> = [];
+  private readonly waiters: Array<{
+    targetSeq: number;
+    resolve: () => void;
+    reject: (error: unknown) => void;
+  }> = [];
   private draining = false;
+  private drainError: unknown;
   private nextSeq = 0;
   private processedSeq = -1;
   private readonly recordPublishedEvents: boolean;
@@ -150,6 +154,17 @@ export class AsyncMemoryEventBus implements IEventBus {
     return [...this.publishedEvents];
   }
 
+  /** Wait for the current event sequence and any events enqueued by its handlers. */
+  async settled(): Promise<void> {
+    if (this.drainError) throw this.drainError;
+    for (;;) {
+      const targetSeq = this.nextSeq - 1;
+      await this.waitUntilProcessed(targetSeq);
+      if (this.drainError) throw this.drainError;
+      if (targetSeq === this.nextSeq - 1) return;
+    }
+  }
+
   recordPublished(events: ReadonlyArray<IDomainEvent>): void {
     this.maybeRecordPublishedEvents(events);
   }
@@ -164,7 +179,17 @@ export class AsyncMemoryEventBus implements IEventBus {
     this.maybeRecordPublishedEvents([event]);
     const targetSeq = this.enqueue(context, [event], !shouldAwait);
     if (shouldAwait && !wasDraining) {
-      await this.waitUntilProcessed(targetSeq);
+      try {
+        await this.waitUntilProcessed(targetSeq);
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            code: 'event_bus.drain_failed',
+            message: 'Event bus drain failed',
+            cause: error instanceof Error ? error : undefined,
+          })
+        );
+      }
     }
     return ok(undefined);
   }
@@ -184,7 +209,17 @@ export class AsyncMemoryEventBus implements IEventBus {
     this.maybeRecordPublishedEvents(events);
     const targetSeq = this.enqueue(context, events, !shouldAwait);
     if (shouldAwait && !wasDraining) {
-      await this.waitUntilProcessed(targetSeq);
+      try {
+        await this.waitUntilProcessed(targetSeq);
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            code: 'event_bus.drain_failed',
+            message: 'Event bus drain failed',
+            cause: error instanceof Error ? error : undefined,
+          })
+        );
+      }
     }
     return ok(undefined);
   }
@@ -225,12 +260,15 @@ export class AsyncMemoryEventBus implements IEventBus {
   }
 
   private waitUntilProcessed(targetSeq: number): Promise<void> {
+    if (this.drainError) {
+      return Promise.reject(this.drainError);
+    }
     if (targetSeq <= this.processedSeq) {
       return Promise.resolve();
     }
 
-    return new Promise((resolve) => {
-      this.waiters.push({ targetSeq, resolve });
+    return new Promise((resolve, reject) => {
+      this.waiters.push({ targetSeq, resolve, reject });
     });
   }
 
@@ -250,31 +288,45 @@ export class AsyncMemoryEventBus implements IEventBus {
     context: IExecutionContext,
     preferContextBackgroundTask: boolean = false
   ): void {
-    if (preferContextBackgroundTask && context.scheduleBackgroundTask) {
-      context.scheduleBackgroundTask(async () => {
+    try {
+      if (preferContextBackgroundTask && context.scheduleBackgroundTask) {
+        context.scheduleBackgroundTask(async () => {
+          await this.drain();
+        });
+        return;
+      }
+
+      const schedule = this.options.schedule ?? defaultScheduler;
+      schedule(async () => {
         await this.drain();
       });
-      return;
+    } catch (error) {
+      this.failDrain(error);
     }
+  }
 
-    const schedule = this.options.schedule ?? defaultScheduler;
-    schedule(async () => {
-      await this.drain();
-    });
+  private failDrain(error: unknown): void {
+    this.drainError ??= error;
+    this.draining = false;
+    for (const waiter of this.waiters.splice(0)) waiter.reject(this.drainError);
   }
 
   private async drain(): Promise<void> {
-    while (this.queue.length > 0) {
-      const next = this.queue.shift();
-      if (!next) continue;
-      await this.dispatch(next.context, next.event, next.dispatchScope);
-      this.processedSeq = next.seq;
-      this.resolveWaiters();
-    }
-    this.draining = false;
-    if (this.queue.length > 0) {
-      this.draining = true;
-      this.scheduleDrain(this.queue[0]!.context);
+    try {
+      while (this.queue.length > 0) {
+        const next = this.queue.shift();
+        if (!next) continue;
+        await this.dispatch(next.context, next.event, next.dispatchScope);
+        this.processedSeq = next.seq;
+        this.resolveWaiters();
+      }
+      this.draining = false;
+      if (this.queue.length > 0) {
+        this.draining = true;
+        this.scheduleDrain(this.queue[0]!.context);
+      }
+    } catch (error) {
+      this.failDrain(error);
     }
   }
 

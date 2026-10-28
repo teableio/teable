@@ -8,49 +8,6 @@ import type archiver from 'archiver';
  */
 export const EXPORT_ZIP_OPTIONS: archiver.ArchiverOptions = { zlib: { level: 6 } };
 
-// Formats that are already compressed; deflating them again burns CPU for ~0 gain.
-const PRECOMPRESSED_EXTENSIONS = new Set([
-  '7z',
-  'aac',
-  'apk',
-  'avif',
-  'br',
-  'bz2',
-  'docx',
-  'epub',
-  'gif',
-  'gz',
-  'heic',
-  'jar',
-  'jpeg',
-  'jpg',
-  'm4a',
-  'mov',
-  'mp3',
-  'mp4',
-  'ogg',
-  'png',
-  'pptx',
-  'rar',
-  'tgz',
-  'webm',
-  'webp',
-  'woff',
-  'woff2',
-  'xlsm',
-  'xlsx',
-  'xz',
-  'zip',
-  'zst',
-]);
-
-export const isPrecompressedEntry = (name: string) => {
-  const fileName = name.split('/').pop() ?? '';
-  const dotIndex = fileName.lastIndexOf('.');
-  if (dotIndex <= 0) return false;
-  return PRECOMPRESSED_EXTENSIONS.has(fileName.slice(dotIndex + 1).toLowerCase());
-};
-
 export interface IExportArchiveGuard {
   /** Races `work` against the first export failure, so callers never wait on a dead archive. */
   run<T>(work: Promise<T>): Promise<T>;
@@ -65,7 +22,11 @@ export interface IExportArchiveGuard {
  * The guard wraps `archive.append` so every entry source is watched. The first failure
  * rejects `run()`, aborts the archive, destroys pending sources (stopping their DB reads)
  * and the output, and makes later `append` calls throw so remaining export work unwinds.
- * It also stores already-compressed entries instead of deflating them again.
+ *
+ * Every entry is deflated, including already-compressed formats. A stored (uncompressed)
+ * entry written from a stream gets a data descriptor, and importers that stream-parse the
+ * .tea find its end by scanning for the descriptor signature, which zip-based formats
+ * (docx/pptx/xlsx/zip) contain in their own bytes, so the import read past the entry.
  */
 export const guardExportArchive = (
   archive: archiver.Archiver,
@@ -112,8 +73,7 @@ export const guardExportArchive = (
     if (source instanceof Stream) {
       watchSource(source as Readable, name);
     }
-    const entry = isPrecompressedEntry(name) ? { ...data, name, store: true } : data;
-    return append(source, entry);
+    return append(source, data);
   }) as typeof archive.append;
 
   archive.on('error', fail);

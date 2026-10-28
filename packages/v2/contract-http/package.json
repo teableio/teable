@@ -57,7 +57,7 @@
     "@teable/v2-data-query": "workspace:*",
     "neverthrow": "8.2.0",
     "openapi-types": "12.1.3",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

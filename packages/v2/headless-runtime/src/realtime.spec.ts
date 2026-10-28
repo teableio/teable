@@ -112,6 +112,56 @@ describe('LocalRealtimeEngine view collections', () => {
     }
   }, 30_000);
 
+  it('waits for a deferred view projection before flush returns', async () => {
+    const runtime = await createHeadlessRuntime({
+      backend: { kind: 'pglite', dataDir: 'memory://' },
+    });
+    try {
+      const context = createContext();
+      const base = unwrap(
+        await runtime.commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+          context,
+          unwrap(CreateBaseCommand.create({ name: 'Deferred realtime' }))
+        )
+      );
+      const table = unwrap(
+        await runtime.commandBus.execute<CreateTableCommand, CreateTableResult>(
+          context,
+          unwrap(
+            CreateTableCommand.create({
+              baseId: base.base.id().toString(),
+              name: 'Views',
+              fields: [{ id: 'fldName', name: 'Name', type: 'singleLineText', isPrimary: true }],
+            })
+          )
+        )
+      );
+      const updates: unknown[] = [];
+      runtime.realtime.subscribeCollection(`viw_${table.table.id().toString()}`, (snapshots) => {
+        updates.push(snapshots);
+      });
+      const created = unwrap(
+        await runtime.commandBus.execute<CreateViewCommand, CreateViewResult>(
+          context,
+          unwrap(
+            CreateViewCommand.create({
+              tableId: table.table.id().toString(),
+              view: { type: 'grid', name: 'Planning' },
+            })
+          )
+        )
+      );
+      await runtime.flushRealtime();
+      expect(updates.at(-1)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: created.viewId.toString(), name: 'Planning' }),
+        ])
+      );
+    } finally {
+      await runtime.close();
+    }
+  }, 30_000);
+
   it('delivers record mutations through a supplied realtime engine', async () => {
     const realtime = new LocalRealtimeEngine();
     const runtime = await createHeadlessRuntime({

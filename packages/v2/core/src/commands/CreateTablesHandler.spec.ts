@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableCreationService } from '../application/services/TableCreationService';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
-import { TableCreationService } from '../application/services/TableCreationService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -31,6 +31,7 @@ import type {
   IUnitOfWorkTransaction,
   UnitOfWorkScope,
 } from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
@@ -45,6 +46,10 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTablesCommand } from './CreateTablesCommand';
 import { CreateTablesHandler } from './CreateTablesHandler';
+import {
+  createFieldOperationPluginRunner,
+  createTrackedFieldOperationPlugin,
+} from './fieldOperationPluginRunnerTestUtils';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -361,6 +366,7 @@ describe('CreateTablesHandler', () => {
       fieldCreationSideEffectService
     );
 
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
     const handler = new CreateTablesHandler(
       tableRepository,
       recordRepository,
@@ -369,7 +375,8 @@ describe('CreateTablesHandler', () => {
       eventBus,
       unitOfWork,
       undefined,
-      createTableLimitPluginRunner(tableRepository)
+      createTableLimitPluginRunner(tableRepository),
+      createFieldOperationPluginRunner([plugin])
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -384,6 +391,12 @@ describe('CreateTablesHandler', () => {
       'ready',
       'ready',
     ]);
+    expect(calls.prepare).toHaveLength(1);
+    expect(calls.guard).toHaveLength(1);
+    expect(calls.beforePersist).toHaveLength(1);
+    expect(calls.afterCommit).toHaveLength(1);
+    expect(calls.prepare[0]?.target.kind).toBe('sideEffect');
+    expect(calls.prepare[0]?.table.id().toString()).toBe(tableBId);
   });
 
   it('creates records for each table', async () => {

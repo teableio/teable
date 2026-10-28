@@ -981,7 +981,7 @@ describe('FieldOpenApiV2Service updateField', () => {
     ]);
   });
 
-  it('asserts the foreign table of a patched link field is allowed', async () => {
+  it('leaves the cross-base check of a patched link field to the v2 plugin', async () => {
     const tableId = `tbl${'a'.repeat(16)}`;
     const foreignTableId = `tbl${'b'.repeat(16)}`;
     const otherForeignTableId = `tbl${'c'.repeat(16)}`;
@@ -1041,19 +1041,16 @@ describe('FieldOpenApiV2Service updateField', () => {
       options: { foreignTableId: otherForeignTableId },
     });
 
-    expect(fieldSupplementService.assertNewForeignTableAllowed).toHaveBeenCalledWith(
+    // The foreign read check now runs in CrossBaseLinkAccessFieldOperationPlugin,
+    // inside the command. The space invariant stays at the entry point because
+    // the command builds its specs before the plugin can reject a cross-space
+    // target, and the spec merge would fail with a generic config error.
+    expect(fieldSupplementService.assertNewForeignTableAllowed).not.toHaveBeenCalled();
+    expect(fieldSupplementService.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
       tableId,
       otherForeignTableId
     );
-    // An unchanged foreign table stays on the cheaper same-space check.
-    fieldSupplementService.assertNewForeignTableAllowed.mockClear();
-    fieldSupplementService.assertSameSpaceLinkTarget.mockClear();
-    await service.updateField(tableId, fieldId, { options: { foreignTableId } });
-    expect(fieldSupplementService.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
-      tableId,
-      foreignTableId
-    );
-    expect(fieldSupplementService.assertNewForeignTableAllowed).not.toHaveBeenCalled();
+    expect(executeUpdateFieldEndpoint).toHaveBeenCalled();
   });
 });
 

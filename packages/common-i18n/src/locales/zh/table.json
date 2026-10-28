@@ -1340,6 +1340,10 @@
         "nextQuestion": "下一个问题"
       },
       "completion": {
+        "workedFor": "用时 {{time}}",
+        "worked": "处理过程",
+        "stoppedAfter": "你在 {{time}} 后停止了",
+        "stopped": "你停止了这次回复",
         "noDetails": "暂无详情",
         "model": "模型",
         "contextWindow": "上下文窗口",
@@ -1459,7 +1463,7 @@
         "app": "应用",
         "workflow": "自动化",
         "routine": "任务",
-        "folder": "文件夹",
+        "folder": "目录",
         "artifact": "Artifact"
       }
     },
@@ -1477,6 +1481,7 @@
     "close": "收起",
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
+    "clearChatHint": "删除对话记录并开始新对话，应用本身不受影响。",
     "dontShowAgain": "不再提醒",
     "modelSwitchTitle": "切换模型",
     "modelSwitchHint": "本对话当前由 {{previous}} 处理，发送后将切换至新模型。",
@@ -1550,7 +1555,7 @@
       "apps": "应用",
       "workflows": "自动化",
       "routines": "任务",
-      "folders": "文件夹",
+      "folders": "目录",
       "envs": "密钥"
     },
     "slashCommand": {
@@ -1623,7 +1628,7 @@
       "skill": "加载技能",
       "foundFiles": "找到 {{count}} 个文件",
       "listedEntries": "{{count}} 个条目",
-      "moreTools": "还有 {{count}} 个工具",
+      "ranCommands_other": "运行了 {{count}} 条命令",
       "moreItems": "还有 {{count}} 个",
       "fallbackName": "工具",
       "questionCount_other": "{{count}} 个问题",
@@ -1700,8 +1705,6 @@
       "passwordSubmit": "确认",
       "shareNotFound": "该分享的 Artifact 不可用",
       "gallery": "我的 Artifacts",
-      "galleryEmpty": "还没有 Artifact——在任意 Chat 中让 AI 创建一个吧。",
-      "searchPlaceholder": "搜索 Artifact",
       "fixWithAi": "让 AI 修复",
       "noPermission": "你无权访问该 Artifact"
     },
@@ -1727,7 +1730,7 @@
       "createdTime": "创建时间",
       "lastModifiedBy": "修改人",
       "lastModifiedTime": "修改时间",
-      "folderId": "文件夹 ID",
+      "folderId": "目录 ID",
       "tableId": "表格 ID",
       "automationId": "自动化 ID",
       "appId": "应用 ID",
@@ -1758,7 +1761,7 @@
         "target_not_writable": "目标项目目前为只读状态。",
         "no_source_permission": "没有权限将此节点从当前项目中移出。",
         "no_target_permission": "没有权限在目标项目中创建此类节点。",
-        "folder_name_conflict": "目标项目中已存在同名文件夹。",
+        "folder_name_conflict": "目标项目中已存在同名目录。",
         "unsupported_resource": "此类节点暂不支持移动。",
         "pending_computed_tasks": "该表仍有计算任务在运行，请稍后重试。",
         "unknown": "不允许执行此次移动。"

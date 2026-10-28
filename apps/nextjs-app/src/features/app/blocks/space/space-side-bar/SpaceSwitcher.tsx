@@ -25,6 +25,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Skeleton,
 } from '@teable/ui-lib/shadcn';
 import { Building2, Recycle, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -58,28 +59,45 @@ const TriggerIdentity = ({
   name,
   avatar,
   sharedOnly,
+  loading,
 }: {
   isField: boolean;
   name?: string;
   avatar?: string | null;
   sharedOnly: boolean;
-}) => (
-  <>
-    {sharedOnly ? (
-      <Users className={cn('shrink-0 text-muted-foreground', isField ? 'size-4' : 'size-5')} />
-    ) : (
-      <SpaceAvatar
-        name={name ?? ''}
-        avatar={avatar}
-        className={isField ? 'size-6 text-xs' : 'size-8'}
-        fallbackClassName={isField ? 'bg-muted' : undefined}
-      />
-    )}
-    <p className={cn('min-w-0 truncate text-start', isField ? 'flex-1 text-sm' : 'font-semibold')}>
-      {name}
-    </p>
-  </>
-);
+  /** The space list is still on its way: hold the name's place rather than show a "?". */
+  loading: boolean;
+}) => {
+  if (!sharedOnly && !name && loading) {
+    return (
+      <>
+        <Skeleton className={cn('shrink-0 rounded', isField ? 'size-6' : 'size-8')} />
+        <div className={cn('min-w-0', isField && 'flex-1')}>
+          <Skeleton className="h-3.5 w-24" />
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      {sharedOnly ? (
+        <Users className={cn('shrink-0 text-muted-foreground', isField ? 'size-4' : 'size-5')} />
+      ) : (
+        <SpaceAvatar
+          name={name ?? ''}
+          avatar={avatar}
+          className={isField ? 'size-6 text-xs' : 'size-8'}
+          fallbackClassName={isField ? 'bg-muted' : undefined}
+        />
+      )}
+      <p
+        className={cn('min-w-0 truncate text-start', isField ? 'flex-1 text-sm' : 'font-semibold')}
+      >
+        {name}
+      </p>
+    </>
+  );
+};
 
 interface ISpaceSwitcherProps {
   open?: boolean;
@@ -140,7 +158,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
 
   const pinMap = usePinMap();
-  const { spaceList } = useSpaceList();
+  const { spaceList, isLoading: spaceListLoading } = useSpaceList();
   const { spaceId: paramSpaceId } = useParams<{ spaceId: string }>();
   const currentSpaceId = spaceIdProp ?? paramSpaceId;
 
@@ -247,6 +265,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
               name={sharedOnly ? t('space:sharedBase.title') : currentSpace?.name}
               avatar={sharedOnly ? undefined : currentSpace?.avatar}
               sharedOnly={sharedOnly}
+              loading={spaceListLoading}
             />
             {isField && !sharedOnly && (
               <DataDbBadge

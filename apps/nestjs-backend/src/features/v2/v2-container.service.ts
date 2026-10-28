@@ -483,8 +483,6 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         ...this.resolveTableRowLimitOption(),
       });
 
-      setSafeFetch(createSsrfSafeFetch());
-
       registerV2ShareDbRealtime(container, {
         publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
         presence: new ShareDbBackendPresencePublisher(this.shareDbService),
@@ -519,7 +517,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
           maxEntries: this.thresholdConfig.maxUndoStackSize,
         })
       );
-      registerV2ImportServices(container);
+      const importFetch = createSsrfSafeFetch();
+      // Legacy ImportCsv/Papaparse paths still resolve the process registry.
+      setSafeFetch(importFetch);
+      registerV2ImportServices(container, { fetch: importFetch });
       if (tableQueryOps) {
         this.startTableQueryOpsRunners(container);
       }
@@ -742,21 +743,13 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const poolLeases = this.poolLeases.get(container) ?? [];
     this.poolLeases.delete(container);
     try {
+      // Owns coordination plus every unique meta/data Kysely handle.
       await disposeV2NodePgContainer(container);
     } catch (error) {
       this.logger.error(
-        'Failed to dispose the V2 schema coordination pool',
+        'Failed to dispose the V2 PostgreSQL container',
         error instanceof Error ? error.stack : String(error)
       );
-    }
-    const closers = Array.from(
-      new Set([
-        container.resolve<{ destroy(): Promise<void> }>(v2MetaDbTokens.db),
-        container.resolve<{ destroy(): Promise<void> }>(v2DataDbTokens.db),
-      ])
-    );
-    try {
-      await Promise.all(closers.map((db) => db.destroy()));
     } finally {
       await Promise.all(poolLeases.map((lease) => lease.release()));
     }

@@ -64,6 +64,7 @@ import {
 import {
   ensureRowOrderColumnOnline,
   hasOpenDataTransaction,
+  markTableCreatedInCurrentTransaction,
   rowOrderIndexName,
 } from '../../shared/ensureRowOrderColumnOnline';
 import {
@@ -375,6 +376,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         compiledStatements.push(builder.compile());
 
         await executeCompiledQueries(db, compiledStatements);
+        await markTableCreatedInCurrentTransaction(
+          db as unknown as Kysely<DynamicDB>,
+          schema ? `${schema}.${tableName}` : tableName
+        );
       } catch (error) {
         return err(
           domainError.infrastructure({
@@ -537,6 +542,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         compiledStatements.push(builderRef.builder.compile());
 
         await executeCompiledQueries(db, compiledStatements);
+        await markTableCreatedInCurrentTransaction(
+          db as unknown as Kysely<DynamicDB>,
+          schema ? `${schema}.${tableName}` : tableName
+        );
       } catch (error) {
         return err(
           domainError.infrastructure({

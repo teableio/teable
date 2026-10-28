@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Role } from '@teable/core';
-import { Bell, Key, Link, Lock, Settings, Toolbox, User } from '@teable/icons';
+import { Code2, Link, Settings, User } from '@teable/icons';
 import { getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useSession, useContentDir } from '@teable/sdk/hooks';
@@ -26,8 +26,8 @@ import { CollaboratorPage } from '@/features/app/blocks/space-setting/collaborat
 import { GeneralPage } from '@/features/app/blocks/space-setting/general';
 import { SpaceSettingTab } from '@/features/app/blocks/space-setting/types';
 import { Account } from '@/features/app/components/setting/Account';
+import { DeveloperToolsSection } from '@/features/app/components/setting/developer-tools';
 import { Integration } from '@/features/app/components/setting/integration/Integration';
-import { Notifications } from '@/features/app/components/setting/Notifications';
 import { OAuthAppSection } from '@/features/app/components/setting/oauth-app';
 import { PersonalAccessTokenSection } from '@/features/app/components/setting/personal-access-token';
 import { System } from '@/features/app/components/setting/System';
@@ -49,9 +49,16 @@ export interface IUnifiedSettingListItem {
   disabled?: boolean;
   content: ReactNode | ((ctx: IUnifiedSettingRenderContext) => ReactNode);
   contentClassName?: string;
+  /** Tabs shown inside this item's page: opening one selects this item. */
+  aliases?: UnifiedSettingTab[];
 }
 
+/** A tab inside the Developer tools page. */
+export type IUnifiedSettingSubTab = Pick<IUnifiedSettingListItem, 'key' | 'name' | 'content'>;
+
 export interface IUnifiedSettingRenderContext {
+  /** The requested tab, which may be an alias of the item being rendered. */
+  tab: UnifiedSettingTab;
   onTabChange: (tab: UnifiedSettingTab) => void;
   resolvedSpaceId?: string;
   showSidebar: boolean;
@@ -79,6 +86,10 @@ export interface IUnifiedSettingDialogContentProps {
   includeSpaceSettings?: boolean;
   extraPersonalTabs?: IUnifiedSettingListItem[];
   extraSpaceTabs?: IUnifiedSettingListItem[];
+  /** Appended to the Developer tools tabs (the enterprise edition adds MCP). */
+  extraDeveloperTabs?: IUnifiedSettingSubTab[];
+  /** Extra rows under account security (the enterprise edition adds signed-in devices). */
+  accountSecurityItems?: ReactNode;
   /** Replaces the personal Integrations page (the enterprise edition adds secrets + usage). */
   integrationContent?: ReactNode;
   renderTabTrigger?: (
@@ -98,6 +109,8 @@ export const UnifiedSettingDialogContent = ({
   includeSpaceSettings = true,
   extraPersonalTabs,
   extraSpaceTabs,
+  extraDeveloperTabs,
+  accountSecurityItems,
   integrationContent,
   renderTabTrigger,
 }: IUnifiedSettingDialogContentProps) => {
@@ -125,13 +138,32 @@ export const UnifiedSettingDialogContent = ({
   const isSpaceEntry = entry === 'space' && Boolean(resolvedSpaceId);
   const shouldKeepSpaceEntry = isSpaceEntry && !canAccessSpaceSettings;
 
-  const personalTabs = useMemo<IUnifiedSettingListItem[]>(
-    () => [
+  const personalTabs = useMemo<IUnifiedSettingListItem[]>(() => {
+    const developerTabs: IUnifiedSettingSubTab[] = [
+      {
+        key: PersonalSettingTab.PersonalAccessToken,
+        name: t('setting:personalAccessToken'),
+        content: <PersonalAccessTokenSection />,
+      },
+      {
+        key: PersonalSettingTab.OAuthApp,
+        name: t('setting:oauthApps'),
+        content: <OAuthAppSection />,
+      },
+      {
+        key: PersonalSettingTab.TeableSkill,
+        name: t('common:settings.setting.teableSkill'),
+        content: <TeableSkillSection />,
+      },
+      ...(extraDeveloperTabs ?? []),
+    ];
+
+    return [
       {
         key: PersonalSettingTab.Profile,
         name: t('settings.account.tab'),
         Icon: User,
-        content: <Account />,
+        content: <Account securityItems={accountSecurityItems} />,
       },
       {
         key: PersonalSettingTab.System,
@@ -140,39 +172,31 @@ export const UnifiedSettingDialogContent = ({
         content: <System />,
       },
       {
-        key: PersonalSettingTab.Notifications,
-        name: t('settings.notify.title'),
-        Icon: Bell,
-        content: <Notifications />,
-      },
-      {
         key: PersonalSettingTab.Integration,
         name: t('settings.integration.title'),
         Icon: Link,
         content: integrationContent ?? <Integration />,
       },
       {
-        key: PersonalSettingTab.PersonalAccessToken,
-        name: t('setting:personalAccessToken'),
-        Icon: Key,
-        content: <PersonalAccessTokenSection />,
-      },
-      {
-        key: PersonalSettingTab.OAuthApp,
-        name: t('setting:oauthApps'),
-        Icon: Lock,
-        content: <OAuthAppSection />,
-      },
-      {
-        key: PersonalSettingTab.TeableSkill,
-        name: t('common:settings.setting.teableSkill'),
-        Icon: Toolbox,
-        content: <TeableSkillSection />,
+        key: PersonalSettingTab.DeveloperTools,
+        name: t('common:settings.developerTools.title'),
+        Icon: Code2,
+        aliases: developerTabs.map(({ key }) => key),
+        content: (ctx) => (
+          <DeveloperToolsSection
+            tabs={developerTabs.map(({ key, name, content }) => ({
+              key,
+              name,
+              content: typeof content === 'function' ? content(ctx) : content,
+            }))}
+            tab={ctx.tab}
+            onTabChange={ctx.onTabChange}
+          />
+        ),
       },
       ...(extraPersonalTabs ?? []),
-    ],
-    [extraPersonalTabs, integrationContent, t]
-  );
+    ];
+  }, [accountSecurityItems, extraDeveloperTabs, extraPersonalTabs, integrationContent, t]);
 
   const spaceTabs = useMemo<IUnifiedSettingListItem[]>(() => {
     if (!resolvedSpaceId || !canAccessSpaceSettings) {
@@ -243,8 +267,19 @@ export const UnifiedSettingDialogContent = ({
 
   const showSidebar = !contentOnly && orderedGroups.length > 0;
   const availableTabs = useMemo(
-    () => orderedGroups.flatMap((group) => group.tabs.map(({ key }) => key)),
+    () =>
+      orderedGroups.flatMap((group) =>
+        group.tabs.flatMap(({ key, aliases }) => [key, ...(aliases ?? [])])
+      ),
     [orderedGroups]
+  );
+  // The sidebar item that shows `tab`: the item itself, or the one hosting it as an alias.
+  const activeTab = useMemo(
+    () =>
+      orderedGroups
+        .flatMap((group) => group.tabs)
+        .find((item) => item.key === tab || item.aliases?.includes(tab))?.key ?? tab,
+    [orderedGroups, tab]
   );
 
   useEffect(() => {
@@ -264,8 +299,8 @@ export const UnifiedSettingDialogContent = ({
   }, [availableTabs, defaultTab, onTabChange, shouldKeepSpaceEntry, tab]);
 
   const renderContext = useMemo<IUnifiedSettingRenderContext>(
-    () => ({ onTabChange, resolvedSpaceId, showSidebar }),
-    [onTabChange, resolvedSpaceId, showSidebar]
+    () => ({ tab, onTabChange, resolvedSpaceId, showSidebar }),
+    [tab, onTabChange, resolvedSpaceId, showSidebar]
   );
 
   const allTabs = useMemo(() => orderedGroups.flatMap((group) => group.tabs), [orderedGroups]);
@@ -297,7 +332,7 @@ export const UnifiedSettingDialogContent = ({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [mobileNavigationOpen, tab]);
+  }, [mobileNavigationOpen, activeTab]);
 
   if (shouldKeepSpaceEntry) {
     return <div className="h-full" />;
@@ -307,7 +342,7 @@ export const UnifiedSettingDialogContent = ({
     <MobileSettingNavigationProvider value={showSidebar ? mobileNavigationContext : null}>
       <Tabs
         defaultValue={defaultTab}
-        value={tab}
+        value={activeTab}
         onValueChange={handleTabChange}
         className="flex h-full min-h-0 gap-0 overflow-hidden"
       >
@@ -392,7 +427,7 @@ export const UnifiedSettingDialogContent = ({
                         const renderDefaultTrigger = (
                           overrides?: IUnifiedSettingTriggerOverrides
                         ): ReactElement => {
-                          const isActive = tab === item.key;
+                          const isActive = activeTab === item.key;
 
                           return (
                             <button

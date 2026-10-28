@@ -24,6 +24,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -35,6 +36,10 @@ import {
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateFieldsCommand } from './CreateFieldsCommand';
 import { CreateFieldsHandler } from './CreateFieldsHandler';
+import {
+  createFieldOperationPluginRunner,
+  createTrackedFieldOperationPlugin,
+} from './fieldOperationPluginRunnerTestUtils';
 
 const createContext = (windowId?: string): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
@@ -243,7 +248,8 @@ describe('CreateFieldsHandler', () => {
             },
             views: [],
           }),
-      } as unknown as FieldUndoRedoSnapshotService
+      } as unknown as FieldUndoRedoSnapshotService,
+      createFieldOperationPluginRunner()
     );
 
     const hostTable = buildTable({
@@ -358,7 +364,8 @@ describe('CreateFieldsHandler', () => {
       new FieldCreationSideEffectService(flow),
       new ForeignTableLoaderService(repository),
       new TrackingUndoRedoService() as unknown as UndoRedoStackService,
-      new TrackingFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService
+      new TrackingFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      createFieldOperationPluginRunner()
     );
     const labelResult = await handler.handle(
       createContext(),
@@ -416,6 +423,7 @@ describe('CreateFieldsHandler', () => {
       new FakeUnitOfWork()
     );
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
     const handler = new CreateFieldsHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
@@ -425,7 +433,8 @@ describe('CreateFieldsHandler', () => {
       } as unknown as UndoRedoStackService,
       {
         capture: async () => err(domainError.unexpected({ message: 'unreachable' })),
-      } as unknown as FieldUndoRedoSnapshotService
+      } as unknown as FieldUndoRedoSnapshotService,
+      createFieldOperationPluginRunner([plugin])
     );
 
     tableRepository.tables.push(
@@ -498,6 +507,13 @@ describe('CreateFieldsHandler', () => {
     expect(
       foreignTable.getFields().filter((field) => field.type().toString() === 'link')
     ).toHaveLength(1);
+    expect(calls.prepare).toHaveLength(1);
+    expect(calls.guard).toHaveLength(1);
+    expect(calls.beforePersist).toHaveLength(1);
+    expect(calls.afterCommit).toHaveLength(1);
+    expect(calls.prepare[0]?.target.kind).toBe('sideEffect');
+    expect(calls.prepare[0]?.table.id().toString()).toBe(foreignTableId);
+    expect(calls.beforePersist[0]?.result).toBeDefined();
   });
 
   it('records one batch undo/redo entry and resolves same-batch dependencies before creation', async () => {
@@ -522,7 +538,8 @@ describe('CreateFieldsHandler', () => {
       fieldCreationSideEffectService,
       new ForeignTableLoaderService(tableRepository),
       undoRedoService as unknown as UndoRedoStackService,
-      snapshotService as unknown as FieldUndoRedoSnapshotService
+      snapshotService as unknown as FieldUndoRedoSnapshotService,
+      createFieldOperationPluginRunner()
     );
 
     tableRepository.tables.push(

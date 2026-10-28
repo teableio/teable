@@ -3,6 +3,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationSideEffects,
+  type FieldOperationSideEffectPluginExecutionSet,
+  prepareFieldOperationSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -18,6 +24,7 @@ import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -69,7 +76,9 @@ export class CreateFieldsHandler implements ICommandHandler<
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
-    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner
   ) {}
 
   @TraceSpan()
@@ -87,11 +96,14 @@ export class CreateFieldsHandler implements ICommandHandler<
 
       let createdFieldsInCreationOrder: ReadonlyArray<Field> = [];
       let createdFieldsInInputOrder: ReadonlyArray<Field> = [];
+      let sourceTable: Table | undefined;
+      let sideEffectPluginExecution: FieldOperationSideEffectPluginExecutionSet | undefined;
 
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
         { baseId: command.baseId, tableId: command.tableId },
         (table) => {
+          sourceTable = table;
           const batchUpdateResult = handler.buildBatchUpdate(
             table,
             command,
@@ -108,10 +120,34 @@ export class CreateFieldsHandler implements ICommandHandler<
         },
         {
           hooks: {
-            prepare: async (_transactionContext, updatedTable) => {
-              if (!createdFieldsInCreationOrder.length) {
+            prepare: async (transactionContext, updatedTable) => {
+              if (!createdFieldsInCreationOrder.length || !sourceTable) {
                 return ok([]);
               }
+
+              const plannedSideEffects = collectFieldCreationSideEffects(
+                updatedTable,
+                createdFieldsInCreationOrder,
+                foreignTables,
+                domainContext
+              );
+              if (plannedSideEffects.isErr()) return err(plannedSideEffects.error);
+              const executionResult = await prepareFieldOperationSideEffectPlugins({
+                runner: handler.fieldOperationPluginRunner,
+                executionContext: context,
+                sourceOperation: FieldOperationKind.create,
+                sourceTable,
+                foreignTables,
+                domainContext,
+                sideEffects: plannedSideEffects.value,
+              });
+              if (executionResult.isErr()) return err(executionResult.error);
+              sideEffectPluginExecution = executionResult.value;
+              const guardResult = await sideEffectPluginExecution.guard();
+              if (guardResult.isErr()) return err(guardResult.error);
+              const beforePersistResult =
+                await sideEffectPluginExecution.beforePersist(transactionContext);
+              if (beforePersistResult.isErr()) return err(beforePersistResult.error);
 
               const previewResult = await handler.fieldCreationSideEffectService.preview({
                 table: updatedTable,
@@ -141,6 +177,7 @@ export class CreateFieldsHandler implements ICommandHandler<
           },
         }
       );
+      await sideEffectPluginExecution?.afterCommit();
 
       if (!createdFieldsInCreationOrder.length) {
         return err(domainError.unexpected({ message: 'Fields not created' }));

@@ -53,7 +53,7 @@ export const QuickAction = ({ onAskAI }: QuickActionProps) => {
           </TooltipTrigger>
           <TooltipContent hideWhenDetached={true}>
             {t('common:quickAction.title')}
-            <span>{modKeyStr}+K</span>
+            <span className="ms-2">{modKeyStr}+K</span>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

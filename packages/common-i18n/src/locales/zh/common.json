@@ -291,9 +291,13 @@
     "account": {
       "title": "我的档案",
       "tab": "我的帐户",
+      "profileTitle": "个人资料",
+      "photo": "头像",
+      "photoDesc": "PNG、JPEG 或 WebP，不超过 3MB。",
       "updatePhoto": "更新照片",
       "updateNameDesc": "您的昵称或名字，即您希望在 Teable 中显示的称呼",
       "securityTitle": "帐户安全",
+      "dataTitle": "数据与帐户",
       "email": "电子邮件",
       "password": "密码",
       "passwordDesc": "设置一个永久密码以登录您的帐户。",
@@ -368,12 +372,13 @@
       }
     },
     "notify": {
-      "title": "我的通知",
+      "title": "通知",
       "label": "您工作区的活动",
       "desc": "在收到评论、提及、页面邀请、提醒、访问请求和属性更改时接收电子邮件通知。"
     },
     "setting": {
-      "title": "我的设置",
+      "title": "偏好设置",
+      "interfaceTitle": "界面",
       "theme": "主题",
       "themeDesc": "选择应用主题。",
       "dark": "深色",
@@ -463,6 +468,9 @@
           "desc": "您可以关闭此窗口了。"
         }
       }
+    },
+    "developerTools": {
+      "title": "开发者工具"
     }
   },
   "noun": {
@@ -492,12 +500,12 @@
     "aiChat": "AI 对话",
     "app": "应用",
     "webSearch": "网页搜索",
-    "folder": "文件夹",
+    "folder": "目录",
     "newAutomation": "新自动化",
     "routine": "任务",
     "newRoutine": "新任务",
     "newApp": "新应用",
-    "newFolder": "新文件夹",
+    "newFolder": "新目录",
     "template": "模版"
   },
   "level": {

@@ -7,6 +7,7 @@ import {
   type IImportSource,
 } from '@teable/v2-core';
 import { err, ok, type Result } from 'neverthrow';
+import type { ISsrfSafeFetchFn } from '@teable/v2-utils';
 
 import { BiffWorkbook } from './excel/BiffWorkbook';
 import { DiskFile } from './excel/DiskStringTable';
@@ -165,6 +166,8 @@ async function sheetRows(
 
 /** Rows, shared strings and source bytes are never retained as a workbook in memory. */
 export class ExcelImportAdapter implements IImportSourceAdapter {
+  constructor(private readonly fetchFn?: ISsrfSafeFetchFn) {}
+
   readonly supportedTypes = ['xlsx', 'xls', 'excel'] as const;
 
   supports(type: string): boolean {
@@ -177,7 +180,7 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
   ): Promise<Result<IImportParseResult, DomainError>> {
     let owner: TemporaryWorkbook | undefined;
     try {
-      owner = await TemporaryWorkbook.open(source);
+      owner = await TemporaryWorkbook.open(source, this.fetchFn);
       const workbook = await openWorkbook(owner);
       const sheets = workbook.sheets.map(({ name, index }) => ({ name, index }));
       if (!sheets.length) {

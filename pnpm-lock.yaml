@@ -47,6 +47,9 @@ overrides:
 
 packageExtensionsChecksum: sha256-eZMQ4MSwwkiqFDfLk4lvGgDqkfKxnnJAu5evrKDz7fU=
 
+patchedDependencies:
+  unzipper@0.12.3: ab304933afaf08ae64ce42dc432d0adfc13cc94d0964980787469fd3fc92d982
+
 importers:
 
   .:
@@ -102,40 +105,40 @@ importers:
     dependencies:
       '@ai-sdk/amazon-bedrock':
         specifier: 5.0.106
-        version: 5.0.106(zod@4.1.8)
+        version: 5.0.106(zod@4.6.7)
       '@ai-sdk/anthropic':
         specifier: 4.0.72
-        version: 4.0.72(zod@4.1.8)
+        version: 4.0.72(zod@4.6.7)
       '@ai-sdk/azure':
         specifier: 4.0.92
-        version: 4.0.92(zod@4.1.8)
+        version: 4.0.92(zod@4.6.7)
       '@ai-sdk/cohere':
         specifier: 4.0.55
-        version: 4.0.55(zod@4.1.8)
+        version: 4.0.55(zod@4.6.7)
       '@ai-sdk/deepseek':
         specifier: 3.0.59
-        version: 3.0.59(zod@4.1.8)
+        version: 3.0.59(zod@4.6.7)
       '@ai-sdk/google':
         specifier: 4.0.88
-        version: 4.0.88(zod@4.1.8)
+        version: 4.0.88(zod@4.6.7)
       '@ai-sdk/mistral':
         specifier: 4.0.57
-        version: 4.0.57(zod@4.1.8)
+        version: 4.0.57(zod@4.6.7)
       '@ai-sdk/openai':
         specifier: 4.0.84
-        version: 4.0.84(zod@4.1.8)
+        version: 4.0.84(zod@4.6.7)
       '@ai-sdk/openai-compatible':
         specifier: 3.0.63
-        version: 3.0.63(zod@4.1.8)
+        version: 3.0.63(zod@4.6.7)
       '@ai-sdk/provider':
         specifier: 4.0.22
         version: 4.0.22
       '@ai-sdk/togetherai':
         specifier: 3.0.64
-        version: 3.0.64(zod@4.1.8)
+        version: 3.0.64(zod@4.6.7)
       '@ai-sdk/xai':
         specifier: 5.0.15
-        version: 5.0.15(zod@4.1.8)
+        version: 5.0.15(zod@4.6.7)
       '@an-epiphany/websocket-json-stream':
         specifier: 1.2.0
         version: 1.2.0
@@ -198,7 +201,7 @@ importers:
         version: 12.0.3(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)(supports-color@10.2.2))(@nestjs/core@12.0.3)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@openrouter/ai-sdk-provider':
         specifier: 3.1.0
-        version: 3.1.0(ai@7.0.128(zod@4.1.8))(zod@4.1.8)
+        version: 3.1.0(ai@7.0.128(zod@4.6.7))(zod@4.6.7)
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -336,7 +339,7 @@ importers:
         version: 1.3.0(valibot@1.5.0(typescript@6.0.3))
       ai:
         specifier: 7.0.128
-        version: 7.0.128(zod@4.1.8)
+        version: 7.0.128(zod@4.6.7)
       ajv:
         specifier: 8.20.0
         version: 8.20.0
@@ -489,7 +492,7 @@ importers:
         version: 2.6.4
       ollama-ai-provider-v2:
         specifier: 4.0.1
-        version: 4.0.1(ai@7.0.128(zod@4.1.8))(zod@4.1.8)
+        version: 4.0.1(ai@7.0.128(zod@4.6.7))(zod@4.6.7)
       p-limit:
         specifier: 7.3.2
         version: 7.3.2
@@ -579,7 +582,7 @@ importers:
         version: 5.0.8
       unzipper:
         specifier: 0.12.3
-        version: 0.12.3
+        version: 0.12.3(patch_hash=ab304933afaf08ae64ce42dc432d0adfc13cc94d0964980787469fd3fc92d982)
       ws:
         specifier: 8.22.0
         version: 8.22.0
@@ -587,11 +590,11 @@ importers:
         specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
         version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
       zod-validation-error:
         specifier: 4.0.2
-        version: 4.0.2(zod@4.1.8)
+        version: 4.0.2(zod@4.6.7)
     devDependencies:
       '@faker-js/faker':
         specifier: 10.6.0
@@ -802,7 +805,7 @@ importers:
     dependencies:
       '@asteasolutions/zod-to-openapi':
         specifier: 8.1.0
-        version: 8.1.0(zod@4.1.8)
+        version: 8.1.0(zod@4.6.7)
       '@belgattitude/http-exception':
         specifier: 1.5.0
         version: 1.5.0
@@ -865,7 +868,7 @@ importers:
         version: 18.0.1(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@hookform/resolvers':
         specifier: 5.9.1
-        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.1.8)
+        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
       '@nem035/gpt-3-encoder':
         specifier: 1.1.7
         version: 1.1.7
@@ -1080,11 +1083,11 @@ importers:
         specifier: 4.14.0
         version: 4.14.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
       zod-validation-error:
         specifier: 4.0.2
-        version: 4.0.2(zod@4.1.8)
+        version: 4.0.2(zod@4.6.7)
       zustand:
         specifier: 4.5.2
         version: 4.5.2(@types/react@19.2.18)(immer@10.0.4)(react@19.2.3)
@@ -1250,7 +1253,7 @@ importers:
     dependencies:
       '@asteasolutions/zod-to-openapi':
         specifier: 8.1.0
-        version: 8.1.0(zod@4.1.8)
+        version: 8.1.0(zod@4.6.7)
       '@httpx/dsn-parser':
         specifier: 1.8.4
         version: 1.8.4
@@ -1297,11 +1300,11 @@ importers:
         specifier: 5.0.8
         version: 5.0.8
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
       zod-validation-error:
         specifier: 4.0.2
-        version: 4.0.2(zod@4.1.8)
+        version: 4.0.2(zod@4.6.7)
     devDependencies:
       '@size-limit/file':
         specifier: 11.1.2
@@ -1672,7 +1675,7 @@ importers:
     dependencies:
       '@asteasolutions/zod-to-openapi':
         specifier: 8.1.0
-        version: 8.1.0(zod@4.1.8)
+        version: 8.1.0(zod@4.6.7)
       '@teable/core':
         specifier: workspace:^
         version: link:../core
@@ -1695,8 +1698,8 @@ importers:
         specifier: 4.2.2
         version: 4.2.2
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -2180,8 +2183,8 @@ importers:
         specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
         version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@babel/core':
         specifier: 7.29.7
@@ -2509,8 +2512,8 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -2745,8 +2748,8 @@ importers:
         specifier: 5.8.0
         version: 5.8.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -2809,8 +2812,8 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -2894,8 +2897,8 @@ importers:
         specifier: 5.1.1
         version: 5.1.1
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@electric-sql/pglite':
         specifier: 0.3.14
@@ -3025,8 +3028,8 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3449,8 +3452,8 @@ importers:
         specifier: 12.1.3
         version: 12.1.3
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3828,8 +3831,8 @@ importers:
         specifier: 5.0.8
         version: 5.0.8
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3877,8 +3880,8 @@ importers:
         specifier: ^2.7.0
         version: 2.9.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -4054,7 +4057,7 @@ importers:
         version: 8.2.0
       unzipper:
         specifier: 0.12.3
-        version: 0.12.3
+        version: 0.12.3(patch_hash=ab304933afaf08ae64ce42dc432d0adfc13cc94d0964980787469fd3fc92d982)
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -4146,10 +4149,10 @@ importers:
         version: 8.2.0
       unzipper:
         specifier: 0.12.3
-        version: 0.12.3
+        version: 0.12.3(patch_hash=ab304933afaf08ae64ce42dc432d0adfc13cc94d0964980787469fd3fc92d982)
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -4495,6 +4498,9 @@ importers:
 
   packages/v2/headless-runtime:
     dependencies:
+      '@teable/v2-adapter-csv-parser-papaparse':
+        specifier: workspace:*
+        version: link:../adapter-csv-parser-papaparse
       '@teable/v2-adapter-db-postgres-shared':
         specifier: workspace:*
         version: link:../adapter-db-postgres-shared
@@ -4513,12 +4519,21 @@ importers:
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
+      '@teable/v2-import':
+        specifier: workspace:*
+        version: link:../import
+      '@teable/v2-utils':
+        specifier: workspace:*
+        version: link:../utils
       kysely:
         specifier: 0.28.17
         version: 0.28.17
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -4532,6 +4547,9 @@ importers:
       '@types/node':
         specifier: 24.13.2
         version: 24.13.2
+      '@types/proper-lockfile':
+        specifier: 4.1.4
+        version: 4.1.4
       '@vitest/coverage-v8':
         specifier: 4.1.12
         version: 4.1.12(vitest@4.1.12)
@@ -4768,8 +4786,8 @@ importers:
         specifier: 8.2.0
         version: 8.2.0
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -4904,7 +4922,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: 5.9.1
-        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.1.8)
+        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
       '@tanstack/react-query':
         specifier: 5.90.16
         version: 5.90.16(react@19.2.3)
@@ -4951,8 +4969,8 @@ importers:
         specifier: 14.1.0
         version: 14.1.0(i18next@23.10.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       zod:
-        specifier: 4.1.8
-        version: 4.1.8
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 24.13.2
@@ -11818,6 +11836,9 @@ packages:
   '@types/prismjs@1.26.6':
     resolution: {integrity: sha512-vqlvI7qlMvcCBbVe0AKAb4f97//Hy0EBTaiW8AalRnG/xAN5zOiWWyrNqNXeq8+KAuvRewjCVY1+IPxk4RdNYw==}
 
+  '@types/proper-lockfile@4.1.4':
+    resolution: {integrity: sha512-uo2ABllncSqg9F1D4nugVl9v93RmjxF6LJzQLMLDdPaXCUIDPeOJ21Gbqi43xNKzBi/WQ0Q0dICqufzQbMjipQ==}
+
   '@types/pug@2.0.10':
     resolution: {integrity: sha512-Sk/uYFOBAB7mb74XcpizmH0KOR2Pv3D2Hmrh1Dmy5BmK3MpdSa5kqZcg6EKBdklU0bFXX9gCfzvpnyUehrPIuA==}
 
@@ -11852,6 +11873,9 @@ packages:
 
   '@types/resolve@1.20.6':
     resolution: {integrity: sha512-A4STmOXPhMUtHH+S6ymgE2GiBSMqf4oTvcQZMcHzokuTLVYzXTB8ttjcgxOVaAp2lGwEdzZ0J+cRbbeevQj1UQ==}
+
+  '@types/retry@0.12.5':
+    resolution: {integrity: sha512-3xSjTp3v03X/lSQLkczaN9UIEwJMoMCA1+Nb5HfbJEQWogdeQIyVtTvxPXDQjZ5zws8rFQfVfRdz03ARihPJgw==}
 
   '@types/scroller@0.1.5':
     resolution: {integrity: sha512-Ohf9ZWpHewTgG4OblIhjqChZ4HUA65vWSp+0iD+IolXByenqWPdbSD3vmnfUFRVmcHSLeymW3TIIlfKKm3t4hQ==}
@@ -20394,8 +20418,8 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  zod@4.1.8:
-    resolution: {integrity: sha512-5R1P+WwQqmmMIEACyzSvo4JXHY5WiAFHRMg+zBZKgKS+Q1viRa0C1hmUKtHltoIFKtIdki3pRxkmpP74jnNYHQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
   zrender@6.1.0:
     resolution: {integrity: sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ==}
@@ -20430,91 +20454,91 @@ snapshots:
 
   '@adobe/css-tools@4.4.1': {}
 
-  '@ai-sdk/amazon-bedrock@5.0.106(zod@4.1.8)':
+  '@ai-sdk/amazon-bedrock@5.0.106(zod@4.6.7)':
     dependencies:
-      '@ai-sdk/anthropic': 4.0.72(zod@4.1.8)
-      '@ai-sdk/openai': 4.0.84(zod@4.1.8)
+      '@ai-sdk/anthropic': 4.0.72(zod@4.6.7)
+      '@ai-sdk/openai': 4.0.84(zod@4.6.7)
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
       '@smithy/eventstream-codec': 4.5.2
       '@smithy/util-utf8': 4.5.2
       aws4fetch: 1.0.20
-      zod: 4.1.8
+      zod: 4.6.7
 
-  '@ai-sdk/anthropic@4.0.72(zod@4.1.8)':
+  '@ai-sdk/anthropic@4.0.72(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/azure@4.0.92(zod@4.1.8)':
+  '@ai-sdk/azure@4.0.92(zod@4.6.7)':
     dependencies:
-      '@ai-sdk/deepseek': 3.0.59(zod@4.1.8)
-      '@ai-sdk/openai': 4.0.84(zod@4.1.8)
+      '@ai-sdk/deepseek': 3.0.59(zod@4.6.7)
+      '@ai-sdk/openai': 4.0.84(zod@4.6.7)
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/cohere@4.0.55(zod@4.1.8)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
-
-  '@ai-sdk/deepseek@3.0.59(zod@4.1.8)':
+  '@ai-sdk/cohere@4.0.55(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/gateway@4.0.104(zod@4.1.8)':
+  '@ai-sdk/deepseek@3.0.59(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
+
+  '@ai-sdk/gateway@4.0.104(zod@4.6.7)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.22
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
       '@vercel/oidc': 3.2.0
-      zod: 4.1.8
+      zod: 4.6.7
 
-  '@ai-sdk/google@4.0.88(zod@4.1.8)':
+  '@ai-sdk/google@4.0.88(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/mistral@4.0.57(zod@4.1.8)':
+  '@ai-sdk/mistral@4.0.57(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/openai-compatible@3.0.63(zod@4.1.8)':
+  '@ai-sdk/openai-compatible@3.0.63(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/openai@4.0.84(zod@4.1.8)':
+  '@ai-sdk/openai@4.0.84(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/provider-utils@5.0.54(zod@4.1.8)':
+  '@ai-sdk/provider-utils@5.0.54(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.0.8
       undici: 7.30.1
-      zod: 4.1.8
+      zod: 4.6.7
 
-  '@ai-sdk/provider-utils@5.0.56(zod@4.1.8)':
+  '@ai-sdk/provider-utils@5.0.56(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.24
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.0.8
       undici: 7.30.1
-      zod: 4.1.8
+      zod: 4.6.7
 
   '@ai-sdk/provider@4.0.22':
     dependencies:
@@ -20524,18 +20548,18 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/togetherai@3.0.64(zod@4.1.8)':
+  '@ai-sdk/togetherai@3.0.64(zod@4.6.7)':
     dependencies:
-      '@ai-sdk/openai-compatible': 3.0.63(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 3.0.63(zod@4.6.7)
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/xai@5.0.15(zod@4.1.8)':
+  '@ai-sdk/xai@5.0.15(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -20592,10 +20616,10 @@ snapshots:
   '@asamuzakjp/nwsapi@2.3.9':
     optional: true
 
-  '@asteasolutions/zod-to-openapi@8.1.0(zod@4.1.8)':
+  '@asteasolutions/zod-to-openapi@8.1.0(zod@4.6.7)':
     dependencies:
       openapi3-ts: 4.2.2
-      zod: 4.1.8
+      zod: 4.6.7
 
   '@aws-sdk/checksums@3.1001.3':
     dependencies:
@@ -22986,7 +23010,7 @@ snapshots:
     dependencies:
       hono: 4.13.13
 
-  '@hookform/resolvers@5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.1.8)':
+  '@hookform/resolvers@5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(class-transformer@0.5.1)(class-validator@0.14.1)(effect@3.22.3)(joi@18.2.9)(react-hook-form@7.87.0(react@19.2.3))(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.87.0(react@19.2.3)
@@ -22999,7 +23023,7 @@ snapshots:
       effect: 3.22.3
       joi: 18.2.9
       valibot: 1.5.0(typescript@6.0.3)
-      zod: 4.1.8
+      zod: 4.6.7
 
   '@httpx/dsn-parser@1.8.4': {}
 
@@ -24272,10 +24296,10 @@ snapshots:
 
   '@ocavue/utils@1.6.0': {}
 
-  '@openrouter/ai-sdk-provider@3.1.0(ai@7.0.128(zod@4.1.8))(zod@4.1.8)':
+  '@openrouter/ai-sdk-provider@3.1.0(ai@7.0.128(zod@4.6.7))(zod@4.6.7)':
     dependencies:
-      ai: 7.0.128(zod@4.1.8)
-      zod: 4.1.8
+      ai: 7.0.128(zod@4.6.7)
+      zod: 4.6.7
 
   '@opentelemetry/api-logs@0.222.0':
     dependencies:
@@ -27753,6 +27777,10 @@ snapshots:
 
   '@types/prismjs@1.26.6': {}
 
+  '@types/proper-lockfile@4.1.4':
+    dependencies:
+      '@types/retry': 0.12.5
+
   '@types/pug@2.0.10':
     optional: true
 
@@ -27790,6 +27818,8 @@ snapshots:
       '@types/node': 24.13.2
 
   '@types/resolve@1.20.6': {}
+
+  '@types/retry@0.12.5': {}
 
   '@types/scroller@0.1.5': {}
 
@@ -28339,12 +28369,12 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@7.0.128(zod@4.1.8):
+  ai@7.0.128(zod@4.6.7):
     dependencies:
-      '@ai-sdk/gateway': 4.0.104(zod@4.1.8)
+      '@ai-sdk/gateway': 4.0.104(zod@4.6.7)
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.54(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.54(zod@4.6.7)
+      zod: 4.6.7
 
   ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
@@ -33333,12 +33363,12 @@ snapshots:
 
   obug@3.0.0: {}
 
-  ollama-ai-provider-v2@4.0.1(ai@7.0.128(zod@4.1.8))(zod@4.1.8):
+  ollama-ai-provider-v2@4.0.1(ai@7.0.128(zod@4.6.7))(zod@4.6.7):
     dependencies:
       '@ai-sdk/provider': 4.0.22
-      '@ai-sdk/provider-utils': 5.0.56(zod@4.1.8)
-      ai: 7.0.128(zod@4.1.8)
-      zod: 4.1.8
+      '@ai-sdk/provider-utils': 5.0.56(zod@4.6.7)
+      ai: 7.0.128(zod@4.6.7)
+      zod: 4.6.7
 
   on-exit-leak-free@2.1.2: {}
 
@@ -36995,7 +37025,7 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  unzipper@0.12.3:
+  unzipper@0.12.3(patch_hash=ab304933afaf08ae64ce42dc432d0adfc13cc94d0964980787469fd3fc92d982):
     dependencies:
       bluebird: 3.7.2
       duplexer2: 0.1.4
@@ -37733,11 +37763,11 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.5.2
 
-  zod-validation-error@4.0.2(zod@4.1.8):
+  zod-validation-error@4.0.2(zod@4.6.7):
     dependencies:
-      zod: 4.1.8
+      zod: 4.6.7
 
-  zod@4.1.8: {}
+  zod@4.6.7: {}
 
   zrender@6.1.0:
     dependencies:

@@ -9,7 +9,9 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, KeyboardEvent, RefObject } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { useBaseList } from '../../space/useBaseList';
 import { BaseNodeResourceIconMap, getNodeUrl } from '../base-node/hooks';
+import { useLastVisitBase } from '../hooks';
 import { parsePaletteQuery } from './command-palette-utils';
 import type { PaletteEntry } from './palette-types';
 import { PaletteHeader, PaletteResults, PaletteFooter } from './PaletteContentView';
@@ -121,6 +123,33 @@ const SpacePalette = (props: CommandPaletteProps) => {
     enabled: props.open && Boolean(props.spaceId && debounced),
     placeholderData: keepPreviousData,
   });
+  const { list: lastVisitBases } = useLastVisitBase(props.open && Boolean(props.spaceId));
+  const baseList = useBaseList(props.open && Boolean(props.spaceId));
+  const recent = useMemo(() => {
+    if (!props.spaceId || !baseList) return EMPTY_ENTRIES;
+
+    const currentSpaceBases = new Map(
+      baseList.filter((base) => base.spaceId === props.spaceId).map((base) => [base.id, base])
+    );
+
+    return lastVisitBases.flatMap((visitedBase): PaletteEntry[] => {
+      const base = currentSpaceBases.get(visitedBase.id);
+      if (!base) return [];
+
+      return [
+        {
+          id: `base:${base.id}`,
+          label: base.name,
+          href: `/base/${base.id}`,
+          icon: base.icon ? (
+            <Emoji emoji={base.icon} size="1em" />
+          ) : (
+            <LayoutGrid className="size-4" />
+          ),
+        },
+      ];
+    });
+  }, [baseList, lastVisitBases, props.spaceId]);
   const resources = useMemo(
     () =>
       (query.data?.pages.flatMap((page) => page.list) ?? []).flatMap((item): PaletteEntry[] => {
@@ -147,7 +176,7 @@ const SpacePalette = (props: CommandPaletteProps) => {
     <PaletteSurface
       {...props}
       resources={search ? resources : EMPTY_ENTRIES}
-      recent={EMPTY_ENTRIES}
+      recent={recent}
       commands={EMPTY_ENTRIES}
       onSearchChange={setSearch}
       isLoading={Boolean(search) && (search !== debounced || query.isFetching)}
@@ -163,7 +192,6 @@ const SpacePalette = (props: CommandPaletteProps) => {
     />
   );
 };
-
 /** An accessible dialog; the content unmounts on every close, including the global shortcut. */
 export const PaletteSurface = (props: PaletteSurfaceProps) => {
   const { t } = useTranslation('common');

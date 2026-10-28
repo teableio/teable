@@ -94,6 +94,7 @@ export const PersonalAccessTokenSection = () => {
         ) : undefined
       }
       mobileNavigation={!formType}
+      grouped={!formType}
     >
       <div className="flex-1">
         {formType ? (

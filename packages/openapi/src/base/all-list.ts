@@ -18,6 +18,13 @@ export const getBaseAllRoSchema = z.object({
    * shared order. Items then carry `personalOrder` where one is saved.
    */
   orderBy: z.enum(BASE_LIST_ORDER_BY).optional(),
+  /** Only bases in this space. */
+  spaceId: z.string().optional(),
+  /** Case-insensitive match on the base name or ID. */
+  search: z.string().optional(),
+  /** Paging over the ordered list; omit both to get every base. */
+  skip: z.coerce.number().int().min(0).optional(),
+  take: z.coerce.number().int().min(1).optional(),
 });
 
 export type IGetBaseAllRo = z.infer<typeof getBaseAllRoSchema>;
@@ -48,4 +55,20 @@ export const GetBaseAllRoute: RouteConfig = registerRoute({
 
 export const getBaseAll = async (query?: IGetBaseAllRo) => {
   return axios.get<IGetBaseAllVo>(GET_BASE_ALL, { params: query });
+};
+
+export interface IGetBaseAllPageRo {
+  spaceId?: string;
+  search?: string;
+  offset: number;
+  limit: number;
+}
+
+/**
+ * One page of the accessible bases, filtered and paged by the server. Fetches one extra row to
+ * tell whether another page follows, so no count over the whole list is needed.
+ */
+export const getBaseAllPage = async ({ offset, limit, ...filter }: IGetBaseAllPageRo) => {
+  const { data } = await getBaseAll({ ...filter, skip: offset, take: limit + 1 });
+  return { bases: data.slice(0, limit), hasMore: data.length > limit };
 };

@@ -861,4 +861,16 @@ describe('PapaparseCsvParser', () => {
       { ['Column_1']: '数据首列B', ['Column_2']: '15', ['Column_3']: 'false' },
     ]);
   });
+
+  it('uses the fetch supplied through withFetch for URL sources', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(createCsvResponse(['Name\nAlice']));
+
+    const result = await new PapaparseCsvParser().withFetch(fetchFn).parseAsync({
+      type: 'url',
+      url: 'https://example.com/injected.csv',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
 });

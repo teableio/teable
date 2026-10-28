@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import { RestoreRecordsCommand, v2CoreTokens } from '@teable/v2-core';
 import type { ICommandBus, RestoreRecordInput, RestoreRecordsResult } from '@teable/v2-core';
 import { CustomHttpException } from '../../../custom.exception';
 import { CanaryService } from '../../canary/canary.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { throwV2Error } from '../../v2/v2-http-error';
 import { RecordService } from '../record.service';
 import { collectLinkTargetIds, isLinkEntry, parseLinkFieldOptions } from './link-cell-value.util';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -249,7 +251,9 @@ export class RecordRestoreService {
     );
 
     if (result.isErr()) {
-      throw new CustomHttpException(result.error.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
+      // Keep the status a v2 plugin returns (403 for a denied foreign table);
+      // this used to collapse every restore failure into a 500.
+      throwV2Error(result.error, mapDomainErrorToHttpStatus(result.error));
     }
   }
 }

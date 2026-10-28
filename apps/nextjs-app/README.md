@@ -51,9 +51,10 @@ pnpm --filter @teable/app exec vitest run src/features/app/components/field-sett
 ## Command palette
 
 `Cmd+K` / `Ctrl+K` opens the shared project/space palette. The project context is fixed:
-there is no scope selector or cross-table record search. Empty input shows recent resources
-and exact recently visited views beside permitted quick actions; settings and appearance
-are available through search or `>` command mode, not the empty-state primary results.
+there is no scope selector or cross-table record search. On space pages, empty input shows
+recently visited projects in the current space; inside a project it shows that project's
+recent resources and exact recently visited views. Both appear beside permitted quick actions;
+settings and appearance are available through search or `>` command mode, not the empty-state primary results.
 
 Names match exact text, prefixes, word starts (including Chinese), substrings, pinyin and
 initials before fuzzy matches. Recency and frequency break ties within those relevance tiers.

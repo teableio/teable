@@ -2,8 +2,9 @@ import { updateUserNotifyMeta } from '@teable/openapi';
 import { useSession } from '@teable/sdk';
 import { Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { SettingTabShell } from './SettingTabShell';
+import { SettingGroup, SettingRow } from './SettingGroup';
 
+/** The notifications group of the preferences page. */
 export const Notifications: React.FC = () => {
   const { t } = useTranslation('common');
   const { user: sessionUser, refresh } = useSession();
@@ -12,18 +13,19 @@ export const Notifications: React.FC = () => {
   };
 
   return (
-    <SettingTabShell title={t('settings.notify.title')}>
-      <div className="flex items-center justify-between gap-4 rounded-md border bg-card px-4 py-3">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">{t('settings.notify.label')}</p>
-          <p className="text-xs text-muted-foreground">{t('settings.notify.desc')}</p>
-        </div>
-        <Switch
-          id="notify-meta-email"
-          checked={Boolean(sessionUser?.notifyMeta?.email)}
-          onCheckedChange={onNotifyMetaEmailSwitchChange}
-        />
-      </div>
-    </SettingTabShell>
+    <SettingGroup title={t('settings.notify.title')}>
+      <SettingRow
+        label={t('settings.notify.label')}
+        htmlFor="notify-meta-email"
+        description={t('settings.notify.desc')}
+        action={
+          <Switch
+            id="notify-meta-email"
+            checked={Boolean(sessionUser?.notifyMeta?.email)}
+            onCheckedChange={onNotifyMetaEmailSwitchChange}
+          />
+        }
+      />
+    </SettingGroup>
   );
 };

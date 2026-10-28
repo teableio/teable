@@ -9,8 +9,10 @@ import { TableDomainQueryModule } from '../../table-domain';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { ComputedModule } from '../computed/computed.module';
+import { CrossBaseLinkAccessPluginRegistrar } from '../cross-base-link-access.plugin-registrar';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { RecordModule } from '../record.module';
+import { SymmetricFieldTargetSchemaCapabilityProvider } from '../symmetric-field-target-schema-capability.service';
 import { RecordCreateService } from './record-create.service';
 import { RecordDeleteService } from './record-delete.service';
 import { RecordDuplicateService } from './record-duplicate.service';
@@ -40,7 +42,14 @@ import { RecordUpdateService } from './record-update.service';
     RecordDeleteService,
     RecordDuplicateService,
     CrossBaseLinkAccessService,
+    CrossBaseLinkAccessPluginRegistrar,
+    SymmetricFieldTargetSchemaCapabilityProvider,
   ],
-  exports: [RecordModifyService, RecordModifySharedService, CrossBaseLinkAccessService],
+  exports: [
+    RecordModifyService,
+    RecordModifySharedService,
+    CrossBaseLinkAccessService,
+    SymmetricFieldTargetSchemaCapabilityProvider,
+  ],
 })
 export class RecordModifyModule {}

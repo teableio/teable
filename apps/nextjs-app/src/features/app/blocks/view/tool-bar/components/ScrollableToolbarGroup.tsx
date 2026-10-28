@@ -7,10 +7,12 @@ const fadeWidth = 32;
 interface IScrollableToolbarGroupProps {
   children: ReactNode;
   className?: string;
+  containerClassName?: string;
+  fadeStart?: boolean;
 }
 
 export const ScrollableToolbarGroup = (props: IScrollableToolbarGroupProps) => {
-  const { children, className } = props;
+  const { children, className, containerClassName, fadeStart = true } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [{ canScrollLeft, canScrollRight }, setScrollState] = useState({
     canScrollLeft: false,
@@ -56,11 +58,11 @@ export const ScrollableToolbarGroup = (props: IScrollableToolbarGroupProps) => {
   }, [updateScrollState]);
 
   return (
-    <div className="relative min-w-0 flex-1 overflow-hidden">
+    <div className={cn('relative min-w-0 flex-1 overflow-hidden', containerClassName)}>
       <div
         ref={scrollRef}
         className={cn(
-          'flex gap-1 overflow-x-auto overflow-y-hidden pe-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'flex gap-1 overflow-x-auto overflow-y-hidden pe-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           className
         )}
       >
@@ -69,7 +71,7 @@ export const ScrollableToolbarGroup = (props: IScrollableToolbarGroupProps) => {
       <div
         className={cn(
           'pointer-events-none absolute inset-y-0 start-0 w-8 bg-gradient-to-r rtl:bg-gradient-to-l from-background to-transparent transition-opacity duration-150',
-          canScrollLeft ? 'opacity-100' : 'opacity-0'
+          fadeStart && canScrollLeft ? 'opacity-100' : 'opacity-0'
         )}
       />
       <div

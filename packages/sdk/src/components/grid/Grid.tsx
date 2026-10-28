@@ -2,7 +2,6 @@
 import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useRafState } from 'react-use';
 import { LoadingIndicator, ErrorIndicator } from './components';
 import type { IGridTheme } from './configs';
 import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
@@ -357,7 +356,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
-  const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
+  // Plain state, not rAF state: leaving editing and moving the active cell must commit together,
+  // otherwise the edited cell is painted for a frame in its expanded non-editing layout.
+  const [activeCell, setActiveCell] = useState<ICellItem | null>(null);
   const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
   const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
   const [cellErrors, setCellErrors] = useState<ICellError[]>([]);

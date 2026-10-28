@@ -21,6 +21,7 @@ vi.mock('@teable/sdk/hooks', async (importOriginal) => ({
   useBaseId: () => 'bseTest',
   useTableId: () => 'tblTest',
   useViewId: () => 'viwTest',
+  useIsReadOnlyPreview: () => false,
   useFieldStaticGetter: () => () => ({ Icon: () => null }),
 }));
 vi.mock('../../hooks/useContextMenu', () => ({
@@ -50,7 +51,7 @@ const primary = createFieldInstance({
   isPrimary: true,
 });
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
 
 const renderCard = (recordId = 'recCard') => {
   const card = recordInstanceFieldMap(
@@ -85,6 +86,7 @@ describe('gallery card add to chat', () => {
     ai.enable = true;
     ai.chatAIEnable = true;
     queryClient.clear();
+    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], { disableActions: [] });
     useChatPanelStore.setState({ status: 'close' });
   });
 
@@ -105,6 +107,17 @@ describe('gallery card add to chat', () => {
 
   it('hides the entry when AI chat is unavailable', () => {
     ai.enable = false;
+
+    renderCard();
+
+    fireEvent.contextMenu(screen.getByText('r1'));
+    expect(screen.queryByText('table:menu.addToChat')).toBeNull();
+  });
+
+  it('hides the entry when a space admin disables AI chat with configuration and quota available', () => {
+    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], {
+      disableActions: ['ai-chat'],
+    });
 
     renderCard();
 

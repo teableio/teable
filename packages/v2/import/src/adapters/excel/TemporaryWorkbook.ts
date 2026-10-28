@@ -6,7 +6,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { domainError, type DomainError, type IImportSource } from '@teable/v2-core';
-import { safeFetch } from '@teable/v2-utils';
+import { safeFetch, type ISsrfSafeFetchFn } from '@teable/v2-utils';
 import { err, ok, type Result } from 'neverthrow';
 
 export class ExcelSourceError extends Error {
@@ -27,14 +27,18 @@ type PreparedSource = {
 // Identity, not user-supplied file paths, grants access to a prepared snapshot.
 const preparedSources = new WeakMap<IImportSource, PreparedSource>();
 
-async function download(source: IImportSource, path: string): Promise<void> {
+async function download(
+  source: IImportSource,
+  path: string,
+  fetchFn: ISsrfSafeFetchFn = safeFetch
+): Promise<void> {
   let input: AsyncIterable<Uint8Array | string>;
   if (source.data !== undefined) {
     input = Readable.from([source.data]);
   } else if (source.url) {
     let response: Response;
     try {
-      response = await safeFetch(source.url);
+      response = await fetchFn(source.url);
     } catch (cause) {
       throw new ExcelSourceError(
         `Failed to download Excel: ${cause}`,
@@ -77,13 +81,14 @@ export type PreparedExcelImportSource = {
 
 /** Downloads one immutable disk snapshot for analysis and all sheets of an import. */
 export async function prepareExcelImportSource(
-  source: IImportSource
+  source: IImportSource,
+  fetchFn: ISsrfSafeFetchFn = safeFetch
 ): Promise<Result<PreparedExcelImportSource, DomainError>> {
   let directory: string | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), 'teable-excel-source-'));
     const path = join(directory, 'source');
-    await download(source, path);
+    await download(source, path, fetchFn);
     const prepared: PreparedSource = { path, disposed: false, readers: new Set() };
     const snapshot: IImportSource = {
       type: source.type,
@@ -143,7 +148,10 @@ export class TemporaryWorkbook {
     readonly path: string
   ) {}
 
-  static async open(source: IImportSource): Promise<TemporaryWorkbook> {
+  static async open(
+    source: IImportSource,
+    fetchFn: ISsrfSafeFetchFn = safeFetch
+  ): Promise<TemporaryWorkbook> {
     const prepared = preparedSources.get(source);
     if (prepared?.disposed) throw new Error('Prepared Excel source is disposed');
     const directory = await mkdtemp(join(tmpdir(), 'teable-excel-reader-'));
@@ -155,7 +163,7 @@ export class TemporaryWorkbook {
           prepared.readers.delete(workbook);
         });
       } else {
-        await download(source, workbook.path);
+        await download(source, workbook.path, fetchFn);
       }
       return workbook;
     } catch (cause) {

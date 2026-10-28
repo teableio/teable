@@ -98,4 +98,70 @@ describe('CookieConsentBanner', () => {
     expect(switchFor('analytics')).toBeChecked();
     expect(switchFor('marketing')).toBeChecked();
   });
+
+  it('closes on a choice the browser refuses to store', async () => {
+    // The browser keeps no cookies (blocked for the site). The refused choice lives in
+    // module memory for the rest of the page, so this test starts a fresh one.
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: () => '',
+      set: () => undefined,
+    });
+    try {
+      vi.resetModules();
+      const { CookieConsentBanner: Banner } = await import('./CookieConsentBanner');
+      render(<Banner enabled />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'cookieConsent.reject' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(document, 'cookie');
+    }
+  });
+
+  describe('inside an iframe', () => {
+    beforeEach(() => {
+      vi.stubGlobal('top', {});
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('does not open by itself, only from Cookie settings', () => {
+      setRegion('eea');
+      render(<CookieConsentBanner enabled />);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      act(() => openCookieSettings());
+      fireEvent.click(screen.getByRole('button', { name: 'cookieConsent.reject' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(savedConsent()).toEqual(consentForCategories({ analytics: false, marketing: false }));
+    });
+  });
+
+  describe('inside the mobile app', () => {
+    beforeEach(() => {
+      vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1 TeableMobile/1.4.0'
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('never shows the banner, not even from Cookie settings', () => {
+      setRegion('eea');
+      render(<CookieConsentBanner enabled />);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      act(() => openCookieSettings());
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(savedConsent()).toBeUndefined();
+    });
+  });
 });

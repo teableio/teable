@@ -354,10 +354,19 @@ export class BaseController {
   async getAllBase(
     @Query(new ZodValidationPipe(getBaseAllRoSchema)) query: IGetBaseAllRo
   ): Promise<IGetBaseAllVo> {
-    const bases = await this.baseService.getAllBaseList();
-    return query.orderBy === 'personal'
-      ? await this.basePersonalOrderService.sortForUser(bases)
-      : bases;
+    const { orderBy, spaceId, search, skip, take } = query;
+    if (orderBy !== 'personal') {
+      return await this.baseService.getAllBaseList({ spaceId, search, skip, take });
+    }
+    // The personal order is computed per user over the whole list, so it pages after sorting.
+    const sorted = await this.basePersonalOrderService.sortForUser(
+      await this.baseService.getAllBaseList({ spaceId, search })
+    );
+    if (skip === undefined && take === undefined) {
+      return sorted;
+    }
+    const start = skip ?? 0;
+    return sorted.slice(start, take === undefined ? undefined : start + take);
   }
 
   @Delete(':baseId')

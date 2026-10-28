@@ -1920,10 +1920,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       activeTargetColumns.has(`__row_${viewId}`)
     );
     if (targetOrderViewIds.length > 0) {
-      // T7251: the duplicate-table flow creates the target table in this
-      // same transaction, so ensureViewOrderColumnsExist detects that
-      // (invisible to other connections) and keeps creation
-      // in-transaction; only pre-existing committed tables go online.
+      // The schema repository registered this target's OID on the same data
+      // transaction, including FK DDL that rewrites the catalog tuple's xmin.
       await ensureViewOrderColumnsExist(
         db,
         this.db as unknown as Kysely<DynamicDB>,

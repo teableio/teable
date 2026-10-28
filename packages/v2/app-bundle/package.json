@@ -39,7 +39,7 @@
     "fflate": "0.8.3",
     "kysely": "0.28.17",
     "neverthrow": "8.2.0",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

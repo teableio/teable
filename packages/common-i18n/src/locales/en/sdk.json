@@ -1082,6 +1082,7 @@
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "testFailed": "Automation test failed, please check the automation configuration",
       "runFailed": "Automation run failed",
+      "runInterrupted": "Execution interrupted; result unconfirmed",
       "activatorDeactivated": "The account that activated this automation has been deactivated",
       "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
       "nodeNeedTest": "{{name}} node needs to be tested",

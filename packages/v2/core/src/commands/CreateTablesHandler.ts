@@ -2,6 +2,12 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationSideEffects,
+  type FieldOperationSideEffectPluginExecutionSet,
+  prepareFieldOperationSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableCreationService } from '../application/services/TableCreationService';
@@ -22,6 +28,7 @@ import type { TableId } from '../domain/table/TableId';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
@@ -282,6 +289,12 @@ export class CreateTablesHandler implements ICommandHandler<
     private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
       [],
       new NoopLogger()
+    ),
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner = new FieldOperationPluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
     )
   ) {}
 
@@ -354,6 +367,27 @@ export class CreateTablesHandler implements ICommandHandler<
           foreignTables,
         });
       }
+      const domainContext = ExecutionContextPort.getDomainContext(context);
+      const sideEffectPluginExecutions: FieldOperationSideEffectPluginExecutionSet[] = [];
+      for (const table of tablesForValidation) {
+        const plannedSideEffects = yield* collectFieldCreationSideEffects(
+          table,
+          table.getFields(),
+          foreignTables,
+          domainContext
+        );
+        const execution = yield* await prepareFieldOperationSideEffectPlugins({
+          runner: handler.fieldOperationPluginRunner,
+          executionContext: context,
+          sourceOperation: FieldOperationKind.create,
+          sourceTable: table,
+          foreignTables,
+          domainContext,
+          sideEffects: plannedSideEffects,
+        });
+        yield* await execution.guard();
+        sideEffectPluginExecutions.push(execution);
+      }
       for (let index = 0; index < tableCommands.length; index += 1) {
         const table = builtTables[index];
         const recordsFieldValues = tableCommands[index]?.records ?? [];
@@ -368,6 +402,9 @@ export class CreateTablesHandler implements ICommandHandler<
         context,
         async (metaTransactionContext) =>
           safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
+            for (const execution of sideEffectPluginExecutions) {
+              yield* await execution.beforePersist(metaTransactionContext);
+            }
             const metadataResult = yield* await handler.tableCreationService.persistMetadata(
               metaTransactionContext,
               {
@@ -495,6 +532,9 @@ export class CreateTablesHandler implements ICommandHandler<
       );
       const events = [...hostEvents, ...recordEvents, ...dataResult.value.sideEffectEvents];
       yield* await handler.eventBus.publishMany(context, events);
+      for (const execution of sideEffectPluginExecutions) {
+        await execution.afterCommit();
+      }
 
       const resultTables = dataResult.value.persistedTables.map(
         (table) => dataResult.value.tableState.get(table.id().toString()) ?? table

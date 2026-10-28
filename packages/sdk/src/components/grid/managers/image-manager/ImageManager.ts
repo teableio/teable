@@ -129,12 +129,6 @@ export class ImageManager implements IGlobalImageManager {
       },
     };
 
-    const loadPromise = new Promise<void>((resolve, reject) => {
-      img.addEventListener('load', () => resolve(), { once: true });
-      img.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)), {
-        once: true,
-      });
-    });
     // Cells are redrawn on both outcomes: a failure has to replace the loading
     // placeholder just like a loaded image does.
     const settle = (settled: (entry: ILoadResult) => void) => {
@@ -148,6 +142,16 @@ export class ImageManager implements IGlobalImageManager {
     };
     // use request animation time to avoid paying src set costs during draw calls
     requestAnimationFrame(async () => {
+      // Evicted before the frame: don't start a request nobody will read.
+      if (canceled) return;
+      // Subscribe right before src is set and await at once, so an early `error`
+      // (cancel() assigns src = '') never rejects an unobserved promise.
+      const loadPromise = new Promise<void>((resolve, reject) => {
+        img.addEventListener('load', () => resolve(), { once: true });
+        img.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)), {
+          once: true,
+        });
+      });
       try {
         img.src = url;
         await loadPromise;

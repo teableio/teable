@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { MoreHorizontal, Plus, UserPlus } from '@teable/icons';
+import { Import, MoreHorizontal, Plus, UserPlus } from '@teable/icons';
 import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import type { ButtonProps } from '@teable/ui-lib';
@@ -28,6 +28,11 @@ interface ActionBarProps {
   className?: string;
   buttonSize?: ButtonProps['size'];
   disallowSpaceInvitation?: boolean | null;
+  /**
+   * `projects`: creating and importing projects only, as two buttons, for a page about the
+   * space's projects rather than the space itself (no invite, no space menu).
+   */
+  variant?: 'space' | 'projects';
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
@@ -39,6 +44,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     className,
     buttonSize = 'default',
     disallowSpaceInvitation,
+    variant = 'space',
     onRename,
     onDelete,
     onPermanentDelete,
@@ -109,7 +115,13 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
           )}
         </Tooltip>
       </TooltipProvider>
-      {!disallowSpaceInvitation && (
+      {variant === 'projects' && canCreateBase && (
+        <Button variant={'outline'} size={buttonSize} onClick={() => setImportBaseOpen(true)}>
+          <Import className="size-4" />
+          {t('space:spaceSetting.importBase')}
+        </Button>
+      )}
+      {variant === 'space' && !disallowSpaceInvitation && (
         <InviteSpacePopover space={space}>
           {isMobile ? (
             <Button variant="outline" size="icon-xs">
@@ -123,21 +135,23 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         </InviteSpacePopover>
       )}
 
-      <SpaceActionTrigger
-        space={space}
-        showRename={false}
-        showSettings={hasPermission(space.role, 'space|update')}
-        showDelete={hasPermission(space.role, 'space|delete')}
-        showImportBase={hasPermission(space.role, 'base|create')}
-        onDelete={onDelete}
-        onPermanentDelete={onPermanentDelete}
-        onRename={onRename}
-        onImportBase={() => setImportBaseOpen(true)}
-      >
-        <Button variant={'outline'} size={buttonSize} className="p-[5px]">
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </SpaceActionTrigger>
+      {variant === 'space' && (
+        <SpaceActionTrigger
+          space={space}
+          showRename={false}
+          showSettings={hasPermission(space.role, 'space|update')}
+          showDelete={hasPermission(space.role, 'space|delete')}
+          showImportBase={hasPermission(space.role, 'base|create')}
+          onDelete={onDelete}
+          onPermanentDelete={onPermanentDelete}
+          onRename={onRename}
+          onImportBase={() => setImportBaseOpen(true)}
+        >
+          <Button variant={'outline'} size={buttonSize} className="p-[5px]">
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </SpaceActionTrigger>
+      )}
 
       <ImportBaseDialog spaceId={space.id} open={importBaseOpen} onOpenChange={setImportBaseOpen} />
 

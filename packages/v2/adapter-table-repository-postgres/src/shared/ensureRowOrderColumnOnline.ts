@@ -3,7 +3,11 @@ import type { IExecutionContext } from '@teable/v2-core';
 import { sql, type Kysely, type Transaction } from 'kysely';
 
 import type { DynamicDB } from '../record/query-builder';
-import { splitSchemaQualifiedTableName, toPostgresIdentifierWithHash } from './sqlIdentifiers';
+import {
+  resolveTableName,
+  splitSchemaQualifiedTableName,
+  toPostgresIdentifierWithHash,
+} from './sqlIdentifiers';
 
 /**
  * T7251: Lazily created `__row_<viewId>` row-order columns must never be
@@ -76,46 +80,83 @@ const sleep = async (ms: number): Promise<void> => {
   });
 };
 
-/** information_schema fast path; cheap and lock-free on any handle. */
+const physicalTable = (db: Kysely<DynamicDB>, tableName: string) =>
+  sql.raw(resolveTableName(db, tableName));
+
+type PhysicalTableState = {
+  readonly schema: string;
+  readonly relationId: string;
+};
+
+const physicalTableState = async (
+  db: Kysely<DynamicDB>,
+  tableName: string
+): Promise<PhysicalTableState | undefined> => {
+  const result = await sql<{ schema_name: string; relation_id: string }>`
+    SELECT n.nspname AS schema_name, c.oid::text AS relation_id
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = to_regclass(${sql.lit(resolveTableName(db, tableName))})
+  `.execute(db);
+  const row = result.rows[0];
+  return row ? { schema: row.schema_name, relationId: row.relation_id } : undefined;
+};
+
 const rowOrderColumnExists = async (
   db: Kysely<DynamicDB>,
   tableName: string,
   orderColumnName: string
 ): Promise<boolean> => {
-  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const result = await sql<{ column_name: string }>`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = ${schemaName ?? 'public'}
-    AND table_name = ${plainTableName}
-    AND column_name = ${orderColumnName}
+  const result = await sql<{ column_exists: boolean }>`
+    SELECT EXISTS (
+      SELECT 1 FROM pg_attribute
+      WHERE attrelid = to_regclass(${sql.lit(resolveTableName(db, tableName))})
+        AND attname = ${orderColumnName}
+        AND attnum > 0
+        AND NOT attisdropped
+    ) AS column_exists
   `.execute(db);
-
-  return result.rows.length > 0;
+  return isTruthySqlFlag(result.rows[0]?.column_exists);
 };
 
-/**
- * True when `tableName` was created by the current transaction on `txDb`.
- * Such tables are invisible to other connections, so column creation must
- * stay in-transaction.
- */
+// Transaction handles own this state; committed handles become unreachable.
+// Track OIDs, not names: a savepoint rollback can restore a different table
+// under the same name without making that pre-existing table transaction-local.
+const createdTableRelationIds = new WeakMap<Kysely<DynamicDB>, Set<string>>();
+
+const isOpenTransaction = (db: Kysely<DynamicDB>): boolean =>
+  (db as Transaction<DynamicDB>).isTransaction === true;
+
+const tableRelationId = async (
+  db: Kysely<DynamicDB>,
+  tableName: string
+): Promise<string | undefined> => {
+  return (await physicalTableState(db, tableName))?.relationId;
+};
+
+/** Record only after an unconditional physical CREATE TABLE has succeeded. */
+export const markTableCreatedInCurrentTransaction = async (
+  db: Kysely<DynamicDB>,
+  tableName: string
+): Promise<void> => {
+  if (!isOpenTransaction(db)) return;
+  const relationId = await tableRelationId(db, tableName);
+  if (!relationId) {
+    throw new Error(`Physical table ${tableName} was not found after creation`);
+  }
+  const ids = createdTableRelationIds.get(db) ?? new Set<string>();
+  ids.add(relationId);
+  createdTableRelationIds.set(db, ids);
+};
+
 const tableCreatedInCurrentTransaction = async (
   txDb: Kysely<DynamicDB>,
   tableName: string
 ): Promise<boolean> => {
-  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  // Quote each part: an unquoted mixed-case name folds to lower case and
-  // to_regclass returns NULL, which would read as "created here".
-  const qualifiedName = schemaName
-    ? sql`quote_ident(${schemaName}) || '.' || quote_ident(${plainTableName})`
-    : sql`quote_ident(${plainTableName})`;
-  const result = await sql<{ created_here: boolean }>`
-    SELECT (c.xmin = (txid_current() % 4294967296)::text::xid) AS created_here
-    FROM pg_class c
-    WHERE c.oid = to_regclass(${qualifiedName})
-  `.execute(txDb);
-
-  return result.rows[0]?.created_here ?? true;
+  const ids = createdTableRelationIds.get(txDb);
+  if (!isOpenTransaction(txDb) || !ids) return false;
+  const relationId = await tableRelationId(txDb, tableName);
+  return relationId !== undefined && ids.has(relationId);
 };
 
 const isPgliteEngine = async (db: Kysely<DynamicDB>): Promise<boolean> => {
@@ -123,9 +164,6 @@ const isPgliteEngine = async (db: Kysely<DynamicDB>): Promise<boolean> => {
   const version = result.rows[0]?.version ?? '';
   return /pglite|emscripten|emcc/i.test(version);
 };
-
-const isOpenTransaction = (db: Kysely<DynamicDB>): boolean =>
-  (db as Transaction<DynamicDB>).isTransaction === true;
 
 /** Legacy in-transaction creation for tables created by the current transaction. */
 const createRowOrderColumnInTransaction = async (
@@ -136,19 +174,19 @@ const createRowOrderColumnInTransaction = async (
 ): Promise<void> => {
   const orderColumnName = rowOrderColumnNameForView(viewId);
   await sql`
-    ALTER TABLE ${sql.table(tableName)}
+    ALTER TABLE ${physicalTable(txDb, tableName)}
     ADD COLUMN IF NOT EXISTS ${sql.id(orderColumnName)} double precision
   `.execute(txDb);
 
   await sql`
-    UPDATE ${sql.table(tableName)}
+    UPDATE ${physicalTable(txDb, tableName)}
     SET ${sql.id(orderColumnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
     WHERE ${sql.id(orderColumnName)} IS NULL
   `.execute(txDb);
 
   await sql`
     CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
-    ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
+    ON ${physicalTable(txDb, tableName)} (${sql.id(orderColumnName)})
   `.execute(txDb);
 };
 
@@ -274,7 +312,7 @@ const hasNullRowOrder = async (
 ): Promise<boolean> => {
   const result = await sql<{ has_null: boolean | string }>`
     SELECT EXISTS (
-      SELECT 1 FROM ${sql.table(tableName)} WHERE ${sql.id(columnName)} IS NULL
+      SELECT 1 FROM ${physicalTable(db, tableName)} WHERE ${sql.id(columnName)} IS NULL
     ) AS has_null
   `.execute(db);
   return isTruthySqlFlag(result.rows[0]?.has_null);
@@ -289,7 +327,7 @@ const backfillFromAutoNumber = async (
   const bounds = await sql<{ min_auto_number: number | null; max_auto_number: number | null }>`
     SELECT min(${sql.id(AUTO_NUMBER_COLUMN)}) AS min_auto_number,
            max(${sql.id(AUTO_NUMBER_COLUMN)}) AS max_auto_number
-    FROM ${sql.table(tableName)}
+    FROM ${physicalTable(conn, tableName)}
   `.execute(conn);
   const minAutoNumber = bounds.rows[0]?.min_auto_number;
   const maxAutoNumber = bounds.rows[0]?.max_auto_number;
@@ -299,7 +337,7 @@ const backfillFromAutoNumber = async (
     for (let start = min; start <= max; start += ROW_ORDER_BACKFILL_CHUNK_SIZE) {
       const end = start + ROW_ORDER_BACKFILL_CHUNK_SIZE;
       await sql`
-        UPDATE ${sql.table(tableName)}
+        UPDATE ${physicalTable(conn, tableName)}
         SET ${sql.id(columnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
         WHERE ${sql.id(AUTO_NUMBER_COLUMN)} >= ${start}
           AND ${sql.id(AUTO_NUMBER_COLUMN)} < ${end}
@@ -309,7 +347,7 @@ const backfillFromAutoNumber = async (
   }
 
   await sql`
-    UPDATE ${sql.table(tableName)}
+    UPDATE ${physicalTable(conn, tableName)}
     SET ${sql.id(columnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
     WHERE ${sql.id(columnName)} IS NULL
   `.execute(conn);
@@ -334,7 +372,7 @@ const createConcurrentIndexIfColumnExists = async (
   try {
     await sql`
       CREATE INDEX CONCURRENTLY IF NOT EXISTS ${sql.id(indexName)}
-      ON ${sql.table(tableName)} (${sql.id(columnName)})
+      ON ${physicalTable(conn, tableName)} (${sql.id(columnName)})
     `.execute(conn);
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;
@@ -419,8 +457,9 @@ export const ensureRowOrderColumnOnline = async (
 
   const orderColumnName = rowOrderColumnNameForView(viewId);
   const pendingColumnName = pendingRowOrderColumnNameForView(viewId);
-  const { schemaName } = splitSchemaQualifiedTableName(tableName);
-  const schema = schemaName ?? 'public';
+  const tableState = await physicalTableState(nonTxDb, tableName);
+  if (!tableState) throw new Error(`Physical table ${tableName} was not found`);
+  const schema = tableState.schema;
 
   const advisoryLockKey = `${tableName}|${viewId}`;
   const alreadyPublished = await rowOrderColumnExists(nonTxDb, tableName, orderColumnName);
@@ -458,11 +497,11 @@ export const ensureRowOrderColumnOnline = async (
         // the chunks write; appends that read it earlier may still not.
         for (let attempt = 0; attempt < LEGACY_TOP_FILL_ATTEMPTS; attempt += 1) {
           const filled = await sql`
-            UPDATE ${sql.table(tableName)}
+            UPDATE ${physicalTable(conn, tableName)}
             SET ${sql.id(orderColumnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
             WHERE ${sql.id(AUTO_NUMBER_COLUMN)} = (
               SELECT max(${sql.id(AUTO_NUMBER_COLUMN)})
-              FROM ${sql.table(tableName)}
+              FROM ${physicalTable(conn, tableName)}
               WHERE ${sql.id(orderColumnName)} IS NULL
             )
               AND ${sql.id(orderColumnName)} IS NULL
@@ -495,7 +534,7 @@ export const ensureRowOrderColumnOnline = async (
             trx
           );
           await sql`
-            ALTER TABLE ${sql.table(tableName)}
+            ALTER TABLE ${physicalTable(conn, tableName)}
             ADD COLUMN IF NOT EXISTS ${sql.id(pendingColumnName)} double precision
           `.execute(trx);
         })
@@ -534,7 +573,7 @@ export const ensureRowOrderColumnOnline = async (
       // Rows inserted during the CIC are filled here so the sweep under
       // ACCESS EXCLUSIVE only catches the last few.
       await sql`
-        UPDATE ${sql.table(tableName)}
+        UPDATE ${physicalTable(conn, tableName)}
         SET ${sql.id(pendingColumnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
         WHERE ${sql.id(pendingColumnName)} IS NULL
       `.execute(conn);
@@ -543,14 +582,16 @@ export const ensureRowOrderColumnOnline = async (
           await sql`SET LOCAL lock_timeout = ${sql.lit(ROW_ORDER_COLUMN_LOCK_TIMEOUT)}`.execute(
             trx
           );
-          await sql`LOCK TABLE ${sql.table(tableName)} IN ACCESS EXCLUSIVE MODE`.execute(trx);
+          await sql`LOCK TABLE ${physicalTable(trx, tableName)} IN ACCESS EXCLUSIVE MODE`.execute(
+            trx
+          );
           await sql`
-            UPDATE ${sql.table(tableName)}
+            UPDATE ${physicalTable(trx, tableName)}
             SET ${sql.id(pendingColumnName)} = ${sql.id(AUTO_NUMBER_COLUMN)}
             WHERE ${sql.id(pendingColumnName)} IS NULL
           `.execute(trx);
           await sql`
-            ALTER TABLE ${sql.table(tableName)}
+            ALTER TABLE ${physicalTable(trx, tableName)}
             RENAME COLUMN ${sql.id(pendingColumnName)} TO ${sql.id(orderColumnName)}
           `.execute(trx);
         })
@@ -561,7 +602,7 @@ export const ensureRowOrderColumnOnline = async (
   if (pglite) {
     await sql`
       CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
-      ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
+      ON ${physicalTable(nonTxDb, tableName)} (${sql.id(orderColumnName)})
     `.execute(nonTxDb);
   }
 };
@@ -571,8 +612,8 @@ export const ensureRowOrderColumnOnline = async (
  *
  * Online creation never falls back into the caller's transaction on a
  * committed table: 55P03/40P01 fail the request instead of re-arming
- * AccessExclusive. Callers that need the column must invoke this before
- * the request transaction takes locks on the physical table (or before
+ * AccessExclusive. Callers that need the column must invoke this before the
+ * request transaction takes locks on the physical table (or before
  * `withTransaction` when CIC must run).
  */
 export const ensureRowOrderColumns = async (
@@ -584,9 +625,7 @@ export const ensureRowOrderColumns = async (
   const seen = new Set<string>();
   let pglite: boolean | undefined;
   for (const viewId of viewIds) {
-    if (!viewId || seen.has(viewId)) {
-      continue;
-    }
+    if (!viewId || seen.has(viewId)) continue;
     seen.add(viewId);
 
     const orderColumnName = rowOrderColumnNameForView(viewId);

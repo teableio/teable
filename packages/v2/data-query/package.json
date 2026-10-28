@@ -35,7 +35,7 @@
     "@teable/v2-core": "workspace:*",
     "neverthrow": "8.2.0",
     "yaml": "^2.7.0",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

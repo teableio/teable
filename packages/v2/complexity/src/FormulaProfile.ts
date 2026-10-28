@@ -426,7 +426,9 @@ export function inspectFormulaProfile(expression: string): FormulaProfile {
 
   const syntaxError = errorCollector.firstError();
   if (syntaxError) {
-    return incompleteProfile('invalid', syntaxError);
+    // ANTLR messages quote the offending token. Host surfaces expose these
+    // warnings to operators outside the project, so never echo source text.
+    return incompleteProfile('invalid', 'Formula source has a syntax error');
   }
 
   try {

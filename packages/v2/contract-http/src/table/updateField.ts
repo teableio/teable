@@ -43,8 +43,8 @@ export const updateFieldEventDtoSchema = domainEventDtoSchema.extend({
     .record(
       z.string(),
       z.object({
-        oldValue: z.unknown(),
-        newValue: z.unknown(),
+        oldValue: z.unknown().optional(),
+        newValue: z.unknown().optional(),
       })
     )
     .optional(),
