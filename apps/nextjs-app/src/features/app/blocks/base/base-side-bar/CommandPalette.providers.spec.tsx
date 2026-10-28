@@ -17,6 +17,8 @@ import { CommandPalette } from './CommandPalette';
 
 const {
   spaceSearch,
+  getUserLastVisitListBase,
+  getBaseAll,
   getViewList,
   getTablePermission,
   getUserLastVisitMap,
@@ -24,6 +26,8 @@ const {
   getAIDisableActions,
 } = vi.hoisted(() => ({
   spaceSearch: vi.fn(),
+  getUserLastVisitListBase: vi.fn(),
+  getBaseAll: vi.fn(),
   getViewList: vi.fn(),
   getTablePermission: vi.fn(),
   getUserLastVisitMap: vi.fn(),
@@ -35,6 +39,8 @@ const {
 vi.mock('@teable/openapi', async (importOriginal) => ({
   ...(await importOriginal<typeof OpenApi>()),
   spaceSearch,
+  getUserLastVisitListBase,
+  getBaseAll,
   getViewList,
   getTablePermission,
   getUserLastVisitMap,
@@ -116,11 +122,122 @@ describe('CommandPalette provider boundaries', () => {
       ],
     });
     getTablePermission.mockReset().mockResolvedValue({ data: { table: {}, field: {}, view: {} } });
+    getUserLastVisitListBase.mockReset().mockResolvedValue({
+      data: {
+        total: 4,
+        list: [
+          {
+            resourceId: 'bseRecentOne',
+            resourceType: 'base',
+            resource: {
+              id: 'bseRecentOne',
+              name: 'Stale recent name',
+              icon: 'old-icon',
+              role: 'owner',
+              spaceId: 'spcOld',
+              createdBy: 'usrOne',
+            },
+            lastVisitTime: '2026-10-27T09:00:00.000Z',
+          },
+          {
+            resourceId: 'bseOtherSpace',
+            resourceType: 'base',
+            resource: {
+              id: 'bseOtherSpace',
+              name: 'Other space project',
+              icon: null,
+              role: 'owner',
+              spaceId: 'spcOther',
+              createdBy: 'usrOne',
+            },
+            lastVisitTime: '2026-10-27T08:00:00.000Z',
+          },
+          {
+            resourceId: 'bseSecondRecent',
+            resourceType: 'base',
+            resource: {
+              id: 'bseSecondRecent',
+              name: 'Second recent project',
+              icon: null,
+              role: 'owner',
+              spaceId: 'spcOne',
+              createdBy: 'usrOne',
+            },
+            lastVisitTime: '2026-10-27T07:00:00.000Z',
+          },
+          {
+            resourceId: 'bseInaccessible',
+            resourceType: 'base',
+            resource: {
+              id: 'bseInaccessible',
+              name: 'Inaccessible project',
+              icon: null,
+              role: 'owner',
+              spaceId: 'spcOne',
+              createdBy: 'usrOne',
+            },
+            lastVisitTime: '2026-10-27T06:00:00.000Z',
+          },
+        ],
+      },
+    });
+    getBaseAll.mockReset().mockResolvedValue({
+      data: [
+        {
+          id: 'bseRecentOne',
+          name: 'Current project name',
+          icon: 'current-icon',
+          role: 'owner',
+          spaceId: 'spcOne',
+          createdBy: 'usrOne',
+        },
+        {
+          id: 'bseOtherSpace',
+          name: 'Other space project',
+          icon: null,
+          role: 'owner',
+          spaceId: 'spcOther',
+          createdBy: 'usrOne',
+        },
+        {
+          id: 'bseSecondRecent',
+          name: 'Second recent project',
+          icon: null,
+          role: 'owner',
+          spaceId: 'spcOne',
+          createdBy: 'usrOne',
+        },
+      ],
+    });
     getUserLastVisitMap.mockReset().mockResolvedValue({ data: {} });
     getPublicSetting.mockReset().mockResolvedValue({ data: {} });
     getAIDisableActions.mockReset().mockResolvedValue({ data: { disableActions: [] } });
   });
   afterEach(cleanup);
+
+  it('shows accessible recent projects in the current space and opens the selected project', async () => {
+    const user = userEvent.setup();
+    const { wrapper, router } = setup();
+    const onOpenChange = vi.fn();
+    render(<CommandPalette open onOpenChange={onOpenChange} spaceId="spcOne" />, { wrapper });
+
+    const recentProject = await screen.findByText('Current project name');
+    const secondRecentProject = screen.getByText('Second recent project');
+    expect(
+      recentProject.compareDocumentPosition(secondRecentProject) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.queryByText('Other space project')).toBeNull();
+    expect(screen.queryByText('Inaccessible project')).toBeNull();
+    expect(screen.queryByText('commandPalette.noRecent')).toBeNull();
+    expect(getUserLastVisitListBase).toHaveBeenCalledOnce();
+    expect(getBaseAll).toHaveBeenCalledOnce();
+    expect(spaceSearch).not.toHaveBeenCalled();
+
+    await user.click(recentProject);
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/base/bseRecentOne'));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 
   it('searches and navigates on the space page without Base, Table, Anchor, or View providers', async () => {
     const user = userEvent.setup();

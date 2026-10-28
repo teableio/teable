@@ -565,13 +565,47 @@ export const createV2NodePgContainer = async (
   return c;
 };
 
-/** Destroy the dedicated schema coordination pool before the host closes its DBs. */
+const disposedContainers = new WeakSet<DependencyContainer>();
+
+/** Destroy coordination first, then each unique Kysely handle. Borrowed pools remain host-owned. */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- independent resource teardown plus aggregation
 export const disposeV2NodePgContainer = async (c: DependencyContainer): Promise<void> => {
-  if (!c.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
-    return;
+  if (disposedContainers.has(c)) return;
+  disposedContainers.add(c);
+  const errors: unknown[] = [];
+  if (c.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
+    try {
+      const coordination = c.resolve<{ destroy?: () => Promise<void> }>(
+        v2CoreTokens.tableSchemaCoordination
+      );
+      await coordination.destroy?.();
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  const coordination = c.resolve<{ destroy?: () => Promise<void> }>(
-    v2CoreTokens.tableSchemaCoordination
-  );
-  await coordination.destroy?.();
+  const disposals: Array<Promise<void>> = [];
+  const handles = new Set<{ destroy(): Promise<void> }>();
+  for (const token of [v2MetaDbTokens.db, v2DataDbTokens.db, v2PostgresDbTokens.db]) {
+    try {
+      if (c.isRegistered(token)) handles.add(c.resolve(token));
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  for (const db of handles) {
+    try {
+      disposals.push(db.destroy());
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  const results = await Promise.allSettled(disposals);
+  for (const result of results) {
+    if (result.status === 'rejected') errors.push(result.reason);
+  }
+  if (errors.length > 0) {
+    throw errors.length === 1
+      ? errors[0]
+      : new AggregateError(errors, 'Failed to dispose the PostgreSQL container');
+  }
 };

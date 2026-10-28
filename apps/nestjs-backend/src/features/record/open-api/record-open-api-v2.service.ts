@@ -153,6 +153,7 @@ import { convertValueToStringify, string2Hash } from '../../../utils';
 import { generateFilterItem } from '../../../utils/filter';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
+import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
@@ -242,6 +243,9 @@ export class RecordOpenApiV2Service {
   // Property-injected so the long positional constructor (and its specs) stay as they are.
   @Inject(CrossBaseLinkAccessService)
   private readonly crossBaseLinkAccess!: CrossBaseLinkAccessService;
+
+  @Inject(FieldSupplementService)
+  private readonly fieldSupplementService!: FieldSupplementService;
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
@@ -2599,14 +2603,6 @@ export class RecordOpenApiV2Service {
     const hasOrder = Boolean(order);
     const fields = updateRecordRo.record.fields ?? {};
     const hasFields = Object.keys(fields).length > 0;
-    // A cross-base link cell is read from (and its symmetric cell written into)
-    // the foreign table on every write, not only when typecast resolves titles:
-    // a structured id write (`typecast=false`) reaches it just the same, so the
-    // foreign-base read check must run regardless of typecast, not only on the
-    // typecast title-lookup branch the earlier cross-base fix covered.
-    if (hasFields) {
-      await this.crossBaseLinkAccess.assertForeignTablesReadable(tableId, Object.keys(fields));
-    }
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -2769,10 +2765,6 @@ export class RecordOpenApiV2Service {
       'record.update.request.hasOrder': Boolean(updateRecordsRo.order),
       'record.update.request.typecast': updateRecordsRo.typecast ?? false,
     });
-    // Cross-base link writes reach the foreign table regardless of typecast; see
-    // updateRecord. The check is a no-op when none of these fields point at
-    // another base.
-    await this.crossBaseLinkAccess.assertForeignTablesReadable(tableId, uniqueFieldIds);
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -2924,13 +2916,6 @@ export class RecordOpenApiV2Service {
 
     // Preserve v1's default typecast behavior (false) to ensure proper validation
     const records = createRecordsRo.records;
-    // Cross-base link writes reach the foreign table regardless of typecast; see
-    // updateRecord. Run the check before touching the foreign table; it is a
-    // no-op for same-base links.
-    await this.crossBaseLinkAccess.assertForeignTablesReadable(
-      tableId,
-      records.flatMap((record) => Object.keys(record.fields ?? {}))
-    );
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -2975,13 +2960,6 @@ export class RecordOpenApiV2Service {
       'teable.record.upsert.on_conflict': upsertRecordsRo.onConflict,
     });
     await this.assertTableRecordWritable(tableId);
-    // Upsert creates/updates records through the same shared write path as
-    // createRecords, so a cross-base link value reaches the foreign table the
-    // same way; run the foreign-table read check before touching it.
-    await this.crossBaseLinkAccess.assertForeignTablesReadable(
-      tableId,
-      upsertRecordsRo.records.flatMap((record) => Object.keys(record.fields ?? {}))
-    );
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -3042,14 +3020,6 @@ export class RecordOpenApiV2Service {
 
   async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
     await this.assertTableRecordWritable(tableId);
-    // Form submit creates the record through the same shared write path as
-    // createRecords, so a cross-base link value reaches the foreign table the
-    // same way. The route guard only authorizes the host table, so repeat the
-    // foreign-table read check here (a no-op for same-base links).
-    await this.crossBaseLinkAccess.assertForeignTablesReadable(
-      tableId,
-      Object.keys(formSubmitRo.fields ?? {})
-    );
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -3334,6 +3304,33 @@ export class RecordOpenApiV2Service {
     return selection.fieldIds?.filter((fieldId) => !excluded.has(fieldId));
   }
 
+  /**
+   * `header` describes the copied columns; a column pasted past the table's
+   * fields is created by `PasteCommand`. Those fields never reach
+   * `CrossBaseLinkAccessFieldOperationPlugin`, so the same-space/read rule for
+   * their foreign references has to run at the entry point.
+   */
+  private async assertPasteSourceFieldsReadable(
+    tableId: string,
+    header: ReadonlyArray<object> | undefined
+  ): Promise<void> {
+    const checked = new Set<string>();
+    for (const field of header ?? []) {
+      for (const key of ['options', 'config', 'lookupOptions']) {
+        const container: unknown = Reflect.get(field, key);
+        if (!container || typeof container !== 'object') {
+          continue;
+        }
+        const foreignTableId: unknown = Reflect.get(container, 'foreignTableId');
+        if (typeof foreignTableId !== 'string' || checked.has(foreignTableId)) {
+          continue;
+        }
+        checked.add(foreignTableId);
+        await this.fieldSupplementService.assertNewForeignTableAllowed(tableId, foreignTableId);
+      }
+    }
+  }
+
   private async preparePasteCommandInput(
     tableId: string,
     pasteRo: IPasteRo,
@@ -3509,11 +3506,15 @@ export class RecordOpenApiV2Service {
         }
 
         const targetFields = fields.slice(startCol, startCol + truncatedCols);
-        // Pasted text in a link column is resolved by title against the foreign table.
-        await this.crossBaseLinkAccess.assertForeignTablesReadable(
-          tableId,
-          targetFields.map((field) => field.id)
-        );
+        // A pasted column header can create a field inside PasteCommand, where no
+        // field-operation plugin runs. Only the columns past the table end are
+        // created, and PasteCommand builds them from the matching tail of the
+        // header, so check that slice; a header copied from a link column but
+        // pasted into an existing column persists no foreign reference.
+        const expandableColumns = hasFieldCreatePermission ? numColsToExpand : 0;
+        if (expandableColumns > 0) {
+          await this.assertPasteSourceFieldsReadable(tableId, header?.slice(-expandableColumns));
+        }
         const sourceFieldInstances = header?.map((field) => createFieldInstanceByVo(field));
         if (sourceFieldInstances) {
           finalContent = this.convertPasteContentWithSourceFields(

@@ -10,3 +10,4 @@ export * from './mime-type';
 export * from './query-field-ids';
 export * from './search-hit-index';
 export * from './email-inbox';
+export * from './iso-datetime';

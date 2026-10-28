@@ -7,6 +7,7 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
+import { PermissionService } from '../features/auth/permission.service';
 import { SessionHandleService } from '../features/auth/session/session-handle.service';
 import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
@@ -54,6 +55,7 @@ export class ShareDbService extends ShareDBClass {
     @CacheConfig() private readonly cacheConfig: ICacheConfig,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly sessionHandleService: SessionHandleService,
+    private readonly permissionService: PermissionService,
     @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {
     super({
@@ -75,7 +77,12 @@ export class ShareDbService extends ShareDBClass {
     }
 
     registerQueryCancellation(this);
-    authMiddleware(this, this.sessionHandleService);
+    authMiddleware(this, {
+      sessionHandleService: this.sessionHandleService,
+      permissionService: this.permissionService,
+      clsService: this.cls,
+      prismaService: this.prismaService,
+    });
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client

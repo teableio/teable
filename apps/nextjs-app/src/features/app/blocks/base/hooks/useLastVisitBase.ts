@@ -5,10 +5,11 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 
-export const useLastVisitBase = () => {
+export const useLastVisitBase = (enabled = true) => {
   const { data: recentlyBase } = useQuery({
     queryKey: ReactQueryKeys.recentlyBase(),
     queryFn: () => getUserLastVisitListBase().then((res) => res.data),
+    enabled,
   });
 
   return useMemo(() => {

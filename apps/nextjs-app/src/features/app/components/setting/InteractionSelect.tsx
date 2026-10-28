@@ -5,11 +5,12 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 
-export const InteractionSelect = () => {
+export const InteractionSelect = ({ className }: { className?: string }) => {
   const { t } = useTranslation('common');
   const { interactionMode: interactionType, updateInteractionMode: updateInteractionType } =
     useInteractionModeStore();
@@ -33,7 +34,7 @@ export const InteractionSelect = () => {
 
   return (
     <Select value={interactionType} onValueChange={updateInteractionType}>
-      <SelectTrigger className="w-auto min-w-32 text-[13px]">
+      <SelectTrigger className={cn('w-auto min-w-32', className)}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

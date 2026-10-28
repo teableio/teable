@@ -1,0 +1,77 @@
+diff --git a/lib/PullStream.js b/lib/PullStream.js
+index 93f18e47d9aa24003d3806e2c583d67087310063..bc0e3ad8f3f00ae323b4d6c1479fa0531cd620c3 100644
+--- a/lib/PullStream.js
++++ b/lib/PullStream.js
+@@ -30,6 +30,28 @@ PullStream.prototype.stream = function(eof, includeEof) {
+   const p = Stream.PassThrough();
+   let done;
+   const self= this;
++  // Entries written with a data descriptor (flag bit 3) carry no size up front, so their end
++  // is found by scanning for the descriptor signature. A stored entry (e.g. a .pptx that is
++  // itself a zip) can contain that signature in its own bytes; only accept a match whose
++  // descriptor records a compressed size equal to the bytes read so far.
++  const isDataDescriptor = Buffer.isBuffer(eof) && eof.length === 4 && eof.readUInt32LE(0) === 0x08074b50;
++  let emitted = 0;
++
++  function findEof() {
++    let from = 0;
++    for (;;) {
++      const match = self.buffer.indexOf(eof, from);
++      if (match === -1 || !isDataDescriptor) return { match: match, safe: self.buffer.length - eof.length };
++      // signature(4) + crc(4) + compressed size (4, or 8 in zip64)
++      const size = emitted + match;
++      const available = self.buffer.length - match;
++      if (available >= 12 && self.buffer.readUInt32LE(match + 8) === size % 0x100000000) return { match: match };
++      if (available >= 16 && Number(self.buffer.readBigUInt64LE(match + 8)) === size) return { match: match };
++      // Not enough bytes yet to check this candidate: emit what precedes it and wait.
++      if (available < 16 && !self.finished) return { match: -1, safe: match, wait: true };
++      from = match + 1;
++    }
++  }
+ 
+   function cb() {
+     if (typeof self.cb === strFunction) {
+@@ -41,6 +63,7 @@ PullStream.prototype.stream = function(eof, includeEof) {
+ 
+   function pull() {
+     let packet;
++    let waiting = false;
+     if (self.buffer && self.buffer.length) {
+       if (typeof eof === 'number') {
+         packet = self.buffer.slice(0, eof);
+@@ -48,7 +71,9 @@ PullStream.prototype.stream = function(eof, includeEof) {
+         eof -= packet.length;
+         done = done || !eof;
+       } else {
+-        let match = self.buffer.indexOf(eof);
++        const found = findEof();
++        let match = found.match;
++        waiting = !!found.wait;
+         if (match !== -1) {
+           // store signature match byte offset to allow us to reference
+           // this for zip64 offset
+@@ -58,7 +83,7 @@ PullStream.prototype.stream = function(eof, includeEof) {
+           self.buffer = self.buffer.slice(match);
+           done = true;
+         } else {
+-          const len = self.buffer.length - eof.length;
++          const len = found.safe;
+           if (len <= 0) {
+             cb();
+           } else {
+@@ -67,9 +92,12 @@ PullStream.prototype.stream = function(eof, includeEof) {
+           }
+         }
+       }
+-      if (packet) p.write(packet, function() {
+-        if (self.buffer.length === 0 || (eof.length && self.buffer.length <= eof.length)) cb();
+-      });
++      if (packet) {
++        emitted += packet.length;
++        p.write(packet, function() {
++          if (waiting || self.buffer.length === 0 || (eof.length && self.buffer.length <= eof.length)) cb();
++        });
++      }
+     }
+ 
+     if (!done) {

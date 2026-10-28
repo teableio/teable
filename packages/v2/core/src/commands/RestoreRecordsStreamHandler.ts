@@ -2,6 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  RecordWritePluginRunner,
+  type RecordWritePluginExecution,
+} from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -10,6 +14,7 @@ import { TableRecord } from '../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
 import type { Table } from '../domain/table/Table';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -59,7 +64,9 @@ export class RestoreRecordsStreamHandler implements ICommandHandler<
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner
   ) {}
 
   @TraceSpan()
@@ -83,6 +90,7 @@ export class RestoreRecordsStreamHandler implements ICommandHandler<
     const table = tableResult.value;
     let totalInserted = 0;
     let batchIndex = 0;
+    let previousPluginExecution: RecordWritePluginExecution | undefined;
 
     try {
       for await (const batch of this.buildInsertBatches(
@@ -91,6 +99,48 @@ export class RestoreRecordsStreamHandler implements ICommandHandler<
         command.batchSize
       )) {
         const currentBatchIndex = batchIndex;
+        const pluginExecutionResult = await this.recordWritePluginRunner.prepare(
+          {
+            kind: RecordWriteOperationKind.restoreMany,
+            executionContext: context,
+            table,
+            payload: {
+              recordsFieldValues: batch.records.map(
+                (record) =>
+                  new Map(
+                    record
+                      .fields()
+                      .entries()
+                      .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+                  )
+              ),
+              recordCount: batch.records.length,
+            },
+            isTransactionBound: false,
+          },
+          previousPluginExecution ? { previousExecution: previousPluginExecution } : undefined
+        );
+        if (pluginExecutionResult.isErr()) {
+          yield this.createErrorEvent(
+            pluginExecutionResult.error,
+            'restoring',
+            currentBatchIndex,
+            totalInserted
+          );
+          return;
+        }
+        previousPluginExecution = pluginExecutionResult.value;
+        const pluginGuardResult = await previousPluginExecution.guard();
+        if (pluginGuardResult.isErr()) {
+          yield this.createErrorEvent(
+            pluginGuardResult.error,
+            'restoring',
+            currentBatchIndex,
+            totalInserted
+          );
+          return;
+        }
+
         let progressEvent: RestoreRecordsStreamProgressEvent | undefined;
         const streamResult = await this.unitOfWork.withTransaction(
           context,

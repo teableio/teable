@@ -2,11 +2,7 @@ import { PassThrough, Readable } from 'node:stream';
 import archiver from 'archiver';
 import * as unzipper from 'unzipper';
 import { describe, expect, it } from 'vitest';
-import {
-  EXPORT_ZIP_OPTIONS,
-  guardExportArchive,
-  isPrecompressedEntry,
-} from './export-archive-guard';
+import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
 
 const createArchive = () => {
   const output = new PassThrough();
@@ -31,14 +27,14 @@ const neverSettles = async (promise: Promise<unknown>, ms = 200) => {
 };
 
 describe('guardExportArchive', () => {
-  it('finalizes normally and stores already-compressed entries', async () => {
+  it('finalizes normally and deflates every entry, including already-compressed ones', async () => {
     const { archive, guard, zip } = createArchive();
     async function* rows() {
       yield 'a,b\n';
       yield '1,2\n';
     }
     archive.append(Readable.from(rows()), { name: 'tables/tbl.csv' });
-    archive.append(Buffer.from('png-bytes'), { name: 'attachments/abc.PNG' });
+    archive.append(Readable.from([Buffer.from('pptx-bytes')]), { name: 'attachments/abc.pptx' });
 
     await guard.run(archive.finalize());
 
@@ -46,8 +42,8 @@ describe('guardExportArchive', () => {
     const entries = Object.fromEntries(directory.files.map((file) => [file.path, file]));
     expect((await entries['tables/tbl.csv'].buffer()).toString()).toBe('a,b\n1,2\n');
     expect(entries['tables/tbl.csv'].compressionMethod).toBe(8);
-    expect((await entries['attachments/abc.PNG'].buffer()).toString()).toBe('png-bytes');
-    expect(entries['attachments/abc.PNG'].compressionMethod).toBe(0);
+    expect((await entries['attachments/abc.pptx'].buffer()).toString()).toBe('pptx-bytes');
+    expect(entries['attachments/abc.pptx'].compressionMethod).toBe(8);
   });
 
   it('rejects instead of hanging when an entry source errors', async () => {
@@ -137,22 +133,5 @@ describe('guardExportArchive', () => {
     second.destroy(new Error('second'));
 
     await expect(finalized).rejects.toThrow('Export entry one.csv failed: first');
-  });
-});
-
-describe('isPrecompressedEntry', () => {
-  it.each([
-    ['attachments/abc.jpg', true],
-    ['attachments/abc.XLSX', true],
-    ['apps-version/app_v1_project.zip', true],
-    ['attachments/thumbnail__abc_lg.png', true],
-    ['tables/tbl.csv', false],
-    ['attachments/abc.json', false],
-    ['attachments/abc.bin', false],
-    ['attachments/noext', false],
-    ['attachments/.png', false],
-    ['structure.json', false],
-  ])('%s -> %s', (name, expected) => {
-    expect(isPrecompressedEntry(name)).toBe(expected);
   });
 });

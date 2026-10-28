@@ -504,9 +504,13 @@ export type I18nTranslations = {
             "account": {
                 "title": string;
                 "tab": string;
+                "profileTitle": string;
+                "photo": string;
+                "photoDesc": string;
                 "updatePhoto": string;
                 "updateNameDesc": string;
                 "securityTitle": string;
+                "dataTitle": string;
                 "email": string;
                 "password": string;
                 "passwordDesc": string;
@@ -587,6 +591,7 @@ export type I18nTranslations = {
             };
             "setting": {
                 "title": string;
+                "interfaceTitle": string;
                 "theme": string;
                 "themeDesc": string;
                 "dark": string;
@@ -676,6 +681,9 @@ export type I18nTranslations = {
                         "desc": string;
                     };
                 };
+            };
+            "developerTools": {
+                "title": string;
             };
         };
         "noun": {
@@ -3475,6 +3483,7 @@ export type I18nTranslations = {
                 "triggerTestFailed": string;
                 "testFailed": string;
                 "runFailed": string;
+                "runInterrupted": string;
                 "activatorDeactivated": string;
                 "nodeParseError": string;
                 "nodeNeedTest": string;
@@ -6011,6 +6020,10 @@ export type I18nTranslations = {
                     "contextTooltip": string;
                     "contextTipNewChat": string;
                     "contextTipMemory": string;
+                    "workedFor": string;
+                    "worked": string;
+                    "stoppedAfter": string;
+                    "stopped": string;
                 };
                 "messageActions": {
                     "helpful": string;
@@ -6224,6 +6237,7 @@ export type I18nTranslations = {
             "close": string;
             "clearChatConfirmTitle": string;
             "clearChatConfirmDesc": string;
+            "clearChatHint": string;
             "dontShowAgain": string;
             "modelSwitchTitle": string;
             "modelSwitchHint": string;
@@ -6376,7 +6390,6 @@ export type I18nTranslations = {
                 "skill": string;
                 "foundFiles": string;
                 "listedEntries": string;
-                "moreTools": string;
                 "moreItems": string;
                 "fallbackName": string;
                 "questionCount_zero": string;
@@ -6401,6 +6414,8 @@ export type I18nTranslations = {
                 "skillInstalled": string;
                 "installSkillFailed": string;
                 "installSkillReplaceWarning": string;
+                "ranCommands_one": string;
+                "ranCommands_other": string;
             };
             "retry": {
                 "interrupted": string;
@@ -6479,8 +6494,6 @@ export type I18nTranslations = {
                 "passwordSubmit": string;
                 "shareNotFound": string;
                 "gallery": string;
-                "galleryEmpty": string;
-                "searchPlaceholder": string;
                 "fixWithAi": string;
                 "noPermission": string;
             };

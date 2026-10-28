@@ -231,7 +231,10 @@ describe('FieldCellValueSchemaVisitor', () => {
       expect(schema.safeParse(validLink).data).toEqual(validLink);
       expect(schema.safeParse([validLink, secondLink]).success).toBe(true);
       expect(schema.safeParse([validLink, secondLink]).data).toEqual(validLink);
-      expect(schema.safeParse([]).success).toBe(false);
+      // An empty list is the canonical clear for a link cell (v1 stores null); the
+      // not-null rule is enforced where the value becomes a mutation spec.
+      expect(schema.safeParse([]).success).toBe(true);
+      expect(schema.safeParse([]).data).toBeNull();
       expect(schema.safeParse(null).success).toBe(true);
     });
 
@@ -243,6 +246,8 @@ describe('FieldCellValueSchemaVisitor', () => {
       expect(schema.safeParse(validLink).success).toBe(true);
       expect(schema.safeParse(validLink).data).toEqual([validLink]);
       expect(schema.safeParse([validLink, { ...validLink }]).success).toBe(false);
+      expect(schema.safeParse([]).success).toBe(true);
+      expect(schema.safeParse([]).data).toBeNull();
       expect(schema.safeParse(null).success).toBe(true);
     });
 

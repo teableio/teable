@@ -4,6 +4,10 @@ import type { Result } from 'neverthrow';
 
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldDeletionSideEffects,
+  prepareFieldOperationSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -186,6 +190,11 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         references: foreignRefs,
         allowMissing: true,
       });
+      const plannedSideEffects = yield* collectFieldDeletionSideEffects(
+        table,
+        [targetField],
+        foreignTables
+      );
       const basePluginContext = {
         kind: FieldOperationKind.delete,
         executionContext: context,
@@ -205,7 +214,16 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       } as const;
       const pluginExecution =
         yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
+      const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.delete,
+        sourceTable: table,
+        foreignTables,
+        sideEffects: plannedSideEffects,
+      });
       yield* await pluginExecution.guard();
+      yield* await sideEffectPluginExecution.guard();
 
       let deletedField: Field | undefined;
       const updateResult = yield* await handler.tableUpdateFlow.execute(
@@ -236,7 +254,11 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
               if (beforePersistResult.isErr()) {
                 return err(beforePersistResult.error);
               }
-
+              const sideEffectBeforePersistResult =
+                await sideEffectPluginExecution.beforePersist(transactionContext);
+              if (sideEffectBeforePersistResult.isErr()) {
+                return err(sideEffectBeforePersistResult.error);
+              }
               return ok([]);
             },
             afterPersist: async (transactionContext, updatedTable) =>
@@ -331,6 +353,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
           deletedField,
         },
       });
+      await sideEffectPluginExecution.afterCommit();
 
       return ok(
         DeleteFieldResult.create(updateResult.table, updateResult.events, undoCommand, redoCommand)

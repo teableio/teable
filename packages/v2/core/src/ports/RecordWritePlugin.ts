@@ -30,6 +30,7 @@ export const RecordWriteOperationKind = {
   importAppend: 'importAppend',
   paste: 'paste',
   upsertRecords: 'upsertRecords',
+  restoreMany: 'restoreMany',
 } as const;
 
 export type RecordWriteOperationKind =
@@ -201,6 +202,15 @@ export type RecordWritePastePayload = {
 };
 
 /**
+ * Restoring trashed or archived snapshots re-inserts the stored link cells, so
+ * the foreign table is reached exactly like a structured-id create.
+ */
+export type RecordWriteRestoreManyPayload = {
+  readonly recordsFieldValues: ReadonlyArray<RecordWriteFieldValues>;
+  readonly recordCount: number;
+};
+
+/**
  * Upsert writes both create and update rows in one operation: `recordsFieldValues`
  * covers every requested row, so field/row scopes must be prepared for both
  * branches. Only rows the matcher could not find are actually created.
@@ -271,6 +281,10 @@ export type IRecordWriteUpsertRecordsContext = IRecordWritePluginContextBase<
   'upsertRecords',
   RecordWriteUpsertRecordsPayload
 >;
+export type IRecordWriteRestoreManyContext = IRecordWritePluginContextBase<
+  'restoreMany',
+  RecordWriteRestoreManyPayload
+>;
 
 export type RecordWritePluginContextMap = {
   createOne: IRecordWriteCreateOneContext;
@@ -287,6 +301,7 @@ export type RecordWritePluginContextMap = {
   importAppend: IRecordWriteImportAppendContext;
   paste: IRecordWritePasteContext;
   upsertRecords: IRecordWriteUpsertRecordsContext;
+  restoreMany: IRecordWriteRestoreManyContext;
 };
 
 export type RecordWritePluginContext = RecordWritePluginContextMap[RecordWriteOperationKind];

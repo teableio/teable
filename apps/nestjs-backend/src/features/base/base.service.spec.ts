@@ -98,6 +98,7 @@ describe('BaseService', () => {
       createdBy?: string;
       userList?: { id: string; name: string; avatar: string | null }[];
       spaceOwnerMap?: Map<string, string>;
+      accessToken?: { hasFullAccess?: boolean; spaceIds?: string[]; baseIds?: string[] };
     }) => {
       const base = {
         id: 'bse1',
@@ -140,8 +141,15 @@ describe('BaseService', () => {
         shouldUseV2WithReason: vi.fn().mockResolvedValue({ useV2: true, reason: 'space_feature' }),
         isSpaceInCanary: vi.fn().mockResolvedValue(true),
       };
-      // No access token in cls — filterBaseListWithAccessToken must no-op.
-      const cls = { get: vi.fn().mockReturnValue(undefined) };
+      // Without an access token in cls the token scope adds no condition.
+      const cls = {
+        get: vi.fn((key: string) =>
+          key === 'accessTokenId' && overrides?.accessToken ? 'tokTest' : undefined
+        ),
+      };
+      const permissionService = {
+        getAccessToken: vi.fn().mockResolvedValue(overrides?.accessToken),
+      };
       const service = new BaseService(
         prismaService as never,
         {} as never,
@@ -149,7 +157,7 @@ describe('BaseService', () => {
         collaboratorService as never,
         {} as never,
         {} as never,
-        {} as never,
+        permissionService as never,
         {} as never,
         {} as never,
         {} as never,
@@ -160,8 +168,74 @@ describe('BaseService', () => {
         {} as never,
         {} as never
       );
-      return { service, canaryService, base };
+      return { service, canaryService, base, prismaService };
     };
+
+    // T8066: MCP/CLI page this list, so filters and paging must run in the query.
+    it('filters and pages in the query, inside the access scope', async () => {
+      const { service, prismaService } = createService();
+
+      await service.getAllBaseList({ spaceId, search: ' crm ', skip: 20, take: 11 });
+
+      const query = prismaService.base.findMany.mock.calls[0][0];
+      expect(query).toMatchObject({
+        where: {
+          deletedTime: null,
+          spaceId,
+          OR: [{ id: { in: [] } }, { spaceId: { in: [spaceId] }, space: { deletedTime: null } }],
+          AND: [
+            {
+              OR: [
+                { name: { contains: 'crm', mode: 'insensitive' } },
+                { id: { contains: 'crm', mode: 'insensitive' } },
+              ],
+            },
+          ],
+        },
+        orderBy: [{ spaceId: 'asc' }, { order: 'asc' }, { id: 'asc' }],
+        skip: 20,
+        take: 11,
+      });
+    });
+
+    it('keeps the unpaged query as before when no option is given', async () => {
+      const { service, prismaService } = createService();
+
+      await service.getAllBaseList();
+
+      const query = prismaService.base.findMany.mock.calls[0][0];
+      expect(query.where.AND).toEqual([]);
+      expect(query.orderBy).toEqual([{ spaceId: 'asc' }, { order: 'asc' }]);
+      expect(query).not.toHaveProperty('skip');
+      expect(query).not.toHaveProperty('take');
+    });
+
+    it('bounds a scoped access token in the query', async () => {
+      const { service, prismaService } = createService({
+        accessToken: { spaceIds: ['spcToken'], baseIds: ['bseToken'] },
+      });
+
+      await service.getAllBaseList({ take: 5 });
+
+      expect(prismaService.base.findMany.mock.calls[0][0].where.AND).toEqual([
+        { OR: [{ id: { in: ['bseToken'] } }, { spaceId: { in: ['spcToken'] } }] },
+      ]);
+    });
+
+    it('returns nothing without querying for a token that reaches no base', async () => {
+      const { service, prismaService } = createService({ accessToken: {} });
+
+      expect(await service.getAllBaseList()).toEqual([]);
+      expect(prismaService.base.findMany).not.toHaveBeenCalled();
+    });
+
+    it('adds no token condition for a full-access token', async () => {
+      const { service, prismaService } = createService({ accessToken: { hasFullAccess: true } });
+
+      await service.getAllBaseList();
+
+      expect(prismaService.base.findMany.mock.calls[0][0].where.AND).toEqual([]);
+    });
 
     it('includes v2 status for canary-space bases from the all-base list endpoint', async () => {
       const { service, canaryService, base } = createService();

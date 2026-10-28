@@ -46,6 +46,7 @@ const createPgPoolRegistry = () =>
 
 const mocks = vi.hoisted(() => ({
   createV2NodePgContainer: vi.fn(),
+  disposeV2NodePgContainer: vi.fn(),
   registerV2ShareDbRealtime: vi.fn(),
   registerV2ImportServices: vi.fn(),
   startTableQueryOpsAnalyzerIfEnabled: vi.fn(),
@@ -54,6 +55,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@teable/v2-container-node', () => ({
   createV2NodePgContainer: mocks.createV2NodePgContainer,
+  disposeV2NodePgContainer: mocks.disposeV2NodePgContainer,
 }));
 
 vi.mock('@teable/v2-adapter-realtime-sharedb', () => ({
@@ -986,7 +988,8 @@ describe('V2ContainerService', () => {
     await service.getContainer();
     await service.onModuleDestroy();
 
-    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(container);
+    expect(destroy).not.toHaveBeenCalled();
     expect(tableQueryObservationRuntime.dispose).toHaveBeenCalledOnce();
   });
 });

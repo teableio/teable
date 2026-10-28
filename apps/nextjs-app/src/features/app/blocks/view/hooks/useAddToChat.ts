@@ -3,6 +3,7 @@ import { useBaseId, useTableId, useViewId } from '@teable/sdk/hooks';
 import { useCallback } from 'react';
 import { useAI } from '@/features/app/hooks/useAI';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { cacheRecordForChat } from '../grid/utils/gridSelectionChat';
 
 /**
@@ -18,9 +19,10 @@ export const useAddToChat = () => {
   const viewId = useViewId();
   const queryClient = useQueryClient();
   const { enable: aiEnable } = useAI();
+  const { aiChat } = useDisableAIAction();
   const usage = useBaseUsage({ disabled: !baseId });
-  // Same availability gate as the grid record menu: no entry without AI chat in this base.
-  const chatEnabled = Boolean(aiEnable && usage?.limit?.chatAIEnable);
+  // Match the expanded record menu, including the administrator's chat switch.
+  const chatEnabled = Boolean(aiEnable && usage?.limit?.chatAIEnable && aiChat);
 
   const addToChat = useCallback(
     (recordId?: string) => {

@@ -39,6 +39,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   (host) vs a v2-core `ITableFolderRegistry` port (do not add).
   `IButtonClickWorkflowService` and `IViewPluginRepository` are Table-owned optional adapters
   (Button field / Plugin view), not a template for host Noop ports.
+- Field-operation plugins observe reciprocal Link schema changes as actual create/update/delete
+  operations. The side-effect context names the table being changed in `table`, and retains the
+  initiating table and operation in `target`; host adapters authorize that actual target.
+  Plan and guard the reciprocal mutations before persistence, then run transaction-bound
+  `beforePersist` and result-bearing `afterCommit`. Dependency cleanup caused by deleting a table
+  remains a distinct operation, not a foreign field-management request.
 
 ## Files
 

@@ -91,7 +91,8 @@ export type UndoRedoFieldViewSnapshot = {
 
 export type UndoRedoFieldRecordValue = {
   readonly recordId: string;
-  readonly value: unknown;
+  // Absent for an empty cell: snapshots are stored with undefined values stripped.
+  readonly value?: unknown;
 };
 
 export type UndoRedoFieldSnapshot = {

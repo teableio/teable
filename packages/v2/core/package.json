@@ -38,7 +38,7 @@
     "nanoid": "6.0.2",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.0.8",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

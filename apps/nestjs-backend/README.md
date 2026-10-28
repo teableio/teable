@@ -26,3 +26,16 @@ created time without uploading a file or changing the cell. Writable non-attachm
 fields retain their type error; valid attachment writes still append to existing files.
 Regression coverage: `test/attachment.e2e-spec.ts` exercises multipart uploads,
 attachment inserts, unchanged stored values, and successful attachment appends.
+
+## Cross-project reciprocal Link fields
+
+V2 field-operation plugins authorize reciprocal Link schema mutations on the actual
+target table, using `field|create`, `field|update`, or `field|delete` for that mutation.
+Permission to read the target records is not permission to change its schema.
+The source route's permissions, scoped robot identity, or temporary base grant do
+not grant schema writes to a different project; personal-token scopes still apply.
+Denied operations leave both source and target schemas unchanged.
+
+One-way cross-project references remain available to readers. Ordinary inverse
+record synchronization through an established two-way relationship is unchanged.
+Regression coverage: `test/cross-base-link-field-authz.e2e-spec.ts`.

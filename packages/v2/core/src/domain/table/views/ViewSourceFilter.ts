@@ -9,6 +9,7 @@ import type {
   RecordFilterValue,
 } from '../../../queries/RecordFilterDto';
 import { domainError, type DomainError } from '../../shared/DomainError';
+import { isoDateTimeWithOffsetSchema } from '../../shared/isoDateTimeSchema';
 import { ValueObject } from '../../shared/ValueObject';
 import {
   recordConditionOperatorSchema,
@@ -85,8 +86,8 @@ const sourceFilterDateValueSchema = z
   .object({
     mode: sourceFilterDateModeSchema,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ offset: true }).optional(),
-    exactDateEnd: z.string().datetime({ offset: true }).optional(),
+    exactDate: isoDateTimeWithOffsetSchema().optional(),
+    exactDateEnd: isoDateTimeWithOffsetSchema().optional(),
     timeZone: z.string().refine(
       (value) => {
         try {

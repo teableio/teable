@@ -24,6 +24,10 @@ Sentry.init({
   // Sentry 11 reports the user's IP by default; keep what v10 sent without sendDefaultPii.
   dataCollection: { userInfo: false },
 
+  // Unhandled rejections from userscript managers (Tampermonkey etc.) carry no frames of ours;
+  // the injected function names are random per page load, so each one opens a new issue.
+  denyUrls: [/userscript\.html/i],
+
   replaysOnErrorSampleRate: 1.0,
 
   // This sets the sample rate to be 10%. You may want this to be 100% while

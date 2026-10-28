@@ -25,7 +25,8 @@ export const getShowAsSchema = (
     return singleLineTextShowAsSchema.optional();
   }
 
-  return z.undefined().meta({
+  // `.optional()`: since zod 4.4 a `z.undefined()` object key must be present.
+  return z.undefined().optional().meta({
     description: 'Only string or number cell value type support show as',
   });
 };

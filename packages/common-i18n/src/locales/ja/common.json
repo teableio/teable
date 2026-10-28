@@ -288,9 +288,13 @@
     "account": {
       "title": "プロフィール",
       "tab": "アカウント",
+      "profileTitle": "プロフィール",
+      "photo": "プロフィール写真",
+      "photoDesc": "PNG、JPEG、WebP（3MB まで）",
       "updatePhoto": "写真の更新",
       "updateNameDesc": "ニックネームまたは名前、Teable で表示したい名前を入力してください",
       "securityTitle": "アカウントセキュリティ",
+      "dataTitle": "データとアカウント",
       "email": "Eメール",
       "password": "パスワード",
       "passwordDesc": "アカウントにログインするための永続的なパスワードを設定してください。",
@@ -371,6 +375,7 @@
     },
     "setting": {
       "title": "自分の設定",
+      "interfaceTitle": "インターフェース",
       "theme": "テーマ",
       "themeDesc": "アプリのテーマを選択します。",
       "dark": "ダーク",
@@ -460,6 +465,9 @@
           "desc": "このウィンドウを閉じることができます。"
         }
       }
+    },
+    "developerTools": {
+      "title": "開発者ツール"
     }
   },
   "noun": {

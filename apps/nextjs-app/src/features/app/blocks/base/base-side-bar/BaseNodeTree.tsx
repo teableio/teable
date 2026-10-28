@@ -28,7 +28,7 @@ import {
 } from '@teable/ui-lib/base/headless-tree';
 import type { DragTarget, ItemInstance } from '@teable/ui-lib/base/headless-tree';
 import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
-import { Button, cn, Input, Skeleton } from '@teable/ui-lib/shadcn';
+import { Button, cn, Input, Skeleton, type ButtonProps } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import {
   Tooltip,
@@ -40,7 +40,7 @@ import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shad
 import { ChevronDownIcon, Pin, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
@@ -48,6 +48,7 @@ import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { collapseChatPanelIfExpanded } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useMenuShown } from '@/features/app/hooks/useMenuShown';
 import { BaseNodeAddResourceButton } from '@overridable/BaseNodeAddResourceButton';
 import { usePinActions } from '../../space/usePinActions';
 import { usePinMap } from '../../space/usePinMap';
@@ -81,12 +82,22 @@ const COMPACT_LABEL_CLS = 'ps-[calc(var(--tree-padding)+2rem-1px)] pe-2';
 const COMPACT_DRAG_LINE_CLS = 'ms-5';
 /** A row's trailing buttons: muted until hovered. */
 const ROW_ACTION_CLS = 'text-muted-foreground hover:text-foreground';
+// A row stays active while one of its menus is shown, fade-out included: the fading menu follows
+// its button, which would move as the row's buttons collapse.
 const GROUP_ACTIVE_WIDTH_CLS =
-  'group-hover:w-auto group-has-[[data-state=open]]:w-auto group-data-[context-menu]:w-auto';
+  'group-hover:w-auto group-has-[[data-state=open]]:w-auto group-has-[[data-menu-shown]]:w-auto group-data-[context-menu]:w-auto';
 const GROUP_ACTIVE_OPACITY_CLS =
-  'group-hover:opacity-100 group-has-[[data-state=open]]:opacity-100 group-data-[context-menu]:opacity-100';
+  'group-hover:opacity-100 group-has-[[data-state=open]]:opacity-100 group-has-[[data-menu-shown]]:opacity-100 group-data-[context-menu]:opacity-100';
 const GROUP_ACTIVE_HIDDEN_CLS =
-  'group-hover:hidden group-has-[[data-state=open]]:hidden group-data-[context-menu]:hidden';
+  'group-hover:hidden group-has-[[data-state=open]]:hidden group-has-[[data-menu-shown]]:hidden group-data-[context-menu]:hidden';
+
+/** A row's trailing menu button, carrying `data-menu-shown` while its menu is on screen. */
+const RowMenuButton = forwardRef<HTMLButtonElement, ButtonProps>(
+  function RowMenuButton(props, ref) {
+    const menuShown = useMenuShown(props);
+    return <Button ref={ref} data-menu-shown={menuShown ? '' : undefined} {...props} />;
+  }
+);
 const SCROLL_EDGE_THRESHOLD = 60; // pixels from edge to trigger scroll
 const SCROLL_MAX_SPEED = 15; // max pixels per frame
 
@@ -159,13 +170,12 @@ interface IBaseNodeTreeProps {
   empty?: React.ReactNode;
   skeleton?: React.ReactNode;
   onPrimaryAction?: (item: ItemInstance<TreeItemData>) => void;
-  /** The space shell sidebar's denser rows: 13px labels, smaller icons, and the host draws the create button. */
+  /** The resource pane's compact indentation and actions; the host draws the create button. */
   compact?: boolean;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { mode = 'edit', emptyText, empty, onPrimaryAction, compact } = props;
-  const iconSize = compact ? 'size-3.5' : 'size-4';
   const isEditMode = mode === 'edit';
   const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId() as string;
@@ -598,15 +608,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const isFolder = item.isFolder();
     if (isFolder) {
       return (
-        <ChevronDownIcon
-          className={cn(iconSize, 'text-muted-foreground group-aria-[expanded=false]:-rotate-90')}
-        />
+        <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground group-aria-[expanded=false]:-rotate-90" />
       );
     }
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
       <div
-        className={cn('flex shrink-0 cursor-pointer items-center justify-center', iconSize)}
+        className="flex size-4 shrink-0 cursor-pointer items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
         {resourceType === BaseNodeResourceType.Table && (
@@ -708,7 +716,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   <TreeItemLabel
                     className={cn(
                       'size-full min-w-0 py-0',
-                      compact && ['text-[13px]', COMPACT_LABEL_CLS]
+                      compact && ['text-sm', COMPACT_LABEL_CLS]
                     )}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -805,11 +813,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   }}
                 >
                   <TreeItemLabel
-                    className={cn('size-full min-w-0 py-0', compact && COMPACT_LABEL_CLS, {
-                      'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
-                      'group-has-[[data-state=open]]:bg-accent': !isHighlighted,
-                      'bg-accent': isContextMenuTarget && !isHighlighted,
-                    })}
+                    className={cn(
+                      'size-full min-w-0 py-0',
+                      compact && ['text-sm', COMPACT_LABEL_CLS],
+                      {
+                        'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+                        'group-has-[[data-state=open]]:bg-accent group-has-[[data-menu-shown]]:bg-accent':
+                          !isHighlighted,
+                        'bg-accent': isContextMenuTarget && !isHighlighted,
+                      }
+                    )}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       {editingNodeId === nodeId ? (
@@ -899,7 +912,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                     canCreateRoutine={canCreateRoutine}
                                     canCreateApp={canCreateApp}
                                   >
-                                    <Button
+                                    <RowMenuButton
                                       variant="ghost"
                                       size="icon-xs"
                                       className={cn(
@@ -908,7 +921,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                       )}
                                     >
                                       <AddBoldIcon className="size-full" />
-                                    </Button>
+                                    </RowMenuButton>
                                   </BaseNodeAddResourceButton>
                                 )}
                                 <BaseNodeMore
@@ -918,13 +931,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   onRename={() => setEditingNodeId(nodeId)}
                                   onCreateSuccess={createSuccefulyCallback}
                                 >
-                                  <Button
+                                  <RowMenuButton
                                     variant="ghost"
                                     size="icon-xs"
                                     className={cn('size-4 shrink-0 p-0', ROW_ACTION_CLS)}
                                   >
                                     <MoreHorizontal className="size-full" />
-                                  </Button>
+                                  </RowMenuButton>
                                 </BaseNodeMore>
                               </div>
                               {!isContextMenuTarget && (
@@ -950,7 +963,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   {compact && isPinned && (
                                     <Pin
                                       className={cn(
-                                        'ms-1 size-3.5 shrink-0 text-muted-foreground',
+                                        'ms-1 size-4 shrink-0 text-muted-foreground',
                                         GROUP_ACTIVE_HIDDEN_CLS
                                       )}
                                     />

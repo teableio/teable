@@ -290,10 +290,14 @@
     "back": "Back to home",
     "account": {
       "title": "Profile",
-      "tab": "Profile",
+      "tab": "Account",
+      "profileTitle": "Profile",
+      "photo": "Profile photo",
+      "photoDesc": "PNG, JPEG, or WebP, up to 3 MB.",
       "updatePhoto": "Update photo",
       "updateNameDesc": "Nickname or first name, however you want to be called in Teable",
       "securityTitle": "Account security",
+      "dataTitle": "Data and account",
       "email": "Email",
       "password": "Password",
       "passwordDesc": "Set a permanent password to login to your account.",
@@ -374,6 +378,7 @@
     },
     "setting": {
       "title": "Preferences",
+      "interfaceTitle": "Interface",
       "theme": "Intertace theme",
       "themeDesc": "Select your interface color scheme",
       "dark": "Dark",
@@ -463,6 +468,9 @@
           "desc": "You may close this window now."
         }
       }
+    },
+    "developerTools": {
+      "title": "Developer tools"
     }
   },
   "noun": {

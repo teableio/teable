@@ -3,10 +3,10 @@ import { getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 
 export const useSpaceList = () => {
-  const { data: spaceList } = useQuery({
+  const { data: spaceList, isLoading } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
   });
 
-  return { spaceList };
+  return { spaceList, isLoading };
 };

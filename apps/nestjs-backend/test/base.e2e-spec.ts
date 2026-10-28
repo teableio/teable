@@ -507,6 +507,38 @@ describe('OpenAPI BaseController (e2e)', () => {
     expect(res.data.find((v) => v.id === baseId2)).toBeDefined();
   });
 
+  // T8066: MCP/CLI page this list; the filters and the page run in the query.
+  it('/api/base/access/all (GET) filters by space and search and pages in order', async () => {
+    const spaceId = await createSpace({ name: 'base access all paging' }).then((res) => res.id);
+    const otherSpaceId = await createSpace({ name: 'base access all paging other' }).then(
+      (res) => res.id
+    );
+    try {
+      const names = ['Alpha CRM', 'Beta', 'Gamma crm', 'Delta'];
+      const ids: string[] = [];
+      for (const name of names) {
+        ids.push(await createBase({ name, spaceId }).then((res) => res.id));
+      }
+      await createBase({ name: 'Elsewhere CRM', spaceId: otherSpaceId });
+
+      const all = (await getBaseAll({ spaceId })).data.map((base) => base.id);
+      expect([...all].sort()).toEqual([...ids].sort());
+
+      const first = (await getBaseAll({ spaceId, skip: 0, take: 3 })).data.map((b) => b.id);
+      const rest = (await getBaseAll({ spaceId, skip: 3, take: 3 })).data.map((b) => b.id);
+      expect(first).toHaveLength(3);
+      expect([...first, ...rest]).toEqual(all);
+
+      const searched = (await getBaseAll({ spaceId, search: 'CRM' })).data.map((b) => b.name);
+      expect(searched.sort()).toEqual(['Alpha CRM', 'Gamma crm']);
+      const byId = (await getBaseAll({ search: ids[1].toLowerCase() })).data.map((b) => b.id);
+      expect(byId).toEqual([ids[1]]);
+    } finally {
+      await permanentDeleteSpace(spaceId);
+      await permanentDeleteSpace(otherSpaceId);
+    }
+  });
+
   describe('Base creator display after member removal', () => {
     const userAEmail = 'userA-t1606@example.com';
     const userBEmail = 'userB-t1606@example.com';

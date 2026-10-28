@@ -1,5 +1,5 @@
 import { IdPrefix } from '../../utils';
-import { z } from '../../zod';
+import { strictUnionMember, z } from '../../zod';
 import { StatisticsFunc } from '../aggregation';
 
 export const fieldsViewVisibleRoSchema = z.object({
@@ -92,11 +92,11 @@ export const pluginColumnSchema = columnSchemaBase.extend({
 });
 
 export const columnSchema = z.union([
-  gridColumnSchema.strict(),
-  kanbanColumnSchema.strict(),
-  galleryColumnSchema.strict(),
-  formColumnSchema.strict(),
-  pluginColumnSchema.strict(),
+  strictUnionMember(gridColumnSchema),
+  strictUnionMember(kanbanColumnSchema),
+  strictUnionMember(galleryColumnSchema),
+  strictUnionMember(formColumnSchema),
+  strictUnionMember(pluginColumnSchema),
 ]);
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);
@@ -139,10 +139,10 @@ export const columnMetaRoSchema = z
       .describe('Field ID')
       .meta({ description: 'Field ID' }),
     columnMeta: z.union([
-      gridColumnSchema.partial().strict(),
-      kanbanColumnSchema.partial().strict(),
-      formColumnSchema.partial().strict(),
-      pluginColumnSchema.partial().strict(),
+      strictUnionMember(gridColumnSchema.partial()),
+      strictUnionMember(kanbanColumnSchema.partial()),
+      strictUnionMember(formColumnSchema.partial()),
+      strictUnionMember(pluginColumnSchema.partial()),
     ]),
   })
   .array();

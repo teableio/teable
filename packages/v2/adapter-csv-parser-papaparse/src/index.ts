@@ -1,2 +1,2 @@
 export * from './PapaparseCsvParser';
-export { parseCsvRows } from './parseCsvRows';
+export { parseCsvRows, type CsvRowsOptions } from './parseCsvRows';

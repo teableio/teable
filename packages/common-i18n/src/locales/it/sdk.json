@@ -1081,6 +1081,7 @@
       "triggerTestFailed": "Test del trigger fallito, per favore controlla la configurazione del trigger",
       "testFailed": "Test di automazione fallito, controlla la configurazione dell'automazione",
       "runFailed": "L'esecuzione dell'automazione non è riuscita",
+      "runInterrupted": "Esecuzione interrotta; risultato non confermato",
       "activatorDeactivated": "L'account che ha attivato questa automazione è stato disattivato",
       "nodeParseError": "{{name}} la configurazione del nodo è incompleta o contiene errori, si prega di verificare la configurazione del nodo",
       "nodeNeedTest": "{{name}} il nodo deve essere testato",

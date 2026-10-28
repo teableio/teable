@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn/ui/select';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { cn } from '@teable/ui-lib/shadcn/utils';
 import { useTranslation } from 'next-i18next';
 
 const languages = [
@@ -59,7 +60,7 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
 
   return (
     <Select value={selectedValue} onValueChange={setLanguage}>
-      <SelectTrigger size="lg" className={`max-w-[320px] ${className || ''}`}>
+      <SelectTrigger className={cn('max-w-[320px]', className)}>
         <SelectValue placeholder="Select Language" />
       </SelectTrigger>
       <SelectContent>

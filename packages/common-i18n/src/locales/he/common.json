@@ -287,10 +287,14 @@
     "back": "חזרה לדף הבית",
     "account": {
       "title": "פרופיל",
-      "tab": "פרופיל",
+      "tab": "חשבון",
+      "profileTitle": "פרופיל",
+      "photo": "תמונת פרופיל",
+      "photoDesc": "PNG, JPEG או WebP, עד 3MB.",
       "updatePhoto": "עדכון התמונה",
       "updateNameDesc": "כינוי או שם פרטי, לפי השם המועדף ב-Teable",
       "securityTitle": "אבטחת החשבון",
+      "dataTitle": "נתונים וחשבון",
       "email": "אימייל",
       "password": "סיסמה",
       "passwordDesc": "הגדרת סיסמה קבועה לכניסה לחשבון.",
@@ -371,6 +375,7 @@
     },
     "setting": {
       "title": "העדפות",
+      "interfaceTitle": "ממשק",
       "theme": "ערכת נושא לממשק",
       "themeDesc": "בחירת ערכת הצבעים של הממשק",
       "dark": "כהה",
@@ -460,6 +465,9 @@
           "desc": "אפשר לסגור את החלון הזה."
         }
       }
+    },
+    "developerTools": {
+      "title": "כלי מפתחים"
     }
   },
   "noun": {

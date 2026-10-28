@@ -32,15 +32,15 @@ bundle into the executable; no `pglite.wasm`/`pglite.data` files are needed
 beside it, and the data directory is created at `TEABLE_PGLITE_DIR` on first run.
 
 The executable is a single file; local PGlite **data** is not. `TEABLE_PGLITE_DIR`
-holds a normal Postgres data directory that one process owns at a time, and
-replacing the binary with the same directory keeps the data. For an ephemeral
-in-process database in tests, use the SDK with `dataDir: "memory://"`; no
-PostgreSQL server or Docker is involved in either mode. See the
-`@teable/v2-headless-runtime` README ("Local PGlite mode") for caveats: no auth,
-users, permissions or UI, no file/attachment endpoints, and no remote realtime
-transport (in-process `LocalRealtimeEngine` subscriptions exist only inside the
-runtime and have no subscription auth). The PGlite binary is ~116 MB with
-observed RSS ~548 MB.
+holds a normal Postgres data directory. A fail-fast cross-process lock permits
+one live Node/Bun owner and is released only after the database closes; replacing
+the binary with the same directory then keeps the data. For an ephemeral
+in-process database in tests, use the SDK with `dataDir: "memory://"`.
+
+The CLI defaults to `127.0.0.1`. Its actor header is identity mapping, not
+authentication or authorization. Do not set `HOST=0.0.0.0` or expose the server
+to an untrusted network without a trusted auth gateway. There are no users,
+permissions, audit, file endpoints, or remote realtime subscriptions.
 
 ## Why tsdown before Bun
 
@@ -59,5 +59,5 @@ See `--help`. `TEABLE_PGLITE_DIR` selects local PGlite; otherwise
 `TEABLE_DATABASE_URL` or the meta/data URL pair selects PostgreSQL. The PGlite
 flavor still honors the PostgreSQL variables: when `TEABLE_PGLITE_DIR` is unset
 it falls back to the same environment resolution as the PostgreSQL flavor. The
-host owns authentication; the CLI only maps an actor header to the execution
-context.
+CLI remains loopback-only by default. `TEABLE_ACTOR_HEADER` maps an actor; it
+does not authenticate callers.

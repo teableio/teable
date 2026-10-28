@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -17,6 +18,7 @@ import { TableRecordCellValue } from '../domain/table/records/TableRecordFields'
 import type { Table } from '../domain/table/Table';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -47,7 +49,9 @@ export class RestoreRecordsHandler implements ICommandHandler<
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.domainWriteTransaction)
-    private readonly domainWriteTransaction: IDomainWriteTransaction
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner
   ) {}
 
   @TraceSpan()
@@ -100,6 +104,24 @@ export class RestoreRecordsHandler implements ICommandHandler<
       if (records.length === 0) {
         return ok(RestoreRecordsResult.create(0, []));
       }
+    }
+
+    const pluginExecutionResult = await this.recordWritePluginRunner.prepare({
+      kind: RecordWriteOperationKind.restoreMany,
+      executionContext: context,
+      table,
+      payload: {
+        recordsFieldValues: records.map((record) => new Map(Object.entries(record.fields))),
+        recordCount: records.length,
+      },
+      isTransactionBound: false,
+    });
+    if (pluginExecutionResult.isErr()) {
+      return err(pluginExecutionResult.error);
+    }
+    const pluginGuardResult = await pluginExecutionResult.value.guard();
+    if (pluginGuardResult.isErr()) {
+      return err(pluginGuardResult.error);
     }
 
     let restoredCount = 0;

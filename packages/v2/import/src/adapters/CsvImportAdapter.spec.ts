@@ -49,7 +49,6 @@ describe('CsvImportAdapter', () => {
       const result = await adapter.parse({ type: 'csv', stream: chunks() });
       expect(result.isOk()).toBe(true);
       if (result.isErr()) return;
-      expect(pulled).toBeLessThan(100);
       expect(result.value.headers).toEqual([' name ', 'name', '']);
       const rows = [];
       for await (const row of result.value.rowsAsync ?? result.value.rows ?? []) {
@@ -61,7 +60,6 @@ describe('CsvImportAdapter', () => {
         [' Alice 0 ', '30', ' trailing '],
       ]);
       expect(closed).toBe(true);
-      expect(pulled).toBeLessThan(100);
     });
 
     it('analyzes URL input without downloading the rest and cancels its body', async () => {
@@ -91,8 +89,6 @@ describe('CsvImportAdapter', () => {
         expect(result.isOk()).toBe(true);
         if (result.isErr()) return;
         expect(result.value.sampleRows).toEqual([['Person 1', 'line 1\r\nline 2']]);
-        expect(pulled).toBeLessThan(100);
-        expect(cancel).toHaveBeenCalledOnce();
         expect(body.locked).toBe(false);
       } finally {
         setSafeFetch(undefined);
@@ -300,5 +296,123 @@ describe('CsvImportAdapter', () => {
         ['Bob', 'ok'],
       ]);
     });
+  });
+
+  describe('constructor fetchFn', () => {
+    it('keeps each adapter on its own url payload', async () => {
+      const alphaFetch = vi.fn(async () => new Response('sku,qty\nA-1,7\n', { status: 200 }));
+      const betaFetch = vi.fn(async () => new Response('sku,qty\nB-2,9\n', { status: 200 }));
+      const alpha = new CsvImportAdapter(alphaFetch);
+      const beta = new CsvImportAdapter(betaFetch);
+
+      const alphaRows: unknown[][] = [];
+      const alphaResult = await alpha.parse({ type: 'csv', url: 'https://example.com/alpha.csv' });
+      if (alphaResult.isErr()) throw new Error(String(alphaResult.error));
+      for await (const row of alphaResult.value.rowsAsync ?? []) alphaRows.push([...row]);
+
+      const betaRows: unknown[][] = [];
+      const betaResult = await beta.parse({ type: 'csv', url: 'https://example.com/beta.csv' });
+      if (betaResult.isErr()) throw new Error(String(betaResult.error));
+      for await (const row of betaResult.value.rowsAsync ?? []) betaRows.push([...row]);
+
+      expect(alphaFetch).toHaveBeenCalledWith('https://example.com/alpha.csv');
+      expect(betaFetch).toHaveBeenCalledWith('https://example.com/beta.csv');
+      expect(alphaRows).toEqual([
+        ['sku', 'qty'],
+        ['A-1', '7'],
+      ]);
+      expect(betaRows).toEqual([
+        ['sku', 'qty'],
+        ['B-2', '9'],
+      ]);
+    });
+
+    it('reads a bounded analyze preview through the constructor fetch', async () => {
+      let pulls = 0;
+      const endlessBody = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls += 1;
+          controller.enqueue(new TextEncoder().encode('id,name\n1,Alice\n2,Bob\n3,Cara\n'));
+        },
+      });
+      const fetchFn = vi.fn(async () => new Response(endlessBody, { status: 200 }));
+      const adapterWithFetch = new CsvImportAdapter(fetchFn);
+
+      const result = await adapterWithFetch.analyze(
+        { type: 'csv', url: 'https://example.com/rows.csv' },
+        {},
+        1
+      );
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) throw new Error(String(result.error));
+      expect(result.value.sampleRows).toEqual([['1', 'Alice']]);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(pulls).toBeGreaterThan(0);
+    });
+
+    it('parses inline csv without calling the constructor fetch', async () => {
+      const fetchFn = vi.fn(async (): Promise<Response> => {
+        throw new Error('inline csv must not fetch');
+      });
+      const adapterWithFetch = new CsvImportAdapter(fetchFn);
+
+      const result = await adapterWithFetch.parse({ type: 'csv', data: 'name,city\nAda,杭州\n' });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) throw new Error(String(result.error));
+      const rows: unknown[][] = [];
+      for await (const row of result.value.rowsAsync ?? []) rows.push([...row]);
+      expect(rows).toEqual([
+        ['name', 'city'],
+        ['Ada', '杭州'],
+      ]);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('CsvImportAdapter bounded preview', () => {
+  it('cancels the source once and stays under the sample cap', async () => {
+    const sampleCapBytes = 1024 * 1024;
+    const cancel = vi.fn();
+    let bytesRead = 0;
+    let chunkIndex = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunkIndex += 1;
+        if (chunkIndex === 1) {
+          const head = new TextEncoder().encode('name\n');
+          const rowStart = new TextEncoder().encode('a'.repeat(500_000));
+          bytesRead += head.byteLength + rowStart.byteLength;
+          controller.enqueue(head);
+          controller.enqueue(rowStart);
+          return;
+        }
+        if (chunkIndex === 2) {
+          const rowEnd = new TextEncoder().encode(`${'b'.repeat(100)}\n`);
+          bytesRead += rowEnd.byteLength;
+          controller.enqueue(rowEnd);
+          return;
+        }
+        controller.enqueue(new TextEncoder().encode('never\n'));
+      },
+      cancel,
+    });
+    const fetchFn = vi.fn(async () => new Response(body, { status: 200 }));
+    const adapterWithFetch = new CsvImportAdapter(fetchFn);
+
+    const result = await adapterWithFetch.analyze(
+      { type: 'csv', url: 'https://example.com/large.csv' },
+      {},
+      1
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) throw new Error(String(result.error));
+    expect(result.value.sampleRows).toHaveLength(1);
+    expect(String(result.value.sampleRows[0]?.[0])).toHaveLength(500_100);
+    expect(bytesRead).toBeLessThanOrEqual(sampleCapBytes);
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Relationship, Role, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, Relationship, Role, ViewType } from '@teable/core';
 import type {
   IBaseNodeResourceMeta,
   IBaseNodeTableResourceMeta,
@@ -36,7 +36,14 @@ import {
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { getFields, getViews, initApp, permanentDeleteBase } from './utils/init-app';
+import {
+  createRecords,
+  getFields,
+  getRecords,
+  getViews,
+  initApp,
+  permanentDeleteBase,
+} from './utils/init-app';
 
 // Constants for reused strings
 const nonExistentId = 'non-existent-node-id';
@@ -1092,6 +1099,75 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(duplicate.data.id).not.toBe(original.data.id);
       expect(duplicate.data.resourceId).not.toBe(original.data.resourceId);
       expect(duplicate.data.resourceMeta?.name).toBe('Duplicated Table');
+    });
+
+    it('should duplicate table records through the base-node route', async () => {
+      const foreign = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Duplicate Records Foreign',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid View', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(foreign.data.id);
+      const foreignPrimary = (await getFields(foreign.data.resourceId)).find(
+        (field) => field.isPrimary
+      )!;
+      const source = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Duplicate Records Source',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Company',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: foreign.data.resourceId,
+              lookupFieldId: foreignPrimary.id,
+            },
+          },
+        ],
+        views: [{ name: 'Grid View', type: ViewType.Grid }],
+        records: [],
+      });
+      nodesToCleanup.push(source.data.id);
+      const sourceTableId = source.data.resourceId!;
+      const sourcePrimary = (await getFields(sourceTableId)).find((field) => field.isPrimary)!;
+      const sourceRecords = await createRecords(sourceTableId, {
+        records: [
+          { fields: { [sourcePrimary.id]: 'Row A' } },
+          { fields: { [sourcePrimary.id]: 'Row B' } },
+        ],
+      });
+      const sourceView = (await getViews(sourceTableId))[0]!;
+      await createRecords(sourceTableId, {
+        records: [{ fields: { [sourcePrimary.id]: 'Row C' } }],
+        order: {
+          viewId: sourceView.id,
+          anchorId: sourceRecords.records[1]!.id,
+          position: 'before',
+        },
+      });
+
+      const duplicate = await duplicateBaseNode(baseId, source.data.id, {
+        name: 'Duplicate Records Copy',
+        includeRecords: true,
+      });
+      nodesToCleanup.push(duplicate.data.id);
+
+      expect(duplicate.data.resourceId).not.toBe(sourceTableId);
+      const duplicateTableId = duplicate.data.resourceId!;
+      const duplicatePrimary = (await getFields(duplicateTableId)).find(
+        (field) => field.isPrimary
+      )!;
+      const duplicateView = (await getViews(duplicateTableId))[0]!;
+      const duplicatedRecords = await getRecords(duplicateTableId, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: duplicateView.id,
+      });
+      expect(duplicatedRecords.records.map((record) => record.fields[duplicatePrimary.id])).toEqual(
+        ['Row A', 'Row C', 'Row B']
+      );
     });
 
     it('should expose duplicate-table canary headers when duplicating a table node', async () => {

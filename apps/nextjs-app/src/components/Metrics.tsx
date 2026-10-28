@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'next/router';
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
+import { MOBILE_APP_UA_MARKER } from '@/lib/embed-mode';
 import { syncMarketingAttributionFromUrl } from '@/lib/marketing-attribution';
 import { useMarketingConsent } from '@/lib/marketing-consent';
 
@@ -43,11 +44,17 @@ interface IPostHog {
  * Inline-script twin of lib/marketing-consent: the GA and PostHog init
  * snippets run before React effects, so they read the consent cookies
  * themselves. Opt-out regions default to granted unless denied; opt-in
- * regions (and unknown) need an explicit grant.
+ * regions (and unknown) need an explicit grant. Inside the mobile app's
+ * WebView everything is granted, as in getConsentSnapshot().
  */
-const CONSENT_STATE_JS = `
+export const CONSENT_STATE_JS = `
   function __teableConsentState() {
-    var cookies = document.cookie.split('; ');
+    if (navigator.userAgent.indexOf(${JSON.stringify(MOBILE_APP_UA_MARKER)}) !== -1) {
+      return { analytics: true, ads: true, adUserData: true, adPersonalization: true };
+    }
+    var cookies = [];
+    // A sandboxed iframe throws on document.cookie: read no cookies there.
+    try { cookies = document.cookie.split('; '); } catch (e) {}
     function read(name) {
       for (var i = 0; i < cookies.length; i++) {
         if (cookies[i].indexOf(name + '=') === 0) return cookies[i].slice(name.length + 1);

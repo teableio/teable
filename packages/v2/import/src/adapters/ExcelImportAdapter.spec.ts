@@ -117,4 +117,51 @@ describe('ExcelImportAdapter', () => {
       expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.xlsx', undefined);
     });
   });
+
+  describe('constructor fetchFn', () => {
+    it('keeps each adapter on its own downloaded workbook', async () => {
+      const alphaBytes = createXlsxBytes([
+        ['sku', 'qty'],
+        ['A-1', 7],
+      ]);
+      const betaBytes = createXlsxBytes([
+        ['code', 'label'],
+        ['B-2', 'beta'],
+      ]);
+      const alphaFetch = vi.fn(
+        async () => new Response(alphaBytes.slice().buffer as ArrayBuffer, { status: 200 })
+      );
+      const betaFetch = vi.fn(
+        async () => new Response(betaBytes.slice().buffer as ArrayBuffer, { status: 200 })
+      );
+      const alpha = new ExcelImportAdapter(alphaFetch);
+      const beta = new ExcelImportAdapter(betaFetch);
+
+      const alphaResult = await alpha.parse({
+        type: 'xlsx',
+        url: 'https://example.com/alpha.xlsx',
+      });
+      const betaResult = await beta.parse({ type: 'xlsx', url: 'https://example.com/beta.xlsx' });
+
+      const alphaParsed = alphaResult._unsafeUnwrap();
+      const betaParsed = betaResult._unsafeUnwrap();
+      const alphaRows: unknown[][] = [];
+      for await (const row of alphaParsed.rowsAsync ?? []) alphaRows.push([...row]);
+      const betaRows: unknown[][] = [];
+      for await (const row of betaParsed.rowsAsync ?? []) betaRows.push([...row]);
+
+      expect(alphaFetch).toHaveBeenCalledWith('https://example.com/alpha.xlsx');
+      expect(betaFetch).toHaveBeenCalledWith('https://example.com/beta.xlsx');
+      expect(alphaParsed.headers).toEqual(['sku', 'qty']);
+      expect(alphaRows).toEqual([
+        ['sku', 'qty'],
+        ['A-1', '7'],
+      ]);
+      expect(betaParsed.headers).toEqual(['code', 'label']);
+      expect(betaRows).toEqual([
+        ['code', 'label'],
+        ['B-2', 'beta'],
+      ]);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import {
   domainError,
   FieldId,
+  isoDateTimeWithOffsetSchema,
   RecordConditionDateValue,
   RecordId,
   recordFilterConditionSchema,
@@ -66,8 +67,8 @@ const dateSchema = z
   .object({
     mode: recordFilterDateModeSchema,
     numberOfDays: z.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ offset: true }).optional(),
-    exactDateEnd: z.string().datetime({ offset: true }).optional(),
+    exactDate: isoDateTimeWithOffsetSchema().optional(),
+    exactDateEnd: isoDateTimeWithOffsetSchema().optional(),
     timeZone: z.string(),
   })
   .strict()

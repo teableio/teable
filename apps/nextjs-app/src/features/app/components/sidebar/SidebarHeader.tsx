@@ -33,7 +33,7 @@ export const SidebarHeader = (props: ISidebarHeaderProps) => {
               </TooltipTrigger>
               <TooltipContent hideWhenDetached={true}>
                 {t('common:actions.collapseSidebar')}
-                <span>{modKeyStr}+B</span>
+                <span className="ms-2">{modKeyStr}+B</span>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

@@ -288,9 +288,13 @@
     "account": {
       "title": "Il mio profilo",
       "tab": "Il mio account",
+      "profileTitle": "Profilo",
+      "photo": "Foto profilo",
+      "photoDesc": "PNG, JPEG o WebP, fino a 3 MB.",
       "updatePhoto": "Aggiorna foto",
       "updateNameDesc": "Soprannome o nome, come preferisci essere chiamato su Teable",
       "securityTitle": "Sicurezza dell'account",
+      "dataTitle": "Dati e account",
       "email": "Email",
       "password": "Password",
       "passwordDesc": "Imposta una password permanente per accedere al tuo account.",
@@ -365,12 +369,13 @@
       }
     },
     "notify": {
-      "title": "Le mie notifiche",
+      "title": "Notifiche",
       "label": "Attività nel tuo spazio",
       "desc": "Ricevi email quando ricevi commenti, menzioni, inviti a pagine, promemoria, richieste di accesso e modifiche alle proprietà."
     },
     "setting": {
       "title": "Le mie impostazioni",
+      "interfaceTitle": "Interfaccia",
       "theme": "Tema interfaccia",
       "themeDesc": "Seleziona lo schema di colori dell'interfaccia",
       "dark": "Scuro",
@@ -460,6 +465,9 @@
           "desc": "Puoi chiudere questa finestra ora."
         }
       }
+    },
+    "developerTools": {
+      "title": "Strumenti per sviluppatori"
     }
   },
   "noun": {

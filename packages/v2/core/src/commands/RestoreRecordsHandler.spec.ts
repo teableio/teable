@@ -21,10 +21,12 @@ import { NoopTableRecordRepository } from '../ports/defaults/NoopTableRecordRepo
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import { type IFindOptions } from '../ports/RepositoryQuery';
 import type { InsertOptions } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { createRecordWritePluginRunner } from './recordWritePluginRunnerTestUtils';
 import { RestoreRecordsCommand } from './RestoreRecordsCommand';
 import { RestoreRecordsHandler } from './RestoreRecordsHandler';
 
@@ -188,7 +190,8 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const command = RestoreRecordsCommand.create({
@@ -244,7 +247,8 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const records = Array.from({ length: 1001 }, (_, index) => ({
@@ -323,7 +327,8 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const totalRecords = 11_000;
@@ -371,7 +376,8 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const command = RestoreRecordsCommand.create({
@@ -394,6 +400,45 @@ describe('RestoreRecordsHandler', () => {
     const payload = result._unsafeUnwrap();
 
     expect(payload.restoredCount).toBe(0);
+    expect(recordRepository.insertedRecords).toHaveLength(0);
+  });
+
+  it('does not restore when a record-write plugin denies the operation', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new CapturingTableRecordRepository();
+    const denyPlugin: IRecordWritePlugin = {
+      name: 'deny-restore',
+      supports: () => true,
+      guard: () =>
+        err(
+          domainError.forbidden({
+            code: 'restore.denied',
+            message: 'no access to the target table',
+          })
+        ),
+    };
+    const handler = new RestoreRecordsHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      createRecordWritePluginRunner([denyPlugin])
+    );
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records: [
+        {
+          recordId: `rec${'d'.repeat(14)}01`,
+          fields: { [textFieldId.toString()]: 'denied' },
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('restore.denied');
     expect(recordRepository.insertedRecords).toHaveLength(0);
   });
 });

@@ -32,9 +32,9 @@ export const recordHistoryItemStateVoSchema = z.object({
       isConditionalLookup: true,
     })
     .extend({
-      options: z.unknown(),
+      options: z.unknown().optional(),
     }),
-  data: z.unknown(),
+  data: z.unknown().optional(),
   // link cell values whose referenced record no longer exists at read time
   deletedRecordIds: z.array(z.string()).optional(),
 });

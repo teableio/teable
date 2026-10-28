@@ -1077,6 +1077,7 @@
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
       "testFailed": "Automatisierungstest fehlgeschlagen, bitte überprüfen Sie die Automatisierungskonfiguration",
       "runFailed": "Automatisierungsausführung fehlgeschlagen",
+      "runInterrupted": "Ausführung unterbrochen; Ergebnis unbestätigt",
       "activatorDeactivated": "Das Konto, das diese Automatisierung aktiviert hat, wurde deaktiviert",
       "nodeParseError": "{{name}} Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",

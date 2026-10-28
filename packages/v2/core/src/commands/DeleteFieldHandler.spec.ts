@@ -2,9 +2,9 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -34,8 +34,8 @@ import {
   type TableSchemaCoordinationMode,
 } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { flattenUndoRedoCommands } from '../ports/UndoRedoStore';
+import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldHandler } from './DeleteFieldHandler';
 import {
@@ -670,5 +670,121 @@ describe('DeleteFieldHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expectFieldOperationPluginToBeSkipped(calls, FieldOperationKind.delete);
+  });
+
+  it('vetoes reciprocal field deletion before either table is persisted', async () => {
+    const baseId = BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'w'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'x'.repeat(16)}`)._unsafeUnwrap();
+    const hostPrimaryId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+    const foreignPrimaryId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const hostLinkId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+    const foreignLinkId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .link()
+      .withId(hostLinkId)
+      .withName(FieldName.create('Foreign')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+          symmetricFieldId: foreignLinkId.toString(),
+          isOneWay: false,
+          fkHostTableName: 'host_foreign_link',
+          selfKeyName: '__fk_host',
+          foreignKeyName: '__fk_foreign',
+        })._unsafeUnwrap()
+      )
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+    const foreignTable = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .link()
+      .withId(foreignLinkId)
+      .withName(FieldName.create('Host')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: hostTableId.toString(),
+          lookupFieldId: hostPrimaryId.toString(),
+          symmetricFieldId: hostLinkId.toString(),
+          isOneWay: false,
+          fkHostTableName: 'host_foreign_link',
+          selfKeyName: '__fk_foreign',
+          foreignKeyName: '__fk_host',
+        })._unsafeUnwrap()
+      )
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(hostTable, foreignTable);
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldDeletionSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([
+        {
+          name: 'reciprocal-delete-veto',
+          supports: (kind) => kind === FieldOperationKind.delete,
+          guard: (pluginContext) =>
+            pluginContext.target.kind === 'sideEffect'
+              ? err(domainError.forbidden({ message: 'reciprocal delete forbidden' }))
+              : ok(undefined),
+        },
+      ]),
+      noopUndoRedoService,
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      DeleteFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: hostTableId.toString(),
+        fieldId: hostLinkId.toString(),
+      })._unsafeUnwrap()
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('reciprocal delete forbidden');
+    expect(tableRepository.updated).toHaveLength(0);
   });
 });

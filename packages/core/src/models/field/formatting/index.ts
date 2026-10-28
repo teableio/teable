@@ -121,7 +121,8 @@ export const getFormattingSchema = (cellValueType: CellValueType) => {
     case CellValueType.DateTime:
       return datetimeFormattingSchema;
     default:
-      return z.undefined().meta({
+      // `.optional()`: since zod 4.4 a `z.undefined()` object key must be present.
+      return z.undefined().optional().meta({
         description: 'Only number and datetime cell value type support formatting',
       });
   }

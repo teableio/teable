@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
 import { ButtonField } from '../../../fields/types/ButtonField';
+import { FieldNotNull } from '../../../fields/types/FieldNotNull';
+import { LinkField } from '../../../fields/types/LinkField';
+import { LinkFieldConfig } from '../../../fields/types/LinkFieldConfig';
 import { UserField } from '../../../fields/types/UserField';
 import { UserMultiplicity } from '../../../fields/types/UserMultiplicity';
 import { ClearFieldValueSpec } from './ClearFieldValueSpec';
+import { SetLinkValueSpec } from './SetLinkValueSpec';
 import { SetButtonValueSpec } from './SetButtonValueSpec';
 import { SetFieldValueSpecFactory } from './SetFieldValueSpecFactory';
 import { SetUserValueSpec } from './SetUserValueSpec';
@@ -70,6 +74,88 @@ describe('SetFieldValueSpecFactory', () => {
         title: 'Alice',
       })._unsafeUnwrap();
       expect((spec as SetUserValueSpec).requireCollaborator).toBe(false);
+    });
+  });
+
+  describe.each([
+    { relationship: 'manyOne' as const, seed: 'l', lookupSeed: 'm' },
+    { relationship: 'manyMany' as const, seed: 'n', lookupSeed: 'o' },
+  ])('link field ($relationship)', ({ relationship, seed, lookupSeed }) => {
+    const field = LinkField.create({
+      id: createFieldId(seed),
+      name: createFieldName('Customer'),
+      config: LinkFieldConfig.create({
+        relationship,
+        foreignTableId: `tbl${'t'.repeat(16)}`,
+        lookupFieldId: `fld${lookupSeed.repeat(16)}`,
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const item = { id: `rec${'r'.repeat(16)}`, title: 'Acme' };
+
+    // manyOne clears through the clear spec; manyMany keeps the link spec so the
+    // junction rows are removed, with the same null cell value.
+    const expectCleared = (spec: unknown) => {
+      if (spec instanceof ClearFieldValueSpec) return;
+      expect(spec).toBeInstanceOf(SetLinkValueSpec);
+      expect((spec as SetLinkValueSpec).value.toValue()).toBeNull();
+    };
+
+    it('clears an empty id list', () => {
+      expectCleared(SetFieldValueSpecFactory.create(field, [])._unsafeUnwrap());
+    });
+
+    it('clears idempotently when the cell is already empty', () => {
+      expectCleared(SetFieldValueSpecFactory.create(field, [])._unsafeUnwrap());
+      expectCleared(SetFieldValueSpecFactory.create(field, [])._unsafeUnwrap());
+    });
+
+    it('clears null', () => {
+      expect(SetFieldValueSpecFactory.create(field, null)._unsafeUnwrap()).toBeInstanceOf(
+        ClearFieldValueSpec
+      );
+    });
+
+    it('still accepts a non-empty id list', () => {
+      const spec = SetFieldValueSpecFactory.create(field, [item])._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetLinkValueSpec);
+    });
+
+    it('rejects a malformed non-empty list', () => {
+      expect(SetFieldValueSpecFactory.create(field, [{ title: 'no id' }]).isErr()).toBe(true);
+    });
+  });
+
+  describe.each([
+    { relationship: 'manyOne' as const, seed: 'p', lookupSeed: 'q' },
+    { relationship: 'manyMany' as const, seed: 'r', lookupSeed: 's' },
+  ])('not-null link field ($relationship)', ({ relationship, seed, lookupSeed }) => {
+    const field = LinkField.create({
+      id: createFieldId(seed),
+      name: createFieldName('Required customer'),
+      config: LinkFieldConfig.create({
+        relationship,
+        foreignTableId: `tbl${'u'.repeat(16)}`,
+        lookupFieldId: `fld${lookupSeed.repeat(16)}`,
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    field.setNotNull(FieldNotNull.create(true)._unsafeUnwrap())._unsafeUnwrap();
+
+    it.each([
+      ['null', null],
+      ['an empty list', []],
+    ])('rejects %s like a null clear', (_label, value) => {
+      const result = SetFieldValueSpecFactory.create(field, value);
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.code).toBe('validation.field.not_null');
+      }
+    });
+
+    it('still accepts a real target', () => {
+      const spec = SetFieldValueSpecFactory.create(field, [
+        { id: `rec${'v'.repeat(16)}`, title: 'Acme' },
+      ])._unsafeUnwrap();
+      expect(spec).toBeInstanceOf(SetLinkValueSpec);
     });
   });
 });

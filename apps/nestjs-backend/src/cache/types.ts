@@ -73,6 +73,8 @@ export interface ICacheStore {
   [key: `email:send:rate:${string}:${number}`]: number;
   [key: `automation:email-att:${string}`]: string[];
   [key: `automation:fail-notify-count:${string}`]: number;
+  // A run's script step against the sandbox, keyed by run and node: whether it was sent.
+  [key: `automation:script-exec:${string}`]: IAutomationScriptExecState;
   // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
   [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
   [key: `task:watchdog-cursor:${string}`]: { staleAt: string; key: string };
@@ -123,6 +125,15 @@ export interface ICacheStore {
   };
   ['space-load:compute-watermark']: { watermark: string; boundaryKeys: string[] };
   ['space-load:dead-letter-watermark']: string;
+}
+
+export interface IAutomationScriptExecState {
+  /** `preparing`: not yet sent, safe to run again; `dispatched`: sent, must never be resent. */
+  status: 'preparing' | 'dispatched';
+  /** Epoch ms until which the sandbox still holds a dispatched step's result. */
+  deadline?: number;
+  /** Hash of the script that was sent; its result is only taken back for the same script. */
+  codeHash?: string;
 }
 
 export interface IAttachmentSignatureCache {

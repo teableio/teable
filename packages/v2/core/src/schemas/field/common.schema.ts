@@ -77,7 +77,7 @@ export const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateT
 export const filterItemSchema = z.object({
   fieldId: z.string(),
   operator: z.string(),
-  value: z.unknown(),
+  value: z.unknown().optional(),
   isSymbol: z.boolean().optional(),
 });
 

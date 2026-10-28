@@ -5,8 +5,8 @@ import type { Result } from 'neverthrow';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
-  collectFieldCreationAddSideEffects,
-  prepareFieldAddSideEffectPlugins,
+  collectFieldCreationSideEffects,
+  prepareFieldOperationSideEffectPlugins,
 } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
@@ -179,8 +179,8 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       );
       const plannedSideEffects = yield* await withCreateFieldSpan(
         context,
-        'collectFieldCreationAddSideEffects',
-        () => collectFieldCreationAddSideEffects(table, [field], foreignTables, domainContext),
+        'collectFieldCreationSideEffects',
+        () => collectFieldCreationSideEffects(table, [field], foreignTables, domainContext),
         {
           ...spanAttrs,
           [TeableSpanAttributes.FIELD_ID]: field.id().toString(),
@@ -206,7 +206,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       } as const;
       const pluginExecution =
         yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
-      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+      const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
         runner: handler.fieldOperationPluginRunner,
         executionContext: context,
         sourceOperation: FieldOperationKind.create,

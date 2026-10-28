@@ -288,9 +288,13 @@
     "account": {
       "title": "Mein Profil",
       "tab": "Mein Konto",
+      "profileTitle": "Profil",
+      "photo": "Profilbild",
+      "photoDesc": "PNG, JPEG oder WebP, bis zu 3 MB.",
       "updatePhoto": "Photo aktualisieren",
       "updateNameDesc": "Spitzname oder Vorname, je nachdem, wie du in Teable genannt werden möchtest",
       "securityTitle": "Konto Sicherheit",
+      "dataTitle": "Daten und Konto",
       "email": "E-Mail",
       "password": "Passwort",
       "passwordDesc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
@@ -365,12 +369,13 @@
       }
     },
     "notify": {
-      "title": "Meine Benachrichtigungen",
+      "title": "Benachrichtigungen",
       "label": "Aktivität in Ihrem Space",
       "desc": "Sie erhalten E-Mails, wenn Sie Kommentare, Erwähnungen, Seiteneinladungen, Erinnerungen, Zugriffsanfragen und Eigentumsänderungen erhalten."
     },
     "setting": {
       "title": "Einstellungen",
+      "interfaceTitle": "Oberfläche",
       "theme": "Benutzeroberflächen-Theme",
       "themeDesc": "Wählen Sie Ihr Farbschema für die Benutzeroberfläche",
       "dark": "Dunkel",
@@ -460,6 +465,9 @@
           "desc": "Sie können dieses Fenster jetzt schließen."
         }
       }
+    },
+    "developerTools": {
+      "title": "Entwicklertools"
     }
   },
   "noun": {

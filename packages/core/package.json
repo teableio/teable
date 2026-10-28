@@ -62,7 +62,7 @@
     "papaparse": "5.4.1",
     "reflect-metadata": "0.2.1",
     "ts-pattern": "5.0.8",
-    "zod": "4.1.8",
+    "zod": "4.6.7",
     "zod-validation-error": "4.0.2"
   },
   "devDependencies": {

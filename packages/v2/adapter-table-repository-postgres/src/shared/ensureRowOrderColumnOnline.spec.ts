@@ -18,6 +18,7 @@ import {
   ensureRowOrderColumnOnline,
   ensureRowOrderColumns,
   hasOpenDataTransaction,
+  markTableCreatedInCurrentTransaction,
   ROW_ORDER_ADVISORY_LOCK_NAMESPACE,
   ROW_ORDER_BACKFILL_CHUNK_SIZE,
   ROW_ORDER_HEALTH_CACHE_TTL_MS,
@@ -108,16 +109,13 @@ const PGLITE_VERSION =
 
 type HelperScenario = {
   columnExists?: boolean;
-  /** Column is missing on the fast path but published before the first lock-held check. */
   publishedAfterFastPath?: boolean;
-  /** An interrupted run left the pending column behind. */
   pendingExists?: boolean;
   minAutoNumber?: number | null;
   maxAutoNumber?: number | null;
-  /** undefined = index does not exist; true/false = exists with indisvalid */
   indexValid?: boolean;
-  /** The published column still holds NULLs. */
   hasNullOrders?: boolean;
+  tableCreated?: boolean;
   version?: string;
 };
 
@@ -125,21 +123,20 @@ const helperRowProvider = (scenario: HelperScenario): RowProvider => {
   let columnChecks = 0;
   return (compiledQuery) => {
     const text = compiledQuery.sql;
-    if (text.includes('information_schema.columns')) {
+    if (text.includes('pg_attribute')) {
       if (compiledQuery.parameters.some((value) => String(value).startsWith('__pending_'))) {
-        return scenario.pendingExists ? [{ column_name: 'pending' }] : [];
+        return scenario.pendingExists ? [{ column_exists: true }] : [];
       }
       columnChecks += 1;
-      const exists =
-        scenario.columnExists || (scenario.publishedAfterFastPath === true && columnChecks > 1);
-      return exists ? [{ column_name: '__row_viwX' }] : [];
+      return [
+        {
+          column_exists:
+            scenario.columnExists || (scenario.publishedAfterFastPath === true && columnChecks > 1),
+        },
+      ];
     }
-    if (text.includes('version()')) {
-      return [{ version: scenario.version ?? REAL_PG_VERSION }];
-    }
-    if (text.includes('pg_try_advisory_lock')) {
-      return [{ locked: true }];
-    }
+    if (text.includes('version()')) return [{ version: scenario.version ?? REAL_PG_VERSION }];
+    if (text.includes('pg_try_advisory_lock')) return [{ locked: true }];
     if (text.includes('min(')) {
       return [
         {
@@ -148,14 +145,15 @@ const helperRowProvider = (scenario: HelperScenario): RowProvider => {
         },
       ];
     }
-    if (text.includes('AS has_null')) {
-      return [{ has_null: scenario.hasNullOrders === true }];
-    }
-    if (text.includes('pg_stat_progress_create_index')) {
-      return [{ in_progress: false }];
-    }
+    if (text.includes('AS has_null')) return [{ has_null: scenario.hasNullOrders === true }];
+    if (text.includes('pg_stat_progress_create_index')) return [{ in_progress: false }];
     if (text.includes('pg_index')) {
       return scenario.indexValid === undefined ? [] : [{ indisvalid: scenario.indexValid }];
+    }
+    if (text.includes('FROM pg_class c')) {
+      return [
+        { schema_name: 'bse0000000000000aaaa', relation_id: scenario.tableCreated ? '123' : '456' },
+      ];
     }
     return [];
   };
@@ -191,7 +189,7 @@ describe('ensureRowOrderColumnOnline', () => {
 
     await ensureRowOrderColumnOnline(db, TABLE, VIEW_ID, INDEX_NAME);
 
-    expect(queries[0]!.sql).toContain('information_schema.columns');
+    expect(queries[0]!.sql).toContain('FROM pg_class c');
     expect(queries.some((query) => query.sql.includes('pg_try_advisory_lock'))).toBe(false);
     expect(queries.some(isCreateIndex)).toBe(false);
   });
@@ -203,8 +201,8 @@ describe('ensureRowOrderColumnOnline', () => {
       skipConcurrentIndex: true,
     });
 
-    expect(queries).toHaveLength(1);
-    expect(queries[0]!.sql).toContain('information_schema.columns');
+    expect(queries).toHaveLength(2);
+    expect(queries[1]!.sql).toContain('pg_attribute');
   });
 
   it('builds the missing index of a column published inside a caller transaction', async () => {
@@ -593,8 +591,9 @@ describe('ensureRowOrderColumnOnline', () => {
 
       const second = createCapturingDb(provider);
       await ensureRowOrderColumnOnline(second.db, TABLE, VIEW_ID, INDEX_NAME);
-      expect(second.queries).toHaveLength(1);
-      expect(second.queries[0]!.sql).toContain('information_schema.columns');
+      expect(second.queries).toHaveLength(2);
+      expect(second.queries[0]!.sql).toContain('FROM pg_class c');
+      expect(second.queries[1]!.sql).toContain('pg_attribute');
 
       vi.advanceTimersByTime(ROW_ORDER_HEALTH_CACHE_TTL_MS + 1);
       const third = createCapturingDb(provider);
@@ -681,91 +680,52 @@ describe('ensureRowOrderColumns (transaction-aware dispatch)', () => {
   });
 
   const dispatchRowProvider =
-    (options: { columnExists: boolean; createdHere: boolean; version?: string }): RowProvider =>
+    (options: { columnExists: boolean; tableCreated: boolean; version?: string }): RowProvider =>
     (compiledQuery) => {
       const text = compiledQuery.sql;
-      if (text.includes('information_schema.columns')) {
-        return options.columnExists ? [{ column_name: ORDER_COLUMN }] : [];
+      if (text.includes('pg_attribute')) {
+        return [{ column_exists: options.columnExists }];
       }
       if (text.includes('version()')) {
         return [{ version: options.version ?? REAL_PG_VERSION }];
       }
-      if (text.includes('to_regclass')) {
-        return [{ created_here: options.createdHere }];
+      if (text.includes('FROM pg_class c')) {
+        return [
+          {
+            schema_name: 'bse0000000000000aaaa',
+            relation_id: options.tableCreated ? '123' : '456',
+          },
+        ];
       }
       return [];
     };
 
-  it('creates in-transaction when the table was created by the current transaction', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, createdHere: true }));
+  it('creates in-transaction when the table was registered by its creator', async () => {
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, tableCreated: true }));
     const nonTx = createCapturingDb(() => {
       throw new Error('non-transactional handle must not be used for transaction-local tables');
     });
-
-    await ensureRowOrderColumns(tx.db, nonTx.db, TABLE, [VIEW_ID]);
-
-    const alter = tx.queries.find((query) => query.sql.toLowerCase().includes('alter table'));
-    expect(alter).toBeDefined();
-    expect(alter!.sql.toLowerCase()).toContain('add column if not exists');
-    const createIndex = tx.queries.find((query) =>
-      query.sql.toLowerCase().includes('create index')
-    );
-    expect(createIndex).toBeDefined();
-    // In-transaction creation stays plain (no CONCURRENTLY, no lock_timeout tx).
-    expect(createIndex!.sql).not.toContain('CONCURRENTLY');
-    expect(tx.queries.some((query) => query.sql.includes('lock_timeout'))).toBe(false);
-    expect(nonTx.queries).toHaveLength(0);
-  });
-
-  it('always creates in-transaction on PGlite, regardless of the xmin probe', async () => {
-    const tx = createCapturingDb(
-      dispatchRowProvider({ columnExists: false, createdHere: false, version: PGLITE_VERSION })
-    );
-    const nonTx = createCapturingDb(() => {
-      throw new Error('non-transactional handle must not be used on PGlite');
+    await tx.db.transaction().execute(async (trx) => {
+      await markTableCreatedInCurrentTransaction(trx as unknown as Kysely<DynamicDB>, TABLE);
+      await ensureRowOrderColumns(trx as unknown as Kysely<DynamicDB>, nonTx.db, TABLE, [VIEW_ID]);
     });
-
-    await ensureRowOrderColumns(tx.db, nonTx.db, TABLE, [VIEW_ID]);
-
-    // The xmin probe is skipped entirely on PGlite.
-    expect(tx.queries.some((query) => query.sql.includes('to_regclass'))).toBe(false);
-    const alter = tx.queries.find((query) => query.sql.toLowerCase().includes('alter table'));
-    expect(alter).toBeDefined();
-    expect(alter!.sql.toLowerCase()).toContain('add column if not exists');
+    expect(tx.queries.some((query) => query.sql.toLowerCase().includes('alter table'))).toBe(true);
     expect(nonTx.queries).toHaveLength(0);
   });
 
-  it('creates online on the non-transactional handle for existing committed tables', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, createdHere: false }));
+  it('keeps unregistered committed tables on the online path', async () => {
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, tableCreated: false }));
     const nonTx = createCapturingDb(
       helperRowProvider({ minAutoNumber: null, maxAutoNumber: null })
     );
-
     await ensureRowOrderColumns(tx.db, nonTx.db, TABLE, [VIEW_ID]);
-
-    // The request handle only ran the cheap probes — no creation work.
-    expect(tx.queries.map((query) => query.sql)).toEqual([
-      expect.stringContaining('information_schema.columns'),
-      expect.stringContaining('version()'),
-      expect.stringContaining('to_regclass'),
-    ]);
-    // Mixed-case schema/table names must be quoted, or to_regclass misses
-    // the table and every table reads as created by this transaction.
-    expect(tx.queries[2]!.sql).toContain(`to_regclass(quote_ident($1) || '.' || quote_ident($2))`);
-    expect(tx.queries[2]!.parameters).toEqual(TABLE.split('.'));
-
-    // All creation work happened on the non-transactional handle.
     expect(nonTx.queries.some((query) => query.sql.toLowerCase().includes('alter table'))).toBe(
       true
     );
-    const createIndex = nonTx.queries.find((query) =>
-      query.sql.toLowerCase().includes('create index')
-    );
-    expect(createIndex!.sql).toContain('CREATE INDEX CONCURRENTLY IF NOT EXISTS');
   });
 
   it('does not fall back to in-transaction creation on lock timeout', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, createdHere: false }));
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, tableCreated: false }));
     const lockTimeoutOnAlter: RowProvider = (compiledQuery) => {
       if (compiledQuery.sql.toLowerCase().includes('alter table')) {
         throw Object.assign(new Error('canceling statement due to lock timeout'), {
@@ -775,7 +735,6 @@ describe('ensureRowOrderColumns (transaction-aware dispatch)', () => {
       return helperRowProvider({ minAutoNumber: null, maxAutoNumber: null })(compiledQuery);
     };
     const nonTx = createCapturingDb(lockTimeoutOnAlter);
-
     await expect(ensureRowOrderColumns(tx.db, nonTx.db, TABLE, [VIEW_ID])).rejects.toThrow(
       /lock timeout/
     );
@@ -783,12 +742,12 @@ describe('ensureRowOrderColumns (transaction-aware dispatch)', () => {
   });
 
   it('rethrows non-lock errors from the online path', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, createdHere: false }));
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: false, tableCreated: false }));
     const boom: RowProvider = (compiledQuery) => {
       if (compiledQuery.sql.toLowerCase().includes('alter table')) {
         throw Object.assign(new Error('out of shared memory'), { code: '53200' });
       }
-      return helperRowProvider({ minAutoNumber: null, maxAutoNumber: null })(compiledQuery);
+      return helperRowProvider({ tableCreated: false })(compiledQuery);
     };
     const nonTx = createCapturingDb(boom);
 
@@ -799,7 +758,7 @@ describe('ensureRowOrderColumns (transaction-aware dispatch)', () => {
   });
 
   it('dedupes view ids and skips an existing column inside a caller transaction', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: true, createdHere: false }));
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: true, tableCreated: false }));
     const nonTx = createCapturingDb(helperRowProvider({}));
 
     await tx.db.transaction().execute(async (trx) => {
@@ -815,7 +774,7 @@ describe('ensureRowOrderColumns (transaction-aware dispatch)', () => {
   });
 
   it('heals the missing index of an existing column outside a transaction', async () => {
-    const tx = createCapturingDb(dispatchRowProvider({ columnExists: true, createdHere: false }));
+    const tx = createCapturingDb(dispatchRowProvider({ columnExists: true, tableCreated: false }));
     const nonTx = createCapturingDb(helperRowProvider({ columnExists: true }));
 
     await ensureRowOrderColumns(tx.db, nonTx.db, TABLE, [VIEW_ID]);

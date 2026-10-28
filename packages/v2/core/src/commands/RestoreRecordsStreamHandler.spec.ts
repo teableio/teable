@@ -25,6 +25,7 @@ import {
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { createRecordWritePluginRunner } from './recordWritePluginRunnerTestUtils';
 import { RestoreRecordsStreamCommand } from './RestoreRecordsStreamCommand';
 import type { RestoreRecordsStreamEvent } from './RestoreRecordsStreamHandler';
 import { RestoreRecordsStreamHandler } from './RestoreRecordsStreamHandler';
@@ -175,7 +176,8 @@ describe('RestoreRecordsStreamHandler', () => {
     const handler = new RestoreRecordsStreamHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      unitOfWork
+      unitOfWork,
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(createContext(), command);
@@ -221,7 +223,8 @@ describe('RestoreRecordsStreamHandler', () => {
     const handler = new RestoreRecordsStreamHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      unitOfWork
+      unitOfWork,
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(createContext(), command);

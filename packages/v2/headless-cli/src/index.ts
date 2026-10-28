@@ -16,6 +16,7 @@ export interface IHeadlessServerOptions {
   attachmentsDir?: string;
   actorHeader?: string;
   defaultActorId?: string;
+  allowAnonymousActor?: boolean;
 }
 
 export interface IHeadlessServer {
@@ -64,6 +65,7 @@ export const startHeadlessServer = async (
   const app = createHeadlessHttpApp(runtime, {
     actorHeader: options.actorHeader,
     defaultActorId: options.defaultActorId,
+    allowAnonymousActor: options.allowAnonymousActor,
   });
   const server = serve({
     fetch: app.fetch,

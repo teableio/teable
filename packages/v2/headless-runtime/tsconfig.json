@@ -19,6 +19,8 @@
     "composite": false,
     "paths": {
       "@teable/core": ["../../core/src"],
+      "@teable/v2-import": ["../import/src"],
+      "@teable/v2-utils": ["../utils/src"],
       "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
       "@teable/v2-container-browser": ["../container-browser/src"],
       "@teable/v2-container-node": ["../container-node/src"],

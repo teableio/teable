@@ -11,6 +11,8 @@ import {
   type IImportSource,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
+import type { ISsrfSafeFetchFn } from '@teable/v2-utils';
+
 import type { Result } from 'neverthrow';
 
 /**
@@ -18,6 +20,8 @@ import type { Result } from 'neverthrow';
  * Supports CSV, TSV, and plain text files
  */
 export class CsvImportAdapter implements IImportSourceAdapter {
+  constructor(private readonly fetchFn?: ISsrfSafeFetchFn) {}
+
   readonly supportedTypes = ['csv', 'tsv', 'txt'] as const;
 
   supports(type: string): boolean {
@@ -57,6 +61,9 @@ export class CsvImportAdapter implements IImportSourceAdapter {
       delimiter: options?.delimiter,
       skipEmptyLines: true,
       snapshotSource: options?.snapshotSource,
+      formatSampleBytes: options?.snapshotSource === false ? 64 * 1024 : undefined,
+      boundedPreview: options?.snapshotSource === false,
+      fetchFn: this.fetchFn,
     });
     try {
       const first = await iterator.next();

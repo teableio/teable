@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { isoDateTimeWithOffsetSchema } from '../../../shared/isoDateTimeSchema';
 import { ValueObject } from '../../../shared/ValueObject';
 import type { Field } from '../../fields/Field';
 import { TimeZone } from '../../fields/types/TimeZone';
@@ -18,8 +19,8 @@ const dateValueSchema = z
   .object({
     mode: recordConditionDateModeSchema,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ offset: true }).optional(),
-    exactDateEnd: z.string().datetime({ offset: true }).optional(),
+    exactDate: isoDateTimeWithOffsetSchema().optional(),
+    exactDateEnd: isoDateTimeWithOffsetSchema().optional(),
     timeZone: z.string(),
   })
   .superRefine((val, ctx) => {

@@ -10,6 +10,7 @@ import {
   generateTemplateId,
   type ILinkFieldOptions,
 } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
@@ -325,37 +326,49 @@ export class BaseService {
   }
 
   /**
-   * Narrow a base list to what a personal access token is allowed to see.
+   * The bases a personal access token is allowed to see, as a query condition.
    * The token's resource access range (spaceIds/baseIds) is a hard boundary:
    * `base|read_all` only says the token may read bases, not which ones. Mirrors
    * SpaceService.filterSpaceListWithAccessToken so the base list and space list
-   * enforce the token range consistently. No-op for user (non-token) requests.
+   * enforce the token range consistently. `undefined` for user (non-token) requests
+   * and full-access tokens; `null` when the token reaches no base at all.
    */
-  private async filterBaseListWithAccessToken<T extends { id: string; spaceId: string }>(
-    baseList: T[]
-  ) {
+  private async getAccessTokenBaseScope(): Promise<Prisma.BaseWhereInput | null | undefined> {
     const accessTokenId = this.cls.get('accessTokenId');
     if (!accessTokenId) {
-      return baseList;
+      return undefined;
     }
     const accessToken = await this.permissionService.getAccessToken(accessTokenId);
     if (accessToken.hasFullAccess) {
-      return baseList;
+      return undefined;
     }
-    const allowedSpaceIds = new Set(accessToken.spaceIds ?? []);
-    const allowedBaseIds = new Set(accessToken.baseIds ?? []);
-    if (allowedSpaceIds.size === 0 && allowedBaseIds.size === 0) {
-      return [];
+    const spaceIds = accessToken.spaceIds ?? [];
+    const baseIds = accessToken.baseIds ?? [];
+    if (spaceIds.length === 0 && baseIds.length === 0) {
+      return null;
     }
-    return baseList.filter(
-      (base) => allowedBaseIds.has(base.id) || allowedSpaceIds.has(base.spaceId)
-    );
+    return { OR: [{ id: { in: baseIds } }, { spaceId: { in: spaceIds } }] };
   }
 
-  async getAllBaseList() {
+  /**
+   * Bases the caller can reach. `spaceId`/`search` narrow and `skip`/`take` page the list in
+   * the query itself, so a page never loads the whole accessible set.
+   */
+  async getAllBaseList(options?: {
+    spaceId?: string;
+    search?: string;
+    skip?: number;
+    take?: number;
+  }) {
+    const search = options?.search?.trim();
+    const paged = options?.skip !== undefined || options?.take !== undefined;
+    const tokenScope = await this.getAccessTokenBaseScope();
+    if (tokenScope === null) {
+      return [];
+    }
     const { spaceIds, baseIds, roleMap } =
       await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
-    const baseListAll = await this.prismaService.base.findMany({
+    const baseList = await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -370,11 +383,28 @@ export class BaseService {
       where: {
         deletedTime: null,
         OR: [{ id: { in: baseIds } }, { spaceId: { in: spaceIds }, space: { deletedTime: null } }],
+        ...(options?.spaceId ? { spaceId: options.spaceId } : {}),
+        AND: [
+          ...(tokenScope ? [tokenScope] : []),
+          ...(search
+            ? [
+                {
+                  OR: [
+                    { name: { contains: search, mode: 'insensitive' as const } },
+                    { id: { contains: search, mode: 'insensitive' as const } },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
-      orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
+      // `id` breaks ties so consecutive pages neither repeat nor skip a base.
+      orderBy: paged
+        ? [{ spaceId: 'asc' }, { order: 'asc' }, { id: 'asc' }]
+        : [{ spaceId: 'asc' }, { order: 'asc' }],
+      ...(options?.skip !== undefined ? { skip: options.skip } : {}),
+      ...(options?.take !== undefined ? { take: options.take } : {}),
     });
-
-    const baseList = await this.filterBaseListWithAccessToken(baseListAll);
 
     if (!baseList.length) {
       return [];

@@ -33,6 +33,9 @@ const collectForeignTableIds = (
   return foreignTableIds;
 };
 
+export const CROSS_BASE_LINK_FOREIGN_TABLE_READ_FORBIDDEN =
+  'cross_base_link.foreign_table_read_forbidden';
+
 /**
  * Inside one base, reading a foreign table is covered by the caller's role on
  * the base; across bases it is not, and the request guard only checks the host
@@ -43,6 +46,11 @@ const collectForeignTableIds = (
  *   values readable through the host table (GHSA-p8x2-vpf5-3f6x).
  * Whether a foreign table is in another base comes from the table itself, never
  * from the `baseId` a client put in the link options.
+ *
+ * Callers:
+ * - v1 write paths call this service directly (typecast, field supplement);
+ * - v2 record writes reach it through `CrossBaseLinkAccessRecordWritePlugin`,
+ *   so no v2 entry point has to remember the call itself.
  */
 @Injectable()
 export class CrossBaseLinkAccessService {

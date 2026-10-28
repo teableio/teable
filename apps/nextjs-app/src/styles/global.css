@@ -213,3 +213,29 @@ body[data-teable-top-banner='visible'] #portal .min-h-screen {
      icon already carries, while `scale` composes with them. */
   scale: -1 1;
 }
+
+/*
+ * Theme switch reveal: the new theme drops over the old one from the top edge. `useTheme`
+ * (ui-lib) sets the attribute for the switch's view transition only, so any other view
+ * transition keeps the browser's cross-fade.
+ */
+html[data-theme-transition]::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-theme-transition]::view-transition-new(root) {
+  /* Ease-in: the edge starts slow and gathers speed as it sweeps down */
+  animation: theme-reveal 320ms cubic-bezier(0.32, 0, 0.67, 0);
+  mix-blend-mode: normal;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}

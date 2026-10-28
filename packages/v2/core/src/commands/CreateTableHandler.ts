@@ -5,8 +5,8 @@ import type { Result } from 'neverthrow';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
-  collectFieldCreationAddSideEffects,
-  prepareFieldAddSideEffectPlugins,
+  collectFieldCreationSideEffects,
+  prepareFieldOperationSideEffectPlugins,
 } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import {
@@ -143,13 +143,13 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
           ]
         : foreignTables;
       const domainContext = ExecutionContextPort.getDomainContext(context);
-      const plannedSideEffects = yield* collectFieldCreationAddSideEffects(
+      const plannedSideEffects = yield* collectFieldCreationSideEffects(
         table,
         tableFields,
         foreignTablesForSideEffects,
         domainContext
       );
-      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+      const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
         runner: handler.fieldOperationPluginRunner,
         executionContext: context,
         sourceOperation: FieldOperationKind.create,
@@ -169,6 +169,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         context,
         async (metaTransactionContext) =>
           safeTry<Table, DomainError>(async function* () {
+            yield* await sideEffectPluginExecution.beforePersist(metaTransactionContext);
             const persistedTable = yield* await handler.tableRepository.insert(
               metaTransactionContext,
               table
@@ -213,7 +214,6 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               dataTransactionContext,
               persistedTable
             );
-            yield* await sideEffectPluginExecution.beforePersist(dataTransactionContext);
             const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
               dataTransactionContext,
               {

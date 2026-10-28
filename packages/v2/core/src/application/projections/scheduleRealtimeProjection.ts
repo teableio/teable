@@ -125,10 +125,19 @@ export const scheduleRealtimeProjection = (
   };
 
   const scheduleRun = async () => {
+    if (backgroundContext.scheduleBackgroundTask) {
+      backgroundContext.scheduleBackgroundTask(run);
+      return;
+    }
     realtimeProjectionScheduler(run);
   };
 
   if (registerAfterCommit(context, scheduleRun)) {
+    return ok(undefined);
+  }
+
+  if (backgroundContext.scheduleBackgroundTask) {
+    backgroundContext.scheduleBackgroundTask(run);
     return ok(undefined);
   }
 

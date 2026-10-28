@@ -108,7 +108,8 @@ const ConsentPreferences = ({
 /**
  * Cookie banner for visitors who land on the app directly (the marketing
  * site has its own; both share the `teable_consent` cookie). Shown to opt-in
- * regions until they choose, and to anyone who opens "Cookie settings" — which
+ * regions until they choose (never by itself inside an iframe, where the
+ * embedding page asks), and to anyone who opens "Cookie settings" — which
  * goes straight to the per-category panel. Every choice button carries equal
  * weight, as the EDPB guidelines require.
  */

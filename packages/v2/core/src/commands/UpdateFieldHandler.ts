@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
-  collectFieldUpdateAddSideEffects,
-  prepareFieldAddSideEffectPlugins,
+  collectFieldUpdateSideEffects,
+  prepareFieldOperationSideEffectPlugins,
 } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
@@ -237,7 +237,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       const previewUpdatedField = yield* previewUpdateResult.table.getField((f) =>
         f.id().equals(command.fieldId)
       );
-      const plannedSideEffects = yield* collectFieldUpdateAddSideEffects(
+      const plannedSideEffects = yield* collectFieldUpdateSideEffects(
         previewTable,
         previewUpdatedField,
         previewPreviousField,
@@ -265,7 +265,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       } as const;
       const pluginExecution =
         yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
-      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+      const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
         runner: handler.fieldOperationPluginRunner,
         executionContext: context,
         sourceOperation: FieldOperationKind.update,

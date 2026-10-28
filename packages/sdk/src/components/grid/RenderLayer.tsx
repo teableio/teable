@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useLayoutEffect, useMemo } from 'react';
 import type { IVisibleRegion } from './hooks';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import { RegionType } from './interface';
@@ -141,7 +141,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     return { x, y };
   }, [x, y, isInteracting]);
 
-  useEffect(() => {
+  // Draw before paint so the canvas always matches the DOM overlays (editor, selection) of
+  // the same commit. A passive effect can let one frame show a hidden editor's stale cell.
+  useLayoutEffect(() => {
     const mainCanvas = mainCanvasRef.current;
     if (mainCanvas == null) return;
     const lastProps = lastPropsRef.current;

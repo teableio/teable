@@ -4,6 +4,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationSideEffects,
+  prepareFieldOperationSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import {
   type IPasteLinkAutoResolveResult,
@@ -13,11 +18,11 @@ import {
 } from '../application/services/PasteLinkAutoResolveService';
 import { areRecordFieldValuesEqual } from '../application/services/RecordFieldValueEquality';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import {
   type RecordWritePluginExecution,
   RecordWritePluginRunner,
 } from '../application/services/RecordWritePluginRunner';
-import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -39,8 +44,8 @@ import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
-import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type {
   RecordFieldChangeDTO,
   RecordUpdateDTO,
@@ -57,8 +62,8 @@ import type { MultipleSelectField } from '../domain/table/fields/types/MultipleS
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { normalizeCellDisplayValue } from '../domain/table/fields/visitors/normalizeCellDisplayValue';
-import { splitSelectTypecastValues } from '../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
+import { splitSelectTypecastValues } from '../domain/table/fields/visitors/splitSelectTypecastValues';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import { RecordId } from '../domain/table/records/RecordId';
@@ -71,11 +76,14 @@ import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { ViewId } from '../domain/table/views/ViewId';
 import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
-import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { RecordQueryOperationKind, type RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -150,6 +158,7 @@ interface PlannedColumnExpansion {
   apply: (
     context: ExecutionContextPort.IExecutionContext
   ) => Promise<Result<TableUpdateFlowResult, DomainError>>;
+  afterCommit: () => Promise<void>;
 }
 
 /** Represents an update operation for an existing record */
@@ -324,7 +333,13 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     @inject(v2CoreTokens.domainWriteTransaction)
     protected readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.recordQueryPluginRunner)
-    protected readonly recordQueryPluginRunner?: RecordQueryPluginRunner
+    protected readonly recordQueryPluginRunner?: RecordQueryPluginRunner,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    protected readonly fieldOperationPluginRunner: FieldOperationPluginRunner = new FieldOperationPluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    )
   ) {}
 
   @TraceSpan()
@@ -737,6 +752,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         table,
         newFieldIds: [],
         apply: async () => ok({ table, events: [], postPersistEvents: [] }),
+        afterCommit: async () => undefined,
       });
     }
 
@@ -784,14 +800,37 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           return next;
         });
       const plannedUpdate = yield* applyFields(table);
+      const domainContext = ExecutionContextPort.getDomainContext(context);
+      const plannedSideEffects = yield* collectFieldCreationSideEffects(
+        plannedUpdate.table,
+        createdFields,
+        foreignTables,
+        domainContext
+      );
+      const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.create,
+        sourceTable: table,
+        foreignTables,
+        domainContext,
+        sideEffects: plannedSideEffects,
+      });
+      yield* await sideEffectPluginExecution.guard();
 
       return ok({
         table: plannedUpdate.table,
         newFieldIds: createdFields.map((field) => field.id()),
+        afterCommit: () => sideEffectPluginExecution.afterCommit(),
         apply: async (transactionContext: ExecutionContextPort.IExecutionContext) =>
           handler.tableUpdateFlow.execute(transactionContext, { table }, applyFields, {
             publishEvents: false,
             hooks: {
+              prepare: async (currentContext) => {
+                const beforePersistResult =
+                  await sideEffectPluginExecution.beforePersist(currentContext);
+                return beforePersistResult.map(() => []);
+              },
               afterPersist: async (currentContext, updatedTable) =>
                 safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
                   if (createdFields.length === 0) return ok([]);
@@ -1250,6 +1289,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           ...columnExpansionResult.value.events,
           ...columnExpansionResult.value.postPersistEvents
         );
+        eventData.afterCommitHandlers.push(plannedColumnExpansion.afterCommit);
         const fieldExpansionUndoRedoPlan =
           await handler.recordWriteUndoRedoPlanService.captureCreatedFields(
             context,
@@ -2963,6 +3003,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           ...columnExpansionResult.value.events,
           ...columnExpansionResult.value.postPersistEvents
         );
+        chunkEventData.afterCommitHandlers.push(params.plannedColumnExpansion.afterCommit);
         const fieldExpansionUndoRedoPlan =
           await this.recordWriteUndoRedoPlanService.captureCreatedFields(
             txContext,

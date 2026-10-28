@@ -180,6 +180,6 @@
     "tailwind-merge": "2.2.2",
     "tailwindcss-animate": "1.0.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "4.1.8"
+    "zod": "4.6.7"
   }
 }

@@ -58,6 +58,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { restoreFieldRecordValues } from '../field/restore-field-record-values';
+import { CROSS_BASE_LINK_FOREIGN_TABLE_READ_FORBIDDEN } from '../record/cross-base-link-access.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordRestoreService } from '../record/open-api/record-restore.service';
@@ -1657,7 +1658,7 @@ export class TrashService {
       case TableTrashType.Record:
         for await (const event of this.restoreRecordTableResourceV2Stream(trashId, routedTableId)) {
           if (event.id === 'error') {
-            throw new CustomHttpException(event.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
+            throw this.restoreStreamException(event);
           }
         }
         return;
@@ -1672,6 +1673,22 @@ export class TrashService {
           }
         );
     }
+  }
+
+  /**
+   * The restore stream reports a plugin denial as an error event, so the code
+   * is the only status signal left; keep a denied foreign table a 403 instead
+   * of collapsing it into the generic 500.
+   */
+  private restoreStreamException(event: { message: string; code?: string }) {
+    if (event.code === CROSS_BASE_LINK_FOREIGN_TABLE_READ_FORBIDDEN) {
+      return new CustomHttpException(event.message, HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.permission.notAllowedOperation',
+        },
+      });
+    }
+    return new CustomHttpException(event.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
   }
 
   private async restoreFieldTableResourceV2(trashId: string, routedTableId?: string) {

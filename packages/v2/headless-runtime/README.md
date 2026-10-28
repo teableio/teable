@@ -11,9 +11,10 @@ const runtime = await createHeadlessRuntime({
   backend: { kind: "pglite", dataDir: "./data" },
 });
 
-// runtime.commandBus / runtime.queryBus
-await runtime.flushComputed();
-await runtime.flushRealtime();
+// Public command/query calls are serialized for PGlite in Node.
+const computed = await runtime.flushComputed();
+const realtime = await runtime.flushRealtime();
+const background = await runtime.flushBackground();
 await runtime.close();
 ```
 
@@ -65,10 +66,14 @@ PGlite runs in-process; no PostgreSQL server and no Docker are needed.
 
 Caveats:
 
-- the data directory is a normal Postgres data directory, not a single file, and
-  it is owned by one process at a time (PGlite is single-writer).
-- no auth, users, permissions, UI, file/attachment endpoints, realtime
-  transport, or multi-user collaboration. Those stay in the host.
+- the data directory is a normal Postgres data directory, not a single file. A
+  fail-fast cross-process lock enforces one Node/Bun owner at a time; `memory://`
+  and browser `idb://` are excluded from this filesystem lock.
+- the serialized public command/query facade is a Node/Bun-only seam (it uses
+  `AsyncLocalStorage`). Browser callers should use `@teable/v2-container-browser`
+  directly and provide their own serialization; `idb://` has no cross-tab lock.
+- no auth, users, permissions, UI, file/attachment endpoints, cross-process
+  realtime transport, or multi-user collaboration. Those stay in the host.
 - the PGlite binary is ~116 MB and observed RSS on macOS arm64 with an empty
   database was ~548 MB (~550 MB).
 
@@ -120,11 +125,18 @@ const runtime = await createHeadlessRuntime({ backend, realtime: customEngine })
 // runtime.realtime has customEngine's concrete type
 ```
 
-The host owns a supplied engine and must close any resources it owns. Runtime
-`close()` only closes the persistence composition root. `flushRealtime()` waits
-for deferred projection scheduling; it is not an acknowledgement that a custom
-transport delivered or persisted an event. The default engine remains a
-single-process change feed, not a collaboration server.
+The host owns a supplied engine and must close any resources it owns. For the
+default local engine, `flushRealtime()` waits for tracked in-process projection
+tasks and reports failures. Custom engines return `unsupported` unless the host
+provides its own acknowledgement. `flushBackground()` first drives the durable
+domain-event worker when one is registered, then settles tracked direct work and
+returns durable pending/scheduled/processing/dead counts. PGlite uses an
+in-memory projection journal, so it writes no unconsumed durable rows; if a
+database already contains durable rows and no worker is registered, the report
+returns `worker_unavailable` rather than hiding them. `close()` rejects new work
+immediately, settles accepted work and direct background tasks, then destroys the
+database; it does not poll the durable domain-event worker, so call
+`flushBackground()` first when needed.
 
 ## HTTP and SDK
 
@@ -149,14 +161,18 @@ link projections remain PostgreSQL-first; see the adapter e2e skips.
 ## What works
 
 - base/table/field/view/record command and query buses
+- CSV/Excel import registry with per-runtime URL fetch injection; Node defaults
+  to strict SSRF protection, while legacy global safe-fetch users remain
+  supported during migration
 - record create/update with `domainWriteTransaction`
-- formula, link, lookup, and rollup recomputation with `flushComputed()`
-- in-process realtime snapshots with `flushRealtime()`, including view
-  projections and collection notifications
+- bounded formula/link/lookup/rollup work attempts with `flushComputed()`; the
+  report returns live `pending`, `scheduled`, `processing`, `paused`,
+  `deadLetter`, `nextRunAt` and `drained`. `pending > 0` is never idle and any
+  dead letter keeps `drained: false`.
+- deterministic in-process realtime snapshots with `flushRealtime()`
+- explicit background delivery attempts with `flushBackground()`
 - attachment bytes + metadata + record cell references + GC/thumbnail seam
-- local table data-safety limits
-- persistent PGlite reopen
-- idempotent `close()`
+- local table data-safety limits, persistent PGlite reopen and idempotent close
 
 ## App bundles
 

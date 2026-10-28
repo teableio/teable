@@ -2,11 +2,20 @@ import {
   CONSENT_BANNER_VERSION,
   CONSENT_REGION_COOKIE_NAME,
   MARKETING_CONSENT_COOKIE_NAME,
+  allConsent,
   consentForCategories,
   parseMarketingConsent,
 } from '@teable/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeCookieSettings, getConsentSnapshot, saveConsent } from './marketing-consent';
+import {
+  closeCookieSettings,
+  getConsentSnapshot,
+  openCookieSettings,
+  saveConsent,
+} from './marketing-consent';
+
+const MOBILE_APP_UA =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TeableMobile/1.4.0';
 
 const cookieNames = () =>
   document.cookie
@@ -28,6 +37,20 @@ const savedConsent = () =>
       ?.slice(MARKETING_CONSENT_COOKIE_NAME.length + 1)
   );
 
+/**
+ * Shadows the cookie jar. Another site's iframe reads none of Teable's SameSite=Lax cookies
+ * and drops every write (`() => ''`); a sandboxed one throws on any access.
+ */
+const stubCookies = (get: () => string) =>
+  Object.defineProperty(document, 'cookie', { configurable: true, get, set: () => undefined });
+const restoreCookies = () => Reflect.deleteProperty(document, 'cookie');
+
+/** A refused choice lives in module memory for the rest of the page: start a fresh one. */
+const freshPage = async () => {
+  vi.resetModules();
+  return import('./marketing-consent');
+};
+
 describe('saveConsent', () => {
   const capture = vi.fn();
 
@@ -45,6 +68,8 @@ describe('saveConsent', () => {
   afterEach(() => {
     capture.mockReset();
     closeCookieSettings();
+    restoreCookies();
+    vi.restoreAllMocks();
   });
 
   it('keeps analytics and clears only ad storage when just analytics is allowed', () => {
@@ -89,5 +114,99 @@ describe('saveConsent', () => {
       consent_method: 'custom',
       source: 'app',
     });
+  });
+
+  it('applies a choice the browser refuses to store for the rest of the page', async () => {
+    const page = await freshPage();
+    stubCookies(() => '');
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new DOMException('Access is denied for this document.', 'SecurityError');
+    });
+
+    page.saveConsent(allConsent('denied'), 'reject_all');
+    expect(page.getConsentSnapshot()).toMatchObject({
+      consent: allConsent('denied'),
+      needsChoice: false,
+      analyticsGranted: false,
+    });
+    expect(capture).toHaveBeenCalledWith(
+      'cookie_consent_updated',
+      expect.objectContaining({ consent_method: 'reject_all' })
+    );
+
+    page.saveConsent(allConsent('granted'), 'accept_all');
+    expect(page.getConsentSnapshot()).toMatchObject({ analyticsGranted: true, adsGranted: true });
+  });
+});
+
+describe('getConsentSnapshot', () => {
+  beforeEach(() => {
+    clearCookies();
+    document.cookie = `${CONSENT_REGION_COOKIE_NAME}=eea;path=/`;
+  });
+
+  afterEach(() => {
+    closeCookieSettings();
+    restoreCookies();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('asks an undecided opt-in visitor in a browser', () => {
+    const snapshot = getConsentSnapshot();
+    expect(snapshot.needsChoice).toBe(true);
+    expect(snapshot.analyticsGranted).toBe(false);
+    expect(snapshot.adsGranted).toBe(false);
+  });
+
+  it('treats pages inside the mobile app as consented, whatever the cookies say', () => {
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(MOBILE_APP_UA);
+    expect(getConsentSnapshot()).toMatchObject({
+      needsChoice: false,
+      analyticsGranted: true,
+      adsGranted: true,
+    });
+
+    // A rejection stored before the app stopped asking does not count there either.
+    document.cookie = `${MARKETING_CONSENT_COOKIE_NAME}=${encodeURIComponent(
+      JSON.stringify(consentForCategories({ analytics: false, marketing: false }))
+    )};path=/`;
+    openCookieSettings();
+    expect(getConsentSnapshot()).toMatchObject({
+      needsChoice: false,
+      settingsOpen: false,
+      analyticsGranted: true,
+      adsGranted: true,
+    });
+  });
+
+  it('does not ask inside an iframe, where an undecided visitor keeps the opt-in defaults', () => {
+    vi.stubGlobal('top', {});
+    expect(getConsentSnapshot()).toMatchObject({
+      needsChoice: false,
+      analyticsGranted: false,
+      adsGranted: false,
+    });
+  });
+
+  it('reads no cookies in a sandboxed iframe instead of throwing', () => {
+    vi.stubGlobal('top', {});
+    stubCookies(() => {
+      throw new DOMException('The document is sandboxed.', 'SecurityError');
+    });
+    expect(getConsentSnapshot()).toMatchObject({
+      region: 'eea',
+      needsChoice: false,
+      analyticsGranted: false,
+    });
+  });
+
+  it('does not treat a browser with ?embed=mobile as the app', () => {
+    window.history.replaceState(null, '', '/base/bseX?embed=mobile');
+    try {
+      expect(getConsentSnapshot().needsChoice).toBe(true);
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 });

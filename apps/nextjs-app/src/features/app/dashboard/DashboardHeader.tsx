@@ -79,7 +79,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   }, [isRenaming]);
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between border-b px-4">
+    <div className="flex h-12 shrink-0 items-center justify-between border-b bg-background px-4">
       <Head>
         <title>{dashboardName ? `${dashboardName} - ${brandName}` : brandName}</title>
       </Head>

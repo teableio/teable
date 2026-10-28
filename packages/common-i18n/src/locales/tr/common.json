@@ -288,9 +288,13 @@
     "account": {
       "title": "Profilim",
       "tab": "Hesabım",
+      "profileTitle": "Profil",
+      "photo": "Profil fotoğrafı",
+      "photoDesc": "PNG, JPEG veya WebP, en fazla 3 MB.",
       "updatePhoto": "Fotoğrafı güncelle",
       "updateNameDesc": "Takma ad veya isim, Teable'da size nasıl hitap edilmesini istiyorsanız",
       "securityTitle": "Hesap güvenliği",
+      "dataTitle": "Veriler ve hesap",
       "email": "E-posta",
       "password": "Şifre",
       "passwordDesc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
@@ -365,12 +369,13 @@
       }
     },
     "notify": {
-      "title": "Bildirimlerim",
+      "title": "Bildirimler",
       "label": "Alan etkinliği",
       "desc": "Yorum aldığınızda, bahsedildiğinizde, sayfa davetleri, hatırlatmalar, erişim istekleri ve özellik değişiklikleri için e-posta alın."
     },
     "setting": {
       "title": "Ayarlarım",
+      "interfaceTitle": "Arayüz",
       "theme": "Tema",
       "themeDesc": "Uygulama temasını seçin.",
       "dark": "Koyu",
@@ -460,6 +465,9 @@
           "desc": "Bu pencereyi artık kapatabilirsiniz."
         }
       }
+    },
+    "developerTools": {
+      "title": "Geliştirici araçları"
     }
   },
   "noun": {

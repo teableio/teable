@@ -1,5 +1,5 @@
 import { err, ok } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ProjectionHandler } from '../../application/projections/Projection';
 import { CommandHandler, type ICommandHandler } from '../../commands/CommandHandler';
@@ -422,6 +422,36 @@ describe('AsyncMemoryEventBus', () => {
     await tasks.shift()?.();
 
     expect(handled).toBe(1);
+  });
+
+  it('does not settle before an asynchronous handler completes', async () => {
+    class SettledEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+    const gate = Promise.withResolvers<void>();
+    @EventHandler(SettledEvent)
+    class SettledHandler implements IEventHandler<SettledEvent> {
+      async handle(): ReturnType<IEventHandler<SettledEvent>['handle']> {
+        await gate.promise;
+        return ok(undefined);
+      }
+    }
+    expect(SettledHandler).toBeDefined();
+    const tasks: Array<() => Promise<void>> = [];
+    const bus = new AsyncMemoryEventBus(new MapResolver(), {
+      schedule: (task) => tasks.push(task),
+    });
+    await bus.publish(createContext(), new SettledEvent());
+    const settled = vi.fn();
+    void bus.settled().then(settled);
+    const drain = tasks.shift()?.();
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    gate.resolve();
+    await drain;
+    await bus.settled();
+    expect(settled).toHaveBeenCalledOnce();
   });
 
   it('uses execution-context background scheduling for non-awaitable events', async () => {
@@ -1101,5 +1131,32 @@ describe('MemoryTableRepository', () => {
       'Alpha',
       'Beta',
     ]);
+  });
+});
+
+describe('AsyncMemoryEventBus scheduler failure', () => {
+  it('returns an error for awaitable publish and rejects settled when scheduling fails', async () => {
+    class SchedulerFailureEvent implements IDomainEvent {
+      readonly name = DomainEventName.fieldCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    @EventHandler(SchedulerFailureEvent)
+    class SchedulerFailureHandler implements IEventHandler<SchedulerFailureEvent> {
+      async handle(): ReturnType<IEventHandler<SchedulerFailureEvent>['handle']> {
+        return ok(undefined);
+      }
+    }
+    expect(SchedulerFailureHandler).toBeDefined();
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), {
+      schedule: () => {
+        throw new Error('scheduler down');
+      },
+    });
+    const result = await bus.publish(createContext(), new SchedulerFailureEvent());
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('event_bus.drain_failed');
+    await expect(bus.settled()).rejects.toThrow('scheduler down');
   });
 });

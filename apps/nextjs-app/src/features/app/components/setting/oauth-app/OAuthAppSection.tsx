@@ -76,6 +76,7 @@ export const OAuthAppSection = () => {
         ) : undefined
       }
       mobileNavigation={!formType}
+      grouped={!formType}
     >
       <div className="flex-1">
         {formType === 'new' && <OAuthAppNew onBack={onBack} />}

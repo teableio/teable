@@ -46,6 +46,7 @@ const recordsFromContext = (
         ...context.payload.createRecordsFieldValues,
       ];
     case RecordWriteOperationKind.upsertRecords:
+    case RecordWriteOperationKind.restoreMany:
       return context.payload.recordsFieldValues;
     case RecordWriteOperationKind.deleteMany:
     case RecordWriteOperationKind.archiveMany:
@@ -71,6 +72,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
     case RecordWriteOperationKind.importAppend:
     case RecordWriteOperationKind.deleteMany:
     case RecordWriteOperationKind.archiveMany:
+    case RecordWriteOperationKind.restoreMany:
       return context.payload.recordCount;
     case RecordWriteOperationKind.updateMany:
       return context.payload.recordCount ?? recordsFromContext(context).length;
@@ -91,7 +93,10 @@ export class TableDataSafetyLimitRecordWritePlugin implements IRecordWritePlugin
   supports(operation: RecordWriteOperationKind): boolean {
     return (
       operation !== RecordWriteOperationKind.deleteMany &&
-      operation !== RecordWriteOperationKind.archiveMany
+      operation !== RecordWriteOperationKind.archiveMany &&
+      // Restore keeps its pre-plugin behavior: the trash row already counted
+      // toward the limit when the record was removed.
+      operation !== RecordWriteOperationKind.restoreMany
     );
   }
 

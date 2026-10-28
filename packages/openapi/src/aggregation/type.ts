@@ -9,7 +9,7 @@ const groupHeaderPointSchema = z.object({
   id: z.string(),
   type: z.literal(GroupPointType.Header),
   depth: z.number().max(2).min(0),
-  value: z.unknown(),
+  value: z.unknown().optional(),
   isCollapsed: z.boolean(),
 });
 

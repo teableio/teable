@@ -157,6 +157,12 @@ describe('inspectFormulaProfile', () => {
     expectIncomplete(inspectFormulaProfile(expression), 'invalid');
   });
 
+  it('does not echo stored source text in syntax warnings', () => {
+    const profile = inspectFormulaProfile('1 "customer-secret"');
+    expectIncomplete(profile, 'invalid');
+    expect(profile.warnings.join(' ')).not.toContain('customer-secret');
+  });
+
   it('reports truncation instead of parsing without admission limits', () => {
     const deepUnary = inspectFormulaProfile(`${'-'.repeat(100)}1`);
     expectIncomplete(deepUnary, 'truncated');

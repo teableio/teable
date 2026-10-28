@@ -1073,6 +1073,7 @@
       "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
       "testFailed": "自動化テストが失敗しました。自動化設定を確認してください",
       "runFailed": "自動化の実行に失敗しました",
+      "runInterrupted": "実行が中断されました。結果は未確認です",
       "activatorDeactivated": "この自動化を有効にしたアカウントは無効化されています",
       "nodeParseError": "{{name}} ノード設定が不完全またはエラーがあります。ノード設定を確認してください",
       "nodeNeedTest": "{{name}} ノードはテストが必要です",

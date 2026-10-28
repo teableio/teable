@@ -19,13 +19,14 @@ vi.mock('@teable/sdk/hooks', async (importOriginal) => ({
   useBaseId: () => ids.baseId,
   useTableId: () => ids.tableId,
   useViewId: () => 'viwTest',
+  useIsReadOnlyPreview: () => false,
 }));
 vi.mock('@/features/app/hooks/useAI', () => ({ useAI: () => ({ enable: ai.enable }) }));
 vi.mock('@/features/app/hooks/useBaseUsage', () => ({
   useBaseUsage: () => ({ limit: { chatAIEnable: ai.chatAIEnable } }),
 }));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
@@ -37,6 +38,7 @@ describe('useAddToChat', () => {
     ids.baseId = 'bseTest';
     ids.tableId = 'tblTest';
     queryClient.clear();
+    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], { disableActions: [] });
     useChatPanelStore.setState({ status: 'close' });
   });
 
@@ -83,8 +85,7 @@ describe('useAddToChat', () => {
 
     act(() => result.current.addToChat(recordId));
 
-    // Any write, under any key, and any panel open disprove the guard under test.
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getQueryData(ReactQueryKeys.gridSelection('bseTest'))).toBeUndefined();
     expect(useChatPanelStore.getState().status).toBe('close');
   });
 });

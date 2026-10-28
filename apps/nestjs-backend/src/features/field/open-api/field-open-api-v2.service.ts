@@ -201,6 +201,11 @@ export class FieldOpenApiV2Service {
   ) {}
 
   /**
+   * The plan endpoints (`planFieldCreate` / `planFieldConvert`) run no command,
+   * so no v2 plugin sees them and they keep the check here. The executing paths
+   * (create / update / convert) are covered by
+   * `CrossBaseLinkAccessFieldOperationPlugin`.
+   *
    * Every foreign table the field references must be in the same space; one it
    * did not reference before (`currentField` on convert) must also be readable
    * by the caller when it is in another base.
@@ -230,6 +235,32 @@ export class FieldOpenApiV2Service {
       } else {
         await this.fieldSupplementService.assertNewForeignTableAllowed(tableId, foreignTableId);
       }
+    }
+  }
+
+  /**
+   * The space invariant must hold before the v2 update command builds its
+   * specs: a cross-space target is not in the loaded foreign tables, so the
+   * spec merge fails with a generic invalid-config error and the field plugin
+   * (which owns the foreign read check) only runs after the specs. Keep the
+   * localized cross-space rejection on the executing update/convert paths.
+   */
+  private async assertSameSpaceForV2FieldPatch(
+    tableId: string,
+    v2Field: Record<string, unknown>
+  ): Promise<void> {
+    const foreignTableIds = new Set<string>();
+    for (const raw of [v2Field.options, v2Field.config, v2Field.lookupOptions]) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        continue;
+      }
+      const foreignTableId: unknown = Reflect.get(raw, 'foreignTableId');
+      if (typeof foreignTableId === 'string') {
+        foreignTableIds.add(foreignTableId);
+      }
+    }
+    for (const foreignTableId of foreignTableIds) {
+      await this.fieldSupplementService.assertSameSpaceLinkTarget(tableId, foreignTableId);
     }
   }
 
@@ -2051,14 +2082,6 @@ export class FieldOpenApiV2Service {
       }
     );
     const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
-    await withV2Span(
-      context,
-      'assertCrossSpaceForV2Field',
-      () => this.assertCrossSpaceForV2Field(tableId, v2Field),
-      {
-        [TeableSpanAttributes.TABLE_ID]: tableId,
-      }
-    );
     const legacyViewId =
       fieldRo && typeof fieldRo === 'object' && 'viewId' in fieldRo
         ? (fieldRo.viewId as string | undefined)
@@ -2614,11 +2637,7 @@ export class FieldOpenApiV2Service {
       updateFieldRo,
       currentField as Record<string, unknown>
     );
-    await this.assertCrossSpaceForV2Field(
-      tableId,
-      v2Field,
-      currentField as Record<string, unknown>
-    );
+    await this.assertSameSpaceForV2FieldPatch(tableId, v2Field);
     const v2Input = {
       tableId,
       fieldId,
@@ -2671,11 +2690,7 @@ export class FieldOpenApiV2Service {
           updateMode: 'full',
         },
       };
-      await this.assertCrossSpaceForV2Field(
-        tableId,
-        v2Input.field as Record<string, unknown>,
-        currentField as Record<string, unknown>
-      );
+      await this.assertSameSpaceForV2FieldPatch(tableId, v2Input.field);
 
       const result = await executeUpdateFieldEndpoint(context, v2Input, commandBus);
       if (result.status === 200 && result.body.ok) {

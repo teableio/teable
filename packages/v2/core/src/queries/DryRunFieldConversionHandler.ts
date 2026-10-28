@@ -2,10 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { collectFieldUpdateSideEffects } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
-import { collectFieldUpdateAddSideEffects } from '../application/services/FieldOperationSideEffectPluginSupport';
-import { UpdateFieldCommand } from '../commands/UpdateFieldCommand';
 import { buildUpdateFieldSpecs } from '../commands/TableFieldUpdateSpecs';
+import { UpdateFieldCommand } from '../commands/UpdateFieldCommand';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
@@ -15,8 +15,8 @@ import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateField
 import { Table as TableAggregate } from '../domain/table/Table';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { ITableMapper } from '../ports/mappers/TableMapper';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableRecordAggregationQueryRepository } from '../ports/TableRecordQueryRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { DryRunFieldConversionQuery } from './DryRunFieldConversionQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
@@ -145,7 +145,7 @@ export class DryRunFieldConversionHandler implements IQueryHandler<
         const previewUpdatedField = yield* previewUpdateResult.table.getField((f) =>
           f.id().equals(query.fieldId)
         );
-        const sideEffects = yield* collectFieldUpdateAddSideEffects(
+        const sideEffects = yield* collectFieldUpdateSideEffects(
           previewTable,
           previewUpdatedField,
           previewPreviousField,

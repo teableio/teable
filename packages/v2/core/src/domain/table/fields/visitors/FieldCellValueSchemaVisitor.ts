@@ -268,8 +268,12 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       const baseSchema = z
         .union([z.array(linkItemSchema), linkItemSchema])
         .transform((value) => (Array.isArray(value) ? value : [value]))
+        // An empty list is the canonical clear for a multi link cell too, so the
+        // not-null guard sees the same normalized value as a raw null.
+        .transform((items) => (items.length === 0 ? null : items))
         .refine(
           (items) => {
+            if (items === null) return true;
             const ids = items.map((item) => item.id);
             return new Set(ids).size === ids.length;
           },
@@ -278,9 +282,11 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
       return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
     }
 
+    // An empty list is the canonical clear for a link cell (v1 stores null), so it must
+    // reach the spec factory instead of failing the non-empty array constraint.
     const baseSchema = z
-      .union([linkItemSchema, z.array(linkItemSchema).nonempty()])
-      .transform((value) => (Array.isArray(value) ? value[0] : value));
+      .union([linkItemSchema, z.array(linkItemSchema)])
+      .transform((value) => (Array.isArray(value) ? (value[0] ?? null) : value));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
