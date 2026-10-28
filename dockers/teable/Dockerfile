@@ -1,4 +1,4 @@
-ARG NODE_VERSION=22.23.4
+ARG NODE_VERSION=24.22.1
 ARG BUILD_VERSION="1.0.0-alpha"
 
 ###################################################################
