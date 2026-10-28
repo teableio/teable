@@ -3,7 +3,7 @@ import { FieldKeyType, generateAttachmentId } from '@teable/core';
 import { createRecords } from '@teable/openapi';
 import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
 import { isEqual, keyBy } from 'lodash';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { PendingUploadContext } from '../../context/pending-upload';
@@ -16,6 +16,7 @@ import {
 } from '../../store/pending-upload-create';
 import { useCellAttachmentUploadStore } from '../../store/use-attachment-upload-store';
 import { extractDefaultFieldsFromFilters } from '../../utils/filterWithDefaultValue';
+import { ModalContext } from '../expand-record/ModalContext';
 import { RecordEditor } from '../expand-record/RecordEditor';
 
 interface ICreateRecordModalProps {
@@ -27,6 +28,9 @@ interface ICreateRecordModalProps {
 export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const { children, callback, initialFields } = props;
   const tableId = useTableId();
+  // Editor popovers portal into this element, like in the expand record modal;
+  // a portal outside the modal dialog gets its wheel scroll blocked.
+  const contentRef = useRef<HTMLDivElement>(null);
   const baseId = useBaseId();
   const viewId = useViewId();
   const view = useView();
@@ -215,33 +219,36 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
+        ref={contentRef}
       >
-        <PendingUploadContext.Provider value={pendingUploadCtx}>
-          <div className="flex-1 overflow-y-auto p-10 pt-4">
-            <RecordEditor
-              record={record}
-              fields={fields}
-              hiddenFields={hiddenFields}
-              onChange={onChange}
-            />
-          </div>
-          <div className="flex justify-end gap-4 border-t p-3">
-            <Button variant={'outline'} size={'sm'} onClick={handleCancel}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              className="relative overflow-hidden"
-              size={'sm'}
-              disabled={!tableId || isPending}
-              onClick={() => {
-                createRecord(record?.fields ?? {});
-              }}
-            >
-              {isPending && <Spin className="size-4" />}
-              {t('common.create')}
-            </Button>
-          </div>
-        </PendingUploadContext.Provider>
+        <ModalContext.Provider value={{ ref: contentRef }}>
+          <PendingUploadContext.Provider value={pendingUploadCtx}>
+            <div className="flex-1 overflow-y-auto p-10 pt-4">
+              <RecordEditor
+                record={record}
+                fields={fields}
+                hiddenFields={hiddenFields}
+                onChange={onChange}
+              />
+            </div>
+            <div className="flex justify-end gap-4 border-t p-3">
+              <Button variant={'outline'} size={'sm'} onClick={handleCancel}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                className="relative overflow-hidden"
+                size={'sm'}
+                disabled={!tableId || isPending}
+                onClick={() => {
+                  createRecord(record?.fields ?? {});
+                }}
+              >
+                {isPending && <Spin className="size-4" />}
+                {t('common.create')}
+              </Button>
+            </div>
+          </PendingUploadContext.Provider>
+        </ModalContext.Provider>
       </DialogContent>
     </Dialog>
   );
