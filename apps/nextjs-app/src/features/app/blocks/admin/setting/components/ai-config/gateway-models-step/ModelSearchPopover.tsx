@@ -24,6 +24,7 @@ import {
   formatPriceToCredits,
 } from '../ai-model-select/utils';
 import { GATEWAY_PROVIDER_ICONS } from '../constant';
+import { getMiniMaxModelOptions } from './minimax-model-options';
 import type { IGatewayModelAPI } from './types';
 import { detectIsImageModel, getPricingFromApiModel } from './utils';
 
@@ -61,6 +62,10 @@ export function ModelSearchPopover({
   t,
 }: Readonly<IModelSearchPopoverProps>) {
   const commandListRef = useRef<HTMLDivElement>(null);
+  const modelOptions = getMiniMaxModelOptions(
+    filteredModels,
+    new Set([selectedModelId, ...gatewayModels.map((model) => model.id)])
+  );
 
   // Scroll to top when search query changes
   useEffect(() => {
@@ -109,7 +114,7 @@ export function ModelSearchPopover({
                   Retry
                 </Button>
               </div>
-            ) : filteredModels.length === 0 ? (
+            ) : modelOptions.length === 0 ? (
               <CommandEmpty>
                 {searchQuery
                   ? t('admin.setting.ai.noMatchingModels')
@@ -117,7 +122,7 @@ export function ModelSearchPopover({
               </CommandEmpty>
             ) : (
               <CommandGroup>
-                {filteredModels.map((model) => {
+                {modelOptions.map((model) => {
                   const isAlreadyAdded = gatewayModels.some((m) => m.id === model.id);
                   const pricing = getPricingFromApiModel(model);
                   const isImage = detectIsImageModel(model.id, model);

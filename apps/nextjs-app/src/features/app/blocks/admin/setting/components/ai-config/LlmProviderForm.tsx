@@ -1185,6 +1185,9 @@ export const LLMProviderForm = ({
   const canSaveWithoutTest = Boolean(value) && isDirty && !connectivityDirty;
   const type = form.watch('type');
   const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
+  const baseUrlPresetListId = currentProvider?.baseUrlPresets?.length
+    ? `llm-provider-${type}-base-urls`
+    : undefined;
   const providerOptions = LLM_PROVIDERS.filter(
     (provider) => !provider.hideInProviderSelect || provider.value === type
   );
@@ -1240,7 +1243,20 @@ export const LLMProviderForm = ({
               <Select
                 {...field}
                 onValueChange={(value) => {
-                  form.setValue('type', value as unknown as LLMProvider['type']);
+                  const nextType = value as unknown as LLMProvider['type'];
+                  const nextProvider = LLM_PROVIDERS.find(
+                    (provider) => provider.value === nextType
+                  );
+                  form.setValue('type', nextType);
+                  if (nextProvider?.defaults) {
+                    form.setValue('baseUrl', nextProvider.defaults.baseUrl, { shouldDirty: true });
+                    form.setValue('models', nextProvider.defaults.models, { shouldDirty: true });
+                    form.setValue(
+                      'modelConfigs',
+                      structuredClone(nextProvider.defaults.modelConfigs ?? {}),
+                      { shouldDirty: true }
+                    );
+                  }
                 }}
               >
                 <SelectTrigger className="w-[180px]">
@@ -1273,8 +1289,19 @@ export const LLMProviderForm = ({
                   <FormDescription>{t('admin.setting.ai.baseUrlDescription')}</FormDescription>
                 </div>
                 <FormControl>
-                  <Input {...field} placeholder={currentProvider.baseUrlPlaceholder} />
+                  <Input
+                    {...field}
+                    list={baseUrlPresetListId}
+                    placeholder={currentProvider.baseUrlPlaceholder}
+                  />
                 </FormControl>
+                {baseUrlPresetListId && (
+                  <datalist id={baseUrlPresetListId}>
+                    {currentProvider.baseUrlPresets?.map((preset) => (
+                      <option key={preset.baseUrl} value={preset.baseUrl} label={preset.label} />
+                    ))}
+                  </datalist>
+                )}
                 <FormMessage />
               </FormItem>
             )}
