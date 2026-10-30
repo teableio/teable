@@ -300,6 +300,8 @@
     "duplicateRecord": "שכפול רשומה",
     "addToChat": "הוספה לצ'אט",
     "copyRecordUrl": "העתקת ה-URL של הרשומה",
+    "copyLink": "העתק קישור",
+    "history": "היסטוריה",
     "deleteRecord": "מחיקת רשומה",
     "addRecordComment": "הוספת תגובה",
     "viewRecordHistory": "הצגת היסטוריית הרשומה",
@@ -1655,7 +1657,12 @@
       "sourceTemplateNotFound": "תבנית המקור לא נמצאה",
       "noMinOrderFound": "לא נמצא ערך סדר מינימלי",
       "takeCountTooLarge": "מספר התבניות המבוקש חורג מהמגבלה המרבית",
-      "categoryLimitReached": "הושגה מגבלת קטגוריות התבניות (מקסימום {{maxCount}})"
+      "categoryLimitReached": "הושגה מגבלת קטגוריות התבניות (מקסימום {{maxCount}})",
+      "categoryHasChildren": "לענף זה עדיין יש תת-ענפים; מחקו אותם תחילה",
+      "categoryDepthExceeded": "לתת-ענף לא יכולים להיות תת-ענפים משלו",
+      "teamIsFlat": "לצוות אין קטגוריית־אב ולא תת־קטגוריות",
+      "categoryKeyTaken": "מפתח ה־URL הזה כבר בשימוש בקטגוריה אחרת",
+      "slugTaken": "ה־slug הזה כבר בשימוש בתבנית אחרת"
     },
     "department": {
       "parentNotFound": "מחלקת האב לא נמצאה",
@@ -1682,6 +1689,8 @@
       "domainReserved": "תת-הדומיין שמור",
       "siteInfoBeforeGeneration": "יש ליצור את האפליקציה לפני התאמת פרטי האתר שלה",
       "generationEditingConflict": "הפקה באמצעות AI עורכת כעת את האפליקציה הזו. יש לנסות שוב את עדכון הקובץ לאחר שהיא תסתיים.",
+      "codeCopying": "קוד האפליקציה עדיין מועתק. נסו שוב בעוד רגע.",
+      "codeCopyFailed": "העתקת קוד האפליקציה נכשלה. שכפלו את האפליקציה שוב.",
       "siteInfoLayoutNotEditable": "הקוד של האפליקציה הזו אינו בנוי לקבל עריכות של פרטי האתר כאן. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות את כותרת האתר, התיאור או הסמל.",
       "siteInfoManagedInCode": "האפליקציה הזו מנהלת את כותרת האתר והתיאור בקוד. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות אותם.",
       "accessLinkSetupFailed": "הגדרת קישור הגישה נכשלה: {{detail}}",
@@ -1740,7 +1749,8 @@
     "requestFailed": "הבקשה נכשלה",
     "operationFailed": "הפעולה נכשלה: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "האופרטור {{operator}} אינו תומך בהשוואה לשדה אחר"
+      "operatorNoFieldReference": "האופרטור {{operator}} אינו תומך בהשוואה לשדה אחר",
+      "fieldReferenceIncompatible": "לשדה {{reference}} יש סוג שאינו תואם, ולכן לא ניתן להשוות אותו עם {{source}}"
     },
     "oauth": {
       "invalidRequest": "בקשת OAuth אינה חוקית: {{detail}}",

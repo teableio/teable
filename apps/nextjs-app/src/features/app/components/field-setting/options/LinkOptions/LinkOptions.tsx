@@ -39,10 +39,7 @@ export const LinkOptions = (props: {
     refetchOnWindowFocus: false,
     queryKey: ReactQueryKeys.getTablePermission(baseId, foreignTableId!),
     enabled: !!foreignTableId,
-    queryFn: ({ queryKey }) =>
-      getTablePermission(queryKey[1], queryKey[2])
-        .then((res) => res.data)
-        .catch(() => undefined),
+    queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   const canCreateField = tablePermission?.field?.['field|create'];

@@ -52,10 +52,10 @@
   "collaborators": "Collaborators",
   "more": "More",
   "pin": {
-    "add": "Add to pin",
-    "remove": "Remove from pin",
-    "pin": "Pin",
-    "empty": "Your pined projects and space will appear here"
+    "add": "Star",
+    "remove": "Unstar",
+    "pin": "Starred",
+    "empty": "Your starred projects and spaces will appear here"
   },
   "tooltip": {
     "noPermissionToCreateBase": "You don't have permission to create project"
@@ -174,7 +174,7 @@
     }
   },
   "template": {
-    "title": "Template",
+    "title": "Templates",
     "description": "Create a new project from a template quickly",
     "noTemplatesAvailable": "No templates available",
     "noTemplatesDescription": "There is nothing here right now"
@@ -203,30 +203,62 @@
   },
   "publishBase": {
     "title": "Publish to Template Center",
-    "description": "One-click publish project to the Template Center! Let more people see, use, and Remix your creativity, and build a more powerful business together",
-    "infoTitle": "Basic info",
+    "description": "Publish to the Template Center in one click! Let more people see your ideas.",
+    "infoTitle": "Listing details",
     "form": {
-      "title": "Work title",
+      "title": "Name",
       "description": "Description",
-      "security": "Security",
-      "advanced": "Advanced",
-      "publishNode": "Publish nodes",
-      "includeData": "Include data",
-      "defaultActiveNode": "Default active node",
-      "descriptionPlaceholder": "Briefly describe your idea...",
-      "titlePlaceholder": "Name your work..."
+      "changelog": "Release notes",
+      "changelogPlaceholder": "Describe the changes for existing installs; shown in the upgrade preview",
+      "publishNode": "What it includes",
+      "includeData": "Include sample records",
+      "defaultActiveNode": "Opens by default",
+      "descriptionPlaceholder": "What it solves and how to use it",
+      "titlePlaceholder": "Give it a name",
+      "cover": "Cover",
+      "coverHint": "16:9, used on the catalogue card and the public page",
+      "versionTitle": "Version contents",
+      "addChangelog": "Add release notes"
     },
-    "publishToCommunity": "Publish to template center",
+    "publishToCommunity": "Publish to Template Center",
     "publish": "Publish",
     "publishSuccess": "Publish success!",
-    "previewTips": "Let the world see your work",
+    "previewTips": "Catalogue preview",
     "update": "Update",
-    "unPublish": "Unpublish",
-    "unPublishSuccess": "Project unpublished successfully!",
-    "unPublishConfirmTitle": "Confirm unpublish",
-    "unPublishConfirmDescription": "Are you sure you want to unpublish this project? It will no longer be visible in the Template Center.",
-    "uploadCover": "Click to upload cover image",
-    "changeCover": "Click to change cover",
+    "submit": "Submit for review",
+    "submitted": "Submitted for review",
+    "review": {
+      "status": {
+        "review": "Under review",
+        "rejected": "Sent back",
+        "withdrawn": "Withdrawn"
+      },
+      "submittedTime": "Submitted {{time}}",
+      "note": "Reviewer note",
+      "checks": "Automatic checks",
+      "check": {
+        "connectors": "Connections",
+        "privacy": "Privacy",
+        "estimate": "Run estimate",
+        "trial": "Trial run"
+      },
+      "checkMessage": {
+        "connectors": "Cannot be connected here: {{providers}}",
+        "privacy": "Records are included; check them for personal data",
+        "estimate": "About {{runs}} runs a month, above the free plan's {{free}}",
+        "trial": "The automations need no account; make sure they run without one"
+      },
+      "withdraw": "Withdraw",
+      "withdrawn": "Submission withdrawn.",
+      "live": "Live · v{{version}}",
+      "publicLink": "Public link"
+    },
+    "unPublish": "Unlist",
+    "unPublishSuccess": "Unlisted.",
+    "unPublishConfirmTitle": "Unlist this template?",
+    "unPublishConfirmDescription": "Others can no longer find or install it; existing installs are unaffected. You can submit it again later.",
+    "uploadCover": "Upload cover",
+    "changeCover": "Change cover",
     "uploading": "Uploading image...",
     "uploadSuccess": "Image uploaded successfully",
     "uploadFailed": "Upload failed",
@@ -238,9 +270,7 @@
     "urlCopied": "URL copied to clipboard!",
     "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
-    "featuredTip": "Officially featured. Your template will receive more exposure.",
-    "unfeaturedTip": "Not featured yet. Keep improving for a chance to be highlighted. Let more people see your work.",
+    "featuredTip": "Officially featured. Your Template will receive more exposure.",
     "publishSuccessDescription": "Share your work to the world",
     "shareWith": "Share with",
     "unpublishedApps": {
@@ -253,12 +283,13 @@
       "notPublished": "Not Published",
       "publishFailed": "Publish failed",
       "publishFailedTip1": "Check if the source app can be published successfully",
-      "publishFailedTip2": "Try republishing this template",
+      "publishFailedTip2": "Try resubmitting this template",
       "ignoreAndContinue": "Ignore & Continue",
       "goToFix": "Go to Fix",
       "redeploy": "Redeploy",
       "unnamedApp": "Unnamed App"
-    }
+    },
+    "submitVersion": "Submit v{{version}} for review"
   },
   "dataDb": {
     "create": {

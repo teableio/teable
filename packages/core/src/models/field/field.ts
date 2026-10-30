@@ -122,10 +122,9 @@ export abstract class FieldCore implements IFieldVo {
   }
 
   /**
-   * Whether the cell value matches a search keyword: a case-insensitive
-   * substring test against the cell display text, gated by isSearchable.
-   * Multi-value cells match per item — backend SQL never matches across
-   * element boundaries of the joined display text.
+   * Whether the cell value matches a search keyword, gated by isSearchable.
+   * String arrays use the joined JSON text searched by the server, rather
+   * than CSV-style display quoting. Other result types keep per-item matching.
    */
   matchSearch(
     cellValue: unknown,
@@ -136,6 +135,22 @@ export abstract class FieldCore implements IFieldVo {
     if (cellValue == null || !searchValue) return false;
     const needle = searchValue.toLowerCase();
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      if (this.cellValueType === CellValueType.String) {
+        const values = this.isStructuredCellValue
+          ? cellValue.flatMap((item) =>
+              item && typeof item === 'object' && 'title' in item ? [item.title] : []
+            )
+          : cellValue;
+        // Mirror buildJoinedJsonArrayText in the v2 record-search predicate:
+        // jsonb puts spaces between elements, retains JSON escaping, collapses
+        // string separators, then trims the outer quotation marks.
+        const searchText = values
+          .map((item) => JSON.stringify(item) ?? 'null')
+          .join(', ')
+          .replace(/", "/g, ', ')
+          .replace(/^"+|"+$/g, '');
+        return searchText.toLowerCase().includes(needle);
+      }
       return cellValue.some((item) => this.item2String(item).toLowerCase().includes(needle));
     }
     return this.cellValue2String(cellValue).toLowerCase().includes(needle);

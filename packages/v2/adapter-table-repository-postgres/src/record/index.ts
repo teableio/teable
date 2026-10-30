@@ -15,6 +15,7 @@ export * from './visitors';
 
 export {
   deleteAttachmentTableRefsByRecordIds,
+  deleteAttachmentTableRefsByFieldIds,
   listAttachmentTableRefs,
   listAttachmentTokensByTableIds,
   mergeAttachmentTableRefs,

@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldId } from '../domain/table/fields/FieldId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
@@ -171,8 +172,14 @@ export class CountTableRecordsHandler implements IQueryHandler<
 
         const requestedSearch = RecordSearch.fromOptionalTuple(query.search);
 
+        const resolvedSearchFieldIds = query.searchFieldIds
+          ? query.searchFieldIds.flatMap((fieldId) => {
+              const parsed = FieldId.create(fieldId);
+              return parsed.isOk() ? [parsed.value] : [];
+            })
+          : yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery);
         const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
-          yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery),
+          resolvedSearchFieldIds,
           enabledFieldIds,
           maskedFieldIds
         );
@@ -186,7 +193,7 @@ export class CountTableRecordsHandler implements IQueryHandler<
           query.searchFieldScope === 'projection' ||
           (query.searchFieldScope !== 'visible' && Boolean(query.projection?.length));
         const projectedSearchVisibleFieldIds =
-          narrowSearchToProjection && projectionFieldIds?.length
+          narrowSearchToProjection && projectionFieldIds
             ? searchVisibleFieldIds.filter((fieldId) =>
                 projectionFieldIds.some((projectedFieldId) => projectedFieldId.equals(fieldId))
               )
@@ -203,12 +210,14 @@ export class CountTableRecordsHandler implements IQueryHandler<
           searchAccessPath: query.recordSearchAccessPath,
           fieldMasks: query.queryScope?.fieldMasks,
         };
-        const count = yield* await this.tableRecordQueryRepository.count(
-          context,
-          table,
-          spec,
-          countOptions
-        );
+        const count = query.countSearchMatches
+          ? yield* await this.tableRecordQueryRepository.countSearchMatches(
+              context,
+              table,
+              spec,
+              countOptions
+            )
+          : yield* await this.tableRecordQueryRepository.count(context, table, spec, countOptions);
 
         logger.debug('CountTableRecordsHandler.success', { count });
         return ok(CountTableRecordsResult.create(count));

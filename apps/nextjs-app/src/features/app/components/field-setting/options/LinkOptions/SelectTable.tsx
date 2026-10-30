@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface ISelectTableProps {
@@ -140,7 +141,7 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
     queryKey: ReactQueryKeys.baseAll(),
     queryFn: () =>
       getBaseAll().then((data) => data.data) as Promise<
-        { id: string; name: string; icon?: string; spaceId: string }[]
+        { id: string; name: string | null; icon?: string; spaceId: string }[]
       >,
   });
 
@@ -152,7 +153,9 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
     const grandfathered = allBases?.find((base) => base.id === baseId);
     bases = (bases ?? []).concat({
       id: baseId,
-      name: grandfathered ? grandfathered.name : t('table:field.editor.baseNoPermission'),
+      name: grandfathered
+        ? getBaseDisplayName(grandfathered.name, t)
+        : t('table:field.editor.baseNoPermission'),
       spaceId: grandfathered?.spaceId ?? '',
     });
   }
@@ -164,7 +167,7 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
       onChange={(baseId) => onChange?.(baseId)}
       candidates={bases?.map((base) => ({
         id: base.id,
-        name: base.name,
+        name: getBaseDisplayName(base.name, t),
         icon: base.icon || <LayoutGrid className="size-4 shrink-0" />,
       }))}
       placeholder={t('table:field.editor.selectBase')}

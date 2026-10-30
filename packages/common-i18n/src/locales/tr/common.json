@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "Şablon ayrıntıları yüklenemedi."
+    },
+    "searchPlaceholder": "Şablonlarda ara",
+    "rankThisMonth": "Bu ay #{{rank}}",
+    "listing": {
+      "newest": "En yeniler",
+      "featured": "Öne çıkanlar"
+    },
+    "detail": {
+      "install": "Yükle",
+      "installs": "Yüklemeler",
+      "author": "Yazar",
+      "updated": "Son güncelleme",
+      "history": "Sürüm geçmişi",
+      "firstRelease": "İlk yayın",
+      "about": "Hakkında",
+      "noChangelog": "Genel güncelleme"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "Sistem şablonu değiştirilemez",
         "addCategoryTips": "Lütfen önce arama kutusuna bir kategori adı girin.",
         "categoryNamePlaceholder": "Kategori adını girin",
-        "duplicateCategoryName": "Kategori adı zaten mevcut"
+        "subCategoryNamePlaceholder": "Alt sektör adı",
+        "noSubCategory": "Henüz alt sektör yok. Etiketlemek için soldaki sektöre tıklayın.",
+        "duplicateCategoryName": "Kategori adı zaten mevcut",
+        "teamNamePlaceholder": "Ekip adı",
+        "addTeamTips": "Önce bir ekip adı girin.",
+        "keyPlaceholder": "URL anahtarı, ör. yoga",
+        "invalidKey": "Anahtar yalnızca küçük harf, rakam ve kısa çizgi içerebilir"
       },
       "category": {
         "menu": {
           "getStarted": "Başlayın",
           "recommended": "Önerilen",
           "all": "Tümü",
-          "browseByCategory": "Kategoriye göre gözat"
+          "browseByCategory": "Kategoriye göre gözat",
+          "byTeam": "Ekibe göre"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "Kullanıcı mevcut değil",
         "preview": "Önizleme",
         "usage": "Kullanım",
-        "visit": "Ziyaret"
+        "visit": "Ziyaret",
+        "requirements": "Entegrasyonlar",
+        "slug": "URL kısa adı"
       },
       "actions": {
         "title": "Eylemler",
@@ -267,7 +292,12 @@
         "use": "Kullan",
         "pinTop": "Üste sabitle",
         "addCategory": "Kategori ekle",
+        "addSubCategory": "Yeni alt sektör",
+        "addSubCategoryUnder": "{{name}} altında yeni alt sektör",
         "selectCategory": "Kategori seç",
+        "addTeam": "Yeni ekip",
+        "industries": "Sektörler",
+        "teams": "Ekipler",
         "viewTemplate": "Şablonu görüntüle",
         "manageCategory": "Kategorileri yönet"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "Yeni rutin",
     "newApp": "Yeni uygulama",
     "newFolder": "Yeni klasör",
-    "template": "Şablon"
+    "template": "Şablon",
+    "installedTemplates": "Yüklü şablonlar"
   },
   "level": {
     "free": "Ücretsiz",
@@ -516,6 +547,7 @@
   "allNodes": "Tüm Düğümler",
   "noDescription": "Açıklama yok",
   "untitled": "Başlıksız",
+  "untitledBase": "Adsız proje",
   "name": "İsim",
   "description": "Açıklama",
   "required": "Zorunlu",
@@ -1309,6 +1341,20 @@
         "message": "Bu bir test e-postasıdır, lütfen görmezden gelin."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "{{name}} şablonunuz yayında",
+            "message": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık.",
+            "messageWithNote": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. İnceleyenin notu: {{note}}",
+            "messageNoPayout": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin.",
+            "messageNoPayoutWithNote": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin. İnceleyenin notu: {{note}}"
+          },
+          "rejected": {
+            "title": "{{name}} şablonunuz geri gönderildi",
+            "message": "{{name}} incelemeyi geçemedi.",
+            "messageWithNote": "{{name}} incelemeyi geçemedi. İnceleyenin notu: {{note}}"
+          }
+        },
         "subject": "Bildirim - {{brandName}}",
         "title": "Bildirim",
         "buttonText": "Görüntüle",
@@ -1515,6 +1561,26 @@
           "spaceDeleted": {
             "title": "Alan dışa aktarımınız hazır",
             "message": "Merhaba {{name}},<br><br>{{spaceNames}} alanını kalıcı olarak silmeden önce bir kopyasını istediniz. Kopya hazır.<br><br>Aşağıdaki bağlantı {{expiresInDays}} gün boyunca geçerlidir."
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "Göreviniz tamamlandı",
+            "message": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev tamamlandı:<br><em>{{prompt}}</em><br><br>Sonuç incelemeniz için hazır.",
+            "messageWithoutPrompt": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev tamamlandı.<br><br>Sonuç incelemeniz için hazır.",
+            "buttonText": "Sonucu görüntüle"
+          },
+          "failed": {
+            "title": "Göreviniz tamamlanamadı",
+            "message": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev tamamlanmadı:<br><em>{{prompt}}</em><br><br>Ne olduğunu görmek ve yeniden denemek için açın.",
+            "messageWithoutPrompt": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev tamamlanmadı.<br><br>Ne olduğunu görmek ve yeniden denemek için açın.",
+            "buttonText": "Ayrıntıları görüntüle"
+          },
+          "creditExhausted": {
+            "title": "Göreviniz durdu: AI kredileriniz bitti",
+            "message": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev, AI kredileriniz bittiği için durdu:<br><em>{{prompt}}</em><br><br>Kredi ekleyin veya planınızı yükseltin, ardından kaldığı yerden devam edin.",
+            "messageWithoutPrompt": "Merhaba {{name}},<br><br>Teable'da başlattığınız bir görev, AI kredileriniz bittiği için durdu.<br><br>Kredi ekleyin veya planınızı yükseltin, ardından kaldığı yerden devam edin.",
+            "buttonText": "Ayrıntıları görüntüle"
           }
         }
       }
@@ -1887,6 +1953,7 @@
       "permission": "Cuppy devam etmek için onayını bekliyor.",
       "connectIntegration": "Cuppy'nin devam etmesi için bir uygulama bağlaman gerekiyor.",
       "pickGoogleSheet": "Cuppy bir sayfa seçmeni bekliyor.",
+      "presentTemplates": "Cuppy hazır bir şablon buldu ve kararınızı bekliyor.",
       "requestCredential": "Cuppy devam etmek için erişim istiyor."
     },
     "result": {

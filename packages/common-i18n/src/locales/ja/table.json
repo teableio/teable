@@ -19,7 +19,17 @@
     "batchesQueued_other": "{{count}}件のバッチが待機中",
     "records_other": "{{formattedCount}}件のレコード",
     "batchesComplete": "完了バッチ {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}}の計算進捗"
+    "progressAriaLabel": "{{fieldName}}の計算進捗",
+    "statusUnavailable": "計算状況を一時的に取得できません",
+    "statusSyncing": "計算状況を確認中",
+    "statusSyncingDescription": "最新の計算状況を確認しています。計算が実行中という意味ではありません。",
+    "statusUnavailableDescription": "最新の計算状況を読み込めませんでした。状況を更新して再試行してください。計算が再開されることはありません。",
+    "refreshStatus": "状況を更新",
+    "paused": "計算は一時停止中です",
+    "resultsNotUpdated": "一部の計算結果が更新されていません",
+    "delayed": "計算の更新が遅れています · {{seconds}} 秒",
+    "snapshotMayBeStale": "最後に確認された状況を表示しています。最新でない可能性があります。",
+    "unknownImpact": "一部の計算結果が更新されていません。影響を受けるフィールドを特定しています"
   },
   "crossSpace": {
     "duplicateFieldTitle": "ご注意",
@@ -1099,6 +1109,7 @@
     "insertRecordBelow": "レコードを下に挿入",
     "deleteRecord": "レコードを削除",
     "deleteAllSelectedRecords": "選択したすべてのレコードを削除",
+    "copy": "コピー",
     "archiveRecord": "レコードをアーカイブ",
     "archiveAllSelectedRecords": "選択したすべてのレコードをアーカイブ",
     "duplicateRecords": "選択したレコードを複製",
@@ -1316,6 +1327,23 @@
       },
       "chooseAccount": "どの Google アカウントのスプレッドシートを使いますか？"
     },
+    "templateOffer": {
+      "title": "提案されたテンプレート",
+      "details": "詳細",
+      "found_other": "既製のテンプレートが {{count}} 件見つかりました",
+      "defaultReason": "ゼロから作る代わりに、テンプレートをインストールしましょう。",
+      "install": "インストール",
+      "installing": "インストール中…",
+      "dismiss": "今回はしない",
+      "close": "閉じる",
+      "failed": "選択を記録できませんでした。もう一度お試しください。",
+      "unavailable": "これらのテンプレートは現在利用できません。",
+      "status": {
+        "installed": "インストール済み",
+        "dismissed": "スキップ",
+        "failed": "失敗"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "または回答を入力…",
@@ -1330,6 +1358,10 @@
         "nextQuestion": "次の質問"
       },
       "completion": {
+        "workedFor": "{{time}} 処理しました",
+        "worked": "処理内容",
+        "stoppedAfter": "{{time}} 後に停止しました",
+        "stopped": "この返信を停止しました",
         "noDetails": "詳細はありません",
         "model": "モデル",
         "contextWindow": "コンテキストウィンドウ",
@@ -1383,9 +1415,6 @@
         "copied": "コピーしました！",
         "fullscreen": "全画面",
         "exitFullscreen": "全画面を終了",
-        "downloadSuccess": "画像を正常にダウンロードしました",
-        "downloadFailed": "画像のキャプチャに失敗しました",
-        "iframeFailed": "キャプチャに失敗：iframe にアクセスできません",
         "iframeTitle": "HTML プレビュー"
       }
     },
@@ -1519,7 +1548,25 @@
       "selectionRows": "行 {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "名前のないレコード",
+      "selectionRecords": "{{count}} 件のレコード",
+      "selectionCellCount": "{{count}} 個のセル",
+      "selectionRecordType": "レコード参照",
+      "selectionCellType": "セル参照",
+      "selectionDimensions": "{{rows}} 行 × {{columns}} 列",
+      "selectionUnavailable": "利用できないか削除されています",
+      "selectionLegacyUnavailable": "この古い参照には安定した選択 ID がないため、プレビューできません。",
+      "selectionSourceUnknown": "利用できないソース",
+      "selectionPreview": "選択範囲をプレビュー：{{label}}",
+      "selectionSource": "ソーステーブル：{{table}}",
+      "selectionSelectedFields": "このコンテキストには選択したフィールドのみが含まれます。",
+      "selectionIdentificationOnly": "プライマリフィールドのタイトルは識別のためにのみ表示されます。",
+      "selectionEmpty": "空",
+      "selectionOpenRecord": "レコード {{name}} を開く",
+      "selectionPrevious": "前へ",
+      "selectionNext": "次へ",
+      "selectionPage": "{{count}} 件中 {{start}}–{{end}} 件のレコード"
     },
     "mention": {
       "tables": "テーブル",
@@ -1548,7 +1595,6 @@
     },
     "attachment": {
       "pastedTextFileName": "貼り付けテキスト",
-      "imageNotSupported": "画像はサポートされていません",
       "tooManyFiles": "1つのメッセージに添付できるファイルは最大{{count}}個です"
     },
     "suggestions": {
@@ -1610,9 +1656,12 @@
       "nQueued": "{{count}} 件待機中",
       "edit": "編集",
       "steerNow": "中断せずに会話の方向を調整",
-      "steerFailed": "会話の方向を調整できませんでした。メッセージはキューに残ります。",
+      "steer": "方向修正",
       "conversationInputMarker": "会話の方向を調整しました",
-      "removeFromQueue": "削除"
+      "removeFromQueue": "削除",
+      "paused": "中断したため、キューを一時停止しました",
+      "resume": "再開",
+      "queueFull": "送信キューがいっぱいです。Cuppy の処理が追いつくまでお待ちください。"
     },
     "partTool": {
       "bash": "コマンドを実行",
@@ -1627,6 +1676,7 @@
       "skill": "スキルを読み込み中",
       "foundFiles": "{{count}} 件のファイルが見つかりました",
       "listedEntries": "{{count}} 件",
+      "ranCommands_other": "{{count}} 件のコマンドを実行しました",
       "moreItems": "他 {{count}} 件",
       "fallbackName": "ツール",
       "questionCount_other": "{{count}} 件の質問",

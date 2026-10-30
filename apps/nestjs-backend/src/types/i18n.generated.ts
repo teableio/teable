@@ -368,6 +368,22 @@ export type I18nTranslations = {
                 "createSpace": string;
                 "loadFailed": string;
             };
+            "searchPlaceholder": string;
+            "rankThisMonth": string;
+            "listing": {
+                "newest": string;
+                "featured": string;
+            };
+            "detail": {
+                "install": string;
+                "installs": string;
+                "author": string;
+                "updated": string;
+                "history": string;
+                "firstRelease": string;
+                "about": string;
+                "noChangelog": string;
+            };
         };
         "baseShare": {
             "shareTitle": string;
@@ -443,7 +459,12 @@ export type I18nTranslations = {
                     "addCategoryTips": string;
                     "categoryNamePlaceholder": string;
                     "duplicateCategoryName": string;
-                    "solution": string;
+                    "subCategoryNamePlaceholder": string;
+                    "noSubCategory": string;
+                    "teamNamePlaceholder": string;
+                    "addTeamTips": string;
+                    "keyPlaceholder": string;
+                    "invalidKey": string;
                 };
                 "category": {
                     "menu": {
@@ -451,6 +472,7 @@ export type I18nTranslations = {
                         "recommended": string;
                         "all": string;
                         "browseByCategory": string;
+                        "byTeam": string;
                     };
                 };
                 "header": {
@@ -471,8 +493,8 @@ export type I18nTranslations = {
                     "preview": string;
                     "usage": string;
                     "visit": string;
-                    "solution": string;
                     "requirements": string;
+                    "slug": string;
                 };
                 "actions": {
                     "title": string;
@@ -486,6 +508,11 @@ export type I18nTranslations = {
                     "selectCategory": string;
                     "viewTemplate": string;
                     "manageCategory": string;
+                    "addSubCategory": string;
+                    "addSubCategoryUnder": string;
+                    "addTeam": string;
+                    "industries": string;
+                    "teams": string;
                 };
                 "relatedTemplates": string;
                 "noImage": string;
@@ -720,6 +747,7 @@ export type I18nTranslations = {
             "newApp": string;
             "newFolder": string;
             "template": string;
+            "installedTemplates": string;
         };
         "level": {
             "free": string;
@@ -732,6 +760,7 @@ export type I18nTranslations = {
         "allNodes": string;
         "noDescription": string;
         "untitled": string;
+        "untitledBase": string;
         "name": string;
         "description": string;
         "required": string;
@@ -1749,6 +1778,40 @@ export type I18nTranslations = {
                             "message": string;
                         };
                     };
+                    "chatUnread": {
+                        "done": {
+                            "title": string;
+                            "message": string;
+                            "messageWithoutPrompt": string;
+                            "buttonText": string;
+                        };
+                        "failed": {
+                            "title": string;
+                            "message": string;
+                            "messageWithoutPrompt": string;
+                            "buttonText": string;
+                        };
+                        "creditExhausted": {
+                            "title": string;
+                            "message": string;
+                            "messageWithoutPrompt": string;
+                            "buttonText": string;
+                        };
+                    };
+                    "template": {
+                        "approved": {
+                            "title": string;
+                            "message": string;
+                            "messageWithNote": string;
+                            "messageNoPayout": string;
+                            "messageNoPayoutWithNote": string;
+                        };
+                        "rejected": {
+                            "title": string;
+                            "message": string;
+                            "messageWithNote": string;
+                        };
+                    };
                 };
             };
         };
@@ -2124,6 +2187,7 @@ export type I18nTranslations = {
                 "connectIntegration": string;
                 "pickGoogleSheet": string;
                 "requestCredential": string;
+                "presentTemplates": string;
             };
             "result": {
                 "done": string;
@@ -2696,6 +2760,8 @@ export type I18nTranslations = {
             "duplicateRecord": string;
             "addToChat": string;
             "copyRecordUrl": string;
+            "copyLink": string;
+            "history": string;
             "deleteRecord": string;
             "addRecordComment": string;
             "viewRecordHistory": string;
@@ -4058,6 +4124,11 @@ export type I18nTranslations = {
                 "noMinOrderFound": string;
                 "takeCountTooLarge": string;
                 "categoryLimitReached": string;
+                "categoryHasChildren": string;
+                "categoryDepthExceeded": string;
+                "teamIsFlat": string;
+                "categoryKeyTaken": string;
+                "slugTaken": string;
             };
             "department": {
                 "parentNotFound": string;
@@ -4084,6 +4155,8 @@ export type I18nTranslations = {
                 "domainReserved": string;
                 "siteInfoBeforeGeneration": string;
                 "generationEditingConflict": string;
+                "codeCopying": string;
+                "codeCopyFailed": string;
                 "siteInfoLayoutNotEditable": string;
                 "siteInfoManagedInCode": string;
                 "accessLinkSetupFailed": string;
@@ -4143,6 +4216,7 @@ export type I18nTranslations = {
             "operationFailed": string;
             "filter": {
                 "operatorNoFieldReference": string;
+                "fieldReferenceIncompatible": string;
             };
             "oauth": {
                 "invalidRequest": string;
@@ -4451,6 +4525,12 @@ export type I18nTranslations = {
                 "defaultActiveNode": string;
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
+                "changelog": string;
+                "changelogPlaceholder": string;
+                "cover": string;
+                "coverHint": string;
+                "versionTitle": string;
+                "addChangelog": string;
             };
             "publishToCommunity": string;
             "publish": string;
@@ -4495,6 +4575,35 @@ export type I18nTranslations = {
                 "redeploy": string;
                 "unnamedApp": string;
             };
+            "submit": string;
+            "submitted": string;
+            "review": {
+                "status": {
+                    "review": string;
+                    "rejected": string;
+                    "withdrawn": string;
+                };
+                "submittedTime": string;
+                "note": string;
+                "checks": string;
+                "check": {
+                    "connectors": string;
+                    "privacy": string;
+                    "estimate": string;
+                    "trial": string;
+                };
+                "checkMessage": {
+                    "connectors": string;
+                    "privacy": string;
+                    "estimate": string;
+                    "trial": string;
+                };
+                "withdraw": string;
+                "withdrawn": string;
+                "live": string;
+                "publicLink": string;
+            };
+            "submitVersion": string;
         };
         "dataDb": {
             "create": {
@@ -5794,6 +5903,7 @@ export type I18nTranslations = {
             "insertRecordBelow": string;
             "deleteRecord": string;
             "deleteAllSelectedRecords": string;
+            "copy": string;
             "archiveRecord": string;
             "archiveAllSelectedRecords": string;
             "duplicateRecords": string;
@@ -6338,7 +6448,6 @@ export type I18nTranslations = {
             };
             "attachment": {
                 "pastedTextFileName": string;
-                "imageNotSupported": string;
                 "tooManyFiles": string;
             };
             "suggestions": {
@@ -6501,6 +6610,25 @@ export type I18nTranslations = {
                 "running": string;
                 "waitingInput": string;
                 "failed": string;
+            };
+            "templateOffer": {
+                "title": string;
+                "details": string;
+                "found_one": string;
+                "found_other": string;
+                "defaultReason": string;
+                "install": string;
+                "installing": string;
+                "dismiss": string;
+                "close": string;
+                "failed": string;
+                "unavailable": string;
+                "status": {
+                    "installed": string;
+                    "dismissed": string;
+                    "failed": string;
+                };
+                "found": string;
             };
         };
         "upload": {

@@ -300,6 +300,8 @@
     "duplicateRecord": "Récord duplicado",
     "addToChat": "Añadir al chat",
     "copyRecordUrl": "Copiar URL de registro",
+    "copyLink": "Copiar enlace",
+    "history": "Historial",
     "deleteRecord": "Eliminar registro",
     "addRecordComment": "Agregar comentario",
     "viewRecordHistory": "Ver historial del registro",
@@ -1655,7 +1657,12 @@
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",
       "noMinOrderFound": "No se encontró el orden mínimo",
       "takeCountTooLarge": "La cantidad de plantillas solicitadas excede el límite máximo",
-      "categoryLimitReached": "Límite de categorías de plantilla alcanzado (máximo {{maxCount}})"
+      "categoryLimitReached": "Límite de categorías de plantilla alcanzado (máximo {{maxCount}})",
+      "categoryHasChildren": "Este sector todavía tiene subsectores; elimínalos primero",
+      "categoryDepthExceeded": "Un subsector no puede tener subsectores propios",
+      "teamIsFlat": "Un equipo no tiene categoría superior ni subcategorías",
+      "categoryKeyTaken": "Esta clave de URL ya la usa otra categoría",
+      "slugTaken": "Este slug de URL ya lo usa otra plantilla"
     },
     "department": {
       "parentNotFound": "Departamento padre no encontrado",
@@ -1682,6 +1689,8 @@
       "domainReserved": "El subdominio está reservado",
       "siteInfoBeforeGeneration": "Genera la app antes de personalizar la información de su sitio",
       "generationEditingConflict": "Una generación con IA está editando esta app. Reintenta la actualización del archivo cuando termine.",
+      "codeCopying": "El código de la app aún se está copiando. Inténtalo de nuevo en un momento.",
+      "codeCopyFailed": "No se pudo copiar el código de la app. Duplica la app de nuevo.",
       "siteInfoLayoutNotEditable": "El código de esta app no admite editar aquí la información del sitio. En su lugar, pide a la IA por chat que cambie el título, la descripción o el icono del sitio.",
       "siteInfoManagedInCode": "Esta app gestiona el título y la descripción del sitio en el código. En su lugar, pide a la IA por chat que los cambie.",
       "accessLinkSetupFailed": "Error al configurar el enlace de acceso: {{detail}}",
@@ -1740,7 +1749,8 @@
     "requestFailed": "La solicitud ha fallado",
     "operationFailed": "La operación ha fallado: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "El operador {{operator}} no se puede comparar con otro campo"
+      "operatorNoFieldReference": "El operador {{operator}} no se puede comparar con otro campo",
+      "fieldReferenceIncompatible": "El campo {{reference}} tiene un tipo incompatible y no se puede comparar con {{source}}"
     },
     "oauth": {
       "invalidRequest": "Solicitud de OAuth no válida: {{detail}}",

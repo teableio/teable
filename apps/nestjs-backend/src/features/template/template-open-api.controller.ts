@@ -1,6 +1,19 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query, Put } from '@nestjs/common';
 import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  Query,
+  Put,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import {
+  createTemplateCategoryRoSchema,
   createTemplateRoSchema,
   ICreateTemplateCategoryRo,
   ICreateTemplateRo,
@@ -18,6 +31,9 @@ import {
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { TemplateOpenApiService } from './template-open-api.service';
 import { TemplatePermalinkService } from './template-permalink.service';
 
@@ -83,6 +99,9 @@ export class TemplateOpenApiController {
   }
 
   @Post('/:templateId/snapshot')
+  @UseV2Feature('duplicateBase', { always: true })
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('instance|update')
   async createTemplateSnapshot(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.createTemplateSnapshot(templateId);
@@ -90,10 +109,14 @@ export class TemplateOpenApiController {
 
   @Post('/category/create')
   @Permissions('instance|update')
-  async createTemplateCategory(@Body() createTemplateCategoryRo: ICreateTemplateCategoryRo) {
+  async createTemplateCategory(
+    @Body(new ZodValidationPipe(createTemplateCategoryRoSchema))
+    createTemplateCategoryRo: ICreateTemplateCategoryRo
+  ) {
     return this.templateOpenApiService.createTemplateCategory(createTemplateCategoryRo);
   }
 
+  @Public()
   @Get('/category/list')
   async getTemplateCategoryList() {
     return this.templateOpenApiService.getTemplateCategoryList();

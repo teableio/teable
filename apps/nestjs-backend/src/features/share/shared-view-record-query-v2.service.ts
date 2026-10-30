@@ -7,8 +7,12 @@ import type {
   IRowCountVo,
   ISearchCountRo,
   ISearchCountVo,
+  ISearchCellCountRo,
+  ISearchCellCountVo,
   ISearchIndexByQueryRo,
   ISearchIndexVo,
+  ISearchMatchesRo,
+  ISearchMatchesVo,
   IShareViewRowCountRo,
   IShareViewAggregationsRo,
   IShareViewGroupPointsRo,
@@ -392,6 +396,67 @@ export class SharedViewRecordQueryV2Service {
     return { count: result.rowCount };
   }
 
+  async getSearchCellCount(
+    shareInfo: IShareViewInfo,
+    query: ISearchCellCountRo,
+    projection: string[] | undefined
+  ): Promise<ISearchCellCountVo> {
+    if (!query.search) {
+      throw new CustomHttpException('Search query is required', HttpErrorCode.VALIDATION_ERROR);
+    }
+    if (!shareInfo.shareMeta?.includeRecords) return { matchedCellCount: 0 };
+
+    const { tableId, view, linkOptions } = shareInfo;
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
+    const viewId = linkOptions?.filterByViewId ?? view?.id;
+    const rawFilter = linkOptions?.filter ?? query.filter;
+    const filter = await this.normalizeFilter(
+      tableId,
+      rawFilter,
+      context.actorId.toString(),
+      queryBus,
+      context,
+      table
+    );
+    const [searchValue, searchFieldKeys] = query.search;
+    const finalProjection = this.resolveShareSearchFieldIds(
+      table,
+      viewId,
+      projection,
+      query.projection
+    );
+    const countQuery = CountTableRecordsQuery.create(
+      {
+        tableId,
+        fieldKeyType: FieldKeyType.Id,
+        viewId,
+        filter,
+        search: [searchValue, searchFieldKeys ?? '', true],
+        projection: finalProjection,
+      },
+      {
+        countSearchMatches: true,
+        searchFieldScope: 'projection',
+        searchFieldIds: finalProjection,
+        table,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table,
+          search: query.search,
+        }),
+      }
+    );
+    if (countQuery.isErr()) this.throwDomainError(countQuery.error);
+    const result = await queryBus.execute<CountTableRecordsQuery, CountTableRecordsResult>(
+      context,
+      countQuery.value
+    );
+    if (result.isErr()) this.throwDomainError(result.error);
+    return { matchedCellCount: result.value.count };
+  }
+
   async getSearchIndex(
     shareInfo: IShareViewInfo,
     query: ISearchIndexByQueryRo
@@ -454,6 +519,127 @@ export class SharedViewRecordQueryV2Service {
     );
     if (result.isErr()) this.throwDomainError(result.error);
     return this.mapSearchIndexResult(result.value.searchMatches);
+  }
+
+  async getSearchMatches(
+    shareInfo: IShareViewInfo,
+    query: ISearchMatchesRo,
+    projection: string[] | undefined
+  ): Promise<ISearchMatchesVo> {
+    if (query.search?.[2] === true) {
+      throw new CustomHttpException(
+        'Search matches scan only supports show-all search mode',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    const [searchValue, searchFieldKeys] = this.validateSearchIndexQuery(query);
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return { matches: [], scannedRecordCount: 0, nextSkip: null, hasMore: false };
+    }
+
+    const { tableId, view, linkOptions } = shareInfo;
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
+    const isLinkSelection = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
+    const viewId = isLinkSelection ? view?.id : (linkOptions?.filterByViewId ?? view?.id);
+    const rawFilter = isLinkSelection ? undefined : (query.filter ?? linkOptions?.filter);
+    const filter = await this.normalizeFilter(
+      tableId,
+      rawFilter,
+      context.actorId.toString(),
+      queryBus,
+      context,
+      table
+    );
+    const finalProjection = this.resolveShareSearchFieldIds(
+      table,
+      viewId,
+      projection,
+      query.projection
+    );
+    const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
+      fieldId: item.fieldId,
+      order: item.order,
+    }));
+    const listQuery = ListTableRecordsQuery.create(
+      {
+        tableId,
+        fieldKeyType: FieldKeyType.Id,
+        limit: query.take > 0 ? query.take : MAX_RECORDS_LIMIT,
+        offset: query.skip ?? 0,
+        includeTotal: false,
+        search: [searchValue, searchFieldKeys ?? '', true],
+        viewId,
+        ignoreViewQuery: isLinkSelection || undefined,
+        filter,
+        sort: sort.length ? sort : undefined,
+        groupBy: query.groupBy?.map((item) => item.fieldId),
+        projection: finalProjection,
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        selectedRecordIds: query.selectedRecordIds,
+      },
+      {
+        includeSearchFieldMatches: true,
+        searchIndexMode: 'view',
+        searchFieldScope: 'projection',
+        applySearchRowFilter: false,
+        searchFieldIds: finalProjection,
+        table,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table,
+          search: query.search,
+        }),
+      }
+    );
+    if (listQuery.isErr()) this.throwDomainError(listQuery.error);
+    const result = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+      context,
+      listQuery.value
+    );
+    if (result.isErr()) this.throwDomainError(result.error);
+    const matches = (result.value.searchMatches ?? []).map((match) => ({
+      index: match.index,
+      fieldId: match.fieldId.toString(),
+      recordId: match.recordId.toString(),
+    }));
+    const scannedRecordCount = result.value.records.length;
+    const hasMore = result.value.hasMore === true;
+    return {
+      matches,
+      scannedRecordCount,
+      hasMore,
+      nextSkip: hasMore ? (query.skip ?? 0) + scannedRecordCount : null,
+    };
+  }
+
+  private resolveShareSearchFieldIds(
+    table: Table,
+    viewId: string | undefined,
+    allowedFieldIds: ReadonlyArray<string> | undefined,
+    requestedFieldIds: ReadonlyArray<string> | undefined
+  ): string[] {
+    let orderedFieldIds = table.fieldIds();
+    if (viewId) {
+      const ordered = table.getOrderedVisibleFieldIds(viewId, {
+        // `undefined` means the share explicitly exposes hidden fields.
+        includeHiddenFields: allowedFieldIds === undefined,
+      });
+      if (ordered.isErr()) this.throwDomainError(ordered.error);
+      orderedFieldIds = ordered.value;
+    }
+
+    const allowed = allowedFieldIds ? new Set(allowedFieldIds) : undefined;
+    const requested = requestedFieldIds ? new Set(requestedFieldIds) : undefined;
+    return orderedFieldIds
+      .map((fieldId) => fieldId.toString())
+      .filter(
+        (fieldId) =>
+          (allowed === undefined || allowed.has(fieldId)) &&
+          (requested === undefined || requested.has(fieldId))
+      );
   }
 
   private validateSearchIndexQuery(query: ISearchIndexByQueryRo) {

@@ -254,6 +254,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const permission = useTablePermission();
 
   const shareAllowCopy = useShareAllowCopy();
+  // In share context, use shareAllowCopy; otherwise use permission
+  const canCopy = shareId ? shareAllowCopy : permission['record|copy'];
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
@@ -629,22 +631,31 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     expandRecordRef.current?.updateRecordIds?.(recordIds);
   }, [recordMap, expandedRecordId, realRowCount]);
 
-  // The recordId on the route changes, and the activeCell needs to change with it
-  useEffect(() => {
-    if (expandedRecordId) {
-      const recordIndex = Number(
-        Object.keys(recordMap).find((key) => recordMap[key]?.id === expandedRecordId)
-      );
-
-      recordIndex >= 0 &&
-        gridRef.current?.setSelection(
-          new CombinedSelection(SelectionRegionType.Cells, [
-            [0, recordIndex],
-            [0, recordIndex],
-          ])
-        );
-    }
+  const expandedRecordIndex = useMemo(() => {
+    if (!expandedRecordId) return null;
+    const key = Object.keys(recordMap).find((key) => recordMap[key]?.id === expandedRecordId);
+    return key == null ? null : Number(key);
   }, [expandedRecordId, recordMap]);
+
+  // The recordId on the route changes, and the activeCell needs to change with it. Only once per
+  // record: the side panel leaves the grid usable, and a later data refresh must not pull the
+  // user's own selection back to the expanded row.
+  const selectedExpandedRecordIdRef = useRef<string>(undefined);
+  useEffect(() => {
+    if (!expandedRecordId) {
+      selectedExpandedRecordIdRef.current = undefined;
+      return;
+    }
+    if (expandedRecordIndex == null) return;
+    if (selectedExpandedRecordIdRef.current === expandedRecordId) return;
+    selectedExpandedRecordIdRef.current = expandedRecordId;
+    gridRef.current?.setSelection(
+      new CombinedSelection(SelectionRegionType.Cells, [
+        [0, expandedRecordIndex],
+        [0, expandedRecordIndex],
+      ])
+    );
+  }, [expandedRecordId, expandedRecordIndex]);
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
@@ -740,12 +751,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
       const addToChat = baseId ? () => captureSelectionForChat(selection, true) : undefined;
+      const copySelection = canCopy ? () => onCopy(selection) : undefined;
 
       if (isMultipleSelected || isMultiCellSelection) {
         openRecordMenu({
           position,
           isMultipleSelected: isMultipleSelected || isMultiCellSelection,
           addToChat,
+          copySelection,
           deleteRecords: async () => {
             const deleteRows = getEffectRows(selection, realRowCount);
             const usesStreamDeleteDialog = shouldUseDeleteSelectionStream(selection, realRowCount);
@@ -782,6 +795,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           record,
           neighborRecords,
           addToChat,
+          copySelection,
 
           insertRecord: (anchorId, position, num: number) => {
             if (!tableId || !view?.id || !record) return;
@@ -1087,9 +1101,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [baseId, fields]
   );
 
-  const onCopy = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
-    // In share context, use shareAllowCopy; otherwise use permission
-    const canCopy = shareId ? shareAllowCopy : permission['record|copy'];
+  // Without a clipboard event (context menu copy) the selection is written via navigator.clipboard.
+  const onCopy = async (selection: CombinedSelection, e?: React.ClipboardEvent) => {
     if (!canCopy) {
       sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
       return;
@@ -1100,7 +1113,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     // before the payload leaves the page. Share pages have no AnchorContext
     // baseId; isCrossBaseField still matches an explicit options.baseId.
     if (shareId && selectionIncludesCrossBaseField(selection)) {
-      e.preventDefault();
+      e?.preventDefault();
       if (
         !isSelectionLoaded({
           selection,
@@ -1144,6 +1157,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
 
     if (
+      e &&
       isSelectionLoaded({
         selection,
         recordMap,
@@ -1775,6 +1789,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         collaborators={collaborators}
         searchCursor={searchCursor}
         searchHitIndex={searchHitIndex}
+        highlightedRowIndex={expandedRecordIndex}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
         onDragStart={onDragStart}

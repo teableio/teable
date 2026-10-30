@@ -7,6 +7,7 @@ import {
   getSharedBase,
   getSpaceById,
   type IBaseV2StatusVo,
+  type IGetBaseVo,
   updateBase,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -38,6 +39,7 @@ import { TeableLogo } from '@/components/TeableLogo';
 import { DataDbBadge } from '@/features/app/blocks/space/DataDbBadge';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
 import { PublishBaseDialog } from '../../table/table-header/publish-base/PublishBaseDialog';
 import { useSharedNodeIds } from './BaseNodeShareIndicator';
@@ -51,6 +53,7 @@ const BaseDropdownMenu = ({
   creditUsage,
   spaceId,
   collaboratorType,
+  base,
   currentBaseId,
   baseName,
   isCanary,
@@ -65,6 +68,7 @@ const BaseDropdownMenu = ({
   spaceId: string;
   creditUsage?: React.ReactNode;
   collaboratorType?: CollaboratorType;
+  base: IGetBaseVo;
   currentBaseId: string;
   baseName: string;
   isCanary?: boolean;
@@ -77,6 +81,8 @@ const BaseDropdownMenu = ({
   const isCloud = useIsCloud();
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishMounted, setPublishMounted] = useState(false);
   const useV2 = v2Status?.useV2 ?? Boolean(isCanary);
   const versionLabel = useV2 ? 'v2' : 'v1';
   const versionTitle = v2Status?.reason
@@ -175,8 +181,12 @@ const BaseDropdownMenu = ({
                         <LayoutGrid className="size-4" />
                       )}
                     </span>
-                    <span dir={contentDir} className="truncate" title={base.name}>
-                      {base.name}
+                    <span
+                      dir={contentDir}
+                      className="truncate"
+                      title={getBaseDisplayName(base.name, t)}
+                    >
+                      {getBaseDisplayName(base.name, t)}
                     </span>
                   </Link>
                 </DropdownMenuItem>
@@ -205,14 +215,18 @@ const BaseDropdownMenu = ({
             </DropdownMenuItem>
           )}
           {showRename && (
-            <PublishBaseDialog onClose={() => setOpen(false)} closeOnSuccess={false}>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <div className="flex w-full cursor-pointer items-center gap-2">
-                  <Send className="size-4" />
-                  {t('space:publishBase.publishToCommunity')}
-                </div>
-              </DropdownMenuItem>
-            </PublishBaseDialog>
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(false);
+                setPublishMounted(true);
+                setPublishOpen(true);
+              }}
+            >
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <Send className="size-4" />
+                {t('space:publishBase.publishToCommunity')}
+              </div>
+            </DropdownMenuItem>
           )}
 
           <DropdownMenuSeparator />
@@ -237,16 +251,31 @@ const BaseDropdownMenu = ({
         open={shareOpen}
         onOpenChange={setShareOpen}
       />
+      {/* Kept outside the menu: Radix closes the menu on window blur (e.g. the cover file
+          picker), which would unmount a dialog rendered inside it. Mounted on first use and
+          keyed by base so its form state never carries over to another base */}
+      {showRename && publishMounted && (
+        <PublishBaseDialog
+          key={currentBaseId}
+          base={base}
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          onClose={() => setOpen(false)}
+          closeOnSuccess={false}
+        />
+      )}
     </>
   );
 };
 
 export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.ReactNode }) => {
   const base = useBase();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const contentDir = useContentDir();
   const router = useRouter();
   const [renaming, setRenaming] = useState<boolean>();
-  const [baseName, setBaseName] = useState<string>(base.name);
+  // An unnamed base starts the rename input empty; the placeholder shows what it is called
+  const [baseName, setBaseName] = useState<string>(base.name ?? '');
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isReadOnlyPreview = useIsReadOnlyPreview();
@@ -340,6 +369,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
               className="flex-1 shrink"
               size="sm"
               value={baseName}
+              placeholder={t('common:untitledBase')}
               onChange={(e) => setBaseName(e.target.value)}
               onBlur={toggleRenameBase}
             />
@@ -352,8 +382,9 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
             spaceId={base.spaceId}
             creditUsage={creditUsage}
             collaboratorType={base.collaboratorType}
+            base={base}
             currentBaseId={base.id}
-            baseName={base.name}
+            baseName={getBaseDisplayName(base.name, t)}
             isCanary={base.isCanary}
             v2Status={base.v2Status}
             isBaseShared={isBaseShared}
@@ -367,8 +398,12 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
                 }
               )}
             >
-              <span dir={contentDir} className="min-w-0 shrink truncate text-sm" title={base.name}>
-                {base.name}
+              <span
+                dir={contentDir}
+                className="min-w-0 shrink truncate text-sm"
+                title={getBaseDisplayName(base.name, t)}
+              >
+                {getBaseDisplayName(base.name, t)}
               </span>
               {isBaseShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
               {!isReadOnlyPreview && !isBaseShared && <ChevronDown className="size-4 shrink-0" />}

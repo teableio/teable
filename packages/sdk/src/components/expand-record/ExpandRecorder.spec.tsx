@@ -43,8 +43,10 @@ vi.mock('../../utils', () => ({
   syncCopy: vi.fn(),
 }));
 
+let mockNavigation: { navigateToTable?: (tableId: string) => void } = {};
+
 vi.mock('./ExpandRecordNavigationContext', () => ({
-  useExpandRecordNavigation: () => ({}),
+  useExpandRecordNavigation: () => mockNavigation,
   useExpandRecordAddToChat: () => ({}),
 }));
 
@@ -152,5 +154,29 @@ describe('ExpandRecorder copy record link', () => {
     render(<ExpandRecorder tableId="tblForeign" recordId="recForeign" isLinkedRecord />);
 
     expect(expandRecordProps.onCopyUrl).toBeUndefined();
+  });
+});
+
+describe('ExpandRecorder foreign table jump', () => {
+  beforeEach(() => {
+    expandRecordProps = undefined;
+    mockBaseId = 'bseA';
+    mockNavigation = {};
+  });
+
+  it('jumps to the table of a linked record through the navigation host', () => {
+    const navigateToTable = vi.fn();
+    mockNavigation = { navigateToTable };
+
+    render(<ExpandRecorder tableId="tblForeign" recordId="recForeign" isLinkedRecord />);
+    expandRecordProps.onForeignTableClick();
+
+    expect(navigateToTable).toHaveBeenCalledWith('tblForeign');
+  });
+
+  it('offers no jump when nothing can navigate, instead of a button that does nothing', () => {
+    render(<ExpandRecorder tableId="tblForeign" recordId="recForeign" isLinkedRecord />);
+
+    expect(expandRecordProps.onForeignTableClick).toBeUndefined();
   });
 });

@@ -66,6 +66,10 @@ export interface ICountTableRecordsQueryOptions {
    * projection ∩ visible. 'visible' keeps the full visible-field row scope.
    */
   readonly searchFieldScope?: 'projection' | 'visible';
+  /** Count matching cells instead of matching records. Trusted host only. */
+  readonly countSearchMatches?: boolean;
+  /** Trusted host-resolved search field scope, used by share visibility guards. */
+  readonly searchFieldIds?: ReadonlyArray<string>;
   readonly table?: Table;
 }
 
@@ -79,6 +83,8 @@ export class CountTableRecordsQuery {
     readonly filterLinkCellSelected?: string | [string, string],
     readonly filterLinkCellCandidate?: string | [string, string],
     readonly selectedRecordIds?: ReadonlyArray<string>,
+    readonly countSearchMatches?: boolean,
+    readonly searchFieldIds?: ReadonlyArray<string>,
     readonly searchFieldScope?: 'projection' | 'visible',
     readonly viewId?: string,
     readonly ignoreViewQuery?: boolean,
@@ -113,6 +119,8 @@ export class CountTableRecordsQuery {
           parsed.data.filterLinkCellSelected,
           parsed.data.filterLinkCellCandidate,
           parsed.data.selectedRecordIds,
+          options?.countSearchMatches,
+          options?.searchFieldIds,
           options?.searchFieldScope,
           parsed.data.viewId,
           parsed.data.ignoreViewQuery,

@@ -31,6 +31,10 @@
       "description": "L'URL complète à laquelle rediriger après qu'un utilisateur a autorisé votre intégration.",
       "add": "Ajouter une URL de rappel"
     },
+    "deviceFlow": {
+      "label": "Activer le flux par code d'appareil",
+      "description": "Autorise cette application à connecter les utilisateurs avec un code à usage unique saisi dans un navigateur (pour les CLI et les appareils qui n'en ont pas). Toute personne connaissant le client ID peut lancer ce flux au nom de votre application : ne l'activez que si votre application en a besoin."
+    },
     "secret": {
       "label": "Secrets du client",
       "add": "Générer un nouveau secret client",
@@ -66,6 +70,23 @@
     "redirectTitle": "Vous serez redirigé vers :",
     "trustRedirect": "Je reconnais cette URL et je lui fais confiance",
     "continue": "Continuer"
+  },
+  "device": {
+    "title": "Connecter un appareil",
+    "description": "Saisissez le code à 8 caractères affiché dans votre terminal pour connecter cet appareil à votre compte.",
+    "submit": "Continuer",
+    "invalidCode": "Ce code est invalide ou a expiré. Vérifiez votre terminal et réessayez.",
+    "codeUsed": "Ce code a déjà été utilisé. Relancez la commande de connexion pour obtenir un nouveau code.",
+    "deviceFlowDisabled": "Cette application n'autorise pas la connexion avec un code d'appareil.",
+    "codeLabel": "Code d'autorisation",
+    "confirmCode": "Vérifiez qu'il correspond au code affiché dans votre terminal.",
+    "securityTitle": "Avertissement de sécurité",
+    "phishingHint": "Les codes d'appareil sont une cible fréquente d'hameçonnage et peuvent servir à se connecter à votre compte. Ne communiquez jamais le vôtre, et ne continuez que si vous avez vous-même lancé cette connexion.",
+    "phishingHintStrong": "Si vous n'aviez pas l'intention d'ouvrir cette page, ou si le lien vous a été envoyé par quelqu'un d'autre, fermez cet onglet.",
+    "approvedTitle": "Appareil connecté",
+    "approvedDescription": "Vous pouvez fermer cette page et revenir à votre terminal.",
+    "deniedTitle": "Demande refusée",
+    "deniedDescription": "Cet appareil n'a pas reçu l'accès. Vous pouvez fermer cette page."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

@@ -19,6 +19,7 @@ import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { baseDisplayName } from '../../utils/base-name';
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
@@ -751,7 +752,7 @@ export class GraphService {
         name: table.name,
         icon: table.icon ?? undefined,
         crossBaseId: crossBase ? table.base.id : undefined,
-        crossBaseName: crossBase ? table.base.name : undefined,
+        crossBaseName: crossBase ? baseDisplayName(table.base.name) : undefined,
         fields: items.map((field) => ({
           id: field.id,
           name: field.name,

@@ -146,6 +146,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     isRowClickSelectionEnabled,
     searchCursor,
     searchHitIndex,
+    highlightedRowIndex,
     activeCell,
     getLinearRow,
     real2RowIndex,
@@ -903,6 +904,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           collaborators={collaborators}
           searchCursor={searchCursor}
           searchHitIndex={searchHitIndex}
+          highlightedRowIndex={highlightedRowIndex}
           activeCellBound={activeCellBound}
           activeCell={activeCell}
           mouseState={mouseState}

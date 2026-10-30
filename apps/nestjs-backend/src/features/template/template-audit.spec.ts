@@ -49,9 +49,9 @@ describe('TemplateOpenApiService audit rows', () => {
     featured: false,
     isSystem: false,
     baseId: 'bse1',
-    kind: null,
     isPublished: false,
     snapshot: JSON.stringify({ baseId: 'bseSnap' }),
+    slug: 'crm',
   };
 
   beforeEach(() => {
@@ -136,32 +136,6 @@ describe('TemplateOpenApiService audit rows', () => {
       action: 'template.delete',
       resourceId: 'tpl1',
       params: { templateId: 'tpl1', name: 'CRM', baseId: 'bse1', wasPublished: true },
-    });
-  });
-
-  it('snapshots inside a template.snapshot.create operation and records the snapshot base', async () => {
-    prisma.template.findUniqueOrThrow.mockResolvedValueOnce(original);
-    prisma.space.findFirstOrThrow.mockResolvedValueOnce({ id: 'spcTpl' });
-    baseDuplicateService.duplicateBase.mockResolvedValueOnce({
-      base: { id: 'bseSnap2', spaceId: 'spcTpl', name: 'CRM' },
-    });
-
-    await createService().createTemplateSnapshot('tpl1');
-
-    expect(audit.withOperation).toHaveBeenCalledWith(
-      { rootAction: 'template.snapshot.create', resourceId: 'tpl1' },
-      expect.any(Function)
-    );
-    expect(audit.emitAtomic).toHaveBeenCalledWith({
-      action: 'template.snapshot.create',
-      resourceId: 'tpl1',
-      params: {
-        templateId: 'tpl1',
-        name: 'CRM',
-        baseId: 'bse1',
-        snapshotBaseId: 'bseSnap2',
-        withRecords: true,
-      },
     });
   });
 });

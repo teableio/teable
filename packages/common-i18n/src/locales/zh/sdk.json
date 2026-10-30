@@ -296,6 +296,8 @@
     "duplicateRecord": "复制记录",
     "addToChat": "添加到对话",
     "copyRecordUrl": "复制记录链接",
+    "copyLink": "复制链接",
+    "history": "历史",
     "deleteRecord": "删除记录",
     "addRecordComment": "添加评论",
     "viewRecordHistory": "查看记录历史",
@@ -1651,7 +1653,12 @@
       "sourceTemplateNotFound": "源模板不存在",
       "noMinOrderFound": "未找到最小排序值",
       "takeCountTooLarge": "请求的模板数量超过最大限制",
-      "categoryLimitReached": "模板分类数量已达上限（最多 {{maxCount}} 个）"
+      "categoryLimitReached": "模板分类数量已达上限（最多 {{maxCount}} 个）",
+      "categoryHasChildren": "该行业下还有细分行业，请先删除或移走它们",
+      "categoryDepthExceeded": "细分行业下不能再建细分",
+      "teamIsFlat": "团队不能有上级或细分",
+      "categoryKeyTaken": "这个网址标识已被其他分类使用",
+      "slugTaken": "这个网址标识已被其他模板使用"
     },
     "department": {
       "parentNotFound": "父部门未找到",
@@ -1678,6 +1685,8 @@
       "domainReserved": "子域名已被保留",
       "siteInfoBeforeGeneration": "请先生成应用，再自定义站点信息",
       "generationEditingConflict": "AI 正在编辑这个应用，请等它完成后再试",
+      "codeCopying": "应用代码仍在复制中，请稍后再试。",
+      "codeCopyFailed": "应用代码复制失败，请重新复制该应用。",
       "siteInfoLayoutNotEditable": "这个应用的代码结构暂不支持在这里编辑站点信息，请在聊天中让 AI 帮你修改站点标题、描述或图标",
       "siteInfoManagedInCode": "这个应用的站点标题和描述由代码管理，请在聊天中让 AI 帮你修改",
       "accessLinkSetupFailed": "访问链接设置失败：{{detail}}",
@@ -1733,7 +1742,8 @@
     "requestFailed": "操作失败",
     "operationFailed": "操作失败：{{detail}}",
     "filter": {
-      "operatorNoFieldReference": "运算符 {{operator}} 不支持与其他字段比较"
+      "operatorNoFieldReference": "运算符 {{operator}} 不支持与其他字段比较",
+      "fieldReferenceIncompatible": "字段 {{reference}} 与 {{source}} 类型不兼容，无法比较"
     },
     "oauth": {
       "invalidRequest": "OAuth 请求无效：{{detail}}",

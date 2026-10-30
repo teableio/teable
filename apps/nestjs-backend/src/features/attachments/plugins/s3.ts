@@ -590,7 +590,7 @@ export class S3Storage implements StorageAdapter {
 
   private collectListedPage(
     page: {
-      Contents?: { Key?: string; Size?: number; ETag?: string }[];
+      Contents?: { Key?: string; Size?: number; ETag?: string; LastModified?: Date }[];
       CommonPrefixes?: { Prefix?: string }[];
     },
     objects: IListObjectsResult['objects'],
@@ -598,7 +598,12 @@ export class S3Storage implements StorageAdapter {
   ) {
     for (const obj of page.Contents ?? []) {
       if (obj.Key) {
-        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replaceAll('"', '') });
+        objects.push({
+          key: obj.Key,
+          size: obj.Size ?? 0,
+          etag: obj.ETag?.replaceAll('"', ''),
+          lastModified: obj.LastModified,
+        });
       }
     }
     for (const common of page.CommonPrefixes ?? []) {

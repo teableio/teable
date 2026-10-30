@@ -42,6 +42,7 @@ type RecordWritePluginPhase =
   | 'prepare'
   | 'scope'
   | 'guard'
+  | 'afterGuard'
   | 'beforePersist'
   | 'afterCommit';
 
@@ -262,7 +263,20 @@ export class RecordWritePluginExecution {
   ) {}
 
   async guard(): Promise<Result<void, DomainError>> {
-    return this.runPhase('guard', this.context);
+    const guardResult = await this.runPhase('guard', this.context);
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+
+    for (const entry of this.preparedPlugins) {
+      if (!entry.plugin.afterGuard) continue;
+      const result = await this.invokePhaseHook('afterGuard', this.context, entry);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+    }
+
+    return ok(undefined);
   }
 
   getScope(): Result<RecordWritePluginScope | undefined, DomainError> {
@@ -402,12 +416,12 @@ export class RecordWritePluginExecution {
   }
 
   private async invokePhaseHook(
-    phase: 'guard' | 'beforePersist',
+    phase: 'guard' | 'afterGuard' | 'beforePersist',
     context: RecordWritePluginContext,
     entry: PreparedPluginEntry
   ): Promise<Result<void, DomainError>> {
     const plugin = entry.plugin;
-    const hook = phase === 'guard' ? plugin.guard : plugin.beforePersist;
+    const hook = plugin[phase];
     if (!hook) {
       return ok(undefined);
     }

@@ -14,6 +14,7 @@ import { AirtableImportModule } from './features/airtable-import/airtable-import
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AuthModule } from './features/auth/auth.module';
 import { BaseModule } from './features/base/base.module';
+import { ExportBaseCleanupModule } from './features/base/export-cleanup/export-base-cleanup.module';
 import { BaseNodeModule } from './features/base-node/base-node.module';
 import { BaseShareModule } from './features/base-share/base-share.module';
 import { BuiltinAssetsInitModule } from './features/builtin-assets-init';
@@ -91,6 +92,7 @@ export const appModules = {
     BaseShareModule,
     NotificationModule,
     NotificationCleanupModule,
+    ExportBaseCleanupModule,
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,

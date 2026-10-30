@@ -4,12 +4,12 @@ import { getPinList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsReadOnlyPreview } from '@teable/sdk/hooks';
 
-export const usePinMap = () => {
+export const usePinMap = (enabled = true) => {
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const { data: pinListData } = useQuery({
     queryKey: ReactQueryKeys.pinList(),
     queryFn: () => getPinList().then((data) => data.data),
-    enabled: !isReadOnlyPreview,
+    enabled: enabled && !isReadOnlyPreview,
   });
 
   return pinListData?.reduce(

@@ -12,6 +12,8 @@ interface ITemplateCardProps extends Pick<ITemplateBaseProps, 'onClickTemplateCa
   className?: string;
   /** PostHog autocapture marker (autocapture is allowlisted to `[data-attr]` elements). */
   dataAttr?: string;
+  /** Its place in this month's ranking, shown on the cover. */
+  rank?: number;
 }
 
 const AspectRatioMap = {
@@ -27,12 +29,14 @@ export const TemplateCard = ({
   size = 'sm',
   className,
   dataAttr,
+  rank,
 }: ITemplateCardProps) => {
-  const { name, description, cover, visitCount, id: templateId } = template;
+  const { name, cover, visitCount, id: templateId, createdBy, description } = template;
   const { presignedUrl } = cover ?? {};
   const { t, i18n } = useTranslation(['common']);
   const host = useContext(TemplateHostContext);
   const coverOverlay = host.renderCoverOverlay?.(template);
+  const footer = host.renderCardFooter?.(template);
 
   const formatCount = (count: number) =>
     Intl.NumberFormat([i18n.language, 'en'], { notation: 'compact' }).format(count);
@@ -82,6 +86,11 @@ export const TemplateCard = ({
             {coverOverlay}
           </div>
         )}
+        {rank && (
+          <span className="absolute start-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium text-foreground">
+            {t('template.rankThisMonth', { rank })}
+          </span>
+        )}
       </div>
 
       <div
@@ -89,32 +98,30 @@ export const TemplateCard = ({
           'text-sm pt-1 gap-0.5': size === 'xs',
         })}
       >
-        <h2
-          className={cn('flex items-center justify-between gap-3', {
-            'gap-2': size === 'xs',
-          })}
-        >
-          <span className="truncate font-medium" title={name}>
-            {name}
-          </span>
-
-          <div
-            className={cn('flex shrink-0 items-center gap-2 text-muted-foreground text-sm', {
-              'text-xs gap-1': size === 'xs',
-            })}
-          >
-            <Eye className="size-4" />
-            <span>{formatCount(visitCount)}</span>
-          </div>
+        <h2 className="truncate font-medium" title={name}>
+          {name}
         </h2>
         <p
-          className={cn('m-0 flex-1 overflow-hidden truncate text-muted-foreground text-sm', {
-            'text-xs': size === 'xs',
+          className={cn('m-0 line-clamp-2 text-sm text-muted-foreground', {
+            'text-xs line-clamp-1': size === 'xs',
           })}
           title={description}
         >
           {description}
         </p>
+        {size !== 'xs' && (
+          <div className="mt-auto flex items-center justify-between gap-3 pt-1 text-xs text-muted-foreground">
+            {footer ?? (
+              <>
+                <span className="truncate">{createdBy?.name}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <Eye className="size-3.5" />
+                  <span>{formatCount(visitCount)}</span>
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

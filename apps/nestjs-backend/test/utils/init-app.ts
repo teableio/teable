@@ -83,7 +83,7 @@ import {
 } from '../../src/utils/nest-module-id-options';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
-import { acquireApp, getSharedBundle } from './e2e-shared';
+import { acquireApp, getSharedBundle, setActiveAppOrigin } from './e2e-shared';
 import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
@@ -100,6 +100,7 @@ export async function initApp() {
       axios.interceptors.request.eject(cookieInterceptorId);
       const shared = getSharedBundle(cacheKey);
       if (shared) {
+        setActiveAppOrigin(shared.appUrl);
         axios.defaults.baseURL = shared.appUrl + '/api';
       }
     },

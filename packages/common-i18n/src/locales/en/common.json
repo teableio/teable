@@ -64,7 +64,7 @@
     "select": "Select",
     "refresh": "Refresh",
     "login": "Login",
-    "useTemplate": "Use template",
+    "useTemplate": "Install template",
     "copyLink": "Copy link",
     "openLink": "Open link",
     "backToSpace": "Back to space",
@@ -137,10 +137,10 @@
     "aiSubTitle": "The first AI platform where teams collaborate on data and generate production apps",
     "guideTitle": "Start from your scenario",
     "watchVideo": "Watch video",
-    "title": "Template",
+    "title": "Templates",
     "description": "Create a new project from a template",
     "browseAll": "Browse all",
-    "templateTitle": "Start with template",
+    "templateTitle": "Start with a template",
     "loadMore": "Load more",
     "allTemplatesLoaded": "All templates loaded",
     "createTemplate": "Create template",
@@ -149,11 +149,27 @@
     },
     "useTemplateDialog": {
       "title": "Select space",
-      "description": "Please select a space to apply template",
+      "description": "Choose the space to install into",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "Could not load the template's details."
+    },
+    "searchPlaceholder": "Search templates",
+    "rankThisMonth": "#{{rank}} this month",
+    "listing": {
+      "newest": "Newest",
+      "featured": "Featured"
+    },
+    "detail": {
+      "install": "Install",
+      "installs": "Installs",
+      "author": "Author",
+      "updated": "Last updated",
+      "history": "Version history",
+      "firstRelease": "First release",
+      "about": "About",
+      "noChangelog": "General update"
     }
   },
   "baseShare": {
@@ -218,26 +234,32 @@
       "noData": "No data",
       "importing": "Importing...",
       "usageCount": "Usage count: {{count}}",
-      "useTemplate": "Use this template",
+      "useTemplate": "Install this template",
       "createdBy": "by {{user}}",
       "backToTemplateList": "Back to template list",
       "tips": {
-        "errorCategoryName": "Category does not exist or has been deleted",
+        "errorCategoryName": "Industry does not exist or has been deleted",
         "needSnapshot": "Please create a snapshot before publishing, and the template name and description cannot be empty",
-        "needPublish": "Please publish the template before set featured",
+        "needPublish": "Please publish the template before setting it as featured",
         "needBaseSource": "Please select a project source before creating a snapshot",
-        "forbiddenUpdateSystemTemplate": "System template cannot be modified",
-        "addCategoryTips": "Please enter a category name in search input first.",
-        "categoryNamePlaceholder": "Enter category name",
-        "duplicateCategoryName": "Category name already exists",
-        "solution": "Mark it as a solution: using it opens the integration setup wizard instead of a plain copy."
+        "forbiddenUpdateSystemTemplate": "System templates cannot be modified",
+        "addCategoryTips": "Enter an industry name first.",
+        "categoryNamePlaceholder": "Industry name",
+        "subCategoryNamePlaceholder": "Sub-industry name",
+        "noSubCategory": "No sub-industries yet. Click the industry on the left to tag it.",
+        "duplicateCategoryName": "Industry name already exists",
+        "teamNamePlaceholder": "Team name",
+        "addTeamTips": "Enter a team name first.",
+        "keyPlaceholder": "URL key, e.g. yoga",
+        "invalidKey": "A key is lowercase letters, digits and hyphens"
       },
       "category": {
         "menu": {
           "getStarted": "Get Started",
           "recommended": "Recommended",
           "all": "All",
-          "browseByCategory": "Browse by category"
+          "browseByCategory": "Browse by category",
+          "byTeam": "By team"
         }
       },
       "header": {
@@ -245,7 +267,7 @@
         "name": "Name",
         "description": "Description",
         "markdownDescription": "Markdown description",
-        "category": "Category",
+        "category": "Industry",
         "isSystem": "System",
         "source": "Source",
         "status": "Published",
@@ -258,8 +280,8 @@
         "preview": "Preview",
         "usage": "Usage",
         "visit": "Visit",
-        "solution": "Solution",
-        "requirements": "Integrations"
+        "requirements": "Integrations",
+        "slug": "URL slug"
       },
       "actions": {
         "title": "Actions",
@@ -269,10 +291,15 @@
         "preview": "Preview",
         "use": "Use",
         "pinTop": "Pin top",
-        "addCategory": "Add category",
-        "selectCategory": "Select category",
+        "addCategory": "New industry",
+        "addSubCategory": "New sub-industry",
+        "addSubCategoryUnder": "New sub-industry under {{name}}",
+        "selectCategory": "Select industry",
+        "addTeam": "New team",
+        "industries": "Industries",
+        "teams": "Teams",
         "viewTemplate": "View template",
-        "manageCategory": "Manage categories"
+        "manageCategory": "Manage industries and teams"
       },
       "relatedTemplates": "Related Templates",
       "noImage": "No image",
@@ -506,7 +533,8 @@
     "newRoutine": "New routine",
     "newApp": "New app",
     "newFolder": "New folder",
-    "template": "Template"
+    "template": "Template",
+    "installedTemplates": "Installed templates"
   },
   "level": {
     "free": "Free",
@@ -519,6 +547,7 @@
   "allNodes": "All Nodes",
   "noDescription": "No description",
   "untitled": "Untitled",
+  "untitledBase": "Untitled project",
   "name": "Name",
   "description": "Description",
   "required": "Required",
@@ -1312,6 +1341,20 @@
         "message": "This is a test email, please ignore."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "Your template {{name}} is live",
+            "message": "{{name}} passed review and is now public as version {{version}}.",
+            "messageWithNote": "{{name}} passed review and is now public as version {{version}}. Reviewer's note: {{note}}",
+            "messageNoPayout": "{{name}} passed review and is now public as version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center.",
+            "messageNoPayoutWithNote": "{{name}} passed review and is now public as version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center. Reviewer's note: {{note}}"
+          },
+          "rejected": {
+            "title": "Your template {{name}} was sent back",
+            "message": "{{name}} did not pass review.",
+            "messageWithNote": "{{name}} did not pass review. Reviewer's note: {{note}}"
+          }
+        },
         "subject": "Notify - {{brandName}}",
         "title": "Notify",
         "buttonText": "View",
@@ -1519,6 +1562,26 @@
           "title": "Reward Claim Approved",
           "message": "Congratulations! Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been approved. {{amount}} credits have been added, valid for {{expiredDays}} days.",
           "buttonText": "View Space"
+        },
+        "chatUnread": {
+          "done": {
+            "title": "Your task is complete",
+            "message": "Hi {{name}},<br><br>A task you started in Teable has finished:<br><em>{{prompt}}</em><br><br>Its result is ready for you to look at.",
+            "messageWithoutPrompt": "Hi {{name}},<br><br>A task you started in Teable has finished.<br><br>Its result is ready for you to look at.",
+            "buttonText": "View result"
+          },
+          "failed": {
+            "title": "Your task could not be completed",
+            "message": "Hi {{name}},<br><br>A task you started in Teable did not finish:<br><em>{{prompt}}</em><br><br>Open it to see what happened and try again.",
+            "messageWithoutPrompt": "Hi {{name}},<br><br>A task you started in Teable did not finish.<br><br>Open it to see what happened and try again.",
+            "buttonText": "View details"
+          },
+          "creditExhausted": {
+            "title": "Your task stopped: AI credits ran out",
+            "message": "Hi {{name}},<br><br>A task you started in Teable stopped because your AI credits ran out:<br><em>{{prompt}}</em><br><br>Add credits or upgrade your plan, then continue where it left off.",
+            "messageWithoutPrompt": "Hi {{name}},<br><br>A task you started in Teable stopped because your AI credits ran out.<br><br>Add credits or upgrade your plan, then continue where it left off.",
+            "buttonText": "View details"
+          }
         }
       }
     }
@@ -1890,6 +1953,7 @@
       "permission": "Cuppy is waiting for your go-ahead.",
       "connectIntegration": "Cuppy needs you to connect an app to continue.",
       "pickGoogleSheet": "Cuppy needs you to choose a sheet.",
+      "presentTemplates": "Cuppy found a ready-made template and is waiting for your call.",
       "requestCredential": "Cuppy needs access to continue."
     },
     "result": {

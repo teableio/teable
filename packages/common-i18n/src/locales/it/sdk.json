@@ -300,6 +300,8 @@
     "duplicateRecord": "Duplica record",
     "addToChat": "Aggiungi alla chat",
     "copyRecordUrl": "Copia URL del record",
+    "copyLink": "Copia link",
+    "history": "Cronologia",
     "deleteRecord": "Elimina record",
     "addRecordComment": "Aggiungi commento",
     "viewRecordHistory": "Visualizza cronologia del record",
@@ -1655,7 +1657,12 @@
       "sourceTemplateNotFound": "Modello di origine non trovato",
       "noMinOrderFound": "Nessun ordine minimo trovato",
       "takeCountTooLarge": "Il numero di modelli richiesti supera il limite massimo",
-      "categoryLimitReached": "Limite categorie modello raggiunto (massimo {{maxCount}})"
+      "categoryLimitReached": "Limite categorie modello raggiunto (massimo {{maxCount}})",
+      "categoryHasChildren": "Questo settore ha ancora dei sottosettori; eliminali prima",
+      "categoryDepthExceeded": "Un sottosettore non può avere sottosettori propri",
+      "teamIsFlat": "Un team non ha né una categoria superiore né sottocategorie",
+      "categoryKeyTaken": "Questa chiave URL è già usata da un'altra categoria",
+      "slugTaken": "Questo slug URL è già usato da un altro modello"
     },
     "department": {
       "parentNotFound": "Dipartimento padre non trovato",
@@ -1682,6 +1689,8 @@
       "domainReserved": "Il sottodominio è riservato",
       "siteInfoBeforeGeneration": "Genera l’app prima di personalizzare le informazioni del suo sito",
       "generationEditingConflict": "Una generazione IA sta modificando questa app. Riprova ad aggiornare il file al termine.",
+      "codeCopying": "Il codice dell'app è ancora in fase di copia. Riprova tra un momento.",
+      "codeCopyFailed": "La copia del codice dell'app non è riuscita. Duplica di nuovo l'app.",
       "siteInfoLayoutNotEditable": "Il codice di questa app non è predisposto per accettare qui modifiche alle informazioni del sito. Chiedi invece all’IA in chat di cambiare titolo, descrizione o icona del sito.",
       "siteInfoManagedInCode": "Questa app gestisce titolo e descrizione del sito nel codice. Chiedi invece all’IA in chat di modificarli.",
       "accessLinkSetupFailed": "Configurazione del link di accesso non riuscita: {{detail}}",
@@ -1740,7 +1749,8 @@
     "requestFailed": "Richiesta non riuscita",
     "operationFailed": "Operazione non riuscita: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "L'operatore {{operator}} non può confrontare con un altro campo"
+      "operatorNoFieldReference": "L'operatore {{operator}} non può confrontare con un altro campo",
+      "fieldReferenceIncompatible": "Il campo {{reference}} ha un tipo incompatibile e non può essere confrontato con {{source}}"
     },
     "oauth": {
       "invalidRequest": "Richiesta OAuth non valida: {{detail}}",

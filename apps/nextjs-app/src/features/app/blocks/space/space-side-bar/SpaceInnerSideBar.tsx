@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { getUniqName, hasPermission } from '@teable/core';
+import { hasPermission } from '@teable/core';
 import { Plus, Settings, LayoutTemplate } from '@teable/icons';
 import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -24,7 +24,6 @@ import {
 import { TemplateModal } from '@/features/app/components/space/template';
 import { TemplateContext } from '@/features/app/components/space/template/context';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useBaseList } from '../useBaseList';
 import { PinList } from './PinList';
 
 export const SpaceInnerSideBar = (props: {
@@ -42,9 +41,6 @@ export const SpaceInnerSideBar = (props: {
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
     enabled: !!spaceId,
   });
-
-  const allBases = useBaseList();
-  const bases = allBases?.filter((base) => base.spaceId === spaceId);
 
   const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
@@ -65,8 +61,7 @@ export const SpaceInnerSideBar = (props: {
       setCreateBaseOpen(true);
       return;
     }
-    const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
-    createBaseMutator({ spaceId, name });
+    createBaseMutator({ spaceId });
   };
 
   const canCreateBase = space && hasPermission(space?.role, 'base|create');

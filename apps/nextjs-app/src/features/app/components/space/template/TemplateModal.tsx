@@ -9,7 +9,8 @@ import {
   DialogTrigger,
   Input,
 } from '@teable/ui-lib/shadcn';
-import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { TemplateDetail } from './TemplateDetail';
@@ -30,6 +31,14 @@ export const TemplateModal = (props: TemplateModalProps) => {
   const [inputValue, setInputValue] = useState<string>('');
 
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  // Installing leaves for the project it landed in; the catalogue has no business staying open over it.
+  useEffect(() => {
+    const close = () => setOpen(false);
+    router.events.on('routeChangeComplete', close);
+    return () => router.events.off('routeChangeComplete', close);
+  }, [router.events]);
 
   const isMobile = useIsMobile();
 
@@ -45,19 +54,19 @@ export const TemplateModal = (props: TemplateModalProps) => {
   return isMobile ? (
     <TemplateSheet spaceId={spaceId}>{children}</TemplateSheet>
   ) : (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="flex h-[88%] max-h-[88%] max-w-[min(80rem,calc(100%-2rem))] flex-col gap-0 p-0 transition-[max-width] duration-300">
+      <DialogContent className="flex h-[88%] max-h-[88%] max-w-[min(80rem,calc(100%-2rem))] flex-col gap-0 p-0 transition-[max-width] duration-300 @container">
         <DialogHeader className="flex w-full border-b p-4">
-          <div className="relative flex w-full items-center justify-center gap-2">
-            <div className="absolute start-0 flex shrink-0 flex-col gap-0.5">
+          <div className="grid w-full items-center gap-3 @4xl:grid-cols-[1fr_auto_1fr]">
+            <div className="flex flex-col gap-0.5 text-start">
               <DialogTitle>{t('common:template.title')}</DialogTitle>
               <DialogDescription>{t('common:template.description')}</DialogDescription>
             </div>
             <Input
-              placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
+              placeholder={t('common:template.searchPlaceholder')}
               value={inputValue}
-              className={cn('w-72', {
+              className={cn('w-full @4xl:w-72', {
                 'opacity-0': currentTemplateId,
               })}
               onChange={(e) => setInputValue(e.target.value)}

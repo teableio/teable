@@ -38,6 +38,7 @@ import {
   Events,
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { getBaseCached } from '../../utils/meta-ancestry-cache';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -393,7 +394,7 @@ export class CollaboratorService {
       baseIds = map(bases, 'id') as string[];
       baseMap = bases.reduce(
         (acc, base) => {
-          acc[base.id] = { name: base.name, id: base.id };
+          acc[base.id] = { name: baseDisplayName(base.name), id: base.id };
           return acc;
         },
         {} as Record<string, { name: string; id: string }>

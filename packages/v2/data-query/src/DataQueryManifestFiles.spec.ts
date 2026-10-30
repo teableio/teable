@@ -1,6 +1,7 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryManifest } from './DataQueryManifest';
 import { generateAppQueryArtifacts, parseDataQueryManifestText } from './DataQueryManifestFiles';
 
@@ -238,6 +239,74 @@ describe('app query manifest files', () => {
         },
       },
     ]);
+  });
+
+  it('keeps multi-hop relation definitions valid after generating the client', async () => {
+    const manifest = parseDataQueryManifestText(
+      JSON.stringify({
+        schemaVersion: 1,
+        queries: {
+          getTodos: {
+            definition: {
+              version: 2,
+              kind: 'records',
+              tableId: `tbl${'a'.repeat(16)}`,
+              relations: {
+                zParent: { linkFieldId: `fld${'b'.repeat(16)}`, tableId: `tbl${'c'.repeat(16)}` },
+                mChild: {
+                  via: 'zParent',
+                  linkFieldId: `fld${'d'.repeat(16)}`,
+                  tableId: `tbl${'e'.repeat(16)}`,
+                },
+                aGrandchild: {
+                  via: 'mChild',
+                  linkFieldId: `fld${'f'.repeat(16)}`,
+                  tableId: `tbl${'g'.repeat(16)}`,
+                },
+                bPeer: { linkFieldId: `fld${'h'.repeat(16)}`, tableId: `tbl${'i'.repeat(16)}` },
+              },
+              select: [
+                { system: 'id', alias: 'id' },
+                { source: 'aGrandchild', system: 'id', alias: 'descendantId' },
+                { source: 'bPeer', system: 'id', alias: 'peerId' },
+              ],
+            },
+          },
+        },
+      })
+    )._unsafeUnwrap();
+    let sentDefinition: unknown;
+    const generated = loadModule(
+      async (_endpoint, options) => {
+        if (options === null || typeof options !== 'object' || !('body' in options)) {
+          throw new Error('Expected a generated request body');
+        }
+        const body = options.body;
+        if (body === null || typeof body !== 'object' || !('definition' in body)) {
+          throw new Error('Expected a generated definition');
+        }
+        sentDefinition = body.definition;
+        return { ok: true, data: { rows: [] } };
+      },
+      undefined,
+      generateAppQueryArtifacts(manifest)._unsafeUnwrap()
+    );
+
+    await generated.queries.getTodos();
+
+    const parsedDefinition = DataQueryDefinition.create(sentDefinition);
+    if (parsedDefinition.isErr()) throw new Error(parsedDefinition.error.message);
+    const definition = parsedDefinition.value.snapshot();
+    expect(definition.version).toBe(2);
+    if (definition.version !== 2) throw new Error('Expected a relation definition');
+    expect(Object.keys(definition.relations ?? {})).toEqual([
+      'zParent',
+      'mChild',
+      'aGrandchild',
+      'bPeer',
+    ]);
+    expect(definition.relations?.aGrandchild.via).toBe('mChild');
+    expect(definition.relations?.mChild.via).toBe('zParent');
   });
 
   it('routes legacy-only queries and unsupported structured queries through the SQL fallback', async () => {

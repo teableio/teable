@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "No se pudieron cargar los detalles de la plantilla."
+    },
+    "searchPlaceholder": "Buscar plantillas",
+    "rankThisMonth": "#{{rank}} este mes",
+    "listing": {
+      "newest": "Más recientes",
+      "featured": "Destacadas"
+    },
+    "detail": {
+      "install": "Instalar",
+      "installs": "Instalaciones",
+      "author": "Autor",
+      "updated": "Última actualización",
+      "history": "Historial de versiones",
+      "firstRelease": "Primera versión",
+      "about": "Acerca de",
+      "noChangelog": "Actualización general"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "Las plantillas del sistema no se pueden modificar",
         "addCategoryTips": "Por favor ingrese primero un nombre de categoría en el cuadro de búsqueda.",
         "categoryNamePlaceholder": "Introduce el nombre de la categoría",
-        "duplicateCategoryName": "El nombre de la categoría ya existe"
+        "subCategoryNamePlaceholder": "Nombre del subsector",
+        "noSubCategory": "Aún no hay subsectores. Haz clic en el sector de la izquierda para asignarlo directamente.",
+        "duplicateCategoryName": "El nombre de la categoría ya existe",
+        "teamNamePlaceholder": "Nombre del equipo",
+        "addTeamTips": "Introduce primero un nombre de equipo.",
+        "keyPlaceholder": "Clave de URL, p. ej. yoga",
+        "invalidKey": "La clave solo puede contener letras minúsculas, dígitos y guiones"
       },
       "category": {
         "menu": {
           "getStarted": "Comenzar",
           "recommended": "Recomendado",
           "all": "Todos",
-          "browseByCategory": "Explorar por categoría"
+          "browseByCategory": "Explorar por categoría",
+          "byTeam": "Por equipo"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "Usuario no existe",
         "preview": "Vista previa",
         "usage": "Uso",
-        "visit": "Visitas"
+        "visit": "Visitas",
+        "requirements": "Integraciones",
+        "slug": "Slug de URL"
       },
       "actions": {
         "title": "Acciones",
@@ -267,7 +292,12 @@
         "use": "Usar",
         "pinTop": "Fijar arriba",
         "addCategory": "Agregar categoría",
+        "addSubCategory": "Nuevo subsector",
+        "addSubCategoryUnder": "Nuevo subsector en {{name}}",
         "selectCategory": "Seleccionar categoría",
+        "addTeam": "Nuevo equipo",
+        "industries": "Sectores",
+        "teams": "Equipos",
         "viewTemplate": "Ver plantilla",
         "manageCategory": "Gestionar categorías"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "Nueva rutina",
     "newApp": "Nueva aplicación",
     "newFolder": "Nueva carpeta",
-    "template": "Plantilla"
+    "template": "Plantilla",
+    "installedTemplates": "Plantillas instaladas"
   },
   "level": {
     "free": "Gratis",
@@ -516,6 +547,7 @@
   "allNodes": "Todos los nodos",
   "noDescription": "Sin descripción",
   "untitled": "Sin título",
+  "untitledBase": "Proyecto sin título",
   "name": "Nombre",
   "description": "Descripción",
   "required": "Requerido",
@@ -1311,6 +1343,20 @@
         "message": "Este es un correo de prueba, por favor ignóralo."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "Tu plantilla {{name}} ya está publicada",
+            "message": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}.",
+            "messageWithNote": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Nota del revisor: {{note}}",
+            "messageNoPayout": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores.",
+            "messageNoPayoutWithNote": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores. Nota del revisor: {{note}}"
+          },
+          "rejected": {
+            "title": "Tu plantilla {{name}} ha sido devuelta",
+            "message": "{{name}} no ha superado la revisión.",
+            "messageWithNote": "{{name}} no ha superado la revisión. Nota del revisor: {{note}}"
+          }
+        },
         "subject": "Notificación - {{brandName}}",
         "title": "Notificación",
         "buttonText": "Ver",
@@ -1517,6 +1563,26 @@
           "spaceDeleted": {
             "title": "La exportación de tu espacio está lista",
             "message": "Hola, {{name}}:<br><br>Pediste una copia del espacio {{spaceNames}} antes de eliminarlo permanentemente. Ya está lista.<br><br>El siguiente enlace es válido durante {{expiresInDays}} días."
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "Tu tarea se ha completado",
+            "message": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable ha terminado:<br><em>{{prompt}}</em><br><br>El resultado ya está listo para que lo revises.",
+            "messageWithoutPrompt": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable ha terminado.<br><br>El resultado ya está listo para que lo revises.",
+            "buttonText": "Ver resultado"
+          },
+          "failed": {
+            "title": "No se pudo completar tu tarea",
+            "message": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable no terminó:<br><em>{{prompt}}</em><br><br>Ábrela para ver qué pasó y vuelve a intentarlo.",
+            "messageWithoutPrompt": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable no terminó.<br><br>Ábrela para ver qué pasó y vuelve a intentarlo.",
+            "buttonText": "Ver detalles"
+          },
+          "creditExhausted": {
+            "title": "Tu tarea se detuvo: te quedaste sin créditos de IA",
+            "message": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable se detuvo porque te quedaste sin créditos de IA:<br><em>{{prompt}}</em><br><br>Añade créditos o mejora tu plan y continúa donde se quedó.",
+            "messageWithoutPrompt": "Hola {{name}}:<br><br>Una tarea que iniciaste en Teable se detuvo porque te quedaste sin créditos de IA.<br><br>Añade créditos o mejora tu plan y continúa donde se quedó.",
+            "buttonText": "Ver detalles"
           }
         }
       }
@@ -1890,6 +1956,7 @@
       "permission": "Cuppy espera tu confirmación para continuar.",
       "connectIntegration": "Cuppy necesita que conectes una app para continuar.",
       "pickGoogleSheet": "Cuppy necesita que elijas una hoja.",
+      "presentTemplates": "Cuppy ha encontrado una plantilla lista para usar y espera tu decisión.",
       "requestCredential": "Cuppy necesita acceso para continuar."
     },
     "result": {

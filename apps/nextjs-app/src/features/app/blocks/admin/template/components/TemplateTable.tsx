@@ -4,12 +4,13 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, ITemplateVo, IUpdateTemplateRo } from '@teable/openapi';
 import {
-  TemplateKind,
   deleteTemplate,
   getTemplateList,
   pinTopTemplate,
   updateTemplate,
   updateTemplateOrder,
+  URL_KEY_MAX_LENGTH,
+  URL_KEY_PATTERN,
 } from '@teable/openapi';
 import { ReactQueryKeys, useIsHydrated } from '@teable/sdk';
 import {
@@ -37,6 +38,7 @@ import {
   TooltipPortal,
   cn,
 } from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState, useEffect } from 'react';
@@ -110,15 +112,16 @@ export const TemplateTable = ({
     updateTemplateFn({ templateId, updateRo: { featured } });
   };
 
-  const handleSolutionTemplate = (templateId: string, isSolution: boolean) => {
-    updateTemplateFn({
-      templateId,
-      updateRo: { kind: isSolution ? TemplateKind.Solution : TemplateKind.Template },
-    });
-  };
-
   const onChangeTemplateName = (templateId: string, name: string) => {
     updateTemplateFn({ templateId, updateRo: { name } });
+  };
+
+  const onChangeTemplateSlug = (templateId: string, slug: string) => {
+    if (!URL_KEY_PATTERN.test(slug)) {
+      toast.warning(t('settings.templateAdmin.tips.invalidKey'));
+      return;
+    }
+    updateTemplateFn({ templateId, updateRo: { slug } });
   };
 
   const onChangeTemplateDescription = (templateId: string, description: string) => {
@@ -214,6 +217,17 @@ export const TemplateTable = ({
             maxLength={50}
           />
         </TableCell>
+        <TableCell className="min-w-40 font-mono text-xs">
+          <TextEditor
+            value={row.slug ?? ''}
+            defaultPlaceholder={t('settings.templateAdmin.tips.keyPlaceholder')}
+            onChange={(value) => {
+              onChangeTemplateSlug(row.id, value.trim());
+            }}
+            singleLine
+            maxLength={URL_KEY_MAX_LENGTH}
+          />
+        </TableCell>
         <TableCell className="max-w-80">
           <TextEditorDialog
             value={row.description}
@@ -234,7 +248,6 @@ export const TemplateTable = ({
         </TableCell>
         <TableCell>
           <TemplateCategorySelect
-            templateId={row.id}
             value={row.categoryId}
             onChange={(ids) => onChangeTemplateCategory(row.id, ids)}
           />
@@ -257,17 +270,6 @@ export const TemplateTable = ({
           </TemplateTooltips>
         </TableCell>
         <TableCell className="align-middle">{renderRequirements?.(row)}</TableCell>
-        <TableCell className="text-center align-middle">
-          <div title={t('settings.templateAdmin.tips.solution')}>
-            <Switch
-              className="scale-80"
-              defaultChecked={row.kind === TemplateKind.Solution}
-              onCheckedChange={(checked: boolean) => {
-                handleSolutionTemplate(row.id, checked);
-              }}
-            />
-          </div>
-        </TableCell>
         <TableCell className="text-center align-middle">
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needSnapshot')}
@@ -418,6 +420,9 @@ export const TemplateTable = ({
             >
               {t('settings.templateAdmin.header.name')}
             </TableHead>
+            <TableHead className="min-w-40 shrink-0">
+              {t('settings.templateAdmin.header.slug')}
+            </TableHead>
             <TableHead className="min-w-48 shrink-0">
               {t('settings.templateAdmin.header.description')}
             </TableHead>
@@ -435,9 +440,6 @@ export const TemplateTable = ({
             </TableHead>
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.requirements')}
-            </TableHead>
-            <TableHead className="min-w-24 text-center">
-              {t('settings.templateAdmin.header.solution')}
             </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}

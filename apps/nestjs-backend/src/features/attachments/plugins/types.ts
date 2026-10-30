@@ -52,6 +52,8 @@ export interface IListedObject {
   size: number;
   /** content version when the backend provides one (S3/minio ETag; local mtime-size) */
   etag?: string;
+  /** when the backend reports one; cleanups skip objects without it */
+  lastModified?: Date;
 }
 
 export interface IListObjectsResult {

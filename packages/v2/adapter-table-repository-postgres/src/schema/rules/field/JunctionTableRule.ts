@@ -33,7 +33,7 @@ import {
   dataStatement,
   dropConstraintStatement,
   dropIndexStatement,
-  dropTableStatement,
+  dropOwnedTableStatement,
   quoteIdentifier,
   quoteTableIdentifier,
   type TableIdentifier,
@@ -577,8 +577,7 @@ export class JunctionTableExistsRule implements ISchemaRule {
   }
 
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // DROP TABLE CASCADE will automatically drop FK constraints and indexes
-    return ok([dropTableStatement(this.config.junctionTable)]);
+    return ok([dropOwnedTableStatement(this.config.junctionTable)]);
   }
 
   async manualRepair(

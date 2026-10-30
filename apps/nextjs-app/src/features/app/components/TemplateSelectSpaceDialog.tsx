@@ -28,7 +28,8 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useContext, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { SpaceAvatar } from './space/SpaceAvatar';
-import { TemplateHostContext } from './space/template/host-context';
+import type { ITemplateInstallResult } from './space/template/host-context';
+import { TemplateHostContext, TemplateHostInstallSource } from './space/template/host-context';
 
 export interface ITemplateSelectSpaceDialogRef {
   setOpen: (open: boolean) => void;
@@ -38,7 +39,7 @@ interface ITemplateSelectSpaceDialogProps {
   templateId: string;
   /**
    * Full detail, once loaded: lets the host decide how this template is applied.
-   * The confirm waits for it, so a solution is never applied as a plain copy.
+   * The confirm waits for it, so a template is never applied as a plain copy.
    */
   template?: ITemplateVo;
   /** The detail request failed; the dialog offers a retry instead of a fallback. */
@@ -52,7 +53,6 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
 >(({ templateId, template, templateError, onRetryTemplate }, ref) => {
   const { t } = useTranslation(['common']);
   const host = useContext(TemplateHostContext);
-  const useOptions = template ? host.useOptions?.(template) : undefined;
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>();
   const [newSpaceName, setNewSpaceName] = useState('');
   const router = useRouter();
@@ -66,32 +66,36 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
   }));
 
   const { mutateAsync: applyTemplateMutator } = useMutation({
-    mutationFn: ({ spaceId, templateId }: { spaceId: string; templateId: string }) =>
-      createBaseFromTemplate({
+    mutationFn: async ({
+      spaceId,
+      templateId,
+    }: {
+      spaceId: string;
+      templateId: string;
+    }): Promise<ITemplateInstallResult | undefined> => {
+      if (host.install) {
+        return host.install({
+          templateId,
+          spaceId,
+          source: TemplateHostInstallSource.Share,
+          queryClient,
+        });
+      }
+      const { data } = await createBaseFromTemplate({
         spaceId,
         templateId,
-        withRecords: useOptions?.withRecords ?? true,
+        withRecords: true,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }),
-    onSuccess: ({ data }) => {
+      });
+      return { redirect: data.defaultUrl ?? `/base/${data.id}`, baseId: data.id };
+    },
+    onSuccess: (res) => {
+      if (!res) {
+        setApplyTemplateLoading(false);
+        return;
+      }
       setOpen(false);
-      const { id: baseId, defaultUrl } = data;
-
-      // The host may own the landing (EE: a solution goes to its setup flow first)
-      const hostUrl = useOptions?.redirect?.(data);
-      if (hostUrl) {
-        window.location.href = hostUrl;
-        return;
-      }
-
-      // If defaultUrl is provided, navigate to it directly (e.g., to a default node)
-      if (defaultUrl) {
-        window.location.href = defaultUrl;
-        return;
-      }
-
-      // Otherwise, navigate to base home
-      window.location.href = `/base/${baseId}`;
+      window.location.href = res.redirect;
     },
     onError: () => {
       setApplyTemplateLoading(false);

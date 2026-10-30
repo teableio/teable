@@ -39,3 +39,26 @@ Denied operations leave both source and target schemas unchanged.
 One-way cross-project references remain available to readers. Ordinary inverse
 record synchronization through an established two-way relationship is unchanged.
 Regression coverage: `test/cross-base-link-field-authz.e2e-spec.ts`.
+
+## Nested Link-title record creation
+
+Pasting an unresolved Link title requires `record|create` on the actual target
+table before any nested row write. If typecasting a surviving target primary value
+would add a select option, the actor also needs `field|update` on that same target;
+resolving an existing option does not require a schema grant. The schema check runs
+in `afterGuard`, after all row-overflow and cell-isolation guards finish but before
+select-option side effects or persistence. Discarded rows do not demand schema
+permission, while surviving new options still fail closed without it. Core carries
+the originating base, table, and Link field as `linkTitleSource`, but no host permissions.
+Direct batch creates, upsert, table seeds, and duplication do not gain this
+additional gate merely because they also use `createMany`.
+
+Community uses target role permissions. Enterprise installs its existing record
+write and target-schema policies in the same container, so matrix grants and field
+restrictions are not replaced by a second Community role check. Only robot actors
+use temporary-base scope; a human JWT remains governed by the host policy. PAT
+resource/action limits and native share-view, project-share, and template scopes
+still apply to the target. Unscoped internal/system calls retain their existing
+behavior.
+Regression coverage: `test/cross-base-paste-auto-create-authz.e2e-spec.ts` and the
+record feature's Link-title permission and plugin-registrar unit tests.

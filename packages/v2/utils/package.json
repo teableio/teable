@@ -33,6 +33,7 @@
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent",
+    "test-ssrf-bun": "bun test scripts/fetch-ssrf.bun.test.ts",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "oxlint --fix && oxfmt"
   },

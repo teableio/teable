@@ -23,9 +23,10 @@ export class AiController {
   @Get('/config')
   @Permissions('base|read')
   async getAIConfig(@Param('baseId') baseId: string) {
-    return await this.aiService.getSimplifiedAIConfig(baseId);
+    return await this.aiService.getBaseAIConfigVo(baseId);
   }
 
+  /** @deprecated `ai/config` returns the same `disableActions`; kept for existing API clients. */
   @Get('/disable-ai-actions')
   @Permissions('base|read')
   async getAIDisableAIActions(@Param('baseId') baseId: string) {

@@ -29,7 +29,17 @@
     "records_many": "{{formattedCount}} registros",
     "records_other": "{{formattedCount}} registros",
     "batchesComplete": "Lotes completados {{completed}}/{{total}}",
-    "progressAriaLabel": "Progreso del cálculo de {{fieldName}}"
+    "progressAriaLabel": "Progreso del cálculo de {{fieldName}}",
+    "statusUnavailable": "El estado de los cálculos no está disponible temporalmente",
+    "statusSyncing": "Comprobando el estado de los cálculos",
+    "statusSyncingDescription": "Estamos comprobando el estado más reciente de los cálculos. Esto no significa que haya cálculos en ejecución.",
+    "statusUnavailableDescription": "No se ha podido cargar el estado más reciente de los cálculos. Actualiza el estado para volver a intentarlo; esto no reiniciará los cálculos.",
+    "refreshStatus": "Actualizar estado",
+    "paused": "Los cálculos están en pausa",
+    "resultsNotUpdated": "Algunos resultados de cálculo no se han actualizado",
+    "delayed": "Actualización de los cálculos con retraso · {{seconds}} s",
+    "snapshotMayBeStale": "Se muestra el último estado conocido, que puede estar desactualizado.",
+    "unknownImpact": "Algunos resultados de cálculo no se han actualizado; se están identificando los campos afectados"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Aviso",
@@ -1109,6 +1119,7 @@
     "insertRecordBelow": "Insertar <input /> registro a continuación",
     "deleteRecord": "Eliminar registro",
     "deleteAllSelectedRecords": "Eliminar todos los registros seleccionados",
+    "copy": "Copiar",
     "archiveRecord": "Archivar registro",
     "archiveAllSelectedRecords": "Archivar todos los registros seleccionados",
     "duplicateRecords": "Duplicar los registros seleccionados",
@@ -1328,6 +1339,25 @@
       },
       "chooseAccount": "¿De qué cuenta de Google deben provenir las hojas de cálculo?"
     },
+    "templateOffer": {
+      "title": "Plantillas sugeridas",
+      "details": "Detalles",
+      "found_one": "Se ha encontrado una plantilla lista para usar",
+      "found_many": "Se han encontrado {{count}} plantillas listas para usar",
+      "found_other": "Se han encontrado {{count}} plantillas listas para usar",
+      "defaultReason": "Instala una en lugar de crearla desde cero.",
+      "install": "Instalar",
+      "installing": "Instalando…",
+      "dismiss": "No, gracias",
+      "close": "Cerrar",
+      "failed": "No se ha podido registrar tu elección. Inténtalo de nuevo.",
+      "unavailable": "Estas plantillas ya no están disponibles.",
+      "status": {
+        "installed": "Instalada",
+        "dismissed": "Omitida",
+        "failed": "Error"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "O escribe tu respuesta…",
@@ -1342,6 +1372,10 @@
         "nextQuestion": "Pregunta siguiente"
       },
       "completion": {
+        "workedFor": "Ha trabajado durante {{time}}",
+        "worked": "Proceso de trabajo",
+        "stoppedAfter": "Lo has detenido tras {{time}}",
+        "stopped": "Has detenido esta respuesta",
         "noDetails": "No hay detalles disponibles",
         "model": "Modelo",
         "contextWindow": "Ventana de contexto",
@@ -1395,9 +1429,6 @@
         "copied": "¡Copiado!",
         "fullscreen": "Pantalla completa",
         "exitFullscreen": "Salir de pantalla completa",
-        "downloadSuccess": "Imagen descargada correctamente",
-        "downloadFailed": "Error al capturar la imagen",
-        "iframeFailed": "Error al capturar: iframe no accesible",
         "iframeTitle": "Vista previa HTML"
       }
     },
@@ -1559,7 +1590,25 @@
       "selectionRows": "Filas {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Registro sin nombre",
+      "selectionRecords": "{{count}} registros",
+      "selectionCellCount": "{{count}} celdas",
+      "selectionRecordType": "Referencia de registros",
+      "selectionCellType": "Referencia de celdas",
+      "selectionDimensions": "{{rows}} filas × {{columns}} columnas",
+      "selectionUnavailable": "No disponible o eliminado",
+      "selectionLegacyUnavailable": "Esta referencia antigua no tiene ID de selección estables. La vista previa no está disponible.",
+      "selectionSourceUnknown": "Origen no disponible",
+      "selectionPreview": "Vista previa de la selección: {{label}}",
+      "selectionSource": "Tabla de origen: {{table}}",
+      "selectionSelectedFields": "Este contexto solo incluye los campos seleccionados.",
+      "selectionIdentificationOnly": "El título principal se muestra solo a efectos de identificación.",
+      "selectionEmpty": "Vacío",
+      "selectionOpenRecord": "Abrir el registro {{name}}",
+      "selectionPrevious": "Anterior",
+      "selectionNext": "Siguiente",
+      "selectionPage": "{{start}}–{{end}} de {{count}} registros"
     },
     "mention": {
       "tables": "Tablas",
@@ -1588,7 +1637,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Texto pegado",
-      "imageNotSupported": "La imagen no es compatible",
       "tooManyFiles": "Puedes adjuntar como máximo {{count}} archivos por mensaje"
     },
     "suggestions": {
@@ -1650,9 +1698,12 @@
       "nQueued": "{{count}} en cola",
       "edit": "Editar",
       "steerNow": "Orientar la conversación sin interrumpirla",
-      "steerFailed": "No se pudo orientar la conversación. El mensaje permanece en la cola.",
+      "steer": "Orientar",
       "conversationInputMarker": "Conversación orientada",
-      "removeFromQueue": "Quitar"
+      "removeFromQueue": "Quitar",
+      "paused": "Cola en pausa porque has interrumpido",
+      "resume": "Reanudar",
+      "queueFull": "La cola de envío está llena. Espera a que Cuppy se ponga al día."
     },
     "partTool": {
       "bash": "Ejecutar comando",
@@ -1667,6 +1718,9 @@
       "skill": "Cargando habilidad",
       "foundFiles": "Se encontraron {{count}} archivos",
       "listedEntries": "{{count}} entradas",
+      "ranCommands_one": "Ha ejecutado {{count}} comando",
+      "ranCommands_many": "Ha ejecutado {{count}} comandos",
+      "ranCommands_other": "Ha ejecutado {{count}} comandos",
       "moreItems": "+{{count}} más",
       "fallbackName": "Herramienta",
       "questionCount_one": "{{count}} pregunta",
@@ -1797,6 +1851,9 @@
       "droppedRulesDetail": "Estas reglas están vinculadas a los nodos que se mueven; en su lugar se aplica la configuración de permisos del proyecto de destino.",
       "successTitle": "Trasladado",
       "successDescription": "\"{{name}}\" ya está en {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> nodo movido a <b>{{baseName}}</b>",
+      "successDescription_many": "<b>{{count}}</b> nodos movidos a <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> nodos movidos a <b>{{baseName}}</b>",
       "open": "Abrir",
       "appEmbeddedId_one": "{{count}} aplicación menciona el proyecto anterior en su código; actualízala por tu cuenta",
       "appEmbeddedId_many": "{{count}} aplicaciones mencionan el proyecto anterior en su código; actualízalas por tu cuenta",

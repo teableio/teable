@@ -26,6 +26,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
@@ -242,7 +243,7 @@ export class BaseShareOpenController {
     });
     return {
       id: base.id,
-      name: base.name,
+      name: baseDisplayName(base.name),
       spaceId: base.spaceId,
     };
   }

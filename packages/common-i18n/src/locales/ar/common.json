@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "اسم المساحة",
       "createSpace": "إنشاء",
       "loadFailed": "تعذّر تحميل تفاصيل القالب."
+    },
+    "searchPlaceholder": "البحث في القوالب",
+    "rankThisMonth": "#{{rank}} هذا الشهر",
+    "listing": {
+      "newest": "الأحدث",
+      "featured": "مميّز"
+    },
+    "detail": {
+      "install": "تثبيت",
+      "installs": "عمليات التثبيت",
+      "author": "المؤلف",
+      "updated": "آخر تحديث",
+      "history": "سجل الإصدارات",
+      "firstRelease": "الإصدار الأول",
+      "about": "نبذة",
+      "noChangelog": "تحديث عام"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "لا يمكن تعديل قوالب النظام",
         "addCategoryTips": "يرجى إدخال اسم التصنيف في حقل البحث أولًا.",
         "categoryNamePlaceholder": "أدخل اسم الفئة",
-        "duplicateCategoryName": "اسم الفئة موجود بالفعل"
+        "subCategoryNamePlaceholder": "اسم القطاع الفرعي",
+        "noSubCategory": "لا توجد قطاعات فرعية بعد. انقر على القطاع في اليسار لوسمه.",
+        "duplicateCategoryName": "اسم الفئة موجود بالفعل",
+        "teamNamePlaceholder": "اسم الفريق",
+        "addTeamTips": "أدخل اسم الفريق أولًا.",
+        "keyPlaceholder": "مفتاح الرابط، مثل yoga",
+        "invalidKey": "يتكون المفتاح من أحرف لاتينية صغيرة وأرقام وشرطات"
       },
       "category": {
         "menu": {
           "getStarted": "البدء",
           "recommended": "موصى به",
           "all": "الكل",
-          "browseByCategory": "التصفح حسب التصنيف"
+          "browseByCategory": "التصفح حسب التصنيف",
+          "byTeam": "حسب الفريق"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "المستخدم غير موجود",
         "preview": "معاينة",
         "usage": "الاستخدام",
-        "visit": "زيارة"
+        "visit": "زيارة",
+        "requirements": "التكاملات",
+        "slug": "المعرّف في الرابط (slug)"
       },
       "actions": {
         "title": "الإجراءات",
@@ -267,7 +292,12 @@
         "use": "استخدام",
         "pinTop": "التثبيت في الأعلى",
         "addCategory": "إضافة تصنيف",
+        "addSubCategory": "قطاع فرعي جديد",
+        "addSubCategoryUnder": "قطاع فرعي جديد ضمن {{name}}",
         "selectCategory": "اختيار تصنيف",
+        "addTeam": "فريق جديد",
+        "industries": "القطاعات",
+        "teams": "الفرق",
         "viewTemplate": "عرض القالب",
         "manageCategory": "إدارة التصنيفات"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "روتين جديد",
     "newApp": "تطبيق جديد",
     "newFolder": "مجلد جديد",
-    "template": "قالب"
+    "template": "قالب",
+    "installedTemplates": "القوالب المثبّتة"
   },
   "level": {
     "free": "مجاني",
@@ -516,6 +547,7 @@
   "allNodes": "كل العُقد",
   "noDescription": "لا يوجد وصف",
   "untitled": "بلا عنوان",
+  "untitledBase": "مشروع بلا عنوان",
   "name": "الاسم",
   "description": "الوصف",
   "required": "مطلوب",
@@ -1317,6 +1349,20 @@
         "message": "هذه رسالة اختبارية، يرجى تجاهلها."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "قالبك {{name}} متاح الآن",
+            "message": "اجتاز {{name}} المراجعة وأصبح متاحًا للعامة بالإصدار {{version}}.",
+            "messageWithNote": "اجتاز {{name}} المراجعة وأصبح متاحًا للعامة بالإصدار {{version}}. ملاحظة المراجِع: {{note}}",
+            "messageNoPayout": "اجتاز {{name}} المراجعة وأصبح متاحًا للعامة بالإصدار {{version}}. لم تُعِدّ طريقة صرف بعد، لذا سيتم ترحيل الأرباح؛ أضف واحدة في مركز المنشئين.",
+            "messageNoPayoutWithNote": "اجتاز {{name}} المراجعة وأصبح متاحًا للعامة بالإصدار {{version}}. لم تُعِدّ طريقة صرف بعد، لذا سيتم ترحيل الأرباح؛ أضف واحدة في مركز المنشئين. ملاحظة المراجِع: {{note}}"
+          },
+          "rejected": {
+            "title": "أُعيد قالبك {{name}} للتعديل",
+            "message": "لم يجتز {{name}} المراجعة.",
+            "messageWithNote": "لم يجتز {{name}} المراجعة. ملاحظة المراجِع: {{note}}"
+          }
+        },
         "subject": "إشعار - {{brandName}}",
         "title": "إشعار",
         "buttonText": "عرض",
@@ -1523,6 +1569,26 @@
           "spaceDeleted": {
             "title": "تصدير مساحتك جاهز",
             "message": "مرحبًا {{name}}،<br><br>طلبت نسخة من المساحة {{spaceNames}} قبل حذفها نهائيًا. النسخة جاهزة الآن.<br><br>الرابط أدناه صالح لمدة {{expiresInDays}} يوم."
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "اكتملت مهمتك",
+            "message": "مرحبًا {{name}}،<br><br>اكتملت مهمة بدأتها في Teable:<br><em>{{prompt}}</em><br><br>النتيجة جاهزة لتطّلع عليها.",
+            "messageWithoutPrompt": "مرحبًا {{name}}،<br><br>اكتملت مهمة بدأتها في Teable.<br><br>النتيجة جاهزة لتطّلع عليها.",
+            "buttonText": "عرض النتيجة"
+          },
+          "failed": {
+            "title": "تعذّر إكمال مهمتك",
+            "message": "مرحبًا {{name}}،<br><br>لم تكتمل مهمة بدأتها في Teable:<br><em>{{prompt}}</em><br><br>افتحها لمعرفة ما حدث ثم أعد المحاولة.",
+            "messageWithoutPrompt": "مرحبًا {{name}}،<br><br>لم تكتمل مهمة بدأتها في Teable.<br><br>افتحها لمعرفة ما حدث ثم أعد المحاولة.",
+            "buttonText": "عرض التفاصيل"
+          },
+          "creditExhausted": {
+            "title": "توقفت مهمتك: نفدت أرصدة الذكاء الاصطناعي",
+            "message": "مرحبًا {{name}}،<br><br>توقفت مهمة بدأتها في Teable لأن أرصدة الذكاء الاصطناعي لديك نفدت:<br><em>{{prompt}}</em><br><br>أضف أرصدة أو رقِّ خطتك، ثم تابع من حيث توقفت.",
+            "messageWithoutPrompt": "مرحبًا {{name}}،<br><br>توقفت مهمة بدأتها في Teable لأن أرصدة الذكاء الاصطناعي لديك نفدت.<br><br>أضف أرصدة أو رقِّ خطتك، ثم تابع من حيث توقفت.",
+            "buttonText": "عرض التفاصيل"
           }
         }
       }
@@ -1899,6 +1965,7 @@
       "permission": "ينتظر Cuppy تأكيدك للمتابعة.",
       "connectIntegration": "يحتاج Cuppy إلى ربط تطبيق للمتابعة.",
       "pickGoogleSheet": "يحتاج Cuppy إلى اختيارك لجدول.",
+      "presentTemplates": "وجد Cuppy قالبًا جاهزًا وينتظر قرارك.",
       "requestCredential": "يحتاج Cuppy إلى صلاحية للمتابعة."
     },
     "result": {

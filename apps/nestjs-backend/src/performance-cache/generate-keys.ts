@@ -52,7 +52,7 @@ export function generateTemplateCacheKeyByBaseId(baseId: string) {
 }
 
 export function generateTemplateCategoryCacheKey() {
-  return `template:category-list` as const;
+  return `template:category-list:v2` as const;
 }
 
 export function generateTemplatePermalinkCacheKey(identifier: string) {

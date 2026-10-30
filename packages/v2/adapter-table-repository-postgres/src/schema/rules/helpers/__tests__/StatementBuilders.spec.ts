@@ -5,6 +5,7 @@ import {
   createForeignKeyConstraintStatement,
   dropColumnStatement,
   dropConstraintStatement,
+  dropOwnedTableStatement,
   dropTableStatement,
 } from '../StatementBuilders';
 
@@ -65,6 +66,16 @@ describe('StatementBuilders', () => {
     expect(builder.scope).toBe('data');
     const compiled = builder.compile(db);
     expect(compiled.sql).toBe('drop table if exists "bseExampleSchema"."tblExampleTable" cascade');
+    expect(compiled.parameters).toEqual([]);
+  });
+
+  it('drops owned relation tables without cascading into external objects', () => {
+    const db = createTestDb();
+    const builder = dropOwnedTableStatement(target);
+
+    expect(builder.scope).toBe('data');
+    const compiled = builder.compile(db);
+    expect(compiled.sql).toBe('drop table if exists "bseExampleSchema"."tblExampleTable" restrict');
     expect(compiled.parameters).toEqual([]);
   });
 

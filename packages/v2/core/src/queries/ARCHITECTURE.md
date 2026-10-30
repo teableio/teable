@@ -45,10 +45,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `GetViewSelectionCopyHandler.ts` - Role: query handler; Purpose: load the authorized partial
   Table aggregate, execute its copy plan through the existing Table Record repository, and format
   the selected v2 Field values as clipboard text.
-- `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records or resolve a target record's zero-based index in the same authorized filter/search/order scope without fetching preceding rows.
+- `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records or resolve a target record's zero-based index in the same authorized filter/search/order scope without fetching preceding rows. Trusted match scans may page the authorized view scope without applying the row-search predicate, while still computing masked cell flags.
 - `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is an opaque keyset token carrying the previous page's order-key values, and cannot mix with offset. Trusted `recordIndexId` selects index-only repository execution.
-- `CountTableRecordsHandler.ts` - Role: query handler; Purpose: count rows for a table without fetching records.
-- `CountTableRecordsQuery.ts` - Role: query DTO; Purpose: validate table/view/filter/search/link inputs for row counts.
+- `CountTableRecordsHandler.ts` - Role: query handler; Purpose: count rows or, in trusted host mode, exact visible search-cell matches without fetching records.
+- `CountTableRecordsQuery.ts` - Role: query DTO; Purpose: validate table/view/filter/search/link inputs for row and visible search-cell counts.
 - `AggregateTableRecordsQuery.ts` / `AggregateTableRecordsHandler.ts` - Role: aggregation query; Purpose: evaluate totals, grouped statistics, and selected ranges with optional view defaults, link/record selections, row scope, and conditional field masks. Ignored or absent views do not apply saved statistics/filter defaults.
 - `GetCalendarDailyCollectionQuery.ts` / `GetCalendarDailyCollectionHandler.ts` - Role: calendar query; Purpose: collect date buckets and readable records using optional view defaults, row scope, and the same masked values for date ranges, search, and returned cells.
 - `GetRecordStatusQuery.ts` - Role: query DTO; Purpose: validate Table/Record IDs plus the

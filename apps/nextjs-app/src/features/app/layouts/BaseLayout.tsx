@@ -1,11 +1,10 @@
 import type { DehydratedState } from '@tanstack/react-query';
 import type { IGetBaseVo, ITableVo } from '@teable/openapi';
 import type { IUser } from '@teable/sdk';
-import { ExpandRecordNavigationContext, NotificationProvider, SessionProvider } from '@teable/sdk';
+import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { Fragment, useCallback, useMemo } from 'react';
+import React, { Fragment } from 'react';
 import { AppLayout } from '@/features/app/layouts';
 import { WorkFlowPanelModal } from '../automation/workflow-panel/WorkFlowPanelModal';
 import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
@@ -13,10 +12,9 @@ import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { QuickAction } from '../blocks/base/base-side-bar/QuickAction';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
-import { useTableHref } from '../blocks/table-list/useTableHref';
-import { useGridSearchStore } from '../blocks/view/grid/useGridSearchStore';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { ExpandRecordAddToChatProvider } from '../components/expand-record-container/ExpandRecordAddToChatProvider';
+import { ExpandRecordNavigationProvider } from '../components/ExpandRecordNavigationProvider';
 import { LinkConnectorLine } from '../components/LinkConnectorLine';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
@@ -30,29 +28,10 @@ import { preventContextMenuUnlessText } from '../utils/prevent-context-menu';
 import { TemplateBaseLayout } from './TemplateBaseLayout';
 
 const BaseLayoutInner: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const router = useRouter();
   const isEmbed = useEmbedMode();
-  const { setHighlightedTableId } = useGridSearchStore();
-  const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
-
-  const navigateToTable = useCallback(
-    (tableId: string) => {
-      const url = tableHrefMap[tableId];
-      const viewId = tableViewIdsMap[tableId];
-      if (url) {
-        router.push({ pathname: url }, undefined, { shallow: Boolean(viewId) });
-      }
-    },
-    [tableHrefMap, tableViewIdsMap, router]
-  );
-
-  const expandRecordNavValue = useMemo(
-    () => ({ onHighlightTable: setHighlightedTableId, navigateToTable }),
-    [setHighlightedTableId, navigateToTable]
-  );
 
   return (
-    <ExpandRecordNavigationContext.Provider value={expandRecordNavValue}>
+    <ExpandRecordNavigationProvider>
       <ExpandRecordAddToChatProvider>
         <div
           id="portal"
@@ -80,7 +59,7 @@ const BaseLayoutInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <UsageLimitModal />
         <WorkFlowPanelModal />
       </ExpandRecordAddToChatProvider>
-    </ExpandRecordNavigationContext.Provider>
+    </ExpandRecordNavigationProvider>
   );
 };
 

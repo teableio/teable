@@ -9,6 +9,7 @@ import { isEmpty } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 
 interface IAccessListProps {
   baseIds?: string[];
@@ -23,6 +24,7 @@ export const AccessList = (props: IAccessListProps) => {
   const { baseIds, spaceIds, hasFullAccess, onDeleteBaseId, onDeleteSpaceId, onDeleteFullAccess } =
     props;
   const { t } = useTranslation('token');
+  const { t: tCommon } = useTranslation('common');
   const contentDir = useContentDir();
 
   const { data: spaceList } = useQuery({
@@ -126,7 +128,7 @@ export const AccessList = (props: IAccessListProps) => {
                     ) : (
                       <LayoutGrid className="size-4 shrink-0" />
                     )}
-                    <span dir={contentDir}>{base.name}</span>
+                    <span dir={contentDir}>{getBaseDisplayName(base.name, tCommon)}</span>
                   </div>
                   <Button
                     variant={'ghost'}

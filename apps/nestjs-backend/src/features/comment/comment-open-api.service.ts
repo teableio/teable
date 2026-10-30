@@ -24,6 +24,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { baseDisplayName } from '../../utils/base-name';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import {
@@ -32,6 +33,7 @@ import {
   getPublicFullStorageUrl,
 } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
+import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { NotificationService } from '../notification/notification.service';
 import { RecordService } from '../record/record.service';
@@ -53,7 +55,8 @@ export class CommentOpenApiService {
     private readonly cacheService: CacheService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly audit: AuditScope,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly permissionService: PermissionService
   ) {}
 
   private async collectionsContext(comment: ICommentContent | null) {
@@ -568,16 +571,28 @@ export class CommentOpenApiService {
     });
   }
 
+  // Base creators and owners moderate the thread: they may delete anyone's comment,
+  // including ones written as App Robot. Checked against the base role rather than
+  // cls.permissions, which AuthorityGuard widens to Creator for unrestricted users.
+  private async canDeleteOthersComments(tableId: string) {
+    const permissions = await this.permissionService.getPermissions(
+      tableId,
+      this.cls.get('accessTokenId')
+    );
+    return permissions.includes('table|update');
+  }
+
   async deleteComment(tableId: string, recordId: string, commentId: string) {
-    const result = await this.prismaService.comment.updateMany({
-      where: {
-        ...this.getCommentScopeWhere(tableId, recordId, commentId),
-        createdBy: this.cls.get('user.id'),
-      },
-      data: {
-        deletedTime: new Date().toISOString(),
-      },
+    const scopeWhere = this.getCommentScopeWhere(tableId, recordId, commentId);
+    const data = { deletedTime: new Date().toISOString() };
+    let result = await this.prismaService.comment.updateMany({
+      where: { ...scopeWhere, createdBy: this.cls.get('user.id') },
+      data,
     });
+
+    if (!result.count && (await this.canDeleteOthersComments(tableId))) {
+      result = await this.prismaService.comment.updateMany({ where: scopeWhere, data });
+    }
 
     if (!result.count) {
       this.throwCommentNotFound();
@@ -891,7 +906,12 @@ export class CommentOpenApiService {
 
     const message: ILocalization<I18nPath> = {
       i18nKey: 'common.email.templates.notify.recordComment.message',
-      context: { fromUserName, recordName: recordName ?? '', tableName, baseName },
+      context: {
+        fromUserName,
+        recordName: recordName ?? '',
+        tableName,
+        baseName: baseDisplayName(baseName),
+      },
     };
 
     subscribeUsersIds.forEach((userId) => {

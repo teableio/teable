@@ -8,7 +8,10 @@ import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/op
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useContentDir } from '@teable/sdk/hooks';
 import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useState, type FC, useRef } from 'react';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { ColorBg } from './ColorBg';
@@ -24,11 +27,13 @@ interface IBaseCard {
 
 export const BaseCard: FC<IBaseCard> = (props) => {
   const contentDir = useContentDir();
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { base, className, spaceName } = props;
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [baseName, setBaseName] = useState<string>(base.name);
+  // An unnamed base starts the rename input empty; the placeholder shows what it is called
+  const [baseName, setBaseName] = useState<string>(base.name ?? '');
   const { enterBase, enterBaseOverlay } = useEnterBase();
 
   const { mutateAsync: updateBaseMutator } = useMutation({
@@ -140,6 +145,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                   className="flex-1"
                   size="sm"
                   value={baseName}
+                  placeholder={t('common:untitledBase')}
                   onChange={(e) => setBaseName(e.target.value)}
                   onBlur={toggleRenameBase}
                   onClick={clickStopPropagation}
@@ -149,8 +155,12 @@ export const BaseCard: FC<IBaseCard> = (props) => {
             ) : (
               <div className="flex-1">
                 <div className="flex items-center gap-1">
-                  <h3 dir={contentDir} className="line-clamp-2 text-sm" title={base.name}>
-                    {base.name}
+                  <h3
+                    dir={contentDir}
+                    className="line-clamp-2 text-sm"
+                    title={getBaseDisplayName(base.name, t)}
+                  >
+                    {getBaseDisplayName(base.name, t)}
                   </h3>
                   {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
                 </div>

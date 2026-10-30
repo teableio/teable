@@ -115,6 +115,23 @@ export class ObservedTableRecordQueryRepository implements ObservableTableRecord
     );
   }
 
+  async countSearchMatches(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    return this.observeResult(
+      context,
+      table,
+      spec,
+      options,
+      () => this.inner.countSearchMatches(context, table, spec, options),
+      (value) => value,
+      { queryKind: 'search' }
+    );
+  }
+
   async aggregate(
     ...args: Parameters<ITableRecordAggregationQueryRepository['aggregate']>
   ): ReturnType<ITableRecordAggregationQueryRepository['aggregate']> {

@@ -291,7 +291,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     [syncScroller]
   );
 
-  // A finger rarely lands on a 10px scrollbar: on touch, a touch near a thumb drags it, ahead of
+  // A finger rarely lands on an 8px scrollbar: on touch, a touch near a thumb drags it, ahead of
   // the canvas's own panning; anywhere else the grid's touch handling is untouched.
   const onThumbTouchStart = useCallback(
     (e: TouchEvent) => {
@@ -372,12 +372,14 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   useEventListener('touchend', onThumbTouchEnd, gridRoot, false, true);
   useEventListener('touchcancel', onThumbTouchEnd, gridRoot, false, true);
 
+  // The track margins keep each thumb half the grid card's 8px corner radius from its ends, so a
+  // rounded corner never cuts it.
   return (
     <>
       <div
         ref={horizontalScrollRef}
         className={cn(
-          'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px] absolute bottom-[2px] start-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform',
+          'scrollbar scrollbar-thumb-foreground/35 hover:scrollbar-thumb-foreground/50 scrollbar-thumb-rounded-md scrollbar-h-2 [&::-webkit-scrollbar-track]:mx-1 absolute bottom-[2px] start-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform',
           !scrollBarVisible && 'opacity-0 pointer-events-none'
         )}
         style={{
@@ -397,7 +399,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       <div
         ref={verticalScrollRef}
         className={cn(
-          'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb absolute end-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform',
+          'scrollbar scrollbar-thumb-foreground/35 hover:scrollbar-thumb-foreground/50 scrollbar-thumb-rounded-md scrollbar-w-2 scrollbar-min-thumb [&::-webkit-scrollbar-track]:my-1 absolute end-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform',
           !scrollBarVisible && 'opacity-0 pointer-events-none'
         )}
         style={{

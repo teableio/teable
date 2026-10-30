@@ -14,11 +14,47 @@ end
 return count
 `;
 
+// Locks use the same Keyv envelope as setnx()/get(). Renewal must update both
+// the Redis TTL and the embedded expiry; EXPIRE alone leaves get() seeing an expired key.
+const RENEW_LOCK_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return 0 end
+local value = cjson.decode(raw)
+if value.value ~= ARGV[1] or (value.expires and value.expires <= tonumber(ARGV[4])) then return 0 end
+redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+return 1
+`;
+
+const RELEASE_LOCK_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+if not raw or cjson.decode(raw).value ~= ARGV[1] then return 0 end
+return redis.call('DEL', KEYS[1])
+`;
+
 @Injectable()
 export class CacheService<T extends ICacheStore = ICacheStore> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(private readonly cacheManager: Keyv<any>) {}
   private readonly logger = new Logger(CacheService.name);
+  private readonly localLockOperations = new Map<keyof T, Promise<void>>();
+
+  // Non-Redis stores have no distributed CAS. Serialize this process's lock
+  // operations, including acquisition, so an async get/set cannot race a takeover.
+  private async withLocalLock<TResult>(key: keyof T, operation: () => Promise<TResult>) {
+    const previous = this.localLockOperations.get(key);
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.localLockOperations.set(key, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.localLockOperations.get(key) === current) this.localLockOperations.delete(key);
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getKeyv(): Keyv<any> {
@@ -80,13 +116,12 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   ): Promise<boolean> {
     const redis = this.getRedisClient();
     if (!redis) {
-      // Fallback for non-Redis: not truly atomic, but better than nothing
-      const existing = await this.get(key);
-      if (existing !== undefined) {
-        return false;
-      }
-      await this.setDetail(key, value, ttlSeconds);
-      return true;
+      return this.withLocalLock(key, async () => {
+        const existing = await this.get(key);
+        if (existing !== undefined) return false;
+        await this.setDetail(key, value, ttlSeconds);
+        return true;
+      });
     }
 
     const result = await redis.set(
@@ -97,6 +132,45 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
       'NX'
     );
     return result === 'OK';
+  }
+
+  /** Atomically renew a string-token lock only while it still belongs to this owner. */
+  async renewLock<TKey extends keyof T>(
+    key: TKey,
+    token: string,
+    ttlSeconds: number
+  ): Promise<boolean> {
+    const redis = this.getRedisClient();
+    if (!redis) {
+      return this.withLocalLock(key, async () => {
+        if ((await this.get(key)) !== token) return false;
+        await this.setDetail(key, token as T[TKey], ttlSeconds);
+        return true;
+      });
+    }
+    return (
+      (await redis.eval(
+        RENEW_LOCK_SCRIPT,
+        1,
+        this.getRedisKey(key as string),
+        token,
+        this.serializeEnvelope(token, ttlSeconds),
+        ttlSeconds,
+        Date.now()
+      )) === 1
+    );
+  }
+
+  /** Atomically release a string-token lock without deleting a replacement owner's lock. */
+  async releaseLock<TKey extends keyof T>(key: TKey, token: string): Promise<boolean> {
+    const redis = this.getRedisClient();
+    if (!redis) {
+      return this.withLocalLock(key, async () => {
+        if ((await this.get(key)) !== token) return false;
+        return this.del(key);
+      });
+    }
+    return (await redis.eval(RELEASE_LOCK_SCRIPT, 1, this.getRedisKey(key as string), token)) === 1;
   }
 
   /**

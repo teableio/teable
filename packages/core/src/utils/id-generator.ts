@@ -62,6 +62,8 @@ export enum IdPrefix {
 
   Template = 'tpl',
   TemplateCategory = 'tpc',
+  TemplateInstall = 'tpi',
+  CreatorPayout = 'cpo',
 
   Task = 'tsk',
   TaskRun = 'trn',
@@ -276,6 +278,14 @@ export function generateTemplateId() {
 
 export function generateTemplateCategoryId() {
   return IdPrefix.TemplateCategory + getRandomString(16);
+}
+
+export function generateTemplateInstallId() {
+  return IdPrefix.TemplateInstall + getRandomString(16);
+}
+
+export function generateCreatorPayoutId() {
+  return IdPrefix.CreatorPayout + getRandomString(16);
 }
 
 export function generateTaskId() {

@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import { noop } from 'lodash';
-import { Archive, CopyPlus, Trash } from 'lucide-react';
+import { Archive, Copy, CopyPlus, Trash } from 'lucide-react';
 import { useTranslation, Trans } from 'next-i18next';
 import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
@@ -135,6 +135,15 @@ const buildDuplicateMenuItems = ({
   canRead: boolean;
   recordMenu: RecordMenuState;
 }): IMenuItemProps<MenuItemType>[] => [
+  {
+    type: MenuItemType.Copy,
+    name: t('table:menu.copy'),
+    icon: <Copy className={iconClassName} />,
+    hidden: !recordMenu?.copySelection,
+    onClick: () => {
+      void recordMenu?.copySelection?.();
+    },
+  },
   {
     type: MenuItemType.Duplicate,
     name: isMultipleSelected

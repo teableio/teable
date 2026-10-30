@@ -1,3 +1,4 @@
+import { ExpandRecordPanelHost } from '@teable/sdk/components';
 import {
   AggregationProvider,
   RecordProvider,
@@ -24,7 +25,7 @@ export const GridView = () => {
   return (
     <div className={cn('flex size-full flex-col', embed ? '' : 'md:px-3 md:pb-3')}>
       {!embed && <ShareViewHeader viewName={view?.name} />}
-      <div className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
+      <ExpandRecordPanelHost className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
         <SearchProvider>
           <RecordProvider serverRecords={records}>
             <AggregationProvider>
@@ -40,7 +41,7 @@ export const GridView = () => {
             </AggregationProvider>
           </RecordProvider>
         </SearchProvider>
-      </div>
+      </ExpandRecordPanelHost>
     </div>
   );
 };

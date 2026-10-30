@@ -31,6 +31,10 @@
       "description": "Die vollständige URL, zu der umgeleitet werden soll, nachdem ein Benutzer Ihre Integration autorisiert hat.",
       "add": "Callback URL hinzufügen"
     },
+    "deviceFlow": {
+      "label": "Device Flow aktivieren",
+      "description": "Erlaubt dieser App, Benutzer mit einem Einmalcode anzumelden, der in einem Browser eingegeben wird (für CLIs und Geräte ohne Browser). Jeder, der die Client-ID kennt, kann diesen Ablauf im Namen Ihrer App starten – aktivieren Sie ihn daher nur, wenn Ihre App ihn benötigt."
+    },
     "secret": {
       "label": "Client Secrets",
       "add": "Neues Client Secret erzeugen",
@@ -66,6 +70,23 @@
     "redirectTitle": "Sie werden weitergeleitet zu:",
     "trustRedirect": "Ich kenne diese URL und vertraue ihr",
     "continue": "Fortfahren"
+  },
+  "device": {
+    "title": "Gerät verbinden",
+    "description": "Geben Sie den 8-stelligen Code aus Ihrem Terminal ein, um dieses Gerät bei Ihrem Konto anzumelden.",
+    "submit": "Weiter",
+    "invalidCode": "Dieser Code ist ungültig oder abgelaufen. Prüfen Sie Ihr Terminal und versuchen Sie es erneut.",
+    "codeUsed": "Dieser Code wurde bereits verwendet. Führen Sie den Anmeldebefehl erneut aus, um einen neuen Code zu erhalten.",
+    "deviceFlowDisabled": "Diese App erlaubt keine Anmeldung mit einem Gerätecode.",
+    "codeLabel": "Autorisierungscode",
+    "confirmCode": "Stellen Sie sicher, dass er mit dem Code in Ihrem Terminal übereinstimmt.",
+    "securityTitle": "Sicherheitswarnung",
+    "phishingHint": "Gerätecodes sind ein häufiges Ziel von Phishing und können zur Anmeldung bei Ihrem Konto verwendet werden. Geben Sie Ihren Code niemals weiter und fahren Sie nur fort, wenn Sie diese Anmeldung selbst gestartet haben.",
+    "phishingHintStrong": "Wenn Sie diese Seite nicht öffnen wollten oder der Link von jemand anderem stammt, schließen Sie diesen Tab.",
+    "approvedTitle": "Gerät verbunden",
+    "approvedDescription": "Sie können diese Seite schließen und zu Ihrem Terminal zurückkehren.",
+    "deniedTitle": "Anfrage abgelehnt",
+    "deniedDescription": "Diesem Gerät wurde kein Zugriff gewährt. Sie können diese Seite schließen."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

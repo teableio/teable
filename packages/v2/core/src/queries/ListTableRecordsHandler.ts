@@ -462,6 +462,8 @@ export class ListTableRecordsHandler implements IQueryHandler<
           let orderBy: ReturnType<typeof mergeOrderBy> | undefined;
           let queryPlan: ListRecordsQueryPlan | undefined;
           let projectionFieldIds: ReadonlyArray<FieldId> | undefined;
+          // Keep the response/search scope separate from SQL-only mask dependencies.
+          let searchProjectionFieldIds: ReadonlyArray<FieldId> | undefined;
           const resolveShapeSpan = context.tracer?.startSpan('teable.table.query.resolve_shape', {
             ...createTableQueryTraceAttributes(observabilityEvent),
             ...createSearchTraceAttributes(observabilityEvent),
@@ -670,12 +672,13 @@ export class ListTableRecordsHandler implements IQueryHandler<
                 )
               ),
             };
-            projectionFieldIds = yield* resolveProjectionFieldIds(
+            searchProjectionFieldIds = yield* resolveProjectionFieldIds(
               table,
               query.projection,
               query.fieldKeyType,
               enabledFieldIds
             );
+            projectionFieldIds = searchProjectionFieldIds;
             // Expand the already-resolved SQL projection with mask evaluation
             // columns only. Do not union every readable field back in: that
             // re-selects the full wide row on authority-matrix tables (T7105).
@@ -759,11 +762,12 @@ export class ListTableRecordsHandler implements IQueryHandler<
               }
             }
           }
-          const orderedSearchFieldIds = yield* resolveSearchRowScopeFieldIds(
-            table,
-            query.viewId,
-            query.ignoreViewQuery
-          );
+          const orderedSearchFieldIds = query.searchFieldIds
+            ? query.searchFieldIds.flatMap((fieldId) => {
+                const parsed = FieldId.create(fieldId);
+                return parsed.isOk() ? [parsed.value] : [];
+              })
+            : yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery);
           const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
             orderedSearchFieldIds,
             enabledFieldIds,
@@ -776,16 +780,18 @@ export class ListTableRecordsHandler implements IQueryHandler<
           // exist only to carry hits in the projected columns.
           const projectedSearchVisibleFieldIds =
             query.includeSearchFieldMatches &&
-            projectionFieldIds &&
+            searchProjectionFieldIds &&
             query.searchFieldScope !== 'visible'
               ? searchVisibleFieldIds.filter((fieldId) =>
-                  projectionFieldIds.some((projectedFieldId) => projectedFieldId.equals(fieldId))
+                  searchProjectionFieldIds?.some((projectedFieldId) =>
+                    projectedFieldId.equals(fieldId)
+                  )
                 )
               : searchVisibleFieldIds;
-          const visibleRowSearch = resolveVisibleRowSearch(
-            requestedSearch,
-            projectedSearchVisibleFieldIds
-          );
+          const visibleRowSearch =
+            query.applySearchRowFilter === false
+              ? undefined
+              : resolveVisibleRowSearch(requestedSearch, projectedSearchVisibleFieldIds);
           const searchFieldMatchesSearch =
             query.includeSearchFieldMatches && requestedSearch?.value.length
               ? {

@@ -239,3 +239,164 @@ html[data-theme-transition]::view-transition-new(root) {
     clip-path: inset(0 0 0 0);
   }
 }
+
+/*
+ * With a mouse connected, macOS swaps overlay scrollbars for classic ones that stay on
+ * screen and take width. Native bars are hidden for fine pointers, and OverlayScrollbar
+ * draws a thumb while an element scrolls instead. `.scrollbar` keeps its styled native bar
+ * (tailwind-scrollbar, e.g. the grid's), and touch screens keep their native indicators.
+ */
+@media (pointer: fine) {
+  :where(:not(.scrollbar)) {
+    scrollbar-width: none;
+  }
+
+  :where(:not(.scrollbar))::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+/* Lets the thumbs, portalled to <body>, see the timeline OverlayScrollbar names on the scroller. */
+:root {
+  timeline-scope: --overlay-scroll-x, --overlay-scroll-y;
+}
+
+/*
+ * The track, placed and sized from JS over the visible part of the scroller. A size
+ * container, so the thumb keyframes can measure it in cqw/cqh.
+ */
+.overlay-scrollbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  display: flex;
+  direction: ltr;
+  container-type: size;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms;
+}
+
+.overlay-scrollbar[data-visible] {
+  opacity: 1;
+  transition-duration: 0ms;
+}
+
+/* RTL starts scrolling from the right, so the horizontal thumb rests there. */
+.overlay-scrollbar[data-axis='x'][data-rtl] {
+  justify-content: flex-end;
+}
+
+/* The thumb's box is its hit area; ::after paints the pill along the scroller's edge. */
+.overlay-scrollbar-thumb {
+  position: relative;
+  flex: none;
+}
+
+.overlay-scrollbar[data-visible] .overlay-scrollbar-thumb {
+  pointer-events: auto;
+}
+
+.overlay-scrollbar[data-axis='y'] .overlay-scrollbar-thumb {
+  width: 100%;
+}
+
+.overlay-scrollbar[data-axis='x'] .overlay-scrollbar-thumb {
+  height: 100%;
+}
+
+.overlay-scrollbar-thumb::after {
+  content: '';
+  position: absolute;
+  border-radius: 9999px;
+  background-color: hsl(var(--foreground) / 0.35);
+  transition:
+    width 150ms,
+    height 150ms,
+    background-color 150ms;
+}
+
+.overlay-scrollbar[data-axis='y'] .overlay-scrollbar-thumb::after {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+}
+
+.overlay-scrollbar[data-axis='y'][data-rtl] .overlay-scrollbar-thumb::after {
+  right: auto;
+  left: 0;
+}
+
+.overlay-scrollbar[data-axis='x'] .overlay-scrollbar-thumb::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 6px;
+}
+
+.overlay-scrollbar-thumb:hover::after,
+.overlay-scrollbar[data-dragging] .overlay-scrollbar-thumb::after {
+  background-color: hsl(var(--foreground) / 0.5);
+}
+
+.overlay-scrollbar[data-axis='y'] .overlay-scrollbar-thumb:hover::after,
+.overlay-scrollbar[data-axis='y'][data-dragging] .overlay-scrollbar-thumb::after {
+  width: 9px;
+}
+
+.overlay-scrollbar[data-axis='x'] .overlay-scrollbar-thumb:hover::after,
+.overlay-scrollbar[data-axis='x'][data-dragging] .overlay-scrollbar-thumb::after {
+  height: 9px;
+}
+
+/*
+ * The thumb rides the scroller's scroll timeline, so it moves in the same frame as the
+ * content even while the main thread is busy (as the ui-lib ScrollArea does, T7699).
+ * Elsewhere OverlayScrollbar moves it from a scroll listener. The timeline itself is set
+ * inline: the CSS minifier folds `animation-timeline` into the `animation` shorthand, which
+ * browsers reject.
+ */
+@supports (animation-timeline: scroll()) {
+  .overlay-scrollbar[data-axis='y'] .overlay-scrollbar-thumb {
+    animation: overlay-scroll-thumb-y auto linear both;
+  }
+
+  .overlay-scrollbar[data-axis='x'] .overlay-scrollbar-thumb {
+    animation: overlay-scroll-thumb-x auto linear both;
+  }
+
+  .overlay-scrollbar[data-axis='x'][data-rtl] .overlay-scrollbar-thumb {
+    animation-name: overlay-scroll-thumb-x-rtl;
+  }
+}
+
+/* 100% is the thumb's own length, 100cqw/cqh the track's. */
+@keyframes overlay-scroll-thumb-y {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(calc(100cqh - 100%));
+  }
+}
+
+@keyframes overlay-scroll-thumb-x {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(calc(100cqw - 100%));
+  }
+}
+
+@keyframes overlay-scroll-thumb-x-rtl {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(calc(100% - 100cqw));
+  }
+}

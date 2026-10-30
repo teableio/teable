@@ -12,7 +12,12 @@ import {
   TimeFormatting,
 } from '@teable/core';
 import type { IFilter, ISearchIndexByQueryRo, ITableFullVo } from '@teable/openapi';
-import { getSearchCount, getSearchIndex } from '@teable/openapi';
+import {
+  getSearchCellCount,
+  getSearchCount,
+  getSearchIndex,
+  getSearchMatches,
+} from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   disposeTableQueryObservationPublisher,
@@ -49,13 +54,13 @@ import {
 } from './utils/init-app';
 
 /**
- * Product-API coverage for the authed v2 search-count / search-index adapters.
+ * Product-API coverage for the authed v2 search count, cell count, index, and matches adapters.
  * FORCE_V2_ALL is required so these routes hit AggregationOpenApiV2Service
  * instead of the v1 aggregation service.
  *
  * v2 search-count is matching-row count (share-view parity), not v1 cell-hit SUM.
  */
-describe('v2 authed search-count and search-index (e2e)', () => {
+describe('v2 authed search aggregation APIs (e2e)', () => {
   let app: INestApplication;
   let previousForceV2All: string | undefined;
   const baseId = globalThis.testConfig.baseId;
@@ -510,6 +515,96 @@ describe('v2 authed search-count and search-index (e2e)', () => {
         [openAlphaId, openOtherId].sort((a, b) => Number(a > b) - Number(a < b))
       );
       expect(recordIds).not.toContain(closedAlphaId);
+    });
+  });
+
+  describe('show-all cell count and match scans', () => {
+    it('counts every matching cell while preserving matching-row count semantics', async () => {
+      const search: [string, string, boolean] = ['alpha', `${nameFieldId},${notesFieldId}`, false];
+
+      const [cellCount, rowCount, fullTableCellCount] = await Promise.all([
+        getSearchCellCount(table.id, { viewId, search }),
+        getSearchCount(table.id, { viewId, search }),
+        getSearchCellCount(table.id, { viewId, ignoreViewQuery: true, search }),
+      ]);
+
+      expect(cellCount.data).toEqual({ matchedCellCount: 2 });
+      expect(rowCount.data).toEqual({ count: 1 });
+      expect(fullTableCellCount.data).toEqual({ matchedCellCount: 3 });
+    });
+
+    it('returns every matching field on one row with its complete View index', async () => {
+      const result = await getSearchMatches(table.id, {
+        take: 1,
+        viewId,
+        search: ['alpha', `${nameFieldId},${notesFieldId}`, false],
+      });
+
+      expect(result.data).toEqual({
+        matches: expect.arrayContaining([
+          { recordId: openAlphaId, fieldId: nameFieldId, index: 1 },
+          { recordId: openAlphaId, fieldId: notesFieldId, index: 1 },
+        ]),
+        scannedRecordCount: 1,
+        nextSkip: 1,
+        hasMore: true,
+      });
+      expect(result.data.matches).toHaveLength(2);
+    });
+
+    it('advances through an empty-hit record page and finds a later View row', async () => {
+      const firstPage = await getSearchMatches(table.id, {
+        take: 2,
+        viewId,
+        search: ['100', nameFieldId, false],
+      });
+      expect(firstPage.data).toEqual({
+        matches: [],
+        scannedRecordCount: 2,
+        nextSkip: 2,
+        hasMore: true,
+      });
+
+      const secondPage = await getSearchMatches(table.id, {
+        skip: firstPage.data.nextSkip!,
+        take: 1,
+        viewId,
+        search: ['100', nameFieldId, false],
+      });
+      expect(secondPage.data).toEqual({
+        matches: [expect.objectContaining({ fieldId: nameFieldId, index: 3 })],
+        scannedRecordCount: 1,
+        nextSkip: 3,
+        hasMore: true,
+      });
+    });
+
+    it('scans only explicitly selected records', async () => {
+      const result = await getSearchMatches(table.id, {
+        take: 10,
+        viewId,
+        selectedRecordIds: [openOtherId],
+        search: ['open-', nameFieldId, false],
+      });
+
+      expect(result.data).toEqual({
+        matches: [expect.objectContaining({ recordId: openOtherId, fieldId: nameFieldId })],
+        scannedRecordCount: 1,
+        nextSkip: null,
+        hasMore: false,
+      });
+    });
+
+    it('matches a multi-value cell across its joined display-value boundary', async () => {
+      const result = await getSearchMatches(table.id, {
+        take: 10,
+        viewId,
+        search: ['urgent, backlog', tagsFieldId, false],
+      });
+
+      expect(result.data.matches).toContainEqual(
+        expect.objectContaining({ recordId: openAlphaId, fieldId: tagsFieldId })
+      );
     });
   });
 

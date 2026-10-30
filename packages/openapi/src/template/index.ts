@@ -1,6 +1,5 @@
 export * from './create';
 export * from './get';
-export * from './kind';
 export * from './get-published';
 export * from './delete';
 export * from './update';
@@ -13,3 +12,5 @@ export * from './get-by-base-id';
 export * from './unpublish';
 export * from './increment-visit';
 export * from './get-permalink';
+export * from './manifest';
+export * from './url-key';

@@ -99,7 +99,7 @@ describe('SharedViewRecordQueryV2Service', () => {
     const attachmentDecorator = {
       decorateAttachmentValue: vi.fn(async (value: unknown) => ok(value)),
     };
-    const table = createSearchIndexTable(tableId, fieldId);
+    const table = createSearchIndexTable(tableId, fieldId, viewId);
     const tableRepository = { findOne: vi.fn(async () => ok(table)) };
     const getContainerForTable = vi.fn().mockResolvedValue({
       resolve: vi.fn((token) => {
@@ -130,6 +130,7 @@ describe('SharedViewRecordQueryV2Service', () => {
       createContext,
       cacheGet,
       tableRepository,
+      table,
     };
   };
 
@@ -835,6 +836,92 @@ describe('SharedViewRecordQueryV2Service', () => {
     expect(countQuery?.viewId).toBe(viewId);
     expect(countQuery?.ignoreViewQuery).toBeUndefined();
     expect(countQuery?.search).toEqual(['Alpha', fieldId, true]);
+  });
+
+  it('binds cell counts to the authorized View and visible field scope', async () => {
+    const fixture = createFixture(4);
+
+    const result = await fixture.service.getSearchCellCount(
+      shareInfo,
+      {
+        viewId: candidateViewId,
+        ignoreViewQuery: true,
+        search: ['Alpha', '', true],
+      },
+      [fieldId]
+    );
+    const countQuery = fixture.queries.find(
+      (query): query is CountTableRecordsQuery => query instanceof CountTableRecordsQuery
+    );
+
+    expect(result).toEqual({ matchedCellCount: 4 });
+    expect(countQuery?.viewId).toBe(viewId);
+    expect(countQuery?.ignoreViewQuery).toBeUndefined();
+    expect(countQuery?.countSearchMatches).toBe(true);
+    expect(countQuery?.searchFieldIds).toEqual([fieldId]);
+  });
+
+  it('keeps view column order when an include-hidden share supplies a projection set', async () => {
+    const fixture = createFixture(2);
+    const secondFieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+    const getOrderedVisibleFieldIds = vi
+      .spyOn(fixture.table, 'getOrderedVisibleFieldIds')
+      .mockReturnValue(ok([secondFieldId, primaryFieldId]));
+
+    await fixture.service.getSearchCellCount(
+      { ...shareInfo, shareMeta: { includeRecords: true, includeHiddenField: true } },
+      {
+        search: ['Alpha', '', false],
+        projection: [fieldId, secondFieldId.toString()],
+      },
+      undefined
+    );
+    const countQuery = fixture.queries.find(
+      (query): query is CountTableRecordsQuery => query instanceof CountTableRecordsQuery
+    );
+
+    expect(getOrderedVisibleFieldIds).toHaveBeenCalledWith(viewId, {
+      includeHiddenFields: true,
+    });
+    expect(countQuery?.searchFieldIds).toEqual([secondFieldId.toString(), fieldId]);
+  });
+
+  it('scans shared-view rows without using empty cell hits as the page boundary', async () => {
+    const fixture = createFixture(0, []);
+
+    const result = await fixture.service.getSearchMatches(
+      shareInfo,
+      {
+        skip: 2,
+        take: 5,
+        search: ['missing', '', false],
+      },
+      [fieldId]
+    );
+    const searchQuery = fixture.queries.find(
+      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
+    );
+
+    expect(result).toEqual({
+      matches: [],
+      scannedRecordCount: 0,
+      nextSkip: null,
+      hasMore: false,
+    });
+    expect(searchQuery?.viewId).toBe(viewId);
+    expect(searchQuery?.applySearchRowFilter).toBe(false);
+    expect(searchQuery?.searchFieldIds).toEqual([fieldId]);
+  });
+
+  it('rejects shared match scans in hide-not-match mode', async () => {
+    const fixture = createFixture();
+
+    const error = await fixture.service
+      .getSearchMatches(shareInfo, { take: 10, search: ['Alpha', '', true] }, [fieldId])
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(HttpException);
+    expect(fixture.getContainerForTable).not.toHaveBeenCalled();
   });
 
   it('returns null before resolving v2 dependencies when search-index records are disabled', async () => {

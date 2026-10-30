@@ -25,9 +25,12 @@ import {
   useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
-import { useRouter } from 'next/router';
 import type { ReactNode } from 'react';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
+import {
+  getExpandRecordIds,
+  useRouteExpandRecord,
+} from '@/features/app/components/expand-record-container/useRouteExpandRecord';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import { KanbanContext } from './KanbanContext';
 
@@ -54,21 +57,27 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
-  const [expandRecordId, setExpandRecordId] = useState<string>();
   const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
   const groupPoints = useGroupPoint();
-  const router = useRouter();
-  const {
-    recordId: routerRecordId,
-    showHistory: routerShowHistory,
-    showComment: routerShowComment,
-  } = router.query;
-  const showHistory = routerShowHistory === 'true';
-  const showComment = { true: true, false: false }[routerShowComment as string];
-
-  useEffect(() => {
-    setExpandRecordId(routerRecordId as string);
-  }, [routerRecordId, setExpandRecordId]);
+  const { expandRecordId, setExpandRecordId, closeExpandRecord, showHistory, showComment } =
+    useRouteExpandRecord(tableId);
+  const [stackRecordIdsMap, setStackRecordIdsMap] = useState<Record<string, string[]>>({});
+  const setStackRecordIds = useCallback((stackId: string, recordIds?: string[]) => {
+    setStackRecordIdsMap((prev) => {
+      if (!recordIds) {
+        if (!(stackId in prev)) return prev;
+        const { [stackId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [stackId]: recordIds };
+    });
+  }, []);
+  const expandRecordIds = useMemo(() => {
+    const stackRecordIds = Object.values(stackRecordIdsMap).find(
+      (ids) => expandRecordId && ids.includes(expandRecordId)
+    );
+    return getExpandRecordIds(expandRecordId, stackRecordIds);
+  }, [stackRecordIdsMap, expandRecordId]);
 
   const coverField = useMemo(() => {
     if (!coverFieldId) return;
@@ -276,6 +285,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       displayFields,
       stackCollection,
       setExpandRecordId,
+      setStackRecordIds,
     };
   }, [
     recordQuery,
@@ -289,27 +299,8 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     displayFields,
     stackCollection,
     setExpandRecordId,
+    setStackRecordIds,
   ]);
-
-  const onClose = () => {
-    setExpandRecordId(undefined);
-    const {
-      recordId: _recordId,
-      showHistory: _showHistory,
-      showComment: _showComment,
-      ...resetQuery
-    } = router.query;
-    router.push(
-      {
-        pathname: router.pathname,
-        query: resetQuery,
-      },
-      undefined,
-      {
-        shallow: true,
-      }
-    );
-  };
 
   return (
     <KanbanContext.Provider value={value}>
@@ -319,8 +310,9 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
           tableId={tableId}
           viewId={view?.id}
           recordId={expandRecordId}
-          recordIds={expandRecordId ? [expandRecordId] : []}
-          onClose={onClose}
+          recordIds={expandRecordIds}
+          onClose={closeExpandRecord}
+          onUpdateRecordIdCallback={setExpandRecordId}
           buttonClickStatusHook={buttonClickStatusHook}
           showHistory={showHistory}
           showComment={showComment}

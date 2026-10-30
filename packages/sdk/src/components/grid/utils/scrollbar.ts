@@ -8,7 +8,7 @@ interface IScrollbarMetrics {
   minThumb: number;
 }
 
-// How far around a 10px thumb a finger still grabs it
+// How far around an 8px thumb a finger still grabs it
 export const THUMB_TOUCH_SLOP = 20;
 
 // Scroll per pixel of finger travel for a touch that grabs the thumb, or null when it misses.

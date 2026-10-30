@@ -1,7 +1,12 @@
 import { BaseNodeResourceType } from '@teable/openapi';
 import type { IBaseNodeVo } from '@teable/openapi';
 import { vi } from 'vitest';
-import { filterAutoHiddenFolders, findAdjacentNonFolderNode, ROOT_ID } from './helper';
+import {
+  filterAutoHiddenFolders,
+  findAdjacentNonFolderNode,
+  ROOT_ID,
+  searchTreeItems,
+} from './helper';
 import type { TreeItemData } from './useBaseNode';
 
 /**
@@ -618,5 +623,59 @@ describe('filterAutoHiddenFolders', () => {
     const nodes = [node('dashboard', BaseNodeResourceType.Dashboard)];
 
     expect(filterAutoHiddenFolders(nodes).map((n) => n.id)).toEqual(['dashboard']);
+  });
+});
+
+describe('searchTreeItems', () => {
+  const named = (node: TreeItemData, name: string): TreeItemData => ({
+    ...node,
+    resourceMeta: { name },
+  });
+  // Root → Reports (folder) → Sales, Archive (folder) → Old sales; Root → Budget.
+  const treeItems: Record<string, TreeItemData> = {
+    [ROOT_ID]: createRootNode(['reports', 'budget']),
+    reports: named(
+      createNode('reports', BaseNodeResourceType.Folder, ['sales', 'archive']),
+      'Reports'
+    ),
+    sales: named(createNode('sales', BaseNodeResourceType.Table, [], 'reports'), 'Sales'),
+    archive: named(
+      createNode('archive', BaseNodeResourceType.Folder, ['oldSales'], 'reports'),
+      'Archive'
+    ),
+    oldSales: named(createNode('oldSales', BaseNodeResourceType.Table, [], 'archive'), 'Old sales'),
+    budget: named(createNode('budget', BaseNodeResourceType.Dashboard), 'Budget'),
+  };
+
+  it('should keep a matching node and its folders up to the root', () => {
+    const result = searchTreeItems(treeItems, 'old');
+
+    expect(Object.keys(result).sort()).toEqual([ROOT_ID, 'archive', 'oldSales', 'reports'].sort());
+    expect(result[ROOT_ID].children).toEqual(['reports']);
+    expect(result.reports.children).toEqual(['archive']);
+  });
+
+  it('should keep everything inside a matching folder', () => {
+    const result = searchTreeItems(treeItems, 'reports');
+
+    expect(Object.keys(result).sort()).toEqual(
+      [ROOT_ID, 'archive', 'oldSales', 'reports', 'sales'].sort()
+    );
+    expect(result.reports.children).toEqual(['sales', 'archive']);
+    expect(result.archive.children).toEqual(['oldSales']);
+  });
+
+  it('should match names case-insensitively against a lowercased query', () => {
+    const result = searchTreeItems(treeItems, 'sales');
+
+    expect(result[ROOT_ID].children).toEqual(['reports']);
+    expect(result.reports.children).toEqual(['sales', 'archive']);
+  });
+
+  it('should leave only the root when nothing matches', () => {
+    const result = searchTreeItems(treeItems, 'missing');
+
+    expect(Object.keys(result)).toEqual([ROOT_ID]);
+    expect(result[ROOT_ID].children).toEqual([]);
   });
 });

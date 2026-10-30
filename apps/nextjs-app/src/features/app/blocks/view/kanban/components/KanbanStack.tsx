@@ -54,7 +54,8 @@ export const HeightPreservingItem = ({ children, ...props }) => {
 export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props, forwardRef) => {
   const { stack, cards, setCardMap } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { stackField, permission, recordQuery } = useKanban() as Required<IKanbanContext>;
+  const { stackField, permission, recordQuery, setStackRecordIds } =
+    useKanban() as Required<IKanbanContext>;
   const [skipIndex, setSkipIndex] = useState(0);
   const [ref, { height }] = useMeasure<HTMLDivElement>();
 
@@ -91,6 +92,15 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
     if (stackCount && !sortedRecords.length) return;
     setCardMap?.({ [stackId]: sortedRecords });
   }, [setCardMap, sortedRecords, stackId, stackCount]);
+
+  useEffect(() => {
+    setStackRecordIds(
+      stackId,
+      cards.map((card) => card.id)
+    );
+  }, [cards, stackId, setStackRecordIds]);
+
+  useEffect(() => () => setStackRecordIds(stackId), [stackId, setStackRecordIds]);
 
   const onRangeChanged = (range: ListRange) => {
     const { startIndex } = range;

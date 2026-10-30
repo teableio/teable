@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Button,
   Dialog,
@@ -15,6 +15,7 @@ export const ConfirmModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<IConfirmModalOptions>({});
   const [loading, setLoading] = useState(false);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   const openModal = useCallback((options: IConfirmModalOptions) => {
     setOptions(options);
@@ -60,6 +61,11 @@ export const ConfirmModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
           onInteractOutside={(e) => e.preventDefault()}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
+          onOpenAutoFocus={(e) => {
+            if (!options.autoFocusConfirm) return;
+            e.preventDefault();
+            confirmButtonRef.current?.focus();
+          }}
         >
           {(options.title || options.description) && (
             <DialogHeader className="overflow-hidden">
@@ -76,6 +82,7 @@ export const ConfirmModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
               </Button>
             )}
             <Button
+              ref={confirmButtonRef}
               size="sm"
               variant={options.confirmButtonVariant || 'default'}
               onClick={handleConfirm}

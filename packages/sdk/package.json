@@ -116,6 +116,7 @@
     "react-use": "17.6.1",
     "rehype-raw": "7.0.0",
     "rehype-sanitize": "6.0.0",
+    "remark-cjk-friendly": "2.0.1",
     "remark-gfm": "4.0.0",
     "remove-markdown": "0.6.3",
     "scroller": "0.0.3",

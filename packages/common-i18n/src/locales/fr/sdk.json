@@ -300,6 +300,8 @@
     "duplicateRecord": "Duplicate record",
     "addToChat": "Ajouter au chat",
     "copyRecordUrl": "Copier l'URL de l'enregistrement",
+    "copyLink": "Copier le lien",
+    "history": "Historique",
     "deleteRecord": "Supprimer l'enregistrement",
     "addRecordComment": "Ajouter un commentaire",
     "viewRecordHistory": "Voir l'historique de l'enregistrement",
@@ -1655,7 +1657,12 @@
       "sourceTemplateNotFound": "Modèle source introuvable",
       "noMinOrderFound": "Aucun ordre minimum trouvé",
       "takeCountTooLarge": "Le nombre de modèles demandés dépasse la limite maximale",
-      "categoryLimitReached": "Limite de catégories de modèles atteinte (maximum {{maxCount}})"
+      "categoryLimitReached": "Limite de catégories de modèles atteinte (maximum {{maxCount}})",
+      "categoryHasChildren": "Ce secteur contient encore des sous-secteurs ; supprimez-les d'abord",
+      "categoryDepthExceeded": "Un sous-secteur ne peut pas avoir ses propres sous-secteurs",
+      "teamIsFlat": "Une équipe n'a ni catégorie parente ni sous-catégories",
+      "categoryKeyTaken": "Cette clé d'URL est déjà utilisée par une autre catégorie",
+      "slugTaken": "Ce slug d'URL est déjà utilisé par un autre modèle"
     },
     "department": {
       "parentNotFound": "Département parent non trouvé",
@@ -1682,6 +1689,8 @@
       "domainReserved": "Ce sous-domaine est réservé",
       "siteInfoBeforeGeneration": "Générez l’application avant de personnaliser les informations de son site",
       "generationEditingConflict": "Une génération par IA modifie actuellement cette application. Réessayez la mise à jour du fichier une fois terminée.",
+      "codeCopying": "Le code de l'application est encore en cours de copie. Réessayez dans un instant.",
+      "codeCopyFailed": "La copie du code de l'application a échoué. Dupliquez à nouveau l'application.",
       "siteInfoLayoutNotEditable": "Le code de cette application ne permet pas de modifier ici les informations du site. Demandez plutôt à l’IA, par message, de changer le titre, la description ou l’icône du site.",
       "siteInfoManagedInCode": "Cette application gère le titre et la description du site dans le code. Demandez plutôt à l’IA, par message, de les modifier.",
       "accessLinkSetupFailed": "Échec de la configuration du lien d'accès : {{detail}}",
@@ -1740,7 +1749,8 @@
     "requestFailed": "Échec de la requête",
     "operationFailed": "Échec de l'opération : {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "L'opérateur {{operator}} ne permet pas de comparer avec un autre champ"
+      "operatorNoFieldReference": "L'opérateur {{operator}} ne permet pas de comparer avec un autre champ",
+      "fieldReferenceIncompatible": "Le champ {{reference}} a un type incompatible et ne peut pas être comparé avec {{source}}"
     },
     "oauth": {
       "invalidRequest": "Requête OAuth non valide : {{detail}}",

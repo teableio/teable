@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import { getUniqName } from '@teable/core';
 import { Airtable, Plus } from '@teable/icons';
 import { createBase } from '@teable/openapi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
@@ -8,7 +7,6 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { AirtableImportDialog } from '../../../blocks/space/component/airtable-import';
-import { useBaseList } from '../../../blocks/space/useBaseList';
 
 /**
  * Retired: the Airtable importer now lives in each base's "import from other
@@ -32,7 +30,6 @@ export const CreateBaseDialog = (props: ICreateBaseDialogProps) => {
   const { spaceId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const router = useRouter();
-  const bases = useBaseList();
   const [importAirtableOpen, setImportAirtableOpen] = React.useState(false);
 
   const { mutate: createBaseMutator, isPending: isCreating } = useMutation({
@@ -48,11 +45,9 @@ export const CreateBaseDialog = (props: ICreateBaseDialogProps) => {
 
   const handleCreateBlank = () => {
     if (isCreating) return;
-    const namesInSpace = bases?.filter((base) => base.spaceId === spaceId).map((base) => base.name);
-    createBaseMutator({
-      spaceId,
-      name: getUniqName(t('common:noun.base'), namesInSpace || []),
-    });
+    // No name: the server stores NULL and the UI shows a localized placeholder until the
+    // user or the first AI conversation names the base.
+    createBaseMutator({ spaceId });
   };
 
   const handleImportAirtable = () => {

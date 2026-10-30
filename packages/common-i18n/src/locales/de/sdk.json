@@ -298,6 +298,8 @@
     "duplicateRecord": "Datensatz duplizieren",
     "addToChat": "Zum Chat hinzufügen",
     "copyRecordUrl": "Datensatz URL kopieren",
+    "copyLink": "Link kopieren",
+    "history": "Verlauf",
     "deleteRecord": "Datensatz löschen",
     "addRecordComment": "Kommentar hinzufügen",
     "viewRecordHistory": "Datensatzverlauf anzeigen",
@@ -1651,7 +1653,12 @@
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
       "noMinOrderFound": "Keine Minimalreihenfolge gefunden",
       "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum",
-      "categoryLimitReached": "Vorlagenkategorie-Limit erreicht (maximal {{maxCount}})"
+      "categoryLimitReached": "Vorlagenkategorie-Limit erreicht (maximal {{maxCount}})",
+      "categoryHasChildren": "Diese Branche hat noch Unterbranchen; löschen Sie diese zuerst",
+      "categoryDepthExceeded": "Eine Unterbranche kann keine eigenen Unterbranchen haben",
+      "teamIsFlat": "Ein Team hat weder eine übergeordnete Kategorie noch Unterkategorien",
+      "categoryKeyTaken": "Dieser URL-Schlüssel wird bereits von einer anderen Kategorie verwendet",
+      "slugTaken": "Dieser URL-Slug wird bereits von einer anderen Vorlage verwendet"
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",
@@ -1678,6 +1685,8 @@
       "domainReserved": "Diese Subdomain ist reserviert",
       "siteInfoBeforeGeneration": "Generieren Sie die App, bevor Sie ihre Website-Informationen anpassen",
       "generationEditingConflict": "Eine KI-Generierung bearbeitet gerade diese App. Bitte wiederholen Sie die Dateiaktualisierung, sobald sie abgeschlossen ist.",
+      "codeCopying": "Der App-Code wird noch kopiert. Bitte versuchen Sie es gleich noch einmal.",
+      "codeCopyFailed": "Der App-Code konnte nicht kopiert werden. Duplizieren Sie die App erneut.",
       "siteInfoLayoutNotEditable": "Der Code dieser App ist nicht darauf ausgelegt, hier Änderungen an den Website-Informationen zu übernehmen. Bitten Sie die KI stattdessen per Chat, Titel, Beschreibung oder Symbol der Website zu ändern.",
       "siteInfoManagedInCode": "Diese App verwaltet Titel und Beschreibung der Website im Code. Bitten Sie die KI stattdessen per Chat, sie zu ändern.",
       "accessLinkSetupFailed": "Einrichtung des Zugriffslinks fehlgeschlagen: {{detail}}",
@@ -1736,7 +1745,8 @@
     "requestFailed": "Anfrage fehlgeschlagen",
     "operationFailed": "Vorgang fehlgeschlagen: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "Der Operator {{operator}} kann nicht mit einem anderen Feld verglichen werden"
+      "operatorNoFieldReference": "Der Operator {{operator}} kann nicht mit einem anderen Feld verglichen werden",
+      "fieldReferenceIncompatible": "Feld {{reference}} hat einen inkompatiblen Typ und kann nicht mit {{source}} verglichen werden"
     },
     "oauth": {
       "invalidRequest": "Ungültige OAuth-Anfrage: {{detail}}",

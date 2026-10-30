@@ -11,6 +11,8 @@ import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
+import { ExpandRecordNavigationProvider } from '../components/ExpandRecordNavigationProvider';
+import { LinkConnectorLine } from '../components/LinkConnectorLine';
 import { ShareBaseOperationProvider } from '../components/share-operation/ShareBaseOperationProvider';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
@@ -107,24 +109,27 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
                   <BasePermissionListener />
                   <TableProvider serverData={tableServerData}>
                     <ShareBaseOperationProvider>
-                      <div
-                        id="portal"
-                        className="relative flex h-screen w-full items-start"
-                        onContextMenu={preventContextMenuUnlessText}
-                      >
-                        <div className="flex h-screen w-full">
-                          <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
-                            <Fragment>
-                              <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
-                                <BaseSideBar />
-                              </div>
-                              <div className="grow basis-0" />
-                              <SideBarFooter />
-                            </Fragment>
-                          </Sidebar>
-                          <div className="min-w-80 flex-1">{children}</div>
+                      <ExpandRecordNavigationProvider>
+                        <div
+                          id="portal"
+                          className="relative flex h-screen w-full items-start"
+                          onContextMenu={preventContextMenuUnlessText}
+                        >
+                          <div className="flex h-screen w-full">
+                            <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
+                              <Fragment>
+                                <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                                  <BaseSideBar />
+                                </div>
+                                <div className="grow basis-0" />
+                                <SideBarFooter />
+                              </Fragment>
+                            </Sidebar>
+                            <div className="min-w-80 flex-1">{children}</div>
+                          </div>
                         </div>
-                      </div>
+                        <LinkConnectorLine />
+                      </ExpandRecordNavigationProvider>
                     </ShareBaseOperationProvider>
                   </TableProvider>
                 </BaseNodeProvider>

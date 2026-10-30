@@ -26,6 +26,7 @@ import { AuthService } from '../src/features/auth/auth.service';
 import { PermissionService } from '../src/features/auth/permission.service';
 import { JwtAuthInternalType } from '../src/features/auth/strategies/types';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { getError } from './utils/get-error';
 import { createTable, createView, initApp, permanentDeleteBase } from './utils/init-app';
 
 describe('Template Preview Permission (e2e)', () => {
@@ -566,6 +567,50 @@ describe('Template Preview Permission (e2e)', () => {
       });
       expect(res.status).toBe(200);
       expect(res.data.length).toBeGreaterThan(0);
+    });
+
+    it('should reject a retired snapshot app token after template republish', async () => {
+      const retiredSnapshotBaseId = templateBaseId;
+      const headers = { Authorization: `Bearer ${appToken}` };
+      const normalAppToken = await authService.getTempInternalToken(
+        baseId,
+        JwtAuthInternalType.App
+      );
+      const normalAppRead = await anonymousAxios.get(`/base/${baseId}/table`, {
+        headers: { Authorization: `Bearer ${normalAppToken.accessToken}` },
+      });
+      expect(normalAppRead.status).toBe(200);
+
+      const activeRead = await anonymousAxios.get(`/base/${retiredSnapshotBaseId}/table`, {
+        headers,
+      });
+      const activeWrite = await anonymousAxios.post(
+        `/base/${retiredSnapshotBaseId}/table`,
+        { name: 'Active Template Write' },
+        { headers }
+      );
+      expect(activeRead.status).toBe(200);
+      expect(activeWrite.data).toMatchObject({
+        message: new TemplateAppTokenNotAllowedException().message,
+      });
+
+      await createTemplateSnapshot(templateId);
+      const republishedTemplate = await getTemplateDetail(templateId);
+      expect(republishedTemplate.data.snapshot.baseId).not.toBe(retiredSnapshotBaseId);
+
+      const [readError, writeError] = await Promise.all([
+        getError(() => anonymousAxios.get(`/base/${retiredSnapshotBaseId}/table`, { headers })),
+        getError(() =>
+          anonymousAxios.post(
+            `/base/${retiredSnapshotBaseId}/table`,
+            { name: 'Retired Snapshot Write' },
+            { headers }
+          )
+        ),
+      ]);
+
+      expect(readError?.status).toBe(403);
+      expect(writeError?.status).toBe(403);
     });
 
     it('should allow createTable with valid app token', async () => {

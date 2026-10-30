@@ -37,6 +37,10 @@ import {
   IShareViewSearchCountRo,
   IShareViewSearchIndexRo,
   shareViewSearchIndexRoSchema,
+  IShareViewSearchCellCountRo,
+  shareViewSearchCellCountRoSchema,
+  IShareViewSearchMatchesRo,
+  shareViewSearchMatchesRoSchema,
 } from '@teable/openapi';
 import type {
   IRecord,
@@ -50,6 +54,8 @@ import type {
   ICalendarDailyCollectionVo,
   ISearchCountVo,
   ISearchIndexVo,
+  ISearchCellCountVo,
+  ISearchMatchesVo,
   IButtonClickVo,
   IRecordsVo,
 } from '@teable/openapi';
@@ -307,6 +313,42 @@ export class ShareController {
       return this.shareService.getShareSearchCountV2(shareInfo, queryRo);
     }
     return this.shareService.getShareSearchCount(shareInfo, queryRo);
+  }
+
+  @InteractiveQueryCancellation()
+  @UseV2Feature('getSharedViewSearchCount', { always: true })
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
+  @Get('/:shareId/view/search-cell-count')
+  async getSearchCellCount(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewSearchCellCountRoSchema))
+    queryRo: IShareViewSearchCellCountRo
+  ): Promise<ISearchCellCountVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(
+      shareInfo.tableId,
+      queryRo
+    );
+    return this.shareService.getShareSearchCellCount(shareInfo, queryRo);
+  }
+
+  @InteractiveQueryCancellation()
+  @UseV2Feature('getSharedViewSearchIndex', { always: true })
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
+  @Get('/:shareId/view/search-matches')
+  async getSearchMatches(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewSearchMatchesRoSchema))
+    queryRo: IShareViewSearchMatchesRo
+  ): Promise<ISearchMatchesVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(
+      shareInfo.tableId,
+      queryRo
+    );
+    return this.shareService.getShareSearchMatches(shareInfo, queryRo);
   }
 
   @InteractiveQueryCancellation()

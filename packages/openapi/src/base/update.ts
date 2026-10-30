@@ -7,6 +7,8 @@ import { createBaseRoSchema } from './create';
 export const UPDATE_BASE = '/base/{baseId}';
 
 export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true }).extend({
+  /** null or an empty string clears the name: the base becomes "unnamed" again */
+  name: z.string().nullable().optional(),
   icon: createBaseRoSchema.shape.icon.nullable(),
 });
 
@@ -14,7 +16,7 @@ export type IUpdateBaseRo = z.infer<typeof updateBaseRoSchema>;
 
 export const updateBaseVoSchema = z.object({
   spaceId: z.string(),
-  name: z.string(),
+  name: z.string().nullable(),
   icon: z.string().emoji().optional().nullable(),
 });
 

@@ -16,7 +16,10 @@ import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
+import {
+  RecordWriteOperationKind,
+  type RecordWriteCreateManyPayload,
+} from '../../ports/RecordWritePlugin';
 import type {
   ITableRecordRepository,
   BatchRecordMutationResult,
@@ -49,6 +52,7 @@ export interface IRecordBatchCreationInput {
   readonly typecast: boolean;
   readonly order?: RecordInsertOrder;
   readonly isTransactionBound: boolean;
+  readonly linkTitleSource?: RecordWriteCreateManyPayload['linkTitleSource'];
 }
 
 export interface IRecordBatchCreationResult {
@@ -101,6 +105,7 @@ export class RecordBatchCreationService {
           order: input.order,
           recordCount: resolvedRecordsFieldValues.length,
           isolateRowOverflow: true,
+          ...(input.linkTitleSource ? { linkTitleSource: input.linkTitleSource } : {}),
         },
         isTransactionBound: input.isTransactionBound,
       });

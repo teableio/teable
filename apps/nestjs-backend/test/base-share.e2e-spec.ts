@@ -651,7 +651,7 @@ describe('BaseShareController (e2e)', () => {
       expect(copyRes.status).toEqual(200);
       copiedBaseId = copyRes.data.id;
       expect(copyRes.data.name).toBeDefined();
-      expect(copyRes.data.name.length).toBeGreaterThan(0);
+      expect(copyRes.data.name?.length).toBeGreaterThan(0);
     });
 
     it('should copy share when a plugin panel exists on a table outside the shared scope', async () => {

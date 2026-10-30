@@ -71,23 +71,52 @@ const ScrollBar = React.forwardRef<
 >(({ className, orientation = 'vertical', ...props }, ref) => {
   const scrollTimeline = React.useContext(ScrollTimelineContext);
   const isHorizontal = orientation === 'horizontal';
+  const barRef = React.useRef<HTMLDivElement>(null);
+  React.useImperativeHandle(ref, () => barRef.current as HTMLDivElement);
+  // The bar's ends stay half the area's corner radius (at least 2px) from its ends, as
+  // OverlayScrollbar's do, so a rounded corner never cuts them. Set before Radix first
+  // measures the track, since it reads the padding only when the track resizes.
+  React.useLayoutEffect(() => {
+    const bar = barRef.current;
+    const root = bar?.parentElement;
+    if (!bar || !root) return;
+    const style = getComputedStyle(root);
+    const radius = Math.max(
+      ...[
+        style.borderTopLeftRadius,
+        style.borderTopRightRadius,
+        style.borderBottomRightRadius,
+        style.borderBottomLeftRadius,
+      ].map((value) => parseFloat(value) || 0)
+    );
+    bar.style.setProperty(
+      isHorizontal ? 'padding-inline' : 'padding-block',
+      `${Math.max(2, radius / 2)}px`
+    );
+  }, [isHorizontal]);
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
-      ref={ref}
+      ref={barRef}
       orientation={orientation}
       className={cn(
         'flex touch-none select-none transition-colors',
         // A size container, so the thumb keyframes can measure the track in cqw/cqh.
         'supports-[animation-timeline:scroll()]:[container-type:size]',
-        orientation === 'vertical' && 'h-full w-2.5 border-s border-s-transparent p-[1px]',
-        orientation === 'horizontal' && 'h-2.5 flex-col border-t border-t-transparent p-[1px]',
+        // Matches the app's overlay scrollbar (OverlayScrollbar): 2px off the edge, a 6px
+        // thumb that widens to 9px under the pointer.
+        orientation === 'vertical' && 'h-full w-[11px] py-0.5 pe-0.5',
+        orientation === 'horizontal' && 'h-[11px] flex-col px-0.5 pb-0.5',
         className
       )}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         className={cn(
-          'relative flex-1 rounded-full bg-border',
+          // The thumb is the hit area; its ::after is the visible bar.
+          'relative flex-1 after:absolute after:rounded-full after:bg-foreground/35 after:transition-all hover:after:bg-foreground/50',
+          isHorizontal
+            ? 'after:inset-x-0 after:bottom-0 after:h-1.5 hover:after:h-[9px]'
+            : 'after:inset-y-0 after:end-0 after:w-1.5 hover:after:w-[9px]',
           scrollTimeline &&
             (isHorizontal
               ? scrollTimeline.dir === 'rtl'

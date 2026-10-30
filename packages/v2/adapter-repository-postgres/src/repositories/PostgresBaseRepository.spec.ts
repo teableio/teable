@@ -184,6 +184,24 @@ describe('PostgresBaseRepository', () => {
     );
     expect(rowResult._unsafeUnwrap()?.name().toString()).toBe('Main Base');
 
+    const unnamedDb = {
+      selectFrom: vi.fn(() => ({
+        select: () => ({
+          where: () => ({
+            where: () => ({
+              executeTakeFirst: async () => ({ id: `bse${'e'.repeat(16)}`, name: null }),
+            }),
+          }),
+        }),
+      })),
+    } as unknown as Kysely<V1TeableDatabase>;
+    const unnamedRepo = new PostgresBaseRepository(unnamedDb);
+    const unnamedResult = await unnamedRepo.findOne(
+      { actorId: ActorId.create('system')._unsafeUnwrap() } as never,
+      BaseId.create(`bse${'e'.repeat(16)}`)._unsafeUnwrap()
+    );
+    expect(unnamedResult._unsafeUnwrap()?.name().toString()).toBe('Untitled project');
+
     const invalidDb = {
       selectFrom: vi.fn(() => ({
         select: () => ({

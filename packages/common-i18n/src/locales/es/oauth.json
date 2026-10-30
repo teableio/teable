@@ -31,6 +31,10 @@
       "description": "La URL completa a la que redirigir después de que un usuario autorice tu integración.",
       "add": "Agregar URL de callback"
     },
+    "deviceFlow": {
+      "label": "Habilitar el flujo de dispositivo",
+      "description": "Permite que esta aplicación inicie la sesión de los usuarios con un código de un solo uso introducido en un navegador (para CLI y dispositivos sin navegador). Cualquiera que conozca el ID de cliente puede iniciar este flujo en nombre de tu aplicación, así que actívalo solo si tu aplicación lo necesita."
+    },
     "secret": {
       "label": "Client secrets",
       "add": "Generar un nuevo client secret",
@@ -66,6 +70,23 @@
     "redirectTitle": "Será redirigido a:",
     "trustRedirect": "Reconozco y confío en esta URL",
     "continue": "Continuar"
+  },
+  "device": {
+    "title": "Conectar un dispositivo",
+    "description": "Introduce el código de 8 caracteres que se muestra en tu terminal para iniciar sesión en tu cuenta desde ese dispositivo.",
+    "submit": "Continuar",
+    "invalidCode": "Ese código no es válido o ha caducado. Revisa tu terminal e inténtalo de nuevo.",
+    "codeUsed": "Ese código ya se ha usado. Vuelve a ejecutar el comando de inicio de sesión para obtener un código nuevo.",
+    "deviceFlowDisabled": "Esta aplicación no permite iniciar sesión con un código de dispositivo.",
+    "codeLabel": "Código de autorización",
+    "confirmCode": "Asegúrate de que coincide con el código que se muestra en tu terminal.",
+    "securityTitle": "Advertencia de seguridad",
+    "phishingHint": "Los códigos de dispositivo son un objetivo habitual del phishing y pueden usarse para iniciar sesión en tu cuenta. No compartas nunca el tuyo y continúa solo si has iniciado tú mismo este inicio de sesión.",
+    "phishingHintStrong": "Si no tenías intención de abrir esta página o el enlace te lo ha enviado otra persona, cierra esta pestaña.",
+    "approvedTitle": "Dispositivo conectado",
+    "approvedDescription": "Puedes cerrar esta página y volver a tu terminal.",
+    "deniedTitle": "Solicitud denegada",
+    "deniedDescription": "No se ha concedido acceso a ese dispositivo. Puedes cerrar esta página."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

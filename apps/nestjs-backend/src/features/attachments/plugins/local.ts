@@ -471,7 +471,8 @@ export class LocalStorage implements StorageAdapter {
         if (!isRelevant(key)) continue;
         if (entry.isFile()) {
           if (key.startsWith(prefix)) {
-            objects.push({ key, size: fse.statSync(join(dir, entry.name)).size });
+            const { size, mtime } = fse.statSync(join(dir, entry.name));
+            objects.push({ key, size, lastModified: mtime });
           }
           continue;
         }

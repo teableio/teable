@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "Impossibile caricare i dettagli del modello."
+    },
+    "searchPlaceholder": "Cerca modelli",
+    "rankThisMonth": "N. {{rank}} questo mese",
+    "listing": {
+      "newest": "Più recenti",
+      "featured": "In evidenza"
+    },
+    "detail": {
+      "install": "Installa",
+      "installs": "Installazioni",
+      "author": "Autore",
+      "updated": "Ultimo aggiornamento",
+      "history": "Cronologia versioni",
+      "firstRelease": "Prima versione",
+      "about": "Informazioni",
+      "noChangelog": "Aggiornamento generale"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "Il modello di sistema non può essere modificato",
         "addCategoryTips": "Inserisci prima un nome categoria nell'input di ricerca.",
         "categoryNamePlaceholder": "Inserisci nome categoria",
-        "duplicateCategoryName": "Il nome della categoria esiste già"
+        "subCategoryNamePlaceholder": "Nome del sottosettore",
+        "noSubCategory": "Ancora nessun sottosettore. Clicca sul settore a sinistra per assegnarlo.",
+        "duplicateCategoryName": "Il nome della categoria esiste già",
+        "teamNamePlaceholder": "Nome del team",
+        "addTeamTips": "Inserisci prima il nome del team.",
+        "keyPlaceholder": "Chiave URL, ad es. yoga",
+        "invalidKey": "Una chiave contiene solo lettere minuscole, cifre e trattini"
       },
       "category": {
         "menu": {
           "getStarted": "Inizia",
           "recommended": "Consigliati",
           "all": "Tutti",
-          "browseByCategory": "Sfoglia per categoria"
+          "browseByCategory": "Sfoglia per categoria",
+          "byTeam": "Per team"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "Utente non esistente",
         "preview": "Anteprima",
         "usage": "Utilizzo",
-        "visit": "Visite"
+        "visit": "Visite",
+        "requirements": "Integrazioni",
+        "slug": "Slug URL"
       },
       "actions": {
         "title": "Azioni",
@@ -267,7 +292,12 @@
         "use": "Usa",
         "pinTop": "Fissa in alto",
         "addCategory": "Aggiungi categoria",
+        "addSubCategory": "Nuovo sottosettore",
+        "addSubCategoryUnder": "Nuovo sottosettore in {{name}}",
         "selectCategory": "Seleziona categoria",
+        "addTeam": "Nuovo team",
+        "industries": "Settori",
+        "teams": "Team",
         "viewTemplate": "Visualizza modello",
         "manageCategory": "Gestisci categorie"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "Nuova routine",
     "newApp": "Nuova applicazione",
     "newFolder": "Nuova cartella",
-    "template": "Modello"
+    "template": "Modello",
+    "installedTemplates": "Modelli installati"
   },
   "level": {
     "free": "Gratuito",
@@ -516,6 +547,7 @@
   "allNodes": "Tutti i nodi",
   "noDescription": "Nessuna descrizione",
   "untitled": "Senza titolo",
+  "untitledBase": "Progetto senza titolo",
   "name": "Nome",
   "description": "Descrizione",
   "required": "Obbligatorio",
@@ -1311,6 +1343,20 @@
         "message": "Questa è un'email di test, ignorala."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "Il tuo modello {{name}} è online",
+            "message": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}.",
+            "messageWithNote": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Nota del revisore: {{note}}",
+            "messageNoPayout": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori.",
+            "messageNoPayoutWithNote": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori. Nota del revisore: {{note}}"
+          },
+          "rejected": {
+            "title": "Il tuo modello {{name}} è stato rimandato indietro",
+            "message": "{{name}} non ha superato la revisione.",
+            "messageWithNote": "{{name}} non ha superato la revisione. Nota del revisore: {{note}}"
+          }
+        },
         "subject": "Notifica - {{brandName}}",
         "title": "Notifica",
         "buttonText": "Visualizza",
@@ -1517,6 +1563,26 @@
           "spaceDeleted": {
             "title": "L'esportazione del tuo spazio è pronta",
             "message": "Ciao {{name}},<br><br>hai richiesto una copia dello spazio {{spaceNames}} prima di eliminarlo definitivamente. È pronta.<br><br>Il link qui sotto è valido per {{expiresInDays}} giorni."
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "La tua attività è stata completata",
+            "message": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable è terminata:<br><em>{{prompt}}</em><br><br>Il risultato è pronto da consultare.",
+            "messageWithoutPrompt": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable è terminata.<br><br>Il risultato è pronto da consultare.",
+            "buttonText": "Visualizza risultato"
+          },
+          "failed": {
+            "title": "Non è stato possibile completare la tua attività",
+            "message": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable non è stata completata:<br><em>{{prompt}}</em><br><br>Aprila per vedere cosa è successo e riprovare.",
+            "messageWithoutPrompt": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable non è stata completata.<br><br>Aprila per vedere cosa è successo e riprovare.",
+            "buttonText": "Visualizza dettagli"
+          },
+          "creditExhausted": {
+            "title": "La tua attività si è interrotta: crediti IA esauriti",
+            "message": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable si è interrotta perché i tuoi crediti IA sono esauriti:<br><em>{{prompt}}</em><br><br>Aggiungi crediti o passa a un piano superiore, poi riprendi da dove si era fermata.",
+            "messageWithoutPrompt": "Ciao {{name}},<br><br>Un'attività che hai avviato in Teable si è interrotta perché i tuoi crediti IA sono esauriti.<br><br>Aggiungi crediti o passa a un piano superiore, poi riprendi da dove si era fermata.",
+            "buttonText": "Visualizza dettagli"
           }
         }
       }
@@ -1890,6 +1956,7 @@
       "permission": "Cuppy aspetta la tua conferma per continuare.",
       "connectIntegration": "Cuppy ha bisogno che tu colleghi un'app.",
       "pickGoogleSheet": "Cuppy ha bisogno che tu scelga un foglio.",
+      "presentTemplates": "Cuppy ha trovato un modello già pronto e attende la tua decisione.",
       "requestCredential": "Cuppy ha bisogno dell'accesso per continuare."
     },
     "result": {
