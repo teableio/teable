@@ -379,6 +379,20 @@ export class PermissionService {
   async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
+      // Internal tokens can outlive the app/template snapshot that minted them.
+      // Never let a retired base fall through to the non-template owner grant.
+      const base = await getBaseCached(this.cls, this.prismaService, baseId);
+      if (!base || base.deletedTime) {
+        throw new CustomHttpException(
+          `you have no permission to access this project`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.notAllowedBase',
+            },
+          }
+        );
+      }
       const template = await this.templateModel.getTemplateRawByBaseId(baseId);
       if (template) {
         this.cls.set('template', {
@@ -506,15 +520,12 @@ export class PermissionService {
       }
     );
     if (resourceId.startsWith(IdPrefix.Base)) {
-      const template = await this.templateModel.getTemplateRawByBaseId(resourceId);
-      if (!template?.id) {
+      const template = await this.templateForSnapshotBase(resourceId);
+      if (!template) {
         this.logger.error(`Template access denied, template not found for ${resourceId}`);
         throw deniedResourceError;
       }
-      this.cls.set('template', {
-        id: template.id,
-        baseId: template.snapshot.baseId,
-      });
+      this.cls.set('template', template);
     } else if (resourceId.startsWith(IdPrefix.Table)) {
       const table = await this.prismaService.txClient().tableMeta.findUnique({
         where: {
@@ -530,15 +541,12 @@ export class PermissionService {
         this.logger.error(`Template access denied, table not found for ${resourceId}`);
         throw deniedResourceError;
       }
-      const template = await this.templateModel.getTemplateRawByBaseId(table.baseId);
+      const template = await this.templateForSnapshotBase(table.baseId);
       if (!template) {
         this.logger.error(`Template access denied, template not found for ${resourceId}`);
         throw deniedResourceError;
       }
-      this.cls.set('template', {
-        id: template.id,
-        baseId: template.snapshot.baseId,
-      });
+      this.cls.set('template', template);
     } else {
       throw new CustomHttpException(
         `Resource ${resourceId} is not valid for template`,
@@ -551,6 +559,17 @@ export class PermissionService {
       );
     }
     return TemplatePermissions;
+  }
+
+  /** A published snapshot is open to everyone; one still under review only to the reviewers. */
+  private async templateForSnapshotBase(
+    baseId: string
+  ): Promise<{ id: string; baseId: string } | null> {
+    const published = await this.templateModel.getTemplateRawByBaseId(baseId);
+    if (published?.id) return { id: published.id, baseId: published.snapshot.baseId };
+    if (!this.cls.get('user.isAdmin')) return null;
+    const pending = await this.templateModel.getPendingTemplateRawByBaseId(baseId);
+    return pending ? { id: pending.id, baseId } : null;
   }
 
   async validTemplatePermissions(resourceId: string, permissions: Action[]) {

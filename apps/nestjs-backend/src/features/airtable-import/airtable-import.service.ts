@@ -33,6 +33,7 @@ import {
   UploadType,
 } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
+import { baseDisplayName } from '../../utils/base-name';
 import { mapWithConcurrency } from '../../utils/map-with-concurrency';
 import { AiService } from '../ai/ai.service';
 import { AttachmentsService } from '../attachments/attachments.service';
@@ -451,7 +452,7 @@ export class AirtableImportService {
     }
 
     this.logImportOutcome(ro, base.id, tableIdMap, plan.fieldIdMap, issues, startedAt);
-    progress({ phase: 'import_done', detail: base.name });
+    progress({ phase: 'import_done', detail: baseDisplayName(base.name) });
     return {
       base,
       tableIdMap,

@@ -194,6 +194,7 @@ describe('usePaletteNavigation with sidebar providers and no ViewProvider', () =
     router.asPath = '/base/bseOne/table/tblTwo/viw-tblTwo';
     rerender({ open: false, tableId: 'tblTwo' });
     expect(getViewList).not.toHaveBeenCalled();
+    expect(getUserLastVisitMap).not.toHaveBeenCalled();
     expect(readPaletteRecent('usrOne', 'bseOne').map((visit) => visit.viewId)).toEqual([
       'viw-tblTwo',
       'viw-tblOne',

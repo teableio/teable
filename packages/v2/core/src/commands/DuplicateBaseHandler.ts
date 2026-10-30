@@ -4,7 +4,10 @@ import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
-import { TableCreationService } from '../application/services/TableCreationService';
+import {
+  TableCreationService,
+  type TableCreationServiceInput,
+} from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
@@ -37,7 +40,7 @@ import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
 import { getFormulaSourceBudget } from '../ports/ExecutionContext';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { ITableMapper, ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
@@ -55,6 +58,7 @@ import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import {
   DuplicateBaseCommand,
   type DuplicateBaseDoneEvent,
+  type DuplicateBaseErrorEvent,
   type DuplicateBaseEvent,
   type DuplicateBaseProgressEvent,
   type DuplicateBaseRecordInput,
@@ -69,6 +73,10 @@ const sequence = <T>(
     (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
     ok([])
   );
+
+interface DuplicateBaseCommitState {
+  tableIdMap?: Readonly<Record<string, string>>;
+}
 
 const uniqueForeignTableReferences = (
   refs: ReadonlyArray<LinkForeignTableReference>
@@ -168,19 +176,34 @@ export class DuplicateBaseHandler implements ICommandHandler<
     context: IExecutionContext,
     command: DuplicateBaseCommand
   ): AsyncGenerator<DuplicateBaseEvent> {
+    const commitState: DuplicateBaseCommitState = {};
     try {
+      const ambientTransactions = [
+        context.transaction,
+        ...Object.values(context.transactions ?? {}),
+      ];
+      if (ambientTransactions.some((tx) => tx && !tx.committed && !tx.rolledBack)) {
+        yield this.errorEvent(
+          domainError.validation({
+            code: 'duplicate_base.ambient_transaction',
+            message: 'Duplicate base requires independently owned metadata and data transactions',
+          })
+        );
+        return;
+      }
       yield {
         id: 'progress',
         phase: 'table_structure_committing',
         totalTables: command.source.structure.tables.length,
       };
-      const structureResult = await this.createTables(context, command);
+      const structureResult = await this.createTables(context, command, commitState);
       if (structureResult.isErr()) {
-        yield this.errorEvent(structureResult.error);
+        yield this.errorEvent(structureResult.error, commitState.tableIdMap);
         return;
       }
 
       const { result, tablesBySourceId } = structureResult.value;
+      commitState.tableIdMap ??= result.tableIdMap;
       const totalTables = command.source.structure.tables.length;
       for (const [tableIndex, table] of command.source.structure.tables.entries()) {
         const targetTable = table.id ? tablesBySourceId.get(table.id) : undefined;
@@ -214,7 +237,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
           recordCopyMode = 'bulk';
           const bulkCopyResult = yield* this.bulkCopyRecordsStream(context, bulkCopyPlan);
           if (bulkCopyResult.isErr()) {
-            yield this.errorEvent(bulkCopyResult.error);
+            yield this.errorEvent(bulkCopyResult.error, commitState.tableIdMap);
             return;
           }
           recordsLength = bulkCopyResult.value.recordsLength;
@@ -248,6 +271,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
               sourceTableId: table.id,
               targetTable,
               fieldIdMap: result.fieldIdMap,
+              tableIdMap: result.tableIdMap,
             })) {
               yield event;
               if (event.id === 'error') return;
@@ -259,7 +283,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
             Array.from(tablesBySourceId.values())
           );
           if (backfillResult.isErr()) {
-            yield this.errorEvent(backfillResult.error);
+            yield this.errorEvent(backfillResult.error, commitState.tableIdMap);
             return;
           }
         }
@@ -278,12 +302,17 @@ export class DuplicateBaseHandler implements ICommandHandler<
       yield this.errorEvent(
         isDomainError(error)
           ? error
-          : domainError.fromUnknown(error, { code: 'duplicate_base.unexpected' })
+          : domainError.fromUnknown(error, { code: 'duplicate_base.unexpected' }),
+        commitState.tableIdMap
       );
     }
   }
 
-  private async createTables(context: IExecutionContext, command: DuplicateBaseCommand) {
+  private async createTables(
+    context: IExecutionContext,
+    command: DuplicateBaseCommand,
+    commitState: DuplicateBaseCommitState
+  ) {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<
       {
@@ -394,23 +423,78 @@ export class DuplicateBaseHandler implements ICommandHandler<
         });
       }
 
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) =>
-          handler.tableCreationService.execute(transactionContext, {
-            baseId: command.baseId,
-            tables: builtTables,
-            externalTables,
-            referencesByTable,
-            schemaOptions: {
-              optimizeForEmptyTables: true,
-              skipUndoCaptureSetup: true,
-            },
-            sideEffectOptions: {
-              skipFieldCreationSideEffects: true,
-            },
-          })
-      );
+      const creationInput: TableCreationServiceInput = {
+        baseId: command.baseId,
+        tables: builtTables,
+        externalTables,
+        referencesByTable,
+        schemaOptions: {
+          optimizeForEmptyTables: true,
+          skipUndoCaptureSetup: true,
+        },
+        sideEffectOptions: {
+          skipFieldCreationSideEffects: true,
+        },
+      };
+      let metadataTransaction: IUnitOfWorkTransaction | undefined;
+      const metadataResult = await handler.unitOfWork
+        .withTransaction(
+          context,
+          async (transactionContext) => {
+            metadataTransaction = transactionContext.transaction;
+            return handler.tableCreationService.persistMetadata(transactionContext, creationInput);
+          },
+          { scope: 'meta' }
+        )
+        .catch((error: unknown) => err(domainError.fromUnknown(error)));
+      if (metadataResult.isOk() || metadataTransaction?.committed) {
+        commitState.tableIdMap = tableIdMap;
+      }
+      if (metadataResult.isErr()) return err(metadataResult.error);
+      let dataTransaction: IUnitOfWorkTransaction | undefined;
+      const provisioningResult = await handler.unitOfWork
+        .withTransaction(
+          context,
+          async (transactionContext) => {
+            dataTransaction = transactionContext.transaction;
+            return handler.tableCreationService.provisionData(transactionContext, {
+              ...creationInput,
+              persistedTables: metadataResult.value.persistedTables,
+            });
+          },
+          { scope: 'data' }
+        )
+        .catch((error: unknown) => err(domainError.fromUnknown(error)));
+      if (provisioningResult.isErr()) {
+        // A failed after-commit callback must not discard metadata for a live physical schema.
+        if (dataTransaction?.committed) return err(provisioningResult.error);
+        const cleanupResult = await handler.unitOfWork
+          .withTransaction(
+            context,
+            async (transactionContext) =>
+              handler.tableCreationService.discardMetadata(
+                transactionContext,
+                metadataResult.value.persistedTables
+              ),
+            { scope: 'meta' }
+          )
+          .catch((error: unknown) => err(domainError.fromUnknown(error)));
+        if (cleanupResult.isErr()) {
+          return err(
+            domainError.infrastructure({
+              code: 'duplicate_base.cleanup_failed',
+              message: `${provisioningResult.error.message}; cleanup failed: ${cleanupResult.error.message}`,
+              details: {
+                duplicateErrorCode: provisioningResult.error.code,
+                cleanupErrorCode: cleanupResult.error.code,
+              },
+              cause: provisioningResult.error,
+            })
+          );
+        }
+        return err(provisioningResult.error);
+      }
+      const transactionResult = provisioningResult.value;
 
       const events = [
         ...builtTables.flatMap((table) => table.pullDomainEvents()),
@@ -756,13 +840,13 @@ export class DuplicateBaseHandler implements ICommandHandler<
         isTransactionBound: false,
       });
       if (pluginExecutionResult.isErr()) {
-        yield this.errorEvent(pluginExecutionResult.error);
+        yield this.errorEvent(pluginExecutionResult.error, params.tableIdMap);
         return;
       }
       const pluginExecution = pluginExecutionResult.value;
       const guardResult = await pluginExecution.guard();
       if (guardResult.isErr()) {
-        yield this.errorEvent(guardResult.error);
+        yield this.errorEvent(guardResult.error, params.tableIdMap);
         return;
       }
 
@@ -783,7 +867,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
         })
       );
       if (result.isErr()) {
-        yield this.errorEvent(result.error);
+        yield this.errorEvent(result.error, params.tableIdMap);
         return;
       }
       await pluginExecution.afterCommit();
@@ -817,6 +901,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
       sourceTableId: string;
       targetTable: Table;
       fieldIdMap: Record<string, string>;
+      tableIdMap: Readonly<Record<string, string>>;
     }
   ): AsyncGenerator<DuplicateBaseEvent> {
     const sourceLinkFieldIds = this.getSourceLinkRestoreFieldIds(command, params.sourceTableId);
@@ -843,7 +928,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
       )
     );
     if (result.isErr()) {
-      yield this.errorEvent(result.error);
+      yield this.errorEvent(result.error, params.tableIdMap);
     }
   }
 
@@ -1024,11 +1109,15 @@ export class DuplicateBaseHandler implements ICommandHandler<
     };
   }
 
-  private errorEvent(error: DomainError): DuplicateBaseEvent {
-    const event: DuplicateBaseEvent = {
+  private errorEvent(
+    error: DomainError,
+    tableIdMap?: Readonly<Record<string, string>>
+  ): DuplicateBaseErrorEvent {
+    const event: DuplicateBaseErrorEvent = {
       id: 'error',
       message: error.message,
       code: error.code,
+      ...(tableIdMap ? { tableIdMap } : {}),
     };
     Object.defineProperty(event, 'error', {
       value: error,

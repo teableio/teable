@@ -62,6 +62,7 @@ import { Events } from '../../../event-emitter/events';
 import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
+import { baseDisplayName } from '../../../utils/base-name';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -238,7 +239,7 @@ export class FieldOpenApiService {
       icon: tableMeta.icon,
       base: {
         id: base.id,
-        name: base.name,
+        name: baseDisplayName(base.name),
         icon: base.icon,
       },
     };
@@ -556,7 +557,7 @@ export class FieldOpenApiService {
         icon: table.icon,
         base: {
           id: base.id,
-          name: base.name,
+          name: baseDisplayName(base.name),
           icon: base.icon,
         },
       });

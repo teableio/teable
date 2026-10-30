@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MetaPixel, PostHog, Umami } from '@/components/Metrics';
+import { OverlayScrollbar } from '@/components/OverlayScrollbar';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
 import { useMobileServiceWorker } from '@/features/app/hooks/useMobileServiceWorker';
@@ -110,6 +111,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
       </AppProviders>
       {user && <Guide user={user} />}
       <RouterProgressBar />
+      <OverlayScrollbar />
     </>
   );
 };

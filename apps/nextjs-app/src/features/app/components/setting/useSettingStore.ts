@@ -14,6 +14,7 @@ export enum PersonalSettingTab {
   License = 'license',
   Artifacts = 'artifacts',
   ArchivedChats = 'archived-chats',
+  Creator = 'creator',
 }
 
 export type SettingDialogTab = string;

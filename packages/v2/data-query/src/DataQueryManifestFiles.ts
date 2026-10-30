@@ -97,18 +97,20 @@ export function parseDataQueryManifestText(text: string): Result<DataQueryManife
   }
 }
 
-const stableValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(stableValue);
+const stableValue = (value: unknown, orderedMaps?: ReadonlySet<object>): unknown => {
+  if (Array.isArray(value)) return value.map((child) => stableValue(child, orderedMaps));
   if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value);
+    // A relation's `via` names an earlier declaration, so this map is ordered data.
+    if (!orderedMaps?.has(value)) entries.sort(([a], [b]) => a.localeCompare(b, 'en'));
     return Object.fromEntries(
-      Object.entries(value)
-        .sort(([a], [b]) => a.localeCompare(b, 'en'))
-        .map(([key, child]) => [key, stableValue(child)])
+      entries.map(([key, child]) => [key, stableValue(child, orderedMaps)])
     );
   }
   return value;
 };
-const json = (value: unknown): string => JSON.stringify(stableValue(value), null, 2);
+const json = (value: unknown, orderedMaps?: ReadonlySet<object>): string =>
+  JSON.stringify(stableValue(value, orderedMaps), null, 2);
 const outputType = (output: DataQueryOutput): string => {
   if (output.wireType === 'unknown') return 'unknown';
   const primitive: Record<Exclude<DataQueryOutput['wireType'], 'unknown'>, string> = {
@@ -256,8 +258,15 @@ export function generateAppQueryArtifacts(
           },`
     );
   }
+  const orderedRelations = new Set<object>();
   const definitions = Object.fromEntries(
-    ids.map((id) => [id, manifest.queries[id].definition ?? null])
+    ids.map((id) => {
+      const definition = manifest.queries[id].definition;
+      if (definition?.version === 2 && definition.relations) {
+        orderedRelations.add(definition.relations);
+      }
+      return [id, definition ?? null];
+    })
   );
   const fallbacks = Object.fromEntries(
     ids.map((id) => {
@@ -331,7 +340,7 @@ const isQueryPage = (value: unknown): value is QueryPage =>
   typeof value.total === 'number';
 `
     : ''
-}const definitions = ${json(definitions)};
+}const definitions = ${json(definitions, orderedRelations)};
 const fallbacks = ${json(fallbacks)};
 
 export class QueryError extends Error {

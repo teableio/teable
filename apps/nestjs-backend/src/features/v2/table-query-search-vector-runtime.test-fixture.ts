@@ -7,10 +7,15 @@ import {
   Table,
   TableId,
   TableName,
+  ViewId,
   type ITableSearchIndex,
 } from '@teable/v2-core';
 
-export const createSearchIndexTable = (tableId: string, fieldId: string): Table => {
+export const createSearchIndexTable = (
+  tableId: string,
+  fieldId: string,
+  viewId?: string
+): Table => {
   const builder = Table.builder()
     .withId(TableId.create(tableId)._unsafeUnwrap())
     .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
@@ -22,7 +27,9 @@ export const createSearchIndexTable = (tableId: string, fieldId: string): Table 
     .withName(FieldName.create('Name')._unsafeUnwrap())
     .primary()
     .done();
-  builder.view().defaultGrid().done();
+  const viewBuilder = builder.view().grid();
+  if (viewId) viewBuilder.withId(ViewId.create(viewId)._unsafeUnwrap());
+  viewBuilder.defaultName().done();
   return withSearchIndex(builder.build()._unsafeUnwrap(), [fieldId]);
 };
 

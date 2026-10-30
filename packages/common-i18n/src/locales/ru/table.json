@@ -34,7 +34,17 @@
     "records_many": "{{formattedCount}} записей",
     "records_other": "Записей: {{formattedCount}}",
     "batchesComplete": "Завершено пакетов {{completed}}/{{total}}",
-    "progressAriaLabel": "Прогресс вычисления для {{fieldName}}"
+    "progressAriaLabel": "Прогресс вычисления для {{fieldName}}",
+    "statusUnavailable": "Статус вычислений временно недоступен",
+    "statusSyncing": "Проверка статуса вычислений",
+    "statusSyncingDescription": "Мы проверяем актуальный статус вычислений. Это не означает, что вычисления выполняются.",
+    "statusUnavailableDescription": "Не удалось загрузить актуальный статус вычислений. Обновите статус, чтобы попробовать снова; вычисления при этом не перезапустятся.",
+    "refreshStatus": "Обновить статус",
+    "paused": "Вычисления приостановлены",
+    "resultsNotUpdated": "Некоторые результаты вычислений не обновлены",
+    "delayed": "Обновление вычислений задерживается · {{seconds}} с",
+    "snapshotMayBeStale": "Показан последний известный статус; он может быть устаревшим.",
+    "unknownImpact": "Некоторые результаты вычислений не обновлены; затронутые поля определяются"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Уведомление",
@@ -1114,6 +1124,7 @@
     "insertRecordBelow": "Вставить запись ниже",
     "deleteRecord": "Удалить запись",
     "deleteAllSelectedRecords": "Удалить все выбранные записи",
+    "copy": "Копировать",
     "archiveRecord": "Архивировать запись",
     "archiveAllSelectedRecords": "Архивировать все выбранные записи",
     "duplicateRecords": "Дублировать выбранные записи",
@@ -1334,6 +1345,26 @@
       },
       "chooseAccount": "Из какого аккаунта Google взять таблицы?"
     },
+    "templateOffer": {
+      "title": "Предложенные шаблоны",
+      "details": "Подробнее",
+      "found_one": "Найден готовый шаблон",
+      "found_few": "Найдено {{count}} готовых шаблона",
+      "found_many": "Найдено {{count}} готовых шаблонов",
+      "found_other": "Найдено {{count}} готовых шаблона",
+      "defaultReason": "Установите его вместо того, чтобы собирать всё с нуля.",
+      "install": "Установить",
+      "installing": "Установка…",
+      "dismiss": "Нет, спасибо",
+      "close": "Закрыть",
+      "failed": "Не удалось сохранить ваш выбор. Попробуйте снова.",
+      "unavailable": "Эти шаблоны больше недоступны.",
+      "status": {
+        "installed": "Установлено",
+        "dismissed": "Пропущено",
+        "failed": "Ошибка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Или введите ответ…",
@@ -1348,6 +1379,10 @@
         "nextQuestion": "Следующий вопрос"
       },
       "completion": {
+        "workedFor": "Работал {{time}}",
+        "worked": "Работа завершена",
+        "stoppedAfter": "Вы остановили через {{time}}",
+        "stopped": "Вы остановили этот ответ",
         "noDetails": "Подробности недоступны",
         "model": "Модель",
         "contextWindow": "Контекстное окно",
@@ -1401,9 +1436,6 @@
         "copied": "Скопировано!",
         "fullscreen": "Полный экран",
         "exitFullscreen": "Выйти из полноэкранного режима",
-        "downloadSuccess": "Изображение успешно загружено",
-        "downloadFailed": "Не удалось захватить изображение",
-        "iframeFailed": "Не удалось захватить: iframe недоступен",
         "iframeTitle": "Предпросмотр HTML"
       }
     },
@@ -1579,7 +1611,25 @@
       "selectionRows": "Строки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Запись без названия",
+      "selectionRecords": "Записей: {{count}}",
+      "selectionCellCount": "Ячеек: {{count}}",
+      "selectionRecordType": "Ссылка на записи",
+      "selectionCellType": "Ссылка на ячейки",
+      "selectionDimensions": "{{rows}} строк × {{columns}} столбцов",
+      "selectionUnavailable": "Недоступно или удалено",
+      "selectionLegacyUnavailable": "У этой старой ссылки нет стабильных ID выделения. Предпросмотр недоступен.",
+      "selectionSourceUnknown": "Источник недоступен",
+      "selectionPreview": "Предпросмотр выделения: {{label}}",
+      "selectionSource": "Исходная таблица: {{table}}",
+      "selectionSelectedFields": "В этот контекст включены только выбранные поля.",
+      "selectionIdentificationOnly": "Основной заголовок показан только для идентификации.",
+      "selectionEmpty": "Пусто",
+      "selectionOpenRecord": "Открыть запись {{name}}",
+      "selectionPrevious": "Назад",
+      "selectionNext": "Далее",
+      "selectionPage": "{{start}}–{{end}} из {{count}} записей"
     },
     "mention": {
       "tables": "Таблицы",
@@ -1608,7 +1658,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Вставленный текст",
-      "imageNotSupported": "Изображение не поддерживается",
       "tooManyFiles": "Вы можете прикрепить не более {{count}} файлов к одному сообщению"
     },
     "suggestions": {
@@ -1670,9 +1719,12 @@
       "nQueued": "В очереди: {{count}}",
       "edit": "Изменить",
       "steerNow": "Направить разговор, не прерывая его",
-      "steerFailed": "Не удалось направить разговор. Сообщение осталось в очереди.",
+      "steer": "Направить",
       "conversationInputMarker": "Разговор направлен",
-      "removeFromQueue": "Убрать"
+      "removeFromQueue": "Убрать",
+      "paused": "Очередь приостановлена, потому что вы прервали ответ",
+      "resume": "Продолжить",
+      "queueFull": "Очередь отправки заполнена. Подождите, пока Cuppy справится."
     },
     "partTool": {
       "bash": "Выполнить команду",
@@ -1687,6 +1739,10 @@
       "skill": "Загрузка навыка",
       "foundFiles": "Найдено файлов: {{count}}",
       "listedEntries": "Записей: {{count}}",
+      "ranCommands_one": "Выполнена {{count}} команда",
+      "ranCommands_few": "Выполнено {{count}} команды",
+      "ranCommands_many": "Выполнено {{count}} команд",
+      "ranCommands_other": "Выполнено {{count}} команды",
       "moreItems": "+{{count}} ещё",
       "fallbackName": "Инструмент",
       "questionCount_one": "{{count}} вопрос",
@@ -1824,6 +1880,10 @@
       "droppedRulesDetail": "Эти правила привязаны к перемещаемым узлам; вместо них применяются настройки разрешений целевого проекта.",
       "successTitle": "Перемещено",
       "successDescription": "«{{name}}» теперь находится в {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> узел перемещён в <b>{{baseName}}</b>",
+      "successDescription_few": "<b>{{count}}</b> узла перемещены в <b>{{baseName}}</b>",
+      "successDescription_many": "<b>{{count}}</b> узлов перемещены в <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> узла перемещены в <b>{{baseName}}</b>",
       "open": "Открыть",
       "appEmbeddedId_one": "{{count}} приложение упоминает прежний проект в своём коде; обновите его сами",
       "appEmbeddedId_few": "{{count}} приложения упоминают прежний проект в своём коде; обновите их сами",

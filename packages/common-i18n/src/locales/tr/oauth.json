@@ -31,6 +31,10 @@
       "description": "Bir kullanıcı entegrasyonunuzu yetkilendirdikten sonra yönlendirilecek tam URL.",
       "add": "Geri Dönüş URL'si Ekle"
     },
+    "deviceFlow": {
+      "label": "Cihaz akışını etkinleştir",
+      "description": "Bu uygulamanın, kullanıcıların bir tarayıcıya yazılan tek kullanımlık bir kodla giriş yapmasına izin verin (CLI'lar ve tarayıcısı olmayan cihazlar için). İstemci kimliğini bilen herkes bu akışı uygulamanız adına başlatabilir; bu nedenle yalnızca uygulamanız gerçekten ihtiyaç duyuyorsa etkinleştirin."
+    },
     "secret": {
       "label": "İstemci gizli anahtarları",
       "add": "Yeni bir istemci gizli anahtarı oluştur",
@@ -66,6 +70,23 @@
     "redirectTitle": "Şuraya yönlendirileceksiniz:",
     "trustRedirect": "Bu URL'yi tanıyorum ve güveniyorum",
     "continue": "Devam Et"
+  },
+  "device": {
+    "title": "Cihaz bağla",
+    "description": "O cihazda hesabınıza giriş yapmak için terminalinizde gösterilen 8 karakterlik kodu girin.",
+    "submit": "Devam",
+    "invalidCode": "Bu kod geçersiz veya süresi dolmuş. Terminalinizi kontrol edip tekrar deneyin.",
+    "codeUsed": "Bu kod zaten kullanılmış. Yeni bir kod almak için giriş komutunu yeniden çalıştırın.",
+    "deviceFlowDisabled": "Bu uygulama cihaz koduyla giriş yapılmasına izin vermiyor.",
+    "codeLabel": "Yetkilendirme kodu",
+    "confirmCode": "Terminalinizde gösterilen kodla eşleştiğinden emin olun.",
+    "securityTitle": "Güvenlik uyarısı",
+    "phishingHint": "Cihaz kodları sık kullanılan bir oltalama hedefidir ve hesabınıza giriş yapmak için kullanılabilir. Kodunuzu asla paylaşmayın ve yalnızca bu girişi kendiniz başlattıysanız devam edin.",
+    "phishingHintStrong": "Bu sayfayı açmak istemediyseniz veya bağlantı başka birinden geldiyse bu sekmeyi kapatın.",
+    "approvedTitle": "Cihaz bağlandı",
+    "approvedDescription": "Bu sayfayı kapatıp terminalinize dönebilirsiniz.",
+    "deniedTitle": "İstek reddedildi",
+    "deniedDescription": "Bu cihaza erişim izni verilmedi. Bu sayfayı kapatabilirsiniz."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

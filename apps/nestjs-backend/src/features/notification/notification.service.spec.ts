@@ -28,6 +28,7 @@ describe('NotificationService', () => {
         { severity: NotificationSeverityEnum.Warning, _count: { _all: 2 } },
         { severity: NotificationSeverityEnum.Info, _count: { _all: 1 } },
       ]),
+      count: vi.fn().mockResolvedValue(0),
     };
     const prismaService = {
       notification,
@@ -38,6 +39,7 @@ describe('NotificationService', () => {
 
     return {
       notification,
+      prismaService,
       service: new NotificationService(
         prismaService as never,
         {} as never,
@@ -90,6 +92,50 @@ describe('NotificationService', () => {
         },
       })
     );
+  });
+
+  it('answers the badge count and both catch-up lists in one summary', async () => {
+    const { notification, prismaService, service } = createService();
+    const invite = {
+      id: 'notInvite',
+      fromUserId: 'usrFrom',
+      type: NotificationTypeEnum.CollaboratorInvite,
+      urlPath: '',
+      message: 'Invite',
+      messageI18n: null,
+      severity: NotificationSeverityEnum.Info,
+      isRead: false,
+      createdTime: new Date('2026-05-11T00:00:00.000Z'),
+    };
+    const critical = {
+      ...invite,
+      id: 'notCritical',
+      fromUserId: SYSTEM_USER_ID,
+      type: NotificationTypeEnum.AdminNotice,
+      severity: NotificationSeverityEnum.Critical,
+    };
+    notification.findMany.mockImplementation(async ({ where }) =>
+      where.type === NotificationTypeEnum.AdminNotice ? [critical] : [invite]
+    );
+    notification.count.mockResolvedValue(4);
+    prismaService.user.findMany.mockResolvedValue([{ id: 'usrFrom', name: 'From', avatar: null }]);
+
+    const result = await service.getNotifySummary('usrTest');
+
+    expect(result.unreadCount).toBe(4);
+    expect(result.criticalAdminNotices.map((n) => n.id)).toEqual(['notCritical']);
+    expect(result.unreadInvites.map((n) => n.id)).toEqual(['notInvite']);
+    expect(notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          toUserId: 'usrTest',
+          isRead: false,
+          severity: NotificationSeverityEnum.Critical,
+          type: NotificationTypeEnum.AdminNotice,
+        },
+      })
+    );
+    expect(notification.groupBy).not.toHaveBeenCalled();
   });
 });
 

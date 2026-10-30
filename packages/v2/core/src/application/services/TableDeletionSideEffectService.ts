@@ -259,6 +259,7 @@ export class TableDeletionSideEffectService {
             reaction.afterPersist(transactionContext, updatedTable, deletedTable),
         },
         publishEvents: false,
+        finalizeWithinTransaction: true,
       }
     );
 
@@ -329,7 +330,7 @@ export class TableDeletionSideEffectService {
         composedSpec.value
           .mutate(candidate)
           .map((updated) => TableUpdateResult.create(updated, composedSpec.value)),
-      { publishEvents: false }
+      { publishEvents: false, finalizeWithinTransaction: true }
     );
 
     return updateResult.map((result) => result);

@@ -309,6 +309,8 @@
     "duplicateRecord": "تكرار السجل",
     "addToChat": "الإضافة إلى المحادثة",
     "copyRecordUrl": "نسخ رابط السجل",
+    "copyLink": "نسخ الرابط",
+    "history": "السجل",
     "deleteRecord": "حذف السجل",
     "addRecordComment": "إضافة تعليق",
     "viewRecordHistory": "عرض سجل التغييرات",
@@ -1670,7 +1672,12 @@
       "sourceTemplateNotFound": "القالب المصدر غير موجود",
       "noMinOrderFound": "لم يتم العثور على الحد الأدنى للترتيب",
       "takeCountTooLarge": "عدد القوالب المطلوبة يتجاوز الحد الأقصى",
-      "categoryLimitReached": "تم بلوغ حد فئات القوالب (الحد الأقصى {{maxCount}})"
+      "categoryLimitReached": "تم بلوغ حد فئات القوالب (الحد الأقصى {{maxCount}})",
+      "categoryHasChildren": "لا يزال هذا القطاع يحتوي على قطاعات فرعية؛ احذفها أولاً",
+      "categoryDepthExceeded": "لا يمكن أن يحتوي القطاع الفرعي على قطاعات فرعية خاصة به",
+      "teamIsFlat": "الفريق ليس له فئة أعلى ولا فئات فرعية",
+      "categoryKeyTaken": "مفتاح الرابط هذا مستخدم بالفعل في فئة أخرى",
+      "slugTaken": "معرّف الرابط هذا مستخدم بالفعل في قالب آخر"
     },
     "department": {
       "parentNotFound": "القسم الأب غير موجود",
@@ -1697,6 +1704,8 @@
       "domainReserved": "النطاق الفرعي محجوز",
       "siteInfoBeforeGeneration": "أنشئ التطبيق قبل تخصيص معلومات موقعه",
       "generationEditingConflict": "تجري عملية توليد بالذكاء الاصطناعي تعديل هذا التطبيق حاليًا. يُرجى إعادة محاولة تحديث الملف بعد انتهائها.",
+      "codeCopying": "لا يزال رمز التطبيق قيد النسخ. يُرجى المحاولة مرة أخرى بعد قليل.",
+      "codeCopyFailed": "تعذّر نسخ رمز التطبيق. كرّر التطبيق مرة أخرى.",
       "siteInfoLayoutNotEditable": "كود هذا التطبيق غير مهيأ لقبول تعديلات معلومات الموقع من هنا. اطلب من الذكاء الاصطناعي عبر المحادثة تغيير عنوان الموقع أو وصفه أو أيقونته بدلًا من ذلك.",
       "siteInfoManagedInCode": "يدير هذا التطبيق عنوان الموقع ووصفه داخل الكود. اطلب من الذكاء الاصطناعي عبر المحادثة تغييرهما بدلًا من ذلك.",
       "accessLinkSetupFailed": "فشل إعداد رابط الوصول: {{detail}}",
@@ -1755,7 +1764,8 @@
     "requestFailed": "فشل الطلب",
     "operationFailed": "فشلت العملية: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "لا يمكن للمُشغِّل {{operator}} المقارنة بحقل آخر"
+      "operatorNoFieldReference": "لا يمكن للمُشغِّل {{operator}} المقارنة بحقل آخر",
+      "fieldReferenceIncompatible": "نوع الحقل {{reference}} غير متوافق، ولا يمكن مقارنته مع {{source}}"
     },
     "oauth": {
       "invalidRequest": "طلب OAuth غير صالح: {{detail}}",

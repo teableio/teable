@@ -199,10 +199,14 @@ class FakeTableDeletionSideEffectService {
   events: IDomainEvent[] = [];
   postPersistEvents: IDomainEvent[] = [];
   calls = 0;
+  contexts: IExecutionContext[] = [];
   failExecute: DomainError | undefined;
 
-  async execute(): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
+  async execute(
+    context: IExecutionContext
+  ): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
     this.calls += 1;
+    this.contexts.push(context);
     if (this.failExecute) return err(this.failExecute);
     return ok({
       events: [...this.events],
@@ -302,10 +306,12 @@ describe('DeleteTableHandler', () => {
     expect(unitOfWork.transactions.length).toBe(4);
     expect(unitOfWork.transactions.map((context) => context.transaction?.scope)).toEqual([
       'meta',
+      'meta',
       'data',
       'meta',
-      'meta',
     ]);
+    expect(sideEffectService.contexts[0]?.transactions?.meta?.scope).toBe('meta');
+    expect(sideEffectService.contexts[0]?.transactions?.data?.scope).toBe('data');
   });
 
   it('loads active tables in any provisioning state so failed provisioning can be deleted', async () => {
@@ -511,7 +517,7 @@ describe('DeleteTableHandler', () => {
     expect(repoResult._unsafeUnwrapErr().message).toBe('repo delete failed');
     expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
       'deleting',
-      'error',
+      'ready',
     ]);
 
     const softCommand = DeleteTableCommand.create({

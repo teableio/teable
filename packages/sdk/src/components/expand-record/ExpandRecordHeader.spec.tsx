@@ -40,7 +40,6 @@ const renderHeader = (onAddToChat?: () => void) =>
     <ExpandRecordHeader
       tableId="tblA"
       recordId="recA"
-      title="当前记录"
       onDuplicate={async () => undefined}
       onAddToChat={onAddToChat}
     />,

@@ -40,6 +40,7 @@ import { Check, ChevronDown, Loader, Plus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { useShareContext } from '../context/ShareContext';
 import { SpaceAvatar } from './space/SpaceAvatar';
 
@@ -276,8 +277,11 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
     );
 
     const editableBases = useMemo(
-      () => baseListInSpace?.filter((b) => RolePermission[b.role]['base|update']),
-      [baseListInSpace]
+      () =>
+        baseListInSpace
+          ?.filter((b) => RolePermission[b.role]['base|update'])
+          .map((b) => ({ id: b.id, name: getBaseDisplayName(b.name, t) })),
+      [baseListInSpace, t]
     );
 
     const defaultSpaceId = useMemo(() => {
@@ -413,7 +417,7 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
                       </Label>
                       <Input
                         size="lg"
-                        value={baseName ?? base?.name ?? ''}
+                        value={baseName ?? (base ? getBaseDisplayName(base.name, t) : '')}
                         onChange={(e) => setBaseName(e.target.value)}
                         disabled={copyLoading}
                         placeholder={t('common:share.copyToSpaceDialog.baseNamePlaceholder')}

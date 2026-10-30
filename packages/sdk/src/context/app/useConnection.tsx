@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
 import { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
+import { addQueryParamsToWebSocketUrl } from '../../utils/urlParams';
 import { useTranslation } from './i18n';
 import { handleShareDbReceive, handleShareDbError } from './shareDbErrorHandler';
 import { isConnected, useConnectionAutoManage } from './useConnectionAutoManage';
@@ -12,19 +13,24 @@ export function getWsPath() {
 }
 
 export const useConnection = (path?: string) => {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [connected, setConnected] = useState(false);
   const [connection, setConnection] = useState<Connection>();
   const [socket, setSocket] = useState<ReconnectingSockJS | null>(null);
   useEffect(() => {
-    const newSocket = new ReconnectingSockJS(path || getWsPath());
+    // The server localizes ShareDB errors in this language, since ShareDB
+    // replies carry only code/message and the SDK cannot translate them.
+    const url = path || getWsPath();
+    const newSocket = new ReconnectingSockJS(
+      lang ? addQueryParamsToWebSocketUrl(url, { lang }) : url
+    );
     setSocket(newSocket);
 
     return () => {
       // Cleanup socket on unmount or path change
       newSocket.destroy();
     };
-  }, [path]);
+  }, [path, lang]);
 
   useConnectionAutoManage(socket, undefined, {
     // 10 minutes, it will be closed when the user is leave the page for 10 minutes

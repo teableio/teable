@@ -1109,6 +1109,7 @@
     "insertRecordBelow": "在下方插入 <input /> 记录",
     "deleteRecord": "删除记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
+    "copy": "复制",
     "archiveRecord": "归档记录",
     "archiveAllSelectedRecords": "归档所有选定的记录",
     "duplicateRecords": "复制所选记录",
@@ -1325,6 +1326,23 @@
         "failed": "失败"
       },
       "chooseAccount": "要从哪个 Google 账号选取表格？"
+    },
+    "templateOffer": {
+      "title": "推荐模板",
+      "details": "详情",
+      "found": "找到 {{count}} 个现成的模板",
+      "defaultReason": "装上就能用，不用从头搭。",
+      "install": "安装",
+      "installing": "安装中…",
+      "dismiss": "不用了",
+      "close": "关闭",
+      "failed": "没能记录你的选择，请重试。",
+      "unavailable": "这些模板已下架或暂不可用。",
+      "status": {
+        "installed": "已安装",
+        "dismissed": "已跳过",
+        "failed": "失败"
+      }
     },
     "agent": {
       "askUserQuestion": {
@@ -1577,7 +1595,6 @@
     },
     "attachment": {
       "pastedTextFileName": "粘贴文本",
-      "imageNotSupported": "不支持图片",
       "tooManyFiles": "每条消息最多添加 {{count}} 个文件"
     },
     "suggestions": {

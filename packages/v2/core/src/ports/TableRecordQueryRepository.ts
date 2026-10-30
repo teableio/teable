@@ -421,6 +421,18 @@ export interface ITableRecordCountQueryRepository extends ITableRecordQueryRepos
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordCountOptions
   ): Promise<Result<number, DomainError>>;
+
+  /**
+   * Count matching visible cells inside the filtered record scope. Unlike
+   * {@link count}, this evaluates every resolved search field and sums cell
+   * predicates; it never applies the row-search predicate or fetches records.
+   */
+  countSearchMatches(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>>;
 }
 
 /**

@@ -13,6 +13,7 @@ import type { Result } from 'neverthrow';
 import { v2PostgresStateTokens } from '../di/tokens';
 
 const DEFAULT_SPACE_ID = 'spc00000000000000000';
+const UNNAMED_BASE_PLACEHOLDER = 'Untitled project';
 
 @injectable()
 export class PostgresBaseRepository implements core.IBaseRepository {
@@ -157,11 +158,14 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     }
   }
 
-  private mapBaseRow(row: { id: string; name: string }): Result<core.Base, DomainError> {
+  private mapBaseRow(row: { id: string; name: string | null }): Result<core.Base, DomainError> {
     const baseIdResult = core.BaseId.create(row.id);
     if (baseIdResult.isErr()) return err(baseIdResult.error);
 
-    const baseNameResult = core.BaseName.create(row.name);
+    // `base.name` is NULL until a person or the AI names the base. The aggregate requires a
+    // name, so an unnamed base is hydrated under a placeholder rather than rejected; the
+    // placeholder also becomes the stem of a "(Copy)" name when such a base is duplicated.
+    const baseNameResult = core.BaseName.create(row.name ?? UNNAMED_BASE_PLACEHOLDER);
     if (baseNameResult.isErr()) return err(baseNameResult.error);
 
     return core.Base.rehydrate({

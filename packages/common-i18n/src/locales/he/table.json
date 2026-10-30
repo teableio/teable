@@ -29,7 +29,17 @@
     "records_two": "שתי רשומות",
     "records_other": "{{formattedCount}} רשומות",
     "batchesComplete": "אצוות שהושלמו {{completed}}/{{total}}",
-    "progressAriaLabel": "התקדמות החישוב של {{fieldName}}"
+    "progressAriaLabel": "התקדמות החישוב של {{fieldName}}",
+    "statusUnavailable": "סטטוס החישובים אינו זמין זמנית",
+    "statusSyncing": "בבדיקת סטטוס החישובים",
+    "statusSyncingDescription": "אנחנו בודקים את סטטוס החישובים העדכני. אין זה אומר שחישובים פועלים כרגע.",
+    "statusUnavailableDescription": "לא ניתן היה לטעון את סטטוס החישובים העדכני. אפשר לרענן את הסטטוס כדי לנסות שוב; פעולה זו לא תפעיל מחדש את החישובים.",
+    "refreshStatus": "רענון הסטטוס",
+    "paused": "החישובים מושהים",
+    "resultsNotUpdated": "חלק מתוצאות החישוב עדיין לא עודכנו",
+    "delayed": "עדכון החישובים מתעכב · {{seconds}} שנ׳",
+    "snapshotMayBeStale": "מוצג הסטטוס האחרון הידוע, וייתכן שאינו עדכני.",
+    "unknownImpact": "חלק מתוצאות החישוב עדיין לא עודכנו; השדות המושפעים בתהליך זיהוי"
   },
   "crossSpace": {
     "duplicateFieldTitle": "לתשומת לב",
@@ -1109,6 +1119,7 @@
     "insertRecordBelow": "הוספת <input /> רשומות מתחת",
     "deleteRecord": "מחיקת הרשומה",
     "deleteAllSelectedRecords": "מחיקת כל הרשומות שנבחרו",
+    "copy": "העתקה",
     "archiveRecord": "העברת הרשומה לארכיון",
     "archiveAllSelectedRecords": "העברת כל הרשומות שנבחרו לארכיון",
     "duplicateRecords": "שכפול הרשומות שנבחרו",
@@ -1328,6 +1339,25 @@
       },
       "chooseAccount": "מאיזה חשבון Google לקחת את הגיליונות?"
     },
+    "templateOffer": {
+      "title": "תבניות מוצעות",
+      "details": "פרטים",
+      "found_one": "נמצאה תבנית מוכנה",
+      "found_two": "נמצאו שתי תבניות מוכנות",
+      "found_other": "נמצאו {{count}} תבניות מוכנות",
+      "defaultReason": "אפשר להתקין תבנית במקום לבנות מאפס.",
+      "install": "התקנה",
+      "installing": "בהתקנה…",
+      "dismiss": "לא תודה",
+      "close": "סגירה",
+      "failed": "לא ניתן היה לשמור את הבחירה שלך. יש לנסות שוב.",
+      "unavailable": "התבניות האלה כבר אינן זמינות.",
+      "status": {
+        "installed": "הותקן",
+        "dismissed": "דולג",
+        "failed": "נכשל"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "או הקלדת תשובה משלך…",
@@ -1342,6 +1372,10 @@
         "nextQuestion": "השאלה הבאה"
       },
       "completion": {
+        "workedFor": "זמן עבודה: {{time}}",
+        "worked": "העבודה הושלמה",
+        "stoppedAfter": "נעצר על ידך לאחר {{time}}",
+        "stopped": "התגובה הזו נעצרה על ידך",
         "noDetails": "אין פרטים זמינים",
         "model": "מודל",
         "contextWindow": "חלון ההקשר",
@@ -1556,7 +1590,25 @@
       "selectionRows": "שורות {{start}}-{{end}}",
       "selectionColumn": "עמודה {{col}}",
       "selectionColumns": "עמודות {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "רשומה ללא שם",
+      "selectionRecords": "{{count}} רשומות",
+      "selectionCellCount": "{{count}} תאים",
+      "selectionRecordType": "הפניה לרשומות",
+      "selectionCellType": "הפניה לתאים",
+      "selectionDimensions": "{{rows}} שורות × {{columns}} עמודות",
+      "selectionUnavailable": "לא זמין או נמחק",
+      "selectionLegacyUnavailable": "להפניה הישנה הזו אין מזהי בחירה יציבים. התצוגה המקדימה אינה זמינה.",
+      "selectionSourceUnknown": "מקור לא זמין",
+      "selectionPreview": "תצוגה מקדימה של הבחירה: {{label}}",
+      "selectionSource": "טבלת מקור: {{table}}",
+      "selectionSelectedFields": "רק השדות שנבחרו נכללים בהקשר הזה.",
+      "selectionIdentificationOnly": "הכותרת הראשית מוצגת לצורכי זיהוי בלבד.",
+      "selectionEmpty": "ריק",
+      "selectionOpenRecord": "פתיחת הרשומה {{name}}",
+      "selectionPrevious": "הקודם",
+      "selectionNext": "הבא",
+      "selectionPage": "{{start}}–{{end}} מתוך {{count}} רשומות"
     },
     "mention": {
       "tables": "טבלאות",
@@ -1585,7 +1637,6 @@
     },
     "attachment": {
       "pastedTextFileName": "טקסט שהודבק",
-      "imageNotSupported": "תמונות אינן נתמכות",
       "tooManyFiles": "ניתן לצרף עד {{count}} קבצים בהודעה אחת"
     },
     "suggestions": {
@@ -1636,6 +1687,9 @@
       "skill": "בטעינת מיומנות",
       "foundFiles": "נמצאו {{count}} קבצים",
       "listedEntries": "{{count}} פריטים",
+      "ranCommands_one": "הורצה פקודה אחת",
+      "ranCommands_two": "הורצו שתי פקודות",
+      "ranCommands_other": "הורצו {{count}} פקודות",
       "moreItems": "+{{count}} נוספים",
       "fallbackName": "כלי",
       "questionCount_one": "{{count}} שאלה",
@@ -1797,6 +1851,9 @@
       "droppedRulesDetail": "הכללים האלה משויכים לפריטים המועברים; במקומם יחולו הגדרות ההרשאות של פרויקט היעד.",
       "successTitle": "הפריט הועבר",
       "successDescription": "\"{{name}}\" נמצא כעת ב־{{baseName}}.",
+      "successDescription_one": "פריט <b>{{count}}</b> הועבר אל <b>{{baseName}}</b>",
+      "successDescription_two": "<b>{{count}}</b> פריטים הועברו אל <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> פריטים הועברו אל <b>{{baseName}}</b>",
       "open": "פתיחה",
       "appEmbeddedId_one": "אפליקציה אחת מזכירה את הפרויקט הקודם בקוד; יש לעדכן ידנית",
       "appEmbeddedId_two": "שתי אפליקציות מזכירות את הפרויקט הקודם בקוד; יש לעדכן ידנית",

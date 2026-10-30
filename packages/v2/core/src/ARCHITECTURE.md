@@ -39,12 +39,27 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   (host) vs a v2-core `ITableFolderRegistry` port (do not add).
   `IButtonClickWorkflowService` and `IViewPluginRepository` are Table-owned optional adapters
   (Button field / Plugin view), not a template for host Noop ports.
+- Template and base duplication are host workflows. Nest chooses source/target bases and spaces,
+  permissions, audit scope, snapshot-pointer lifecycle, and edition resources (workflows, apps,
+  routines, folders and base nodes). It supplies source `ITablePersistenceDTO` snapshots to
+  `DuplicateBaseCommand`; the command remaps Table-owned field/view IDs and copies records. It does
+  not own template IDs, billing, navigation nodes, or cross-context transactions. On a native
+  command error, `DuplicateBaseErrorEvent.tableIdMap` identifies only destination tables whose
+  native creation committed, so the host may compensate those exact tables without scanning or
+  deleting existing target resources.
+  A staged snapshot whose pointer swap fails is retired into Trash only after checking, under the
+  snapshot swap lock, that no template points to it; a post-commit callback failure must not retire
+  the published snapshot. Permanent base purge also removes edition-owned authority metadata.
 - Field-operation plugins observe reciprocal Link schema changes as actual create/update/delete
   operations. The side-effect context names the table being changed in `table`, and retains the
   initiating table and operation in `target`; host adapters authorize that actual target.
   Plan and guard the reciprocal mutations before persistence, then run transaction-bound
   `beforePersist` and result-bearing `afterCommit`. Dependency cleanup caused by deleting a table
   remains a distinct operation, not a foreign field-management request.
+- Every entry point that can create a reciprocal field must run that pipeline, including structure
+  import. `ImportDotTeaStructureHandler` collects and guards the side effects it is about to apply
+  before it persists anything, exactly as `CreateTablesHandler` does for table creation, instead of
+  relying on `.tea` normalization to keep the target inside the archive.
 
 ## Files
 

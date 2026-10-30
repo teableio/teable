@@ -298,6 +298,8 @@
     "duplicateRecord": "Kaydı çoğalt",
     "addToChat": "Sohbete ekle",
     "copyRecordUrl": "Kayıt URL'sini kopyala",
+    "copyLink": "Bağlantıyı kopyala",
+    "history": "Geçmiş",
     "deleteRecord": "Kaydı sil",
     "addRecordComment": "Yorum ekle",
     "viewRecordHistory": "Kayıt geçmişini görüntüle",
@@ -1651,7 +1653,12 @@
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
       "noMinOrderFound": "Minimum sıra bulunamadı",
       "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor",
-      "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})"
+      "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})",
+      "categoryHasChildren": "Bu sektörün hâlâ alt sektörleri var; önce onları silin",
+      "categoryDepthExceeded": "Bir alt sektörün kendi alt sektörleri olamaz",
+      "teamIsFlat": "Bir ekibin ne üst kategorisi ne de alt kategorisi olur",
+      "categoryKeyTaken": "Bu URL anahtarı başka bir kategoride kullanılıyor",
+      "slugTaken": "Bu URL kısa adı başka bir şablonda kullanılıyor"
     },
     "department": {
       "parentNotFound": "Üst departman bulunamadı",
@@ -1678,6 +1685,8 @@
       "domainReserved": "Alt alan adı ayrılmış durumda",
       "siteInfoBeforeGeneration": "Site bilgilerini özelleştirmeden önce uygulamayı oluşturun",
       "generationEditingConflict": "Bir yapay zekâ üretimi şu anda bu uygulamayı düzenliyor. İşlem bittikten sonra dosya güncellemesini yeniden deneyin.",
+      "codeCopying": "Uygulama kodu hâlâ kopyalanıyor. Lütfen birazdan tekrar deneyin.",
+      "codeCopyFailed": "Uygulama kodu kopyalanamadı. Uygulamayı yeniden çoğaltın.",
       "siteInfoLayoutNotEditable": "Bu uygulamanın kodu site bilgilerinin burada düzenlenmesine uygun değil. Bunun yerine sohbette yapay zekâdan site başlığını, açıklamasını veya simgesini değiştirmesini isteyin.",
       "siteInfoManagedInCode": "Bu uygulama site başlığını ve açıklamasını kod içinde yönetiyor. Bunun yerine sohbette yapay zekâdan bunları değiştirmesini isteyin.",
       "accessLinkSetupFailed": "Erişim bağlantısı ayarlanamadı: {{detail}}",
@@ -1736,7 +1745,8 @@
     "requestFailed": "İstek başarısız oldu",
     "operationFailed": "İşlem başarısız oldu: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "{{operator}} operatörü başka bir alanla karşılaştırılamaz"
+      "operatorNoFieldReference": "{{operator}} operatörü başka bir alanla karşılaştırılamaz",
+      "fieldReferenceIncompatible": "{{reference}} alanının türü uyumsuz olduğu için {{source}} ile karşılaştırılamaz"
     },
     "oauth": {
       "invalidRequest": "Geçersiz OAuth isteği: {{detail}}",

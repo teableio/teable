@@ -38,7 +38,7 @@ describe('useAddToChat', () => {
     ids.baseId = 'bseTest';
     ids.tableId = 'tblTest';
     queryClient.clear();
-    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], { disableActions: [] });
+    queryClient.setQueryData(['ai-config', 'bseTest'], { disableActions: [] });
     useChatPanelStore.setState({ status: 'close' });
   });
 

@@ -3,6 +3,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failRecoverableTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
@@ -15,12 +21,6 @@ import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import {
-  beginTableSchemaOperation,
-  completeTableSchemaOperation,
-  failRecoverableTableSchemaOperation,
-  failTableSchemaOperation,
-} from '../application/services/TableSchemaOperationLifecycleService';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteTableCommand } from './DeleteTableCommand';
 
@@ -108,65 +108,52 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         payload: { mode: command.mode },
       });
 
-      const dataPhaseResult = await unitOfWork.withTransaction(
-        context,
-        async (dataTransactionContext) =>
-          safeTry<void, DomainError>(async function* () {
-            if (shouldRunSideEffects) {
-              const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
-                dataTransactionContext,
-                { table }
-              );
-              sideEffectEvents.push(...sideEffectResult.events);
-              sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
-            }
-            yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
-              mode: command.mode,
-            });
-            return ok(undefined);
-          }),
-        { scope: 'data' }
-      );
-      if (dataPhaseResult.isErr()) {
-        // The data transaction rolled back, so the table and its rows are
-        // unchanged. Leaving provision_state=error hides it from the sidebar
-        // and from integrity repair, with no table.delete retry handler.
-        const failResult = await failRecoverableTableSchemaOperation(
-          unitOfWork,
-          tableRepository,
-          context,
-          table,
-          {
-            type: 'table.delete',
-            status: 'dead',
-            nextRunAt: new Date(),
-            lastError: dataPhaseResult.error.message,
-          }
-        );
-        if (failResult.isErr()) {
-          logger.warn('DeleteTableHandler.failStateUpdateFailed', {
-            error: failResult.error.message,
-            originalError: dataPhaseResult.error.message,
-          });
-        }
-        return err(dataPhaseResult.error);
-      }
-
-      const finalizeMetaResult = await unitOfWork.withTransaction(
+      let dataPhaseCompleted = false;
+      const deleteResult = await unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) =>
-          tableRepository.delete(metaTransactionContext, table, {
-            mode: command.mode,
+          safeTry<void, DomainError>(async function* () {
+            yield* await unitOfWork.withTransaction(
+              metaTransactionContext,
+              async (dataTransactionContext) =>
+                safeTry<void, DomainError>(async function* () {
+                  if (shouldRunSideEffects) {
+                    const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
+                      dataTransactionContext,
+                      { table }
+                    );
+                    sideEffectEvents.push(...sideEffectResult.events);
+                    sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
+                  }
+                  yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
+                    mode: command.mode,
+                  });
+                  // Stage the target metadata delete before an independent data transaction may
+                  // commit. Same-database adapters share one transaction; split adapters return a
+                  // metadata SQL failure while the relation conversion can still roll back.
+                  yield* await tableRepository.delete(metaTransactionContext, table, {
+                    mode: command.mode,
+                  });
+                  return ok(undefined);
+                }),
+              { scope: 'data', retry: false }
+            );
+            dataPhaseCompleted = true;
+            return ok(undefined);
           }),
-        { scope: 'meta' }
+        { scope: 'meta', retry: false }
       );
-      if (finalizeMetaResult.isErr()) {
-        // Soft delete's data phase only converts inbound links; the rows stay.
-        // Leaving provision_state=error hides that still-present table. Permanent
-        // delete has already dropped the physical table in the data phase, so
-        // that failure stays error.
-        const failResult =
-          command.mode === 'soft'
+      if (deleteResult.isErr()) {
+        // A failure before the data transaction commits rolls both scopes back. Once a split data
+        // transaction succeeds, do not replay it through the outer metadata transaction retry loop.
+        const failResult = !dataPhaseCompleted
+          ? await failRecoverableTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+              type: 'table.delete',
+              status: 'dead',
+              nextRunAt: new Date(),
+              lastError: deleteResult.error.message,
+            })
+          : command.mode === 'soft'
             ? await failRecoverableTableSchemaOperation(
                 unitOfWork,
                 tableRepository,
@@ -176,20 +163,20 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
                   type: 'table.delete',
                   status: 'dead',
                   nextRunAt: new Date(),
-                  lastError: finalizeMetaResult.error.message,
+                  lastError: deleteResult.error.message,
                 }
               )
             : await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
                 type: 'table.delete',
-                lastError: finalizeMetaResult.error.message,
+                lastError: deleteResult.error.message,
               });
         if (failResult.isErr()) {
           logger.warn('DeleteTableHandler.failStateUpdateFailed', {
             error: failResult.error.message,
-            originalError: finalizeMetaResult.error.message,
+            originalError: deleteResult.error.message,
           });
         }
-        return err(finalizeMetaResult.error);
+        return err(deleteResult.error);
       }
       yield* await completeTableSchemaOperation(unitOfWork, tableRepository, context, table, {
         type: 'table.delete',

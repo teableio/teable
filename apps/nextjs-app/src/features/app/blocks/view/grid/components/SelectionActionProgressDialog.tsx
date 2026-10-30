@@ -14,6 +14,7 @@ import {
   Progress,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { Ref } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -70,6 +71,8 @@ type SelectionActionDialogConfig = {
   streamKeyPrefix: string;
   phaseKeyOverrides?: Partial<Record<SelectionActionDialogPhase, string>>;
   confirmButtonVariant?: 'default' | 'destructive';
+  // focus the confirm button on open so Enter confirms instead of cancelling
+  autoFocusConfirm?: boolean;
 };
 
 type InterpolatedProgressAnchor = {
@@ -609,11 +612,13 @@ const SelectionActionChunkErrorDetails = ({
 };
 
 const SelectionActionConfirmContent = ({
+  confirmButtonRef,
   onConfirm,
   onOpenChange,
   config,
   t,
 }: {
+  confirmButtonRef?: Ref<HTMLButtonElement>;
   onConfirm?: () => void;
   onOpenChange?: (open: boolean) => void;
   config: SelectionActionDialogConfig;
@@ -625,6 +630,7 @@ const SelectionActionConfirmContent = ({
         {t('common:actions.cancel')}
       </Button>
       <Button
+        ref={confirmButtonRef}
         size="sm"
         variant={config.confirmButtonVariant ?? 'default'}
         onClick={() => onConfirm?.()}
@@ -805,6 +811,7 @@ export const SelectionActionProgressDialog = ({
 
     onOpenChange?.(nextOpen);
   };
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const preventDialogDismiss = (event: { preventDefault: () => void }) => {
     if (!canDismiss) {
       event.preventDefault();
@@ -822,6 +829,11 @@ export const SelectionActionProgressDialog = ({
         className="gap-0 overflow-hidden p-0 sm:max-w-[480px]"
         onEscapeKeyDown={preventDialogDismiss}
         onInteractOutside={preventDialogDismiss}
+        onOpenAutoFocus={(event) => {
+          if (mode !== 'confirm' || !config.autoFocusConfirm) return;
+          event.preventDefault();
+          confirmButtonRef.current?.focus();
+        }}
       >
         <DialogHeader
           className={mode === 'confirm' ? 'p-4 pe-12 text-start' : 'border-b p-4 pe-12 text-start'}
@@ -839,6 +851,7 @@ export const SelectionActionProgressDialog = ({
 
         {mode === 'confirm' ? (
           <SelectionActionConfirmContent
+            confirmButtonRef={confirmButtonRef}
             onConfirm={onConfirm}
             onOpenChange={onOpenChange}
             config={config}

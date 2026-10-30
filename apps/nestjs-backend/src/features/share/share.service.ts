@@ -31,6 +31,8 @@ import type {
   IShareViewCollaboratorsVo,
   IShareViewSearchCountRo,
   IShareViewSearchIndexRo,
+  IShareViewSearchCellCountRo,
+  IShareViewSearchMatchesRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -977,6 +979,20 @@ export class ShareService {
   async getShareSearchIndexV2(shareInfo: IShareViewInfo, query: IShareViewSearchIndexRo) {
     await this.assertShareQueryFieldsVisible(shareInfo, query);
     return this.sharedViewRecordQueryV2Service.getSearchIndex(shareInfo, query);
+  }
+
+  async getShareSearchCellCount(shareInfo: IShareViewInfo, query: IShareViewSearchCellCountRo) {
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getSearchCellCount(
+      shareInfo,
+      query,
+      visibleFieldIds
+    );
+  }
+
+  async getShareSearchMatches(shareInfo: IShareViewInfo, query: IShareViewSearchMatchesRo) {
+    const visibleFieldIds = await this.assertShareQueryFieldsVisible(shareInfo, query);
+    return this.sharedViewRecordQueryV2Service.getSearchMatches(shareInfo, query, visibleFieldIds);
   }
 
   async getViewCalendarDailyCollection(

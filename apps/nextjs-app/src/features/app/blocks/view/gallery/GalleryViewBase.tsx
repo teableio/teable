@@ -19,7 +19,14 @@ import { useGallery, useCacheRecords } from './hooks';
 import { calculateColumns, getCardHeight } from './utils';
 
 export const GalleryViewBase = () => {
-  const { recordQuery, displayFields, coverField, isFieldNameHidden, permission } = useGallery();
+  const {
+    recordQuery,
+    displayFields,
+    coverField,
+    isFieldNameHidden,
+    permission,
+    setOrderedRecordIds,
+  } = useGallery();
   const tableId = useTableId() as string;
   const viewId = useViewId() as string;
   const rowCount = useRowCount() ?? 0;
@@ -32,6 +39,15 @@ export const GalleryViewBase = () => {
 
   const { skip, recordIds, loadedRecordMap, updateSkipIndex, updateRecordOrder } =
     useCacheRecords(recordQuery);
+
+  useEffect(() => {
+    const orderedIds = Object.keys(loadedRecordMap)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((index) => loadedRecordMap[index]?.id)
+      .filter((id): id is string => Boolean(id));
+    setOrderedRecordIds(orderedIds);
+  }, [loadedRecordMap, setOrderedRecordIds]);
 
   const virtualizer = useVirtualizer({
     count: Math.ceil(rowCount / columnsPerRow),

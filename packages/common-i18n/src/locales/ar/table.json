@@ -44,7 +44,17 @@
     "records_many": "{{formattedCount}} سجلًا",
     "records_other": "{{formattedCount}} سجل",
     "batchesComplete": "الدفعات المكتملة {{completed}}/{{total}}",
-    "progressAriaLabel": "تقدّم حساب {{fieldName}}"
+    "progressAriaLabel": "تقدّم حساب {{fieldName}}",
+    "statusUnavailable": "حالة الحسابات غير متاحة مؤقتًا",
+    "statusSyncing": "جارٍ التحقق من حالة الحسابات",
+    "statusSyncingDescription": "نتحقق من أحدث حالة للحسابات. هذا لا يعني أن الحسابات قيد التشغيل.",
+    "statusUnavailableDescription": "تعذّر تحميل أحدث حالة للحسابات. حدّث الحالة للمحاولة مرة أخرى؛ لن يؤدي ذلك إلى إعادة تشغيل الحسابات.",
+    "refreshStatus": "تحديث الحالة",
+    "paused": "الحسابات متوقفة مؤقتًا",
+    "resultsNotUpdated": "لم يتم تحديث بعض نتائج الحسابات",
+    "delayed": "تأخّر تحديث الحسابات · {{seconds}} ث",
+    "snapshotMayBeStale": "تُعرض آخر حالة معروفة وقد لا تكون محدّثة.",
+    "unknownImpact": "لم يتم تحديث بعض نتائج الحسابات؛ جارٍ تحديد الحقول المتأثرة"
   },
   "crossSpace": {
     "duplicateFieldTitle": "تنبيه",
@@ -1124,6 +1134,7 @@
     "insertRecordBelow": "إدراج <input /> سجل أسفل",
     "deleteRecord": "حذف السجل",
     "deleteAllSelectedRecords": "حذف كل السجلات المحددة",
+    "copy": "نسخ",
     "archiveRecord": "أرشفة السجل",
     "archiveAllSelectedRecords": "أرشفة كل السجلات المحددة",
     "duplicateRecords": "تكرار السجلات المحددة",
@@ -1344,6 +1355,10 @@
         "nextQuestion": "السؤال التالي"
       },
       "completion": {
+        "workedFor": "عمل لمدة {{time}}",
+        "worked": "خطوات العمل",
+        "stoppedAfter": "أوقفته بعد {{time}}",
+        "stopped": "لقد أوقفت هذا الرد",
         "noDetails": "لا توجد تفاصيل متاحة",
         "model": "النموذج",
         "contextWindow": "نافذة السياق",
@@ -1393,14 +1408,10 @@
         "code": "الكود",
         "download": "تنزيل",
         "downloadHtml": "HTML",
-        "downloadImage": "صورة (PNG)",
         "copy": "نسخ",
         "copied": "تم النسخ!",
         "fullscreen": "ملء الشاشة",
         "exitFullscreen": "إنهاء ملء الشاشة",
-        "downloadSuccess": "تم تنزيل الصورة بنجاح",
-        "downloadFailed": "فشل التقاط الصورة",
-        "iframeFailed": "فشل الالتقاط: يتعذّر الوصول إلى الإطار المضمّن",
         "iframeTitle": "معاينة HTML"
       }
     },
@@ -1604,7 +1615,25 @@
       "selectionRows": "الصفوف {{start}}-{{end}}",
       "selectionColumn": "العمود {{col}}",
       "selectionColumns": "الأعمدة {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "سجل بلا اسم",
+      "selectionRecords": "{{count}} سجل",
+      "selectionCellCount": "{{count}} خلية",
+      "selectionRecordType": "مرجع سجلات",
+      "selectionCellType": "مرجع خلايا",
+      "selectionDimensions": "{{rows}} صف × {{columns}} عمود",
+      "selectionUnavailable": "غير متاح أو محذوف",
+      "selectionLegacyUnavailable": "لا يحتوي هذا المرجع القديم على معرّفات تحديد ثابتة. المعاينة غير متاحة.",
+      "selectionSourceUnknown": "مصدر غير متاح",
+      "selectionPreview": "معاينة التحديد: {{label}}",
+      "selectionSource": "الجدول المصدر: {{table}}",
+      "selectionSelectedFields": "تُضمَّن الحقول المحددة فقط في هذا السياق.",
+      "selectionIdentificationOnly": "يُعرض العنوان الأساسي لغرض التعريف فقط.",
+      "selectionEmpty": "فارغ",
+      "selectionOpenRecord": "فتح السجل {{name}}",
+      "selectionPrevious": "السابق",
+      "selectionNext": "التالي",
+      "selectionPage": "{{start}}–{{end}} من {{count}} سجل"
     },
     "mention": {
       "tables": "الجداول",
@@ -1633,7 +1662,6 @@
     },
     "attachment": {
       "pastedTextFileName": "نص ملصوق",
-      "imageNotSupported": "الصورة غير مدعومة",
       "tooManyFiles": "يمكنك إرفاق {{count}} ملف كحد أقصى في كل رسالة"
     },
     "suggestions": {
@@ -1664,9 +1692,12 @@
       "nQueued": "{{count}} في الانتظار",
       "edit": "تعديل",
       "steerNow": "توجيه المحادثة دون مقاطعتها",
-      "steerFailed": "تعذّر توجيه المحادثة. وبقيت الرسالة في قائمة الانتظار.",
+      "steer": "توجيه",
       "conversationInputMarker": "تم توجيه المحادثة",
-      "removeFromQueue": "إزالة"
+      "removeFromQueue": "إزالة",
+      "paused": "تم إيقاف قائمة الانتظار مؤقتًا لأنك قاطعت",
+      "resume": "استئناف",
+      "queueFull": "قائمة انتظار الإرسال ممتلئة. انتظر حتى يلحق Cuppy بالركب."
     },
     "partTool": {
       "bash": "تشغيل أمر",
@@ -1681,6 +1712,12 @@
       "skill": "جارٍ تحميل المهارة",
       "foundFiles": "تم العثور على {{count}} ملف",
       "listedEntries": "{{count}} عنصر",
+      "ranCommands_zero": "لم يتم تشغيل أي أمر",
+      "ranCommands_one": "تم تشغيل أمر واحد",
+      "ranCommands_two": "تم تشغيل أمرين",
+      "ranCommands_few": "تم تشغيل {{count}} أوامر",
+      "ranCommands_many": "تم تشغيل {{count}} أمرًا",
+      "ranCommands_other": "تم تشغيل {{count}} أمر",
       "moreItems": "+{{count}} أخرى",
       "fallbackName": "أداة",
       "questionCount_zero": "{{count}} سؤال",
@@ -1754,6 +1791,28 @@
         "failed": "فشل"
       },
       "chooseAccount": "من أي حساب Google تُجلب جداول البيانات؟"
+    },
+    "templateOffer": {
+      "title": "القوالب المقترحة",
+      "details": "التفاصيل",
+      "found_zero": "لم يُعثر على أي قالب جاهز",
+      "found_one": "تم العثور على قالب جاهز",
+      "found_two": "تم العثور على قالبين جاهزين",
+      "found_few": "تم العثور على {{count}} قوالب جاهزة",
+      "found_many": "تم العثور على {{count}} قالبًا جاهزًا",
+      "found_other": "تم العثور على {{count}} قالب جاهز",
+      "defaultReason": "ثبّت أحدها بدلًا من بنائه من الصفر.",
+      "install": "تثبيت",
+      "installing": "جارٍ التثبيت…",
+      "dismiss": "لا، شكرًا",
+      "close": "إغلاق",
+      "failed": "تعذّر تسجيل اختيارك. حاول مرة أخرى.",
+      "unavailable": "لم تعد هذه القوالب متاحة.",
+      "status": {
+        "installed": "تم التثبيت",
+        "dismissed": "تم التخطي",
+        "failed": "فشل"
+      }
     },
     "artifact": {
       "view": "عرض",
@@ -1879,6 +1938,12 @@
       "droppedRulesDetail": "هذه القواعد مرتبطة بالعقد المنقولة؛ وتُطبَّق بدلًا منها إعدادات صلاحيات المشروع الهدف.",
       "successTitle": "تم النقل",
       "successDescription": "أصبح \"{{name}}\" الآن في {{baseName}}.",
+      "successDescription_zero": "نُقلت <b>{{count}}</b> عقدة إلى <b>{{baseName}}</b>",
+      "successDescription_one": "نُقلت <b>{{count}}</b> عقدة إلى <b>{{baseName}}</b>",
+      "successDescription_two": "نُقلت <b>{{count}}</b> عقدتان إلى <b>{{baseName}}</b>",
+      "successDescription_few": "نُقلت <b>{{count}}</b> عُقد إلى <b>{{baseName}}</b>",
+      "successDescription_many": "نُقلت <b>{{count}}</b> عقدة إلى <b>{{baseName}}</b>",
+      "successDescription_other": "نُقلت <b>{{count}}</b> عقدة إلى <b>{{baseName}}</b>",
       "open": "فتح",
       "appEmbeddedId_zero": "لا تطبيقات تذكر المشروع القديم في كودها",
       "appEmbeddedId_one": "تطبيق واحد يذكر المشروع القديم في كوده؛ حدِّثه بنفسك",

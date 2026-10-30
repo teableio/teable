@@ -2,6 +2,12 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationSideEffects,
+  type FieldOperationSideEffectPluginExecutionSet,
+  prepareFieldOperationSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
@@ -18,15 +24,17 @@ import type { LinkForeignTableReference } from '../domain/table/fields/visitors/
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as DotTeaParserPort from '../ports/DotTeaParser';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
-import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { ITableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -185,6 +193,12 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
     private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
       [],
       new NoopLogger()
+    ),
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner = new FieldOperationPluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
     )
   ) {}
 
@@ -381,20 +395,44 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
         });
       }
 
+      // `provisionData` creates the reciprocal field of every two-way Link on the
+      // table it points at. Structure normalization already drops a Link whose
+      // target is not part of the archive, but the handler must not depend on that
+      // to keep foreign schema untouched: authorize the planned side effects
+      // exactly as a normal field schema mutation is authorized.
+      const domainContext = ExecutionContextPort.getDomainContext(context);
+      const sideEffectPluginExecutions: FieldOperationSideEffectPluginExecutionSet[] = [];
+      for (const table of tablesForValidation) {
+        const plannedSideEffects = yield* collectFieldCreationSideEffects(
+          table,
+          table.getFields(),
+          foreignTables,
+          domainContext
+        );
+        const execution = yield* await prepareFieldOperationSideEffectPlugins({
+          runner: handler.fieldOperationPluginRunner,
+          executionContext: context,
+          sourceOperation: FieldOperationKind.create,
+          sourceTable: table,
+          foreignTables,
+          domainContext,
+          sideEffects: plannedSideEffects,
+        });
+        yield* await execution.guard();
+        sideEffectPluginExecutions.push(execution);
+      }
+
       // Execute table creation using TableCreationService
       command.onProgress?.({
         phase: 'table_structure_committing',
       });
-      const creationInput = {
-        baseId: command.baseId,
-        tables: builtTables,
-        externalTables,
-        referencesByTable,
-      };
       const persistedTables = yield* await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) =>
           safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
+            for (const execution of sideEffectPluginExecutions) {
+              yield* await execution.beforePersist(metaTransactionContext);
+            }
             const metadataResult = yield* await handler.tableCreationService.persistMetadata(
               metaTransactionContext,
               {
@@ -466,6 +504,9 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
       const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
       const events = [...hostEvents, ...provisionResult.value.sideEffectEvents];
       yield* await handler.eventBus.publishMany(context, events);
+      for (const execution of sideEffectPluginExecutions) {
+        await execution.afterCommit();
+      }
 
       const resultTables = provisionResult.value.persistedTables.map(
         (table) => provisionResult.value.tableState.get(table.id().toString()) ?? table

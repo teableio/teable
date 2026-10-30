@@ -32,6 +32,7 @@ import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
 import {
   markTableDeletedLocally,
@@ -61,7 +62,12 @@ interface INote {
 const NAME_CHIP =
   'inline-flex h-5 min-w-0 max-w-40 items-center truncate rounded-md bg-muted px-1.5 text-xs text-foreground';
 
-const useTargetBases = (spaceId: string, currentBaseId: string, enabled: boolean) => {
+const useTargetBases = (
+  spaceId: string,
+  currentBaseId: string,
+  enabled: boolean,
+  t: (key: 'common:untitledBase') => string
+) => {
   const base = useBase();
   const isSpaceCollaborator = base.collaboratorType !== CollaboratorType.Base;
   const { data: spaceBases, isLoading: spaceLoading } = useQuery({
@@ -81,8 +87,8 @@ const useTargetBases = (spaceId: string, currentBaseId: string, enabled: boolean
         (b) =>
           b.id !== currentBaseId && b.spaceId === spaceId && hasPermission(b.role, 'table|create')
       )
-      .map((b) => ({ id: b.id, name: b.name }));
-  }, [spaceBases, sharedBases, currentBaseId, spaceId]);
+      .map((b) => ({ id: b.id, name: getBaseDisplayName(b.name, t) }));
+  }, [spaceBases, sharedBases, currentBaseId, spaceId, t]);
   return { bases, isLoading: spaceLoading || sharedLoading };
 };
 
@@ -150,7 +156,7 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
    */
   const checkSeq = useRef(0);
 
-  const { bases, isLoading: basesLoading } = useTargetBases(base.spaceId, base.id, open);
+  const { bases, isLoading: basesLoading } = useTargetBases(base.spaceId, base.id, open, t);
 
   useEffect(() => {
     if (!open) {

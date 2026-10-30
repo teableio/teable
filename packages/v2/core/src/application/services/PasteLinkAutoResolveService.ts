@@ -188,18 +188,32 @@ export class PasteLinkAutoResolveService {
         if (!createForeignRecords) {
           continue;
         }
-        const creationResult = yield* await service.recordBatchCreationService.create(context, {
-          table: foreignTable,
-          recordsFieldValues: createdTitles.map(
-            (title) =>
-              new Map<string, unknown>([
-                [foreignTable.primaryFieldId().toString(), title],
-              ]) as ReadonlyMap<string, unknown>
-          ),
-          fieldKeyType: FieldKeyType.Id,
-          typecast: true,
-          isTransactionBound: true,
-        });
+        // Nested target authorization may refine select-option creation for the
+        // foreign table. Keep that decision isolated from the source paste.
+        const targetContext: IExecutionContext = {
+          ...context,
+          ...(context.config ? { config: { ...context.config } } : {}),
+        };
+        const creationResult = yield* await service.recordBatchCreationService.create(
+          targetContext,
+          {
+            table: foreignTable,
+            recordsFieldValues: createdTitles.map(
+              (title) =>
+                new Map<string, unknown>([
+                  [foreignTable.primaryFieldId().toString(), title],
+                ]) as ReadonlyMap<string, unknown>
+            ),
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+            isTransactionBound: true,
+            linkTitleSource: {
+              baseId: input.table.baseId(),
+              tableId: input.table.id(),
+              fieldId: firstEntry.linkField.id(),
+            },
+          }
+        );
 
         tableEvents.push(...creationResult.events);
         undoCommands.push(...creationResult.undoCommands);

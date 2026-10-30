@@ -1232,6 +1232,65 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     });
   }
 
+  private buildOwnedLinkRelationDropStatements(
+    context: IExecutionContext,
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    table: Table,
+    schema: string | null,
+    tableName: string
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const repository = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const statements: TableSchemaStatementBuilder[] = [];
+      const relationTables = new Set<string>();
+
+      for (const field of table.getFields()) {
+        if (field.type().toString() !== 'link') continue;
+
+        const linkField = field as LinkField;
+        const relationship = linkField.relationship().toString();
+        const usesJunctionTable =
+          relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay());
+        if (!usesJunctionTable) continue;
+
+        const relationTableName = yield* linkField.fkHostTableNameString();
+        if (relationTables.has(relationTableName)) continue;
+
+        const rules = yield* createFieldSchemaRules(linkField, {
+          schema,
+          tableName,
+          tableId: table.id().toString(),
+        });
+        const junctionRule = rules.find(
+          (rule) => rule.id === `junction_table:${linkField.id().toString()}`
+        );
+        if (!junctionRule) {
+          return err(
+            domainError.unexpected({
+              message: `Missing junction schema rule for link field ${linkField.id().toString()}`,
+            })
+          );
+        }
+
+        const ruleContext = createSchemaRuleContext({
+          db: db as Kysely<V1TeableDatabase>,
+          metaDb: repository.resolveMetaDb(context) as Kysely<V1TeableDatabase>,
+          introspector: new PostgresSchemaIntrospector(db as Kysely<V1TeableDatabase>),
+          schema,
+          tableName,
+          tableId: table.id().toString(),
+          field: linkField,
+          table,
+          mode: 'delete',
+        });
+        statements.push(...(yield* junctionRule.down(ruleContext)));
+        relationTables.add(relationTableName);
+      }
+
+      return ok(statements);
+    });
+  }
+
   @TraceSpan()
   async delete(
     context: IExecutionContext,
@@ -1250,6 +1309,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const db = resolvePostgresDbOrTx(repository.db, context);
 
       try {
+        const ownedLinkRelationDrops = yield* repository.buildOwnedLinkRelationDropStatements(
+          context,
+          db,
+          table,
+          schema,
+          tableName
+        );
+        await repository.executeScopedTableSchemaStatements(context, db, ownedLinkRelationDrops);
         const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
         await schemaBuilder.dropTable(tableName).ifExists().execute();
         invalidateUndoCaptureTableCache(`${schema ?? 'public'}.${tableName}`, repository.db);

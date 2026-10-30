@@ -29,7 +29,17 @@
     "records_many": "{{formattedCount}} enregistrements",
     "records_other": "{{formattedCount}} enregistrements",
     "batchesComplete": "Lots terminés {{completed}}/{{total}}",
-    "progressAriaLabel": "Progression du calcul pour {{fieldName}}"
+    "progressAriaLabel": "Progression du calcul pour {{fieldName}}",
+    "statusUnavailable": "Le statut des calculs est temporairement indisponible",
+    "statusSyncing": "Vérification du statut des calculs",
+    "statusSyncingDescription": "Nous vérifions le dernier statut des calculs. Cela ne signifie pas que des calculs sont en cours.",
+    "statusUnavailableDescription": "Impossible de charger le dernier statut des calculs. Actualisez le statut pour réessayer ; cela ne relancera pas les calculs.",
+    "refreshStatus": "Actualiser le statut",
+    "paused": "Les calculs sont en pause",
+    "resultsNotUpdated": "Certains résultats de calcul n’ont pas été mis à jour",
+    "delayed": "Mise à jour des calculs retardée · {{seconds}} s",
+    "snapshotMayBeStale": "Le dernier statut connu est affiché et n’est peut-être plus à jour.",
+    "unknownImpact": "Certains résultats de calcul n’ont pas été mis à jour ; identification des champs concernés en cours"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Avis",
@@ -1109,6 +1119,7 @@
     "insertRecordBelow": "Insérer un enregistrement en dessous",
     "deleteRecord": "Supprimer l'enregistrement",
     "deleteAllSelectedRecords": "Supprimer tous les enregistrements sélectionnés",
+    "copy": "Copier",
     "archiveRecord": "Archiver l'enregistrement",
     "archiveAllSelectedRecords": "Archiver tous les enregistrements sélectionnés",
     "duplicateRecords": "Dupliquer les enregistrements sélectionnés",
@@ -1328,6 +1339,25 @@
       },
       "chooseAccount": "De quel compte Google les feuilles de calcul doivent-elles provenir ?"
     },
+    "templateOffer": {
+      "title": "Modèles proposés",
+      "details": "Détails",
+      "found_one": "Un modèle prêt à l’emploi trouvé",
+      "found_many": "{{count}} de modèles prêts à l’emploi trouvés",
+      "found_other": "{{count}} modèles prêts à l’emploi trouvés",
+      "defaultReason": "Installez-en un plutôt que de tout construire à partir de zéro.",
+      "install": "Installer",
+      "installing": "Installation…",
+      "dismiss": "Non merci",
+      "close": "Fermer",
+      "failed": "Votre choix n’a pas pu être enregistré. Réessayez.",
+      "unavailable": "Ces modèles ne sont plus disponibles.",
+      "status": {
+        "installed": "Installé",
+        "dismissed": "Ignoré",
+        "failed": "Échec"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Ou saisissez votre réponse…",
@@ -1342,6 +1372,10 @@
         "nextQuestion": "Question suivante"
       },
       "completion": {
+        "workedFor": "A travaillé pendant {{time}}",
+        "worked": "Travail effectué",
+        "stoppedAfter": "Vous avez arrêté après {{time}}",
+        "stopped": "Vous avez arrêté cette réponse",
         "noDetails": "Aucun détail disponible",
         "model": "Modèle",
         "contextWindow": "Fenêtre de contexte",
@@ -1395,9 +1429,6 @@
         "copied": "Copié !",
         "fullscreen": "Plein écran",
         "exitFullscreen": "Quitter le plein écran",
-        "downloadSuccess": "Image téléchargée avec succès",
-        "downloadFailed": "Échec de la capture d'image",
-        "iframeFailed": "Échec de la capture : iframe non accessible",
         "iframeTitle": "Aperçu HTML"
       }
     },
@@ -1559,7 +1590,25 @@
       "selectionRows": "Lignes {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Enregistrement sans nom",
+      "selectionRecords": "{{count}} enregistrements",
+      "selectionCellCount": "{{count}} cellules",
+      "selectionRecordType": "Référence d’enregistrements",
+      "selectionCellType": "Référence de cellules",
+      "selectionDimensions": "{{rows}} lignes × {{columns}} colonnes",
+      "selectionUnavailable": "Indisponible ou supprimé",
+      "selectionLegacyUnavailable": "Cette ancienne référence n’a pas d’identifiants de sélection stables. L’aperçu n’est pas disponible.",
+      "selectionSourceUnknown": "Source indisponible",
+      "selectionPreview": "Aperçu de la sélection : {{label}}",
+      "selectionSource": "Table source : {{table}}",
+      "selectionSelectedFields": "Seuls les champs sélectionnés sont inclus dans ce contexte.",
+      "selectionIdentificationOnly": "Le titre principal n’est affiché qu’à titre d’identification.",
+      "selectionEmpty": "Vide",
+      "selectionOpenRecord": "Ouvrir l’enregistrement {{name}}",
+      "selectionPrevious": "Précédent",
+      "selectionNext": "Suivant",
+      "selectionPage": "{{start}}–{{end}} sur {{count}} enregistrements"
     },
     "mention": {
       "tables": "Tables",
@@ -1588,7 +1637,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Texte collé",
-      "imageNotSupported": "L'image n'est pas prise en charge",
       "tooManyFiles": "Vous pouvez joindre au maximum {{count}} fichiers par message"
     },
     "suggestions": {
@@ -1650,9 +1698,12 @@
       "nQueued": "{{count}} en file d’attente",
       "edit": "Modifier",
       "steerNow": "Orienter la conversation sans l’interrompre",
-      "steerFailed": "Impossible d’orienter la conversation. Le message reste en file d’attente.",
+      "steer": "Orienter",
       "conversationInputMarker": "Conversation orientée",
-      "removeFromQueue": "Retirer"
+      "removeFromQueue": "Retirer",
+      "paused": "File d’attente en pause car vous avez interrompu la réponse",
+      "resume": "Reprendre",
+      "queueFull": "La file d’envoi est pleine. Attendez que Cuppy ait rattrapé son retard."
     },
     "partTool": {
       "bash": "Exécuter une commande",
@@ -1667,6 +1718,9 @@
       "skill": "Chargement de la compétence",
       "foundFiles": "{{count}} fichiers trouvés",
       "listedEntries": "{{count}} entrées",
+      "ranCommands_one": "{{count}} commande exécutée",
+      "ranCommands_many": "{{count}} de commandes exécutées",
+      "ranCommands_other": "{{count}} commandes exécutées",
       "moreItems": "+{{count}} de plus",
       "fallbackName": "Outil",
       "questionCount_one": "{{count}} question",
@@ -1797,6 +1851,9 @@
       "droppedRulesDetail": "Ces règles sont liées aux nœuds déplacés ; ce sont les paramètres d'autorisation du projet cible qui s'appliquent à la place.",
       "successTitle": "Déplacé",
       "successDescription": "« {{name}} » se trouve désormais dans {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> nœud déplacé vers <b>{{baseName}}</b>",
+      "successDescription_many": "<b>{{count}}</b> de nœuds déplacés vers <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> nœuds déplacés vers <b>{{baseName}}</b>",
       "open": "Ouvrir",
       "appEmbeddedId_one": "{{count}} application mentionne l'ancien projet dans son code ; à mettre à jour vous-même",
       "appEmbeddedId_many": "{{count}} applications mentionnent l'ancien projet dans leur code ; à mettre à jour vous-même",

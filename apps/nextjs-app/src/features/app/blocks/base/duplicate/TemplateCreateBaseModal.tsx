@@ -17,8 +17,13 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Loader } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Selector } from '@/components/Selector';
+import type { ITemplateHost } from '@/features/app/components/space/template/host-context';
+import {
+  TemplateHostContext,
+  TemplateHostInstallSource,
+} from '@/features/app/components/space/template/host-context';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useTemplateCreateBaseStore } from './useTemplateCreateBaseStore';
 
@@ -133,8 +138,44 @@ const TemplateBase = ({
   );
 };
 
+// A host that installs templates asks where the template goes itself, so nothing is left for this dialog to ask.
+const HostInstall = ({
+  templateId,
+  spaceId,
+  install,
+}: {
+  templateId: string;
+  spaceId: string;
+  install: NonNullable<ITemplateHost['install']>;
+}) => {
+  const { closeModal } = useTemplateCreateBaseStore();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void install({
+      templateId,
+      spaceId,
+      source: TemplateHostInstallSource.Public,
+      queryClient,
+    }).then((result) => {
+      closeModal();
+      if (result) router.push(result.redirect);
+    });
+  }, [install, templateId, spaceId, queryClient, closeModal, router]);
+
+  return null;
+};
+
 export const TemplateCreateBaseModal = () => {
   const { templateId, spaceId, closeModal } = useTemplateCreateBaseStore();
+  const { install } = useContext(TemplateHostContext);
+  if (install && templateId && spaceId) {
+    return <HostInstall templateId={templateId} spaceId={spaceId} install={install} />;
+  }
   return (
     <Dialog open={Boolean(templateId)} onOpenChange={(isOpen) => !isOpen && closeModal()}>
       {templateId && <TemplateBase templateId={templateId} fixedSpaceId={spaceId} />}

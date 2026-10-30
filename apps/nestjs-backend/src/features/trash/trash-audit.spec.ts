@@ -315,6 +315,16 @@ describe('TrashService audit rows', () => {
       vi.spyOn(service as any, 'trashDataPrismaTransactionForTable').mockResolvedValue(undefined);
       (service as any).recordRemovalColdStorageService = { deleteReasonPrefix: vi.fn() };
       const commentCleanup = { purgeRecordComments: vi.fn() };
+      const attachmentDb = {
+        deleteFrom: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue(undefined),
+      };
+      (service as any).v2ContainerService = {
+        getContainerForTable: vi.fn().mockResolvedValue({
+          resolve: vi.fn().mockReturnValue(attachmentDb),
+        }),
+      };
       (service as any).recordCommentCleanupService = commentCleanup;
       prismaService.$tx.mockResolvedValueOnce(undefined);
 
@@ -323,7 +333,7 @@ describe('TrashService audit rows', () => {
         field: 2,
         record: 1,
       });
-      expect(commentCleanup.purgeRecordComments).toHaveBeenCalledWith('tbl1', ['rec1']);
+      expect((service as any).v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tbl1');
     });
 
     it('purges ops for a trash larger than the postgres bind parameter limit', async () => {

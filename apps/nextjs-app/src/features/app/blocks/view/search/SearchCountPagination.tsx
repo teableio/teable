@@ -1,7 +1,14 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft } from '@teable/icons';
 import type { ISearchIndexByQueryRo, ISearchIndexVo } from '@teable/openapi';
-import { getSearchIndex, getShareViewSearchIndex } from '@teable/openapi';
+import {
+  getSearchCellCount,
+  getSearchIndex,
+  getSearchMatches,
+  getShareViewSearchCellCount,
+  getShareViewSearchIndex,
+  getShareViewSearchMatches,
+} from '@teable/openapi';
 import { type GridView } from '@teable/sdk';
 import {
   useTableId,
@@ -13,7 +20,7 @@ import {
 } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
-import { isEmpty, pick, throttle } from 'lodash';
+import { pick, throttle } from 'lodash';
 import {
   useEffect,
   useState,
@@ -52,21 +59,37 @@ export const SearchCountPagination = forwardRef<
   ISearchCountPaginationProps
 >((props: ISearchCountPaginationProps, ref) => {
   const { shareView } = props;
-  const { value, searchQuery } = useSearch();
+  const { value, searchQuery, hideNotMatchRow } = useSearch();
   const tableId = useTableId();
   const view = useView() as GridView;
   const fields = useFields();
   const [currentIndex, setCurrentIndex] = useState(1);
-  const { gridRef, setSearchCursor, recordMap } = useGridSearchStore();
-  const { personalViewCommonQuery } = usePersonalView();
-  const [isEnd, setIsEnd] = useState(false);
+  const { gridRef, setSearchCursor } = useGridSearchStore();
+  const { isPersonalView, personalViewCommonQuery } = usePersonalView();
   // hit to re-focus after a record-change refetch, so the cursor stays on the
   // same cell instead of resetting to the first hit
   const pendingAnchorRef = useRef<{ recordId: string; fieldId: string } | null>(null);
 
-  const searchViewCondition = useMemo(() => {
-    return view ? pick(view, ['sort', 'filter', 'group', 'columnMeta']) : {};
-  }, [view]);
+  const searchProjection = useMemo(
+    () => (shareView ? fields.map(({ id }) => id) : personalViewCommonQuery?.projection),
+    [fields, personalViewCommonQuery?.projection, shareView]
+  );
+  const visibleSearchFieldIds = useMemo(
+    () => (shareView ? new Set(searchProjection) : undefined),
+    [searchProjection, shareView]
+  );
+  const searchViewCondition = view ? pick(view, ['sort', 'filter', 'group', 'columnMeta']) : {};
+  const searchScopeKey = JSON.stringify([
+    tableId,
+    hideNotMatchRow,
+    view?.id,
+    searchQuery,
+    searchViewCondition,
+    searchProjection,
+    personalViewCommonQuery,
+  ]);
+  const searchScopeRef = useRef(searchScopeKey);
+  searchScopeRef.current = searchScopeKey;
 
   useImperativeHandle(ref, () => ({
     nextIndex: () => {
@@ -93,10 +116,7 @@ export const SearchCountPagination = forwardRef<
   );
 
   const queryFn = async ({ pageParam = 0 }) => {
-    const skipLength = new Set(
-      Object.values(allSearchResults).map((rec) => rec.recordId) as string[]
-    ).size as number;
-
+    if (pageParam === null) return { data: [], nextCursor: null };
     const baseQueryRo: ISearchIndexByQueryRo = {
       skip: pageParam,
       take: PaginationBuffer,
@@ -105,52 +125,74 @@ export const SearchCountPagination = forwardRef<
       search: searchQuery,
       groupBy: view.group,
       ...personalViewCommonQuery,
-      // personalViewCommonQuery.filter is often undefined and would otherwise
-      // wipe the shared view filter while ignoreViewQuery is true
-      filter: personalViewCommonQuery?.filter ?? view.filter,
+      filter: isPersonalView
+        ? personalViewCommonQuery?.filter
+        : (personalViewCommonQuery?.filter ?? view.filter),
+      ...(!hideNotMatchRow && { projection: searchProjection }),
     };
 
-    const searchFn = shareView
-      ? (params: ISearchIndexByQueryRo) => getShareViewSearchIndex(view.shareId!, params)
-      : (params: ISearchIndexByQueryRo) => getSearchIndex(tableId!, params);
-
-    const result = await searchFn(baseQueryRo);
-
-    if (!result?.data || pageParam === null) {
-      setIsEnd(true);
+    if (hideNotMatchRow) {
+      const result = shareView
+        ? await getShareViewSearchIndex(view.shareId!, baseQueryRo)
+        : await getSearchIndex(tableId!, baseQueryRo);
+      const hits = Array.isArray(result.data) ? result.data : [];
+      const rows = new Set(hits.map((hit) => hit.recordId)).size;
+      const navigableHits = shareView
+        ? hits.filter(({ fieldId }) => visibleSearchFieldIds?.has(fieldId))
+        : hits;
       return {
-        data: [],
-        nextCursor: null,
+        data: navigableHits,
+        nextCursor: rows === PaginationBuffer ? pageParam + rows : null,
       };
     }
 
-    const nextCursor =
-      (result.data?.length ?? 0 >= PaginationBuffer) ? skipLength + PaginationBuffer : null;
+    const searchFn = shareView
+      ? (params: ISearchIndexByQueryRo) => getShareViewSearchMatches(view.shareId!, params)
+      : (params: ISearchIndexByQueryRo) => getSearchMatches(tableId!, params);
 
-    return {
-      data: result.data || [],
-      nextCursor,
-    } as PageData;
+    const { data } = await searchFn(baseQueryRo);
+    return { data: data.matches, nextCursor: data.nextSkip } as PageData;
   };
 
-  const { data, isFetching, isLoading, fetchNextPage, refetch } = useInfiniteQuery({
-    queryKey: [
-      'search_index',
-      tableId,
-      value,
-      JSON.stringify(searchViewCondition),
-      JSON.stringify(searchQuery),
-      JSON.stringify(personalViewCommonQuery),
-    ],
+  const { data, isFetching, isLoading, isError, fetchNextPage, refetch } = useInfiniteQuery({
+    queryKey: ['search_index', shareView, searchScopeKey],
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    refetchOnReconnect: 'always',
     enabled: !!value,
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
       return lastPage.nextCursor;
     },
   });
+  const { data: countData, refetch: refetchCount } = useQuery({
+    queryKey: ['search_cell_count', shareView, searchScopeKey],
+    queryFn: async () => {
+      const filter = isPersonalView
+        ? personalViewCommonQuery?.filter
+        : (personalViewCommonQuery?.filter ?? view.filter);
+      const projection = searchProjection;
+      const response = shareView
+        ? await getShareViewSearchCellCount(view.shareId!, {
+            search: searchQuery,
+            filter,
+            projection,
+          })
+        : await getSearchCellCount(tableId!, {
+            viewId: view.id,
+            search: searchQuery,
+            filter,
+            projection,
+            ignoreViewQuery: personalViewCommonQuery?.ignoreViewQuery,
+          });
+      return response.data;
+    },
+    enabled: Boolean(value && tableId && view && !hideNotMatchRow),
+    refetchOnWindowFocus: false,
+  });
+  const lastPage = data?.pages.at(-1);
+  const isEnd = lastPage != null && lastPage.nextCursor == null;
 
   const allSearchResults = useMemo(() => {
     const finalResult: ISearchMap = {};
@@ -171,20 +213,33 @@ export const SearchCountPagination = forwardRef<
     if (isFetching || isLoading) {
       return;
     }
+    pendingAnchorRef.current = null;
     if (newIndex < 1) {
       setCurrentIndex(1);
       return;
     }
-    if (Object.values(allSearchResults)?.length === 0) {
+    if (Object.values(allSearchResults).length === 0) {
+      if (isError) {
+        void refetch();
+      } else if (!isEnd) {
+        void fetchNextPage();
+      }
       return;
     }
     if (newIndex > Object.values(allSearchResults)?.length && !isEnd) {
-      fetchNextPage().then((result) => {
-        const total = result.data?.pages.flatMap((page) => page.data).length ?? 0;
-        if (newIndex <= total) {
-          setCurrentIndex(newIndex);
+      const scope = searchScopeKey;
+      void (async () => {
+        let result = await fetchNextPage();
+        while (scope === searchScopeRef.current && !result.isError) {
+          const pages = result.data?.pages ?? [];
+          if (pages.reduce((sum, page) => sum + page.data.length, 0) >= newIndex) {
+            setCurrentIndex(newIndex);
+            return;
+          }
+          if (pages.at(-1)?.nextCursor == null) return;
+          result = await fetchNextPage();
         }
-      });
+      })();
       return;
     }
     if (newIndex > Object.values(allSearchResults)?.length && isEnd) {
@@ -194,6 +249,11 @@ export const SearchCountPagination = forwardRef<
     setCurrentIndex(newIndex);
   };
 
+  useEffect(() => {
+    pendingAnchorRef.current = null;
+    setCurrentIndex(1);
+    setSearchCursor(null);
+  }, [searchScopeKey, setSearchCursor]);
   useEffect(() => {
     const anchor = pendingAnchorRef.current;
     if (anchor) {
@@ -217,11 +277,17 @@ export const SearchCountPagination = forwardRef<
   }, [currentIndex, allSearchResults, setIndexSelection, setSearchCursor]);
 
   useEffect(() => {
-    if (value) {
-      setIsEnd(false);
-      setCurrentIndex(1);
+    if (
+      value &&
+      data &&
+      !isFetching &&
+      !isError &&
+      !isEnd &&
+      !Object.keys(allSearchResults).length
+    ) {
+      void fetchNextPage();
     }
-  }, [setSearchCursor, value]);
+  }, [value, data, isFetching, isError, isEnd, allSearchResults, fetchNextPage]);
 
   // any record change can alter the hit list; the server list is the single
   // source of truth, so just refetch (throttled) and let the anchor keep the
@@ -232,34 +298,33 @@ export const SearchCountPagination = forwardRef<
         const currentHit = currentHitRef.current;
         pendingAnchorRef.current = currentHit ? pick(currentHit, ['recordId', 'fieldId']) : null;
         refetch();
+        if (!hideNotMatchRow) refetchCount();
       }, 1000),
-    [refetch]
+    [hideNotMatchRow, refetch, refetchCount]
   );
 
   useEffect(() => () => throttledRefetch.cancel(), [throttledRefetch]);
 
-  useTableListener(tableId, ['setRecord', 'addRecord', 'deleteRecord'], () => {
-    if (!value || isEmpty(allSearchResults) || !recordMap || isLoading || isFetching) {
-      return;
+  useTableListener(
+    tableId,
+    ['setRecord', 'addRecord', 'deleteRecord', 'addField', 'setField', 'deleteField'],
+    () => {
+      if (value) throttledRefetch();
     }
-
-    if (allSearchResults?.[currentIndex]) {
-      const { fieldId, index: recordIndex } = allSearchResults[currentIndex];
-      const field = fields.find(({ id }) => id === fieldId);
-      const cellValue = recordMap?.[recordIndex - 1]?.getCellValue(fieldId);
-      // same substring semantics as server-side searching and grid highlighting
-      if (field && !field.matchSearch(cellValue, value)) {
-        throttledRefetch();
-      }
-    }
-  });
+  );
 
   return (
     value &&
-    (isFetching || isLoading ? (
+    (isLoading ? (
       <Spin className="size-3 shrink-0" />
     ) : (
       <div className="flex flex-1 shrink-0 items-center gap-0.5 p-0">
+        {!hideNotMatchRow && (
+          <span className="min-w-8 whitespace-nowrap text-xs tabular-nums" aria-live="polite">
+            {allSearchResults[currentIndex] ? currentIndex : 0}/{countData?.matchedCellCount ?? '–'}
+          </span>
+        )}
+        {isFetching && <Spin className="size-3 shrink-0" />}
         <Button
           size={'xs'}
           variant={'ghost'}
@@ -267,7 +332,7 @@ export const SearchCountPagination = forwardRef<
             switchIndex(PageDirection.Prev);
           }}
           className="size-5 p-0"
-          disabled={currentIndex === 1}
+          disabled={isFetching || currentIndex === 1}
         >
           <ChevronLeft className="size-4 shrink-0" />
         </Button>
@@ -280,8 +345,9 @@ export const SearchCountPagination = forwardRef<
           }}
           className="size-5 p-0"
           disabled={
+            isFetching ||
             (currentIndex === Object.values(allSearchResults).length && isEnd) ||
-            Object.values(allSearchResults).length === 0
+            (Object.values(allSearchResults).length === 0 && isEnd)
           }
         >
           <ChevronRight className="size-4 shrink-0" />

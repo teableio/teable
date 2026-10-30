@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type {
   ICreateAppNotificationVo,
+  INotificationSummaryVo,
   INotificationUnreadCountVo,
   INotificationVo,
 } from '@teable/openapi';
@@ -57,6 +58,12 @@ export class NotificationController {
   async unreadCount(): Promise<INotificationUnreadCountVo> {
     const currentUserId = this.cls.get('user.id');
     return this.notificationService.unreadCount(currentUserId);
+  }
+
+  @Get('/summary')
+  async getNotifySummary(): Promise<INotificationSummaryVo> {
+    const currentUserId = this.cls.get('user.id');
+    return this.notificationService.getNotifySummary(currentUserId);
   }
 
   @Patch(':notificationId/status')

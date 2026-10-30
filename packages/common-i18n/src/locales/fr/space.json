@@ -54,7 +54,7 @@
   "pin": {
     "add": "Ajouter aux favoris",
     "remove": "Retirer des favoris",
-    "pin": "Épingler",
+    "pin": "Favoris",
     "empty": "Vos projets et espaces favoris apparaîtront ici"
   },
   "tooltip": {
@@ -207,19 +207,51 @@
     "form": {
       "title": "Titre",
       "description": "Description",
-      "security": "Sécurité",
-      "advanced": "Avancé",
+      "changelog": "Notes de version",
+      "changelogPlaceholder": "Décrivez les changements pour les installations existantes ; affiché dans l'aperçu de mise à niveau",
       "publishNode": "Publier les nœuds",
       "includeData": "Inclure les données",
       "defaultActiveNode": "Nœud actif par défaut",
       "descriptionPlaceholder": "Décrivez brièvement votre idée...",
-      "titlePlaceholder": "Nommez votre travail..."
+      "titlePlaceholder": "Nommez votre travail...",
+      "cover": "Couverture",
+      "coverHint": "16:9, utilisée sur la carte du catalogue et sur la page publique",
+      "versionTitle": "Contenu de la version",
+      "addChangelog": "Ajouter des notes de version"
     },
     "publishToCommunity": "Publier dans le centre de modèles",
     "publish": "Publier",
     "publishSuccess": "Publication réussie !",
     "previewTips": "Montrez votre travail au monde",
     "update": "Mettre à jour",
+    "submit": "Soumettre pour validation",
+    "submitted": "Soumis pour validation",
+    "review": {
+      "status": {
+        "review": "En cours de validation",
+        "rejected": "Renvoyé",
+        "withdrawn": "Retiré"
+      },
+      "submittedTime": "Soumis {{time}}",
+      "note": "Note du validateur",
+      "checks": "Vérifications automatiques",
+      "check": {
+        "connectors": "Connexions",
+        "privacy": "Confidentialité",
+        "estimate": "Estimation des exécutions",
+        "trial": "Essai"
+      },
+      "checkMessage": {
+        "connectors": "Impossible de connecter ici : {{providers}}",
+        "privacy": "Des enregistrements sont inclus ; vérifiez qu'ils ne contiennent pas de données personnelles",
+        "estimate": "Environ {{runs}} exécutions par mois, au-delà des {{free}} du forfait gratuit",
+        "trial": "Les automatisations ne nécessitent aucun compte ; vérifiez qu'elles fonctionnent sans compte"
+      },
+      "withdraw": "Retirer",
+      "withdrawn": "Soumission retirée.",
+      "live": "En ligne · v{{version}}",
+      "publicLink": "Lien public"
+    },
     "unPublish": "Dépublier",
     "unPublishSuccess": "Projet dépublié avec succès !",
     "unPublishConfirmTitle": "Confirmer la dépublication",
@@ -237,9 +269,7 @@
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "Officiellement sélectionné comme vedette. Votre modèle recevra plus de visibilité.",
-    "unfeaturedTip": "Pas encore mis en vedette. Continuez à améliorer pour avoir une chance d'être recommandé. Laissez plus de gens voir votre travail.",
     "publishSuccessDescription": "Partagez votre travail avec le monde",
     "shareWith": "Partager avec",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "Aller corriger",
       "redeploy": "Redéployer",
       "unnamedApp": "Application sans nom"
-    }
+    },
+    "submitVersion": "Soumettre la v{{version}} pour validation"
   },
   "dataDb": {
     "create": {

@@ -57,3 +57,23 @@ export const buildTableUrl = async (
   }
   return buildBaseNodeUrl(baseId, BaseNodeResourceType.Table, tableId, table.views[0]?.id);
 };
+
+/** Resolve a copied node only after its host resources and id maps have been restored. */
+export const buildBaseNodeDefaultUrl = async (
+  prisma: Prisma.TransactionClient,
+  baseId: string,
+  nodeId: string | null
+): Promise<string | null> => {
+  if (!nodeId) return null;
+  const node = await prisma.baseNode.findFirst({
+    where: { baseId, id: nodeId },
+    select: { resourceType: true, resourceId: true },
+  });
+  if (!node) return null;
+  const resourceType = node.resourceType as BaseNodeResourceType;
+  const url =
+    resourceType === BaseNodeResourceType.Table
+      ? await buildTableUrl(prisma, baseId, node.resourceId)
+      : buildBaseNodeUrl(baseId, resourceType, node.resourceId);
+  return url ?? `/base/${baseId}`;
+};

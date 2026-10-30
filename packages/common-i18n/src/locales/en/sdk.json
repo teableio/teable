@@ -299,6 +299,8 @@
     "duplicateRecord": "Duplicate record",
     "addToChat": "Add to Chat",
     "copyRecordUrl": "Copy record URL",
+    "copyLink": "Copy link",
+    "history": "History",
     "deleteRecord": "Delete record",
     "addRecordComment": "Add comment",
     "viewRecordHistory": "View record history",
@@ -1656,7 +1658,12 @@
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found",
       "takeCountTooLarge": "The number of templates requested exceeds the maximum limit",
-      "categoryLimitReached": "Template category limit reached (max {{maxCount}})"
+      "categoryLimitReached": "Template category limit reached (max {{maxCount}})",
+      "categoryHasChildren": "This industry still has sub-industries; delete them first",
+      "categoryDepthExceeded": "A sub-industry cannot have sub-industries of its own",
+      "teamIsFlat": "A team has neither a parent nor sub-categories",
+      "categoryKeyTaken": "This URL key is already used by another category",
+      "slugTaken": "This URL slug is already used by another template"
     },
     "department": {
       "parentNotFound": "Parent department not found",
@@ -1683,6 +1690,8 @@
       "domainReserved": "Subdomain is reserved",
       "siteInfoBeforeGeneration": "Generate the app before customizing its site info",
       "generationEditingConflict": "An AI generation is currently editing this app. Please retry the file update after it finishes.",
+      "codeCopying": "The app code is still being copied. Please try again in a moment.",
+      "codeCopyFailed": "The app code failed to copy. Duplicate the app again.",
       "siteInfoLayoutNotEditable": "This app's code isn't set up to accept site info edits here. Send a chat message asking the AI to change the site title, description or icon instead.",
       "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead.",
       "accessLinkSetupFailed": "Access link setup failed: {{detail}}",
@@ -1738,7 +1747,8 @@
     "requestFailed": "Request failed",
     "operationFailed": "Operation failed: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "Operator {{operator}} cannot compare against another field"
+      "operatorNoFieldReference": "Operator {{operator}} cannot compare against another field",
+      "fieldReferenceIncompatible": "Field {{reference}} has an incompatible type and cannot be compared with {{source}}"
     },
     "oauth": {
       "invalidRequest": "Invalid OAuth request: {{detail}}",

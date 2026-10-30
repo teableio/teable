@@ -63,7 +63,8 @@ export const usePaletteNavigation = ({
   const scope = paletteRecentKey(userId, baseId);
   const { asPath } = useRouter();
   const { treeItems, isLoaded, isLoading } = useContext(BaseNodeContext);
-  const { hrefMap } = useTableHref();
+  // The sidebar keeps the palette mounted while closed; the last-visited views wait for it to open.
+  const { hrefMap } = useTableHref(open);
   const [history, setHistory] = useState<{ scope: string; visits: PaletteRecentVisit[] }>({
     scope,
     visits: EMPTY_VISITS,

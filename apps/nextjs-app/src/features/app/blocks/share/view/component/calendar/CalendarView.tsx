@@ -1,3 +1,4 @@
+import { ExpandRecordPanelHost } from '@teable/sdk/components';
 import { RecordProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
@@ -19,7 +20,7 @@ export const CalendarView = () => {
   return (
     <div className={cn('flex size-full flex-col', embed ? '' : 'md:px-3 md:pb-3')}>
       {!embed && <ShareViewHeader viewName={view?.name} />}
-      <div className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
+      <ExpandRecordPanelHost className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
         <SearchProvider>
           <RecordProvider>
             {!hideToolBar && <CalendarToolbar />}
@@ -30,7 +31,7 @@ export const CalendarView = () => {
             </CalendarProvider>
           </RecordProvider>
         </SearchProvider>
-      </div>
+      </ExpandRecordPanelHost>
     </div>
   );
 };

@@ -737,6 +737,7 @@ export * from './application/services/RecordWritePluginRunner';
 export * from './ports/RecordQueryPlugin';
 export * from './application/services/RecordQueryPluginRunner';
 export * from './application/services/TableUpdateTransactionScope';
+export * from './application/services/createPaginatedExportStream';
 export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';
 export * from './ports/UndoRedoStore';

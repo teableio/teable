@@ -192,6 +192,34 @@ describe('ObservedTableRecordQueryRepository', () => {
     expect(publish).toHaveBeenCalledOnce();
   });
 
+  it('forwards countSearchMatches and records a search observation', async () => {
+    const { table, titleId } = makeTable();
+    const countSearchMatches = vi.fn().mockResolvedValue(ok(3));
+    const observations: TableQueryObservationWindow[] = [];
+    const repository = new ObservedTableRecordQueryRepository({ countSearchMatches } as never, {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    });
+
+    const result = await repository.countSearchMatches({} as never, table, undefined, {
+      search: {
+        search: RecordSearch.fromTuple(['needle', titleId.toString(), true]),
+        visibleFieldIds: [titleId],
+      },
+    });
+
+    expect(countSearchMatches).toHaveBeenCalledOnce();
+    expect(result._unsafeUnwrap()).toBe(3);
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.shape().snapshot().queryKind).toBe('search');
+    expect(observations[0]?.shape().snapshot().searchShape).toMatchObject({
+      allFields: false,
+      searchedFieldIds: [titleId.toString()],
+      fieldCount: 1,
+    });
+  });
+
   it('forwards aggregate to the inner repository and records an aggregation observation', async () => {
     const { table, titleId } = makeTable();
     const observations: TableQueryObservationWindow[] = [];

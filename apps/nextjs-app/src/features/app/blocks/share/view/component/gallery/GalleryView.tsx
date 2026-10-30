@@ -1,3 +1,4 @@
+import { ExpandRecordPanelHost } from '@teable/sdk/components';
 import { RecordProvider, RowCountProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
@@ -18,7 +19,7 @@ export const GalleryView = () => {
   return (
     <div className={cn('flex size-full flex-col', embed ? '' : 'md:px-3 md:pb-3')}>
       {!embed && <ShareViewHeader viewName={view?.name} />}
-      <div className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
+      <ExpandRecordPanelHost className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
         <SearchProvider>
           <RecordProvider>
             <RowCountProvider>
@@ -31,7 +32,7 @@ export const GalleryView = () => {
             </RowCountProvider>
           </RecordProvider>
         </SearchProvider>
-      </div>
+      </ExpandRecordPanelHost>
     </div>
   );
 };

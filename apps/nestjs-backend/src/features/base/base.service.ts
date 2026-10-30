@@ -16,7 +16,6 @@ import {
   CollaboratorType,
   CreateRecordAction,
   ResourceType,
-  BaseNodeResourceType,
   BaseDuplicateMode,
   UploadType,
   IDuplicateBaseRo,
@@ -46,7 +45,13 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { handleBestEffortDataDbDropError } from '../../global/data-db-runtime-error';
+import { PerformanceCacheService } from '../../performance-cache';
+import {
+  generateTemplateCacheKeyByBaseId,
+  generateTemplatePermalinkCacheKey,
+} from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
@@ -56,15 +61,22 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { PermissionService } from '../auth/permission.service';
-import { buildBaseNodeUrl, buildTableUrl } from '../base-node/base-node-url.helper';
+import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import { CanaryService } from '../canary';
 import type { IV2Decision } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
+import { firstPublishHistory } from '../model/template';
 import { invalidateSearchIndexesForDataDbRouting } from '../space/search-index-routing-invalidation';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { ensureTemplateSlug } from '../template/template-slug';
+import {
+  lockTemplateSnapshotSwap,
+  retireTemplateSnapshot,
+  withStagedTemplateSnapshot,
+} from '../template/template-snapshot.helper';
 import { auditBaseCreated } from './base-create-audit';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
@@ -137,6 +149,9 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 @Injectable()
 export class BaseService {
   private readonly logger = new Logger(BaseService.name);
+
+  @Inject(PerformanceCacheService)
+  private readonly performanceCacheService!: PerformanceCacheService;
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -223,7 +238,7 @@ export class BaseService {
     }));
   }
 
-  private async assertBaseWritable(baseId: string) {
+  protected async assertBaseWritable(baseId: string) {
     await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
   }
 
@@ -474,7 +489,8 @@ export class BaseService {
     const base = await this.prismaService.base.create({
       data: {
         id: generateBaseId(),
-        name: name || 'Untitled Project',
+        // NULL = nobody has named this base yet; clients render a localized placeholder
+        name: name?.trim() || null,
         spaceId,
         order,
         icon,
@@ -530,6 +546,8 @@ export class BaseService {
     return this.prismaService.base.update({
       data: {
         ...updateBaseRo,
+        // A cleared name goes back to "unnamed" rather than being stored as an empty string
+        ...(updateBaseRo.name !== undefined ? { name: updateBaseRo.name?.trim() || null } : {}),
         lastModifiedBy: userId,
       },
       select: {
@@ -889,47 +907,39 @@ export class BaseService {
     baseId: string | undefined,
     templateId: string
   ) {
-    // $tx must run INSIDE @Audit's operation so the afterTxCb (which fires structural
-    // events via ops2Event) sees TemplateApply attribution. If $tx were wrapped
-    // around this call, the operation would pop before afterTxCb runs and structural
-    // events would miss payload.rootAction=TemplateApply.
-    const result = await this.prismaService.$tx(
+    // The native copy runs independently; an existing-base install commits its host resources,
+    // target properties and usage increment together after the native command has succeeded.
+    const res = await this.baseDuplicateV2Service.duplicateBase(
+      {
+        name: template.name!,
+        fromBaseId,
+        spaceId,
+        withRecords,
+        baseId,
+        timeZone: createBaseFromTemplateRo.timeZone,
+      },
+      false,
+      BaseDuplicateMode.ApplyTemplate,
+      undefined,
       async () => {
-        const res = await this.baseDuplicateService.duplicateBase(
-          {
-            name: template.name!,
-            fromBaseId,
-            spaceId,
-            withRecords,
-            baseId,
-            // Adapt date-related field time zones in the template to the user's
-            // environment instead of keeping the template author's time zone.
-            timeZone: createBaseFromTemplateRo.timeZone,
-          },
-          false,
-          BaseDuplicateMode.ApplyTemplate
-        );
         await this.prismaService.txClient().template.update({
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
-        // Audit rows emitted by atomic events inside baseDuplicateService.duplicateBase.
-
-        const publishInfo = template.publishInfo as { defaultUrl?: string } | null;
-        const defaultUrl = publishInfo?.defaultUrl;
-
-        if (defaultUrl) {
-          const maps = this.getUrlMap(res as unknown as Record<string, string>);
-          const newDefaultUrl = replaceDefaultUrl(defaultUrl, {
-            ...maps,
-            baseMap: { [fromBaseId]: res.base.id },
-          });
-          return { ...res.base, defaultUrl: newDefaultUrl };
-        }
-        return res.base;
-      },
-      { timeout: this.thresholdConfig.bigTransactionTimeout }
+      }
     );
+
+    const publishInfo = template.publishInfo as { defaultUrl?: string } | null;
+    const defaultUrl = publishInfo?.defaultUrl;
+    const result = defaultUrl
+      ? {
+          ...res.base,
+          defaultUrl: replaceDefaultUrl(defaultUrl, {
+            ...this.getUrlMap(res as unknown as Record<string, string>),
+            baseMap: { [fromBaseId]: res.base.id },
+          }),
+        }
+      : res.base;
     // Terminal signal: see BASE_DUPLICATE_COMPLETE note above for semantics.
     this.eventEmitterService.emit(Events.BASE_TEMPLATE_APPLY_COMPLETE, {
       baseId: result.id,
@@ -1016,76 +1026,6 @@ export class BaseService {
     // irreversible S3 cleanup only after the purge transaction has committed
     await this.tableOpenApiService.cleanupColdHistoryPrefixes(purgedTableIds);
     return result;
-  }
-
-  private async permanentEmptyBaseRelatedData(
-    baseId: string,
-    options: {
-      transaction?: 'current';
-      emitRuntimeEvents?: boolean;
-      syncButtonField?: boolean;
-    } = {}
-  ) {
-    let purgedTableIds: string[] = [];
-    const remove = async () => {
-      const prisma = this.prismaService.txClient();
-      const tables = await prisma.tableMeta.findMany({
-        where: { baseId },
-        select: { id: true },
-      });
-      const tableIds = tables.map(({ id }) => id);
-      purgedTableIds = tableIds;
-
-      await this.dropBaseTable(tableIds);
-      await this.purgeComputedOutboxForBase(baseId, tableIds);
-      await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-      await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
-      await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
-        useTransaction: true,
-      });
-      await this.cleanBaseRelatedDataWithoutBase(baseId);
-      await this.cleanRelativeNodesData(baseId);
-    };
-
-    if (options.transaction === 'current') {
-      // the caller owns the ambient transaction, so there is no post-commit
-      // point in this scope — deleting the cold prefixes here would be
-      // irreversible while the transaction can still roll back. Skip the S3
-      // cleanup entirely: an orphaned prefix is a harmless leak reconciled
-      // by ops tooling, the opposite failure loses customer history
-      return await remove();
-    }
-
-    const result = await this.prismaService.$tx(remove, {
-      timeout: this.thresholdConfig.bigTransactionTimeout,
-    });
-    await this.tableOpenApiService.cleanupColdHistoryPrefixes(purgedTableIds);
-    return result;
-  }
-
-  private async cleanBaseRelatedDataWithoutBase(baseId: string) {
-    // delete collaborators for base
-    await this.prismaService.txClient().collaborator.deleteMany({
-      where: { resourceId: baseId, resourceType: CollaboratorType.Base },
-    });
-
-    // delete invitation for base
-    await this.prismaService.txClient().invitation.deleteMany({
-      where: { baseId },
-    });
-
-    // delete invitation record for base
-    await this.prismaService.txClient().invitationRecord.deleteMany({
-      where: { baseId },
-    });
-
-    // delete trash for base
-    await this.prismaService.txClient().trash.deleteMany({
-      where: {
-        resourceId: baseId,
-        resourceType: ResourceType.Base,
-      },
-    });
   }
 
   private async cleanRelativeNodesData(baseId: string) {
@@ -1238,7 +1178,7 @@ export class BaseService {
    */
   private async auditMoveBase(
     baseId: string,
-    source: { name: string; spaceId: string } | null,
+    source: { name: string | null; spaceId: string } | null,
     toSpaceId: string,
     job?: IMoveBaseVo
   ) {
@@ -1248,7 +1188,7 @@ export class BaseService {
       params: {
         baseId,
         ...(source ? { spaceId: source.spaceId } : {}),
-        name: source?.name,
+        name: source ? baseDisplayName(source.name) : undefined,
         fromSpaceId: source?.spaceId ?? null,
         toSpaceId,
         ...(job?.jobId ? { dataDbMoveJobId: job.jobId } : {}),
@@ -1541,7 +1481,7 @@ export class BaseService {
         tableId: f.tableId,
         tableName: myTableNameMap.get(f.tableId) ?? '',
         baseId: movingBase.id,
-        baseName: movingBase.name,
+        baseName: baseDisplayName(movingBase.name),
         reason: 'direct_link',
       });
     }
@@ -1556,7 +1496,7 @@ export class BaseService {
         tableId: f.tableId,
         tableName: t.name,
         baseId: t.base.id,
-        baseName: t.base.name,
+        baseName: baseDisplayName(t.base.name),
         reason: 'incoming_link',
       });
     }
@@ -1569,39 +1509,9 @@ export class BaseService {
     return await this.graphService.generateBaseErd(baseId);
   }
 
-  private async generateDefaultUrlForNode(
-    snapshotBaseId: string,
-    snapshotNodeId: string | null
-  ): Promise<string | null> {
-    if (!snapshotNodeId) {
-      return null;
-    }
-
-    const prisma = this.prismaService.txClient();
-
-    const node = await prisma.baseNode.findFirst({
-      where: { baseId: snapshotBaseId, id: snapshotNodeId },
-      select: { resourceType: true, resourceId: true },
-    });
-
-    if (!node) {
-      return null;
-    }
-
-    const resourceType = node.resourceType as BaseNodeResourceType;
-    const { resourceId } = node;
-
-    const url =
-      resourceType === BaseNodeResourceType.Table
-        ? await buildTableUrl(prisma, snapshotBaseId, resourceId)
-        : buildBaseNodeUrl(snapshotBaseId, resourceType, resourceId);
-    return url ?? `/base/${snapshotBaseId}`;
-  }
-
   /**
-   * Snapshots the base (with its records when `includeData`) into the template space as a public
-   * template. The snapshot copy runs inside a `base.publish` operation, so the rows it produces for
-   * the snapshot base are attributed to it; the `base.publish` row itself is written after commit.
+   * Stage a native snapshot under base.publish, then atomically publish its pointer.
+   * A failed copy leaves the previous published snapshot untouched.
    */
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
     await this.assertBaseWritable(baseId);
@@ -1611,124 +1521,135 @@ export class BaseService {
   }
 
   private async publishBaseInOperation(baseId: string, publishBaseRo: IPublishBaseRo) {
-    let templateId: string | undefined;
-    let republished = false;
-    const result = await this.prismaService.$tx(
-      async (prisma) => {
-        const template = await prisma.template.findFirst({
-          where: { baseId },
-          select: { id: true, snapshot: true },
-        });
-        const { title, description, cover, nodes, includeData } = publishBaseRo;
-
-        const snapshotBaseId = template?.snapshot
-          ? JSON.parse(template.snapshot).baseId
-          : undefined;
-
-        const snapshot = await this.createSnapshot(baseId, nodes, includeData, snapshotBaseId);
-
-        // Calculate snapshotActiveNodeId and defaultUrl
+    const { title, description, cover, nodes, includeData } = publishBaseRo;
+    // Stage a complete native snapshot before touching the currently published version.
+    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+    return withStagedTemplateSnapshot(
+      this.prismaService,
+      baseId,
+      snapshot.baseId,
+      this.cls.get('user.id'),
+      async () => {
         const snapshotActiveNodeId = publishBaseRo.defaultActiveNodeId
-          ? snapshot.nodeIdMap?.[publishBaseRo.defaultActiveNodeId] || null
+          ? (snapshot.nodeIdMap[publishBaseRo.defaultActiveNodeId] ?? null)
           : null;
-        const defaultUrl = await this.generateDefaultUrlForNode(
+        const defaultUrl = await buildBaseNodeDefaultUrl(
+          this.prismaService.txClient(),
           snapshot.baseId,
           snapshotActiveNodeId
         );
-
         const publishInfo = {
-          nodes: publishBaseRo.nodes,
-          includeData: publishBaseRo.includeData,
+          nodes,
+          includeData,
           defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
           snapshotActiveNodeId,
           defaultUrl,
         };
-
-        // Generate thumbnail for template cover image
         if (cover) {
-          const coverThumbnail = await this.cropTemplateCoverImage(cover);
-
-          if (coverThumbnail?.lgThumbnailPath && coverThumbnail?.smThumbnailPath) {
+          const thumbnails = await this.cropTemplateCoverImage(cover);
+          if (thumbnails?.lgThumbnailPath && thumbnails.smThumbnailPath) {
             cover.thumbnailPath = {
-              lg: coverThumbnail.lgThumbnailPath,
-              sm: coverThumbnail.smThumbnailPath,
+              lg: thumbnails.lgThumbnailPath,
+              sm: thumbnails.smThumbnailPath,
             };
           }
         }
 
-        // if already published, update template
-        if (template) {
-          const updatedTemplate = await prisma.template.update({
-            where: { id: template.id },
-            data: {
-              name: title,
-              description,
-              cover: cover ? JSON.stringify(cover) : undefined,
-              snapshot: JSON.stringify({
-                baseId: snapshot.baseId,
-                snapshotTime: new Date().toISOString(),
-                spaceId: snapshot.spaceId,
-                name: snapshot.name,
-              }),
-              publishInfo,
-              lastModifiedBy: this.cls.get('user.id'),
-            },
-            select: {
-              id: true,
-            },
-          });
-          templateId = updatedTemplate.id;
-          republished = true;
-
-          return {
-            baseId: snapshot.baseId,
-            defaultUrl,
-            permalink: `/t/${updatedTemplate.id}`,
-          };
-        }
-
-        // if the base is not published, create a template
-        // publish snapshot
-        const newTemplate = await this.createTemplateBySnapshot(
-          baseId,
-          snapshot,
-          publishBaseRo,
-          publishInfo
+        let oldSnapshotBaseId: string | undefined;
+        let republished = false;
+        const result = await this.prismaService.$tx(
+          async (prisma) => {
+            await lockTemplateSnapshotSwap(prisma, baseId);
+            const template = await prisma.template.findFirst({
+              where: { baseId },
+              select: { id: true, snapshot: true, version: true, history: true, slug: true },
+            });
+            let templateId: string;
+            if (template) {
+              if (template.snapshot) {
+                const previousSnapshot = JSON.parse(template.snapshot);
+                oldSnapshotBaseId = previousSnapshot.baseId;
+              }
+              await prisma.template.update({
+                where: { id: template.id },
+                data: {
+                  name: title,
+                  description,
+                  cover: cover ? JSON.stringify(cover) : undefined,
+                  snapshot: JSON.stringify({
+                    baseId: snapshot.baseId,
+                    snapshotTime: new Date().toISOString(),
+                    spaceId: snapshot.spaceId,
+                    name: snapshot.name,
+                  }),
+                  publishInfo,
+                  ...(template.history
+                    ? {}
+                    : {
+                        history: firstPublishHistory(
+                          template.version
+                        ) as unknown as Prisma.InputJsonValue,
+                      }),
+                  lastModifiedBy: this.cls.get('user.id'),
+                },
+              });
+              templateId = template.id;
+              republished = true;
+              await ensureTemplateSlug(prisma, {
+                id: templateId,
+                name: title,
+                slug: template.slug,
+              });
+              if (oldSnapshotBaseId) {
+                await retireTemplateSnapshot(prisma, oldSnapshotBaseId, this.cls.get('user.id'));
+              }
+            } else {
+              const template = await this.createTemplateBySnapshot(
+                baseId,
+                snapshot,
+                publishBaseRo,
+                publishInfo
+              );
+              templateId = template.id;
+              await ensureTemplateSlug(prisma, { id: templateId, name: title, slug: null });
+            }
+            return {
+              baseId: snapshot.baseId,
+              defaultUrl,
+              permalink: `/t/${templateId}`,
+              templateId,
+            };
+          },
+          { timeout: this.thresholdConfig.bigTransactionTimeout }
         );
-        templateId = newTemplate.id;
-
-        return {
-          baseId: snapshot.baseId,
-          defaultUrl,
-          permalink: `/t/${newTemplate.id}`,
-        };
+        return { result, defaultUrl, oldSnapshotBaseId, republished };
       },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
-    );
-    await this.audit.emitAtomic({
-      action: BASE_PUBLISH_ACTION,
-      resourceId: baseId,
-      params: {
-        baseId,
-        templateId,
-        snapshotBaseId: result.baseId,
-        title: publishBaseRo.title,
-        includeData: publishBaseRo.includeData ?? true,
-        ...(publishBaseRo.nodes ? { nodeCount: publishBaseRo.nodes.length } : {}),
-        ...(republished ? { republished } : {}),
-      },
+      (error) => this.logger.error(`Failed to retire staged snapshot ${snapshot.baseId}`, error)
+    ).then(async ({ result, defaultUrl, oldSnapshotBaseId, republished }) => {
+      await Promise.all([
+        this.performanceCacheService.del(generateTemplatePermalinkCacheKey(result.templateId)),
+        ...[baseId, snapshot.baseId, ...(oldSnapshotBaseId ? [oldSnapshotBaseId] : [])].map((id) =>
+          this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(id))
+        ),
+      ]);
+      await this.audit.emitAtomic({
+        action: BASE_PUBLISH_ACTION,
+        resourceId: baseId,
+        params: {
+          baseId,
+          templateId: result.templateId,
+          snapshotBaseId: snapshot.baseId,
+          title,
+          includeData: includeData ?? true,
+          ...(nodes ? { nodeCount: nodes.length } : {}),
+          ...(republished ? { republished } : {}),
+        },
+      });
+      return { baseId: result.baseId, defaultUrl, permalink: result.permalink };
     });
-    return result;
   }
 
-  private async createSnapshot(
-    baseId: string,
-    nodes?: string[],
-    includeData?: boolean,
-    existedBaseId?: string
-  ) {
+  protected async createSnapshot(baseId: string, nodes?: string[], includeData?: boolean) {
     const prisma = this.prismaService.txClient();
     const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
       where: {
@@ -1746,26 +1667,17 @@ export class BaseService {
       },
     });
 
-    if (existedBaseId) {
-      // delete some related data
-      await this.cleanTemplateRelatedData(existedBaseId, {
-        transaction: 'current',
-        emitRuntimeEvents: false,
-        syncButtonField: false,
-      });
-    }
-
     const {
       base: { id, spaceId, name },
       nodeIdMap,
-    } = await this.baseDuplicateService.duplicateBase(
+    } = await this.baseDuplicateV2Service.duplicateBase(
       {
         fromBaseId: baseId,
         spaceId: templateSpaceId,
         withRecords: includeData ?? true,
-        name: base?.name,
+        // the snapshot keeps the source name; an unnamed source gets the placeholder
+        name: baseDisplayName(base.name),
         nodes,
-        baseId: existedBaseId,
       },
       false,
       BaseDuplicateMode.CreateTemplate
@@ -1774,27 +1686,16 @@ export class BaseService {
     return {
       baseId: id,
       spaceId,
-      name,
+      name: baseDisplayName(name),
       nodeIdMap,
     };
-  }
-
-  async cleanTemplateRelatedData(
-    baseId: string,
-    options: {
-      transaction?: 'current';
-      emitRuntimeEvents?: boolean;
-      syncButtonField?: boolean;
-    } = {}
-  ) {
-    await this.permanentEmptyBaseRelatedData(baseId, options);
   }
 
   /**
    * Generate thumbnail for template cover image
    * Template only has one cover image, so we generate thumbnail synchronously (no queue needed)
    */
-  private async cropTemplateCoverImage(cover: {
+  protected async cropTemplateCoverImage(cover: {
     path: string;
     mimetype?: string;
     height?: number;
@@ -1867,6 +1768,7 @@ export class BaseService {
         createdBy: userId,
         order: finalOrder,
         isPublished: true,
+        history: firstPublishHistory(1) as unknown as Prisma.InputJsonValue,
         baseId: sourceBaseId,
         snapshot: JSON.stringify({
           baseId: baseId,

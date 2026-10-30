@@ -1114,6 +1114,7 @@
     "insertRecordBelow": "Insert <input /> record below",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
+    "copy": "Copy",
     "archiveRecord": "Archive record",
     "archiveAllSelectedRecords": "Archive all selected records",
     "duplicateRecords": "Duplicate selected records",
@@ -1331,6 +1332,24 @@
         "failed": "Failed"
       },
       "chooseAccount": "Which Google account should the spreadsheets come from?"
+    },
+    "templateOffer": {
+      "title": "Templates offered",
+      "details": "Details",
+      "found_one": "Found a ready-made template",
+      "found_other": "Found {{count}} ready-made templates",
+      "defaultReason": "Install one instead of building it from scratch.",
+      "install": "Install",
+      "installing": "Installing…",
+      "dismiss": "No thanks",
+      "close": "Close",
+      "failed": "Your choice could not be recorded. Try again.",
+      "unavailable": "These templates are no longer available.",
+      "status": {
+        "installed": "Installed",
+        "dismissed": "Skipped",
+        "failed": "Failed"
+      }
     },
     "agent": {
       "askUserQuestion": {
@@ -1597,7 +1616,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Pasted text",
-      "imageNotSupported": "Image is not supported",
       "tooManyFiles": "You can attach at most {{count}} files per message"
     },
     "suggestions": {

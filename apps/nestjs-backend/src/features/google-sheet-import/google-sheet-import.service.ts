@@ -10,6 +10,7 @@ import type {
 import { CreateRecordAction } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 import { Events } from '../../event-emitter/events';
+import { baseDisplayName } from '../../utils/base-name';
 import { AuditScope } from '../audit/audit-scope';
 import { auditBaseCreated } from '../base/base-create-audit';
 import { BaseService } from '../base/base.service';
@@ -425,7 +426,7 @@ export class GoogleSheetImportService {
     }
 
     this.logImportSummary(ro, base.id, tableIdMap, issues, startedAt);
-    progress({ phase: 'import_done', detail: base.name });
+    progress({ phase: 'import_done', detail: baseDisplayName(base.name) });
     return { base, tableIdMap, issues };
   }
 

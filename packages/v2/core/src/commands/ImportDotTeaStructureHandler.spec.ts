@@ -12,6 +12,7 @@ import {
 } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError } from '../domain/shared/DomainError';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
@@ -29,9 +30,16 @@ import type {
   IUnitOfWorkTransaction,
   UnitOfWorkScope,
 } from '../ports/ExecutionContext';
+import {
+  FieldOperationKind,
+  FieldOperationTargetKind,
+  type FieldOperationPluginContext,
+  type IFieldOperationPlugin,
+} from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { createFieldOperationPluginRunner } from './fieldOperationPluginRunnerTestUtils';
 import { ImportDotTeaStructureCommand } from './ImportDotTeaStructureCommand';
 import { ImportDotTeaStructureHandler } from './ImportDotTeaStructureHandler';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
@@ -607,6 +615,86 @@ describe('ImportDotTeaStructureHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.fields_per_table_max');
+    expect(tableCreationService.lastInput).toBeUndefined();
+  });
+
+  it('authorizes reciprocal fields created by the import through field operation plugins', async () => {
+    const sourceTableId = `tbl${'a'.repeat(16)}`;
+    const targetTableId = `tbl${'b'.repeat(16)}`;
+    const targetFieldId = `fld${'c'.repeat(16)}`;
+    const parser = new FakeDotTeaParser(
+      ok({
+        tables: [
+          {
+            id: sourceTableId,
+            name: 'Source',
+            fields: [
+              { name: 'Name', type: 'singleLineText', isPrimary: true },
+              {
+                name: 'Link',
+                type: 'link',
+                options: {
+                  relationship: 'manyMany',
+                  foreignTableId: targetTableId,
+                  lookupFieldId: targetFieldId,
+                  isOneWay: false,
+                },
+              },
+            ],
+          },
+          {
+            id: targetTableId,
+            name: 'Target',
+            fields: [{ id: targetFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+          },
+        ],
+      })
+    );
+    const denyPlugin: IFieldOperationPlugin = {
+      name: 'deny-side-effect-field',
+      supports: (operation) => operation === FieldOperationKind.create,
+      async prepare(context: FieldOperationPluginContext) {
+        if (context.target.kind !== FieldOperationTargetKind.sideEffect) {
+          return ok(undefined);
+        }
+        return ok({ denied: true });
+      },
+      // The production EE plugin decides in `guard`, not in `prepare`.
+      async guard(context: FieldOperationPluginContext) {
+        if (context.target.kind !== FieldOperationTargetKind.sideEffect) {
+          return ok(undefined);
+        }
+        return err(
+          domainError.forbidden({
+            code: 'test.side_effect_field_denied',
+            message: 'side effect field denied',
+          })
+        );
+      },
+    };
+    const tableCreationService = new FakeTableCreationService();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRepository(),
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      undefined,
+      createFieldOperationPluginRunner([denyPlugin])
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    // The import creates the symmetric field of a two-way Link in the linked
+    // table, so the field-operation plugins must vet it before anything persists.
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('test.side_effect_field_denied');
     expect(tableCreationService.lastInput).toBeUndefined();
   });
 });

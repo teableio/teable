@@ -64,7 +64,7 @@
     "select": "选择",
     "refresh": "刷新",
     "login": "登录",
-    "useTemplate": "使用模版",
+    "useTemplate": "安装模板",
     "copyLink": "复制链接",
     "openLink": "打开链接",
     "backToSpace": "返回空间",
@@ -143,17 +143,33 @@
     "templateTitle": "从模板开始",
     "loadMore": "加载更多",
     "allTemplatesLoaded": "所有模板已加载",
-    "createTemplate": "创建模版",
+    "createTemplate": "创建模板",
     "promptBox": {
       "start": "开始"
     },
     "useTemplateDialog": {
       "title": "选择空间",
-      "description": "请选择一个空间来应用模版",
+      "description": "请选择要安装到的空间",
       "noSpaceDescription": "你还没有任何空间，请先创建一个空间以继续。",
       "newSpacePlaceholder": "空间名称",
       "createSpace": "创建",
       "loadFailed": "无法加载模板详情。"
+    },
+    "searchPlaceholder": "搜索模板",
+    "rankThisMonth": "本月 #{{rank}}",
+    "listing": {
+      "newest": "最新",
+      "featured": "推荐"
+    },
+    "detail": {
+      "install": "安装",
+      "installs": "安装次数",
+      "author": "作者",
+      "updated": "最近更新",
+      "history": "版本记录",
+      "firstRelease": "首次上线",
+      "about": "详细介绍",
+      "noChangelog": "常规更新"
     }
   },
   "baseShare": {
@@ -218,26 +234,32 @@
       "noData": "暂无数据",
       "importing": "导入中...",
       "usageCount": "应用次数：{{count}}",
-      "useTemplate": "使用此模板",
+      "useTemplate": "安装此模板",
       "createdBy": "创建者：{{user}}",
       "backToTemplateList": "返回模板列表",
       "tips": {
-        "errorCategoryName": "分类不存在或已删除",
-        "needSnapshot": "上架前，请先创建快照，并且模板名和描述不能为空",
+        "errorCategoryName": "行业不存在或已删除",
+        "needSnapshot": "上架前，请先创建快照，并且模板名称和描述不能为空",
         "needPublish": "请先上架模板，再设置推荐",
         "needBaseSource": "创建快照前，请先选择模板来源",
         "forbiddenUpdateSystemTemplate": "系统模板禁止修改",
-        "addCategoryTips": "请先在搜索框中输入分类名称。",
-        "categoryNamePlaceholder": "输入分类名称",
-        "duplicateCategoryName": "分类名称已存在",
-        "solution": "标记为解决方案：使用时先走集成设置向导，而不是直接复制。"
+        "addCategoryTips": "请先输入行业名称。",
+        "categoryNamePlaceholder": "输入行业名称",
+        "subCategoryNamePlaceholder": "输入细分名称",
+        "noSubCategory": "还没有细分，点左边的行业名直接挂上",
+        "duplicateCategoryName": "行业名称已存在",
+        "teamNamePlaceholder": "输入团队名称",
+        "addTeamTips": "请先输入团队名称。",
+        "keyPlaceholder": "网址标识，如 yoga",
+        "invalidKey": "网址标识只能用小写字母、数字和连字符"
       },
       "category": {
         "menu": {
           "getStarted": "开始",
           "recommended": "推荐",
           "all": "全部",
-          "browseByCategory": "按分类浏览"
+          "browseByCategory": "按分类浏览",
+          "byTeam": "按团队"
         }
       },
       "header": {
@@ -245,8 +267,8 @@
         "name": "名称",
         "description": "描述",
         "markdownDescription": "富文本描述",
-        "category": "分类",
-        "isSystem": "系统模板",
+        "category": "行业",
+        "isSystem": "系统",
         "source": "来源",
         "status": "上架",
         "publishSnapshot": "发布快照",
@@ -258,8 +280,8 @@
         "preview": "预览",
         "usage": "应用次数",
         "visit": "访问次数",
-        "solution": "解决方案",
-        "requirements": "集成"
+        "requirements": "集成",
+        "slug": "网址标识"
       },
       "actions": {
         "title": "操作",
@@ -269,10 +291,15 @@
         "preview": "预览",
         "use": "使用",
         "pinTop": "置顶",
-        "addCategory": "添加分类",
-        "selectCategory": "选择分类",
+        "addCategory": "新建行业",
+        "addSubCategory": "新建细分",
+        "addSubCategoryUnder": "新建「{{name}}」的细分",
+        "selectCategory": "选择行业",
+        "addTeam": "新建团队",
+        "industries": "行业",
+        "teams": "团队",
         "viewTemplate": "查看模板",
-        "manageCategory": "分类管理"
+        "manageCategory": "行业与团队管理"
       },
       "relatedTemplates": "相关模板",
       "noImage": "暂无图片",
@@ -505,8 +532,9 @@
     "routine": "任务",
     "newRoutine": "新任务",
     "newApp": "新应用",
-    "newFolder": "新目录",
-    "template": "模版"
+    "newFolder": "新文件夹",
+    "template": "模板",
+    "installedTemplates": "已安装的模板"
   },
   "level": {
     "free": "免费版",
@@ -519,6 +547,7 @@
   "allNodes": "全部节点",
   "noDescription": "暂无描述",
   "untitled": "未命名",
+  "untitledBase": "未命名项目",
   "name": "名称",
   "description": "描述",
   "required": "必填",
@@ -1310,6 +1339,20 @@
         "message": "这是一封测试邮件，请忽略。"
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "你的模板《{{name}}》已上架",
+            "message": "《{{name}}》通过审核，已公开为第 {{version}} 版。",
+            "messageWithNote": "《{{name}}》通过审核，已公开为第 {{version}} 版。审核备注：{{note}}",
+            "messageNoPayout": "《{{name}}》通过审核，已公开为第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。",
+            "messageNoPayoutWithNote": "《{{name}}》通过审核，已公开为第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。审核备注：{{note}}"
+          },
+          "rejected": {
+            "title": "你的模板《{{name}}》被退回",
+            "message": "《{{name}}》未通过审核。",
+            "messageWithNote": "《{{name}}》未通过审核。审核备注：{{note}}"
+          }
+        },
         "subject": "通知 - {{brandName}}",
         "title": "通知",
         "buttonText": "查看",
@@ -1517,6 +1560,26 @@
           "title": "奖励领取成功",
           "message": "恭喜！您的 <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 奖励申请已通过。{{amount}} 算力已添加，有效期 {{expiredDays}} 天。",
           "buttonText": "查看空间"
+        },
+        "chatUnread": {
+          "done": {
+            "title": "你的任务已完成",
+            "message": "{{name}} 你好，<br><br>你在 Teable 中发起的任务已经完成：<br><em>{{prompt}}</em><br><br>请查看结果。",
+            "messageWithoutPrompt": "{{name}} 你好，<br><br>你在 Teable 中发起的任务已经完成。<br><br>请查看结果。",
+            "buttonText": "查看结果"
+          },
+          "failed": {
+            "title": "你的任务未能完成",
+            "message": "{{name}} 你好，<br><br>你在 Teable 中发起的任务没有完成：<br><em>{{prompt}}</em><br><br>请打开查看原因并重试。",
+            "messageWithoutPrompt": "{{name}} 你好，<br><br>你在 Teable 中发起的任务没有完成。<br><br>请打开查看原因并重试。",
+            "buttonText": "查看详情"
+          },
+          "creditExhausted": {
+            "title": "你的任务已中断：AI 额度不足",
+            "message": "{{name}} 你好，<br><br>你在 Teable 中发起的任务因 AI 额度不足而中断：<br><em>{{prompt}}</em><br><br>补充额度或升级套餐后，即可接着继续。",
+            "messageWithoutPrompt": "{{name}} 你好，<br><br>你在 Teable 中发起的任务因 AI 额度不足而中断。<br><br>补充额度或升级套餐后，即可接着继续。",
+            "buttonText": "查看详情"
+          }
         }
       }
     }
@@ -1887,6 +1950,7 @@
       "permission": "Cuppy 在等你确认后再继续。",
       "connectIntegration": "Cuppy 需要你先连接一个应用。",
       "pickGoogleSheet": "Cuppy 需要你选一个表格。",
+      "presentTemplates": "Cuppy 找到了现成的模板，等你决定装不装。",
       "requestCredential": "Cuppy 需要访问权限才能继续。"
     },
     "result": {

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
@@ -5,13 +6,18 @@ import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import {
   BaseDuplicateMode,
+  isCopyToExistingBaseMode,
+  type IBaseJson,
   type ICreateBaseVo,
   type ICrossSpaceBaseAffectedField,
   type IDuplicateBaseRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  DeleteTableCommand,
   DuplicateBaseCommand,
+  TableByIdSpec,
+  TableId,
   v2CoreTokens,
   type BulkCopySourceLinkField,
   type DuplicateBaseRecordReadOptions,
@@ -19,6 +25,10 @@ import {
   type DuplicateBaseResult,
   type DuplicateBaseSource,
   type ICommandBus,
+  type ITableFieldPersistenceDTO,
+  type ITableMapper,
+  type ITablePersistenceDTO,
+  type ITableRepository,
   type NormalizedDotTeaField,
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
@@ -29,6 +39,7 @@ import { groupBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { PoolClient } from 'pg';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -36,21 +47,23 @@ import { toPostgresFkDeleteAction } from '../../db-provider/postgres-fk-delete-a
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { AuditScope } from '../audit/audit-scope';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { PersistedComputedBackfillService } from '../record/computed/services/persisted-computed-backfill.service';
 import { TableDuplicateService } from '../table/table-duplicate.service';
+import { withStagedTemplateSnapshot } from '../template/template-snapshot.helper';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { BaseExportService } from './base-export.service';
-import type { BaseImportProgressCallback } from './base-import.service';
+import type { BaseImportProgressCallback, IBaseHostIdMaps } from './base-import.service';
 import { BaseImportService } from './base-import.service';
 import {
   collectCrossSpaceAffectedFieldIds,
   extractForeignTableId,
   isCrossSpaceReferenceAllowed,
 } from './cross-space-detection.util';
-import { adaptStructureTimeZone, mergeLinkFieldTableMaps } from './utils';
+import { adaptStructureTimeZone, mergeLinkFieldTableMaps, replaceTimeZoneDeep } from './utils';
 import type { ILinkFieldTableInfo, ILinkFieldTableMap } from './utils';
 
 type DuplicatedBase = Awaited<ReturnType<BaseImportService['createBaseStructure']>>['base'];
@@ -80,6 +93,14 @@ type DuplicateBaseStructConfigInput = Parameters<
 >[0] & {
   includeWorkflowRuntimeState?: boolean;
 };
+export type IDuplicateBaseV2Result = {
+  base: ICreateBaseVo;
+  tableIdMap: Record<string, string>;
+  fieldIdMap: Record<string, string>;
+  viewIdMap: Record<string, string>;
+  recordsLength: number;
+  structure: IBaseJson;
+} & IBaseHostIdMaps;
 type DuplicateLinkFieldRaw = {
   id: string;
   tableId: string;
@@ -129,6 +150,9 @@ const toLinkFieldTableInfo = ({
 @Injectable()
 export class BaseDuplicateService {
   private readonly logger = new Logger(BaseDuplicateService.name);
+
+  @ThresholdConfig()
+  private readonly thresholdConfig!: IThresholdConfig;
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -268,12 +292,20 @@ export class BaseDuplicateService {
     duplicateBaseRo: IDuplicateBaseRo,
     allowCrossBase: boolean = true,
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback
-  ) {
+    onProgress?: BaseImportProgressCallback,
+    onHostRestored?: () => Promise<void>
+  ): Promise<IDuplicateBaseV2Result> {
     const { fromBaseId, spaceId, withRecords, name, baseId, nodes, timeZone } = duplicateBaseRo;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
     const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
+    const templateApply =
+      duplicateMode === BaseDuplicateMode.ApplyTemplate ||
+      duplicateMode === BaseDuplicateMode.InstallTemplate;
+    const applyToExistingBase = Boolean(baseId && templateApply);
+    const ownsCreatedTemplateBase = !baseId && templateApply;
+    let tableIdMap: Record<string, string> = {};
+    let failedTableIds: string[] | undefined;
     let base: ICreateBaseVo | undefined;
 
     try {
@@ -288,6 +320,12 @@ export class BaseDuplicateService {
           spaceId
         );
       const structure = timeZone ? adaptStructureTimeZone(rawStructure, timeZone) : rawStructure;
+      const normalizedStructure = this.normalizeDuplicateStructureForV2(structure);
+      const tableSnapshots = await this.createNativeTableSnapshots(
+        fromBaseId,
+        normalizedStructure,
+        timeZone
+      );
 
       const sourceTableIdMap = Object.fromEntries(
         structure.tables.flatMap((table) => (table.id ? ([[table.id, table.id]] as const) : []))
@@ -322,9 +360,10 @@ export class BaseDuplicateService {
         structure.name,
         structure.icon || undefined,
         baseId,
-        duplicateMode !== BaseDuplicateMode.CopyShareBase
+        !isCopyToExistingBaseMode(duplicateMode) && !applyToExistingBase
       );
-      if (withRecords) {
+      this.audit.setResourceId(base.id);
+      if (withRecords && !applyToExistingBase) {
         await prisma.base.update({
           where: { id: base.id },
           data: {
@@ -334,7 +373,6 @@ export class BaseDuplicateService {
         });
       }
 
-      const normalizedStructure = this.normalizeDuplicateStructureForV2(structure);
       // Physical plan inputs for the v2 bulk copier: source table physical
       // names, link value columns to downgrade, and junction-carrying source
       // link fields (filtered exactly like the legacy copier).
@@ -350,6 +388,7 @@ export class BaseDuplicateService {
       const source = this.createDuplicateBaseSource(
         fromBaseId,
         normalizedStructure,
+        tableSnapshots,
         mergedLinkFieldTableMap,
         sourceDbTableNameByTableId,
         internalLinkRelationTableMap,
@@ -375,13 +414,13 @@ export class BaseDuplicateService {
         throw new Error(result.error.message);
       }
 
-      let tableIdMap: Record<string, string> = {};
       let fieldIdMap: Record<string, string> = {};
       let viewIdMap: Record<string, string> = {};
       let recordsLength = 0;
       let recordCopyMode: 'bulk' | 'stream' | 'none' = 'none';
       for await (const event of result.value) {
         if (event.id === 'error') {
+          failedTableIds = event.tableIdMap ? Object.values(event.tableIdMap) : undefined;
           throw new Error(event.message);
         }
 
@@ -397,46 +436,108 @@ export class BaseDuplicateService {
         recordCopyMode = event.recordCopyMode ?? 'none';
       }
 
-      onProgress?.({ phase: 'structure_created', detail: base.id });
-      const { appIdMap } = await this.baseImportService.restoreBaseExtrasV2(
-        db,
-        base.id,
-        structure,
-        { tableIdMap, fieldIdMap, viewIdMap },
-        duplicateMode,
-        onProgress,
-        !!baseId && duplicateMode === BaseDuplicateMode.CopyShareBase
-      );
-      if (withRecords) {
-        if (recordCopyMode === 'bulk') {
-          // The bulk copy cloned rows verbatim but excluded persisted computed
-          // columns from the INSERT; recompute them here, mirroring what the
-          // computed pipeline does during regular record writes.
-          await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
-        }
-        onProgress?.({
-          phase: 'attachments_copying',
-          processedRows: recordsLength,
-          totalRows: recordsLength,
-        });
-        await this.duplicateAttachments(base.id, tableIdMap, fieldIdMap);
-        await prisma.base.update({
-          where: { id: base.id },
-          data: {
-            provisionState: ProvisionState.ready,
-            lastModifiedBy: userId,
-          },
-        });
+      if (withRecords && recordCopyMode === 'bulk') {
+        await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
       }
+
+      const targetBase = base;
+      const restoreHost = async (): Promise<IDuplicateBaseV2Result> => {
+        onProgress?.({ phase: 'structure_created', detail: targetBase.id });
+        const hostIdMaps = await this.baseImportService.restoreBaseExtrasV2(
+          db,
+          targetBase.id,
+          structure,
+          { tableIdMap, fieldIdMap, viewIdMap },
+          duplicateMode,
+          onProgress,
+          ownsCreatedTemplateBase ||
+            Boolean(baseId && (isCopyToExistingBaseMode(duplicateMode) || applyToExistingBase))
+        );
+        if (withRecords) {
+          onProgress?.({
+            phase: 'attachments_copying',
+            processedRows: recordsLength,
+            totalRows: recordsLength,
+          });
+          await this.duplicateAttachments(targetBase.id, tableIdMap, fieldIdMap);
+        }
+        const duplicate = {
+          base: applyToExistingBase ? { ...targetBase, name: structure.name } : targetBase,
+          tableIdMap,
+          fieldIdMap,
+          viewIdMap,
+          recordsLength,
+          structure,
+          ...hostIdMaps,
+        };
+        await this.finalizeDuplicateBaseV2(duplicateBaseRo, duplicate, duplicateMode);
+        await onHostRestored?.();
+        if (applyToExistingBase || withRecords) {
+          await this.prismaService.txClient().base.update({
+            where: { id: targetBase.id },
+            data: {
+              ...(applyToExistingBase
+                ? { name: structure.name, icon: structure.icon ?? null }
+                : { provisionState: ProvisionState.ready }),
+              lastModifiedBy: userId,
+            },
+          });
+        }
+        return duplicate;
+      };
+      // Host metadata is transactional for template installation. Native table/record writes
+      // commit independently and are compensated below if host restoration or activation fails.
+      const duplicate =
+        applyToExistingBase || ownsCreatedTemplateBase
+          ? await this.prismaService.$tx(restoreHost, {
+              timeout: this.thresholdConfig.bigTransactionTimeout,
+            })
+          : await restoreHost();
       onProgress?.({
         phase: 'duplicate_done',
         processedRows: recordsLength,
         totalRows: recordsLength,
       });
 
-      return { base, tableIdMap, fieldIdMap, viewIdMap, recordsLength, structure, appIdMap };
+      return duplicate;
     } catch (error) {
-      if (base?.id) {
+      if (applyToExistingBase && base) {
+        const failedBaseId = base.id;
+        this.logger.error(`Template apply to existing base ${failedBaseId} failed`, error);
+        await this.cleanupDuplicateTablesV2(
+          failedBaseId,
+          failedTableIds ?? Object.values(tableIdMap)
+        ).catch((cleanupError) =>
+          this.logger.error(`Failed to clean copied tables in base ${failedBaseId}`, cleanupError)
+        );
+      } else if (ownsCreatedTemplateBase && base) {
+        const failedBaseId = base.id;
+        this.logger.error(`Template apply to new base ${failedBaseId} failed`, error);
+        try {
+          await this.cleanupOwnedDuplicateBaseV2(
+            failedBaseId,
+            failedTableIds ?? Object.values(tableIdMap)
+          );
+        } catch (cleanupError) {
+          this.logger.error(`Failed to remove new template base ${failedBaseId}`, cleanupError);
+          throw new AggregateError(
+            [error, cleanupError],
+            `Template apply failed and base ${failedBaseId} could not be fully removed`
+          );
+        }
+      } else if (duplicateMode === BaseDuplicateMode.CreateTemplate && base) {
+        await withStagedTemplateSnapshot(
+          this.prismaService,
+          fromBaseId,
+          base.id,
+          userId,
+          async () => {
+            throw error;
+          },
+          (cleanupError) =>
+            this.logger.error(`Failed to retire staged snapshot ${base!.id}`, cleanupError)
+        );
+      } else if (base?.id) {
         await prisma.base
           .update({
             where: { id: base.id },
@@ -449,6 +550,76 @@ export class BaseDuplicateService {
       }
       throw error;
     }
+  }
+
+  protected async finalizeDuplicateBaseV2(
+    _duplicateBaseRo: IDuplicateBaseRo,
+    _result: IDuplicateBaseV2Result,
+    _duplicateMode: BaseDuplicateMode
+  ): Promise<void> {
+    // Community has no edition-specific host effects.
+  }
+
+  private async cleanupOwnedDuplicateBaseV2(baseId: string, tableIds: string[]): Promise<void> {
+    await this.cleanupDuplicateTablesV2(baseId, tableIds, false);
+    const dropSchemaSql = this.dbProvider.dropSchema(baseId);
+    if (dropSchemaSql) {
+      const dataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
+      await this.getDataPrismaExecutor(dataPrisma).$executeRawUnsafe(dropSchemaSql);
+    }
+    await this.prismaService.$tx(
+      async () => {
+        await this.prismaService.txClient().base.delete({ where: { id: baseId } });
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
+  }
+
+  private async cleanupDuplicateTablesV2(
+    baseId: string,
+    tableIds: string[],
+    bestEffort: boolean = true
+  ): Promise<void> {
+    if (!tableIds.length) return;
+    await this.cleanupDuplicateAttachmentRefsV2(baseId, tableIds);
+    const existingTables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { baseId, id: { in: tableIds } },
+      select: { id: true },
+    });
+    if (!existingTables.length) return;
+    const existingTableIds = new Set(existingTables.map(({ id }) => id));
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    for (const tableId of [...tableIds].reverse()) {
+      if (!existingTableIds.has(tableId)) continue;
+      try {
+        const command = DeleteTableCommand.create({ baseId, tableId, mode: 'permanent' });
+        if (command.isErr()) throw new Error(command.error.message);
+        const result = await commandBus.execute(context, command.value);
+        if (result.isErr()) throw new Error(result.error.message);
+      } catch (error) {
+        this.logger.error(
+          `Failed to remove copied table ${tableId} after template apply failure`,
+          error
+        );
+        if (!bestEffort) throw error;
+      }
+    }
+  }
+
+  private async cleanupDuplicateAttachmentRefsV2(
+    baseId: string,
+    tableIds: string[]
+  ): Promise<void> {
+    const dataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+      useTransaction: true,
+    });
+    await dataPrisma.attachmentsTable.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
   }
 
   private async getDisconnectedLinkFieldIds(
@@ -518,7 +689,8 @@ export class BaseDuplicateService {
         deletedTime: null,
       },
     });
-    baseRaw.name = baseName || `${baseRaw.name} (Copy)`;
+    // The copy always gets a name, even when the source was never named.
+    baseRaw.name = baseName || `${baseDisplayName(baseRaw.name)} (Copy)`;
 
     const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
     const {
@@ -579,6 +751,7 @@ export class BaseDuplicateService {
   private createDuplicateBaseSource(
     sourceBaseId: string,
     structure: DuplicateV2StructureConfig,
+    tableSnapshots: ReadonlyMap<string, ITablePersistenceDTO>,
     disconnectedLinkFieldTableMap: ILinkFieldTableMap,
     sourceDbTableNameByTableId: Record<string, string> = {},
     internalLinkRelationTableMap: Record<string, V2InternalLinkFieldTableInfo[]> = {},
@@ -601,6 +774,7 @@ export class BaseDuplicateService {
 
     return {
       structure,
+      tableSnapshots,
       sourceDbTableNameByTableId,
       linkValueColumnsByTableId: disconnectedLinkFieldTableMap,
       sourceLinkFields,
@@ -681,6 +855,146 @@ export class BaseDuplicateService {
         };
       }),
     };
+  }
+
+  private nativeFieldType(field: ITableFieldPersistenceDTO): string {
+    if (field.isConditionalLookup) {
+      return 'conditionalLookup';
+    }
+    if (field.isLookup) {
+      return 'lookup';
+    }
+    return field.type;
+  }
+
+  private applyDuplicateFieldTransformation(
+    sourceField: ITableFieldPersistenceDTO,
+    transformedField: DuplicateV2FieldConfig,
+    sourceBaseId: string,
+    sourceTableIdByDbTableName: ReadonlyMap<string, string>
+  ): ITableFieldPersistenceDTO {
+    if (sourceField.type === FieldType.Button) {
+      const { workflow: _workflow, ...options } = sourceField.options ?? {};
+      return { ...sourceField, options };
+    }
+
+    let portableSourceField = sourceField;
+    if (
+      sourceField.type === FieldType.Link &&
+      !sourceField.isLookup &&
+      !sourceField.isConditionalLookup &&
+      sourceField.options.fkHostTableName
+    ) {
+      const sourceHostTableId = sourceTableIdByDbTableName.get(sourceField.options.fkHostTableName);
+      if (sourceHostTableId) {
+        portableSourceField = {
+          ...sourceField,
+          options: {
+            ...sourceField.options,
+            fkHostTableName: `${sourceBaseId}.${sourceHostTableId}`,
+          },
+        };
+      }
+    }
+
+    if (this.nativeFieldType(portableSourceField) === transformedField.type) {
+      return portableSourceField;
+    }
+    if (transformedField.type !== FieldType.SingleLineText) {
+      throw new Error(
+        `Unsupported native duplicate field transformation: ${sourceField.id} (${this.nativeFieldType(sourceField)} -> ${transformedField.type})`
+      );
+    }
+
+    return {
+      id: sourceField.id,
+      name: sourceField.name,
+      version: sourceField.version,
+      isPending: sourceField.isPending,
+      description: sourceField.description,
+      aiConfig: sourceField.aiConfig,
+      dbFieldName: sourceField.dbFieldName,
+      notNull: sourceField.notNull,
+      unique: sourceField.unique,
+      type: FieldType.SingleLineText,
+      dbFieldType: transformedField.dbFieldType ?? 'TEXT',
+      isComputed: false,
+      hasError: false,
+      ...(transformedField.options ? { options: transformedField.options } : {}),
+    };
+  }
+
+  private async createNativeTableSnapshots(
+    sourceBaseId: string,
+    structure: DuplicateV2StructureConfig,
+    timeZone?: string
+  ): Promise<ReadonlyMap<string, ITablePersistenceDTO>> {
+    const sourceContainer = await this.v2ContainerService.getContainerForBase(sourceBaseId);
+    const tableRepository = sourceContainer.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+    const tableMapper = sourceContainer.resolve<ITableMapper>(v2CoreTokens.tableMapper);
+    const context = await this.v2ContextFactory.createContext(sourceContainer);
+    const sourceSnapshots = new Map<string, ITablePersistenceDTO>();
+
+    for (const tableConfig of structure.tables) {
+      if (!tableConfig.id) {
+        throw new Error('Native duplicate source table is missing an id');
+      }
+      const tableId = TableId.create(tableConfig.id);
+      if (tableId.isErr()) {
+        throw new Error(tableId.error.message);
+      }
+      const tableResult = await tableRepository.findOne(
+        context,
+        TableByIdSpec.create(tableId.value)
+      );
+      if (tableResult.isErr()) {
+        throw new Error(tableResult.error.message);
+      }
+      const snapshotResult = tableMapper.toDTO(tableResult.value);
+      if (snapshotResult.isErr()) {
+        throw new Error(snapshotResult.error.message);
+      }
+
+      sourceSnapshots.set(
+        tableConfig.id,
+        timeZone ? replaceTimeZoneDeep(snapshotResult.value, timeZone) : snapshotResult.value
+      );
+    }
+
+    const sourceTableIdByDbTableName = new Map<string, string>();
+    for (const [tableId, snapshot] of sourceSnapshots) {
+      if (snapshot.dbTableName) {
+        sourceTableIdByDbTableName.set(snapshot.dbTableName, tableId);
+      }
+    }
+    const snapshots = new Map<string, ITablePersistenceDTO>();
+    for (const tableConfig of structure.tables) {
+      if (!tableConfig.id) {
+        throw new Error('Native duplicate source table is missing an id');
+      }
+      const sourceSnapshot = sourceSnapshots.get(tableConfig.id);
+      if (!sourceSnapshot) {
+        throw new Error(`Native duplicate source table is missing: ${tableConfig.id}`);
+      }
+      const transformedFields = new Map(
+        tableConfig.fields.flatMap((field) => (field.id ? [[field.id, field] as const] : []))
+      );
+      const fields = sourceSnapshot.fields.map((sourceField) => {
+        const transformedField = transformedFields.get(sourceField.id);
+        if (!transformedField) {
+          throw new Error(`Native duplicate field is missing from structure: ${sourceField.id}`);
+        }
+        return this.applyDuplicateFieldTransformation(
+          sourceField,
+          transformedField,
+          sourceBaseId,
+          sourceTableIdByDbTableName
+        );
+      });
+      snapshots.set(tableConfig.id, { ...sourceSnapshot, fields });
+    }
+
+    return snapshots;
   }
 
   private shouldSkipDuplicateRecordColumn(columnName: string) {
@@ -770,7 +1084,8 @@ export class BaseDuplicateService {
         deletedTime: null,
       },
     });
-    baseRaw.name = baseName || `${baseRaw.name} (Copy)`;
+    // The copy always gets a name, even when the source was never named.
+    baseRaw.name = baseName || `${baseDisplayName(baseRaw.name)} (Copy)`;
 
     // For CopyShareBase mode, don't collect parent nodes - the shared node becomes the root
     const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;

@@ -11,6 +11,7 @@ export const v2ReasonSchema = z.enum([
   'env_force_v2_all',
   'config_force_v2_all',
   'new_base',
+  'native_only',
   'header_override',
   'space_feature',
   'unsupported_feature',
@@ -26,7 +27,7 @@ export const baseV2StatusSchema = z.object({
 
 export const getBaseItemSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().nullable(),
   spaceId: z.string(),
   icon: z.string().nullable(),
   role: roleSchema,

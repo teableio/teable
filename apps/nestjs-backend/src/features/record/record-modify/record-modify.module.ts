@@ -49,6 +49,7 @@ import { RecordUpdateService } from './record-update.service';
     RecordModifyService,
     RecordModifySharedService,
     CrossBaseLinkAccessService,
+    CrossBaseLinkAccessPluginRegistrar,
     SymmetricFieldTargetSchemaCapabilityProvider,
   ],
 })

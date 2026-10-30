@@ -52,10 +52,10 @@
   "collaborators": "משתפי פעולה",
   "more": "עוד",
   "pin": {
-    "add": "הוספה למוצמדים",
-    "remove": "הסרה מהמוצמדים",
-    "pin": "מוצמדים",
-    "empty": "הפרויקטים והמרחבים המוצמדים שלך יופיעו כאן"
+    "add": "הוספה למועדפים",
+    "remove": "הסרה מהמועדפים",
+    "pin": "מועדפים",
+    "empty": "הפרויקטים והמרחבים המועדפים שלך יופיעו כאן"
   },
   "tooltip": {
     "noPermissionToCreateBase": "אין הרשאה ליצירת פרויקט"
@@ -207,19 +207,51 @@
     "form": {
       "title": "שם היצירה",
       "description": "תיאור",
-      "security": "אבטחה",
-      "advanced": "מתקדם",
+      "changelog": "הערות גרסה",
+      "changelogPlaceholder": "תיאור השינויים עבור התקנות קיימות; מוצג בתצוגה המקדימה של השדרוג",
       "publishNode": "פריטים לפרסום",
       "includeData": "כולל נתונים",
       "defaultActiveNode": "הפריט הפעיל כברירת מחדל",
       "descriptionPlaceholder": "תיאור קצר של הרעיון...",
-      "titlePlaceholder": "שם ליצירה שלך..."
+      "titlePlaceholder": "שם ליצירה שלך...",
+      "cover": "תמונת שער",
+      "coverHint": "16:9, מוצגת בכרטיס בקטלוג ובדף הציבורי",
+      "versionTitle": "תוכן הגרסה",
+      "addChangelog": "הוספת הערות גרסה"
     },
     "publishToCommunity": "פרסום במרכז התבניות",
     "publish": "פרסום",
     "publishSuccess": "הפרסום הצליח!",
     "previewTips": "שהעולם יראה את היצירה שלך",
     "update": "עדכון",
+    "submit": "הגשה לבדיקה",
+    "submitted": "הוגש לבדיקה",
+    "review": {
+      "status": {
+        "review": "בבדיקה",
+        "rejected": "הוחזר לתיקונים",
+        "withdrawn": "ההגשה בוטלה"
+      },
+      "submittedTime": "הוגש {{time}}",
+      "note": "הערת הבודק",
+      "checks": "בדיקות אוטומטיות",
+      "check": {
+        "connectors": "חיבורים",
+        "privacy": "פרטיות",
+        "estimate": "הערכת הרצות",
+        "trial": "הרצת ניסיון"
+      },
+      "checkMessage": {
+        "connectors": "לא ניתן להתחבר כאן אל: {{providers}}",
+        "privacy": "הרשומות נכללות; יש לבדוק שאין בהן מידע אישי",
+        "estimate": "כ־{{runs}} הרצות בחודש, יותר מ־{{free}} שבתוכנית החינמית",
+        "trial": "האוטומציות אינן דורשות חשבון; יש לוודא שהן פועלות גם בלעדיו"
+      },
+      "withdraw": "ביטול ההגשה",
+      "withdrawn": "ההגשה בוטלה.",
+      "live": "פורסם · v{{version}}",
+      "publicLink": "קישור ציבורי"
+    },
     "unPublish": "ביטול פרסום",
     "unPublishSuccess": "פרסום הפרויקט בוטל בהצלחה!",
     "unPublishConfirmTitle": "אישור ביטול הפרסום",
@@ -237,9 +269,7 @@
     "urlCopied": "כתובת ה-URL הועתקה ללוח!",
     "urlCopiedForDiscord": "כתובת ה-URL הועתקה ללוח! אפשר להדביק אותה ב-Discord.",
     "featuredLabel": "מובחר",
-    "unfeaturedLabel": "לא מובחר",
     "featuredTip": "התבנית סומנה כמובחרת באופן רשמי ותקבל חשיפה רבה יותר.",
-    "unfeaturedTip": "התבנית עדיין לא מובחרת. כדאי להמשיך לשפר אותה כדי לזכות בהדגשה. כך עוד אנשים יראו את היצירה שלך.",
     "publishSuccessDescription": "שיתוף היצירה שלך עם העולם",
     "shareWith": "שיתוף עם",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "מעבר לתיקון",
       "redeploy": "פריסה מחדש",
       "unnamedApp": "אפליקציה ללא שם"
-    }
+    },
+    "submitVersion": "הגשת v{{version}} לבדיקה"
   },
   "dataDb": {
     "create": {

@@ -8,8 +8,9 @@ import {
   Input,
   cn,
 } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { TemplateDetail } from './TemplateDetail';
 import { TemplateMain } from './TemplateMain';
@@ -29,6 +30,13 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
   const [inputValue, setInputValue] = useState<string>('');
 
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  useEffect(() => {
+    const close = () => setOpen(false);
+    router.events.on('routeChangeComplete', close);
+    return () => router.events.off('routeChangeComplete', close);
+  }, [router.events]);
 
   // Debounce search input to avoid excessive updates
   useDebounce(
@@ -40,7 +48,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
   );
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{children}</SheetTrigger>
       <SheetContent side="bottom" className="h-[95%]">
         <SheetHeader className="flex w-full border-b p-1">
@@ -49,7 +57,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
               <div className="flex gap-2">
                 <SheetTitle>{t('common:template.title')}</SheetTitle>
                 <Input
-                  placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
+                  placeholder={t('common:template.searchPlaceholder')}
                   value={inputValue}
                   className={cn('flex-1', {
                     'opacity-0': currentTemplateId,

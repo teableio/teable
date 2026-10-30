@@ -8,7 +8,9 @@ import type {
   IGroupPointsVo,
   IRowCountVo,
   ISearchCountVo,
+  ISearchCellCountVo,
   ISearchIndexVo,
+  ISearchMatchesVo,
   ITaskStatusCollectionVo,
   IRecordIndexVo,
 } from '@teable/openapi';
@@ -21,10 +23,14 @@ import {
   IRowCountRo,
   searchCountRoSchema,
   ISearchCountRo,
+  ISearchCellCountRo,
+  searchCellCountRoSchema,
   rowCountRoSchema,
   ICalendarDailyCollectionRo,
   ISearchIndexByQueryRo,
   searchIndexByQueryRoSchema,
+  ISearchMatchesRo,
+  searchMatchesRoSchema,
   IRecordIndexRo,
   recordIndexRoSchema,
   ISelectionAggregationRo,
@@ -188,6 +194,32 @@ export class AggregationOpenApiController {
       }
       return this.aggregationOpenApiService.getSearchCount(tableId, query);
     });
+  }
+
+  @InteractiveQueryCancellation()
+  @Get('/search-cell-count')
+  @Permissions('table|read')
+  @UseV2Feature('getSearchCount', { always: true })
+  async getSearchCellCount(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(searchCellCountRoSchema), TqlPipe) query: ISearchCellCountRo
+  ): Promise<ISearchCellCountVo> {
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
+    return await this.getAggregationWithCache('search_cell_count', tableId, query, () =>
+      this.aggregationOpenApiV2Service.getSearchCellCount(tableId, query)
+    );
+  }
+
+  @InteractiveQueryCancellation()
+  @Get('/search-matches')
+  @Permissions('table|read')
+  @UseV2Feature('getSearchIndex', { always: true })
+  async getSearchMatches(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(searchMatchesRoSchema), TqlPipe) query: ISearchMatchesRo
+  ): Promise<ISearchMatchesVo> {
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
+    return this.aggregationOpenApiV2Service.getSearchMatches(tableId, query);
   }
 
   @InteractiveQueryCancellation()

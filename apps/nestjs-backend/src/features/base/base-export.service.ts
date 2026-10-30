@@ -35,6 +35,7 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { baseDisplayName } from '../../utils/base-name';
 import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -46,6 +47,7 @@ import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
 import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
+import { exportBaseObjectPath } from './export-cleanup/export-base-path';
 @Injectable()
 export class BaseExportService {
   public static readonly CSV_CHUNK = 500;
@@ -178,14 +180,15 @@ export class BaseExportService {
     let baseName: string | undefined;
     onProgress?.('preparing');
     try {
-      ({ name: baseName } = await this.prismaService.base.findFirstOrThrow({
+      const { name } = await this.prismaService.base.findFirstOrThrow({
         where: {
           id: baseId,
         },
         select: {
           name: true,
         },
-      }));
+      });
+      baseName = baseDisplayName(name);
     } catch (error) {
       this.captureExportError(error, {
         stage: 'fetchBase',
@@ -205,7 +208,7 @@ export class BaseExportService {
 
     const token = this.generateExportFolderId();
     const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
-    const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
+    const linkExpiresIn = second(this.storageConfig.tokenExpireIn);
 
     // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
     // If uploadFileStream is called after finalize(), large files will hang in append
@@ -213,7 +216,7 @@ export class BaseExportService {
     const exportFileName = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
     const uploadPromise = this.storageAdapter.uploadFileStream(
       bucket,
-      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
+      exportBaseObjectPath(token, BaseExportService.FILE_SUFFIX, linkExpiresIn),
       passThrough,
       {
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -248,7 +251,7 @@ export class BaseExportService {
       const previewUrl = await this.storageAdapter.getPreviewUrl(
         StorageAdapter.getBucket(UploadType.ExportBase),
         path,
-        second(this.storageConfig.tokenExpireIn),
+        linkExpiresIn,
         {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
@@ -257,6 +260,7 @@ export class BaseExportService {
       const message: ILocalization<I18nPath> = {
         i18nKey: 'common.email.templates.notify.exportBase.success.message',
         context: {
+          baseId,
           baseName,
           previewUrl,
           name: exportFileName,
@@ -283,6 +287,7 @@ export class BaseExportService {
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
           context: {
+            baseId,
             baseName,
             errorMessage: e.message,
           },
@@ -321,6 +326,7 @@ export class BaseExportService {
         deletedTime: null,
       },
     });
+    const baseLabel = `${baseRaw.id}/${baseDisplayName(baseRaw.name)}`;
     const tableRaws = await prisma.tableMeta.findMany({
       where: {
         baseId,
@@ -351,25 +357,19 @@ export class BaseExportService {
     // 4 export data
     if (includeData) {
       onProgress?.('exporting_attachments');
-      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments`);
+      this.logger.log(`export base ${baseLabel}: Start exporting attachments`);
       // 4.0 export attachments
       await this.appendAttachments('attachments', tableRaws, archive);
-      this.logger.log(
-        `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
-      );
+      this.logger.log(`export base ${baseLabel}: End exporting attachments data csv`);
 
       onProgress?.('exporting_attachment_metadata');
       // 4.1 export attachments data .csv
-      this.logger.log(
-        `export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments data csv`
-      );
+      this.logger.log(`export base ${baseLabel}: Start exporting attachments data csv`);
       await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
-      this.logger.log(
-        `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
-      );
+      this.logger.log(`export base ${baseLabel}: End exporting attachments data csv`);
 
       onProgress?.('exporting_table_data');
-      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting table data csv`);
+      this.logger.log(`export base ${baseLabel}: Start exporting table data csv`);
 
       // 4.2 export table data csv
       const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
@@ -438,7 +438,7 @@ export class BaseExportService {
         }
       }
 
-      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: End exporting table data csv`);
+      this.logger.log(`export base ${baseLabel}: End exporting table data csv`);
     }
   }
 
@@ -520,7 +520,8 @@ export class BaseExportService {
 
     return {
       id: baseId,
-      name: baseName,
+      // structure.json is also the source of the duplicate/import base name: never null here
+      name: baseDisplayName(baseName),
       icon: baseIcon,
       version: resolveBuildVersion(),
       tables,

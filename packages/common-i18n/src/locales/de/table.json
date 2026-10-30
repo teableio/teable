@@ -24,7 +24,17 @@
     "records_one": "{{formattedCount}} Datensatz",
     "records_other": "{{formattedCount}} Datensätze",
     "batchesComplete": "Abgeschlossene Batches {{completed}}/{{total}}",
-    "progressAriaLabel": "Berechnungsfortschritt für {{fieldName}}"
+    "progressAriaLabel": "Berechnungsfortschritt für {{fieldName}}",
+    "statusUnavailable": "Berechnungsstatus ist vorübergehend nicht verfügbar",
+    "statusSyncing": "Berechnungsstatus wird geprüft",
+    "statusSyncingDescription": "Wir prüfen den aktuellen Berechnungsstatus. Das bedeutet nicht, dass Berechnungen laufen.",
+    "statusUnavailableDescription": "Der aktuelle Berechnungsstatus konnte nicht geladen werden. Aktualisieren Sie den Status, um es erneut zu versuchen; Berechnungen werden dadurch nicht neu gestartet.",
+    "refreshStatus": "Status aktualisieren",
+    "paused": "Berechnungen sind pausiert",
+    "resultsNotUpdated": "Einige Berechnungsergebnisse wurden nicht aktualisiert",
+    "delayed": "Berechnungsaktualisierung verzögert · {{seconds}} s",
+    "snapshotMayBeStale": "Der zuletzt bekannte Status wird angezeigt und ist möglicherweise veraltet.",
+    "unknownImpact": "Einige Berechnungsergebnisse wurden nicht aktualisiert; betroffene Felder werden ermittelt"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Hinweis",
@@ -1104,6 +1114,7 @@
     "insertRecordBelow": "Datensatz <input /> unterhalb einfügen",
     "deleteRecord": "Datensätze löschen",
     "deleteAllSelectedRecords": "Alle ausgewählten Datensätze löschen",
+    "copy": "Kopieren",
     "archiveRecord": "Datensatz archivieren",
     "archiveAllSelectedRecords": "Alle ausgewählten Datensätze archivieren",
     "duplicateRecords": "Ausgewählte Datensätze duplizieren",
@@ -1322,6 +1333,24 @@
       },
       "chooseAccount": "Aus welchem Google-Konto sollen die Tabellen stammen?"
     },
+    "templateOffer": {
+      "title": "Vorgeschlagene Vorlagen",
+      "details": "Details",
+      "found_one": "Eine fertige Vorlage gefunden",
+      "found_other": "{{count}} fertige Vorlagen gefunden",
+      "defaultReason": "Installieren Sie eine Vorlage, statt alles von Grund auf neu zu erstellen.",
+      "install": "Installieren",
+      "installing": "Wird installiert…",
+      "dismiss": "Nein, danke",
+      "close": "Schließen",
+      "failed": "Ihre Auswahl konnte nicht gespeichert werden. Versuchen Sie es erneut.",
+      "unavailable": "Diese Vorlagen sind nicht mehr verfügbar.",
+      "status": {
+        "installed": "Installiert",
+        "dismissed": "Übersprungen",
+        "failed": "Fehlgeschlagen"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oder Antwort eingeben…",
@@ -1336,6 +1365,10 @@
         "nextQuestion": "Nächste Frage"
       },
       "completion": {
+        "workedFor": "{{time}} gearbeitet",
+        "worked": "Gearbeitet",
+        "stoppedAfter": "Von Ihnen nach {{time}} gestoppt",
+        "stopped": "Sie haben diese Antwort gestoppt",
         "noDetails": "Keine Details verfügbar",
         "model": "Modell",
         "contextWindow": "Kontextfenster",
@@ -1389,9 +1422,6 @@
         "copied": "Kopiert!",
         "fullscreen": "Vollbild",
         "exitFullscreen": "Vollbild beenden",
-        "downloadSuccess": "Bild erfolgreich heruntergeladen",
-        "downloadFailed": "Bild konnte nicht aufgenommen werden",
-        "iframeFailed": "Aufnahme fehlgeschlagen: iframe nicht zugänglich",
         "iframeTitle": "HTML-Vorschau"
       }
     },
@@ -1539,7 +1569,25 @@
       "selectionRows": "Zeilen {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Unbenannter Datensatz",
+      "selectionRecords": "{{count}} Datensätze",
+      "selectionCellCount": "{{count}} Zellen",
+      "selectionRecordType": "Datensatzbezug",
+      "selectionCellType": "Zellbezug",
+      "selectionDimensions": "{{rows}} Zeilen × {{columns}} Spalten",
+      "selectionUnavailable": "Nicht verfügbar oder gelöscht",
+      "selectionLegacyUnavailable": "Dieser ältere Bezug hat keine stabilen Auswahl-IDs. Keine Vorschau verfügbar.",
+      "selectionSourceUnknown": "Quelle nicht verfügbar",
+      "selectionPreview": "Auswahlvorschau: {{label}}",
+      "selectionSource": "Quelltabelle: {{table}}",
+      "selectionSelectedFields": "Nur die ausgewählten Felder sind in diesem Kontext enthalten.",
+      "selectionIdentificationOnly": "Der Primärtitel wird nur zur Identifizierung angezeigt.",
+      "selectionEmpty": "Leer",
+      "selectionOpenRecord": "Datensatz {{name}} öffnen",
+      "selectionPrevious": "Zurück",
+      "selectionNext": "Weiter",
+      "selectionPage": "{{start}}–{{end}} von {{count}} Datensätzen"
     },
     "mention": {
       "tables": "Tabellen",
@@ -1568,7 +1616,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Eingefügter Text",
-      "imageNotSupported": "Bild wird nicht unterstützt",
       "tooManyFiles": "Sie können pro Nachricht höchstens {{count}} Dateien anhängen"
     },
     "suggestions": {
@@ -1630,9 +1677,12 @@
       "nQueued": "{{count}} in Warteschlange",
       "edit": "Bearbeiten",
       "steerNow": "Unterhaltung lenken, ohne sie zu unterbrechen",
-      "steerFailed": "Unterhaltung konnte nicht gelenkt werden. Nachricht bleibt in der Warteschlange.",
+      "steer": "Lenken",
       "conversationInputMarker": "Unterhaltung gelenkt",
-      "removeFromQueue": "Entfernen"
+      "removeFromQueue": "Entfernen",
+      "paused": "Warteschlange pausiert, weil Sie unterbrochen haben",
+      "resume": "Fortsetzen",
+      "queueFull": "Die Sendewarteschlange ist voll. Warten Sie, bis Cuppy aufgeholt hat."
     },
     "partTool": {
       "bash": "Befehl ausführen",
@@ -1647,6 +1697,8 @@
       "skill": "Skill wird geladen",
       "foundFiles": "{{count}} Dateien gefunden",
       "listedEntries": "{{count}} Einträge",
+      "ranCommands_one": "{{count}} Befehl ausgeführt",
+      "ranCommands_other": "{{count}} Befehle ausgeführt",
       "moreItems": "+{{count}} weitere",
       "fallbackName": "Tool",
       "questionCount_one": "{{count}} Frage",
@@ -1770,6 +1822,8 @@
       "droppedRulesDetail": "Diese Regeln sind an die verschobenen Knoten gebunden; stattdessen gelten die Berechtigungseinstellungen des Zielprojekts.",
       "successTitle": "Verschoben",
       "successDescription": "„{{name}}“ befindet sich jetzt in {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> Knoten nach <b>{{baseName}}</b> verschoben",
+      "successDescription_other": "<b>{{count}}</b> Knoten nach <b>{{baseName}}</b> verschoben",
       "open": "Öffnen",
       "appEmbeddedId_one": "{{count}} App nennt das alte Projekt in ihrem Code; bitte selbst aktualisieren",
       "appEmbeddedId_other": "{{count}} Apps nennen das alte Projekt in ihrem Code; bitte selbst aktualisieren",

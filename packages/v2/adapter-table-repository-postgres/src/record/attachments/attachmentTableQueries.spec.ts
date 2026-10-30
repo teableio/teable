@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   deleteAttachmentTableRefsByRecordIds,
+  deleteAttachmentTableRefsByFieldIds,
   listAttachmentTableRefs,
   listAttachmentTokensByTableIds,
 } from './attachmentTableQueries';
@@ -191,5 +192,24 @@ describe('attachmentTableQueries (T7247)', () => {
     expect(metaDb.deleteFrom).toHaveBeenCalledWith('attachments_table');
     expect(dataDb.execute).toHaveBeenCalled();
     expect(metaDb.execute).toHaveBeenCalled();
+  });
+  it('deletes attachments_table rows for field ids from both dbs when they are split', async () => {
+    const dataDb = createDeleteDb();
+    const metaDb = createDeleteDb();
+
+    await deleteAttachmentTableRefsByFieldIds(dataDb as never, metaDb as never, 'tbl_1', ['fld_1']);
+
+    expect(dataDb.deleteFrom).toHaveBeenCalledWith('attachments_table');
+    expect(metaDb.deleteFrom).toHaveBeenCalledWith('attachments_table');
+    expect(dataDb.execute).toHaveBeenCalled();
+    expect(metaDb.execute).toHaveBeenCalled();
+  });
+
+  it('skips field-reference deletion when there are no field ids', async () => {
+    const db = createDeleteDb();
+
+    await deleteAttachmentTableRefsByFieldIds(db as never, db as never, 'tbl_1', []);
+
+    expect(db.deleteFrom).not.toHaveBeenCalled();
   });
 });

@@ -163,6 +163,15 @@ export const dropTableStatement = (target: TableIdentifier): TableSchemaStatemen
   dataStatement(sql`drop table if exists ${buildTableIdentifier(target)} cascade`);
 
 /**
+ * Drops a relation owned by a schema rule without deleting external dependents.
+ * PostgreSQL drops the table's own indexes and constraints automatically; an
+ * unexpected foreign dependency must block the operation rather than be
+ * removed through CASCADE.
+ */
+export const dropOwnedTableStatement = (target: TableIdentifier): TableSchemaStatementBuilder =>
+  dataStatement(sql`drop table if exists ${buildTableIdentifier(target)} restrict`);
+
+/**
  * Creates a DROP INDEX statement.
  */
 export const dropIndexStatement = (

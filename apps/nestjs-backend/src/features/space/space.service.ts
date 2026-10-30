@@ -41,6 +41,7 @@ import { PerformanceCache, PerformanceCacheService } from '../../performance-cac
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
+import { baseDisplayName } from '../../utils/base-name';
 import { assertUniqueProviderModels } from '../ai/ai.service';
 import { assertAiProviderBaseUrlsAllowed } from '../ai/util';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -413,7 +414,7 @@ export class SpaceService {
 
     const baseIds = baseList.map((base) => base.id);
 
-    const [userList, sharedBaseList] = await Promise.all([
+    const [userList, sharedBaseList, baseListWithV2Status] = await Promise.all([
       this.prismaService.user.findMany({
         where: { id: { in: baseList.map((base) => base.createdBy) } },
         select: { id: true, name: true, avatar: true },
@@ -422,11 +423,10 @@ export class SpaceService {
         where: { baseId: { in: baseIds }, nodeId: null, enabled: true },
         select: { baseId: true },
       }),
+      this.baseService.enrichBaseListV2Status(baseList),
     ]);
     const userMap = keyBy(userList, 'id');
     const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
-
-    const baseListWithV2Status = await this.baseService.enrichBaseListV2Status(baseList);
 
     return baseListWithV2Status.map((base) => {
       const { v2Enabled, ...baseInfo } = base;
@@ -622,7 +622,7 @@ export class SpaceService {
         type: row.type,
         icon: row.icon,
         baseId: row.base_id,
-        baseName: base?.name ?? '',
+        baseName: base ? baseDisplayName(base.name) : '',
         createdTime: row.created_time.toISOString(),
         createdUser: displayUser
           ? {

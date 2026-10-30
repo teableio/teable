@@ -5,6 +5,8 @@ export * from './get-calendar-daily-collection';
 export * from './type';
 export * from './get-search-count';
 export * from './get-search-by-index';
+export * from './get-search-cell-count';
+export * from './get-search-matches';
 export * from './get-task-status-collection';
 export * from './get-record-index';
 export * from './get-selection-aggregation';

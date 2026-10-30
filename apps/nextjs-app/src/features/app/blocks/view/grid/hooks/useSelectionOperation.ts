@@ -1153,6 +1153,7 @@ export const useSelectionOperation = (props?: {
         confirmText: t('table:table.actionTips.paste'),
         cancelText: t('common:actions.cancel'),
         confirmButtonVariant: 'destructive',
+        autoFocusConfirm: true,
       });
     },
     [confirm, t]

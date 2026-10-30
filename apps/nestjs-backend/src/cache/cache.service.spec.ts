@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type Keyv from 'keyv';
+import Keyv from 'keyv';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CacheService } from './cache.service';
 
@@ -128,5 +128,72 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     await service.setnx('lock:x', 'owner-1', 30);
 
     expect(redis.set.mock.calls[0][0]).toBe('teable_cache:lock:x');
+  });
+
+  it('renews the owner and Keyv expiry in one Redis operation', async () => {
+    expect(await service.renewLock('lock:x', 'owner-1', 120)).toBe(true);
+    const [script, count, key, token, payload, ttl, now] = redis.eval.mock.calls[0];
+    expect([count, key, token, ttl]).toEqual([
+      1,
+      'sets:namespace:teable_cache:teable_cache:lock:x',
+      'owner-1',
+      120,
+    ]);
+    expect(JSON.parse(payload)).toEqual({ value: token, expires: expect.any(Number) });
+    expect(JSON.parse(payload).expires).toBeGreaterThanOrEqual(now + 119_000);
+    expect(script).toContain('value.value ~= ARGV[1]');
+    expect(script).toContain("redis.call('SET'");
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.expire).not.toHaveBeenCalled();
+    redis.eval.mockResolvedValueOnce(0);
+    expect(await service.renewLock('lock:x', 'stale-owner', 120)).toBe(false);
+  });
+
+  it('compares the owner and deletes in one Redis operation', async () => {
+    expect(await service.releaseLock('lock:x', 'owner-1')).toBe(true);
+    const [script, count, key, token] = redis.eval.mock.calls[0];
+    expect([count, key, token]).toEqual([
+      1,
+      'sets:namespace:teable_cache:teable_cache:lock:x',
+      'owner-1',
+    ]);
+    expect(script).toContain('cjson.decode(raw).value ~= ARGV[1]');
+    expect(script).toContain("redis.call('DEL'");
+    redis.eval.mockResolvedValueOnce(0);
+    expect(await service.releaseLock('lock:x', 'stale-owner')).toBe(false);
+  });
+});
+
+describe('CacheService local lock ownership', () => {
+  it('allows only one concurrent acquisition', async () => {
+    const service = new CacheService(new Keyv());
+    const acquired = await Promise.all([
+      service.setnx('lock:x', 'A', 120),
+      service.setnx('lock:x', 'B', 120),
+    ]);
+    expect(acquired).toEqual([true, false]);
+    expect(await service.get('lock:x')).toBe('A');
+  });
+
+  it('renews beyond the original expiry and cannot affect a replacement owner', async () => {
+    vi.useFakeTimers();
+    try {
+      const service = new CacheService(new Keyv());
+      await service.setnx('lock:x', 'A', 120);
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(await service.renewLock('lock:x', 'A', 120)).toBe(true);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(await service.get('lock:x')).toBe('A');
+      await vi.advanceTimersByTimeAsync(61_000);
+      expect(await service.renewLock('lock:x', 'A', 120)).toBe(false);
+      expect(await service.setnx('lock:x', 'B', 120)).toBe(true);
+      expect(await service.renewLock('lock:x', 'A', 120)).toBe(false);
+      expect(await service.releaseLock('lock:x', 'A')).toBe(false);
+      expect(await service.get('lock:x')).toBe('B');
+      expect(await service.releaseLock('lock:x', 'B')).toBe(true);
+      expect(await service.get('lock:x')).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

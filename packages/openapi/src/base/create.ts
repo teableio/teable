@@ -15,7 +15,7 @@ export type ICreateBaseRo = z.infer<typeof createBaseRoSchema>;
 
 export const createBaseVoSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().nullable(),
   spaceId: z.string(),
 });
 

@@ -51,10 +51,11 @@ interface IBaseListProps {
   baseIds: string[];
   spaceId?: string;
   showToolbar?: boolean;
+  showStar?: boolean;
 }
 
 export const BaseList = (props: IBaseListProps) => {
-  const { baseIds, spaceId, showToolbar = false } = props;
+  const { baseIds, spaceId, showToolbar = false, showStar = true } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const queryClient = useQueryClient();
   const { enterBase, enterBaseOverlay } = useEnterBase();
@@ -252,6 +253,7 @@ export const BaseList = (props: IBaseListProps) => {
       >
         <BaseItem
           base={base}
+          showStar={showStar}
           lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
           isExpanded={expandedBases.has(base.id)}
           showDragHandle={showDragHandle}

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import Markdown from 'react-markdown';
+import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../../shadcn';
 
@@ -23,7 +24,7 @@ export const MarkdownReadonly = memo(
     return (
       <div className={cn('milkdown-editor-wrap w-full text-sm', className)}>
         <div className="milkdown-readonly-preview">
-          <Markdown remarkPlugins={[remarkGfm]}>{value}</Markdown>
+          <Markdown remarkPlugins={[remarkGfm, remarkCjkFriendly]}>{value}</Markdown>
         </div>
       </div>
     );

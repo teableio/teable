@@ -432,6 +432,10 @@ describe('RecordWritePluginRunner', () => {
             calls.push('pre');
             return ok(undefined);
           },
+          afterGuard: () => {
+            calls.push('afterGuard');
+            return ok(undefined);
+          },
         },
         {
           name: 'stop',
@@ -710,6 +714,97 @@ describe('RecordWritePluginRunner', () => {
     await defaultGuardStarted.promise;
 
     expect((await guardPromise).isOk()).toBe(true);
+  });
+
+  it('waits for every post guard before authorizing the surviving payload', async () => {
+    const guardStartedA = createDeferred<void>();
+    const guardStartedB = createDeferred<void>();
+    const guardGateA = createDeferred<void>();
+    const guardGateB = createDeferred<void>();
+    const fields = new Map<string, unknown>([
+      ['kept', 'Existing'],
+      ['discarded-a', 'New A'],
+      ['discarded-b', 'New B'],
+    ]);
+    const calls: string[] = [];
+    const runner = new RecordWritePluginRunner(
+      [
+        {
+          name: 'authorize',
+          enforce: 'pre',
+          supports: () => true,
+          prepare: () => ok('prepared'),
+          afterGuard: (context, state) => {
+            expect(state).toBe('prepared');
+            expect(context.kind).toBe(RecordWriteOperationKind.createOne);
+            if (context.kind === RecordWriteOperationKind.createOne) {
+              expect([...context.payload.fieldValues]).toEqual([['kept', 'Existing']]);
+            }
+            calls.push('authorize');
+            return ok(undefined);
+          },
+        },
+        {
+          name: 'post-a',
+          enforce: 'post',
+          supports: () => true,
+          guard: async () => {
+            guardStartedA.resolve();
+            await guardGateA.promise;
+            fields.delete('discarded-a');
+            calls.push('post-a');
+            return ok(undefined);
+          },
+        },
+        {
+          name: 'post-b',
+          enforce: 'post',
+          supports: () => true,
+          guard: async () => {
+            guardStartedB.resolve();
+            await guardGateB.promise;
+            fields.delete('discarded-b');
+            calls.push('post-b');
+            return ok(undefined);
+          },
+        },
+      ],
+      new FakeLogger(),
+      tableMapper
+    );
+    const context = createContext();
+    const execution = (
+      await runner.prepare({ ...context, payload: { ...context.payload, fieldValues: fields } })
+    )._unsafeUnwrap();
+    const result = execution.guard();
+
+    await Promise.all([guardStartedA.promise, guardStartedB.promise]);
+    expect(calls).toEqual([]);
+    guardGateA.resolve();
+    guardGateB.resolve();
+
+    expect((await result).isOk()).toBe(true);
+    expect(calls).toEqual(['post-a', 'post-b', 'authorize']);
+  });
+
+  it('short-circuits finalized-payload authorization on the first denial', async () => {
+    const calls: string[] = [];
+    const runner = new RecordWritePluginRunner(
+      ['deny', 'never'].map((name) => ({
+        name,
+        supports: () => true,
+        afterGuard: () => {
+          calls.push(name);
+          return err(domainError.forbidden({ code: 'plugin.metadata_denied', message: name }));
+        },
+      })),
+      new FakeLogger(),
+      tableMapper
+    );
+    const execution = (await runner.prepare(createContext()))._unsafeUnwrap();
+
+    expect((await execution.guard())._unsafeUnwrapErr().code).toBe('plugin.metadata_denied');
+    expect(calls).toEqual(['deny']);
   });
 
   it('runs afterCommit in parallel within an enforce group and waits between groups', async () => {

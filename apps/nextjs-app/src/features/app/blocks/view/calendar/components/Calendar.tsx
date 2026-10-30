@@ -95,6 +95,7 @@ export const Calendar = (props: ICalendarProps) => {
     colorField,
     permission,
     setExpandRecordId,
+    setOrderedRecordIds,
   } = useCalendar();
   const tableId = useTableId();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -238,6 +239,11 @@ export const Calendar = (props: ICalendarProps) => {
 
   const isLoading = startDateField && endDateField && !calendarDailyCollection;
   const { countMap, records = [] } = calendarDailyCollection ?? {};
+
+  const loadedRecords = calendarDailyCollection?.records;
+  useEffect(() => {
+    setOrderedRecordIds(loadedRecords?.map((record) => record.id) ?? []);
+  }, [loadedRecords, setOrderedRecordIds]);
 
   const events = useMemo(() => {
     return records

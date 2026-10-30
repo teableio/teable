@@ -7,9 +7,11 @@ import { ButtonFieldCore } from '../models/field/derivate/button.field';
 import { CheckboxFieldCore } from '../models/field/derivate/checkbox.field';
 import { DateFieldCore } from '../models/field/derivate/date.field';
 import { FormulaFieldCore } from '../models/field/derivate/formula.field';
+import { LinkFieldCore } from '../models/field/derivate/link.field';
 import { MultipleSelectFieldCore } from '../models/field/derivate/multiple-select.field';
 import { NumberFieldCore } from '../models/field/derivate/number.field';
 import { SingleLineTextFieldCore } from '../models/field/derivate/single-line-text.field';
+import { UserFieldCore } from '../models/field/derivate/user.field';
 import { NumberFormattingType, TimeFormatting } from '../models/field/formatting';
 import { computeSearchHitIndex } from './search-hit-index';
 
@@ -175,9 +177,9 @@ describe('computeSearchHitIndex', () => {
     expect(computeSearchHitIndex(records, fields, ['zzz', '', false])).toBeUndefined();
   });
 
-  // multi-value cells match per item: the joined display text 'alpha, beta'
-  // must not match across element boundaries, mirroring backend SQL
-  it('matches multi-value cells per item, not across the joined text', () => {
+  // String lists use the server's joined search projection, not CSV display
+  // quoting. Numeric/date arrays retain their existing field-type behavior.
+  it('matches string-array boundaries without adding display-only quoting', () => {
     const tagsField = plainToInstance(MultipleSelectFieldCore, {
       id: 'fldTags000000000001',
       name: 'Tags',
@@ -189,7 +191,72 @@ describe('computeSearchHitIndex', () => {
       dbFieldType: DbFieldType.Json,
     });
     expect(tagsField.matchSearch(['alpha', 'beta'], 'alpha', {})).toBe(true);
-    expect(tagsField.matchSearch(['alpha', 'beta'], 'a, b', {})).toBe(false);
+    expect(tagsField.matchSearch(['alpha', 'beta'], 'a, b', {})).toBe(true);
+    expect(tagsField.matchSearch(['a,b', 'c'], 'b, c', {})).toBe(true);
+    expect(tagsField.matchSearch(['a,b', 'c'], 'b", c', {})).toBe(false);
+    expect(tagsField.matchSearch(['alpha', 'beta'], 'ALPHA, BETA', {})).toBe(true);
+    expect(tagsField.matchSearch(['a\\b', 'c'], 'a\\\\b, c', {})).toBe(true);
+    expect(tagsField.matchSearch(['alpha', 'beta'], '%', {})).toBe(false);
+    expect(
+      computeSearchHitIndex(
+        [{ id: 'recTags', fields: { [tagsField.id]: ['alpha', 'beta'] } }],
+        [tagsField],
+        ['a, b', '', false]
+      )
+    ).toEqual([{ recordId: 'recTags', fieldId: tagsField.id }]);
+  });
+
+  it('matches structured string-array titles without searching record identifiers', () => {
+    const links = plainToInstance(LinkFieldCore, {
+      id: 'fldLinks0000000001',
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: true,
+      type: FieldType.Link,
+    });
+    const values = [
+      { id: 'recAlpha', title: 'alpha' },
+      { id: 'recBeta', title: 'beta' },
+    ];
+    expect(links.matchSearch(values, 'a, b')).toBe(true);
+    expect(links.matchSearch(values, 'recAlpha')).toBe(false);
+  });
+
+  it('uses the same joined projection for user titles and computed strings', () => {
+    const users = plainToInstance(UserFieldCore, {
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: true,
+      type: FieldType.User,
+    });
+    const values = [
+      { id: 'usrOne', title: 'Doe, Jane' },
+      { id: 'usrTwo', title: 'Smith' },
+    ];
+    expect(users.matchSearch(values, 'Jane, Smith')).toBe(true);
+    expect(users.matchSearch(values, 'Jane", Smith')).toBe(false);
+    expect(users.matchSearch(values, 'usrOne')).toBe(false);
+    const formula = plainToInstance(FormulaFieldCore, {
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: true,
+      type: FieldType.Formula,
+    });
+    expect(formula.matchSearch(['alpha', 'beta'], 'a, b')).toBe(true);
+    const lookup = plainToInstance(SingleLineTextFieldCore, {
+      ...textField,
+      isLookup: true,
+      isMultipleCellValue: true,
+    });
+    expect(lookup.matchSearch(['alpha', 'beta'], 'a, b')).toBe(true);
+  });
+
+  it('keeps numeric and date array matching per item', () => {
+    const numbers = plainToInstance(NumberFieldCore, { ...numberField, isMultipleCellValue: true });
+    expect(numbers.matchSearch([1.5, 2.5], '1.50')).toBe(true);
+    expect(numbers.matchSearch([1.5, 2.5], '1.50, 2.50')).toBe(false);
+    const dates = plainToInstance(DateFieldCore, { ...dateField, isMultipleCellValue: true });
+    const values = ['2026-01-15T00:00:00.000Z', '2026-01-16T00:00:00.000Z'];
+    expect(dates.matchSearch(values, '2026-01-15')).toBe(true);
+    expect(dates.matchSearch(values, '2026-01-15, 2026-01-16')).toBe(false);
+    expect(dates.matchSearch(values, '2026', { isSearchAllFields: true })).toBe(false);
   });
 
   // computed fields must follow the rules of their result cellValueType, not

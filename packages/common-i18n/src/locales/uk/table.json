@@ -34,7 +34,17 @@
     "records_many": "{{formattedCount}} записів",
     "records_other": "Записів: {{formattedCount}}",
     "batchesComplete": "Завершено пакетів {{completed}}/{{total}}",
-    "progressAriaLabel": "Прогрес обчислення для {{fieldName}}"
+    "progressAriaLabel": "Прогрес обчислення для {{fieldName}}",
+    "statusUnavailable": "Статус обчислень тимчасово недоступний",
+    "statusSyncing": "Перевірка статусу обчислень",
+    "statusSyncingDescription": "Ми перевіряємо актуальний статус обчислень. Це не означає, що обчислення виконуються.",
+    "statusUnavailableDescription": "Не вдалося завантажити актуальний статус обчислень. Оновіть статус, щоб спробувати ще раз; обчислення при цьому не перезапускаються.",
+    "refreshStatus": "Оновити статус",
+    "paused": "Обчислення призупинено",
+    "resultsNotUpdated": "Деякі результати обчислень ще не оновлено",
+    "delayed": "Оновлення обчислень затримується · {{seconds}} с",
+    "snapshotMayBeStale": "Показано останній відомий статус; він може бути застарілим.",
+    "unknownImpact": "Деякі результати обчислень ще не оновлено; визначаємо, яких полів це стосується"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Сповіщення",
@@ -1114,6 +1124,7 @@
     "insertRecordBelow": "Вставте запис <input /> нижче",
     "deleteRecord": "Видалити запис",
     "deleteAllSelectedRecords": "Видалити всі вибрані записи",
+    "copy": "Копіювати",
     "archiveRecord": "Архівувати запис",
     "archiveAllSelectedRecords": "Архівувати всі вибрані записи",
     "duplicateRecords": "Дублювати вибрані записи",
@@ -1334,6 +1345,26 @@
       },
       "chooseAccount": "З якого облікового запису Google взяти таблиці?"
     },
+    "templateOffer": {
+      "title": "Запропоновані шаблони",
+      "details": "Докладніше",
+      "found_one": "Знайдено готовий шаблон",
+      "found_few": "Знайдено {{count}} готові шаблони",
+      "found_many": "Знайдено {{count}} готових шаблонів",
+      "found_other": "Знайдено {{count}} готового шаблону",
+      "defaultReason": "Встановіть готовий шаблон замість того, щоб створювати все з нуля.",
+      "install": "Встановити",
+      "installing": "Встановлення…",
+      "dismiss": "Ні, дякую",
+      "close": "Закрити",
+      "failed": "Не вдалося зберегти ваш вибір. Спробуйте ще раз.",
+      "unavailable": "Ці шаблони більше недоступні.",
+      "status": {
+        "installed": "Встановлено",
+        "dismissed": "Пропущено",
+        "failed": "Помилка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Або введіть відповідь…",
@@ -1348,6 +1379,10 @@
         "nextQuestion": "Наступне запитання"
       },
       "completion": {
+        "workedFor": "Тривалість: {{time}}",
+        "worked": "Хід роботи",
+        "stoppedAfter": "Ви зупинили через {{time}}",
+        "stopped": "Ви зупинили цю відповідь",
         "noDetails": "Подробиці недоступні",
         "model": "Модель",
         "contextWindow": "Контекстне вікно",
@@ -1401,9 +1436,6 @@
         "copied": "Скопійовано!",
         "fullscreen": "Повний екран",
         "exitFullscreen": "Вийти з повноекранного режиму",
-        "downloadSuccess": "Зображення успішно завантажено",
-        "downloadFailed": "Не вдалося знімати зображення",
-        "iframeFailed": "Не вдалося знімати: iframe недоступний",
         "iframeTitle": "Попередній перегляд HTML"
       }
     },
@@ -1579,7 +1611,25 @@
       "selectionRows": "Рядки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Запис без назви",
+      "selectionRecords": "Записів: {{count}}",
+      "selectionCellCount": "Клітинок: {{count}}",
+      "selectionRecordType": "Посилання на записи",
+      "selectionCellType": "Посилання на клітинки",
+      "selectionDimensions": "{{rows}} рядк. × {{columns}} стовп.",
+      "selectionUnavailable": "Недоступно або видалено",
+      "selectionLegacyUnavailable": "Це старіше посилання не має стабільних ID виділення. Попередній перегляд недоступний.",
+      "selectionSourceUnknown": "Джерело недоступне",
+      "selectionPreview": "Попередній перегляд виділення: {{label}}",
+      "selectionSource": "Таблиця-джерело: {{table}}",
+      "selectionSelectedFields": "До цього контексту включено лише вибрані поля.",
+      "selectionIdentificationOnly": "Основний заголовок показано лише для ідентифікації.",
+      "selectionEmpty": "Порожньо",
+      "selectionOpenRecord": "Відкрити запис {{name}}",
+      "selectionPrevious": "Назад",
+      "selectionNext": "Далі",
+      "selectionPage": "{{start}}–{{end}} з {{count}} записів"
     },
     "mention": {
       "tables": "Таблиці",
@@ -1608,7 +1658,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Вставлений текст",
-      "imageNotSupported": "Зображення не підтримується",
       "tooManyFiles": "Ви можете прикріпити не більше {{count}} файлів до одного повідомлення"
     },
     "suggestions": {
@@ -1670,9 +1719,12 @@
       "nQueued": "У черзі: {{count}}",
       "edit": "Редагувати",
       "steerNow": "Скерувати розмову, не перериваючи її",
-      "steerFailed": "Не вдалося скерувати розмову. Повідомлення залишилося в черзі.",
+      "steer": "Скерувати",
       "conversationInputMarker": "Розмову скеровано",
-      "removeFromQueue": "Прибрати"
+      "removeFromQueue": "Прибрати",
+      "paused": "Чергу призупинено, оскільки ви перервали відповідь",
+      "resume": "Продовжити",
+      "queueFull": "Черга надсилання заповнена. Зачекайте, поки Cuppy впорається."
     },
     "partTool": {
       "bash": "Виконати команду",
@@ -1687,6 +1739,10 @@
       "skill": "Завантаження навички",
       "foundFiles": "Знайдено файлів: {{count}}",
       "listedEntries": "Записів: {{count}}",
+      "ranCommands_one": "Виконано {{count}} команду",
+      "ranCommands_few": "Виконано {{count}} команди",
+      "ranCommands_many": "Виконано {{count}} команд",
+      "ranCommands_other": "Виконано {{count}} команди",
       "moreItems": "+{{count}} ще",
       "fallbackName": "Інструмент",
       "questionCount_one": "{{count}} питання",
@@ -1824,6 +1880,10 @@
       "droppedRulesDetail": "Ці правила прив'язані до вузлів, які переміщуються; натомість застосовуються налаштування дозволів цільового проєкту.",
       "successTitle": "Переміщено",
       "successDescription": "«{{name}}» тепер у {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> вузол переміщено в <b>{{baseName}}</b>",
+      "successDescription_few": "<b>{{count}}</b> вузли переміщено в <b>{{baseName}}</b>",
+      "successDescription_many": "<b>{{count}}</b> вузлів переміщено в <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> вузла переміщено в <b>{{baseName}}</b>",
       "open": "Відкрити",
       "appEmbeddedId_one": "{{count}} додаток згадує попередній проєкт у своєму коді; оновіть його самі",
       "appEmbeddedId_few": "{{count}} додатки згадують попередній проєкт у своєму коді; оновіть їх самі",

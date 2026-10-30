@@ -3,7 +3,7 @@ import { IdPrefix } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { templateKindSchema } from './kind';
+import { templateHistorySchema, templateManifestSchema, templateReviewSchema } from './manifest';
 import { templateCoverRoSchema } from './update';
 
 export const GET_TEMPLATE_LIST = '/template';
@@ -57,7 +57,14 @@ export const templateVoSchema = z.object({
     .optional(),
   visitCount: z.number(),
   /** Absent / null reads as `template`. */
-  kind: templateKindSchema.optional().nullable(),
+  version: z.number(),
+  manifest: templateManifestSchema.nullable().optional(),
+  history: templateHistorySchema.nullable().optional(),
+  parentTemplateId: z.string().nullable().optional(),
+  /** Names the template in public URLs (/templates/<slug>); set when it is first published. */
+  slug: z.string().nullable().optional(),
+  /** Only on owner- and admin-side reads. */
+  review: templateReviewSchema.nullable().optional(),
   createdBy: z
     .object({
       id: z.string().startsWith(IdPrefix.User),

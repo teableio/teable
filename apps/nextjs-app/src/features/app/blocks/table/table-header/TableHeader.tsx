@@ -43,6 +43,7 @@ import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useEmbedMode } from '@/features/app/hooks/useEmbedMode';
 import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
 import { AddView } from '@overridable/AddView';
 import { BaseNodeMore } from '../../base/base-side-bar/BaseNodeMore';
@@ -163,7 +164,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
           {!isEmbed && (
             <ShareBasePopover
               base={{
-                name: base.name,
+                name: getBaseDisplayName(base.name, t),
                 role: base.role,
                 id: base.id,
                 spaceId: base.spaceId,
@@ -215,7 +216,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
           <Collaborators className="flex p-2" />
           <ShareBasePopover
             base={{
-              name: base.name,
+              name: getBaseDisplayName(base.name, t),
               role: base.role,
               id: base.id,
               spaceId: base.spaceId,
@@ -254,7 +255,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
         <div className="flex items-center gap-1">
           <ShareBasePopover
             base={{
-              name: base.name,
+              name: getBaseDisplayName(base.name, t),
               role: base.role,
               id: base.id,
               spaceId: base.spaceId,

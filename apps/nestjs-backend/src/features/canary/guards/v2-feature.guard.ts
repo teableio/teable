@@ -9,7 +9,7 @@ import { Span } from '../../../tracing/decorators/span';
 import type { IClsStore } from '../../../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../../../utils/meta-ancestry-cache';
 import { CanaryService, type IBaseV2DecisionContext } from '../canary.service';
-import { USE_V2_FEATURE_KEY } from '../decorators/use-v2-feature.decorator';
+import { ALWAYS_USE_V2_KEY, USE_V2_FEATURE_KEY } from '../decorators/use-v2-feature.decorator';
 
 /**
  * Guard that determines if V2 implementation should be used.
@@ -70,6 +70,22 @@ export class V2FeatureGuard implements CanActivate {
     if (!feature) {
       this.cls.set('useV2', false);
       this.cls.set('v2Reason', 'no_feature');
+      return true;
+    }
+
+    const alwaysUseV2 = this.reflector.getAllAndOverride<boolean>(ALWAYS_USE_V2_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (alwaysUseV2) {
+      req.useV2 = true;
+      this.cls.set('useV2', true);
+      this.cls.set('v2Feature', feature);
+      this.cls.set('v2Reason', 'native_only');
+      trace.getActiveSpan()?.setAttributes({
+        ['teable.v2.enabled']: true,
+        ['teable.v2.reason']: 'native_only',
+      });
       return true;
     }
 

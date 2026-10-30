@@ -43,7 +43,7 @@ export const CommentItem = (props: ICommentItemProps) => {
   const relativeTime = dayjs(createdTime).fromNow();
   const { setQuoteId, setEditingCommentId, editorRef } = useCommentStore();
   const { user } = useSession();
-  const { commentWritable } = useCommentPermission();
+  const { commentWritable, commentManageable } = useCommentPermission();
   const isMe = user?.id === createdBy?.id;
   const queryClient = useQueryClient();
   const { mutateAsync: deleteCommentFn } = useMutation({
@@ -213,7 +213,7 @@ export const CommentItem = (props: ICommentItemProps) => {
                 <Edit className="size-4 shrink-0" />
               </Button>
             )}
-            {isMe && (
+            {(isMe || commentManageable) && (
               <Button
                 variant={'ghost'}
                 size={'icon-xs'}

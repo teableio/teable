@@ -124,6 +124,10 @@ export interface IListTableRecordsQueryOptions {
    * filters rows and matches are a side channel (grid highlight).
    */
   readonly searchFieldScope?: 'projection' | 'visible';
+  /** Trusted host-only: compute cell flags without filtering the scanned row page by search. */
+  readonly applySearchRowFilter?: boolean;
+  /** Trusted host-resolved search field scope, used by share visibility guards. */
+  readonly searchFieldIds?: ReadonlyArray<string>;
   /**
    * Trusted host-only id-resolution mode: the repository selects only record
    * ids (filter/search/order/pagination semantics unchanged) and skips field
@@ -165,6 +169,8 @@ export class ListTableRecordsQuery {
     readonly searchIndexMode?: 'matched' | 'view',
     readonly requireReadableSearchFields?: boolean,
     readonly searchFieldScope?: 'projection' | 'visible',
+    readonly applySearchRowFilter?: boolean,
+    readonly searchFieldIds?: ReadonlyArray<string>,
     readonly idsOnly?: boolean,
     readonly includeGroupMetadata?: boolean,
     readonly groupLimit?: number,
@@ -217,6 +223,8 @@ export class ListTableRecordsQuery {
           parsed.data.searchIndexMode ?? options?.searchIndexMode,
           options?.requireReadableSearchFields,
           options?.searchFieldScope,
+          options?.applySearchRowFilter,
+          options?.searchFieldIds,
           options?.idsOnly,
           includeGroupMetadata,
           groupLimit,

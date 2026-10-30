@@ -29,7 +29,17 @@
     "records_many": "{{formattedCount}} record",
     "records_other": "{{formattedCount}} record",
     "batchesComplete": "Batch completati {{completed}}/{{total}}",
-    "progressAriaLabel": "Avanzamento del calcolo per {{fieldName}}"
+    "progressAriaLabel": "Avanzamento del calcolo per {{fieldName}}",
+    "statusUnavailable": "Lo stato dei calcoli è temporaneamente non disponibile",
+    "statusSyncing": "Verifica dello stato dei calcoli",
+    "statusSyncingDescription": "Stiamo verificando lo stato più recente dei calcoli. Questo non significa che i calcoli siano in corso.",
+    "statusUnavailableDescription": "Non è stato possibile caricare lo stato più recente dei calcoli. Aggiorna lo stato per riprovare; i calcoli non verranno riavviati.",
+    "refreshStatus": "Aggiorna stato",
+    "paused": "I calcoli sono in pausa",
+    "resultsNotUpdated": "Alcuni risultati dei calcoli non sono stati aggiornati",
+    "delayed": "Aggiornamento dei calcoli in ritardo · {{seconds}} s",
+    "snapshotMayBeStale": "Viene mostrato l'ultimo stato noto, che potrebbe non essere aggiornato.",
+    "unknownImpact": "Alcuni risultati dei calcoli non sono stati aggiornati; è in corso l'individuazione dei campi interessati"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Avviso",
@@ -1109,6 +1119,7 @@
     "insertRecordBelow": "Inserisci <input /> record sotto",
     "deleteRecord": "Elimina record",
     "deleteAllSelectedRecords": "Elimina tutti i record selezionati",
+    "copy": "Copia",
     "archiveRecord": "Archivia record",
     "archiveAllSelectedRecords": "Archivia tutti i record selezionati",
     "duplicateRecords": "Duplica i record selezionati",
@@ -1328,6 +1339,25 @@
       },
       "chooseAccount": "Da quale account Google devono provenire i fogli di calcolo?"
     },
+    "templateOffer": {
+      "title": "Modelli proposti",
+      "details": "Dettagli",
+      "found_one": "Trovato un modello già pronto",
+      "found_many": "Trovati {{count}} modelli già pronti",
+      "found_other": "Trovati {{count}} modelli già pronti",
+      "defaultReason": "Installane uno invece di partire da zero.",
+      "install": "Installa",
+      "installing": "Installazione in corso…",
+      "dismiss": "No, grazie",
+      "close": "Chiudi",
+      "failed": "Non è stato possibile registrare la tua scelta. Riprova.",
+      "unavailable": "Questi modelli non sono più disponibili.",
+      "status": {
+        "installed": "Installato",
+        "dismissed": "Ignorato",
+        "failed": "Non riuscito"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oppure digita la tua risposta…",
@@ -1342,6 +1372,10 @@
         "nextQuestion": "Domanda successiva"
       },
       "completion": {
+        "workedFor": "Ha lavorato per {{time}}",
+        "worked": "Lavoro completato",
+        "stoppedAfter": "Interrotto da te dopo {{time}}",
+        "stopped": "Hai interrotto questa risposta",
         "noDetails": "Nessun dettaglio disponibile",
         "model": "Modello",
         "contextWindow": "Finestra di contesto",
@@ -1395,9 +1429,6 @@
         "copied": "Copiato!",
         "fullscreen": "Schermo intero",
         "exitFullscreen": "Esci da schermo intero",
-        "downloadSuccess": "Immagine scaricata con successo",
-        "downloadFailed": "Cattura immagine fallita",
-        "iframeFailed": "Cattura fallita: iframe non accessibile",
         "iframeTitle": "Anteprima HTML"
       }
     },
@@ -1559,7 +1590,25 @@
       "selectionRows": "Righe {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
       "selectionColumns": "Col {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Record senza nome",
+      "selectionRecords": "{{count}} record",
+      "selectionCellCount": "{{count}} celle",
+      "selectionRecordType": "Riferimento a record",
+      "selectionCellType": "Riferimento a celle",
+      "selectionDimensions": "{{rows}} righe × {{columns}} col",
+      "selectionUnavailable": "Non disponibile o eliminato",
+      "selectionLegacyUnavailable": "Questo riferimento meno recente non ha ID di selezione stabili. Anteprima non disponibile.",
+      "selectionSourceUnknown": "Origine non disponibile",
+      "selectionPreview": "Anteprima della selezione: {{label}}",
+      "selectionSource": "Tabella di origine: {{table}}",
+      "selectionSelectedFields": "In questo contesto sono inclusi solo i campi selezionati.",
+      "selectionIdentificationOnly": "Il titolo principale è mostrato solo a scopo identificativo.",
+      "selectionEmpty": "Vuoto",
+      "selectionOpenRecord": "Apri il record {{name}}",
+      "selectionPrevious": "Precedente",
+      "selectionNext": "Successivo",
+      "selectionPage": "{{start}}–{{end}} di {{count}} record"
     },
     "mention": {
       "tables": "Tabelle",
@@ -1588,7 +1637,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Testo incollato",
-      "imageNotSupported": "L'immagine non è supportata",
       "tooManyFiles": "Puoi allegare al massimo {{count}} file per messaggio"
     },
     "suggestions": {
@@ -1650,9 +1698,12 @@
       "nQueued": "{{count}} in coda",
       "edit": "Modifica",
       "steerNow": "Indirizza la conversazione senza interromperla",
-      "steerFailed": "Impossibile indirizzare la conversazione. Il messaggio resta in coda.",
+      "steer": "Indirizza",
       "conversationInputMarker": "Conversazione indirizzata",
-      "removeFromQueue": "Rimuovi"
+      "removeFromQueue": "Rimuovi",
+      "paused": "Coda in pausa perché hai interrotto",
+      "resume": "Riprendi",
+      "queueFull": "La coda di invio è piena. Attendi che Cuppy si metta in pari."
     },
     "partTool": {
       "bash": "Esegui comando",
@@ -1667,6 +1718,9 @@
       "skill": "Caricamento abilità",
       "foundFiles": "Trovati {{count}} file",
       "listedEntries": "{{count}} voci",
+      "ranCommands_one": "Eseguito {{count}} comando",
+      "ranCommands_many": "Eseguiti {{count}} comandi",
+      "ranCommands_other": "Eseguiti {{count}} comandi",
       "moreItems": "+{{count}} altri",
       "fallbackName": "Strumento",
       "questionCount_one": "{{count}} domanda",
@@ -1797,6 +1851,9 @@
       "droppedRulesDetail": "Queste regole sono associate ai nodi da spostare; al loro posto si applicano le impostazioni dei permessi del progetto di destinazione.",
       "successTitle": "Spostato",
       "successDescription": "\"{{name}}\" ora si trova in {{baseName}}.",
+      "successDescription_one": "<b>{{count}}</b> nodo spostato in <b>{{baseName}}</b>",
+      "successDescription_many": "<b>{{count}}</b> nodi spostati in <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> nodi spostati in <b>{{baseName}}</b>",
       "open": "Apri",
       "appEmbeddedId_one": "{{count}} app menziona il progetto precedente nel suo codice; aggiornala tu",
       "appEmbeddedId_many": "{{count}} app menzionano il progetto precedente nel loro codice; aggiornale tu",

@@ -1,4 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import {
   createV2PostgresDb,
   PostgresQueryCancelledError,
@@ -10,8 +13,13 @@ import { sql, type Transaction } from 'kysely';
 import { ClsService } from 'nestjs-cls';
 import { err, ok } from 'neverthrow';
 import type { Pool } from 'pg';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { IClsStore } from '../../types/cls';
+import { AggregationOpenApiController } from '../aggregation/open-api/aggregation-open-api.controller';
+import type { CanaryService } from '../canary/canary.service';
+import { ALWAYS_USE_V2_KEY } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { ShareController } from '../share/share.controller';
 import { V2QueryCancellationMiddleware } from './v2-query-cancellation.middleware';
 
 const context: IExecutionContext = { actorId: ActorId.create('system')._unsafeUnwrap() };
@@ -76,6 +84,62 @@ describe('V2QueryCancellationMiddleware', () => {
     ).rejects.toBeInstanceOf(PostgresQueryCancelledError);
     expect(started).toBe(false);
   });
+
+  it.each([
+    [
+      'count',
+      AggregationOpenApiController,
+      AggregationOpenApiController.prototype.getSearchCellCount,
+    ],
+    [
+      'matches',
+      AggregationOpenApiController,
+      AggregationOpenApiController.prototype.getSearchMatches,
+    ],
+    ['share count', ShareController, ShareController.prototype.getSearchCellCount],
+    ['share matches', ShareController, ShareController.prototype.getSearchMatches],
+  ] as const)(
+    'cancels native-only %s routes even when rollout would select v1',
+    async (_name, owner, handler) => {
+      const { cls, middleware } = await fixture();
+      const reflector = new Reflector();
+      const shouldUseV2ForBaseWithReason = vi.fn(async () => ({
+        useV2: false,
+        reason: 'disabled',
+      }));
+      const guard = new V2FeatureGuard(
+        reflector,
+        cls,
+        { shouldUseV2ForBaseWithReason } as unknown as CanaryService,
+        {} as PrismaService
+      );
+      const request: { headers: Record<string, string>; useV2?: boolean } = { headers: {} };
+      const executionContext = {
+        switchToHttp: () => ({ getRequest: () => request }),
+        getHandler: () => handler,
+        getClass: () => owner,
+      } as unknown as ExecutionContext;
+      const abort = new AbortController();
+      abort.abort();
+      let started = false;
+
+      await expect(
+        cls.run(async () => {
+          cls.set('interactiveQueryAbort', abort.signal);
+          await guard.canActivate(executionContext);
+          return middleware.handle(context, {}, async () => {
+            started = true;
+            return ok(42);
+          });
+        })
+      ).rejects.toBeInstanceOf(PostgresQueryCancelledError);
+
+      expect(Reflect.getMetadata(ALWAYS_USE_V2_KEY, handler)).toBe(true);
+      expect(request.useV2).toBe(true);
+      expect(shouldUseV2ForBaseWithReason).not.toHaveBeenCalled();
+      expect(started).toBe(false);
+    }
+  );
 
   it('reads CLS per invocation and isolates concurrent requests in the shared middleware', async () => {
     const { middleware, run, read } = await fixture();

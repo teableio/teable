@@ -296,6 +296,8 @@
     "duplicateRecord": "Duplicate record",
     "addToChat": "チャットに追加",
     "copyRecordUrl": "レコードのURLをコピー",
+    "copyLink": "リンクをコピー",
+    "history": "履歴",
     "deleteRecord": "レコードを削除",
     "addRecordComment": "コメントを追加",
     "viewRecordHistory": "レコード履歴を表示",
@@ -1647,7 +1649,12 @@
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
       "noMinOrderFound": "最小順序が見つかりません",
       "takeCountTooLarge": "リクエストされたテンプレートの数が最大制限を超えています",
-      "categoryLimitReached": "テンプレートカテゴリの上限に達しました（最大 {{maxCount}} 件）"
+      "categoryLimitReached": "テンプレートカテゴリの上限に達しました（最大 {{maxCount}} 件）",
+      "categoryHasChildren": "この業種にはまだ細分業種があります。先に削除してください",
+      "categoryDepthExceeded": "細分業種の下にさらに細分業種は作れません",
+      "teamIsFlat": "チームには上位カテゴリもサブカテゴリもありません",
+      "categoryKeyTaken": "このURLキーは他のカテゴリで使われています",
+      "slugTaken": "このURLスラッグは他のテンプレートで使われています"
     },
     "department": {
       "parentNotFound": "親部門が見つかりません",
@@ -1674,6 +1681,8 @@
       "domainReserved": "このサブドメインは予約されています",
       "siteInfoBeforeGeneration": "サイト情報をカスタマイズする前にアプリを生成してください",
       "generationEditingConflict": "AI による生成がこのアプリを編集中です。完了後にファイルの更新を再試行してください。",
+      "codeCopying": "アプリのコードはまだコピー中です。しばらくしてから再試行してください。",
+      "codeCopyFailed": "アプリのコードのコピーに失敗しました。アプリをもう一度複製してください。",
       "siteInfoLayoutNotEditable": "このアプリのコードは、ここでのサイト情報の編集に対応していません。代わりにチャットで AI にサイトのタイトル・説明・アイコンの変更を依頼してください。",
       "siteInfoManagedInCode": "このアプリはサイトのタイトルと説明をコード内で管理しています。代わりにチャットで AI に変更を依頼してください。",
       "accessLinkSetupFailed": "アクセスリンクの設定に失敗しました：{{detail}}",
@@ -1732,7 +1741,8 @@
     "requestFailed": "リクエストに失敗しました",
     "operationFailed": "操作に失敗しました：{{detail}}",
     "filter": {
-      "operatorNoFieldReference": "演算子 {{operator}} は他のフィールドとの比較をサポートしていません"
+      "operatorNoFieldReference": "演算子 {{operator}} は他のフィールドとの比較をサポートしていません",
+      "fieldReferenceIncompatible": "フィールド {{reference}} は {{source}} と型が互換でないため比較できません"
     },
     "oauth": {
       "invalidRequest": "OAuth リクエストが無効です：{{detail}}",

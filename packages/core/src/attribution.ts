@@ -52,6 +52,8 @@ export const SIGNUP_ATTRIBUTION_PRIORITY: readonly ISignupAttributionParamKey[] 
   'utm_content',
   'cta_id',
   'landing_cta_id',
+  'template',
+  'template_src',
 ];
 
 /**
@@ -76,6 +78,8 @@ export const SIGNUP_ATTRIBUTION_PARAM_KEYS = [
   'wbraid',
   'fbclid',
   'oppref',
+  'template',
+  'template_src',
 ] as const;
 
 export type ISignupAttributionParamKey = (typeof SIGNUP_ATTRIBUTION_PARAM_KEYS)[number];

@@ -127,6 +127,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     coordInstance,
     visibleRegion,
     activeCell,
+    highlightedRowIndex,
     mouseState,
     scrollState,
     selection,
@@ -273,11 +274,12 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         realRowIndex,
         columnIndex
       );
+      const isRowHighlighted = highlightedRowIndex === realRowIndex;
       let fill;
 
       if (isCellSelected || isRowSelected || isColumnActive) {
         fill = cellBgSelected;
-      } else if (isRowHovered || isRowActive) {
+      } else if (isRowHovered || isRowActive || isRowHighlighted) {
         fill = cellBgHovered;
       }
 
@@ -288,7 +290,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           width: columnInitSize + 0.5,
           height: rowHeight,
           displayIndex: String(displayIndex),
-          isHover: isRowHovered || isRowActive,
+          isHover: isRowHovered || isRowActive || isRowHighlighted,
           isChecked: isRowSelection && isRowSelected,
           rowIndexVisible,
           rowControls,

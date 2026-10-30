@@ -73,6 +73,7 @@ const renderCard = (recordId = 'recCard') => {
           primaryField: primary,
           displayFields: [],
           setExpandRecordId: vi.fn(),
+          setOrderedRecordIds: vi.fn(),
         }}
       >
         <Card card={card} />
@@ -86,7 +87,7 @@ describe('gallery card add to chat', () => {
     ai.enable = true;
     ai.chatAIEnable = true;
     queryClient.clear();
-    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], { disableActions: [] });
+    queryClient.setQueryData(['ai-config', 'bseTest'], { disableActions: [] });
     useChatPanelStore.setState({ status: 'close' });
   });
 
@@ -115,7 +116,7 @@ describe('gallery card add to chat', () => {
   });
 
   it('hides the entry when a space admin disables AI chat with configuration and quota available', () => {
-    queryClient.setQueryData(['disable-ai-actions', 'bseTest'], {
+    queryClient.setQueryData(['ai-config', 'bseTest'], {
       disableActions: ['ai-chat'],
     });
 

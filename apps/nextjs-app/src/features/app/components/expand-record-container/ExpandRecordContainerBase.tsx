@@ -1,7 +1,7 @@
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import type { IButtonClickStatusHook } from '@teable/sdk';
-import { ExpandRecorder, ExpandRecordModel } from '@teable/sdk';
+import { ExpandRecorder } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import { parseBaseSlug } from '../../hooks/useBaseResource';
@@ -60,7 +60,6 @@ export const ExpandRecordContainerBase = forwardRef<
       commentId={commentId}
       recordIds={recordIds}
       serverData={recordServerData}
-      model={ExpandRecordModel.Modal}
       onClose={onClose}
       onUpdateRecordIdCallback={onUpdateRecordIdCallback}
       buttonClickStatusHook={buttonClickStatusHook}

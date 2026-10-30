@@ -6,6 +6,8 @@ export interface IConfirmModalOptions {
   confirmText?: string;
   cancelText?: string;
   confirmButtonVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  // focus the confirm button on open so Enter confirms instead of cancelling
+  autoFocusConfirm?: boolean;
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
 }

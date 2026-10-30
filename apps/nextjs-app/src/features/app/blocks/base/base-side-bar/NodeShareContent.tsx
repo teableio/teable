@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Qrcode } from '@teable/icons';
 import type {
   IBaseNodeAppResourceMeta,
+  IBaseShareByNodeIdVo,
   ICreateBaseShareRo,
   IUpdateBaseShareRo,
 } from '@teable/openapi';
@@ -205,16 +206,35 @@ export const NodeShareContent = ({
   // there is no reason to go through the short-link redirect
   const embedUrl = share ? getShareUrl(share.shareId, origin) : '';
 
+  const shareKey = ReactQueryKeys.baseShareByNodeId(baseId, nodeId);
+  // Run writes one at a time so a late response can't overwrite a newer result (e.g. bring a
+  // deleted share back), and each write targets the share as left by the previous one
+  const writeScope = { id: `node-share-write-${baseId}-${nodeId}` };
+
+  const getCurrentShare = async () => {
+    await queryClient.cancelQueries({ queryKey: shareKey, exact: true });
+    return queryClient.getQueryData<IBaseShareByNodeIdVo | null>(shareKey);
+  };
+
+  // Write results straight to the node cache: while the share list still lags, the node
+  // query stays disabled and an invalidate would not refetch it
+  const setShare = async (value: IBaseShareByNodeIdVo | null) => {
+    await queryClient.cancelQueries({ queryKey: shareKey, exact: true });
+    queryClient.setQueryData(shareKey, value);
+  };
+
+  const invalidateShareList = () =>
+    queryClient.invalidateQueries({
+      queryKey: ReactQueryKeys.baseShareList(baseId),
+      exact: true,
+    });
+
   const { mutate: createShare, isPending: isCreateLoading } = useMutation({
+    scope: writeScope,
     mutationFn: (data: ICreateBaseShareRo) => createBaseShare(baseId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareByNodeId(baseId, nodeId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareList(baseId),
-        exact: true,
-      });
+    onSuccess: async (res) => {
+      await setShare(res.data);
+      invalidateShareList();
       toast.success(t('table:baseShare.createSuccess'));
     },
     onError: () => {
@@ -223,11 +243,14 @@ export const NodeShareContent = ({
   });
 
   const { mutateAsync: updateShare, isPending: isUpdateLoading } = useMutation({
-    mutationFn: (data: IUpdateBaseShareRo) => updateBaseShare(baseId, share!.shareId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareByNodeId(baseId, nodeId),
-      });
+    scope: writeScope,
+    mutationFn: async (data: IUpdateBaseShareRo) => {
+      const currentShare = await getCurrentShare();
+      // Settings queued after deletion must not target a removed share
+      return currentShare ? updateBaseShare(baseId, currentShare.shareId, data) : null;
+    },
+    onSuccess: async (res) => {
+      if (res) await setShare(res.data);
     },
     onError: () => {
       toast.error(t('table:baseShare.updateFailed'));
@@ -235,15 +258,14 @@ export const NodeShareContent = ({
   });
 
   const { mutate: deleteShare, isPending: isDeleteLoading } = useMutation({
-    mutationFn: () => deleteBaseShare(baseId, share!.shareId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareByNodeId(baseId, nodeId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareList(baseId),
-        exact: true,
-      });
+    scope: writeScope,
+    mutationFn: async () => {
+      const currentShare = await getCurrentShare();
+      if (currentShare) await deleteBaseShare(baseId, currentShare.shareId);
+    },
+    onSuccess: async () => {
+      await setShare(null);
+      invalidateShareList();
       toast.success(t('table:baseShare.deleteSuccess'));
     },
     onError: () => {
@@ -252,11 +274,14 @@ export const NodeShareContent = ({
   });
 
   const { mutate: refreshShareFn, isPending: isRefreshLoading } = useMutation({
-    mutationFn: () => refreshBaseShare(baseId, share!.shareId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseShareByNodeId(baseId, nodeId),
-      });
+    scope: writeScope,
+    mutationFn: async () => {
+      const currentShare = await getCurrentShare();
+      return currentShare ? refreshBaseShare(baseId, currentShare.shareId) : null;
+    },
+    onSuccess: async (res) => {
+      if (!res) return;
+      await setShare(res.data);
       toast.success(t('table:baseShare.refreshSuccess'));
     },
     onError: () => {
@@ -268,7 +293,7 @@ export const NodeShareContent = ({
   const handleUpdateSetting = async (data: Record<string, unknown>) => {
     if (!share) return false;
     return updateShare(data as IUpdateBaseShareRo).then(
-      () => true,
+      (res) => Boolean(res),
       () => false
     );
   };

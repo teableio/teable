@@ -123,8 +123,12 @@ export const ReactQueryKeys = {
 
   notifyList: (filter?: { status: NotificationStatesEnum; severity?: NotificationSeverityEnum }) =>
     filter ? (['notification', 'list', filter] as const) : (['notification', 'list'] as const),
+  notifySummary: () => ['notification', 'summary'] as const,
+  /** @deprecated The web app reads the unread count from `notifySummary`. */
   notifyUnreadCount: () => ['notification', 'unread-count'],
+  /** @deprecated The web app reads unread critical admin notices from `notifySummary`. */
   notifyCriticalAdmin: () => ['notification', 'critical-admin'] as const,
+  /** @deprecated The web app reads unread collaborator invites from `notifySummary`. */
   notifyUnreadInvite: () => ['notification', 'unread-invite'] as const,
 
   rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,

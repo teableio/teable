@@ -30,7 +30,16 @@ export enum BaseDuplicateMode {
    * Copying a shared base - similar to CreateTemplate, cross-base links are disconnected
    */
   CopyShareBase = 'copyShareBase',
+
+  /**
+   * Installing a template as a template - like ApplyTemplate, but an existing target base keeps
+   * its own name and the copied nodes are added next to what it already has
+   */
+  InstallTemplate = 'installTemplate',
 }
+
+export const isCopyToExistingBaseMode = (mode: BaseDuplicateMode) =>
+  mode === BaseDuplicateMode.CopyShareBase || mode === BaseDuplicateMode.InstallTemplate;
 
 export const DUPLICATE_BASE = '/base/duplicate';
 export const DUPLICATE_BASE_STREAM = '/base/duplicate-stream';

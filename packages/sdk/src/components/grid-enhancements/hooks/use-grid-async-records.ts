@@ -1,11 +1,22 @@
 import type { IRecord, ISearchHitIndex } from '@teable/core';
 import { computeSearchHitIndex } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
+import { getSearchMatches, getShareViewSearchMatches } from '@teable/openapi';
 import { debounce, isEqual } from 'lodash';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+} from 'react';
 import type { IGridProps, IRectangle } from '../..';
+import { ShareViewContext } from '../../../context/table/ShareViewContext';
 import { useFields, usePersonalView, useSearch, useTableId, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
+import { useTableListener } from '../../../hooks/use-table-listener';
 import type { Record as IRecordInstance } from '../../../model';
 import { applyCollapsedGroupChange, collectGroupRowCounts } from '../../../utils/collapsed-group';
 import type { ILoadedRecordFields } from '../../../utils/column-projection';
@@ -41,11 +52,15 @@ type IRes = {
 };
 
 export type IRecordIndexMap = { [i: number | string]: IRecordInstance };
+type IGridOuterQuery = Pick<
+  IGetRecordsRo,
+  'filter' | 'orderBy' | 'groupBy' | 'collapsedGroupIds' | 'ignoreViewQuery' | 'projection'
+>;
 
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
   initQuery?: IGetRecordsRo,
-  outerQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy' | 'collapsedGroupIds'>,
+  outerQuery?: IGridOuterQuery,
   initGroupPoints?: IGroupPointsVo
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsRo>({
@@ -85,10 +100,102 @@ export const useGridAsyncRecords = (
     }, {} as IRecordIndexMap);
   });
 
-  const searchHitIndex = useMemo<ISearchHitIndex | undefined>(
-    () => computeSearchHitIndex(Object.values(loadedRecordMap), fields, searchQuery),
-    [loadedRecordMap, fields, searchQuery]
+  const { shareId } = useContext(ShareViewContext);
+  const [searchRevision, setSearchRevision] = useState(0);
+  const scheduleSearchRefresh = useMemo(
+    () => debounce(() => setSearchRevision((revision) => revision + 1), 250, { maxWait: 1000 }),
+    []
   );
+  useEffect(() => () => scheduleSearchRefresh.cancel(), [scheduleSearchRefresh]);
+  useTableListener(
+    tableId,
+    ['setRecord', 'addRecord', 'deleteRecord', 'addField', 'setField', 'deleteField'],
+    scheduleSearchRefresh
+  );
+  useEffect(() => {
+    window.addEventListener('online', scheduleSearchRefresh);
+    return () => window.removeEventListener('online', scheduleSearchRefresh);
+  }, [scheduleSearchRefresh]);
+
+  const loadedRecordIds = Object.values(loadedRecordMap).map((record) => record.id);
+  const loadedRecordIdsKey = JSON.stringify(loadedRecordIds);
+  const searchFilter = shareId ? view?.filter : outerQuery?.filter;
+  const searchProjection = shareId ? fields.map(({ id }) => id) : outerQuery?.projection;
+  const searchRequestKey = JSON.stringify([
+    tableId,
+    shareId,
+    view?.id,
+    view?.filter,
+    view?.columnMeta,
+    hideNotMatchRow,
+    outerQuery,
+    searchQuery,
+    loadedRecordIdsKey,
+    searchFilter,
+    searchProjection,
+  ]);
+  const searchKey = JSON.stringify([searchRequestKey, searchRevision]);
+  const searchRetryRef = useRef({ key: searchRequestKey, attempt: 0 });
+  const [serverSearchHits, setServerSearchHits] = useState<{
+    key: string;
+    hits: ISearchHitIndex;
+  }>();
+  useEffect(() => {
+    if (hideNotMatchRow || !searchQuery?.[0] || !tableId || !view || !loadedRecordIds.length)
+      return;
+    let cancelled = false;
+    const fetchHits = async () => {
+      const hits: ISearchHitIndex = [];
+      for (let start = 0; start < loadedRecordIds.length; start += 1000) {
+        const selectedRecordIds = loadedRecordIds.slice(start, start + 1000);
+        const scope = {
+          search: searchQuery,
+          filter: searchFilter,
+          orderBy: outerQuery?.orderBy,
+          groupBy: outerQuery?.groupBy,
+          projection: searchProjection,
+          selectedRecordIds,
+          skip: 0,
+          take: selectedRecordIds.length,
+        };
+        const response = shareId
+          ? await getShareViewSearchMatches(shareId, scope)
+          : await getSearchMatches(tableId, {
+              ...scope,
+              viewId: view.id,
+              ignoreViewQuery: outerQuery?.ignoreViewQuery,
+            });
+        hits.push(...response.data.matches.map(({ recordId, fieldId }) => ({ recordId, fieldId })));
+      }
+      if (!cancelled) {
+        searchRetryRef.current = { key: searchRequestKey, attempt: 0 };
+        setServerSearchHits({ key: searchKey, hits });
+      }
+    };
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    void fetchHits().catch((error: unknown) => {
+      if (cancelled) return;
+      console.error('Failed to load grid search matches', error);
+      const retry = searchRetryRef.current;
+      const attempt = retry.key === searchRequestKey ? retry.attempt : 0;
+      searchRetryRef.current = { key: searchRequestKey, attempt: attempt + 1 };
+      retryTimer = setTimeout(
+        () => setSearchRevision((revision) => revision + 1),
+        Math.min(1000 * 2 ** attempt, 30_000)
+      );
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+    // The serialized key contains the complete bounded request identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey]);
+  const searchHitIndex = hideNotMatchRow
+    ? computeSearchHitIndex(Object.values(loadedRecordMap), fields, searchQuery)
+    : serverSearchHits?.key === searchKey
+      ? serverSearchHits.hits
+      : undefined;
 
   const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
     () => (extra == null ? initGroupPoints : extraData?.groupPoints) ?? null

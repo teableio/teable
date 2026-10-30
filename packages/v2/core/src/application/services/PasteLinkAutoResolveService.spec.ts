@@ -207,16 +207,23 @@ describe('PasteLinkAutoResolveService', () => {
     const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
     const existingRecordId = `rec${'a'.repeat(16)}`;
     const creationCalls: Array<ReadonlyArray<string>> = [];
+    const creationSources: Array<
+      Parameters<RecordBatchCreationService['create']>[1]['linkTitleSource']
+    > = [];
+    const targetContexts: IExecutionContext[] = [];
     const fakeBatchCreateService = {
       create: async (
-        _context: IExecutionContext,
+        targetContext: IExecutionContext,
         input: Parameters<RecordBatchCreationService['create']>[1]
       ) => {
+        targetContexts.push(targetContext);
+        targetContext.config = { ...targetContext.config, allowSelectOptionAutoCreate: true };
         creationCalls.push(
           input.recordsFieldValues.map((fields) =>
             String(fields.get(input.table.primaryFieldId().toString()))
           )
         );
+        creationSources.push(input.linkTitleSource);
         const createResult = input.table.createRecords(input.recordsFieldValues, {
           typecast: input.typecast,
         });
@@ -255,7 +262,11 @@ describe('PasteLinkAutoResolveService', () => {
     expect(linkField).toBeDefined();
     if (!linkField) return;
 
-    const result = await service.resolve(createContext(), {
+    const sourceContext: IExecutionContext = {
+      ...createContext(),
+      config: { allowSelectOptionAutoCreate: false },
+    };
+    const result = await service.resolve(sourceContext, {
       table: hostTable,
       editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
       rowDataList: [['Alpha'], ['Beta'], ['Beta']],
@@ -263,6 +274,12 @@ describe('PasteLinkAutoResolveService', () => {
 
     const resolved = result._unsafeUnwrap();
     expect(creationCalls).toEqual([['Beta']]);
+    expect(creationSources).toEqual([
+      { baseId: hostTable.baseId(), tableId: hostTable.id(), fieldId: linkField.id() },
+    ]);
+    expect(targetContexts[0]).not.toBe(sourceContext);
+    expect(targetContexts[0]?.config).not.toBe(sourceContext.config);
+    expect(sourceContext.config?.allowSelectOptionAutoCreate).toBe(false);
     expect(resolved.resolvedValues.get(linkField.id().toString())?.get('Alpha')).toEqual({
       id: existingRecordId,
       title: 'Alpha',

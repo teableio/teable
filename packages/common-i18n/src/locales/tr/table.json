@@ -24,7 +24,17 @@
     "records_one": "{{formattedCount}} kayıt",
     "records_other": "{{formattedCount}} kayıt",
     "batchesComplete": "Tamamlanan toplu işlemler {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} için hesaplama ilerlemesi"
+    "progressAriaLabel": "{{fieldName}} için hesaplama ilerlemesi",
+    "statusUnavailable": "Hesaplama durumu geçici olarak kullanılamıyor",
+    "statusSyncing": "Hesaplama durumu kontrol ediliyor",
+    "statusSyncingDescription": "En son hesaplama durumunu kontrol ediyoruz. Bu, hesaplamaların çalıştığı anlamına gelmez.",
+    "statusUnavailableDescription": "En son hesaplama durumu yüklenemedi. Tekrar denemek için durumu yenileyin; bu işlem hesaplamaları yeniden başlatmaz.",
+    "refreshStatus": "Durumu yenile",
+    "paused": "Hesaplamalar duraklatıldı",
+    "resultsNotUpdated": "Bazı hesaplama sonuçları güncellenmedi",
+    "delayed": "Hesaplama güncellemesi gecikti · {{seconds}} sn",
+    "snapshotMayBeStale": "Bilinen son durum gösteriliyor ve güncel olmayabilir.",
+    "unknownImpact": "Bazı hesaplama sonuçları güncellenmedi; etkilenen alanlar belirleniyor"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Bildirim",
@@ -1104,6 +1114,7 @@
     "insertRecordBelow": "Alta <input /> kayıt ekle",
     "deleteRecord": "Kaydı sil",
     "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
+    "copy": "Kopyala",
     "archiveRecord": "Kaydı arşivle",
     "archiveAllSelectedRecords": "Seçili tüm kayıtları arşivle",
     "duplicateRecords": "Seçili kayıtları çoğalt",
@@ -1322,6 +1333,24 @@
       },
       "chooseAccount": "E-tablolar hangi Google hesabından alınsın?"
     },
+    "templateOffer": {
+      "title": "Önerilen şablonlar",
+      "details": "Ayrıntılar",
+      "found_one": "Hazır bir şablon bulundu",
+      "found_other": "{{count}} hazır şablon bulundu",
+      "defaultReason": "Sıfırdan oluşturmak yerine bir şablon yükleyin.",
+      "install": "Yükle",
+      "installing": "Yükleniyor…",
+      "dismiss": "Hayır, teşekkürler",
+      "close": "Kapat",
+      "failed": "Seçiminiz kaydedilemedi. Tekrar deneyin.",
+      "unavailable": "Bu şablonlar artık kullanılamıyor.",
+      "status": {
+        "installed": "Yüklendi",
+        "dismissed": "Atlandı",
+        "failed": "Başarısız"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…",
@@ -1336,6 +1365,10 @@
         "nextQuestion": "Sonraki soru"
       },
       "completion": {
+        "workedFor": "Çalışma süresi: {{time}}",
+        "worked": "Çalıştı",
+        "stoppedAfter": "{{time}} sonra durdurdunuz",
+        "stopped": "Bu yanıtı durdurdunuz",
         "noDetails": "Ayrıntı yok",
         "model": "Model",
         "contextWindow": "Bağlam penceresi",
@@ -1385,14 +1418,10 @@
         "code": "Kod",
         "download": "İndir",
         "downloadHtml": "HTML",
-        "downloadImage": "Görsel (PNG)",
         "copy": "Kopyala",
         "copied": "Kopyalandı!",
         "fullscreen": "Tam ekran",
         "exitFullscreen": "Tam ekrandan çık",
-        "downloadSuccess": "Görsel başarıyla indirildi",
-        "downloadFailed": "Görsel yakalanamadı",
-        "iframeFailed": "Yakalanamadı: iframe erişilebilir değil",
         "iframeTitle": "HTML önizleme"
       }
     },
@@ -1540,7 +1569,25 @@
       "selectionRows": "Satır {{start}}-{{end}}",
       "selectionColumn": "Sütun {{col}}",
       "selectionColumns": "Sütun {{start}}-{{end}}",
-      "selectionColumnsNamed": "{{names}} +{{count}}"
+      "selectionColumnsNamed": "{{names}} +{{count}}",
+      "selectionUnnamed": "Adsız kayıt",
+      "selectionRecords": "{{count}} kayıt",
+      "selectionCellCount": "{{count}} hücre",
+      "selectionRecordType": "Kayıt referansı",
+      "selectionCellType": "Hücre referansı",
+      "selectionDimensions": "{{rows}} satır × {{columns}} sütun",
+      "selectionUnavailable": "Kullanılamıyor veya silinmiş",
+      "selectionLegacyUnavailable": "Bu eski referansın kararlı seçim kimlikleri yok. Önizleme kullanılamıyor.",
+      "selectionSourceUnknown": "Kaynak kullanılamıyor",
+      "selectionPreview": "Seçimi önizle: {{label}}",
+      "selectionSource": "Kaynak tablo: {{table}}",
+      "selectionSelectedFields": "Bu bağlama yalnızca seçili alanlar dahil edilir.",
+      "selectionIdentificationOnly": "Birincil başlık yalnızca tanımlama amacıyla gösterilir.",
+      "selectionEmpty": "Boş",
+      "selectionOpenRecord": "Kaydı aç: {{name}}",
+      "selectionPrevious": "Önceki",
+      "selectionNext": "Sonraki",
+      "selectionPage": "{{count}} kayıttan {{start}}–{{end}}"
     },
     "mention": {
       "tables": "Tablolar",
@@ -1569,7 +1616,6 @@
     },
     "attachment": {
       "pastedTextFileName": "Yapıştırılan metin",
-      "imageNotSupported": "Görsel desteklenmiyor",
       "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz"
     },
     "artifact": {
@@ -1631,9 +1677,12 @@
       "nQueued": "{{count}} kuyrukta",
       "edit": "Düzenle",
       "steerNow": "Kesintiye uğratmadan konuşmayı yönlendir",
-      "steerFailed": "Konuşma yönlendirilemedi. Mesaj kuyrukta kaldı.",
+      "steer": "Yönlendir",
       "conversationInputMarker": "Konuşma yönlendirildi",
-      "removeFromQueue": "Kaldır"
+      "removeFromQueue": "Kaldır",
+      "paused": "Araya girdiğiniz için kuyruk duraklatıldı",
+      "resume": "Devam et",
+      "queueFull": "Gönderim kuyruğu dolu. Cuppy'nin yetişmesini bekleyin."
     },
     "partTool": {
       "bash": "Komut çalıştır",
@@ -1648,6 +1697,8 @@
       "skill": "Beceri yükleniyor",
       "foundFiles": "{{count}} dosya bulundu",
       "listedEntries": "{{count}} girdi",
+      "ranCommands_one": "{{count}} komut çalıştırıldı",
+      "ranCommands_other": "{{count}} komut çalıştırıldı",
       "moreItems": "+{{count}} daha",
       "fallbackName": "Araç",
       "questionCount_one": "{{count}} soru",
@@ -1771,6 +1822,8 @@
       "droppedRulesDetail": "Bu kurallar taşınan düğümlere bağlıdır; bunun yerine hedef projenin izin ayarları geçerli olur.",
       "successTitle": "Taşındı",
       "successDescription": "\"{{name}}\" artık {{baseName}} içinde.",
+      "successDescription_one": "<b>{{count}}</b> düğüm <b>{{baseName}}</b> projesine taşındı",
+      "successDescription_other": "<b>{{count}}</b> düğüm <b>{{baseName}}</b> projesine taşındı",
       "open": "Aç",
       "appEmbeddedId_one": "{{count}} uygulamanın kodunda eski proje geçiyor; kendiniz güncelleyin",
       "appEmbeddedId_other": "{{count}} uygulamanın kodunda eski proje geçiyor; kendiniz güncelleyin",

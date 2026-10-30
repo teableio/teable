@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getUniqName, hasPermission, Role } from '@teable/core';
+import { hasPermission, Role } from '@teable/core';
 import { Plus } from '@teable/icons';
 import {
   createBase,
@@ -38,7 +38,8 @@ import { useBaseList } from './useBaseList';
 /**
  * The space's page: its name, plan and actions above its projects and collaborators. With
  * `title`, a page about the space's projects instead (the chat-first shell's Projects page):
- * that title in place of the space's name and badges, and only creating and importing projects.
+ * that title in place of the space's name and badges, no stars, since that shell lists no starred
+ * projects, and only creating and importing projects.
  */
 export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
   const router = useRouter();
@@ -118,8 +119,7 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
   });
 
   const handleCreateBase = () => {
-    const name = getUniqName(t('common:noun.base'), basesInSpace?.map((base) => base.name) || []);
-    createBaseMutator({ spaceId, name });
+    createBaseMutator({ spaceId });
   };
 
   const canCreateBase = space && hasPermission(space.role, 'base|create');
@@ -270,6 +270,7 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
                 baseIds={basesInSpace.map((base) => base.id)}
                 spaceId={spaceId}
                 showToolbar={true}
+                showStar={!title}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">

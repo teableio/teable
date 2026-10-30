@@ -7,14 +7,13 @@ import { z } from '../zod';
 
 export const DEFAULT_MAX_SEARCH_FIELD_COUNT = Infinity;
 
-export const searchIndexVoSchema = z
-  .object({
-    index: z.number(),
-    fieldId: z.string(),
-    recordId: z.string(),
-  })
-  .array()
-  .nullable();
+export const searchMatchSchema = z.object({
+  index: z.number(),
+  fieldId: z.string(),
+  recordId: z.string(),
+});
+
+export const searchIndexVoSchema = searchMatchSchema.array().nullable();
 
 export type ISearchIndexVo = z.infer<typeof searchIndexVoSchema>;
 
@@ -44,7 +43,7 @@ export const GetSearchIndexRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
-    query: queryBaseSchema,
+    query: searchIndexByQueryRoSchema,
   },
   responses: {
     200: {

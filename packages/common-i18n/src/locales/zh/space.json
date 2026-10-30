@@ -53,7 +53,7 @@
   "more": "更多",
   "pin": {
     "add": "添加到收藏",
-    "remove": "从收藏中移除",
+    "remove": "取消收藏",
     "pin": "收藏",
     "empty": "您收藏的项目和空间将显示在这里"
   },
@@ -201,31 +201,63 @@
     "manual": "手动排序"
   },
   "publishBase": {
-    "title": "发布到模版中心",
-    "description": "一键发布项目到模版中心！让更多人看到、使用和 Remix 你的创意，一起构建更强大的业务",
-    "infoTitle": "基本信息",
+    "title": "发布到模板中心",
+    "description": "一键发布到模板中心！让更多人看到你的创意",
+    "infoTitle": "展示信息",
     "form": {
-      "title": "作品名称",
-      "description": "描述",
-      "security": "安全",
-      "advanced": "高级",
-      "publishNode": "发布节点",
-      "includeData": "包含数据",
-      "defaultActiveNode": "默认展示节点",
-      "descriptionPlaceholder": "简要描述你的想法...",
-      "titlePlaceholder": "为你的作品命名..."
+      "title": "名称",
+      "description": "详细介绍",
+      "changelog": "更新说明",
+      "changelogPlaceholder": "面向已安装用户说明本次变更，将显示在升级预览中",
+      "publishNode": "包含的内容",
+      "includeData": "包含示例数据",
+      "defaultActiveNode": "默认打开",
+      "descriptionPlaceholder": "它解决什么问题、怎么用",
+      "titlePlaceholder": "给它起个名字",
+      "cover": "封面",
+      "coverHint": "16:9，用于目录卡片与公开页",
+      "versionTitle": "版本内容",
+      "addChangelog": "添加更新说明"
     },
-    "publishToCommunity": "发布到模版中心",
+    "publishToCommunity": "发布到模板中心",
     "publish": "发布",
     "publishSuccess": "发布成功！",
-    "previewTips": "让世界看到你的作品",
+    "previewTips": "目录预览",
     "update": "更新",
-    "unPublish": "取消发布",
-    "unPublishSuccess": "取消发布成功！",
-    "unPublishConfirmTitle": "确认取消发布",
-    "unPublishConfirmDescription": "确定要取消发布此项目吗？取消发布后，该项目将不再在模版中心显示。",
-    "uploadCover": "点击上传封面图片",
-    "changeCover": "点击更换封面",
+    "submit": "提交审核",
+    "submitted": "已提交审核",
+    "review": {
+      "status": {
+        "review": "审核中",
+        "rejected": "已退回",
+        "withdrawn": "已撤回"
+      },
+      "submittedTime": "提交于 {{time}}",
+      "note": "审核备注",
+      "checks": "自动检查",
+      "check": {
+        "connectors": "连接",
+        "privacy": "隐私",
+        "estimate": "运行量估算",
+        "trial": "试运行"
+      },
+      "checkMessage": {
+        "connectors": "这里接不了：{{providers}}",
+        "privacy": "带了记录，请检查其中是否有个人信息",
+        "estimate": "每月约 {{runs}} 次，超过免费版的 {{free}} 次",
+        "trial": "自动化不需要任何账号，请确认不接账号也能跑"
+      },
+      "withdraw": "撤回",
+      "withdrawn": "已撤回提交。",
+      "live": "已上线 · v{{version}}",
+      "publicLink": "公开链接"
+    },
+    "unPublish": "下架",
+    "unPublishSuccess": "已下架。",
+    "unPublishConfirmTitle": "确认下架？",
+    "unPublishConfirmDescription": "下架后其他人无法在目录中找到或安装；已安装的副本不受影响，之后可重新提交上架。",
+    "uploadCover": "上传封面",
+    "changeCover": "更换封面",
     "uploading": "图片上传中...",
     "uploadSuccess": "图片上传成功",
     "uploadFailed": "上传失败",
@@ -237,9 +269,7 @@
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
     "featuredLabel": "精选",
-    "unfeaturedLabel": "未精选",
-    "featuredTip": "已入选官方精选，将获得更多曝光与推荐。",
-    "unfeaturedTip": "暂未入选官方精选，持续打磨与更新，有机会获得推荐，让更多人看到你的作品。",
+    "featuredTip": "已入选官方精选，你的模板将获得更多曝光与推荐。",
     "publishSuccessDescription": "分享你的作品到世界",
     "shareWith": "分享到",
     "unpublishedApps": {
@@ -252,12 +282,13 @@
       "notPublished": "未发布",
       "publishFailed": "发布失败",
       "publishFailedTip1": "检查源应用是否能正常发布",
-      "publishFailedTip2": "尝试重新发布此模板",
+      "publishFailedTip2": "尝试重新提交此模板",
       "ignoreAndContinue": "忽略并继续",
       "goToFix": "去修复",
       "redeploy": "重新部署",
       "unnamedApp": "未命名应用"
-    }
+    },
+    "submitVersion": "提交 v{{version}} 审核"
   },
   "dataDb": {
     "create": {
