@@ -87,6 +87,11 @@ jobs:
             platform_key: linux-arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    # ghcr is written with this repository's GITHUB_TOKEN; each package grants
+    # teableio/teable Write under "Manage Actions access".
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -97,7 +102,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.PACKAGES_KEY }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -144,6 +149,9 @@ jobs:
             image: teable-community
           - target: db-migrate
             image: teable-db-migrate-community
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Login to GitHub container registry
@@ -151,7 +159,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.PACKAGES_KEY }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -205,6 +213,8 @@ jobs:
   sync-dockerhub:
     needs: [prepare-release, build-push, merge-manifests]
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Install skopeo
         run: |
@@ -213,7 +223,7 @@ jobs:
 
       - name: Sync images to Docker Hub
         env:
-          SRC_CREDS: ${{ github.actor }}:${{ secrets.PACKAGES_KEY }}
+          SRC_CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
           DST_CREDS: ${{ secrets.DOCKER_HUB_NAME }}:${{ secrets.DOCKER_HUB_AK }}
           TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
         run: |
@@ -236,6 +246,8 @@ jobs:
   sync-aliyun:
     needs: [prepare-release, build-push, merge-manifests]
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Install skopeo
         run: |
@@ -244,7 +256,7 @@ jobs:
 
       - name: Sync images to Aliyun
         env:
-          SRC_CREDS: ${{ github.actor }}:${{ secrets.PACKAGES_KEY }}
+          SRC_CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
           DST_CREDS: ${{ secrets.ALI_DOCKER_USERNAME }}:${{ secrets.ALI_DOCKER_PASSWORD }}
           TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
         run: |
