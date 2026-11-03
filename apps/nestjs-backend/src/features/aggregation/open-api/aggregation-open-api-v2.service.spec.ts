@@ -31,6 +31,8 @@ describe('AggregationOpenApiV2Service', () => {
     aggregateGroups?: Parameters<typeof AggregateTableRecordsResult.create>[1];
     pluginScope?: Record<string, unknown>;
     searchMatches?: NonNullable<Parameters<typeof ListTableRecordsResult.create>[5]>;
+    records?: Parameters<typeof ListTableRecordsResult.create>[0];
+    hasMore?: boolean;
     calendarEntries?: Parameters<typeof GetCalendarDailyCollectionResult.create>[0];
     calendarRecords?: Parameters<typeof GetCalendarDailyCollectionResult.create>[1];
   }) => {
@@ -41,12 +43,15 @@ describe('AggregationOpenApiV2Service', () => {
         if (query instanceof ListTableRecordsQuery) {
           return ok(
             ListTableRecordsResult.create(
-              [],
+              options?.records ?? [],
               options?.total ?? 0,
               0,
               1,
               undefined,
-              options?.searchMatches
+              options?.searchMatches,
+              undefined,
+              undefined,
+              options?.hasMore
             )
           );
         }
@@ -581,6 +586,94 @@ describe('AggregationOpenApiV2Service', () => {
     );
     expect(countQuery?.projection).toEqual([fieldId]);
     expect(countQuery?.searchFieldScope).toBe('projection');
+  });
+
+  it('serves exact cell counts without changing row-count mode', async () => {
+    const fixture = createFixture({ total: 3 });
+
+    await expect(
+      fixture.service.getSearchCellCount(tableId, {
+        viewId,
+        search: ['Cup', '', true],
+        projection: [fieldId],
+      })
+    ).resolves.toEqual({ matchedCellCount: 3 });
+
+    const countQuery = fixture.queries.find(
+      (query): query is CountTableRecordsQuery => query instanceof CountTableRecordsQuery
+    );
+    expect(countQuery?.countSearchMatches).toBe(true);
+    expect(countQuery?.projection).toEqual([fieldId]);
+  });
+
+  it('preserves an empty host permission projection as a fail-closed search scope', async () => {
+    const fixture = createFixture({ total: 0 });
+
+    await fixture.service.getSearchCellCount(tableId, { search: ['Cup', '', true] }, []);
+    const countQuery = fixture.queries.find(
+      (query): query is CountTableRecordsQuery => query instanceof CountTableRecordsQuery
+    );
+
+    expect(countQuery?.projection).toEqual([]);
+    expect(countQuery?.searchFieldIds).toBeUndefined();
+  });
+
+  it('preserves an empty host permission projection for match scans', async () => {
+    const fixture = createFixture();
+
+    await fixture.service.getSearchMatches(tableId, { take: 10, search: ['Cup', '', false] }, []);
+    const listQuery = fixture.queries.find(
+      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
+    );
+
+    expect(listQuery?.projection).toEqual([]);
+    expect(listQuery?.searchFieldIds).toBeUndefined();
+  });
+
+  it('returns scan pagination even when cell hits do not define the page boundary', async () => {
+    const recordId = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
+    const fixture = createFixture({
+      records: [{ id: recordId.toString(), fields: {}, version: 1 }],
+      searchMatches: [
+        { index: 4, fieldId: primaryFieldId, recordId },
+        { index: 4, fieldId: primaryFieldId, recordId },
+      ],
+      hasMore: true,
+    });
+
+    await expect(
+      fixture.service.getSearchMatches(tableId, {
+        skip: 4,
+        take: 1,
+        search: ['Cup', '', false],
+        selectedRecordIds: [recordId.toString()],
+      })
+    ).resolves.toEqual({
+      matches: [
+        { index: 4, fieldId, recordId: recordId.toString() },
+        { index: 4, fieldId, recordId: recordId.toString() },
+      ],
+      scannedRecordCount: 1,
+      nextSkip: 5,
+      hasMore: true,
+    });
+    const listQuery = fixture.queries.find(
+      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
+    );
+    expect(listQuery?.applySearchRowFilter).toBe(false);
+    expect(listQuery?.selectedRecordIds?.map((id) => id.toString())).toEqual([recordId.toString()]);
+  });
+
+  it('rejects match scans in hide-not-match mode before resolving persistence', async () => {
+    const fixture = createFixture();
+
+    await expect(
+      fixture.service.getSearchMatches(tableId, {
+        take: 10,
+        search: ['Cup', '', true],
+      })
+    ).rejects.toMatchObject({ status: 400 });
+    expect(fixture.getContainerForTable).not.toHaveBeenCalled();
   });
 
   it.each([

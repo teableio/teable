@@ -10,13 +10,17 @@ import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreat
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
+import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
+import {
+  RecordWriteOperationKind,
+  type RecordWriteCreateManyPayload,
+} from '../../ports/RecordWritePlugin';
 import type {
   ITableRecordRepository,
   BatchRecordMutationResult,
@@ -49,6 +53,7 @@ export interface IRecordBatchCreationInput {
   readonly typecast: boolean;
   readonly order?: RecordInsertOrder;
   readonly isTransactionBound: boolean;
+  readonly linkTitleSource?: RecordWriteCreateManyPayload['linkTitleSource'];
 }
 
 export interface IRecordBatchCreationResult {
@@ -101,6 +106,7 @@ export class RecordBatchCreationService {
           order: input.order,
           recordCount: resolvedRecordsFieldValues.length,
           isolateRowOverflow: true,
+          ...(input.linkTitleSource ? { linkTitleSource: input.linkTitleSource } : {}),
         },
         isTransactionBound: input.isTransactionBound,
       });
@@ -265,11 +271,16 @@ export class RecordBatchCreationService {
       let record = records[index]!;
       const mutateSpec = resolveManyResult.value[index] ?? null;
       if (mutateSpec) {
-        const mutateResult = mutateSpec.mutate(record);
-        if (mutateResult.isErr()) {
-          return err(mutateResult.error);
+        const materialized = materializeRecordSpec({
+          id: record.id(),
+          tableId: record.tableId(),
+          spec: mutateSpec,
+          baseFields: record.fields().entries(),
+        });
+        if (materialized.isErr()) {
+          return err(materialized.error);
         }
-        record = mutateResult.value;
+        record = materialized.value;
       }
       resolvedRecords.push(record);
     }

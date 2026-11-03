@@ -26,6 +26,7 @@ vi.mock('../../../hooks/use-view-id', () => ({ useViewId: () => view.id }));
 vi.mock('../../../hooks/use-table-id', () => ({ useTableId: () => 'tblScroll' }));
 vi.mock('../../../hooks/use-search', () => ({ useSearch: () => search }));
 vi.mock('../../../hooks/use-connection', () => ({ useConnection: vi.fn() }));
+vi.mock('../../../hooks/use-table-listener', () => ({ useTableListener: vi.fn() }));
 
 // Keep the real ShareDB client and both record hooks. Only server transport is
 // controlled, so a new window can remain pending while the grid renders.

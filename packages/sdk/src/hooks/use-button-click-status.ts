@@ -10,7 +10,7 @@ import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import type { Record as IRecord } from '../model';
-import { useConnection } from './use-connection';
+import { usePresenceConnection } from './use-presence-connection';
 
 // Resolve field variables in template string
 // e.g., "Hello {fldXXX}" => "Hello World" (where fldXXX field value is "World")
@@ -33,7 +33,7 @@ export interface IButtonClickStatus {
 const { toast } = sonner;
 
 export const useButtonClickStatus = (tableId: string, shareId?: string) => {
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const channel = getTableButtonClickChannel(tableId);
   const presence = connection?.getPresence(channel);
   // runId => status

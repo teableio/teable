@@ -185,8 +185,55 @@ describe('RecordBatchCreationService', () => {
 
     expect(calls.prepare).toHaveLength(1);
     expect(calls.guard).toHaveLength(1);
+    expect(calls.afterGuard).toHaveLength(1);
     expect(calls.beforePersist).toHaveLength(1);
     expect(calls.afterCommit).toHaveLength(1);
+  });
+
+  it('passes link-title creation provenance to every write-plugin phase', async () => {
+    const table = buildBasicTable();
+    const sourceTable = buildBasicTable();
+    const linkTitleSource = {
+      baseId: sourceTable.baseId(),
+      tableId: sourceTable.id(),
+      fieldId: sourceTable.primaryFieldId(),
+    };
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createMany]);
+    const service = new RecordBatchCreationService(
+      new FakeTableRecordRepository(),
+      noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner([plugin]),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      noopTableUpdateFlow
+    );
+
+    const result = await service.create(createContext(), {
+      table,
+      recordsFieldValues: [new Map([[table.primaryFieldId().toString(), 'Missing title']])],
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      isTransactionBound: true,
+      linkTitleSource,
+    });
+
+    await result._unsafeUnwrap().afterCommit();
+
+    for (const contexts of [
+      calls.prepare,
+      calls.guard,
+      calls.afterGuard,
+      calls.beforePersist,
+      calls.afterCommit,
+    ]) {
+      expect(contexts).toHaveLength(1);
+      expect(contexts[0]).toMatchObject({
+        kind: RecordWriteOperationKind.createMany,
+        payload: { linkTitleSource },
+      });
+      expect(contexts[0]?.table.id().equals(table.id())).toBe(true);
+    }
   });
 
   it('surfaces repository conflicts and does not run deferred afterCommit on failure', async () => {
@@ -223,6 +270,7 @@ describe('RecordBatchCreationService', () => {
     expect(recordRepository.insertedRecords).toHaveLength(0);
     expect(calls.prepare).toHaveLength(1);
     expect(calls.guard).toHaveLength(1);
+    expect(calls.afterGuard).toHaveLength(1);
     expect(calls.beforePersist).toHaveLength(1);
     expect(calls.afterCommit).toHaveLength(0);
   });

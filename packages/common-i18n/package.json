@@ -35,7 +35,7 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "24.13.2",
+    "@types/node": "24.19.2",
     "cross-env": "7.0.3",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",

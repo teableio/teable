@@ -668,10 +668,18 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
                 `${edge.fromTableId.toString()}|${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`
               )
           );
+          // Unchanged formula sources only prune propagation, not explicit dirty
+          // targets from relation changes. Insert lock-only extras were removed
+          // from asyncPlan above and must not keep an otherwise empty remainder.
           if (
             !anyGatedChange &&
             asyncOnlyGatedTargets &&
-            gated.every((edge) => gatedSourcesExecuted(edge))
+            gated.every((edge) => gatedSourcesExecuted(edge)) &&
+            !asyncPlan.extraSeedRecords.some(
+              (group) =>
+                group.recordIds.length > 0 &&
+                asyncSteps.some((step) => step.tableId.equals(group.tableId))
+            )
           ) {
             return ok({ changesByStep: allSyncChangesByStep });
           }

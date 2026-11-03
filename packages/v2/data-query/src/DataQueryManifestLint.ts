@@ -13,7 +13,7 @@ export const dataQueryLintCodes = {
   queryUsageUnknown: 'QUERY_USAGE_UNKNOWN',
   /** SQL retirement freeze: new `mode: sql-query` entries are not accepted. */
   sqlQueryFrozen: 'data_query.sql_query_frozen',
-  /** A declared `mode: auto` SQL fallback, reported at info so `--strict` stays off. */
+  /** A frozen `mode: auto` compatibility entry; its SQL fallback never executes. */
   autoSqlFallback: 'data_query.auto_sql_fallback',
 } as const;
 
@@ -115,8 +115,8 @@ const definitionLocation = (queryId: string): string => `queries.${queryId}.defi
 
 /**
  * SQL retirement freeze, authoring-time only. `mode: sql-query` is a warning so
- * `--strict` fails; `mode: auto` keeps a declared SQL fallback and is reported as
- * info, which never changes the exit code. Neither finding is a schema rejection.
+ * `--strict` fails; `mode: auto` is a frozen compatibility state whose fallback
+ * never executes and is reported as info. Neither finding is a schema rejection.
  */
 export const sqlFreezeFindings = (manifest: DataQueryManifest): DataQueryLintFinding[] => {
   const findings: DataQueryLintFinding[] = [];
@@ -128,7 +128,7 @@ export const sqlFreezeFindings = (manifest: DataQueryManifest): DataQueryLintFin
         severity: 'warning',
         queryId,
         location: `queries.${queryId}.mode`,
-        message: `Query \`${queryId}\` is frozen to \`mode: sql-query\`. New SQL-only queries are not accepted: declare a structured definition, or use \`mode: auto\` with a structured definition and a SQL fallback while the operation is still unsupported. Migrate existing SQL-only query IDs instead of extending them.`,
+        message: `Query \`${queryId}\` is frozen to \`mode: sql-query\`. New SQL-only queries are not accepted: declare a structured definition. Automatic SQL fallback is also frozen, so \`mode: auto\` is not a migration target. Migrate existing SQL-only query IDs instead of extending them.`,
       });
     } else if (mode === 'auto') {
       findings.push({
@@ -136,7 +136,7 @@ export const sqlFreezeFindings = (manifest: DataQueryManifest): DataQueryLintFin
         severity: 'info',
         queryId,
         location: `queries.${queryId}.mode`,
-        message: `Query \`${queryId}\` uses \`mode: auto\`, so it still executes its SQL fallback after a \`data_query.unsupported_*\` error. This declared migration state is allowed and reported as info only, which never fails \`--strict\`; remove the fallback once the structured definition is fully supported.`,
+        message: `Query \`${queryId}\` uses \`mode: auto\`. Automatic SQL fallback is frozen (C1 decision, 2026-11-02): the structured definition runs and capability errors stay errors; the declared fallback is never executed. This compatibility state is info only and never fails \`--strict\`; migrate to \`structured\` or an explicit \`sql-query\` entry.`,
       });
     }
   }

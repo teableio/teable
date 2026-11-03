@@ -11,10 +11,10 @@ import {
   type RecordQueryPluginScope,
   type Table,
 } from '@teable/v2-core';
-import { DataQueryDefinition, DataQueryService } from '@teable/v2-data-query';
+import { DataQueryBinding, DataQueryDefinition, DataQueryService } from '@teable/v2-data-query';
 import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createPGliteDb,
@@ -95,6 +95,25 @@ describe('PostgresDataQueryExecutor real SQL', () => {
 
   afterEach(async () => {
     await database.db.destroy();
+  });
+
+  it('uses a supplied binding without re-preparing it', async () => {
+    const definition = recordsDefinition();
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+    const prepare = vi.spyOn(DataQueryBinding, 'prepare');
+
+    const result = await executor.execute(
+      context,
+      table,
+      definition.bind({})._unsafeUnwrap(),
+      {},
+      binding
+    );
+    const prepareCalls = prepare.mock.calls.length;
+    prepare.mockRestore();
+
+    expect(result.isOk()).toBe(true);
+    expect(prepareCalls).toBe(0);
   });
 
   it('describes composite user/link wire values and preserves unsafe numeric strings', async () => {

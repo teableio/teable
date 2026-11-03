@@ -31,6 +31,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { baseDisplayName } from '../../utils/base-name';
 import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -40,6 +41,7 @@ import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
+import { exportBaseObjectPath } from './export-cleanup/export-base-path';
 
 type ExportDb = Kysely<unknown>;
 
@@ -181,7 +183,7 @@ export class BaseExportV2Service {
     const metaDb = container.resolve<ExportDb>(v2MetaDbTokens.db);
     const dataDb = container.resolve<ExportDb>(v2DataDbTokens.db);
     const base = await this.getBase(metaDb, baseId);
-    const baseName = base.name;
+    const baseName = baseDisplayName(base.name);
     const passThrough = new PassThrough();
     const archive = archiver('zip', EXPORT_ZIP_OPTIONS);
     const guard = guardExportArchive(archive, passThrough);
@@ -189,11 +191,11 @@ export class BaseExportV2Service {
 
     const token = getRandomString(12);
     const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
-    const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
+    const linkExpiresIn = second(this.storageConfig.tokenExpireIn);
     const exportFileName = `${baseName}.${fileSuffix}`;
     const uploadPromise = this.storageAdapter.uploadFileStream(
       bucket,
-      `${pathDir}/${token}.${fileSuffix}`,
+      exportBaseObjectPath(token, fileSuffix, linkExpiresIn),
       passThrough,
       {
         'Content-Type': 'application/octet-stream',
@@ -216,7 +218,7 @@ export class BaseExportV2Service {
       const previewUrl = await this.storageAdapter.getPreviewUrl(
         bucket,
         uploadResult.path,
-        second(this.storageConfig.tokenExpireIn),
+        linkExpiresIn,
         {
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
         }
@@ -227,6 +229,7 @@ export class BaseExportV2Service {
         {
           i18nKey: 'common.email.templates.notify.exportBase.success.message',
           context: {
+            baseId,
             baseName,
             previewUrl,
             name: exportFileName,
@@ -256,6 +259,7 @@ export class BaseExportV2Service {
         {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
           context: {
+            baseId,
             baseName,
             errorMessage: message,
           },
@@ -386,7 +390,7 @@ export class BaseExportV2Service {
   ) {
     return {
       id: base.id,
-      name: base.name,
+      name: baseDisplayName(base.name),
       icon: base.icon,
       version: resolveBuildVersion(),
       tables: tables.map((table) => ({

@@ -299,6 +299,8 @@
     "duplicateRecord": "Duplicate record",
     "addToChat": "Add to Chat",
     "copyRecordUrl": "Copy record URL",
+    "copyLink": "Copy link",
+    "history": "History",
     "deleteRecord": "Delete record",
     "addRecordComment": "Add comment",
     "viewRecordHistory": "View record history",
@@ -1150,7 +1152,7 @@
     "space": {
       "notFound": "Space not found",
       "noPermission": "You have no permission to access this space",
-      "disallowSpaceCreation": "Space creation has been disabled by the administrator",
+      "disallowSpaceCreation": "A system admin has turned off space creation",
       "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
       "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space",
       "deleted": "Space has been deleted",
@@ -1285,7 +1287,8 @@
       "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
       "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})",
       "checkIdNotExist": "Permission check ID does not exist",
-      "userNotAdmin": "User is not an admin",
+      "userNotAdmin": "User is not a system admin",
+      "userNotOrganizationAdmin": "User is not an organization admin",
       "accessTokenNoPermission": "Access token does not have the required permission",
       "invalidResource": "Resource is not valid",
       "notAllowedSpace": "You don't have permission to access this space",
@@ -1563,7 +1566,7 @@
       "invalidDotteaStructure": "The .tea file structure is invalid or not supported. Please export the project again and retry."
     },
     "invitation": {
-      "disallowSpaceInvitation": "The current instance disallow space invitation by the administrator",
+      "disallowSpaceInvitation": "A system admin has turned off space invitations",
       "invalidCode": "Invalid invitation code",
       "linkNotFound": "Invitation link not found",
       "linkExpired": "Invitation link has expired",
@@ -1612,7 +1615,7 @@
       "allUnsubscribed": "All recipients have unsubscribed. Check the unsubscribe list."
     },
     "user": {
-      "disallowSignUp": "The current instance disallows sign up by the administrator",
+      "disallowSignUp": "A system admin has turned off sign-up on this instance",
       "signupUnavailableInApp": "No account is linked to this sign-in. Sign in with the account you already use.",
       "emailDomainBanned": "This email domain has been banned due to policy violations",
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
@@ -1620,9 +1623,9 @@
       "systemUser": "User is a system user",
       "soleOwnerOfSpaces": "User is the only owner of spaces that must be acknowledged or handed over before the account can be deleted",
       "notFound": "User not found",
-      "cannotDeleteAdmin": "Cannot delete admin user",
-      "cannotDeactivateAdmin": "Cannot deactivate admin user",
-      "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user",
+      "cannotDeleteAdmin": "Cannot delete a system admin",
+      "cannotDeactivateAdmin": "Cannot deactivate a system admin",
+      "cannotRemoveLastAdmin": "Cannot remove the last active system admin",
       "permanentDeleted": "User is permanently deleted",
       "cannotDeleteSelf": "Cannot delete yourself",
       "alreadyInDepartment": "User {{userId}} already in target department",
@@ -1656,7 +1659,12 @@
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found",
       "takeCountTooLarge": "The number of templates requested exceeds the maximum limit",
-      "categoryLimitReached": "Template category limit reached (max {{maxCount}})"
+      "categoryLimitReached": "Template category limit reached (max {{maxCount}})",
+      "categoryHasChildren": "This industry still has sub-industries; delete them first",
+      "categoryDepthExceeded": "A sub-industry cannot have sub-industries of its own",
+      "teamIsFlat": "A team has neither a parent nor sub-categories",
+      "categoryKeyTaken": "This URL key is already used by another category",
+      "slugTaken": "This URL slug is already used by another template"
     },
     "department": {
       "parentNotFound": "Parent department not found",
@@ -1683,6 +1691,8 @@
       "domainReserved": "Subdomain is reserved",
       "siteInfoBeforeGeneration": "Generate the app before customizing its site info",
       "generationEditingConflict": "An AI generation is currently editing this app. Please retry the file update after it finishes.",
+      "codeCopying": "The app code is still being copied. Please try again in a moment.",
+      "codeCopyFailed": "The app code failed to copy. Duplicate the app again.",
       "siteInfoLayoutNotEditable": "This app's code isn't set up to accept site info edits here. Send a chat message asking the AI to change the site title, description or icon instead.",
       "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead.",
       "accessLinkSetupFailed": "Access link setup failed: {{detail}}",
@@ -1738,7 +1748,8 @@
     "requestFailed": "Request failed",
     "operationFailed": "Operation failed: {{detail}}",
     "filter": {
-      "operatorNoFieldReference": "Operator {{operator}} cannot compare against another field"
+      "operatorNoFieldReference": "Operator {{operator}} cannot compare against another field",
+      "fieldReferenceIncompatible": "Field {{reference}} has an incompatible type and cannot be compared with {{source}}"
     },
     "oauth": {
       "invalidRequest": "Invalid OAuth request: {{detail}}",
@@ -1761,7 +1772,7 @@
     },
     "im": {
       "feishuNotConfigured": "Feishu app credentials are not configured",
-      "slackNotConfigured": "Slack is not configured. An admin must configure the Slack app in IM integration settings."
+      "slackNotConfigured": "Slack is not configured on this instance. Contact a system admin to set it up in IM integration settings."
     },
     "computed": {
       "pausedWriteBlocked": "Calculations are paused for maintenance, so this change cannot be saved right now. Please try again later."

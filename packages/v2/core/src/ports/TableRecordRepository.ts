@@ -282,6 +282,11 @@ export interface UpdateManyStreamResult {
     recordId: RecordId;
     oldVersion: number;
     newVersion: number;
+    /**
+     * Authoritative before-values for every mutable field requested for this row.
+     * Empty cells must be present as null; an absent key is incomplete capture,
+     * not permission to reconstruct the old value from a planning pre-read.
+     */
     oldFieldValues: Readonly<Record<string, unknown>>;
     /** Persisted values normalized by storage, such as SQL-filled link titles. */
     changedFields?: ReadonlyMap<string, unknown>;

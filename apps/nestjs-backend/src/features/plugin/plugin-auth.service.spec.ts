@@ -13,6 +13,7 @@ import type { IClsStore } from '../../types/cls';
 import type { AccessTokenService } from '../access-token/access-token.service';
 import type { AuditScope } from '../audit/audit-scope';
 import type { TeableJwtService } from '../auth/jwt/teable-jwt.service';
+import type { PermissionService } from '../auth/permission.service';
 import { PluginAuthService } from './plugin-auth.service';
 
 describe('PluginAuthService', () => {
@@ -55,6 +56,8 @@ describe('PluginAuthService', () => {
   const cls = { get: getCls } as unknown as ClsService<IClsStore>;
   const emitAtomic = vitest.fn();
   const audit = { emitAtomic } as unknown as AuditScope;
+  const getPermissionByBaseId = vitest.fn();
+  const permissionService = { getPermissionByBaseId } as unknown as PermissionService;
 
   const pluginId = 'plgTest';
   const baseId = 'bseTest';
@@ -82,7 +85,8 @@ describe('PluginAuthService', () => {
       accessTokenService,
       jwtService,
       cls,
-      audit
+      audit,
+      permissionService
     );
 
     (service as any).validateSecret = vitest.fn().mockResolvedValue({
@@ -101,17 +105,41 @@ describe('PluginAuthService', () => {
     viewFindFirst.mockResolvedValue(null);
     pluginPanelFindFirst.mockResolvedValue(null);
     pluginContextMenuFindFirst.mockResolvedValue(null);
-    getAuthCode.mockResolvedValue({ pluginId, baseId });
+    getCls.mockReturnValue('usrMinter');
+    getPermissionByBaseId.mockResolvedValue(['base|read']);
+    getAuthCode.mockResolvedValue({
+      pluginId,
+      baseId,
+      userId: 'usrMinter',
+      scopes: ['base|read'],
+    });
   });
 
-  it('stores the plugin and base binding in the auth code', async () => {
+  it('binds the auth code to its minter and the scopes that minter may grant', async () => {
+    getPermissionByBaseId.mockResolvedValue(['base|read', 'record|read', 'record|update']);
+
     await service.authCode(pluginId, baseId);
 
-    expect(setAuthCode).toHaveBeenCalledWith(
-      expect.stringMatching(/^plugin:auth-code:/),
-      { pluginId, baseId },
-      expect.any(Number)
-    );
+    expect(getPermissionByBaseId).toHaveBeenCalledWith(baseId);
+    const [cacheKey, stored] = setAuthCode.mock.calls[0];
+    expect(cacheKey).toMatch(/^plugin:auth-code:/);
+    expect(stored).toMatchObject({ pluginId, baseId, userId: 'usrMinter' });
+    expect([...stored.scopes].sort()).toEqual(['base|read', 'record|read', 'record|update'].sort());
+  });
+
+  it('snapshots only the base permissions that are valid plugin scopes', async () => {
+    // A base role may grant actions that are not grantable to a plugin token (e.g. seat/
+    // permission management); those must never enter the snapshot.
+    getPermissionByBaseId.mockResolvedValue([
+      'base|read',
+      'base|invite_email',
+      'base|authority_matrix_config',
+    ]);
+
+    await service.authCode(pluginId, baseId);
+
+    const [, stored] = setAuthCode.mock.calls[0];
+    expect(stored.scopes).toEqual(['base|read']);
   });
 
   it('audits the auth code as the signed-in user authorizing the plugin for the base', async () => {
@@ -205,6 +233,56 @@ describe('PluginAuthService', () => {
     }
   );
 
+  it('caps the issued scopes to what the code minter could grant, dropping the rest', async () => {
+    // A Viewer-minted code (read-only snapshot) exchanged for record|update must not yield it,
+    // even though the token is seated as the plugin bot. This is the core privilege-escalation fix.
+    getAuthCode.mockResolvedValue({
+      pluginId,
+      baseId,
+      userId: 'usrViewer',
+      scopes: ['base|read', 'record|read'],
+    });
+    const ro: IPluginGetTokenRo = { ...tokenRo, scopes: ['record|read', 'record|update'] };
+
+    const result = await service.token(pluginId, ro);
+
+    expect((service as any).generateAccessToken).toHaveBeenCalledWith(
+      expect.objectContaining({ scopes: ['record|read'] })
+    );
+    expect(result.scopes).toEqual(['record|read']);
+    expect(emitAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { baseId, scopes: ['record|read'] } })
+    );
+  });
+
+  it('rejects a code whose minter could grant none of the requested scopes', async () => {
+    getAuthCode.mockResolvedValue({
+      pluginId,
+      baseId,
+      userId: 'usrViewer',
+      scopes: ['base|read'],
+    });
+    const ro: IPluginGetTokenRo = { ...tokenRo, scopes: ['record|update'] };
+
+    await expect(service.token(pluginId, ro)).rejects.toMatchObject({
+      message: 'Invalid auth code',
+      code: HttpErrorCode.VALIDATION_ERROR,
+    });
+    expect(deleteAuthCode).toHaveBeenCalledWith(`plugin:auth-code:${authCode}`);
+    expect(pluginInstallFindMany).not.toHaveBeenCalled();
+    expect((service as any).generateAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects, fail-closed, a legacy auth code minted before scopes were snapshotted', async () => {
+    getAuthCode.mockResolvedValue({ pluginId, baseId });
+
+    await expect(service.token(pluginId, tokenRo)).rejects.toMatchObject({
+      message: 'Invalid auth code',
+      code: HttpErrorCode.VALIDATION_ERROR,
+    });
+    expect((service as any).generateAccessToken).not.toHaveBeenCalled();
+  });
+
   it('rejects a missing auth code without deleting it', async () => {
     getAuthCode.mockResolvedValue(undefined);
 
@@ -216,7 +294,9 @@ describe('PluginAuthService', () => {
   });
 
   it('rejects replay after the auth code has been consumed', async () => {
-    getAuthCode.mockResolvedValueOnce({ pluginId, baseId }).mockResolvedValueOnce(undefined);
+    getAuthCode
+      .mockResolvedValueOnce({ pluginId, baseId, userId: 'usrMinter', scopes: ['base|read'] })
+      .mockResolvedValueOnce(undefined);
 
     await service.token(pluginId, tokenRo);
     await expect(service.token(pluginId, tokenRo)).rejects.toMatchObject({

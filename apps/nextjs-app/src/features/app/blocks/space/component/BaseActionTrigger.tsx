@@ -54,16 +54,18 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Recycle } from 'lucide-react';
+import { Blocks, Recycle, Send } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useUpgradeAction } from '@/features/app/components/billing/UpgradeWrapper';
 import { BaseInviteDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
+import { PublishBaseDialog } from '../../table/table-header/publish-base/PublishBaseDialog';
 import { EditableSpaceSelect } from './EditableSpaceSelect';
 
 const EXPORT_PHASE_I18N_MAP: Record<string, string> = {
@@ -95,6 +97,8 @@ interface IBaseActionTrigger {
   showAuthorityMatrix?: boolean;
   showDesign?: boolean;
   showTrash?: boolean;
+  showTemplate?: boolean;
+  showPublish?: boolean;
   onRename?: () => void;
   onDelete?: (permanent?: boolean) => void;
   align?: 'center' | 'end' | 'start';
@@ -152,6 +156,8 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showAuthorityMatrix,
     showDesign,
     showTrash,
+    showTemplate,
+    showPublish,
     onDelete,
     onRename,
     align = 'end',
@@ -160,6 +166,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [publishOpen, setPublishOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
@@ -179,9 +186,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tAny = t as (key: string, options?: Record<string, any>) => string;
 
+  // Only the move flow names the target space; the move dialog's select loads the same list.
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
+    enabled: moveConfirm,
   });
 
   const [crossSpaceConfirm, setCrossSpaceConfirm] = React.useState<{
@@ -224,7 +233,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     const newSpace = spaceList?.find((space) => space.id === spaceId)?.name;
     toast.success(t('space:tip.moveBaseSuccessTitle'), {
       description: t('space:tip.moveBaseSuccessDescription', {
-        baseName: base.name,
+        baseName: getBaseDisplayName(base.name, t),
         spaceName: newSpace,
       }),
     });
@@ -323,10 +332,17 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       const detail = (e as CustomEvent).detail as {
         downloadUrl: string;
         fileName: string;
+        baseId?: string;
         baseName: string;
         isSuccess: boolean;
       };
-      if (detail.baseName === base.name) {
+      // The server names the base in the notification with the same placeholder the UI
+      // shows for an unnamed base, so the name comparison only serves notifications that
+      // predate the baseId in the payload.
+      const isThisBase = detail.baseId
+        ? detail.baseId === base.id
+        : detail.baseName === getBaseDisplayName(base.name, t);
+      if (isThisBase) {
         if (slowTipTimerRef.current) {
           clearTimeout(slowTipTimerRef.current);
           slowTipTimerRef.current = null;
@@ -345,7 +361,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
 
     window.addEventListener('export-base-complete', handleExportComplete);
     return () => window.removeEventListener('export-base-complete', handleExportComplete);
-  }, [exportState, base.name]);
+  }, [exportState, base.id, base.name, t]);
 
   const translateExportPhase = React.useCallback(
     (phase: string, detail?: string, event?: IExportBaseProgressEvent) => {
@@ -370,6 +386,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     edit: Boolean(showRename || showDuplicate || showMove),
     access: Boolean(showShare || showInvite || showAuthorityMatrix),
     data: Boolean(showExport || showDesign || showTrash),
+    template: Boolean(showPublish || showTemplate),
     danger: Boolean(showDelete),
   };
   if (!Object.values(groupShown).some(Boolean)) {
@@ -503,6 +520,26 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       ),
     },
     {
+      key: 'template',
+      items: (
+        <>
+          {showPublish && (
+            <DropdownMenuItem onClick={() => setPublishOpen(true)}>
+              <Send className="me-2 size-4" />
+              {t('space:publishBase.publishToCommunity')}
+            </DropdownMenuItem>
+          )}
+          {showTemplate && (
+            <PageLinkItem
+              href={`/base/${base.id}/template`}
+              icon={<Blocks className="me-2 size-4" />}
+              label={t('noun.installedTemplates')}
+            />
+          )}
+        </>
+      ),
+    },
+    {
       key: 'danger',
       items: showDelete && (
         <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
@@ -535,7 +572,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title={t('base.deleteTip', { name: base.name })}
+        title={t('base.deleteTip', { name: getBaseDisplayName(base.name, t) })}
         onCancel={() => setDeleteConfirm(false)}
         content={
           <>
@@ -566,7 +603,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             <DialogTitle className="flex min-w-0 items-center gap-2 pe-6">
               <span className="shrink-0">{t('space:tip.exportTitle')}</span>
               <LayoutGrid className="size-5 shrink-0" />
-              <span className="truncate">{base.name}</span>
+              <span className="truncate">{getBaseDisplayName(base.name, t)}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -669,7 +706,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         open={moveConfirm}
         onOpenChange={setMoveConfirm}
         content={moveBaseContent}
-        title={t('space:baseModal.moveBaseToAnotherSpace', { baseName: base.name })}
+        title={t('space:baseModal.moveBaseToAnotherSpace', {
+          baseName: getBaseDisplayName(base.name, t),
+        })}
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
         onCancel={() => setMoveConfirm(false)}
@@ -819,11 +858,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
 
       <BaseShareDialog
         baseId={base.id}
-        baseName={base.name}
-        isBaseShared={base.isShared}
+        baseName={getBaseDisplayName(base.name, t)}
+        isBaseShared={!!base.isShared}
         open={shareOpen}
         onOpenChange={setShareOpen}
       />
+
+      {showPublish && (
+        <PublishBaseDialog
+          base={base}
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          onClose={() => setPublishOpen(false)}
+        />
+      )}
 
       {showInvite && (
         <BaseInviteDialog base={base} open={inviteOpen} onOpenChange={setInviteOpen} />

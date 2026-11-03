@@ -38,6 +38,7 @@ import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getDuplicateProgressPercent, mergeDuplicateProgress } from './duplicateBaseProgress';
 import { useDuplicateBaseStore } from './useDuplicateBaseStore';
@@ -57,7 +58,9 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   const [targetSpaceId, setTargetSpaceId] = useState<string>();
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const [baseName, setBaseName] = useState(`${base.name} (${t('space:baseModal.copy')})`);
+  const [baseName, setBaseName] = useState(
+    `${getBaseDisplayName(base.name, t)} (${t('space:baseModal.copy')})`
+  );
   const [successDuplicate, setSuccessDuplicate] = useState(false);
   const [newBaseId, setNewBaseId] = useState<string>();
   const [duplicateProgress, setDuplicateProgress] = useState<IDuplicateBaseProgressEvent | null>(
@@ -193,7 +196,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       <DialogHeader>
         <DialogTitle>
           {t('space:baseModal.duplicate', {
-            baseName: base.name,
+            baseName: getBaseDisplayName(base.name, t),
           })}
         </DialogTitle>
       </DialogHeader>

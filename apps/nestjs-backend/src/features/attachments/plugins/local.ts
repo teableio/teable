@@ -28,7 +28,7 @@ import { second } from '../../../utils/second';
 import { forceAttachmentDisposition } from '../utils';
 import StorageAdapter from './adapter';
 import { LocalReadTokenCodec, type ILocalReadTokenParams } from './local-read-token';
-import { normalizeObjectPath } from './local.helper';
+import { normalizeObjectPath, resolveWithinStorage } from './local.helper';
 import type {
   ILocalFileUpload,
   IListObjectsOptions,
@@ -248,8 +248,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async save(filePath: string, rename: string, isDelete: boolean = true) {
-    const distPath = resolve(this.storageDir);
-    const newFilePath = resolve(distPath, rename);
+    const newFilePath = resolveWithinStorage(this.storageDir, rename);
     await fse.copy(filePath, newFilePath);
     if (isDelete) {
       this.deleteLocalFile(filePath);
@@ -258,11 +257,11 @@ export class LocalStorage implements StorageAdapter {
   }
 
   read(path: string) {
-    return createReadStream(resolve(this.storageDir, path));
+    return createReadStream(resolveWithinStorage(this.storageDir, path));
   }
 
   getLastModifiedTime(path: string) {
-    const url = resolve(this.storageDir, path);
+    const url = resolveWithinStorage(this.storageDir, path);
     if (!fse.existsSync(url)) {
       return;
     }
@@ -304,7 +303,7 @@ export class LocalStorage implements StorageAdapter {
     }
     return {
       ...meta,
-      ...(await this.getFileMate(resolve(this.storageDir, bucket, path))),
+      ...(await this.getFileMate(resolveWithinStorage(this.storageDir, bucket, path))),
     };
   }
 
@@ -420,12 +419,12 @@ export class LocalStorage implements StorageAdapter {
     _newPath?: string
   ) {
     const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
-    const resizedImagePath = resolve(this.storageDir, bucket, newPath);
+    const resizedImagePath = resolveWithinStorage(this.storageDir, bucket, newPath);
     if (fse.existsSync(resizedImagePath)) {
       return newPath;
     }
 
-    const imagePath = resolve(this.storageDir, bucket, path);
+    const imagePath = resolveWithinStorage(this.storageDir, bucket, path);
     const image = sharp(imagePath, { failOn: 'none', unlimited: true }).rotate();
     const metadata = await image.metadata();
     if (!metadata.width || !metadata.height) {
@@ -447,7 +446,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
-    const filePath = resolve(this.storageDir, bucket, path);
+    const filePath = resolveWithinStorage(this.storageDir, bucket, path);
     // reject up front with the fs error (ENOENT) instead of returning a stream that errors
     await fsp.access(filePath);
     return createReadStream(filePath);
@@ -471,7 +470,8 @@ export class LocalStorage implements StorageAdapter {
         if (!isRelevant(key)) continue;
         if (entry.isFile()) {
           if (key.startsWith(prefix)) {
-            objects.push({ key, size: fse.statSync(join(dir, entry.name)).size });
+            const { size, mtime } = fse.statSync(join(dir, entry.name));
+            objects.push({ key, size, lastModified: mtime });
           }
           continue;
         }
@@ -489,12 +489,12 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async deleteFile(bucket: string, path: string): Promise<void> {
-    const filePath = resolve(this.storageDir, bucket, path);
+    const filePath = resolveWithinStorage(this.storageDir, bucket, path);
     this.deleteLocalFile(filePath);
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true) {
-    const dirPath = resolve(this.storageDir, bucket, path);
+    const dirPath = resolveWithinStorage(this.storageDir, bucket, path);
     try {
       if (existsSync(dirPath)) {
         rmSync(dirPath, { recursive: true, force: true });

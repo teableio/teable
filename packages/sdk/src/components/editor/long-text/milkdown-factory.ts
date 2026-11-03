@@ -3,6 +3,7 @@ import {
   Editor,
   editorViewOptionsCtx,
   prosePluginsCtx,
+  remarkPluginsCtx,
   rootCtx,
 } from '@milkdown/core';
 import { clipboard } from '@milkdown/plugin-clipboard';
@@ -11,8 +12,10 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { commonmark, linkSchema } from '@milkdown/preset-commonmark';
 import { gfm } from '@milkdown/preset-gfm';
 import type { MutableRefObject } from 'react';
+import remarkCjkFriendly from 'remark-cjk-friendly';
 import { exitCodeBlockPlugin } from './milkdown-exit-code-plugin';
 import { createLinkClickPlugin } from './milkdown-link-click-plugin';
+import { listItemBackspacePlugin } from './milkdown-list-backspace-plugin';
 import { createMarkdownPastePlugin } from './milkdown-markdown-paste-plugin';
 import { noImagePastePlugin } from './milkdown-no-image-plugin';
 import { createSelectionToolbarPlugin } from './milkdown-selection-toolbar-plugin';
@@ -57,6 +60,12 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
   const editor = Editor.make().config((ctx) => {
     ctx.set(rootCtx, root);
     ctx.set(defaultValueCtx, value || '');
+    // The serializer writes `**粗体：**正文`; plain CommonMark won't close `**` after
+    // CJK punctuation followed by a CJK letter, so bold would be lost on reload.
+    ctx.update(remarkPluginsCtx, (plugins) => [
+      ...plugins,
+      { plugin: remarkCjkFriendly, options: {} },
+    ]);
 
     if (readonly) {
       ctx.set(editorViewOptionsCtx, {
@@ -91,6 +100,7 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
       ...(readonly
         ? []
         : [
+            listItemBackspacePlugin,
             createMarkdownPastePlugin(ctx),
             noImagePastePlugin,
             createFloatingToolbarPlugin(),

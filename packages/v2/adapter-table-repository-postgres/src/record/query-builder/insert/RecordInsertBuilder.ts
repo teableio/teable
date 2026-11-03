@@ -45,6 +45,10 @@ export interface CompiledSqlStatement {
   description: string;
   /** The compiled SQL query */
   compiled: CompiledQuery;
+  /** Source record ID used to filter side effects after the actual UPDATE result is known */
+  sourceRecordId?: string;
+  /** Junction replacements require the source UPDATE's row lock, not just a matched no-op. */
+  requiresSourceWrite?: boolean;
 }
 
 /**
@@ -55,7 +59,7 @@ export interface RecordInsertSqlResult {
   mainInsert: CompiledSqlStatement;
   /** Additional SQL statements (junction table inserts, FK updates for link fields) */
   additionalStatements: CompiledSqlStatement[];
-  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  /** Foreign record IDs that need advisory locks to serialize link target mutations */
   linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
@@ -113,7 +117,7 @@ export interface RecordInsertDataResult {
   values: Record<string, unknown>;
   /** Additional SQL statements to execute after the main insert */
   additionalStatements: CompiledSqlStatement[];
-  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  /** Foreign record IDs that need advisory locks to serialize link target mutations */
   linkedRecordLocks: LinkedRecordLockInfo[];
   /** Link exclusivity constraints for oneOne/oneMany relationships */
   exclusivityConstraints: InsertExclusivityConstraint[];
@@ -670,7 +674,7 @@ export class RecordInsertBuilder {
           const linkItem = linkItems[i];
           const order = i + 1;
 
-          // Collect lock info for the foreign record to prevent deadlocks
+          // Serialize mutations of this junction target.
           linkedRecordLocks.push({
             foreignTableId,
             foreignRecordId: linkItem.id,
@@ -713,8 +717,9 @@ export class RecordInsertBuilder {
         const selfKeyName = yield* field.selfKeyNameString();
         const orderColumnName = field.hasOrderColumn() ? yield* field.orderColumnName() : null;
 
+        // Keep insert target advisory locks in the shared result so every link
+        // field is acquired together in one deterministic order by the repository.
         for (const linkItem of linkItems) {
-          // Collect lock info for the foreign record to prevent deadlocks
           linkedRecordLocks.push({
             foreignTableId,
             foreignRecordId: linkItem.id,

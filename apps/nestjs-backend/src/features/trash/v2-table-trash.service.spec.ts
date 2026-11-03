@@ -689,6 +689,10 @@ describe('V2RecordsDeletedAttachmentProjection', () => {
     const result = await projection.handle({} as never, event);
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    // BYODB attachment rows live in the table's data db: the meta-fallback
+    // container would resolve data and meta to the same handle and only clear meta.
+    expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblaaaaaaaaaaaaaaaa');
+    expect(v2ContainerService.getContainer).not.toHaveBeenCalled();
     expect(dataDb.deleteFrom).toHaveBeenCalledWith('attachments_table');
     expect(db.deleteFrom).toHaveBeenCalledWith('attachments_table');
     expect(deleteQuery.where).toHaveBeenNthCalledWith(1, 'table_id', '=', 'tblaaaaaaaaaaaaaaaa');

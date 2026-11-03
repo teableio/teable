@@ -12,6 +12,9 @@ import {
   AlertDialogTitle,
   Button,
   cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,7 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import type { ReactNode } from 'react';
@@ -227,44 +230,48 @@ export const BaseShareContent = ({
 
           <Separator />
 
-          <div className="flex flex-col gap-3">
-            <Label className="text-sm font-medium">{t('baseShare.advanced')}</Label>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                id="share-allowCopy"
-                checked={Boolean(share.allowCopy)}
-                disabled={disabled}
-                onCheckedChange={(checked) => onUpdateSetting({ allowCopy: checked })}
-              />
-              <Label className="text-sm font-normal" htmlFor="share-allowCopy">
-                {t('baseShare.allowCopyData')}
-              </Label>
-            </div>
-
-            <div className="flex flex-col gap-2">
+          <Collapsible className="flex flex-col gap-3">
+            <CollapsibleTrigger className="flex items-center gap-1 text-sm font-medium">
+              {t('baseShare.advanced')}
+              <ChevronRight className="size-4 transition-transform duration-200 rtl:-scale-x-100 [[data-state=open]>&]:rotate-90" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Switch
-                  id="share-password"
-                  checked={Boolean(share.password)}
-                  disabled={disabled || isUpdateLoading}
-                  onCheckedChange={handlePasswordSwitchChange}
+                  id="share-allowCopy"
+                  checked={Boolean(share.allowCopy)}
+                  disabled={disabled}
+                  onCheckedChange={(checked) => onUpdateSetting({ allowCopy: checked })}
                 />
-                <Label className="text-sm font-normal" htmlFor="share-password">
-                  {t('baseShare.restrictByPassword')}
+                <Label className="text-sm font-normal" htmlFor="share-allowCopy">
+                  {t('baseShare.allowCopyData')}
                 </Label>
               </div>
-              {Boolean(share.password) && !disabled && (
-                <SharePasswordReveal
-                  shareUrl={shareUrl}
-                  password={revealedPassword}
-                  onSave={savePassword}
-                />
-              )}
-            </div>
 
-            {embedUrl && <EmbedConfigPopover shareUrl={embedUrl} />}
-          </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-password"
+                    checked={Boolean(share.password)}
+                    disabled={disabled || isUpdateLoading}
+                    onCheckedChange={handlePasswordSwitchChange}
+                  />
+                  <Label className="text-sm font-normal" htmlFor="share-password">
+                    {t('baseShare.restrictByPassword')}
+                  </Label>
+                </div>
+                {Boolean(share.password) && !disabled && (
+                  <SharePasswordReveal
+                    shareUrl={shareUrl}
+                    password={revealedPassword}
+                    onSave={savePassword}
+                  />
+                )}
+              </div>
+
+              {embedUrl && <EmbedConfigPopover shareUrl={embedUrl} />}
+            </CollapsibleContent>
+          </Collapsible>
         </>
       )}
 

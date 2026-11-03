@@ -67,6 +67,7 @@ import { splitSelectTypecastValues } from '../domain/table/fields/visitors/split
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import { RecordId } from '../domain/table/records/RecordId';
+import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
@@ -1566,11 +1567,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           }
 
           const changes: RecordFieldChangeDTO[] = [];
-          for (const [fieldIdStr, submittedNewValue] of pending.newValues.entries()) {
-            const resolvedEntry = updateResult.record
+          const resolvedValues = new Map(
+            updateResult.record
               .fields()
               .entries()
-              .find((entry) => entry.fieldId.toString() === fieldIdStr);
+              .map((entry) => [entry.fieldId.toString(), entry])
+          );
+          for (const [fieldIdStr, submittedNewValue] of pending.newValues.entries()) {
+            const resolvedEntry = resolvedValues.get(fieldIdStr);
             const newValue = resolvedEntry ? resolvedEntry.value.toValue() : submittedNewValue;
             const oldValue = pending.oldValues.get(fieldIdStr);
             if (areRecordFieldValuesEqual(oldValue, newValue)) {
@@ -1766,11 +1770,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       let record = records[index]!;
       const mutateSpec = resolveManyResult.value[index] ?? null;
       if (mutateSpec) {
-        const mutateResult = mutateSpec.mutate(record);
-        if (mutateResult.isErr()) {
-          return err(mutateResult.error);
+        const materialized = materializeRecordSpec({
+          id: record.id(),
+          tableId: record.tableId(),
+          spec: mutateSpec,
+          baseFields: record.fields().entries(),
+        });
+        if (materialized.isErr()) {
+          return err(materialized.error);
         }
-        record = mutateResult.value;
+        record = materialized.value;
       }
       resolvedRecords.push(record);
     }

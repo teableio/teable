@@ -6,6 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import {
   PluginPosition,
   PluginStatus,
+  pluginBaseActions,
   pluginBaseScopesSchema,
   type PluginBaseAction,
   type IPluginGetTokenRo,
@@ -22,6 +23,7 @@ import { AccessTokenService } from '../access-token/access-token.service';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
+import { PermissionService } from '../auth/permission.service';
 import { validateSecret } from './utils';
 
 interface IRefreshTokenInput {
@@ -46,7 +48,8 @@ export class PluginAuthService {
     private readonly accessTokenService: AccessTokenService,
     private readonly jwtService: TeableJwtService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly permissionService: PermissionService
   ) {}
 
   private generateAccessToken({
@@ -236,11 +239,23 @@ export class PluginAuthService {
       throw new CustomHttpException('Invalid auth code', HttpErrorCode.VALIDATION_ERROR);
     }
 
+    // Cap the requested scopes to what the code's minter could actually grant on the base,
+    // snapshotted when the code was minted. This endpoint is public and session-less, so the
+    // ceiling comes from the stored snapshot rather than the caller: a code minted by a base
+    // Viewer can never be redeemed for scopes the Viewer lacks, even though the issued token is
+    // seated as the plugin's bot user. (Codes minted before this shipped carry no snapshot and
+    // are rejected fail-closed; the plugin simply re-mints.)
+    const grantableScopes = authCodeState.scopes ?? [];
+    const grantedScopes = scopes.filter((scope) => grantableScopes.includes(scope));
+    if (grantedScopes.length === 0) {
+      throw new CustomHttpException('Invalid auth code', HttpErrorCode.VALIDATION_ERROR);
+    }
+
     await this.assertPluginInstalled(this.prismaService.txClient(), pluginId, baseId);
 
     const accessToken = await this.generateAccessToken({
       userId: plugin.pluginUser,
-      scopes,
+      scopes: grantedScopes,
       baseId,
       clientId: pluginId,
       name: plugin.name,
@@ -258,13 +273,13 @@ export class PluginAuthService {
       action: 'plugin.token.issue',
       resourceId: pluginId,
       userId: plugin.pluginUser,
-      params: { baseId, scopes },
+      params: { baseId, scopes: grantedScopes },
     });
 
     return {
       accessToken: accessToken.token,
       refreshToken,
-      scopes,
+      scopes: grantedScopes,
       expiresIn: this.accessTokenExpireIn,
       refreshExpiresIn: this.refreshTokenExpireIn,
     };
@@ -357,8 +372,19 @@ export class PluginAuthService {
   })
   async authCode(pluginId: string, baseId: string) {
     await this.assertPluginInstalled(this.prismaService.txClient(), pluginId, baseId);
+    // Bind the code to its minter: snapshot the scopes this user can actually grant on the
+    // base right now, so the public, session-less token exchange can cap the issued scopes to
+    // them. Without this a base Viewer could mint a code and redeem it for write scopes seated
+    // as the plugin's (higher-privileged) bot user.
+    const userId = this.cls.get('user.id');
+    const permissions = await this.permissionService.getPermissionByBaseId(baseId);
+    const scopes = pluginBaseActions.filter((action) => permissions.includes(action));
     const authCode = getRandomString(16);
-    await this.cacheService.set(`plugin:auth-code:${authCode}`, { baseId, pluginId }, second('5m'));
+    await this.cacheService.set(
+      `plugin:auth-code:${authCode}`,
+      { baseId, pluginId, userId, scopes },
+      second('5m')
+    );
     return authCode;
   }
 }

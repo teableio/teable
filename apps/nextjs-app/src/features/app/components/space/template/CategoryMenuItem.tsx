@@ -5,13 +5,14 @@ interface CategoryMenuItemProps {
   currentCategoryId: string | null;
   id: string | null;
   onClickHandler: (id: string | null) => void;
+  className?: string;
 }
 
 export const CategoryMenuItem = (props: CategoryMenuItemProps) => {
-  const { category, currentCategoryId, id, onClickHandler } = props;
+  const { category, currentCategoryId, id, onClickHandler, className } = props;
   return (
     <Button
-      className={cn('px-2 h-8 cursor-pointer w-full justify-start', {
+      className={cn('h-8 shrink-0 cursor-pointer justify-start px-2 @5xl:w-full', className, {
         'bg-accent': currentCategoryId === id,
       })}
       variant="ghost"

@@ -5,10 +5,18 @@ import {
   buildRecordConditionSpec,
   DefaultTableMapper,
   FieldId,
+  NoopLogger,
+  RecordQueryPluginRunner,
   TableId,
+  type IRecordQueryPlugin,
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
-import { DataQueryDefinition, projectExplainPlanDocument } from '@teable/v2-data-query';
+import {
+  DataQueryBinding,
+  DataQueryDefinition,
+  DataQueryExplainService,
+  projectExplainPlanDocument,
+} from '@teable/v2-data-query';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import {
@@ -20,6 +28,7 @@ import {
   type PostgresPoolClient,
   type QueryExecutor,
 } from 'kysely';
+import { ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PostgresDataQueryExecutor } from './PostgresDataQueryExecutor';
@@ -189,76 +198,149 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
     await container?.stop();
   });
 
-  it('returns caller-scoped SQL and a generic plan without bind values, predicates or rows', async () => {
-    const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
-    const definition = DataQueryDefinition.create({
-      version: 1,
-      kind: 'records',
-      tableId: tableId.toString(),
-      parameters: { needle: { type: 'string' } },
-      select: [{ fieldId: titleId.toString(), alias: 'title' }],
-      filter: {
+  it.each(['direct', 'prepared', 'service'] as const)(
+    'returns caller-scoped SQL and a generic plan without bind values, predicates or rows (%s)',
+    async (path) => {
+      const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
+      const definition = DataQueryDefinition.create({
+        version: 1,
+        kind: 'records',
+        tableId: tableId.toString(),
+        parameters: { needle: { type: 'string' } },
+        select: [{ fieldId: titleId.toString(), alias: 'title' }],
+        filter: {
+          fieldId: titleId.toString(),
+          operator: 'is',
+          value: { type: 'parameter', name: 'needle' },
+        },
+        page: { limit: 10 },
+      })._unsafeUnwrap();
+      const query = definition.bind({ needle: bindSentinel })._unsafeUnwrap();
+      const visibleWhen = buildRecordConditionSpec(table, {
         fieldId: titleId.toString(),
-        operator: 'is',
-        value: { type: 'parameter', name: 'needle' },
-      },
-      page: { limit: 10 },
-    })._unsafeUnwrap();
-    const query = definition.bind({ needle: bindSentinel })._unsafeUnwrap();
-    const visibleWhen = buildRecordConditionSpec(table, {
-      fieldId: titleId.toString(),
-      operator: 'contains',
-      value: 'restricted-policy-token',
-    })._unsafeUnwrap();
-    const captured: CapturedStatement[] = [];
-    const capturingDb = createCapturingDb(db.getExecutor(), captured);
-    const value = (
-      await new PostgresDataQueryExplainer(capturingDb).explain(context, table, query, {
+        operator: 'contains',
+        value: 'restricted-policy-token',
+      })._unsafeUnwrap();
+      const captured: CapturedStatement[] = [];
+      const capturingDb = createCapturingDb(db.getExecutor(), captured);
+      const scope = {
+        recordSpec: visibleWhen,
         fieldMasks: [{ fieldId: titleId.toString(), visibleWhen }],
-      })
-    )._unsafeUnwrap();
+      };
+      const explainer = new PostgresDataQueryExplainer(capturingDb);
+      const plugin: IRecordQueryPlugin = {
+        name: 'explain-field-mask',
+        supports: () => true,
+        scope: () => ok(scope),
+      };
+      const result =
+        path === 'service'
+          ? await new DataQueryExplainService(
+              { findOne: async () => ok(table) },
+              new RecordQueryPluginRunner([plugin], new NoopLogger()),
+              explainer
+            ).explain(context, definition, { parameters: { needle: bindSentinel } })
+          : await explainer.explain(
+              context,
+              table,
+              query,
+              scope,
+              path === 'prepared'
+                ? DataQueryBinding.prepare(definition, table)._unsafeUnwrap()
+                : undefined
+            );
+      const value = result._unsafeUnwrap();
+      const caller = new PostgresDataQueryExecutor(capturingDb)
+        .compile(context, table, query, {})
+        ._unsafeUnwrap();
+      expect(value.sql).toBe(caller.sql);
+      expect(value.parameters.bindCount).toBe(caller.parameters.length);
 
-    expect(value.sqlScope).toBe('caller');
-    expect(value.sql).toContain('$1');
-    expect(value.parameters).toMatchObject({
-      order: ['needle'],
-      orderKind: 'declaration',
-      redaction: 'bind-values-hidden',
-      definitions: [{ name: 'needle', type: 'string', nullable: false }],
-    });
-    expect(value.parameters.bindCount).toBeGreaterThan(0);
-    expect(value.hostScope).toEqual({
-      rowScope: 'applied',
-      fieldScope: 'applied',
-      fieldMaskCount: 1,
-    });
-    expect(value.plan.analyzed).toBe(false);
-    expect(value.plan.mode).toBe('generic');
-    expect(value.plan.scope).toBe('caller');
-    expect(value.plan.root?.nodeType).toBeTruthy();
+      expect(value.sqlScope).toBe('caller');
+      expect(value.sql).toContain('$1');
+      expect(value.parameters).toMatchObject({
+        order: ['needle'],
+        orderKind: 'declaration',
+        redaction: 'bind-values-hidden',
+        definitions: [{ name: 'needle', type: 'string', nullable: false }],
+      });
+      expect(value.parameters.bindCount).toBeGreaterThan(0);
+      expect(value.hostScope).toEqual({
+        rowScope: 'applied',
+        fieldScope: 'applied',
+        fieldMaskCount: 1,
+      });
+      expect(value.plan.analyzed).toBe(false);
+      expect(value.plan.mode).toBe('generic');
+      expect(value.plan.scope).toBe('caller');
+      expect(value.plan.root?.nodeType).toBeTruthy();
 
-    // Exactly one statement is EXPLAINed, and that EXPLAIN carries no bind
-    // parameters: generic planning is value-independent by construction.
-    const explains = captured.filter(isExplain);
-    expect(explains).toHaveLength(1);
-    expect(explains[0]?.sql.toLowerCase()).toContain('explain_records');
-    expect(explains[0]?.parameters).toEqual([]);
-    expect(businessReads(captured, 'explain_records')).toHaveLength(0);
-    const sentinelObserved = captured.some(
-      (statement) =>
-        statement.sql.includes(bindSentinel) || statement.parameters.includes(bindSentinel)
-    );
-    expect(sentinelObserved).toBe(false);
+      // Exactly one statement is EXPLAINed, and that EXPLAIN carries no bind
+      // parameters: generic planning is value-independent by construction.
+      const explains = captured.filter(isExplain);
+      expect(explains).toHaveLength(1);
+      expect(explains[0]?.sql.toLowerCase()).toContain('explain_records');
+      expect(explains[0]?.parameters).toEqual([]);
+      expect(businessReads(captured, 'explain_records')).toHaveLength(0);
+      const sentinelObserved = captured.some(
+        (statement) =>
+          statement.sql.includes(bindSentinel) || statement.parameters.includes(bindSentinel)
+      );
+      expect(sentinelObserved).toBe(false);
 
-    const serialized = JSON.stringify(value);
-    expect(serialized).not.toContain(bindSentinel);
-    expect(serialized).not.toContain(storedSentinel);
-    expect(serialized).not.toContain('restricted-policy-token');
-    expect(serialized).not.toContain('Filter');
-    expect(serialized).not.toContain('Index Cond');
-    expect(serialized).not.toContain('Relation Name');
-    expect(value).not.toHaveProperty('rows');
-  });
+      const serialized = JSON.stringify(value);
+      expect(serialized).not.toContain(bindSentinel);
+      expect(serialized).not.toContain(storedSentinel);
+      expect(serialized).not.toContain('restricted-policy-token');
+      expect(serialized).not.toContain('Filter');
+      expect(serialized).not.toContain('Index Cond');
+      expect(serialized).not.toContain('Relation Name');
+      expect(value).not.toHaveProperty('rows');
+    }
+  );
+
+  it.each(['direct', 'prepared', 'service'] as const)(
+    'rejects an unreadable filter dependency before asking PostgreSQL to plan (%s)',
+    async (path) => {
+      const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
+      const definition = DataQueryDefinition.create({
+        version: 1,
+        kind: 'records',
+        tableId: tableId.toString(),
+        select: [{ system: 'id', alias: 'id' }],
+        filter: { fieldId: titleId.toString(), operator: 'is', value: bindSentinel },
+      })._unsafeUnwrap();
+      const scope = { readableFieldIds: new Set<string>() };
+      const captured: CapturedStatement[] = [];
+      const capturingDb = createCapturingDb(db.getExecutor(), captured);
+      const explainer = new PostgresDataQueryExplainer(capturingDb);
+      const plugin: IRecordQueryPlugin = {
+        name: 'explain-unreadable-filter',
+        supports: () => true,
+        scope: () => ok(scope),
+      };
+      const result =
+        path === 'service'
+          ? await new DataQueryExplainService(
+              { findOne: async () => ok(table) },
+              new RecordQueryPluginRunner([plugin], new NoopLogger()),
+              explainer
+            ).explain(context, definition)
+          : await explainer.explain(
+              context,
+              table,
+              definition.bind({})._unsafeUnwrap(),
+              scope,
+              path === 'prepared'
+                ? DataQueryBinding.prepare(definition, table)._unsafeUnwrap()
+                : undefined
+            );
+
+      expect(result._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+      expect(JSON.stringify(result._unsafeUnwrapErr())).not.toContain(bindSentinel);
+      expect(captured).toEqual([]);
+    }
+  );
 
   it('plans the side-effecting view without executing its SELECT', async () => {
     const probeDto: ITablePersistenceDTO = {

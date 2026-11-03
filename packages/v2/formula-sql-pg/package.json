@@ -40,7 +40,7 @@
     "@teable/v2-adapter-db-postgres-pglite": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
-    "@types/node": "24.13.2",
+    "@types/node": "24.19.2",
     "@vitest/coverage-v8": "4.1.12",
     "kysely": "0.28.17",
     "oxfmt": "0.74.0",

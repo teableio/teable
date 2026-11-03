@@ -78,6 +78,16 @@ describe('Template Open API Controller (e2e)', () => {
   });
 
   afterAll(async () => {
+    // The worker's shared app and database outlive this file, and the app only
+    // ensures the default template space on boot: hand the flag back for later files.
+    await prismaService.txClient().space.update({
+      where: {
+        id: 'spcDefaultTempSpcId',
+      },
+      data: {
+        isTemplate: true,
+      },
+    });
     await deleteSpace(templateSpaceId);
   });
 

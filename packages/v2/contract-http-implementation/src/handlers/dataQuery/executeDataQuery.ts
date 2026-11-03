@@ -95,8 +95,15 @@ export const validateDataQueryEndpoint = async (
       }),
     };
   }
-  const parsed = validateDataQueryResponseDtoSchema.safeParse({ ok: true, data: result.value });
-  if (!parsed.success) {
+  const includeUsage =
+    typeof rawInput === 'object' &&
+    rawInput !== null &&
+    'includeUsage' in rawInput &&
+    Object.hasOwn(rawInput, 'includeUsage') &&
+    rawInput.includeUsage === true;
+  const value = includeUsage ? result.value : { outputs: result.value.outputs };
+  const parsed = validateDataQueryResponseDtoSchema.safeParse({ ok: true, data: value });
+  if ((includeUsage && result.value.usage === undefined) || !parsed.success) {
     const error = domainError.unexpected({
       code: 'data_query.invalid_response',
       message: 'Invalid data query response',

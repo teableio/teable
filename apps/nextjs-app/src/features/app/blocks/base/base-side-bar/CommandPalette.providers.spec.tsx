@@ -23,7 +23,7 @@ const {
   getTablePermission,
   getUserLastVisitMap,
   getPublicSetting,
-  getAIDisableActions,
+  getAIConfig,
 } = vi.hoisted(() => ({
   spaceSearch: vi.fn(),
   getUserLastVisitListBase: vi.fn(),
@@ -32,7 +32,7 @@ const {
   getTablePermission: vi.fn(),
   getUserLastVisitMap: vi.fn(),
   getPublicSetting: vi.fn(),
-  getAIDisableActions: vi.fn(),
+  getAIConfig: vi.fn(),
 }));
 
 // Keep the SDK hooks, navigation/actions hooks, and dialog intact. Only HTTP endpoints are mocked.
@@ -45,7 +45,7 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getTablePermission,
   getUserLastVisitMap,
   getPublicSetting,
-  getAIDisableActions,
+  getAIConfig,
 }));
 
 const setup = () => {
@@ -211,7 +211,7 @@ describe('CommandPalette provider boundaries', () => {
     });
     getUserLastVisitMap.mockReset().mockResolvedValue({ data: {} });
     getPublicSetting.mockReset().mockResolvedValue({ data: {} });
-    getAIDisableActions.mockReset().mockResolvedValue({ data: { disableActions: [] } });
+    getAIConfig.mockReset().mockResolvedValue({ data: { disableActions: [] } });
   });
   afterEach(cleanup);
 
@@ -258,7 +258,7 @@ describe('CommandPalette provider boundaries', () => {
       expect.any(AbortSignal)
     );
     expect(getViewList).not.toHaveBeenCalled();
-    expect(getAIDisableActions).not.toHaveBeenCalled();
+    expect(getAIConfig).not.toHaveBeenCalled();
     await user.click(result);
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/base/bseSales/table/tblSales'));

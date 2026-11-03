@@ -52,10 +52,10 @@
   "collaborators": "المتعاونون",
   "more": "المزيد",
   "pin": {
-    "add": "تثبيت",
-    "remove": "إلغاء التثبيت",
-    "pin": "المثبّتة",
-    "empty": "ستظهر هنا مشاريعك ومساحاتك المثبّتة"
+    "add": "إضافة إلى المفضلة",
+    "remove": "إزالة من المفضلة",
+    "pin": "المفضلة",
+    "empty": "ستظهر هنا مشاريعك ومساحاتك المفضلة"
   },
   "tooltip": {
     "noPermissionToCreateBase": "ليست لديك صلاحية إنشاء مشروع"
@@ -207,19 +207,51 @@
     "form": {
       "title": "عنوان العمل",
       "description": "الوصف",
-      "security": "الأمان",
-      "advanced": "متقدم",
+      "changelog": "ملاحظات الإصدار",
+      "changelogPlaceholder": "صِف التغييرات للتثبيتات الحالية؛ تُعرض في معاينة الترقية",
       "publishNode": "العُقد المنشورة",
       "includeData": "تضمين البيانات",
       "defaultActiveNode": "العقدة النشطة الافتراضية",
       "descriptionPlaceholder": "صف فكرتك باختصار...",
-      "titlePlaceholder": "سمِّ عملك..."
+      "titlePlaceholder": "سمِّ عملك...",
+      "cover": "الغلاف",
+      "coverHint": "بنسبة 16:9، تُستخدم في بطاقة الكتالوج والصفحة العامة",
+      "versionTitle": "محتويات الإصدار",
+      "addChangelog": "إضافة ملاحظات الإصدار"
     },
     "publishToCommunity": "النشر في مركز القوالب",
     "publish": "نشر",
     "publishSuccess": "تم النشر بنجاح!",
     "previewTips": "دع العالم يرى عملك",
     "update": "تحديث",
+    "submit": "إرسال للمراجعة",
+    "submitted": "تم الإرسال للمراجعة",
+    "review": {
+      "status": {
+        "review": "قيد المراجعة",
+        "rejected": "أُعيد للتعديل",
+        "withdrawn": "تم السحب"
+      },
+      "submittedTime": "أُرسل {{time}}",
+      "note": "ملاحظة المراجِع",
+      "checks": "الفحوصات التلقائية",
+      "check": {
+        "connectors": "الاتصالات",
+        "privacy": "الخصوصية",
+        "estimate": "تقدير التشغيلات",
+        "trial": "تشغيل تجريبي"
+      },
+      "checkMessage": {
+        "connectors": "يتعذّر الربط هنا: {{providers}}",
+        "privacy": "السجلات مُضمَّنة؛ تحقّق من خلوّها من البيانات الشخصية",
+        "estimate": "نحو {{runs}} تشغيل شهريًا، أي أكثر من {{free}} في الخطة المجانية",
+        "trial": "لا تحتاج الأتمتة إلى أي حساب؛ تأكد من أنها تعمل بدونه"
+      },
+      "withdraw": "سحب",
+      "withdrawn": "تم سحب الطلب.",
+      "live": "متاح · v{{version}}",
+      "publicLink": "الرابط العام"
+    },
     "unPublish": "إلغاء النشر",
     "unPublishSuccess": "تم إلغاء نشر المشروع بنجاح!",
     "unPublishConfirmTitle": "تأكيد إلغاء النشر",
@@ -237,9 +269,7 @@
     "urlCopied": "تم نسخ الرابط إلى الحافظة!",
     "urlCopiedForDiscord": "تم نسخ الرابط إلى الحافظة! يمكنك لصقه في Discord.",
     "featuredLabel": "مميّز",
-    "unfeaturedLabel": "غير مميّز",
     "featuredTip": "مميّز رسميًا. سيحصل قالبك على مزيد من الظهور.",
-    "unfeaturedTip": "غير مميّز بعد. واصل التحسين لتحظى بفرصة الإبراز، ودع المزيد من الأشخاص يرون عملك.",
     "publishSuccessDescription": "شارك عملك مع العالم",
     "shareWith": "المشاركة عبر",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "الانتقال للإصلاح",
       "redeploy": "إعادة النشر",
       "unnamedApp": "تطبيق بلا اسم"
-    }
+    },
+    "submitVersion": "إرسال v{{version}} للمراجعة"
   },
   "dataDb": {
     "create": {

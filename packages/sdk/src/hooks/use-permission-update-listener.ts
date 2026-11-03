@@ -1,14 +1,14 @@
 import { getBasePermissionUpdateChannel } from '@teable/core';
 import { useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
-import { useConnection } from './use-connection';
+import { usePresenceConnection } from './use-presence-connection';
 
 export const usePermissionUpdateListener = (
   baseId: string | undefined,
   trigger: (operatorUserId?: string) => void
 ) => {
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
 
   useEffect(() => {
     if (baseId == null || connection == null) return;

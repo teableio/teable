@@ -1,3 +1,4 @@
+export * from './BoundDataQueryPlan';
 export * from './types';
 export * from './DataQueryExplain';
 export * from './DataQueryExplainService';
@@ -14,6 +15,7 @@ export {
   validateDataQueryFilter,
 } from './DataQueryBinding';
 export * from './DataQueryService';
+export { sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 export * from './assertDataQueryAccess';
 export * from './ports';
 export * from './QueryExecutionService';

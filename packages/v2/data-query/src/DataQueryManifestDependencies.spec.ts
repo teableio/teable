@@ -238,7 +238,7 @@ describe('manifest dependency index', () => {
         result: 'many',
         tableId: tableB,
         fields: [{ fieldId: titleField, usages: ['projection'] }],
-        complete: false,
+        complete: true,
         transitiveDependencies: 'not-expanded',
       },
       {
@@ -251,7 +251,7 @@ describe('manifest dependency index', () => {
         transitiveDependencies: 'not-expanded',
       },
     ]);
-    expect(index.incompleteQueryIds).toEqual(['hybrid', 'legacy']);
+    expect(index.incompleteQueryIds).toEqual(['legacy']);
     expect(index.summary).toEqual({
       queryCount: 2,
       structuredCount: 0,
@@ -261,7 +261,7 @@ describe('manifest dependency index', () => {
     });
   });
 
-  it('treats a declared fallback as a reachable SQL path in default and structured mode', () => {
+  it('keeps a declared fallback out of the runtime read path in default and structured mode', () => {
     const index = indexOf({
       implicit: {
         definition: {
@@ -293,10 +293,10 @@ describe('manifest dependency index', () => {
     expect(
       index.queries.map(({ queryId, mode, complete }) => ({ queryId, mode, complete }))
     ).toEqual([
-      { queryId: 'explicit', mode: 'structured', complete: false },
-      { queryId: 'implicit', mode: 'structured', complete: false },
+      { queryId: 'explicit', mode: 'structured', complete: true },
+      { queryId: 'implicit', mode: 'structured', complete: true },
     ]);
-    expect(index.incompleteQueryIds).toEqual(['explicit', 'implicit']);
+    expect(index.incompleteQueryIds).toEqual([]);
     expect(index.summary.structuredCount).toBe(2);
   });
 

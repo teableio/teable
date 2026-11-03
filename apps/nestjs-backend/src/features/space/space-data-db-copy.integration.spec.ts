@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { mkdtemp, mkdir, rm } from 'fs/promises';
 import { createServer } from 'net';
@@ -12,6 +13,8 @@ import { DataDbClientManager } from '../../global/data-db-client-manager.service
 import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
 import { BaseService } from '../base/base.service';
 import { dataDbKnexClientFactory } from './data-db-preflight.service';
+import { DataDbBaselineService } from './data-db-baseline.service';
+import { DataDbMigrationService } from './data-db-migration.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
 import {
   invalidateSearchIndexesForDataDbRouting,
@@ -55,6 +58,19 @@ const mainRelationName = 'sheet1';
 const linkedRelationName = 'sheet2';
 const junctionRelationName = 'sheet1_sheet2_junction';
 const legacyAutoNumberSequenceName = `${baseId}_${mainRelationName}_seq`;
+const undoTupleUpgrade = {
+  id: '20261101000000_add_undo_capture_old_tuple',
+  sql: readFileSync(
+    new URL(
+      '../../../../../packages/db-data-prisma/prisma/migrations/20261101000000_add_undo_capture_old_tuple/migration.sql',
+      import.meta.url
+    ),
+    'utf8'
+  ),
+};
+const undoTupleBaselineService = new DataDbBaselineService(
+  new DataDbMigrationService([undoTupleUpgrade], dataDbKnexClientFactory)
+);
 
 const buildCopyInventory = () => ({
   baseIds: [baseId],
@@ -525,6 +541,8 @@ const seedSourceData = async (client: Client) => {
   );
 
   await createSharedTables(client, 'public');
+  // The source is current; migration targets below intentionally begin on the legacy shape.
+  await client.query(`ALTER TABLE "public"."__undo_log" ADD COLUMN "old_tuple" jsonb`);
   await client.query(
     `INSERT INTO "public"."record_history" VALUES
       ('rh1', $1, 'rec1', 'fld1', '{}'::jsonb, '{"name":"A"}'::jsonb, now(), 'usr'),
@@ -584,10 +602,18 @@ const seedSourceData = async (client: Client) => {
     [spaceId, baseId, tableId, otherSpaceId, `space-data-db-migration:${jobId}`]
   );
   await client.query(
-    `INSERT INTO "public"."__undo_log" VALUES
-      ('undo1', 'batch1', 'update', $1, 'rec1', '{}'::jsonb, '{}'::jsonb, now()),
-      ('undo2', 'batch2', 'update', $2, 'rec9', '{}'::jsonb, '{}'::jsonb, now())`,
-    [`${baseId}.${mainRelationName}`, `${otherBaseId}.${mainRelationName}`]
+    `INSERT INTO "public"."__undo_log"
+      ("id", "batch_id", "operation", "table_name", "record_id", "old_row", "new_row", "old_tuple", "created_at")
+     VALUES
+      ('undo1', 'batch1', 'update', $1, 'rec1',
+       '{"name":"before","quantity":2,"optional":null}'::jsonb,
+       '{"name":"after","quantity":3,"tags":["migrated"]}'::jsonb, $3::jsonb, now()),
+      ('undo2', 'batch2', 'update', $2, 'rec9', '{}'::jsonb, '{}'::jsonb, $3::jsonb, now())`,
+    [
+      `${baseId}.${mainRelationName}`,
+      `${otherBaseId}.${mainRelationName}`,
+      JSON.stringify({ xmin: '123', ctid: '(0,1)', relationOid: '456', relationFilenode: '789' }),
+    ]
   );
 
   await client.query(
@@ -938,6 +964,103 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
     });
   });
 
+  it.each(['INSERT', 'UPDATE'] as const)(
+    'clears source tuple metadata during real PostgreSQL undo %s delta replay without changing old/new rows',
+    async (op) => {
+      const source = new Client({ connectionString: pgUrl(port, sourceDatabase) });
+      const target = new Client({ connectionString: pgUrl(port, targetDatabase) });
+      const targetClient = dataDbKnexClientFactory(pgUrl(port, targetDatabase));
+      const replayId = `undo-replay-${op.toLowerCase()}`;
+      const replaySchema = `${targetSchema}_replay_${op.toLowerCase()}`;
+      const migrationService = new SpaceDataDbMigrationService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        dataDbKnexClientFactory
+      );
+      // The existing test seam is private; only its TypeScript visibility needs widening here.
+      const replayService = migrationService as unknown as {
+        applyDeltaRowToTarget: (input: unknown) => Promise<boolean>;
+      };
+      const applyDeltaRowToTarget = replayService.applyDeltaRowToTarget;
+
+      await Promise.all([source.connect(), target.connect()]);
+      try {
+        await target.query(`
+          CREATE SCHEMA "${replaySchema}";
+          CREATE TABLE "${replaySchema}"."__undo_log" (
+            "id" text PRIMARY KEY,
+            "batch_id" text,
+            "operation" text,
+            "table_name" text,
+            "record_id" text,
+            "old_row" jsonb,
+            "new_row" jsonb,
+            "created_at" timestamp
+          )
+        `);
+        await undoTupleBaselineService.initialize(pgUrl(port, targetDatabase), replaySchema);
+        const sourceUndo = (
+          await source.query<{ payload: Record<string, unknown> }>(
+            `SELECT to_jsonb(u) AS payload FROM "public"."__undo_log" u WHERE "id" = 'undo1'`
+          )
+        ).rows[0].payload;
+        expect(sourceUndo).toMatchObject({
+          old_row: { name: 'before', quantity: 2, optional: null },
+          new_row: { name: 'after', quantity: 3, tags: ['migrated'] },
+          old_tuple: { xmin: '123', ctid: '(0,1)', relationOid: '456', relationFilenode: '789' },
+        });
+        if (op === 'UPDATE') {
+          await target.query(
+            `INSERT INTO "${replaySchema}"."__undo_log" ("id", "old_row", "new_row", "old_tuple")
+             VALUES ($1, '{"stale":"old"}'::jsonb, '{"stale":"new"}'::jsonb, $2::jsonb)`,
+            [replayId, JSON.stringify(sourceUndo.old_tuple)]
+          );
+        }
+
+        await expect(
+          applyDeltaRowToTarget.call(migrationService, {
+            targetClient,
+            row: {
+              seq: 1,
+              schemaName: 'public',
+              tableName: '__undo_log',
+              op,
+              pk: { id: replayId },
+              oldRow: op === 'UPDATE' ? { id: replayId } : null,
+              newRow: { ...sourceUndo, id: replayId },
+              capturedAt: '2026-11-01T00:00:00.000Z',
+            },
+            sourceSchema: 'public',
+            targetSchema: replaySchema,
+            columnMetadataCache: new Map(),
+          })
+        ).resolves.toBe(true);
+
+        expect(
+          (
+            await target.query(
+              `SELECT "old_row", "new_row", "old_tuple"
+               FROM "${replaySchema}"."__undo_log" WHERE "id" = $1`,
+              [replayId]
+            )
+          ).rows
+        ).toEqual([
+          {
+            old_row: { name: 'before', quantity: 2, optional: null },
+            new_row: { name: 'after', quantity: 3, tags: ['migrated'] },
+            old_tuple: null,
+          },
+        ]);
+      } finally {
+        await target.query(`DROP SCHEMA IF EXISTS "${replaySchema}" CASCADE`);
+        await Promise.all([source.end(), target.end(), targetClient.destroy()]);
+      }
+    }
+  );
+
   it('copies base schemas and validates/switches the migration job through real PostgreSQL tools', async () => {
     const sourceUrl = pgUrl(port, sourceDatabase);
     const targetUrl = pgUrl(port, targetDatabase);
@@ -1027,9 +1150,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         update: vi.fn().mockResolvedValue(undefined),
       },
     };
-    const baselineService = {
-      getLatestSchemaVersion: vi.fn().mockReturnValue(null),
-    };
+    const baselineService = undoTupleBaselineService;
     const dataDbClientManager = {
       getDataDatabaseForSpace: vi.fn().mockImplementation((_, options) => {
         if (options?.previewBinding) {
@@ -1360,6 +1481,20 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             [`${otherBaseId}.${mainRelationName}`]
           )
         ).resolves.toBe(0);
+        expect(
+          (
+            await target.query(
+              `SELECT "old_row", "new_row", "old_tuple"
+               FROM "${targetSchema}"."__undo_log" WHERE "id" = 'undo1'`
+            )
+          ).rows
+        ).toEqual([
+          {
+            old_row: { name: 'before', quantity: 2, optional: null },
+            new_row: { name: 'after', quantity: 3, tags: ['migrated'] },
+            old_tuple: null,
+          },
+        ]);
         await expect(
           queryCount(
             target,
@@ -1629,7 +1764,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
     const migrationService = new SpaceDataDbMigrationService(
       prismaService as never,
       {} as never,
-      { getLatestSchemaVersion: vi.fn().mockReturnValue(null) } as never,
+      undoTupleBaselineService,
       dataDbClientManager as never,
       service as never,
       dataDbKnexClientFactory

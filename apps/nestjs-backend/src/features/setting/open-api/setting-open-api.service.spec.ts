@@ -499,6 +499,55 @@ describe('SettingOpenApiService.testLLM image generation', () => {
   });
 });
 
+describe('SettingOpenApiService.testLLM image generation request', () => {
+  const service = Object.create(SettingOpenApiService.prototype) as SettingOpenApiService;
+  let server: Server;
+  let baseUrl: string;
+  let requests: string[];
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const actual = await vi.importActual<{ generateImage: typeof aiGenerateImage }>('ai');
+    vi.mocked(aiGenerateImage).mockImplementation(actual.generateImage);
+    requests = [];
+    await new Promise<void>((resolve) => {
+      server = createServer((req, res) => {
+        requests.push(`${req.method} ${req.url}`);
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ created: 1, data: [{ b64_json: 'aW1hZ2U=' }] }));
+      });
+      server.listen(0, '127.0.0.1', () => {
+        baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
+        resolve();
+      });
+    });
+  });
+
+  afterEach(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  it.each([
+    [LLMProviderType.OPENAI_COMPATIBLE, 'POST /v1/images/generations'],
+    [LLMProviderType.OPENROUTER, 'POST /v1/images'],
+  ])('tests a %s image model at its images endpoint', async (type, request) => {
+    const result = await service.testLLM(
+      {
+        type,
+        name: providerName,
+        apiKey,
+        baseUrl,
+        models: gptImage2Model,
+        modelKey: `${type}@${gptImage2Model}@${providerName}`,
+        testImageGeneration: true,
+      },
+      { asInstanceAdmin: true }
+    );
+
+    expect(result.success).toBe(true);
+    expect(requests).toEqual([request]);
+  });
+});
+
 describe('SettingOpenApiService.testLLM upstream errors', () => {
   const service = Object.create(SettingOpenApiService.prototype) as SettingOpenApiService;
   const ro = {

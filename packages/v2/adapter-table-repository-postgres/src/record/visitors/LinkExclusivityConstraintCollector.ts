@@ -33,9 +33,9 @@ import type { Result } from 'neverthrow';
 import { safeTry } from 'neverthrow';
 
 /**
- * Describes an exclusivity constraint that needs to be validated.
- * This means: the foreign records being added must not already be linked
- * to a different source record.
+ * Describes the complete desired links for one exclusive source field.
+ * Requested records must be unowned, already owned by this source, or explicitly
+ * released by another source in the same request. Empty intents represent releases.
  */
 export interface LinkExclusivityConstraint {
   /** The link field that has the constraint */
@@ -48,8 +48,10 @@ export interface LinkExclusivityConstraint {
   selfKeyName: string;
   /** The column name for the foreign key (points to foreign record) */
   foreignKeyName: string;
-  /** The foreign record IDs being added (need exclusivity check) */
-  addedForeignRecordIds: ReadonlyArray<string>;
+  /** Optional ordering column cleared with the physical owner FK. */
+  releaseOrderColumnName?: string;
+  /** All requested foreign records, including retained links and reordering */
+  desiredForeignRecordIds: ReadonlyArray<string>;
   /** The source record ID making this update */
   sourceRecordId: string;
   /** Whether this is a one-way link */
@@ -64,8 +66,6 @@ export interface LinkExclusivityConstraint {
 export interface LinkExclusivityCollectorContext {
   /** The record ID being updated */
   recordId: string;
-  /** Existing linked record IDs (before the update) */
-  existingLinkIds: ReadonlyArray<string>;
   /** New raw value being set */
   newRawValue: unknown;
 }
@@ -80,10 +80,9 @@ export type LinkExclusivityCollectorResult =
 /**
  * Visitor that collects link field exclusivity constraints.
  *
- * For link fields with oneOne or oneMany relationships, this visitor
- * identifies foreign records being newly linked and returns constraint
- * information needed to validate exclusivity (i.e., that those foreign
- * records aren't already linked to other source records).
+ * For link fields with oneOne or oneMany relationships, this visitor preserves
+ * the complete desired ownership intent, including empty values, so request-wide
+ * validation can distinguish explicit releases from owners left unchanged.
  *
  * Non-link fields and link fields without exclusivity requirements
  * return { hasConstraint: false }.
@@ -92,12 +91,11 @@ export type LinkExclusivityCollectorResult =
  * ```typescript
  * const visitor = LinkExclusivityConstraintCollector.create({
  *   recordId: 'rec123',
- *   existingLinkIds: ['rec456'],
- *   newRawValue: [{ id: 'rec456' }, { id: 'rec789' }], // rec789 is newly added
+ *   newRawValue: [{ id: 'rec456' }, { id: 'rec789' }],
  * });
  * const result = field.accept(visitor);
  * if (result.isOk() && result.value.hasConstraint) {
- *   // Need to validate that rec789 is not linked elsewhere
+ *   // Validate all requested targets and preserve this source's release intent.
  * }
  * ```
  */
@@ -232,14 +230,8 @@ export class LinkExclusivityConstraintCollector implements IFieldVisitor<LinkExc
         const newLinkItems = yield* normalizeLinkItems(this.ctx.newRawValue);
         const newIds = newLinkItems.map((item) => item.id);
 
-        // Find newly added foreign record IDs (not in existing links)
-        const existingSet = new Set(this.ctx.existingLinkIds);
-        const addedForeignRecordIds = newIds.filter((id) => !existingSet.has(id));
-
-        // No new links being added - no constraint to check
-        if (addedForeignRecordIds.length === 0) {
-          return ok({ hasConstraint: false } as LinkExclusivityCollectorResult);
-        }
+        // Keep empty intents: the SQL still clears this source's previous links,
+        // and another source in the same request may claim a released target.
 
         // Get FK table configuration
         const fkHostTableSplit = yield* field.fkHostTableName().split({ defaultSchema: 'public' });
@@ -254,6 +246,11 @@ export class LinkExclusivityConstraintCollector implements IFieldVisitor<LinkExc
         // oneMany with isOneWay uses junction table, oneOne doesn't
         const relationship = field.relationship().toString();
         const usesJunctionTable = relationship === 'oneMany' && field.isOneWay();
+        let releaseOrderColumnName: string | undefined;
+        if (foreignKeyName === '__id' && field.hasOrderColumn()) {
+          releaseOrderColumnName =
+            relationship === 'oneMany' ? yield* field.orderColumnName() : `${selfKeyName}_order`;
+        }
 
         const constraint: LinkExclusivityConstraint = {
           fieldId: field.id(),
@@ -261,7 +258,8 @@ export class LinkExclusivityConstraintCollector implements IFieldVisitor<LinkExc
           fkHostTableName,
           selfKeyName,
           foreignKeyName,
-          addedForeignRecordIds,
+          ...(releaseOrderColumnName ? { releaseOrderColumnName } : {}),
+          desiredForeignRecordIds: newIds,
           sourceRecordId: this.ctx.recordId,
           isOneWay: field.isOneWay(),
           usesJunctionTable,

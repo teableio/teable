@@ -33,6 +33,7 @@
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent",
+    "test-ssrf-bun": "bun test scripts/fetch-ssrf.bun.test.ts",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "oxlint --fix && oxfmt"
   },
@@ -45,7 +46,7 @@
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
-    "@types/node": "24.13.2",
+    "@types/node": "24.19.2",
     "@types/node-fetch": "2.6.11",
     "node-fetch": "2.7.0",
     "@vitest/coverage-v8": "4.1.12",

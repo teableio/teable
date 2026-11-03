@@ -2,11 +2,14 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
+import { urlKeySchema } from '../url-key';
 
 export const UPDATE_TEMPLATE_CATEGORY = '/template/category/{templateCategoryId}';
 
 export const updateTemplateCategoryRoSchema = z.object({
-  name: z.string(),
+  name: z.string().optional(),
+  /** null takes the key away. */
+  key: urlKeySchema.nullable().optional(),
 });
 
 export type IUpdateTemplateCategoryRo = z.infer<typeof updateTemplateCategoryRoSchema>;
@@ -14,7 +17,7 @@ export type IUpdateTemplateCategoryRo = z.infer<typeof updateTemplateCategoryRoS
 export const UpdateTemplateCategoryRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_TEMPLATE_CATEGORY,
-  description: 'update a template category name',
+  description: 'update a template category',
   request: {
     params: z.object({
       templateCategoryId: z.string(),
@@ -29,7 +32,7 @@ export const UpdateTemplateCategoryRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Successfully update template category name.',
+      description: 'Successfully update template category.',
     },
   },
   tags: ['template'],

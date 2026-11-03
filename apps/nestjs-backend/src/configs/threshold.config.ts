@@ -3,8 +3,18 @@
 import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
+import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '@teable/v2-core';
+
+const positiveIntegerOrDefault = (value: string | undefined, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
 
 export const thresholdConfig = registerAs('threshold', () => ({
+  maxSelectChoiceNameLength: positiveIntegerOrDefault(
+    process.env.TABLE_LIMIT_SELECT_CHOICE_NAME_MAX_LENGTH,
+    DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength
+  ),
   maxCopyCells: Number(process.env.MAX_COPY_CELLS ?? 50_000),
   maxResetCells: Number(process.env.MAX_RESET_CELLS ?? 50_000),
   maxPasteCells: Number(process.env.MAX_PASTE_CELLS ?? 50_000),

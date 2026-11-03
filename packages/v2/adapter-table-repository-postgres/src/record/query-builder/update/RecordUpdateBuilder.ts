@@ -55,7 +55,7 @@ export interface RecordUpdateSqlResult {
   changedFieldIds: FieldId[];
   /** Computed update impact (used for propagation planning) */
   impact: RecordUpdateImpact;
-  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  /** Added and removed foreign record IDs used by the update advisory-lock protocol */
   linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
@@ -68,7 +68,7 @@ export interface RecordUpdateMutationPlan {
   changedFieldIds: FieldId[];
   /** Computed update impact (used for propagation planning) */
   impact: RecordUpdateImpact;
-  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  /** Added and removed foreign record IDs used by the update advisory-lock protocol */
   linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
@@ -133,7 +133,7 @@ export class RecordUpdateBuilder {
     recordId: string;
     context: RecordUpdateBuilderContext;
   }): Promise<Result<RecordUpdateSqlResult, DomainError>> {
-    const { table, tableName, tableDisplayName, mutateSpec, recordId, context } = params;
+    const { tableName, tableDisplayName, recordId } = params;
     const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<RecordUpdateSqlResult, DomainError>(async function* () {
@@ -206,6 +206,7 @@ export class RecordUpdateBuilder {
         additionalStatements: additionalStatements.map((stmt, index) => ({
           description: `Additional statement ${index + 1}`,
           compiled: stmt,
+          requiresSourceWrite: stmt.requiresSourceWrite,
         })),
         changedFieldIds,
         impact: impactResult.value,
@@ -437,6 +438,21 @@ export const loadBatchExistingHostLinkIds = async (params: {
   }
 };
 
+/** Identify sources whose link mutations need an actual write snapshot or a no-op existence check. */
+export const collectLinkUpdateSourceRecordIds = (
+  updates: ReadonlyArray<{ recordId: RecordId; mutateSpec: ICellValueSpec }>
+): Result<string[], DomainError> => {
+  for (const update of updates) {
+    const visitor = new LinkValueCollectorVisitor();
+    const accepted = update.mutateSpec.accept(visitor);
+    if (accepted.isErr()) return err(accepted.error);
+    if (visitor.values().size > 0) {
+      return ok([...new Set(updates.map(({ recordId }) => recordId.toString()))]);
+    }
+  }
+  return ok([]);
+};
+
 export const collectLinkChanges = async (params: {
   db: Kysely<DynamicDB>;
   table: Table;
@@ -493,7 +509,6 @@ export const collectLinkChanges = async (params: {
       // Collect exclusivity constraints (for oneOne and oneMany relationships)
       const exclusivityVisitor = LinkExclusivityConstraintCollector.create({
         recordId,
-        existingLinkIds: existingLinks,
         newRawValue,
       });
       const exclusivityResult = linkField.accept(exclusivityVisitor);
@@ -660,8 +675,9 @@ const loadExistingLinkRecordIds = async (
 };
 
 /**
- * Build linked record locks from collected link changes.
- * These locks prevent deadlocks when multiple transactions update the same foreign records.
+ * Preserve the update protocol's complete added/removed target set across fields,
+ * for both physical FK and junction mutations. The repository acquires this set
+ * after the source UPDATE and before executing additional relation statements.
  */
 export const buildLinkedRecordLocksFromLinkChanges = (
   collected: CollectedLinkChanges

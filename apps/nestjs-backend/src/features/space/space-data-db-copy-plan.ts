@@ -717,6 +717,8 @@ const buildMigrationSharedTableDefinitions = (input: {
     },
     {
       table: '__undo_log',
+      // old_tuple is database-local physical evidence. Omission deliberately leaves it NULL
+      // on the target; never copy source xmin/ctid/relation identity into a new database.
       columns: [
         'id',
         'batch_id',

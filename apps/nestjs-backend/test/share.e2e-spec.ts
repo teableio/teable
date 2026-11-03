@@ -70,6 +70,8 @@ import {
   UPDATE_RECORD,
   getShareViewSearchCount,
   getShareViewSearchIndex,
+  getShareViewSearchCellCount,
+  getShareViewSearchMatches,
   getShareViewAggregations,
   getShareViewGroupPoints,
   GroupPointType,
@@ -1371,12 +1373,13 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
   });
 
-  describe('api/:shareId/view/search-index (GET)', () => {
+  describe('api/:shareId/view/search-index and show-all search (GET)', () => {
     let searchTableId: string;
     let searchViewId: string;
     let searchShareId: string;
     let nameFieldId: string;
     let notesFieldId: string;
+    let hiddenRecordId: string;
 
     beforeAll(async () => {
       const table = await createTable(baseId, {
@@ -1398,6 +1401,7 @@ describe('OpenAPI ShareController (e2e)', () => {
       nameFieldId = table.fields.find((field) => field.name === 'Name')!.id;
       notesFieldId = table.fields.find((field) => field.name === 'Notes')!.id;
       const activeFieldId = table.fields.find((field) => field.name === 'Active')!.id;
+      hiddenRecordId = table.records.find((record) => record.fields.Name === 'Hidden Alpha')!.id;
       await updateViewFilter(searchTableId, searchViewId, {
         filter: {
           conjunction: 'and',
@@ -1485,6 +1489,80 @@ describe('OpenAPI ShareController (e2e)', () => {
       } finally {
         await apiUpdateViewShareMeta(searchTableId, searchViewId, { includeRecords: true });
       }
+    });
+
+    it('counts visible matching cells and scans complete View row pages', async () => {
+      const count = await getShareViewSearchCellCount(searchShareId, {
+        search: ['Alpha', '', false],
+      });
+      expect(count.data).toEqual({ matchedCellCount: 2 });
+
+      const firstPage = await getShareViewSearchMatches(searchShareId, {
+        take: 2,
+        search: ['Alpha', '', false],
+      });
+      expect(firstPage.data).toEqual({
+        matches: [expect.objectContaining({ index: 1, fieldId: nameFieldId })],
+        scannedRecordCount: 2,
+        nextSkip: 2,
+        hasMore: true,
+      });
+
+      const secondPage = await getShareViewSearchMatches(searchShareId, {
+        skip: firstPage.data.nextSkip!,
+        take: 1,
+        search: ['Alpha', '', false],
+      });
+      expect(secondPage.data).toEqual({
+        matches: [expect.objectContaining({ index: 3, fieldId: notesFieldId })],
+        scannedRecordCount: 1,
+        nextSkip: null,
+        hasMore: false,
+      });
+      expect(
+        [...firstPage.data.matches, ...secondPage.data.matches].map((match) => match.recordId)
+      ).not.toContain(hiddenRecordId);
+    });
+
+    it('returns empty show-all results when sharing disables records', async () => {
+      await apiUpdateViewShareMeta(searchTableId, searchViewId, { includeRecords: false });
+      try {
+        const [count, matches] = await Promise.all([
+          getShareViewSearchCellCount(searchShareId, { search: ['Alpha', '', false] }),
+          getShareViewSearchMatches(searchShareId, {
+            take: 10,
+            search: ['Alpha', '', false],
+          }),
+        ]);
+
+        expect(count.data).toEqual({ matchedCellCount: 0 });
+        expect(matches.data).toEqual({
+          matches: [],
+          scannedRecordCount: 0,
+          nextSkip: null,
+          hasMore: false,
+        });
+      } finally {
+        await apiUpdateViewShareMeta(searchTableId, searchViewId, { includeRecords: true });
+      }
+    });
+
+    it('rejects oversized or hide-not-match show-all scans', async () => {
+      const oversized = await getError(() =>
+        getShareViewSearchMatches(searchShareId, {
+          take: 1001,
+          search: ['Alpha', '', false],
+        })
+      );
+      const hiddenRows = await getError(() =>
+        getShareViewSearchMatches(searchShareId, {
+          take: 10,
+          search: ['Alpha', '', true],
+        })
+      );
+
+      expect(oversized?.status).toBe(400);
+      expect(hiddenRows?.status).toBe(400);
     });
 
     it('rejects missing search and result windows above 1000', async () => {
@@ -1636,6 +1714,23 @@ describe('OpenAPI ShareController (e2e)', () => {
         })
       );
       expect(error?.status).toEqual(403);
+    });
+
+    it('rejects show-all searches that target a hidden column', async () => {
+      const cellCountError = await getError(() =>
+        getShareViewSearchCellCount(leakShareId, {
+          search: [secretValue, secretFieldId, false],
+        })
+      );
+      const matchesError = await getError(() =>
+        getShareViewSearchMatches(leakShareId, {
+          take: 10,
+          search: [secretValue, secretFieldId, false],
+        })
+      );
+
+      expect(cellCountError?.status).toBe(403);
+      expect(matchesError?.status).toBe(403);
     });
 
     it('must not return a hidden column even when the client requests it via projection', async () => {

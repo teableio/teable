@@ -1,8 +1,9 @@
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
 import { RedisNativeService } from '../../cache/redis-native.service';
+import { Processor } from '../../utils/queue-processor';
 import { chainCatchupFlush } from '../cold-archive/catchup-chain';
 import { runCompactionScan } from '../cold-archive/compaction-pending';
 import { COLD_WORKER_OPTIONS } from '../cold-archive/worker-options';

@@ -36,7 +36,7 @@ export interface V1SpaceTable {
 export interface V1BaseTable {
   id: string;
   space_id: string;
-  name: string;
+  name: string | null;
   order: number;
   icon: string | null;
   schema_pass: string | null;

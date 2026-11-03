@@ -228,14 +228,13 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       query: definition.bind({})._unsafeUnwrap(),
       rootTable: root,
       rootScope,
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: targets.get(source.alias)!,
         linkFieldId: source.linkFieldId,
         scope: sourceScopes.get(source.alias) ?? {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
   };
 
@@ -932,14 +931,13 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       query,
       rootTable: root,
       rootScope: {},
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: target,
         linkFieldId: source.linkFieldId,
         scope: {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     });
 
     expect(result._unsafeUnwrapErr().code).toBe('data_query.filter_operator');

@@ -34,8 +34,14 @@ import {
   splitSchemaQualifiedTableName,
   toQualifiedIdentifierLiteral,
 } from '../../shared/sqlIdentifiers';
-import type { UndoLogRow } from '../../shared/undoCapture';
+import {
+  getUndoCaptureOldTuple,
+  matchesUndoCaptureTableName,
+  type UndoCaptureTupleIdentity,
+  type UndoLogRow,
+} from '../../shared/undoCapture';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
+import { buildAttachmentTableBatchReplaceQueries } from '../attachments/attachmentTableMutations';
 import type {
   ComputedBeforeImageRecord,
   ComputedFieldUpdater,
@@ -64,8 +70,12 @@ import { BatchRecordUpdateBuilder } from '../query-builder/update/BatchRecordUpd
 import {
   buildBatchUpdateSql,
   collectBatchUpdateReturnedOldFields,
+  type BatchUpdateNoopReleaseSpec,
 } from '../query-builder/update/BatchUpdateSqlBuilder';
-import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
+import {
+  collectLinkUpdateSourceRecordIds,
+  RecordUpdateBuilder,
+} from '../query-builder/update/RecordUpdateBuilder';
 import {
   TableRecordConditionWhereVisitor,
   FieldDeleteValueVisitor,
@@ -990,10 +1000,11 @@ const buildEmptyBeforeImageRecord = (recordId: core.RecordId): ComputedBeforeIma
   fieldValuesByDbName: {},
 });
 
-const buildOldLinkExtraSeedRecords = (
+const buildLinkExtraSeedRecords = (
   table: core.Table,
   linkFieldIds: ReadonlyArray<core.FieldId>,
-  updatedRecords: ReadonlyArray<{ oldFieldValues: Readonly<Record<string, unknown>> }>
+  updatedRecords: ReadonlyArray<{ oldFieldValues: Readonly<Record<string, unknown>> }>,
+  physicalLinkOwners: ReadonlyMap<string, ReadonlySet<string>>
 ): Result<ExtraSeedRecordGroup[], DomainError> =>
   safeTry(function* () {
     const extraSeedMap = new Map<
@@ -1008,16 +1019,14 @@ const buildOldLinkExtraSeedRecords = (
       const linkField = field as core.LinkField;
       if (linkField.isOneWay()) continue;
 
-      const oldForeignRecordIds = new Set<string>();
+      const foreignRecordIds = new Set(physicalLinkOwners.get(fieldId.toString()));
       for (const record of updatedRecords) {
         for (const item of normalizeStoredLinkItems(record.oldFieldValues[fieldId.toString()])) {
-          oldForeignRecordIds.add(item.id);
+          foreignRecordIds.add(item.id);
         }
       }
 
-      yield* mergeExtraSeedRecords(extraSeedMap, linkField.foreignTableId(), [
-        ...oldForeignRecordIds,
-      ]);
+      yield* mergeExtraSeedRecords(extraSeedMap, linkField.foreignTableId(), [...foreignRecordIds]);
     }
 
     return ok(finalizeExtraSeedRecords(extraSeedMap));
@@ -1033,49 +1042,6 @@ const mergeTrackedFields = (
     }
   }
   return [...trackedFields.values()];
-};
-
-const loadBeforeImageForRecord = async (
-  db: Kysely<DynamicDB>,
-  tableName: string,
-  recordId: core.RecordId,
-  trackedFields: ReadonlyArray<BulkUpdateTrackedField>
-): Promise<Result<ComputedBeforeImageRecord | undefined, DomainError>> => {
-  if (trackedFields.length === 0) {
-    return ok(undefined);
-  }
-
-  try {
-    const row = (await db
-      .selectFrom(tableName)
-      .select([
-        sql.ref(RECORD_ID_COLUMN).as('record_id'),
-        ...trackedFields.map(({ dbFieldName, oldValueAlias }) =>
-          sql.ref(dbFieldName).as(oldValueAlias)
-        ),
-      ])
-      .where(RECORD_ID_COLUMN, '=', recordId.toString())
-      .executeTakeFirst()) as BeforeImageTrackedRow | undefined;
-
-    if (!row || row.record_id !== recordId.toString()) {
-      return ok(undefined);
-    }
-
-    return ok(
-      buildBeforeImageFromTrackedValues(
-        recordId,
-        trackedFields,
-        Object.fromEntries(
-          trackedFields.map(({ fieldId, oldValueAlias }) => [
-            fieldId.toString(),
-            row[oldValueAlias],
-          ])
-        )
-      )
-    );
-  } catch (error) {
-    return err(wrapDatabaseError(error, 'query', { tableName, recordId: recordId.toString() }));
-  }
 };
 
 /**
@@ -1348,8 +1314,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           recordIds: group.recordIds,
         }));
 
-        // Validate link exclusivity constraints for oneOne/oneMany relationships
-        yield* await validateInsertExclusivityConstraints(context, db, exclusivityConstraints);
+        if (exclusivityConstraints.length > 0 || linkedRecordLocks.length > 0) {
+          yield* requireLinkWriteTransaction(db);
+        }
 
         this.logger.debug(`insert:table=${tableName}`, { values: valuesWithViewOrder });
 
@@ -1382,9 +1349,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await syncAutoNumberSequence(db, tableName);
           }
 
-          // Acquire advisory locks for linked records to prevent deadlocks
-          const baseId = table.baseId().toString();
-          await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
+          yield* await acquireLinkedRecordLocks(db, table.baseId().toString(), linkedRecordLocks);
+          yield* await acquireInsertExclusiveTargetLocks(db, exclusivityConstraints);
+          yield* await validateInsertExclusivityConstraints(context, db, exclusivityConstraints);
 
           // Execute additional statements (junction inserts, FK updates, user field updates, etc.)
           await RecordInsertBuilder.executeStatements(db, additionalStatements);
@@ -1712,10 +1679,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           recordIds: [...entry.recordIds.values()],
         }));
 
-        // Validate link exclusivity constraints:
-        // 1. Check for cross-record duplicates within the same batch
-        // 2. Check against existing database records
-        yield* await validateInsertExclusivityConstraints(context, db, allExclusivityConstraints);
+        if (allExclusivityConstraints.length > 0 || allLinkedRecordLocks.length > 0) {
+          yield* requireLinkWriteTransaction(db);
+        }
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
 
@@ -1798,9 +1764,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await syncAutoNumberSequence(db, tableName);
           }
 
-          // Acquire advisory locks for linked records to prevent deadlocks
-          const baseId = table.baseId().toString();
-          await acquireLinkedRecordLocks(db, baseId, allLinkedRecordLocks);
+          yield* await acquireLinkedRecordLocks(
+            db,
+            table.baseId().toString(),
+            allLinkedRecordLocks
+          );
+          yield* await acquireInsertExclusiveTargetLocks(db, allExclusivityConstraints);
+          yield* await validateInsertExclusivityConstraints(context, db, allExclusivityConstraints);
 
           // Execute additional statements (junction inserts, FK updates, user field updates, etc.)
           await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
@@ -2348,6 +2318,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       async function* (this: PostgresTableRecordRepository) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
+        const tableNameSplit = yield* dbTableName.split({ defaultSchema: 'public' });
+        const physicalTableName = tableNameSplit.schema
+          ? `${tableNameSplit.schema}.${tableNameSplit.tableName}`
+          : tableNameSplit.tableName;
         const recordIdStr = recordId.toString();
         const actorId = context.actorId.toString();
         const actorContext = context as core.IExecutionContext & {
@@ -2385,12 +2359,41 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             },
           });
         const { impactHint, extraSeedRecords, exclusivityConstraints } = impact;
+        const writtenLinkFields = yield* collectWrittenLinkFields(
+          table,
+          new Set(Object.keys(setClauses))
+        );
+        if (writtenLinkFields.length > 0) yield* requireLinkWriteTransaction(db);
+        const mutationImpact = {
+          ...impactHint,
+          linkFieldIds: writtenLinkFields.map((field) => field.id()),
+        };
+        const exclusivityState: LinkExclusivityValidationState = new Map();
+        const extraSeedMap = new Map<
+          string,
+          { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+        >();
+        for (const seed of extraSeedRecords) {
+          yield* mergeExtraSeedRecords(
+            extraSeedMap,
+            seed.tableId,
+            seed.recordIds.map((id) => id.toString())
+          );
+        }
         const changedFieldColumns = yield* toChangedFieldColumns(table, changedFieldIds);
-        const distinctUserFieldWhere = yield* buildDistinctUserFieldWhere(table, setClauses);
-        const normalizedImpact = this.normalizeImpactHint(impactHint);
+        let distinctUserFieldWhere = yield* buildDistinctUserFieldWhere(table, setClauses);
+        for (const field of writtenLinkFields) {
+          const foreignKey = yield* field.foreignKeyNameString();
+          if (foreignKey === RECORD_ID_COLUMN || !Object.hasOwn(setClauses, foreignKey)) continue;
+          const distinctForeignKey = sql<SqlBool>`${sql.ref(foreignKey)} IS DISTINCT FROM ${setClauses[foreignKey]}`;
+          distinctUserFieldWhere = distinctUserFieldWhere
+            ? sql<SqlBool>`((${distinctUserFieldWhere}) OR (${distinctForeignKey}))`
+            : distinctForeignKey;
+        }
+        const normalizedImpact = this.normalizeImpactHint(mutationImpact);
         const expandedChangedFieldIds = this.expandComputedSeedFieldIds(
           table,
-          impactHint.valueFieldIds.concat(impactHint.linkFieldIds)
+          mutationImpact.valueFieldIds.concat(mutationImpact.linkFieldIds)
         );
         const beforeImageCapturePlan = yield* await this.resolveBeforeImageCapturePlan(
           context,
@@ -2399,30 +2402,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           'update',
           normalizedImpact
         );
-        let beforeImageRecord: ComputedBeforeImageRecord | undefined;
-        if (beforeImageCapturePlan.needsBeforeImage) {
-          beforeImageRecord =
-            beforeImageCapturePlan.trackedFields.length === 0
-              ? buildEmptyBeforeImageRecord(recordId)
-              : yield* await loadBeforeImageForRecord(
-                  db,
-                  tableName,
-                  recordId,
-                  beforeImageCapturePlan.trackedFields
-                );
-        }
-
-        // Validate link exclusivity constraints before persisting
-        // This ensures that in oneMany/oneOne relationships, a foreign record
-        // cannot be linked to multiple source records
-        yield* await validateLinkExclusivityConstraints(context, db, exclusivityConstraints);
 
         let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
           snapshotCaptureSession = yield* await this.recordMutationSnapshotCapture.begin(
             toRecordMutationSnapshotTraceContext(context),
             db,
-            tableName
+            tableName,
+            foreignLinkCaptureTables(exclusivityConstraints)
           );
 
           let updateQuery = db
@@ -2447,9 +2434,25 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             return ok({ mutationApplied: false });
           }
 
-          // Acquire advisory locks for linked records to prevent deadlocks
-          const baseId = table.baseId().toString();
-          await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
+          const writtenSourceIds = new Set([recordIdStr]);
+          const currentManyManyLocks = yield* await collectCurrentManyManyTargetLocks(
+            db,
+            tableName,
+            writtenLinkFields,
+            writtenSourceIds
+          );
+          yield* await acquireLinkedRecordLocks(db, table.baseId().toString(), [
+            ...linkedRecordLocks,
+            ...currentManyManyLocks,
+          ]);
+          yield* await rememberLinkExclusivityIntents(
+            db,
+            exclusivityConstraints,
+            table.id(),
+            exclusivityState,
+            writtenSourceIds,
+            []
+          );
 
           // Execute additional statements (junction table updates, FK updates)
           for (const stmt of additionalStatements) {
@@ -2457,9 +2460,41 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
 
           const mutationRows = yield* await snapshotCaptureSession.finish();
+          snapshotCaptureSession = undefined;
+          yield* rememberCapturedLinkOwners(
+            exclusivityState,
+            mutationRows,
+            buildWrittenLinkIntentKeys(exclusivityConstraints, writtenSourceIds)
+          );
+          if (exclusivityState.size > 0) {
+            yield* rememberWrittenLinkOwners(
+              table,
+              physicalTableName,
+              table.id(),
+              new Map(
+                Object.entries(setClauses).map(([column, value]) => [
+                  column,
+                  [{ recordId: recordIdStr, value }],
+                ])
+              ),
+              writtenSourceIds,
+              exclusivityState
+            );
+          }
+          yield* mergeCapturedLinkSeeds(
+            table,
+            tableName,
+            writtenLinkFields,
+            mutationRows,
+            extraSeedMap
+          );
+          yield* await validateLinkExclusivityFinalState(exclusivityState, db, extraSeedMap);
+          const sourceMutationRows = mutationRows.filter((row) =>
+            matchesUndoCaptureTableName(row.table_name, tableName)
+          );
           const updateSnapshot = yield* buildRecordUpdateSnapshotFromUndoRows(
             table,
-            mutationRows,
+            sourceMutationRows,
             recordIdStr
           );
           if (!updateSnapshot) {
@@ -2474,6 +2509,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               buildMissingSnapshotError('update', table.id().toString(), 1, mutationRows.length)
             );
           }
+          const beforeImageRecord = beforeImageCapturePlan.needsBeforeImage
+            ? buildBeforeImageFromTrackedValues(
+                recordId,
+                beforeImageCapturePlan.trackedFields,
+                updateSnapshot.previous.fields
+              )
+            : undefined;
 
           // Run computed field updates
           const computedResult = yield* await this.runComputedUpdateById(
@@ -2481,8 +2523,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             table,
             recordId,
             'update',
-            impactHint,
-            extraSeedRecords,
+            mutationImpact,
+            finalizeExtraSeedRecords(extraSeedMap),
             beforeImageRecord ? [beforeImageRecord] : []
           );
           // Extract computed changes for this specific record
@@ -2601,6 +2643,30 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const filledLinkColumns = options?.fillLinkTitles
           ? yield* toChangedFieldColumns(table, linkFieldIds)
           : [];
+        if (linkFieldIds.length > 0) yield* requireLinkWriteTransaction(db);
+
+        // A deferred symmetric cache can lag its FK. Preserve the locked physical
+        // owners from both sides of the update as seeds, together with the presented
+        // old value, so reparenting refreshes both the previous and destination caches.
+        const physicalLinkOwnerColumns: Array<{
+          fieldId: string;
+          columnName: string;
+          oldAlias: string;
+          newAlias: string;
+        }> = [];
+        for (const fieldId of linkFieldIds) {
+          const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+          const linkField = field as core.LinkField;
+          if (linkField.isOneWay()) continue;
+          const columnName = yield* linkField.foreignKeyNameString();
+          if (columnName === RECORD_ID_COLUMN) continue;
+          physicalLinkOwnerColumns.push({
+            fieldId: fieldId.toString(),
+            columnName,
+            oldAlias: `old_link_owner_${fieldId.toString()}`,
+            newAlias: `new_link_owner_${fieldId.toString()}`,
+          });
+        }
 
         try {
           const matchedSelects = [
@@ -2608,6 +2674,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             sql.ref(VERSION_COLUMN).as('old_version'),
             ...trackedFields.map(({ dbFieldName, oldValueAlias }) =>
               sql.ref(dbFieldName).as(oldValueAlias)
+            ),
+            ...physicalLinkOwnerColumns.map(({ columnName, oldAlias }) =>
+              sql.ref(columnName).as(oldAlias)
             ),
           ];
 
@@ -2621,12 +2690,25 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...filledLinkColumns.map(({ dbFieldName, alias }) =>
               sql.ref(`${tableName}.${dbFieldName}`).as(alias)
             ),
+            ...physicalLinkOwnerColumns.map(({ oldAlias }) =>
+              sql.ref(`matched.${oldAlias}`).as(oldAlias)
+            ),
+            ...physicalLinkOwnerColumns.map(({ columnName, newAlias }) =>
+              sql.ref(`${tableName}.${columnName}`).as(newAlias)
+            ),
           ];
 
           let updateQuery = db
-            .with('matched', (qb) =>
-              qb.selectFrom(tableName).select(matchedSelects).where(whereExpression)
-            )
+            .with('matched', (qb) => {
+              const matched = qb
+                .selectFrom(tableName)
+                .select(matchedSelects)
+                .where(whereExpression);
+              // Read link before-images only after the same row lock as the UPDATE.
+              return linkFieldIds.length > 0
+                ? matched.orderBy(RECORD_ID_COLUMN).forNoKeyUpdate()
+                : matched;
+            })
             .updateTable(tableName)
             .from('matched')
             .set(setClauses)
@@ -2638,6 +2720,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
           const updatedRecordIds: core.RecordId[] = [];
           const updatedRecords: Array<core.UpdateManyResult['updatedRecords'][number]> = [];
+          const physicalLinkOwners = new Map<string, Set<string>>();
           for (const row of rows) {
             const rawId = row.record_id;
             if (typeof rawId !== 'string') {
@@ -2650,6 +2733,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 if (Object.prototype.hasOwnProperty.call(row, oldValueAlias)) {
                   oldFieldValues[fieldId.toString()] = row[oldValueAlias];
                 }
+              }
+              for (const { fieldId, oldAlias, newAlias } of physicalLinkOwnerColumns) {
+                const oldOwner = row[oldAlias];
+                const newOwner = row[newAlias];
+                if (typeof oldOwner !== 'string' && typeof newOwner !== 'string') continue;
+
+                const owners = physicalLinkOwners.get(fieldId) ?? new Set<string>();
+                if (typeof oldOwner === 'string') owners.add(oldOwner);
+                if (typeof newOwner === 'string') owners.add(newOwner);
+                physicalLinkOwners.set(fieldId, owners);
               }
 
               const oldVersion = Number(row.old_version);
@@ -2683,10 +2776,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                       )
                 )
               : [];
-            const extraSeedRecords = yield* buildOldLinkExtraSeedRecords(
+            const extraSeedRecords = yield* buildLinkExtraSeedRecords(
               table,
               linkFieldIds,
-              updatedRecords
+              updatedRecords,
+              physicalLinkOwners
             );
             const computedResult = deferComputed
               ? enqueueDeferredComputedUpdates
@@ -2763,6 +2857,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       async function* (this: PostgresTableRecordRepository) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
+        const tableNameSplit = yield* dbTableName.split({ defaultSchema: 'public' });
+        const physicalTableName = tableNameSplit.schema
+          ? `${tableNameSplit.schema}.${tableNameSplit.tableName}`
+          : tableNameSplit.tableName;
         const now = new Date().toISOString();
         const actorId = context.actorId.toString();
         const actorContext = context as core.IExecutionContext & {
@@ -2784,6 +2882,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           string,
           { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
         >();
+        const exclusivityState: LinkExclusivityValidationState = new Map();
+        const localReleaseGenerations: LocalReleaseGenerations = new Map();
         const skipComputed = options?.skipComputedUpdates ?? false;
         const deferComputed = !skipComputed && (options?.deferComputedUpdates ?? false);
         const enqueueDeferredComputedUpdates =
@@ -2837,6 +2937,36 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               mutateSpec: updateResult.mutateSpec,
             }));
 
+          const linkSourceIds = collectLinkUpdateSourceRecordIds(updates);
+          if (linkSourceIds.isErr()) return err(linkSourceIds.error);
+          const captureLinkMutations = linkSourceIds.value.length > 0;
+          const requestedSystemFields = batchTable
+            .getFields()
+            .filter(
+              (field) =>
+                core.isLastModifiedSystemField(field) &&
+                batch.some((update) => update.fieldKeyMapping.has(field.id().toString()))
+            );
+          // LastModified events need the OLD row actually overwritten after
+          // any row-lock wait, not the statement-start matched CTE image.
+          // Reuse the source trigger capture without adding relationship locks.
+          // A later value-only batch can update an inverse target with a pending
+          // release. Its trigger OLD tuple must extend the same local chain too.
+          const capturePendingTargetMutations = [...exclusivityState.values()].some(
+            (group) =>
+              group.ownsForeignRows &&
+              group.fkHostTableName === physicalTableName &&
+              group.pendingNoopReleaseTokens.length > 0
+          );
+          const captureSourceMutations =
+            captureLinkMutations ||
+            requestedSystemFields.length > 0 ||
+            capturePendingTargetMutations;
+          if (captureLinkMutations) {
+            const transaction = requireLinkWriteTransaction(db);
+            if (transaction.isErr()) return err(transaction.error);
+          }
+
           // Use BatchRecordUpdateBuilder to build batch update data
           const batchUpdateBuilder = new BatchRecordUpdateBuilder(db);
           const batchDataResult = await batchUpdateBuilder.buildBatchUpdateData({
@@ -2862,10 +2992,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           const {
             columnUpdateData,
             additionalStatements,
+            attachmentTableReplacements,
             linkedRecordLocks,
             impact,
             systemColumns,
           } = batchDataResult.value;
+          const writtenLinkFields = collectWrittenLinkFields(
+            batchTable,
+            new Set(columnUpdateData.keys())
+          );
+          if (writtenLinkFields.isErr()) return err(writtenLinkFields.error);
           batchSpan?.setAttributes({
             'record.update.batchColumnCount': columnUpdateData.size,
             'record.update.batchAdditionalStatementCount': additionalStatements.length,
@@ -2874,10 +3010,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             'record.update.batchLinkFieldCount': impact.impactHint.linkFieldIds.length,
           });
 
+          let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
           try {
             const batchImpactHint = {
               valueFieldIds: impact.valueFieldIds,
-              linkFieldIds: impact.impactHint.linkFieldIds,
+              linkFieldIds: writtenLinkFields.value.map((field) => field.id()),
             };
             const normalizedBatchImpact = this.normalizeImpactHint(batchImpactHint);
             const batchChangedFieldIds = this.expandComputedSeedFieldIds(batchTable, [
@@ -2900,19 +3037,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               return err(beforeImageCapturePlan.error);
             }
 
+            const returnedOldSystemFields: Array<{ fieldId: string; dbFieldName: string }> = [];
+            for (const field of requestedSystemFields) {
+              const dbFieldNameResult = field.dbFieldName();
+              if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+              const dbFieldNameValue = dbFieldNameResult.value.value();
+              if (dbFieldNameValue.isErr()) return err(dbFieldNameValue.error);
+              returnedOldSystemFields.push({
+                fieldId: field.id().toString(),
+                dbFieldName: dbFieldNameValue.value,
+              });
+            }
             // Generate and execute batch UPDATE SQL
             const returnedOldFields = collectBatchUpdateReturnedOldFields(
               batchTable,
               columnUpdateData,
-              beforeImageCapturePlan.value.trackedFields.map(({ fieldId, dbFieldName }) => ({
-                fieldId: fieldId.toString(),
-                dbFieldName,
-              }))
+              [
+                ...beforeImageCapturePlan.value.trackedFields.map(({ fieldId, dbFieldName }) => ({
+                  fieldId: fieldId.toString(),
+                  dbFieldName,
+                })),
+                ...returnedOldSystemFields,
+              ]
             );
-            // SQL title filling happens after domain changes are collected. Return those
-            // stored values in the same statement so events never publish id-only links.
+            // Title filling is decided after link changes were pre-read. Return every
+            // link cache column actually written by this statement, including a
+            // typecast no-op whose persisted title is refreshed after a concurrent write.
             const filledLinkFieldIds = options?.fillLinkTitles
-              ? new Set(impact.impactHint.linkFieldIds.map((fieldId) => fieldId.toString()))
+              ? new Set(batchImpactHint.linkFieldIds.map((fieldId) => fieldId.toString()))
               : undefined;
             const returnedNewFields = filledLinkFieldIds
               ? returnedOldFields
@@ -2934,6 +3086,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               db,
               returnedOldFields,
               returnedNewFields,
+              returnMatchedRecords: captureLinkMutations,
+              noopReleaseSpecs: buildBatchNoopReleaseSpecs(impact.exclusivityConstraints),
             });
             if (updateSqlResult.isErr()) {
               return err(updateSqlResult.error);
@@ -2971,13 +3125,60 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               );
             }
 
+            if (captureSourceMutations) {
+              const captureResult = await this.recordMutationSnapshotCapture.begin(
+                toRecordMutationSnapshotTraceContext(context),
+                db,
+                tableName,
+                foreignLinkCaptureTables(impact.exclusivityConstraints, exclusivityState)
+              );
+              if (captureResult.isErr()) return err(captureResult.error);
+              snapshotCaptureSession = captureResult.value;
+            }
+
             const queryResult = await db.executeQuery(updateSqlResult.value);
             const batchUpdatedRecords: Array<
               NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]
             > = [];
+            const unchangedSourceIds: string[] = [];
+            const capturedNoopReleaseTokens: CapturedNoopReleaseToken[] = [];
             for (const row of queryResult.rows as ReadonlyArray<Record<string, unknown>>) {
+              if (typeof row.release_group_key === 'string') {
+                const tokenValues = [
+                  row.release_source_id,
+                  row.release_target_id,
+                  row.release_owner_id,
+                  row.release_xmin,
+                  row.release_ctid,
+                  row.release_relation_oid,
+                  row.release_relation_filenode,
+                ];
+                if (!tokenValues.every((value) => typeof value === 'string')) {
+                  return err(
+                    domainError.infrastructure({
+                      message: 'Invalid no-op link release token returned by batch update',
+                      code: 'infrastructure.database.invalid_link_release_token',
+                    })
+                  );
+                }
+                capturedNoopReleaseTokens.push({
+                  groupKey: row.release_group_key,
+                  sourceRecordId: row.release_source_id as string,
+                  targetRecordId: row.release_target_id as string,
+                  ownerRecordId: row.release_owner_id as string,
+                  xmin: row.release_xmin as string,
+                  ctid: row.release_ctid as string,
+                  relationOid: row.release_relation_oid as string,
+                  relationFilenode: row.release_relation_filenode as string,
+                });
+                continue;
+              }
               const rawId = row.record_id;
               if (typeof rawId !== 'string') {
+                continue;
+              }
+              if (row.mutation_applied === false) {
+                unchangedSourceIds.push(rawId);
                 continue;
               }
               const recordIdResult = core.RecordId.create(rawId);
@@ -3019,34 +3220,61 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               });
             }
 
+            const writtenRecordIds = new Set(
+              batchUpdatedRecords.map(({ recordId }) => recordId.toString())
+            );
+            // Only rows seen by the mutation statement can be no-ops. A restored
+            // ID that was missing in that statement must not acquire an intent.
+            const existingSourceIds = new Set(writtenRecordIds);
+            for (const id of unchangedSourceIds) {
+              existingSourceIds.add(id);
+            }
+            const constraints = impact.exclusivityConstraints.filter((constraint) =>
+              existingSourceIds.has(constraint.sourceRecordId)
+            );
+            // Matched no-ops contribute only their exact same-snapshot release tokens.
+            // Their retained targets and claim statements are readonly observations.
+            if (batchUpdatedRecords.length > 0 || constraints.length > 0) {
+              const currentManyManyLocks =
+                batchUpdatedRecords.length > 0
+                  ? await collectCurrentManyManyTargetLocks(
+                      db,
+                      tableName,
+                      writtenLinkFields.value,
+                      writtenRecordIds,
+                      columnUpdateData
+                    )
+                  : ok<LinkedRecordLockInfo[], DomainError>([]);
+              if (currentManyManyLocks.isErr()) return err(currentManyManyLocks.error);
+              const lockResult = await acquireLinkedRecordLocks(
+                db,
+                batchTable.baseId().toString(),
+                [...linkedRecordLocks, ...currentManyManyLocks.value]
+              );
+              if (lockResult.isErr()) return err(lockResult.error);
+              const intentResult = await rememberLinkExclusivityIntents(
+                db,
+                constraints,
+                table.id(),
+                exclusivityState,
+                writtenRecordIds,
+                capturedNoopReleaseTokens
+              );
+              if (intentResult.isErr()) return err(intentResult.error);
+            }
+
             if (batchUpdatedRecords.length > 0) {
-              if (beforeImageCapturePlan.value.needsBeforeImage) {
-                for (const update of batchUpdatedRecords) {
-                  const recordIdKey = update.recordId.toString();
-                  if (beforeImageByRecordId.has(recordIdKey)) {
-                    continue;
-                  }
-
-                  beforeImageByRecordId.set(
-                    recordIdKey,
-                    beforeImageCapturePlan.value.trackedFields.length === 0
-                      ? buildEmptyBeforeImageRecord(update.recordId)
-                      : buildBeforeImageFromTrackedValues(
-                          update.recordId,
-                          beforeImageCapturePlan.value.trackedFields,
-                          update.oldFieldValues
-                        )
-                  );
-                }
-              }
-
-              // Acquire advisory locks for linked records (deduplicated, single query)
-              const baseId = batchTable.baseId().toString();
-              await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
-
               // Execute additional statements (junction tables, FK updates)
               for (const stmt of additionalStatements) {
+                if (stmt.sourceRecordId && !writtenRecordIds.has(stmt.sourceRecordId)) continue;
                 await db.executeQuery(stmt.compiled);
+              }
+              const attachmentStatements = buildAttachmentTableBatchReplaceQueries(
+                db,
+                attachmentTableReplacements.filter(({ recordId }) => writtenRecordIds.has(recordId))
+              );
+              for (const statement of attachmentStatements) {
+                await db.executeQuery(statement);
               }
 
               for (const update of batchUpdatedRecords) {
@@ -3056,7 +3284,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               for (const fieldId of impact.valueFieldIds) {
                 allValueFieldIds.set(fieldId.toString(), fieldId);
               }
-              for (const fieldId of impact.impactHint.linkFieldIds) {
+              for (const fieldId of batchImpactHint.linkFieldIds) {
                 allLinkFieldIds.set(fieldId.toString(), fieldId);
               }
               for (const seedGroup of impact.extraSeedRecords) {
@@ -3067,6 +3295,84 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 );
                 if (mergeResult.isErr()) {
                   return err(mergeResult.error);
+                }
+              }
+            }
+
+            if (snapshotCaptureSession) {
+              const captured = await snapshotCaptureSession.finish();
+              snapshotCaptureSession = undefined;
+              if (captured.isErr()) return err(captured.error);
+              rememberCapturedLocalReleaseGenerations(
+                exclusivityState,
+                captured.value,
+                localReleaseGenerations
+              );
+              const sourceRows = groupUndoLogRowsByRecordId(
+                captured.value.filter(
+                  (row) =>
+                    row.operation === 'UPDATE' &&
+                    matchesUndoCaptureTableName(row.table_name, tableName)
+                )
+              );
+              for (const update of batchUpdatedRecords) {
+                const oldRow = toStoredRowObject(
+                  sourceRows.get(update.recordId.toString())?.[0]?.old_row
+                );
+                if (!oldRow || typeof oldRow[VERSION_COLUMN] !== 'number') {
+                  return err(
+                    buildMissingSnapshotError(
+                      'update',
+                      table.id().toString(),
+                      batchUpdatedRecords.length,
+                      sourceRows.size
+                    )
+                  );
+                }
+                update.oldVersion = Number(oldRow[VERSION_COLUMN]);
+                update.oldFieldValues = Object.fromEntries(
+                  returnedOldFields.map(({ fieldId, dbFieldName }) => [
+                    fieldId,
+                    oldRow[dbFieldName],
+                  ])
+                );
+              }
+              const ownerResult = rememberCapturedLinkOwners(
+                exclusivityState,
+                captured.value,
+                buildWrittenLinkIntentKeys(constraints, writtenRecordIds)
+              );
+              if (ownerResult.isErr()) return err(ownerResult.error);
+              const seedResult = mergeCapturedLinkSeeds(
+                batchTable,
+                tableName,
+                writtenLinkFields.value,
+                captured.value,
+                extraSeedMap
+              );
+              if (seedResult.isErr()) return err(seedResult.error);
+            }
+            const writtenOwnersResult = rememberWrittenLinkOwners(
+              batchTable,
+              physicalTableName,
+              table.id(),
+              columnUpdateData,
+              writtenRecordIds,
+              exclusivityState
+            );
+            if (writtenOwnersResult.isErr()) return err(writtenOwnersResult.error);
+            if (beforeImageCapturePlan.value.needsBeforeImage) {
+              for (const update of batchUpdatedRecords) {
+                const recordIdKey = update.recordId.toString();
+                if (!beforeImageByRecordId.has(recordIdKey)) {
+                  beforeImageByRecordId.set(
+                    recordIdKey,
+                    buildBeforeImageFromTrackedValues(
+                      update.recordId,
+                      beforeImageCapturePlan.value.trackedFields,
+                      update.oldFieldValues
+                    )
+                  );
                 }
               }
             }
@@ -3086,6 +3392,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               wrapDatabaseError(error, 'update', { tableName, fields: table.getFields() })
             );
           } finally {
+            await snapshotCaptureSession?.abort();
             batchSpan?.end();
           }
         };
@@ -3112,8 +3419,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
         }
 
+        const releaseResult = await applyPendingNoopLinkReleases(
+          db,
+          exclusivityState,
+          affectedRecordIds,
+          allLinkFieldIds,
+          extraSeedMap,
+          localReleaseGenerations
+        );
+        if (releaseResult.isErr()) return err(releaseResult.error);
+        yield* await validateLinkExclusivityFinalState(exclusivityState, db, extraSeedMap);
+
         // Trigger computed field updates once after all batches
-        if (totalUpdated > 0) {
+        if (affectedRecordIds.size > 0) {
           if (!skipComputed) {
             const affectedRecords = [...affectedRecordIds.values()];
             const impact = {
@@ -3246,12 +3564,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
-      await this.publishComputedUpdateEvents(
-        context,
-        table.baseId(),
-        executeResult.value,
-        resolveComputedRealtimeOrchestration(context, recordIds.length, options.orchestration)
-      );
+      // Hybrid owns publication for its synchronous prefix; only the sync strategy
+      // returns changes without publishing them itself.
+      if (this.computedUpdateStrategy.mode === 'sync') {
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, recordIds.length, options.orchestration)
+        );
+      }
 
       return ok(undefined);
     }
@@ -5184,10 +5506,238 @@ const finalizeExtraSeedRecords = (
   }));
 };
 
+const requireLinkWriteTransaction = (db: Kysely<DynamicDB>): Result<void, DomainError> =>
+  isKyselyTransaction(db)
+    ? ok(undefined)
+    : err(
+        domainError.infrastructure({
+          message: 'Link writes require a data transaction',
+          code: 'infrastructure.database.link_transaction_required',
+        })
+      );
+
+const collectWrittenLinkFields = (
+  table: core.Table,
+  columnNames: ReadonlySet<string>
+): Result<ReadonlyArray<core.LinkField>, DomainError> =>
+  safeTry(function* () {
+    const fields: core.LinkField[] = [];
+    for (const field of table.getFields()) {
+      if (!field.type().equals(core.FieldType.link())) continue;
+      const column = yield* (yield* field.dbFieldName()).value();
+      if (columnNames.has(column)) fields.push(field as core.LinkField);
+    }
+    return ok(fields);
+  });
+
+const foreignLinkCaptureTables = (
+  constraints: ReadonlyArray<LinkExclusivityConstraint>,
+  pendingState?: LinkExclusivityValidationState
+): ReadonlyArray<string> => {
+  const tables = new Set<string>();
+  for (const constraint of constraints) {
+    if (!constraint.usesJunctionTable && constraint.foreignKeyName === RECORD_ID_COLUMN) {
+      tables.add(constraint.fkHostTableName);
+    }
+  }
+  // finish() filters its returned rows by these table names. Include every
+  // pending host so incidental writes cannot hide a new tuple incarnation.
+  for (const group of pendingState?.values() ?? []) {
+    if (group.ownsForeignRows && group.pendingNoopReleaseTokens.length > 0) {
+      tables.add(group.fkHostTableName);
+    }
+  }
+  return [...tables];
+};
+
+/** The AFTER trigger sees the exact physical target transition after any row-lock wait. */
+const rememberCapturedLinkOwners = (
+  state: LinkExclusivityValidationState,
+  rows: ReadonlyArray<UndoLogRow>,
+  writtenLinkIntentKeys: ReadonlySet<string>
+): Result<void, DomainError> => {
+  for (const group of state.values()) {
+    if (!group.ownsForeignRows) continue;
+    const desiredTargets = new Set([...group.authoritativeDesiredBySource.values()].flat());
+    for (const row of rows) {
+      if (
+        row.operation !== 'UPDATE' ||
+        !matchesUndoCaptureTableName(row.table_name, group.fkHostTableName)
+      )
+        continue;
+      const oldRow = toStoredRowObject(row.old_row);
+      const newRow = toStoredRowObject(row.new_row);
+      if (!oldRow || !newRow || !Object.hasOwn(oldRow, group.selfKeyName)) {
+        return err(buildMissingSnapshotError('update', group.sourceTableId.toString(), 1, 0));
+      }
+      const oldOwner =
+        typeof oldRow[group.selfKeyName] === 'string'
+          ? (oldRow[group.selfKeyName] as string)
+          : null;
+      const newOwner =
+        typeof newRow[group.selfKeyName] === 'string'
+          ? (newRow[group.selfKeyName] as string)
+          : null;
+      if (
+        !desiredTargets.has(row.record_id) &&
+        !group.initialOwnersByTarget.has(row.record_id) &&
+        oldOwner === newOwner &&
+        !(oldOwner && group.finalIntentBySource.has(oldOwner))
+      )
+        continue;
+      if (!group.initialOwnersByTarget.has(row.record_id)) {
+        group.initialOwnersByTarget.set(row.record_id, oldOwner ? [oldOwner] : null);
+      }
+      group.writtenOwnersByTarget.set(row.record_id, newOwner);
+      if (oldOwner !== newOwner) {
+        const transitions = group.ownershipTransitionsByTarget.get(row.record_id) ?? [];
+        const sequence = ++group.provenanceSequence;
+        transitions.push({ oldOwner, newOwner, sequence });
+        group.ownershipTransitionsByTarget.set(row.record_id, transitions);
+        const writtenDesired = oldOwner
+          ? group.authoritativeDesiredBySource.get(oldOwner)
+          : undefined;
+        if (
+          oldOwner &&
+          newOwner === null &&
+          writtenLinkIntentKeys.has(`${group.groupKey}\u0000${oldOwner}`) &&
+          writtenDesired !== undefined &&
+          !writtenDesired.includes(row.record_id)
+        ) {
+          const releasedOwners = group.writtenReleaseOwnersByTarget.get(row.record_id) ?? new Set();
+          releasedOwners.add(oldOwner);
+          group.writtenReleaseOwnersByTarget.set(row.record_id, releasedOwners);
+        }
+      }
+    }
+  }
+  return ok(undefined);
+};
+
+const mergeCapturedLinkSeeds = (
+  table: core.Table,
+  tableName: string,
+  fields: ReadonlyArray<core.LinkField>,
+  rows: ReadonlyArray<UndoLogRow>,
+  seeds: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>
+): Result<void, DomainError> =>
+  safeTry(function* () {
+    for (const field of fields) {
+      if (field.isOneWay()) continue;
+      const fieldColumn = yield* (yield* field.dbFieldName()).value();
+      const foreignKey = yield* field.foreignKeyNameString();
+      const selfKey = yield* field.selfKeyNameString();
+      const host = yield* field.fkHostTableName().value();
+      const foreignIds = new Set<string>();
+      const ownerIds = new Set<string>();
+      for (const row of rows) {
+        if (row.operation !== 'UPDATE') continue;
+        const oldRow = toStoredRowObject(row.old_row);
+        const newRow = toStoredRowObject(row.new_row);
+        if (!oldRow || !newRow) continue;
+        if (matchesUndoCaptureTableName(row.table_name, tableName)) {
+          for (const item of normalizeStoredLinkItems(oldRow[fieldColumn])) foreignIds.add(item.id);
+          for (const item of normalizeStoredLinkItems(newRow[fieldColumn])) foreignIds.add(item.id);
+        }
+        // Both source images are authoritative after concurrent source writers.
+        // A pre-read no-op can miss the actual old target and the destination's
+        // seed; an explicit extra-seed group then suppresses symmetric traversal.
+        // Keep the complete captured OLD/NEW target union for two-way links.
+        if (field.relationship().toString() === 'manyMany') continue;
+        if (!matchesUndoCaptureTableName(row.table_name, host)) continue;
+        if (foreignKey !== RECORD_ID_COLUMN) {
+          const oldOwner = oldRow[foreignKey];
+          const newOwner = newRow[foreignKey];
+          if (typeof oldOwner === 'string') foreignIds.add(oldOwner);
+          if (typeof newOwner === 'string') foreignIds.add(newOwner);
+        } else if (oldRow[selfKey] !== newRow[selfKey]) {
+          foreignIds.add(row.record_id);
+          const oldOwner = oldRow[selfKey];
+          const newOwner = newRow[selfKey];
+          if (typeof oldOwner === 'string') ownerIds.add(oldOwner);
+          if (typeof newOwner === 'string') ownerIds.add(newOwner);
+        }
+      }
+      yield* mergeExtraSeedRecords(seeds, field.foreignTableId(), [...foreignIds]);
+      yield* mergeExtraSeedRecords(seeds, table.id(), [...ownerIds]);
+    }
+    return ok(undefined);
+  });
+
 /**
- * Build an advisory lock key for a linked record to prevent deadlocks.
- * The key format ensures consistent ordering across concurrent transactions.
+ * Reconcile two-way many-many target locks after the source UPDATE owns its row locks.
+ * The source cache now holds the requested targets while the junction still holds the
+ * previous physical targets, so their union closes a stale pre-read without changing
+ * the existing source-row -> sorted target-advisory lock order.
  */
+const collectCurrentManyManyTargetLocks = async (
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  fields: ReadonlyArray<core.LinkField>,
+  writtenSourceIds: ReadonlySet<string>,
+  sourceRecordsByColumn?: ReadonlyMap<string, ReadonlyArray<{ recordId: string; value: unknown }>>
+): Promise<Result<LinkedRecordLockInfo[], DomainError>> => {
+  if (writtenSourceIds.size === 0) return ok([]);
+
+  return safeTry<LinkedRecordLockInfo[], DomainError>(async function* () {
+    const locks: LinkedRecordLockInfo[] = [];
+
+    for (const field of fields) {
+      if (field.isOneWay() || field.relationship().toString() !== 'manyMany') continue;
+
+      const fieldColumn = yield* (yield* field.dbFieldName()).value();
+      const requestedSources = sourceRecordsByColumn?.get(fieldColumn);
+      const sourceIds: string[] = [];
+      if (requestedSources) {
+        for (const source of requestedSources) {
+          if (writtenSourceIds.has(source.recordId)) sourceIds.push(source.recordId);
+        }
+      } else {
+        sourceIds.push(...writtenSourceIds);
+      }
+      if (sourceIds.length === 0) continue;
+
+      const junctionTableName = yield* field.fkHostTableName().value();
+      const selfKeyName = yield* field.selfKeyNameString();
+      const foreignKeyName = yield* field.foreignKeyNameString();
+      const foreignTableId = field.foreignTableId().toString();
+
+      try {
+        const sourceRows = await db
+          .selectFrom(tableName)
+          .select(sql.ref(fieldColumn).as('link_value'))
+          .where(RECORD_ID_COLUMN, 'in', sourceIds)
+          .execute();
+        for (const row of sourceRows) {
+          for (const item of normalizeStoredLinkItems(row.link_value)) {
+            locks.push({ foreignTableId, foreignRecordId: item.id });
+          }
+        }
+
+        const junctionRows = await db
+          .selectFrom(junctionTableName)
+          .select(sql.ref(foreignKeyName).as('linked_id'))
+          .distinct()
+          .where(selfKeyName, 'in', sourceIds)
+          .where(foreignKeyName, 'is not', null)
+          .execute();
+        for (const row of junctionRows) {
+          if (typeof row.linked_id !== 'string' || row.linked_id.length === 0) continue;
+          locks.push({ foreignTableId, foreignRecordId: row.linked_id });
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to collect current many-many target locks: ${describeError(error)}`,
+          })
+        );
+      }
+    }
+
+    return ok(locks);
+  });
+};
+
 const buildLinkedRecordLockKey = (
   baseId: string,
   foreignTableId: string,
@@ -5195,16 +5745,17 @@ const buildLinkedRecordLockKey = (
 ): string => `v2:link:${baseId}:${foreignTableId}:${foreignRecordId}`;
 
 /**
- * Acquire advisory locks for linked records to prevent deadlocks.
- * Locks are acquired in sorted key order to ensure consistent lock ordering.
- * Uses a single batch query to minimize database round-trips.
+ * Preserve existing target advisory coordination for updates and junction inserts.
+ * Keys retain the caller-base scope for compatibility; they are not a canonical
+ * cross-base physical relation gate. Sorting covers this call, not earlier writes
+ * or later batches, and does not establish a transaction-wide deadlock guarantee.
  */
 const acquireLinkedRecordLocks = async (
   db: Kysely<DynamicDB>,
   baseId: string,
   linkedRecordLocks: ReadonlyArray<LinkedRecordLockInfo>
-): Promise<void> => {
-  if (linkedRecordLocks.length === 0) return;
+): Promise<Result<void, DomainError>> => {
+  if (linkedRecordLocks.length === 0) return ok(undefined);
 
   // Deduplicate and build lock keys
   const lockKeysSet = new Set<string>();
@@ -5213,206 +5764,791 @@ const acquireLinkedRecordLocks = async (
     lockKeysSet.add(key);
   }
 
-  // Sort keys to ensure consistent lock ordering across transactions
+  // Keep a deterministic order within this target lock request.
   const lockKeys = [...lockKeysSet].sort((a, b) => Number(a > b) - Number(a < b));
 
-  if (lockKeys.length === 0) return;
+  if (lockKeys.length === 0) return ok(undefined);
 
   // Acquire all locks in a single batch query
   // Format array as PostgreSQL array literal: ARRAY['key1', 'key2', ...]
   const arrayLiteral = `ARRAY[${lockKeys.map((k) => `'${k.replaceAll("'", "''")}'`).join(',')}]`;
-  await db.executeQuery(
-    sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
-        FROM unnest(${sql.raw(arrayLiteral)}::text[]) AS k
-        ORDER BY k`.compile(db)
-  );
+  try {
+    await db.executeQuery(
+      sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
+          FROM unnest(${sql.raw(arrayLiteral)}::text[]) AS k
+          ORDER BY k`.compile(db)
+    );
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to acquire linked record locks: ${describeError(error)}`,
+      })
+    );
+  }
 };
 
-/**
- * Validate link exclusivity constraints before persisting.
- *
- * For oneOne and oneMany relationships, each foreign record can only be linked
- * to ONE source record. This function checks if any of the foreign records
- * being newly linked are already linked to a different source record.
- *
- * @param context - Execution context for i18n translation
- * @param db - Database connection
- * @param constraints - Array of exclusivity constraints to validate
- * @returns Ok if all constraints pass, Err with validation error if any fail
- */
-const validateLinkExclusivityConstraints = async (
-  context: core.IExecutionContext,
-  db: Kysely<DynamicDB>,
-  constraints: ReadonlyArray<LinkExclusivityConstraint>
-): Promise<Result<void, DomainError>> => {
-  if (constraints.length === 0) return ok(undefined);
+type CapturedNoopReleaseToken = {
+  groupKey: string;
+  sourceRecordId: string;
+  targetRecordId: string;
+  ownerRecordId: string;
+  xmin: string;
+  ctid: string;
+  relationOid: string;
+  relationFilenode: string;
+};
 
-  // Group constraints by fkHostTableName + query type to batch queries
-  // Two types:
-  // - Two-way links: FK is on foreign table, query by __id
-  // - One-way links: FK is in junction table, query by foreignKeyName
+type PendingNoopReleaseToken = CapturedNoopReleaseToken & {
+  intentRevision: number;
+  intentSequence: number;
+};
 
-  interface TwoWayQueryGroup {
-    type: 'two-way';
-    fkHostTableName: string;
-    foreignTableId: string;
-    selfKeyName: string;
-    // Map from foreignRecordId to sourceRecordId (to check each foreign record against its source)
-    foreignRecordToSource: Map<string, string>;
-    constraints: LinkExclusivityConstraint[];
-  }
+type LinkOwnershipTransition = {
+  oldOwner: string | null;
+  newOwner: string | null;
+  sequence: number;
+};
 
-  interface OneWayQueryGroup {
-    type: 'one-way';
-    fkHostTableName: string; // junction table
-    foreignTableId: string;
-    selfKeyName: string; // points to source
-    foreignKeyName: string; // points to foreign
-    // Map from foreignRecordId to sourceRecordId
-    foreignRecordToSource: Map<string, string>;
-    constraints: LinkExclusivityConstraint[];
-  }
+type LinkExclusivityValidationGroup = {
+  groupKey: string;
+  fieldId: core.FieldId;
+  sourceTableId: core.TableId;
+  foreignTableId: core.TableId;
+  fkHostTableName: string;
+  selfKeyName: string;
+  releaseOrderColumnName?: string;
+  ownsForeignRows: boolean;
+  finalIntentBySource: Map<
+    string,
+    {
+      desiredTargetRecordIds: ReadonlyArray<string>;
+      revision: number;
+      sequence: number;
+    }
+  >;
+  authoritativeDesiredBySource: Map<string, ReadonlyArray<string>>;
+  releaseAuthorizedSourceIds: Set<string>;
+  initialOwnersByTarget: Map<string, string[] | null>;
+  writtenOwnersByTarget: Map<string, string | null>;
+  inverseWrittenOwnersByTarget: Map<string, string | null>;
+  ownershipTransitionsByTarget: Map<string, LinkOwnershipTransition[]>;
+  writtenReleaseOwnersByTarget: Map<string, Set<string>>;
+  noopReleaseOwnersByTarget: Map<string, Set<string>>;
+  provenanceSequence: number;
+  pendingNoopReleaseTokens: PendingNoopReleaseToken[];
+};
 
-  type QueryGroup = TwoWayQueryGroup | OneWayQueryGroup;
-  const queryGroups = new Map<string, QueryGroup>();
+type LinkExclusivityValidationState = Map<string, LinkExclusivityValidationGroup>;
 
+const linkExclusivityGroupKey = (
+  type: 'two-way' | 'one-way',
+  fkHostTableName: string,
+  selfKeyName: string,
+  foreignKeyName: string,
+  foreignTableId: core.TableId
+): string =>
+  JSON.stringify([type, fkHostTableName, selfKeyName, foreignKeyName, foreignTableId.toString()]);
+
+const buildWrittenLinkIntentKeys = (
+  constraints: ReadonlyArray<LinkExclusivityConstraint>,
+  writtenSourceIds: ReadonlySet<string>
+): Set<string> => {
+  const keys = new Set<string>();
   for (const constraint of constraints) {
-    // Skip if no foreign records to check
-    if (constraint.addedForeignRecordIds.length === 0) continue;
+    if (!writtenSourceIds.has(constraint.sourceRecordId)) continue;
+    const type =
+      constraint.usesJunctionTable || constraint.foreignKeyName !== RECORD_ID_COLUMN
+        ? 'one-way'
+        : 'two-way';
+    const groupKey = linkExclusivityGroupKey(
+      type,
+      constraint.fkHostTableName,
+      constraint.selfKeyName,
+      constraint.foreignKeyName,
+      constraint.foreignTableId
+    );
+    keys.add(`${groupKey}\u0000${constraint.sourceRecordId}`);
+  }
+  return keys;
+};
 
-    if (constraint.usesJunctionTable) {
-      // Junction table: query by foreignKeyName (oneMany isOneWay)
-      const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}::${constraint.foreignTableId.toString()}`;
-      const existing = queryGroups.get(groupKey) as OneWayQueryGroup | undefined;
-      if (existing) {
-        for (const id of constraint.addedForeignRecordIds) {
-          existing.foreignRecordToSource.set(id, constraint.sourceRecordId);
+const buildBatchNoopReleaseSpecs = (
+  constraints: ReadonlyArray<LinkExclusivityConstraint>
+): BatchUpdateNoopReleaseSpec[] => {
+  const specs = new Map<string, BatchUpdateNoopReleaseSpec>();
+  for (const constraint of constraints) {
+    if (constraint.usesJunctionTable || constraint.foreignKeyName !== RECORD_ID_COLUMN) continue;
+    const groupKey = linkExclusivityGroupKey(
+      'two-way',
+      constraint.fkHostTableName,
+      constraint.selfKeyName,
+      constraint.foreignKeyName,
+      constraint.foreignTableId
+    );
+    const spec: BatchUpdateNoopReleaseSpec = {
+      groupKey,
+      sourceRecordId: constraint.sourceRecordId,
+      targetTableName: constraint.fkHostTableName,
+      ownerColumnName: constraint.selfKeyName,
+      desiredTargetRecordIds: constraint.desiredForeignRecordIds,
+    };
+    specs.set(`${groupKey}\u0000${constraint.sourceRecordId}`, spec);
+  }
+  return [...specs.values()];
+};
+
+/** An inverse assignment authorizes reparenting only when that exact FK row was written. */
+const rememberWrittenLinkOwners = (
+  table: core.Table,
+  physicalTableName: string,
+  physicalTableId: core.TableId,
+  columnUpdateData: Map<string, Array<{ recordId: string; value: unknown }>>,
+  writtenRecordIds: ReadonlySet<string>,
+  state: LinkExclusivityValidationState
+): Result<void, DomainError> =>
+  safeTry<void, DomainError>(function* () {
+    if (state.size === 0) return ok(undefined);
+    for (const field of table.getFields()) {
+      if (!field.type().equals(core.FieldType.link())) continue;
+      const link = field as core.LinkField;
+      const relationship = link.relationship().toString();
+      if (link.isOneWay() || (relationship !== 'manyOne' && relationship !== 'oneOne')) continue;
+      const foreignKeyName = yield* link.foreignKeyNameString();
+      if (foreignKeyName === RECORD_ID_COLUMN) continue;
+      const values = columnUpdateData.get(foreignKeyName);
+      if (!values) continue;
+      const selfKeyName = yield* link.selfKeyNameString();
+      if (selfKeyName !== RECORD_ID_COLUMN) continue;
+      const host = yield* link.fkHostTableName().split({ defaultSchema: 'public' });
+      const hostTableName = host.schema ? `${host.schema}.${host.tableName}` : host.tableName;
+      if (hostTableName !== physicalTableName) continue;
+      const group = state.get(
+        linkExclusivityGroupKey(
+          'two-way',
+          physicalTableName,
+          foreignKeyName,
+          RECORD_ID_COLUMN,
+          physicalTableId
+        )
+      );
+      if (!group || !group.sourceTableId.equals(link.foreignTableId())) continue;
+      for (const { recordId, value } of values) {
+        if (!writtenRecordIds.has(recordId) || (typeof value !== 'string' && value !== null)) {
+          continue;
         }
-        existing.constraints.push(constraint);
-      } else {
-        const foreignRecordToSource = new Map<string, string>();
-        for (const id of constraint.addedForeignRecordIds) {
-          foreignRecordToSource.set(id, constraint.sourceRecordId);
+        // Only an explicitly requested host-row FK UPDATE grants inverse-write
+        // authority. Additional FK statements captured above are observations,
+        // never authority for the collection-side claim that produced them.
+        if (group.initialOwnersByTarget.has(recordId)) {
+          group.writtenOwnersByTarget.set(recordId, value);
+          group.inverseWrittenOwnersByTarget.set(recordId, value);
         }
-        queryGroups.set(groupKey, {
-          type: 'one-way',
-          fkHostTableName: constraint.fkHostTableName,
-          foreignTableId: constraint.foreignTableId.toString(),
-          selfKeyName: constraint.selfKeyName,
-          foreignKeyName: constraint.foreignKeyName,
-          foreignRecordToSource,
-          constraints: [constraint],
-        });
       }
-    } else {
-      // Two-way: query foreign table by __id
-      const groupKey = `two-way::${constraint.fkHostTableName}::${constraint.selfKeyName}::${constraint.foreignTableId.toString()}`;
-      const existing = queryGroups.get(groupKey) as TwoWayQueryGroup | undefined;
+    }
+    return ok(undefined);
+  });
+
+const buildNoopReleaseGenerationConflict = (
+  group: LinkExclusivityValidationGroup,
+  token: PendingNoopReleaseToken
+): DomainError =>
+  domainError.conflict({
+    message: 'A linked record changed after its no-op repair snapshot was captured',
+    code: 'conflict.link.noop_release_generation_changed',
+    details: {
+      fieldId: group.fieldId.toString(),
+      sourceRecordId: token.sourceRecordId,
+      targetRecordId: token.targetRecordId,
+    },
+  });
+
+type LocalReleaseGenerations = Map<string, Set<string>>;
+
+const releaseTupleGenerationKey = (tuple: UndoCaptureTupleIdentity): string =>
+  JSON.stringify([tuple.xmin, tuple.ctid, tuple.relationOid, tuple.relationFilenode]);
+
+/** Only the trigger OLD tuple proves that our UPDATE acquired this generation. */
+const rememberCapturedLocalReleaseGenerations = (
+  state: LinkExclusivityValidationState,
+  rows: ReadonlyArray<UndoLogRow>,
+  localGenerations: LocalReleaseGenerations
+): void => {
+  for (const row of rows) {
+    if (!row.table_name || !row.record_id) continue;
+    for (const group of state.values()) {
+      if (
+        !group.ownsForeignRows ||
+        !matchesUndoCaptureTableName(row.table_name, group.fkHostTableName)
+      )
+        continue;
+      const targetKey = `${group.fkHostTableName}\u0000${row.record_id}`;
+      const tuple = row.operation === 'UPDATE' ? getUndoCaptureOldTuple(row) : undefined;
+      // A deleted/recreated record is not the same chain. Legacy or incomplete
+      // capture metadata must never preserve authorization across an unknown write.
+      if (!tuple) {
+        localGenerations.delete(targetKey);
+        continue;
+      }
+      const generationKey = releaseTupleGenerationKey(tuple);
+      for (const token of group.pendingNoopReleaseTokens) {
+        if (
+          token.targetRecordId !== row.record_id ||
+          releaseTupleGenerationKey(token) !== generationKey
+        )
+          continue;
+        const generations = localGenerations.get(targetKey) ?? new Set<string>();
+        generations.add(generationKey);
+        localGenerations.set(targetKey, generations);
+      }
+    }
+  }
+};
+
+const applyPendingNoopLinkReleases = async (
+  db: Kysely<DynamicDB>,
+  state: LinkExclusivityValidationState,
+  affectedRecordIds: Map<string, core.RecordId>,
+  linkFieldIds: Map<string, core.FieldId>,
+  extraSeedMap: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>,
+  localReleaseGenerations: ReadonlyMap<string, ReadonlySet<string>>
+): Promise<Result<void, DomainError>> => {
+  type ReleaseOperation = {
+    group: LinkExclusivityValidationGroup;
+    token: PendingNoopReleaseToken;
+  };
+  type TargetRelease = {
+    targetTableName: string;
+    targetRecordId: string;
+    xmin: string;
+    ctid: string;
+    relationOid: string;
+    relationFilenode: string;
+    locallyChained: boolean;
+    operations: Map<string, ReleaseOperation>;
+  };
+
+  // One physical row can host several inverse FK fields. Coordinate every field
+  // captured from the same tuple generation into one UPDATE so our first repair
+  // cannot invalidate a sibling field's ctid token.
+  const releasesByTarget = new Map<string, TargetRelease>();
+  for (const group of state.values()) {
+    if (!group.ownsForeignRows) continue;
+    for (const token of group.pendingNoopReleaseTokens) {
+      const intent = group.finalIntentBySource.get(token.sourceRecordId);
+      if (
+        !intent ||
+        intent.revision !== token.intentRevision ||
+        intent.desiredTargetRecordIds.includes(token.targetRecordId)
+      )
+        continue;
+      const transitions = group.ownershipTransitionsByTarget.get(token.targetRecordId) ?? [];
+      const transferSatisfied =
+        group.writtenOwnersByTarget.has(token.targetRecordId) &&
+        group.writtenOwnersByTarget.get(token.targetRecordId) !== token.ownerRecordId &&
+        transitions.some(({ oldOwner }) => oldOwner === token.ownerRecordId);
+      if (transferSatisfied) continue;
+
+      const operation = { group, token };
+      const targetKey = `${group.fkHostTableName}\u0000${token.targetRecordId}`;
+      const locallyChained =
+        localReleaseGenerations.get(targetKey)?.has(releaseTupleGenerationKey(token)) ?? false;
+      const existing = releasesByTarget.get(targetKey);
       if (existing) {
-        for (const id of constraint.addedForeignRecordIds) {
-          existing.foreignRecordToSource.set(id, constraint.sourceRecordId);
+        if (
+          existing.relationOid !== token.relationOid ||
+          existing.relationFilenode !== token.relationFilenode ||
+          (!existing.locallyChained &&
+            !locallyChained &&
+            (existing.xmin !== token.xmin || existing.ctid !== token.ctid))
+        ) {
+          return err(buildNoopReleaseGenerationConflict(group, token));
         }
-        existing.constraints.push(constraint);
+        // Every unproven token still needs exact final CAS. Proven earlier local
+        // generations may share the repair, but cannot waive a sibling token's CAS.
+        if (existing.locallyChained && !locallyChained) {
+          existing.xmin = token.xmin;
+          existing.ctid = token.ctid;
+          existing.locallyChained = false;
+        }
+        existing.operations.set(token.groupKey, operation);
       } else {
-        const foreignRecordToSource = new Map<string, string>();
-        for (const id of constraint.addedForeignRecordIds) {
-          foreignRecordToSource.set(id, constraint.sourceRecordId);
-        }
-        queryGroups.set(groupKey, {
-          type: 'two-way',
-          fkHostTableName: constraint.fkHostTableName,
-          foreignTableId: constraint.foreignTableId.toString(),
-          selfKeyName: constraint.selfKeyName,
-          foreignRecordToSource,
-          constraints: [constraint],
+        releasesByTarget.set(targetKey, {
+          targetTableName: group.fkHostTableName,
+          targetRecordId: token.targetRecordId,
+          xmin: token.xmin,
+          ctid: token.ctid,
+          relationOid: token.relationOid,
+          relationFilenode: token.relationFilenode,
+          locallyChained,
+          operations: new Map([[token.groupKey, operation]]),
         });
       }
     }
   }
 
-  // Execute one query per group (instead of one per constraint)
-  for (const [, group] of queryGroups) {
-    if (group.foreignRecordToSource.size === 0) continue;
+  const batches = new Map<string, TargetRelease[]>();
+  for (const release of releasesByTarget.values()) {
+    release.operations = new Map(
+      [...release.operations].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    );
+    const signature = JSON.stringify([
+      release.targetTableName,
+      release.locallyChained,
+      [...release.operations].map(([groupKey, { group }]) => [
+        groupKey,
+        group.selfKeyName,
+        group.releaseOrderColumnName ?? null,
+      ]),
+    ]);
+    const batch = batches.get(signature) ?? [];
+    batch.push(release);
+    batches.set(signature, batch);
+  }
 
-    try {
-      if (group.type === 'two-way') {
-        // Two-way: FK is on foreign table, query by __id
-        const foreignRecordIds = [...group.foreignRecordToSource.keys()];
-        const linkedRecords = await db
-          .selectFrom(group.fkHostTableName)
-          .select([
-            sql.ref(RECORD_ID_COLUMN).as('record_id'),
-            sql.ref(group.selfKeyName).as('linked_to'),
-          ])
-          .where(RECORD_ID_COLUMN, 'in', foreignRecordIds)
-          .where(group.selfKeyName, 'is not', null)
-          .execute();
+  for (const releases of batches.values()) {
+    const first = releases[0];
+    if (!first) continue;
+    const firstOperations = [...first.operations.values()];
+    const assignmentColumns = new Set<string>();
+    for (const { group } of firstOperations) {
+      assignmentColumns.add(group.selfKeyName);
+      if (group.releaseOrderColumnName) assignmentColumns.add(group.releaseOrderColumnName);
+    }
+    const assignments = sql.join(
+      [...assignmentColumns].map((column) => sql`${sql.ref(column)} = NULL`),
+      sql`, `
+    );
+    const ownerAliases = firstOperations.map((_, index) => `owner_${index}`);
+    const valueAliases = [
+      'target_id',
+      ...ownerAliases,
+      'tuple_xmin',
+      'tuple_ctid',
+      'relation_oid',
+      'relation_filenode',
+    ];
+    const ownerPredicates = sql.join(
+      firstOperations.map(
+        ({ group }, index) =>
+          sql`${sql.ref(`release_target.${group.selfKeyName}`)} = ${sql.ref(
+            `release_token.owner_${index}`
+          )}`
+      ),
+      sql` AND `
+    );
+    const tupleGenerationPredicate = first.locallyChained
+      ? sql``
+      : sql` AND release_target.xmin::text = ${sql.ref(
+          'release_token.tuple_xmin'
+        )} AND release_target.ctid = ${sql.ref('release_token.tuple_ctid')}::tid`;
 
-        // Check each linked record against its expected source
-        const conflictingRecords = linkedRecords.filter((r) => {
-          const expectedSource = group.foreignRecordToSource.get(r.record_id as string);
-          return r.linked_to !== expectedSource;
-        });
+    for (let offset = 0; offset < releases.length; offset += 500) {
+      const chunk = releases.slice(offset, offset + 500);
+      const values = sql.join(
+        chunk.map((release) => {
+          const operations = [...release.operations.values()];
+          return sql`(${sql.join(
+            [
+              sql`${release.targetRecordId}`,
+              ...operations.map(({ token }) => sql`${token.ownerRecordId}`),
+              sql`${release.xmin}`,
+              sql`${release.ctid}`,
+              sql`${release.relationOid}`,
+              sql`${release.relationFilenode}`,
+            ],
+            sql`, `
+          )})`;
+        }),
+        sql`, `
+      );
+      try {
+        const result = await db.executeQuery(
+          sql`UPDATE ${sql.table(first.targetTableName)} AS release_target
+              SET ${assignments}
+              FROM (VALUES ${values}) AS release_token(${sql.join(
+                valueAliases.map((alias) => sql.ref(alias)),
+                sql`, `
+              )})
+              WHERE ${sql.ref(`release_target.${RECORD_ID_COLUMN}`)} = ${sql.ref('release_token.target_id')}
+                AND ${ownerPredicates}
+                ${tupleGenerationPredicate}
+                AND release_target.tableoid::oid::text = ${sql.ref('release_token.relation_oid')}
+                AND pg_relation_filenode(release_target.tableoid::regclass)::text = ${sql.ref('release_token.relation_filenode')}
+              RETURNING ${sql.ref(`release_target.${RECORD_ID_COLUMN}`)} AS record_id`.compile(db)
+        );
+        const releasedIds = new Set(
+          (result.rows as ReadonlyArray<Record<string, unknown>>)
+            .map((row) => row.record_id)
+            .filter((id): id is string => typeof id === 'string')
+        );
 
-        if (conflictingRecords.length > 0) {
-          const firstConstraint = group.constraints[0];
-          const conflictingIds = conflictingRecords.map((r) => r.record_id as string);
-          const message =
-            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.';
+        for (const release of chunk) {
+          const operations = [...release.operations.values()];
+          if (!releasedIds.has(release.targetRecordId)) {
+            const operation = operations[0];
+            if (operation)
+              return err(buildNoopReleaseGenerationConflict(operation.group, operation.token));
+            continue;
+          }
+          for (const { group, token } of operations) {
+            if (!group.initialOwnersByTarget.has(token.targetRecordId)) {
+              group.initialOwnersByTarget.set(token.targetRecordId, [token.ownerRecordId]);
+            }
+            group.writtenOwnersByTarget.set(token.targetRecordId, null);
+            const transitions = group.ownershipTransitionsByTarget.get(token.targetRecordId) ?? [];
+            const sequence = ++group.provenanceSequence;
+            transitions.push({ oldOwner: token.ownerRecordId, newOwner: null, sequence });
+            group.ownershipTransitionsByTarget.set(token.targetRecordId, transitions);
+            const releasedOwners =
+              group.noopReleaseOwnersByTarget.get(token.targetRecordId) ?? new Set<string>();
+            releasedOwners.add(token.ownerRecordId);
+            group.noopReleaseOwnersByTarget.set(token.targetRecordId, releasedOwners);
+            const sourceId = core.RecordId.create(token.sourceRecordId);
+            if (sourceId.isErr()) return err(sourceId.error);
+            affectedRecordIds.set(token.sourceRecordId, sourceId.value);
+            linkFieldIds.set(group.fieldId.toString(), group.fieldId);
+            const foreignSeed = mergeExtraSeedRecords(extraSeedMap, group.foreignTableId, [
+              token.targetRecordId,
+            ]);
+            if (foreignSeed.isErr()) return err(foreignSeed.error);
+            const ownerSeed = mergeExtraSeedRecords(extraSeedMap, group.sourceTableId, [
+              token.sourceRecordId,
+            ]);
+            if (ownerSeed.isErr()) return err(ownerSeed.error);
+          }
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to apply no-op link releases: ${describeError(error)}`,
+            code: 'infrastructure.database.apply_link_release_failed',
+          })
+        );
+      }
+    }
+  }
+  return ok(undefined);
+};
+
+const validateLinkExclusivityFinalState = async (
+  state: LinkExclusivityValidationState,
+  persistedDb?: Kysely<DynamicDB>,
+  extraSeedMap?: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>
+): Promise<Result<void, DomainError>> => {
+  for (const group of state.values()) {
+    const finalOwnerByTarget = new Map<string, string>();
+    for (const [sourceRecordId, desiredIds] of group.authoritativeDesiredBySource) {
+      for (const foreignRecordId of desiredIds) {
+        const existingSourceId = finalOwnerByTarget.get(foreignRecordId);
+        if (existingSourceId && existingSourceId !== sourceRecordId) {
           return err(
             domainError.validation({
-              message,
-              code: 'validation.link.one_many_duplicate',
-              localization: { i18nKey: sdkErrorI18nKeys.custom.linkOneManyDuplicate },
+              message:
+                'Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.',
+              code: 'validation.link.batch_duplicate',
+              localization: { i18nKey: sdkErrorI18nKeys.custom.linkBatchDuplicate },
               details: {
-                fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingIds,
-                existingLinks: conflictingRecords.map((r) => ({
-                  recordId: r.record_id,
-                  linkedTo: r.linked_to,
-                })),
+                fieldId: group.fieldId.toString(),
+                foreignRecordId,
+                conflictingSourceRecords: [existingSourceId, sourceRecordId],
               },
             })
           );
         }
-      } else {
-        // One-way: FK is in junction table, query by foreignKeyName
-        const foreignRecordIds = [...group.foreignRecordToSource.keys()];
+        finalOwnerByTarget.set(foreignRecordId, sourceRecordId);
+      }
+    }
+
+    const conflictingLinks: Array<{ recordId: string; linkedTo: string | null }> = [];
+    const reparentedOwnerIds = new Set<string>();
+    for (const [targetId, initialOwners] of group.initialOwnersByTarget) {
+      const finalOwner =
+        finalOwnerByTarget.get(targetId) ?? group.writtenOwnersByTarget.get(targetId) ?? undefined;
+      for (const initialOwner of initialOwners ?? []) {
+        if (initialOwner === finalOwner) continue;
+        const intent = group.finalIntentBySource.get(initialOwner);
+        const targetWasReleasedByIntent =
+          !!intent && !intent.desiredTargetRecordIds.includes(targetId);
+        const ownerTransitions = (group.ownershipTransitionsByTarget.get(targetId) ?? []).filter(
+          ({ oldOwner }) => oldOwner === initialOwner
+        );
+        const exactTransition = ownerTransitions.length > 0;
+        const exactInverseWrite =
+          group.inverseWrittenOwnersByTarget.has(targetId) &&
+          group.inverseWrittenOwnersByTarget.get(targetId) === (finalOwner ?? null);
+        const writtenRelease =
+          group.writtenReleaseOwnersByTarget.get(targetId)?.has(initialOwner) ?? false;
+        const successfulNoopRelease =
+          group.noopReleaseOwnersByTarget.get(targetId)?.has(initialOwner) ?? false;
+        const tokenBeforeTransition = group.pendingNoopReleaseTokens.some(
+          (token) =>
+            token.sourceRecordId === initialOwner &&
+            token.ownerRecordId === initialOwner &&
+            token.targetRecordId === targetId &&
+            token.intentRevision === intent?.revision &&
+            ownerTransitions.some(({ sequence }) => sequence > token.intentSequence)
+        );
+        const transitionBeforeFinalReleaseIntent =
+          !!intent && ownerTransitions.some(({ sequence }) => sequence < intent.sequence);
+        const targetReleaseProvenance =
+          targetWasReleasedByIntent &&
+          (writtenRelease ||
+            successfulNoopRelease ||
+            tokenBeforeTransition ||
+            transitionBeforeFinalReleaseIntent);
+        const authorized = group.ownsForeignRows
+          ? exactTransition && (targetReleaseProvenance || exactInverseWrite)
+          : group.releaseAuthorizedSourceIds.has(initialOwner);
+        if (authorized) reparentedOwnerIds.add(initialOwner);
+        else conflictingLinks.push({ recordId: targetId, linkedTo: initialOwner });
+      }
+    }
+
+    if (conflictingLinks.length === 0 && persistedDb && group.ownsForeignRows) {
+      try {
+        const targetIds = new Set([
+          ...group.initialOwnersByTarget.keys(),
+          ...finalOwnerByTarget.keys(),
+        ]).values();
+        for (;;) {
+          const ids: string[] = [];
+          while (ids.length < 500) {
+            const next = targetIds.next();
+            if (next.done) break;
+            ids.push(next.value);
+          }
+          if (ids.length === 0) break;
+          const rows = await persistedDb
+            .selectFrom(group.fkHostTableName)
+            .select([
+              sql.ref(RECORD_ID_COLUMN).as('record_id'),
+              sql.ref(group.selfKeyName).as('linked_to'),
+            ])
+            .where(RECORD_ID_COLUMN, 'in', ids)
+            .execute();
+          const foundIds = new Set(rows.map((row) => row.record_id as string));
+          for (const id of ids) {
+            if (!foundIds.has(id)) {
+              return err(
+                domainError.validation({
+                  message: 'Cannot link record(s): a linked record no longer exists.',
+                  code: 'validation.link.foreign_record_not_found',
+                  details: { fieldId: group.fieldId.toString(), recordId: id },
+                })
+              );
+            }
+            if (finalOwnerByTarget.has(id) && !group.initialOwnersByTarget.has(id)) {
+              return err(buildMissingSnapshotError('update', group.sourceTableId.toString(), 1, 0));
+            }
+          }
+          for (const row of rows) {
+            const recordId = row.record_id as string;
+            const expectedOwner =
+              finalOwnerByTarget.get(recordId) ??
+              group.writtenOwnersByTarget.get(recordId) ??
+              undefined;
+            if ((row.linked_to ?? undefined) !== expectedOwner) {
+              conflictingLinks.push({
+                recordId,
+                linkedTo: (row.linked_to as string | null) ?? null,
+              });
+            }
+          }
+          if (conflictingLinks.length > 0) break;
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to validate final link ownership: ${describeError(error)}`,
+            code: 'infrastructure.database.validate_link_exclusivity_failed',
+          })
+        );
+      }
+    }
+    if (conflictingLinks.length > 0) {
+      return err(
+        domainError.validation({
+          message:
+            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.',
+          code: 'validation.link.one_many_duplicate',
+          localization: { i18nKey: sdkErrorI18nKeys.custom.linkOneManyDuplicate },
+          details: {
+            fieldId: group.fieldId.toString(),
+            conflictingRecordIds: conflictingLinks.map(({ recordId }) => recordId),
+            existingLinks: conflictingLinks,
+          },
+        })
+      );
+    }
+    if (extraSeedMap && reparentedOwnerIds.size > 0) {
+      const seedResult = mergeExtraSeedRecords(extraSeedMap, group.sourceTableId, [
+        ...reparentedOwnerIds,
+      ]);
+      if (seedResult.isErr()) return err(seedResult.error);
+    }
+  }
+  return ok(undefined);
+};
+
+/** Retain latest intent while authorizing only target rows changed by this transaction. */
+const rememberLinkExclusivityIntents = async (
+  db: Kysely<DynamicDB>,
+  constraints: ReadonlyArray<LinkExclusivityConstraint>,
+  sourceTableId: core.TableId,
+  state: LinkExclusivityValidationState,
+  writtenSourceIds: ReadonlySet<string>,
+  capturedNoopReleaseTokens: ReadonlyArray<CapturedNoopReleaseToken>
+): Promise<Result<void, DomainError>> => {
+  if (constraints.length === 0) return ok(undefined);
+
+  type QueryGroup = {
+    type: 'two-way' | 'one-way';
+    fkHostTableName: string;
+    selfKeyName: string;
+    foreignKeyName: string;
+    foreignRecordIds: Set<string>;
+    validation: LinkExclusivityValidationGroup;
+  };
+  const queryGroups = new Map<string, QueryGroup>();
+  for (const constraint of constraints) {
+    const type =
+      constraint.usesJunctionTable || constraint.foreignKeyName !== RECORD_ID_COLUMN
+        ? 'one-way'
+        : 'two-way';
+    if (type === 'one-way' && !writtenSourceIds.has(constraint.sourceRecordId)) continue;
+    const groupKey = linkExclusivityGroupKey(
+      type,
+      constraint.fkHostTableName,
+      constraint.selfKeyName,
+      constraint.foreignKeyName,
+      constraint.foreignTableId
+    );
+    let validation = state.get(groupKey);
+    if (!validation) {
+      validation = {
+        groupKey,
+        fieldId: constraint.fieldId,
+        sourceTableId,
+        foreignTableId: constraint.foreignTableId,
+        fkHostTableName: constraint.fkHostTableName,
+        selfKeyName: constraint.selfKeyName,
+        ...(constraint.releaseOrderColumnName
+          ? { releaseOrderColumnName: constraint.releaseOrderColumnName }
+          : {}),
+        ownsForeignRows: type === 'two-way',
+        finalIntentBySource: new Map(),
+        authoritativeDesiredBySource: new Map(),
+        releaseAuthorizedSourceIds: new Set(),
+        initialOwnersByTarget: new Map(),
+        writtenOwnersByTarget: new Map(),
+        inverseWrittenOwnersByTarget: new Map(),
+        ownershipTransitionsByTarget: new Map(),
+        writtenReleaseOwnersByTarget: new Map(),
+        noopReleaseOwnersByTarget: new Map(),
+        provenanceSequence: 0,
+        pendingNoopReleaseTokens: [],
+      };
+      state.set(groupKey, validation);
+    }
+
+    const previousRevision =
+      validation.finalIntentBySource.get(constraint.sourceRecordId)?.revision ?? 0;
+    const intentSequence = ++validation.provenanceSequence;
+    validation.finalIntentBySource.set(constraint.sourceRecordId, {
+      desiredTargetRecordIds: constraint.desiredForeignRecordIds,
+      revision: previousRevision + 1,
+      sequence: intentSequence,
+    });
+    if (writtenSourceIds.has(constraint.sourceRecordId)) {
+      validation.authoritativeDesiredBySource.set(
+        constraint.sourceRecordId,
+        constraint.desiredForeignRecordIds
+      );
+      if (type === 'one-way') validation.releaseAuthorizedSourceIds.add(constraint.sourceRecordId);
+    } else {
+      const previouslyWritten = validation.authoritativeDesiredBySource.get(
+        constraint.sourceRecordId
+      );
+      if (previouslyWritten) {
+        const previouslyWrittenIds = new Set(previouslyWritten);
+        const retainedWritten = constraint.desiredForeignRecordIds.filter((id) =>
+          previouslyWrittenIds.has(id)
+        );
+        if (retainedWritten.length > 0) {
+          validation.authoritativeDesiredBySource.set(constraint.sourceRecordId, retainedWritten);
+        } else {
+          validation.authoritativeDesiredBySource.delete(constraint.sourceRecordId);
+        }
+      }
+      validation.releaseAuthorizedSourceIds.delete(constraint.sourceRecordId);
+    }
+
+    let group = queryGroups.get(groupKey);
+    if (!group) {
+      group = {
+        type,
+        fkHostTableName: constraint.fkHostTableName,
+        selfKeyName: constraint.selfKeyName,
+        foreignKeyName: constraint.foreignKeyName,
+        foreignRecordIds: new Set(),
+        validation,
+      };
+      queryGroups.set(groupKey, group);
+    }
+    if (writtenSourceIds.has(constraint.sourceRecordId)) {
+      for (const id of constraint.desiredForeignRecordIds) group.foreignRecordIds.add(id);
+    }
+  }
+
+  for (const token of capturedNoopReleaseTokens) {
+    const validation = state.get(token.groupKey);
+    const intent = validation?.finalIntentBySource.get(token.sourceRecordId);
+    if (
+      !validation ||
+      !validation.ownsForeignRows ||
+      !intent ||
+      writtenSourceIds.has(token.sourceRecordId) ||
+      token.ownerRecordId !== token.sourceRecordId
+    )
+      continue;
+    validation.pendingNoopReleaseTokens.push({
+      ...token,
+      intentRevision: intent.revision,
+      intentSequence: intent.sequence,
+    });
+  }
+
+  const orderedGroups = [...queryGroups].sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0
+  );
+  for (const [, group] of orderedGroups) {
+    if (group.type === 'two-way') continue;
+    const foreignRecordIds = [...group.foreignRecordIds].filter(
+      (id) => !group.validation.initialOwnersByTarget.has(id)
+    );
+    if (foreignRecordIds.length === 0) continue;
+
+    try {
+      for (const id of foreignRecordIds) group.validation.initialOwnersByTarget.set(id, null);
+      for (let offset = 0; offset < foreignRecordIds.length; offset += 500) {
+        const ids = foreignRecordIds.slice(offset, offset + 500);
         const linkedRecords = await db
           .selectFrom(group.fkHostTableName)
           .select([
-            sql.ref(group.foreignKeyName).as('foreign_id'),
+            sql.ref(group.foreignKeyName).as('record_id'),
             sql.ref(group.selfKeyName).as('linked_to'),
           ])
-          .where(group.foreignKeyName, 'in', foreignRecordIds)
+          .where(group.foreignKeyName, 'in', ids)
           .execute();
 
-        // Check each linked record against its expected source
-        const conflictingRecords = linkedRecords.filter((r) => {
-          const expectedSource = group.foreignRecordToSource.get(r.foreign_id as string);
-          return r.linked_to !== expectedSource;
-        });
-
-        if (conflictingRecords.length > 0) {
-          const firstConstraint = group.constraints[0];
-          const conflictingIds = conflictingRecords.map((r) => r.foreign_id as string);
-          const message =
-            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.';
-          return err(
-            domainError.validation({
-              message,
-              code: 'validation.link.one_many_duplicate',
-              localization: { i18nKey: sdkErrorI18nKeys.custom.linkOneManyDuplicate },
-              details: {
-                fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingIds,
-                existingLinks: conflictingRecords.map((r) => ({
-                  recordId: r.foreign_id,
-                  linkedTo: r.linked_to,
-                })),
-              },
-            })
-          );
+        for (const row of linkedRecords) {
+          if (row.linked_to == null) continue;
+          const targetId = row.record_id as string;
+          const ownerId = row.linked_to as string;
+          const owners = group.validation.initialOwnersByTarget.get(targetId);
+          if (owners) owners.push(ownerId);
+          else group.validation.initialOwnersByTarget.set(targetId, [ownerId]);
         }
       }
     } catch (error) {
@@ -5429,12 +6565,65 @@ const validateLinkExclusivityConstraints = async (
 };
 
 /**
+ * Lock all foreign-row FK targets before any insert ownership validation.
+ * Fields sharing a physical host must share one database-ordered row lock query.
+ * Junctions retain advisory locks; owning oneOne rows are locked by the INSERT.
+ */
+const acquireInsertExclusiveTargetLocks = async (
+  db: Kysely<DynamicDB>,
+  constraints: ReadonlyArray<InsertExclusivityConstraint>
+): Promise<Result<void, DomainError>> => {
+  const targetIdsByTable = new Map<string, Set<string>>();
+  for (const constraint of constraints) {
+    if (
+      constraint.usesJunctionTable ||
+      constraint.foreignKeyName !== RECORD_ID_COLUMN ||
+      constraint.linkedForeignRecordIds.length === 0
+    ) {
+      continue;
+    }
+    let targetIds = targetIdsByTable.get(constraint.fkHostTableName);
+    if (!targetIds) {
+      targetIds = new Set<string>();
+      targetIdsByTable.set(constraint.fkHostTableName, targetIds);
+    }
+    for (const targetId of constraint.linkedForeignRecordIds) {
+      targetIds.add(targetId);
+    }
+  }
+
+  const orderedTargets = [...targetIdsByTable].sort(
+    ([left], [right]) => Number(left > right) - Number(left < right)
+  );
+  try {
+    for (const [tableName, targetIds] of orderedTargets) {
+      await db
+        .selectFrom(tableName)
+        .select(RECORD_ID_COLUMN)
+        .where(RECORD_ID_COLUMN, 'in', [...targetIds])
+        .orderBy(RECORD_ID_COLUMN)
+        .forNoKeyUpdate()
+        .execute();
+    }
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to lock insert link targets: ${describeError(error)}`,
+        code: 'infrastructure.database.validate_insert_link_exclusivity_failed',
+      })
+    );
+  }
+};
+
+/**
  * Validate link exclusivity constraints for insert operations.
  *
  * This function performs two checks:
  * 1. Cross-record duplicates: In the same batch, multiple records trying to link
  *    the same foreign record (for oneOne and oneMany relationships)
  * 2. Database conflicts: Foreign records already linked to other existing records
+ * Physical target locks must already be held by acquireInsertExclusiveTargetLocks.
  *
  * @param db - Database connection
  * @param constraints - Array of insert exclusivity constraints to validate
@@ -5496,7 +6685,7 @@ const validateInsertExclusivityConstraints = async (
     fkHostTableName: string;
     foreignTableId: string;
     selfKeyName: string;
-    foreignRecordIds: Set<string>;
+    foreignRecordToSource: Map<string, string>;
     constraints: InsertExclusivityConstraint[];
   }
 
@@ -5506,8 +6695,7 @@ const validateInsertExclusivityConstraints = async (
     foreignTableId: string;
     selfKeyName: string; // points to source
     foreignKeyName: string; // points to foreign
-    foreignRecordIds: Set<string>;
-    sourceRecordIds: Set<string>; // to exclude self-links
+    foreignRecordToSource: Map<string, string>;
     constraints: InsertExclusivityConstraint[];
   }
 
@@ -5518,15 +6706,14 @@ const validateInsertExclusivityConstraints = async (
     // Skip if no foreign records to check
     if (constraint.linkedForeignRecordIds.length === 0) continue;
 
-    if (constraint.usesJunctionTable) {
-      // Junction table: query by foreignKeyName (oneMany isOneWay, manyMany)
+    if (constraint.usesJunctionTable || constraint.foreignKeyName !== RECORD_ID_COLUMN) {
+      // Junction or owning oneOne: find the source by its foreign-key value.
       const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}::${constraint.foreignTableId.toString()}`;
       const existing = queryGroups.get(groupKey) as OneWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.linkedForeignRecordIds) {
-          existing.foreignRecordIds.add(id);
+          existing.foreignRecordToSource.set(id, constraint.sourceRecordId);
         }
-        existing.sourceRecordIds.add(constraint.sourceRecordId);
         existing.constraints.push(constraint);
       } else {
         queryGroups.set(groupKey, {
@@ -5535,8 +6722,9 @@ const validateInsertExclusivityConstraints = async (
           foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
           foreignKeyName: constraint.foreignKeyName,
-          foreignRecordIds: new Set(constraint.linkedForeignRecordIds),
-          sourceRecordIds: new Set([constraint.sourceRecordId]),
+          foreignRecordToSource: new Map(
+            constraint.linkedForeignRecordIds.map((id) => [id, constraint.sourceRecordId])
+          ),
           constraints: [constraint],
         });
       }
@@ -5546,7 +6734,7 @@ const validateInsertExclusivityConstraints = async (
       const existing = queryGroups.get(groupKey) as TwoWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.linkedForeignRecordIds) {
-          existing.foreignRecordIds.add(id);
+          existing.foreignRecordToSource.set(id, constraint.sourceRecordId);
         }
         existing.constraints.push(constraint);
       } else {
@@ -5555,7 +6743,9 @@ const validateInsertExclusivityConstraints = async (
           fkHostTableName: constraint.fkHostTableName,
           foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
-          foreignRecordIds: new Set(constraint.linkedForeignRecordIds),
+          foreignRecordToSource: new Map(
+            constraint.linkedForeignRecordIds.map((id) => [id, constraint.sourceRecordId])
+          ),
           constraints: [constraint],
         });
       }
@@ -5564,20 +6754,25 @@ const validateInsertExclusivityConstraints = async (
 
   // Execute one query per group (instead of one per constraint)
   for (const [, group] of queryGroups) {
-    if (group.foreignRecordIds.size === 0) continue;
+    if (group.foreignRecordToSource.size === 0) continue;
 
     try {
       if (group.type === 'two-way') {
         // Two-way: FK is on foreign table, query by __id
-        const conflictingRecords = await db
+        const linkedRecords = await db
           .selectFrom(group.fkHostTableName)
           .select([
             sql.ref(RECORD_ID_COLUMN).as('record_id'),
             sql.ref(group.selfKeyName).as('linked_to'),
           ])
-          .where(RECORD_ID_COLUMN, 'in', [...group.foreignRecordIds])
-          .where(group.selfKeyName, 'is not', null)
+          .where(RECORD_ID_COLUMN, 'in', [...group.foreignRecordToSource.keys()])
           .execute();
+        // A self-table restore may have already inserted the owning FK. Accept
+        // only the exact owner requested for this child, not any batch source.
+        const conflictingRecords = linkedRecords.filter((row) => {
+          const expectedSource = group.foreignRecordToSource.get(row.record_id as string);
+          return row.linked_to != null && row.linked_to !== expectedSource;
+        });
 
         if (conflictingRecords.length > 0) {
           const conflictingIds = conflictingRecords.map((r) => r.record_id as string);
@@ -5603,15 +6798,18 @@ const validateInsertExclusivityConstraints = async (
       } else {
         // One-way: FK is in junction table, query by foreignKeyName
         // Check if any foreign records are already linked to OTHER sources
-        const conflictingRecords = await db
+        const linkedRecords = await db
           .selectFrom(group.fkHostTableName)
           .select([
             sql.ref(group.foreignKeyName).as('foreign_id'),
             sql.ref(group.selfKeyName).as('linked_to'),
           ])
-          .where(group.foreignKeyName, 'in', [...group.foreignRecordIds])
-          .where(group.selfKeyName, 'not in', [...group.sourceRecordIds]) // Exclude our own records
+          .where(group.foreignKeyName, 'in', [...group.foreignRecordToSource.keys()])
           .execute();
+        const conflictingRecords = linkedRecords.filter((row) => {
+          const expectedSource = group.foreignRecordToSource.get(row.foreign_id as string);
+          return row.linked_to !== expectedSource;
+        });
 
         if (conflictingRecords.length > 0) {
           const conflictingIds = conflictingRecords.map((r) => r.foreign_id as string);

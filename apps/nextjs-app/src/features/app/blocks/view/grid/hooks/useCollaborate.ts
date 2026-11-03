@@ -3,7 +3,12 @@ import type { ICellItem, ICell } from '@teable/sdk';
 import { useSession } from '@teable/sdk';
 import { SelectionRegionType } from '@teable/sdk/components/grid';
 import type { ICollaborator, CombinedSelection } from '@teable/sdk/components/grid';
-import { useConnection, useIsReadOnlyPreview, useTableId, useViewId } from '@teable/sdk/hooks';
+import {
+  useIsReadOnlyPreview,
+  usePresenceConnection,
+  useTableId,
+  useViewId,
+} from '@teable/sdk/hooks';
 import { useEffect, useState, useMemo } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 
@@ -14,7 +19,7 @@ export const useCollaborate = (
   const tableId = useTableId();
   const { user } = useSession();
   const viewId = useViewId();
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const [presence, setPresence] = useState<Presence>();
   const [collaborators, setCollaborators] = useState<ICollaborator>([]);

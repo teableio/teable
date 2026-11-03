@@ -289,11 +289,15 @@ describe('LocalStorage', () => {
 
   describe('read', () => {
     it('should create read stream', async () => {
-      const mockPath = '/mock/file/path';
+      const mockPath = 'mock/file/path';
 
       vi.spyOn(fs, 'createReadStream').mockResolvedValueOnce(undefined as any);
       storage.read(mockPath);
       expect(fs.createReadStream).toHaveBeenCalledWith(resolve(storage.storageDir, mockPath));
+    });
+
+    it('rejects an absolute path that escapes the storage dir', () => {
+      expect(() => storage.read('/etc/hostname')).toThrow('Could not find attachment');
     });
   });
 

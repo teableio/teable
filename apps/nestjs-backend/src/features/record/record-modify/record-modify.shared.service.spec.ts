@@ -1,10 +1,12 @@
 import { FieldKeyType, HttpErrorCode } from '@teable/core';
+import type * as DbMainPrisma from '@teable/db-main-prisma';
+import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 import { CustomHttpException } from '../../../custom.exception';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
 vi.mock('@teable/db-main-prisma', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@teable/db-main-prisma')>()),
+  ...(await importOriginal<typeof DbMainPrisma>()),
   PrismaService: class PrismaService {},
   PrismaModule: class PrismaModule {},
 }));
@@ -26,7 +28,11 @@ describe('RecordModifySharedService', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      {
+        maxSelectChoiceNameLength:
+          DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength,
+      }
     );
 
   it('includes available field keys when create-record input references missing field names', () => {
@@ -54,10 +60,11 @@ describe('RecordModifySharedService', () => {
       },
     };
 
+    const missingFieldName = 'Source ID 2';
     try {
       getEffectFieldInstances(
         table,
-        [{ Name: 'Task A', 'Source ID 2': 'source-1' }],
+        [{ Name: 'Task A', [missingFieldName]: 'source-1' }],
         FieldKeyType.Name
       );
       expect.unreachable('Expected getEffectFieldInstances to throw');

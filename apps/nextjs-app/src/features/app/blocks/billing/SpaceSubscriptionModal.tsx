@@ -30,6 +30,7 @@ export const SpaceSubscriptionModal = () => {
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
+    enabled: Boolean(subscribeLevel),
   });
 
   const ownerSpaceList = useMemo(() => {

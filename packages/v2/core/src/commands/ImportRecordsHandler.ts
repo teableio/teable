@@ -12,6 +12,7 @@ import { domainError, isDomainError, type DomainError } from '../domain/shared/D
 import { tableDataSafetyLimitErrors } from '../domain/shared/TableDataSafetyLimits';
 import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
@@ -573,10 +574,14 @@ export class ImportRecordsHandler implements ICommandHandler<
       const resolvedSpec = resolvedSpecs[i];
 
       if (resolvedSpec) {
-        const mutateResult = resolvedSpec.mutate(record);
-        if (mutateResult.isOk()) {
-          record = mutateResult.value;
-        }
+        const materialized = materializeRecordSpec({
+          id: record.id(),
+          tableId: record.tableId(),
+          spec: resolvedSpec,
+          baseFields: record.fields().entries(),
+        });
+        if (materialized.isErr()) throw materialized.error;
+        record = materialized.value;
       }
       resolvedRecords.push(record);
     }

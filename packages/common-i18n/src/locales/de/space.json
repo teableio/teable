@@ -52,10 +52,10 @@
   "collaborators": "Mitarbeitende",
   "more": "Mehr",
   "pin": {
-    "add": "Anpinnen",
-    "remove": "Pin entfernen",
-    "pin": "Pin",
-    "empty": "Ihre gepinnten Projekte und Spaces werden hier erscheinen"
+    "add": "Zu Favoriten hinzufügen",
+    "remove": "Aus Favoriten entfernen",
+    "pin": "Favoriten",
+    "empty": "Ihre favorisierten Projekte und Spaces werden hier erscheinen"
   },
   "tooltip": {
     "noPermissionToCreateBase": "Sie haben keine Berechtigung, ein Projekt zu erstellen"
@@ -207,19 +207,51 @@
     "form": {
       "title": "Titel",
       "description": "Beschreibung",
-      "security": "Sicherheit",
-      "advanced": "Erweitert",
+      "changelog": "Versionshinweise",
+      "changelogPlaceholder": "Beschreiben Sie die Änderungen für bestehende Installationen; wird in der Upgrade-Vorschau angezeigt",
       "publishNode": "Knoten veröffentlichen",
       "includeData": "Daten einschließen",
       "defaultActiveNode": "Standardmäßig aktiver Knoten",
       "descriptionPlaceholder": "Beschreibung",
-      "titlePlaceholder": "Titel"
+      "titlePlaceholder": "Titel",
+      "cover": "Titelbild",
+      "coverHint": "16:9, wird auf der Katalogkarte und der öffentlichen Seite verwendet",
+      "versionTitle": "Versionsinhalt",
+      "addChangelog": "Versionshinweise hinzufügen"
     },
     "publishToCommunity": "Im Vorlagenzentrum veröffentlichen",
     "publish": "Veröffentlichen",
     "publishSuccess": "Veröffentlichung erfolgreich!",
     "previewTips": "Zeigen Sie der Welt Ihre Arbeit",
     "update": "Aktualisieren",
+    "submit": "Zur Prüfung einreichen",
+    "submitted": "Zur Prüfung eingereicht",
+    "review": {
+      "status": {
+        "review": "In Prüfung",
+        "rejected": "Zurückgegeben",
+        "withdrawn": "Zurückgezogen"
+      },
+      "submittedTime": "Eingereicht {{time}}",
+      "note": "Anmerkung des Prüfers",
+      "checks": "Automatische Prüfungen",
+      "check": {
+        "connectors": "Verbindungen",
+        "privacy": "Datenschutz",
+        "estimate": "Ausführungsschätzung",
+        "trial": "Testlauf"
+      },
+      "checkMessage": {
+        "connectors": "Kann hier nicht verbunden werden: {{providers}}",
+        "privacy": "Datensätze sind enthalten; prüfen Sie sie auf personenbezogene Daten",
+        "estimate": "Etwa {{runs}} Ausführungen pro Monat, mehr als die {{free}} des kostenlosen Plans",
+        "trial": "Die Automatisierungen benötigen kein Konto; stellen Sie sicher, dass sie ohne eines laufen"
+      },
+      "withdraw": "Zurückziehen",
+      "withdrawn": "Einreichung zurückgezogen.",
+      "live": "Online · v{{version}}",
+      "publicLink": "Öffentlicher Link"
+    },
     "unPublish": "Veröffentlichung aufheben",
     "unPublishSuccess": "Veröffentlichung des Projekts erfolgreich aufgehoben!",
     "unPublishConfirmTitle": "Veröffentlichung aufheben bestätigen",
@@ -237,9 +269,7 @@
     "urlCopied": "URL in die Zwischenablage kopiert!",
     "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "Offiziell als Featured ausgewählt. Ihre Vorlage wird mehr Aufmerksamkeit erhalten.",
-    "unfeaturedTip": "Noch nicht als Featured ausgewählt. Verbessern Sie weiter, um eine Chance auf Empfehlung zu haben. Lassen Sie mehr Menschen Ihre Arbeit sehen.",
     "publishSuccessDescription": "Teilen Sie Ihre Arbeit mit der Welt",
     "shareWith": "Teilen mit",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "Zur Behebung",
       "redeploy": "Erneut bereitstellen",
       "unnamedApp": "Unbenannte App"
-    }
+    },
+    "submitVersion": "v{{version}} zur Prüfung einreichen"
   },
   "dataDb": {
     "create": {

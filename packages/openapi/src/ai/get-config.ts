@@ -91,6 +91,9 @@ export const getAIConfigSchema = z.object({
   gatewayModels: z.array(gatewayModelSchema).optional(),
   attachmentTransferMode: attachmentTransferModeSchema.nullable().optional(),
   modelDefinationMap: modelDefinationMapSchema.optional(),
+  disableActions: z.array(z.string()).optional().meta({
+    description: 'AI actions disabled for this base, merging the instance and space settings',
+  }),
 });
 
 export type IGetAIConfig = z.infer<typeof getAIConfigSchema>;

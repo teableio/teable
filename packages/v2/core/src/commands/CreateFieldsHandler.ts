@@ -184,15 +184,11 @@ export class CreateFieldsHandler implements ICommandHandler<
       }
 
       if (handler.shouldCaptureUndoRedo(context)) {
-        const snapshots = [];
-        for (const field of createdFieldsInCreationOrder) {
-          const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-            context,
-            updateResult.table,
-            field.id()
-          );
-          snapshots.push(snapshot);
-        }
+        const snapshots = yield* await handler.fieldUndoRedoSnapshotService.captureMany(
+          context,
+          updateResult.table,
+          createdFieldsInCreationOrder.map((field) => field.id())
+        );
 
         const undoCommands = [...createdFieldsInCreationOrder].reverse().map((field) =>
           createUndoRedoCommand('DeleteField', {

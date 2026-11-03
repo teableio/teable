@@ -7,10 +7,43 @@ import {
   assertPathWithinStorage,
   extractLocalFilePath,
   normalizeObjectPath,
+  resolveWithinStorage,
   validateReadPath,
 } from './local.helper';
 
 const STORAGE_DIR = resolve('/data/storage');
+
+describe('resolveWithinStorage', () => {
+  it('resolves a bucket + object key inside the storage dir', () => {
+    expect(resolveWithinStorage(STORAGE_DIR, 'public', 'table/abc')).toBe(
+      resolve(STORAGE_DIR, 'public/table/abc')
+    );
+  });
+
+  it('resolves the storage dir itself when no segments are given', () => {
+    expect(resolveWithinStorage(STORAGE_DIR)).toBe(STORAGE_DIR);
+  });
+
+  it('rejects an absolute segment that would escape the storage dir', () => {
+    // the base-import / export thumbnail attack: an absolute path segment makes
+    // node:path.resolve discard the storage dir and read e.g. /etc/hostname
+    expect(() => resolveWithinStorage(STORAGE_DIR, 'public', '/etc/hostname')).toThrow(
+      'Could not find attachment'
+    );
+  });
+
+  it('rejects a .. traversal segment', () => {
+    expect(() => resolveWithinStorage(STORAGE_DIR, 'public', '../../etc/passwd')).toThrow(
+      'Could not find attachment'
+    );
+  });
+
+  it('allows a filename that merely contains dots', () => {
+    expect(resolveWithinStorage(STORAGE_DIR, 'public', 'my..file.png')).toBe(
+      resolve(STORAGE_DIR, 'public/my..file.png')
+    );
+  });
+});
 
 describe('normalizeObjectPath', () => {
   it('collapses redundant separators and dot segments', () => {

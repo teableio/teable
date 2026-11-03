@@ -18,6 +18,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { MailTransporterType, MailType } from '@teable/openapi';
 import {
   type IGetNotifyListQuery,
+  type INotificationSummaryVo,
   type INotificationUnreadCountVo,
   type INotificationVo,
   type IUpdateNotifyStatusRo,
@@ -977,6 +978,26 @@ export class NotificationService {
       },
     });
     return { unreadCount };
+  }
+
+  /** The badge count and the unread rows the app surfaces outside the list, in one round trip. */
+  async getNotifySummary(userId: string): Promise<INotificationSummaryVo> {
+    const unread = { toUserId: userId, isRead: false };
+    const [{ unreadCount }, criticalAdmin, invites] = await Promise.all([
+      this.unreadCount(userId),
+      this.getNotificationRecords({
+        ...unread,
+        severity: NotificationSeverityEnum.Critical,
+        type: NotificationTypeEnum.AdminNotice,
+      }),
+      this.getNotificationRecords({ ...unread, type: NotificationTypeEnum.CollaboratorInvite }),
+    ]);
+    const vos = await this.getNotificationListVos([...criticalAdmin.records, ...invites.records]);
+    return {
+      unreadCount,
+      criticalAdminNotices: vos.slice(0, criticalAdmin.records.length),
+      unreadInvites: vos.slice(criticalAdmin.records.length),
+    };
   }
 
   async updateNotifyStatus(

@@ -28,6 +28,7 @@ import type {
 } from '../../event-emitter/events';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -345,7 +346,7 @@ export class PinService {
         id: row.id,
         type,
         order: row.order,
-        name: row.name,
+        name: type === PinType.Base ? baseDisplayName(row.name) : row.name,
         icon: row.icon ?? undefined,
         parentBaseId: row.parentBaseId ?? undefined,
         ...this.pinItemMeta(type, row.meta),

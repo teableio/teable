@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { getRandomString } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -42,6 +43,19 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ tableId, recordId, fields }),
+    });
+    const rawBody = await response.json();
+    return { response, rawBody };
+  };
+
+  const updateRecordsRaw = async (
+    tableId: string,
+    records: Array<{ id: string; fields: Record<string, unknown> }>
+  ) => {
+    const response = await fetch(`${ctx.baseUrl}/tables/updateRecords`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tableId, records }),
     });
     const rawBody = await response.json();
     return { response, rawBody };
@@ -452,6 +466,235 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
         });
 
         assertClientError(response, rawBody);
+      });
+
+      it('rejects two parents claiming the same child in one batch and leaves both unchanged', async () => {
+        const childMeta = await ctx.testContainer.db
+          .selectFrom('table_meta')
+          .select('db_table_name')
+          .where('id', '=', foreignTableId)
+          .executeTakeFirstOrThrow();
+        const batchLinkFieldId = `fld${getRandomString(16)}`;
+        const reverseFieldId = `fld${getRandomString(16)}`;
+        const ownerColumn = `__fk_${reverseFieldId}`;
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: mainTableId,
+          field: {
+            id: batchLinkFieldId,
+            type: 'link',
+            name: `Batch contested children ${getRandomString(8)}`,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId,
+              lookupFieldId: foreignTitleFieldId,
+              isOneWay: false,
+              symmetricFieldId: reverseFieldId,
+              fkHostTableName: childMeta.db_table_name,
+              selfKeyName: ownerColumn,
+              foreignKeyName: '__id',
+            },
+          },
+        });
+        const child = await ctx.createRecord(foreignTableId, {
+          [foreignTitleFieldId]: 'Batch Contested Child',
+        });
+        const parent1 = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Contender 1',
+        });
+        const parent2 = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Contender 2',
+        });
+        await ctx.drainOutbox();
+        const parentsBefore = await ctx.listRecords(mainTableId);
+        const parent1Before = parentsBefore.find((record) => record.id === parent1.id);
+        const parent2Before = parentsBefore.find((record) => record.id === parent2.id);
+        expect(parent1Before).toBeDefined();
+        expect(parent2Before).toBeDefined();
+        const childrenBefore = await ctx.listRecords(foreignTableId);
+        const childBefore = childrenBefore.find((record) => record.id === child.id);
+        expect(childBefore).toBeDefined();
+        const physicalOwnerBefore = await sql<{ owner_id: string | null }>`
+          SELECT ${sql.id(ownerColumn)} AS owner_id
+          FROM ${sql.table(childMeta.db_table_name)}
+          WHERE __id = ${child.id}
+        `.execute(ctx.testContainer.db);
+
+        const { response, rawBody } = await updateRecordsRaw(mainTableId, [
+          { id: parent1.id, fields: { [batchLinkFieldId]: [{ id: child.id }] } },
+          { id: parent2.id, fields: { [batchLinkFieldId]: [{ id: child.id }] } },
+        ]);
+
+        assertClientError(response, rawBody);
+
+        const parentsAfter = await ctx.listRecords(mainTableId);
+        const parent1After = parentsAfter.find((record) => record.id === parent1.id);
+        const parent2After = parentsAfter.find((record) => record.id === parent2.id);
+        expect(parent1After).toBeDefined();
+        expect(parent2After).toBeDefined();
+        expect(parent1After?.fields[batchLinkFieldId]).toEqual(
+          parent1Before?.fields[batchLinkFieldId]
+        );
+        expect(parent2After?.fields[batchLinkFieldId]).toEqual(
+          parent2Before?.fields[batchLinkFieldId]
+        );
+
+        const childrenAfter = await ctx.listRecords(foreignTableId);
+        const childAfter = childrenAfter.find((record) => record.id === child.id);
+        expect(childAfter).toBeDefined();
+        expect(childAfter?.fields[reverseFieldId]).toEqual(childBefore?.fields[reverseFieldId]);
+        const physicalOwnerAfter = await sql<{ owner_id: string | null }>`
+          SELECT ${sql.id(ownerColumn)} AS owner_id
+          FROM ${sql.table(childMeta.db_table_name)}
+          WHERE __id = ${child.id}
+        `.execute(ctx.testContainer.db);
+        expect(physicalOwnerAfter.rows).toEqual(physicalOwnerBefore.rows);
+      });
+
+      it('allows two parents to claim different children in one batch', async () => {
+        const child1 = await ctx.createRecord(foreignTableId, {
+          [foreignTitleFieldId]: 'Batch Child 1',
+        });
+        const child2 = await ctx.createRecord(foreignTableId, {
+          [foreignTitleFieldId]: 'Batch Child 2',
+        });
+        const parent1 = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Parent 1',
+        });
+        const parent2 = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Parent 2',
+        });
+        await ctx.drainOutbox();
+
+        const result = await ctx.updateRecords({
+          tableId: mainTableId,
+          records: [
+            { id: parent1.id, fields: { [linkFieldId]: [{ id: child1.id }] } },
+            { id: parent2.id, fields: { [linkFieldId]: [{ id: child2.id }] } },
+          ],
+        });
+
+        expect(result.records.map((record) => record.id)).toEqual(
+          expect.arrayContaining([parent1.id, parent2.id])
+        );
+        const parentsAfter = await ctx.listRecords(mainTableId);
+        expect(
+          parentsAfter.find((record) => record.id === parent1.id)?.fields[linkFieldId]
+        ).toEqual([expect.objectContaining({ id: child1.id })]);
+        expect(
+          parentsAfter.find((record) => record.id === parent2.id)?.fields[linkFieldId]
+        ).toEqual([expect.objectContaining({ id: child2.id })]);
+      });
+
+      it('rejects a batch containing an already-owned child and rolls back every update', async () => {
+        const childMeta = await ctx.testContainer.db
+          .selectFrom('table_meta')
+          .select('db_table_name')
+          .where('id', '=', foreignTableId)
+          .executeTakeFirstOrThrow();
+        const batchLinkFieldId = `fld${getRandomString(16)}`;
+        const reverseFieldId = `fld${getRandomString(16)}`;
+        const ownerColumn = `__fk_${reverseFieldId}`;
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: mainTableId,
+          field: {
+            id: batchLinkFieldId,
+            type: 'link',
+            name: `Batch owned children ${getRandomString(8)}`,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId,
+              lookupFieldId: foreignTitleFieldId,
+              isOneWay: false,
+              symmetricFieldId: reverseFieldId,
+              fkHostTableName: childMeta.db_table_name,
+              selfKeyName: ownerColumn,
+              foreignKeyName: '__id',
+            },
+          },
+        });
+        const ownedChild = await ctx.createRecord(foreignTableId, {
+          [foreignTitleFieldId]: 'Batch Owned Child',
+        });
+        const freeChild = await ctx.createRecord(foreignTableId, {
+          [foreignTitleFieldId]: 'Batch Free Child',
+        });
+        const owner = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Existing Batch Owner',
+          [batchLinkFieldId]: [{ id: ownedChild.id }],
+        });
+        const legalParent = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Legal Candidate',
+        });
+        const conflictingParent = await ctx.createRecord(mainTableId, {
+          [mainTitleFieldId]: 'Batch Conflicting Candidate',
+        });
+        await ctx.drainOutbox();
+        const parentsBefore = await ctx.listRecords(mainTableId);
+        const legalParentBefore = parentsBefore.find((record) => record.id === legalParent.id);
+        const conflictingParentBefore = parentsBefore.find(
+          (record) => record.id === conflictingParent.id
+        );
+        const ownerBefore = parentsBefore.find((record) => record.id === owner.id);
+        expect(legalParentBefore).toBeDefined();
+        expect(conflictingParentBefore).toBeDefined();
+        expect(ownerBefore).toBeDefined();
+        const childrenBefore = await ctx.listRecords(foreignTableId);
+        const ownedChildBefore = childrenBefore.find((record) => record.id === ownedChild.id);
+        const freeChildBefore = childrenBefore.find((record) => record.id === freeChild.id);
+        expect(ownedChildBefore).toBeDefined();
+        expect(freeChildBefore).toBeDefined();
+        const physicalOwnersBefore = await sql<{ record_id: string; owner_id: string | null }>`
+          SELECT __id AS record_id, ${sql.id(ownerColumn)} AS owner_id
+          FROM ${sql.table(childMeta.db_table_name)}
+          WHERE __id IN (${ownedChild.id}, ${freeChild.id})
+          ORDER BY __id
+        `.execute(ctx.testContainer.db);
+
+        const { response, rawBody } = await updateRecordsRaw(mainTableId, [
+          { id: legalParent.id, fields: { [batchLinkFieldId]: [{ id: freeChild.id }] } },
+          { id: conflictingParent.id, fields: { [batchLinkFieldId]: [{ id: ownedChild.id }] } },
+        ]);
+
+        assertClientError(response, rawBody);
+
+        const parentsAfter = await ctx.listRecords(mainTableId);
+        const legalParentAfter = parentsAfter.find((record) => record.id === legalParent.id);
+        const conflictingParentAfter = parentsAfter.find(
+          (record) => record.id === conflictingParent.id
+        );
+        const ownerAfter = parentsAfter.find((record) => record.id === owner.id);
+        expect(legalParentAfter).toBeDefined();
+        expect(conflictingParentAfter).toBeDefined();
+        expect(ownerAfter).toBeDefined();
+        expect(legalParentAfter?.fields[batchLinkFieldId]).toEqual(
+          legalParentBefore?.fields[batchLinkFieldId]
+        );
+        expect(conflictingParentAfter?.fields[batchLinkFieldId]).toEqual(
+          conflictingParentBefore?.fields[batchLinkFieldId]
+        );
+        expect(ownerAfter?.fields[batchLinkFieldId]).toEqual(ownerBefore?.fields[batchLinkFieldId]);
+
+        const childrenAfter = await ctx.listRecords(foreignTableId);
+        const ownedChildAfter = childrenAfter.find((record) => record.id === ownedChild.id);
+        const freeChildAfter = childrenAfter.find((record) => record.id === freeChild.id);
+        expect(ownedChildAfter).toBeDefined();
+        expect(freeChildAfter).toBeDefined();
+        expect(ownedChildAfter?.fields[reverseFieldId]).toEqual(
+          ownedChildBefore?.fields[reverseFieldId]
+        );
+        expect(freeChildAfter?.fields[reverseFieldId]).toEqual(
+          freeChildBefore?.fields[reverseFieldId]
+        );
+
+        const physicalOwnersAfter = await sql<{ record_id: string; owner_id: string | null }>`
+          SELECT __id AS record_id, ${sql.id(ownerColumn)} AS owner_id
+          FROM ${sql.table(childMeta.db_table_name)}
+          WHERE __id IN (${ownedChild.id}, ${freeChild.id})
+          ORDER BY __id
+        `.execute(ctx.testContainer.db);
+        expect(physicalOwnersAfter.rows).toEqual(physicalOwnersBefore.rows);
       });
     });
   });

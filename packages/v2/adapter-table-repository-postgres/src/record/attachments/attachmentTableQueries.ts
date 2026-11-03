@@ -123,6 +123,34 @@ const deleteAttachmentTableRefs = async (
     .execute();
 };
 
+const deleteAttachmentTableRefsByFieldIdsInDb = async (
+  db: Kysely<DynamicDB>,
+  tableId: string,
+  fieldIds: ReadonlyArray<string>
+): Promise<void> => {
+  await db
+    .deleteFrom('attachments_table')
+    .where('table_id', '=', tableId)
+    .where('field_id', 'in', [...fieldIds])
+    .execute();
+};
+
+export const deleteAttachmentTableRefsByFieldIds = async (
+  dataDb: Kysely<DynamicDB>,
+  metaDb: Kysely<DynamicDB>,
+  tableId: string,
+  fieldIds: ReadonlyArray<string>
+): Promise<void> => {
+  if (fieldIds.length === 0) {
+    return;
+  }
+
+  await deleteAttachmentTableRefsByFieldIdsInDb(dataDb, tableId, fieldIds);
+  if (dataDb !== metaDb) {
+    await deleteAttachmentTableRefsByFieldIdsInDb(metaDb, tableId, fieldIds);
+  }
+};
+
 export const deleteAttachmentTableRefsByRecordIds = async (
   dataDb: Kysely<DynamicDB>,
   metaDb: Kysely<DynamicDB>,

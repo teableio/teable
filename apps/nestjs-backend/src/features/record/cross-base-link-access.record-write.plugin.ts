@@ -59,11 +59,21 @@ const collectFieldKeys = (context: RecordWritePluginContext): Set<string> => {
     case RecordWriteOperationKind.createStream:
     case RecordWriteOperationKind.importAppend:
     case RecordWriteOperationKind.upsertRecords:
-    case RecordWriteOperationKind.restoreMany:
     case RecordWriteOperationKind.duplicateStream:
       context.payload.recordsFieldValues.forEach((fieldValues) =>
         addFieldValues(keys, fieldValues)
       );
+      break;
+    case RecordWriteOperationKind.restoreMany:
+      // A restore inserts a new row: empty snapshot cells cannot create links.
+      // Updates still check null cells because clearing can remove existing links.
+      for (const fieldValues of context.payload.recordsFieldValues) {
+        for (const [key, value] of fieldValues) {
+          if (value != null && !(Array.isArray(value) && value.length === 0)) {
+            keys.add(key);
+          }
+        }
+      }
       break;
     case RecordWriteOperationKind.updateMany:
       if (context.payload.variant === 'selector') {

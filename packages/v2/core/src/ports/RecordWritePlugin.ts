@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { RecordCreateSource } from '../domain/table/events/RecordFieldValuesDTO';
@@ -11,6 +12,7 @@ import type { RecordInsertOrder } from '../domain/table/records/RecordInsertOrde
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from './ExecutionContext';
 import type { SourceColumnMap } from './import/IImportSource';
 import type { PluginTraceContext } from './Tracer';
@@ -113,6 +115,12 @@ export type RecordWriteCreateManyPayload = {
   readonly typecast: boolean;
   readonly order?: RecordInsertOrder;
   readonly recordCount: number;
+  /** The link cell whose unresolved title creates records in this target table. */
+  readonly linkTitleSource?: {
+    readonly baseId: BaseId;
+    readonly tableId: TableId;
+    readonly fieldId: FieldId;
+  };
   /**
    * When true, row-limit plugins may drop overflowing records and continue.
    * Leave unset for atomic createMany callers such as table seed/duplication.
@@ -340,6 +348,16 @@ export interface IRecordWritePlugin<TPreparedState = unknown> {
   ): RecordWritePluginHookResult<RecordWritePluginScope | undefined>;
 
   guard?(
+    context: RecordWritePluginContext,
+    preparedState: TPreparedState | undefined
+  ): RecordWritePluginHookResult<void>;
+
+  /**
+   * Authorize the surviving payload after every guard has completed. Runs
+   * serially in enforce order before guard() returns to the caller, so no
+   * side effects or persistence have started. Must not mutate payload values.
+   */
+  afterGuard?(
     context: RecordWritePluginContext,
     preparedState: TPreparedState | undefined
   ): RecordWritePluginHookResult<void>;

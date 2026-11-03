@@ -76,6 +76,67 @@ describe('DotTeaFieldNormalizer', () => {
     });
   });
 
+  it.each(['rollup', 'conditionalRollup'] as const)(
+    'preserves formulas that reference a valid %s dependency',
+    (dependencyType) => {
+      const dependencyId = `fld${'r'.repeat(16)}`;
+      const formulaId = `fld${'f'.repeat(16)}`;
+      const fieldTypesById = new Map([[dependencyId, dependencyType]]);
+      const normalized = normalizeField(
+        {
+          id: formulaId,
+          type: 'formula',
+          name: 'Derived total',
+          cellValueType: 'number',
+          options: {
+            expression: `{${dependencyId}} * 2`,
+            formatting: { type: 'decimal', precision: 0 },
+          },
+        },
+        fieldTypesById,
+        { hostFieldTypesById: fieldTypesById }
+      );
+
+      expect(normalized).toMatchObject({
+        id: formulaId,
+        type: 'formula',
+        cellValueType: 'number',
+        isMultipleCellValue: false,
+        options: {
+          expression: `{${dependencyId}} * 2`,
+          formatting: { type: 'decimal', precision: 0 },
+        },
+      });
+    }
+  );
+
+  it('downgrades a formula when its rollup dependency is broken', () => {
+    const rollupId = `fld${'r'.repeat(16)}`;
+    const formulaId = `fld${'f'.repeat(16)}`;
+    const normalized = normalizeFields([
+      {
+        id: rollupId,
+        type: 'rollup',
+        name: 'Broken rollup',
+        cellValueType: 'number',
+        lookupOptions: {
+          foreignTableId: `tbl${'x'.repeat(16)}`,
+          linkFieldId: `fld${'l'.repeat(16)}`,
+          lookupFieldId: `fld${'v'.repeat(16)}`,
+        },
+        options: { expression: 'sum({values})' },
+      },
+      {
+        id: formulaId,
+        type: 'formula',
+        name: 'Derived total',
+        options: { expression: `{${rollupId}} * 2` },
+      },
+    ]);
+
+    expect(normalized.map(({ type }) => type)).toEqual(['singleLineText', 'singleLineText']);
+  });
+
   it('preserves formula result type exported by dottea', () => {
     const normalized = normalizeField(
       {

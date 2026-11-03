@@ -10,16 +10,14 @@ import {
 import type { FieldKeyMapping } from '../../records/RecordCreateResult';
 import type { RecordId } from '../../records/RecordId';
 import { RecordMutationSpecBuilder } from '../../records/RecordMutationSpecBuilder';
+import { materializeRecordSpec } from '../../records/RecordSpecMaterializer';
 import { RecordUpdateResult } from '../../records/RecordUpdateResult';
-import { TableRecord } from '../../records/TableRecord';
-import { TableRecordFields } from '../../records/TableRecordFields';
 import type { Table } from '../../Table';
 
 export type UpdateRecordTracePhase =
   | 'resolveFieldKeys'
   | 'configureMutationSpec'
   | 'buildMutationSpec'
-  | 'createEmptyRecord'
   | 'mutateRecord'
   | 'createUpdateResult';
 
@@ -181,17 +179,13 @@ export function updateRecord(
 
     const mutateSpec = yield* runTrace('buildMutationSpec', () => builder.build());
 
-    const emptyRecord = yield* runTrace('createEmptyRecord', () =>
-      TableRecordFields.create([]).andThen((emptyFields) =>
-        TableRecord.create({
-          id: recordId,
-          tableId: table.id(),
-          fieldValues: emptyFields.entries(),
-        })
-      )
+    const record = yield* runTrace('mutateRecord', () =>
+      materializeRecordSpec({
+        id: recordId,
+        tableId: table.id(),
+        spec: mutateSpec,
+      })
     );
-
-    const record = yield* runTrace('mutateRecord', () => mutateSpec.mutate(emptyRecord));
 
     const updateResult = yield* runTrace('createUpdateResult', () =>
       ok(RecordUpdateResult.create(record, mutateSpec, fieldKeyMapping))

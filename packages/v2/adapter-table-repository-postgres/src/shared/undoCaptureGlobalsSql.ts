@@ -12,6 +12,9 @@ export const undoCaptureGlobalStatements = [
     )
   `,
   `
+    ALTER TABLE "__undo_log" ADD COLUMN IF NOT EXISTS "old_tuple" JSONB
+  `,
+  `
     CREATE INDEX IF NOT EXISTS "__undo_log_batch_id_idx"
     ON "__undo_log" ("batch_id")
   `,
@@ -35,6 +38,7 @@ export const undoCaptureGlobalStatements = [
       captured_record_id text;
       captured_old_row jsonb;
       captured_new_row jsonb;
+      captured_old_tuple jsonb;
     BEGIN
       batch_id := current_setting('teable.undo_batch_id', true);
 
@@ -55,13 +59,24 @@ export const undoCaptureGlobalStatements = [
         RETURN NULL;
       END IF;
 
+      IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        -- Use the trigger's actual OLD tuple, never a later read of the business row.
+        captured_old_tuple := jsonb_build_object(
+          'xmin', OLD.xmin::text,
+          'ctid', OLD.ctid::text,
+          'relationOid', OLD.tableoid::text,
+          'relationFilenode', pg_relation_filenode(OLD.tableoid)::text
+        );
+      END IF;
+
       INSERT INTO "__undo_log" (
         "batch_id",
         "operation",
         "table_name",
         "record_id",
         "old_row",
-        "new_row"
+        "new_row",
+        "old_tuple"
       )
       VALUES (
         batch_id,
@@ -69,7 +84,8 @@ export const undoCaptureGlobalStatements = [
         TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME,
         captured_record_id,
         captured_old_row,
-        captured_new_row
+        captured_new_row,
+        captured_old_tuple
       );
 
       -- For AFTER triggers, the return value is ignored; RETURN NULL is idiomatic.

@@ -38,7 +38,7 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
   const { mutateAsync: updateStatusMutator } = useMutation({
     mutationFn: updateNotificationStatus,
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifySummary() });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
     },
   });

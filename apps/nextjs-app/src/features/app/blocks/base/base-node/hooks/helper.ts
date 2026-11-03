@@ -377,6 +377,47 @@ export const filterAutoHiddenFolders = (nodes: IBaseNodeVo[]): IBaseNodeVo[] => 
   });
 };
 
+/** Whether the node's name contains the query (lowercased). */
+const nameMatches = (node: TreeItemData, query: string) =>
+  getNodeName(node).toLocaleLowerCase().includes(query);
+
+/** Whether any node of the tree, the root aside, has a name containing the query (lowercased). */
+export const treeHasMatch = (treeItems: Record<string, TreeItemData>, query: string) =>
+  Object.values(treeItems).some((node) => node.id !== ROOT_ID && nameMatches(node, query));
+
+/**
+ * The tree cut down to the nodes whose name contains the query (lowercased), their folders up to
+ * the root, and everything inside a matching folder.
+ */
+export const searchTreeItems = (
+  treeItems: Record<string, TreeItemData>,
+  query: string
+): Record<string, TreeItemData> => {
+  const visibleIds = new Set([ROOT_ID]);
+  const showSubtree = (id: string) => {
+    visibleIds.add(id);
+    treeItems[id]?.children.forEach(showSubtree);
+  };
+  for (const node of Object.values(treeItems)) {
+    if (node.id === ROOT_ID || !nameMatches(node, query)) continue;
+    // A visible node's folders are visible already, so the walk up stops at the first one.
+    let parentId = node.parentId;
+    while (parentId && !visibleIds.has(parentId)) {
+      visibleIds.add(parentId);
+      parentId = treeItems[parentId]?.parentId;
+    }
+    showSubtree(node.id);
+  }
+  return Object.fromEntries(
+    Object.entries(treeItems)
+      .filter(([id]) => visibleIds.has(id))
+      .map(([id, node]) => [
+        id,
+        { ...node, children: node.children.filter((childId) => visibleIds.has(childId)) },
+      ])
+  );
+};
+
 export const getChildrenNodes = (parentId: string, nodes: IBaseNodeVo[]): IBaseNodeVo[] => {
   const parentNode = nodes.find((node) => node.id === parentId);
   if (!parentNode) return [];

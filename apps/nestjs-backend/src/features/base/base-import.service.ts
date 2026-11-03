@@ -33,6 +33,7 @@ import {
   PluginPosition,
   BaseNodeResourceType,
   BaseDuplicateMode,
+  isCopyToExistingBaseMode,
   CreateRecordAction,
   ImportBaseRo,
   tableFullVoSchema,
@@ -108,6 +109,15 @@ export type BaseImportProgressCallback = (
   phase: string | IBaseImportProgress,
   detail?: string
 ) => void;
+
+export interface IBaseHostIdMaps {
+  appIdMap: Record<string, string>;
+  workflowIdMap: Record<string, string>;
+  routineIdMap: Record<string, string>;
+  dashboardIdMap: Record<string, string>;
+  folderIdMap: Record<string, string>;
+  nodeIdMap: Record<string, string>;
+}
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
@@ -242,7 +252,7 @@ export class BaseImportService {
     const base = await this.prismaService.txClient().base.create({
       data: {
         id: generateBaseId(),
-        name: name || 'Untitled Project',
+        name: name?.trim() || null,
         spaceId,
         order,
         icon,
@@ -320,7 +330,7 @@ export class BaseImportService {
         await sql`
           update "base"
           set
-            "name" = ${name || 'Untitled Project'},
+            "name" = ${name?.trim() || null},
             "icon" = ${icon ?? null},
             "last_modified_by" = ${userId},
             "last_modified_time" = ${new Date()}
@@ -328,7 +338,7 @@ export class BaseImportService {
         `.execute(db);
         return {
           id: existing.id,
-          name: name || 'Untitled Project',
+          name: name?.trim() || null,
           spaceId: existing.space_id,
         };
       }
@@ -342,7 +352,7 @@ export class BaseImportService {
 
     const base = {
       id: generateBaseId(),
-      name: name || 'Untitled Project',
+      name: name?.trim() || null,
       icon: icon ?? null,
       spaceId,
     };
@@ -447,8 +457,9 @@ export class BaseImportService {
       tableIdMap: Record<string, string>;
       fieldIdMap: Record<string, string>;
       viewIdMap: Record<string, string>;
-    } & {
-      [key: string]: Record<string, string>;
+      // Added by the EE `createBaseStructure` override (apps); absent in community.
+      appIdMap?: Record<string, string>;
+      baseIdMap?: Record<string, string>;
     };
   }
 
@@ -530,14 +541,15 @@ export class BaseImportService {
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
 
     onProgress?.('structure_created', base.id);
-    const { appIdMap, workflowIdMap } = await this.restoreBaseExtrasV2(
-      db,
-      base.id,
-      structure,
-      { tableIdMap, fieldIdMap, viewIdMap },
-      BaseDuplicateMode.Normal,
-      onProgress
-    );
+    const { appIdMap, workflowIdMap, routineIdMap, dashboardIdMap, folderIdMap, nodeIdMap } =
+      await this.restoreBaseExtrasV2(
+        db,
+        base.id,
+        structure,
+        { tableIdMap, fieldIdMap, viewIdMap },
+        BaseDuplicateMode.Normal,
+        onProgress
+      );
     onProgress?.('queuing_attachments');
     await this.importAttachmentsV2(db, path);
     onProgress?.('importing_table_data');
@@ -594,12 +606,20 @@ export class BaseImportService {
       viewIdMap,
       appIdMap,
       workflowIdMap,
+      routineIdMap,
+      dashboardIdMap,
+      folderIdMap,
+      nodeIdMap,
       // Source->new base id, so EE import can rewrite base-id references baked into app
       // build artifacts (matches the v1 import/duplicate idMap; v2 dropped it).
       baseIdMap: { [structure.id]: base.id },
     } as IImportBaseVo & {
       appIdMap: Record<string, string>;
       workflowIdMap: Record<string, string>;
+      routineIdMap: Record<string, string>;
+      dashboardIdMap: Record<string, string>;
+      folderIdMap: Record<string, string>;
+      nodeIdMap: Record<string, string>;
       baseIdMap: Record<string, string>;
     };
   }
@@ -616,22 +636,36 @@ export class BaseImportService {
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
     onProgress?: BaseImportProgressCallback,
     copyToExistingBase: boolean = false
-  ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
+  ): Promise<IBaseHostIdMaps> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
+    // Existing-base template installs own an ambient Prisma metadata transaction. The native
+    // table command has already committed; these host helpers must use that transaction.
+    const useHostTransaction =
+      copyToExistingBase &&
+      (duplicateMode === BaseDuplicateMode.ApplyTemplate ||
+        duplicateMode === BaseDuplicateMode.InstallTemplate);
     let dashboardIdMap: Record<string, string> = {};
     const hasPlugins = Object.values(structure.plugins).some(
       (plugins) => Array.isArray(plugins) && plugins.length > 0
     );
     if (hasPlugins) {
       onProgress?.('creating_plugins');
-      ({ dashboardIdMap } = await this.createPluginsV2(
-        db,
-        baseId,
-        structure.plugins,
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap
-      ));
+      ({ dashboardIdMap } = useHostTransaction
+        ? await this.createPluginsInTransactionV2(
+            baseId,
+            structure.plugins,
+            tableIdMap,
+            fieldIdMap,
+            viewIdMap
+          )
+        : await this.createPluginsV2(
+            db,
+            baseId,
+            structure.plugins,
+            tableIdMap,
+            fieldIdMap,
+            viewIdMap
+          ));
     }
 
     // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
@@ -656,32 +690,39 @@ export class BaseImportService {
     if (hasFolders) {
       onProgress?.('creating_folders');
     }
-    const { folderIdMap } = await this.createFoldersV2(
-      db,
-      baseId,
-      structure.folders,
-      copyToExistingBase
-    );
+    const { folderIdMap } = useHostTransaction
+      ? await this.createFolders(baseId, structure.folders, copyToExistingBase)
+      : await this.createFoldersV2(db, baseId, structure.folders, copyToExistingBase);
 
+    let nodeIdMap: Record<string, string> = {};
     if (hasNodes) {
       onProgress?.('restoring_base_nodes');
-      await this.createBaseNodesV2(
-        db,
-        baseId,
-        structure.nodes,
-        {
-          folderIdMap,
-          tableIdMap,
-          dashboardIdMap,
-          workflowIdMap,
-          appIdMap,
-          routineIdMap,
-        },
-        { updateExistingNodes: true, copyToExistingBase }
-      );
+      const resourceMaps = {
+        folderIdMap,
+        tableIdMap,
+        dashboardIdMap,
+        workflowIdMap,
+        appIdMap,
+        routineIdMap,
+      };
+      nodeIdMap = useHostTransaction
+        ? await this.createBaseNodes(baseId, structure.nodes, resourceMaps, copyToExistingBase, {
+            updateExistingNodes: true,
+          })
+        : await this.createBaseNodesV2(db, baseId, structure.nodes, resourceMaps, {
+            updateExistingNodes: true,
+            copyToExistingBase,
+          });
     }
 
-    return { appIdMap, workflowIdMap };
+    return {
+      appIdMap,
+      workflowIdMap,
+      routineIdMap,
+      dashboardIdMap,
+      folderIdMap,
+      nodeIdMap,
+    };
   }
 
   /**
@@ -963,6 +1004,74 @@ export class BaseImportService {
     }
 
     return sortedNodes;
+  }
+
+  private async createPluginsInTransactionV2(
+    baseId: string,
+    plugins: IBaseJson['plugins'],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    const { dashboardIdMap } = await this.createDashboard(
+      baseId,
+      plugins[PluginPosition.Dashboard],
+      tableIdMap,
+      fieldIdMap
+    );
+    await this.createPanel(
+      baseId,
+      plugins[PluginPosition.Panel].filter(({ tableId }) => tableIdMap[tableId]),
+      tableIdMap,
+      fieldIdMap
+    );
+    const prisma = this.prismaService.txClient();
+    const userId = this.cls.get('user.id');
+    for (const pluginView of plugins[PluginPosition.View]) {
+      const viewId = viewIdMap[pluginView.id] ?? generateViewId();
+      const pluginInstallId = generatePluginInstallId();
+      viewIdMap[pluginView.id] = viewId;
+      const config = this.mapPluginViewConfig(
+        pluginView,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        pluginInstallId
+      );
+      const viewData = {
+        name: pluginView.name,
+        description: pluginView.description,
+        tableId: tableIdMap[pluginView.tableId],
+        type: ViewType.Plugin,
+        sort: config.sort,
+        filter: config.filter,
+        group: config.group,
+        options: config.options,
+        columnMeta: config.columnMeta,
+        order: pluginView.order ?? 0,
+        isLocked: pluginView.isLocked,
+        enableShare: pluginView.enableShare,
+        shareMeta: pluginView.shareMeta ? JSON.stringify(pluginView.shareMeta) : null,
+      };
+      await prisma.view.upsert({
+        where: { id: viewId },
+        create: { ...viewData, id: viewId, version: 1, createdBy: userId },
+        update: { ...viewData, lastModifiedBy: userId },
+      });
+      await prisma.pluginInstall.create({
+        data: {
+          id: pluginInstallId,
+          baseId,
+          createdBy: userId,
+          pluginId: pluginView.pluginInstall.pluginId,
+          name: pluginView.pluginInstall.name,
+          positionId: viewId,
+          position: PluginPosition.View,
+          storage: config.storage,
+        },
+      });
+    }
+    return { dashboardIdMap };
   }
 
   private async createPluginsV2(
@@ -2391,7 +2500,7 @@ export class BaseImportService {
   ) {
     const { name, icon, tables, plugins, folders } = structure;
 
-    const isCopyToExistingBase = !!baseId && duplicateMode === BaseDuplicateMode.CopyShareBase;
+    const isCopyToExistingBase = !!baseId && isCopyToExistingBaseMode(duplicateMode);
 
     // create base
     onProgress?.('creating_base', name);

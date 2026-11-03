@@ -194,6 +194,21 @@ export class TableCreationService {
     });
   }
 
+  /** Remove only metadata owned by a creation whose data transaction was rolled back. */
+  @TraceSpan()
+  async discardMetadata(
+    context: ExecutionContextPort.IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    for (let index = tables.length - 1; index >= 0; index--) {
+      const result = await this.tableRepository.delete(context, tables[index]!, {
+        mode: 'permanent',
+      });
+      if (result.isErr()) return err(result.error);
+    }
+    return ok(undefined);
+  }
+
   @TraceSpan()
   async provisionData(
     context: ExecutionContextPort.IExecutionContext,

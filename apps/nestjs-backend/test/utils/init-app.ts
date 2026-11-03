@@ -81,9 +81,10 @@ import {
   nestModuleIdOptions,
   nestRouteDiagnosticsOptions,
 } from '../../src/utils/nest-module-id-options';
+import { startQueueWorkers } from '../../src/utils/queue-processor';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
-import { acquireApp, getSharedBundle } from './e2e-shared';
+import { acquireApp, getSharedBundle, setActiveAppOrigin } from './e2e-shared';
 import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
@@ -100,6 +101,7 @@ export async function initApp() {
       axios.interceptors.request.eject(cookieInterceptorId);
       const shared = getSharedBundle(cacheKey);
       if (shared) {
+        setActiveAppOrigin(shared.appUrl);
         axios.defaults.baseURL = shared.appUrl + '/api';
       }
     },
@@ -153,6 +155,7 @@ async function bootApp() {
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
   await app.listen(0);
+  startQueueWorkers(app);
   const nestUrl = await app.getUrl();
   const port = new URL(nestUrl).port;
   const url = `http://127.0.0.1:${port}`;

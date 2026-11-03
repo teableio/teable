@@ -146,6 +146,35 @@ const noBareFetch = {
   },
 };
 
+/**
+ * A worker from @nestjs/bullmq's own `@Processor` consumes as soon as it is created, before the
+ * rest of the application has initialized; the backend's `@Processor` defers that until
+ * startQueueWorkers.
+ */
+const noBareBullmqProcessor = {
+  meta: {
+    type: 'problem',
+    messages: {
+      bare: "Import Processor from the backend's utils/queue-processor, not @nestjs/bullmq: its workers must not consume before the application has initialized.",
+    },
+    schema: [],
+  },
+  /** @param {any} context */
+  create(context) {
+    return {
+      /** @param {any} node */
+      ImportDeclaration(node) {
+        if (node.source.value !== '@nestjs/bullmq') return;
+        for (const specifier of node.specifiers) {
+          if (specifier.type === 'ImportSpecifier' && specifier.imported.name === 'Processor') {
+            context.report({ node: specifier, messageId: 'bare' });
+          }
+        }
+      },
+    };
+  },
+};
+
 const { consistentTypeImports, namingConvention } = require('./typescript-eslint');
 
 module.exports = {
@@ -153,6 +182,7 @@ module.exports = {
   rules: {
     'consistent-type-imports': consistentTypeImports,
     'naming-convention': namingConvention,
+    'no-bare-bullmq-processor': noBareBullmqProcessor,
     'no-bare-fetch': noBareFetch,
     'no-query-plugin-table-cast': noQueryPluginTableCast,
     'tailwind-alpha-token-opacity': tailwindAlphaTokenOpacity,

@@ -9,10 +9,13 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { DataQueryService } from './DataQueryService';
 import {
   executeDataQueryRequestSchema,
+  validateDataQueryRequestSchema,
+  type DataQueryValidationUsage,
   type ExecuteDataQueryRequest,
+  type ValidateDataQueryRequest,
 } from './queryExecutionProtocol';
 import { QueryExecutionService } from './QueryExecutionService';
-import type { DataQueryParameterDefinition } from './types';
+import type { DataQueryFieldUsage, DataQueryParameterDefinition } from './types';
 
 const definition = {
   version: 1,
@@ -44,12 +47,31 @@ describe('inline execution protocol', () => {
     expectTypeOf<keyof ExecuteDataQueryRequest>().toEqualTypeOf<
       'definition' | 'parameters' | 'queryId'
     >();
+    expectTypeOf<keyof ValidateDataQueryRequest>().toEqualTypeOf<'definition' | 'includeUsage'>();
+    expectTypeOf<DataQueryValidationUsage>().toEqualTypeOf<
+      ReadonlyArray<{
+        readonly source: string;
+        readonly tableId: string;
+        readonly fieldId: string;
+        readonly usages: ReadonlyArray<DataQueryFieldUsage>;
+      }>
+    >();
     expectTypeOf<keyof DataQueryParameterDefinition>().toEqualTypeOf<
       'type' | 'nullable' | 'default'
     >();
     expectTypeOf<Parameters<QueryExecutionService['execute']>>().toEqualTypeOf<
       [IExecutionContext, unknown]
     >();
+  });
+
+  it('accepts only a boolean usage opt-in on validation requests', () => {
+    expect(validateDataQueryRequestSchema.safeParse({ definition }).success).toBe(true);
+    expect(
+      validateDataQueryRequestSchema.safeParse({ definition, includeUsage: true }).success
+    ).toBe(true);
+    expect(
+      validateDataQueryRequestSchema.safeParse({ definition, includeUsage: 'true' }).success
+    ).toBe(false);
   });
 
   it.each(['input', 'context'])('rejects obsolete parameter source %s', async (source) => {

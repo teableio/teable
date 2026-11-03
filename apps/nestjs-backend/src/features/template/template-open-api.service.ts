@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 
 import {
   type ICreateTemplateCategoryRo,
@@ -13,9 +13,10 @@ import {
   BaseDuplicateMode,
   MAX_TEMPLATE_CATEGORY_COUNT,
   ShortLinkType,
-  TemplateKind,
+  TemplateCategoryKind,
+  TemplateListSort,
 } from '@teable/openapi';
-import { isEqual, isNumber } from 'lodash';
+import { isEqual, isNumber, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -31,8 +32,16 @@ import { AttachmentsStorageService } from '../attachments/attachments-storage.se
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
-import { BaseDuplicateService } from '../base/base-duplicate.service';
+import { BaseDuplicateV2Service } from '../base/base-duplicate-v2.service';
+import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
+import { firstPublishHistory, listedTemplateWhere, templateIdOrSlugWhere } from '../model/template';
 import { ShortLinkService } from '../short-link/short-link.service';
+import { ensureTemplateSlug, slugFromName } from './template-slug';
+import {
+  lockTemplateSnapshotSwap,
+  retireTemplateSnapshot,
+  withStagedTemplateSnapshot,
+} from './template-snapshot.helper';
 
 // Snapshotting a template's source base (with its records) into the template space.
 const TEMPLATE_SNAPSHOT_ACTION = 'template.snapshot.create';
@@ -47,7 +56,7 @@ const TEMPLATE_UPDATE_KEYS = [
   'featured',
   'isSystem',
   'baseId',
-  'kind',
+  'slug',
 ] as const;
 
 @Injectable()
@@ -56,7 +65,7 @@ export class TemplateOpenApiService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly baseDuplicateV2Service: BaseDuplicateV2Service,
     private readonly cls: ClsService<IClsStore>,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -91,7 +100,6 @@ export class TemplateOpenApiService {
       params: {
         templateId,
         name: createTemplateRo.name,
-        ...(createTemplateRo.kind ? { kind: createTemplateRo.kind } : {}),
       },
     });
     return template;
@@ -125,11 +133,16 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
-        kind: true,
+        version: true,
+        manifest: true,
+        history: true,
+        parentTemplateId: true,
+        slug: true,
+        review: true,
       },
     });
 
-    return this.transformTemplateListResult(res);
+    return this.transformTemplateListResult(res, { withEmail: true });
   }
 
   async getPublishedTemplateList(templateQuery?: ITemplateQueryRoSchema) {
@@ -137,39 +150,63 @@ export class TemplateOpenApiService {
     const prisma = this.prismaService.txClient();
     const featured = templateQuery?.featured;
     const categoryId = templateQuery?.categoryId;
-    const search = templateQuery?.search;
-    const kind = templateQuery?.kind;
+    const searchTerms = templateQuery?.search?.split(/\s+/).filter(Boolean) ?? [];
+    const sort = templateQuery?.sort;
 
     this.validateTakeCount(take);
 
+    // An industry lists what is filed under it and under any of its sub-industries.
+    const categoryIds = categoryId
+      ? [
+          categoryId,
+          ...(
+            await prisma.templateCategory.findMany({
+              where: { parentId: categoryId },
+              select: { id: true },
+            })
+          ).map((c) => c.id),
+        ]
+      : undefined;
+
     const res = await prisma.template.findMany({
       where: {
-        isPublished: true,
+        ...listedTemplateWhere(),
         AND: [
-          // The catalogue lists every kind together; `kind` only narrows it. Rows
-          // published before the column existed carry no kind and are plain templates.
-          !kind
-            ? {}
-            : kind === TemplateKind.Template
-              ? { OR: [{ kind: null }, { kind: TemplateKind.Template }] }
-              : { kind },
           featured === true
             ? { featured: true }
             : featured === false
               ? { OR: [{ featured: false }, { featured: null }] }
               : {},
+          ...searchTerms.map((term) => ({
+            OR: [
+              { name: { contains: term, mode: 'insensitive' as const } },
+              { description: { contains: term, mode: 'insensitive' as const } },
+            ],
+          })),
         ],
-        categoryId: categoryId ? { has: categoryId } : undefined,
-        name: search ? { contains: search, mode: 'insensitive' } : undefined,
+        categoryId: categoryIds ? { hasSome: categoryIds } : undefined,
+        createdBy: templateQuery?.createdBy,
       },
-      orderBy: {
-        order: 'asc',
-      },
+      orderBy: sort === TemplateListSort.Newest ? { lastModifiedTime: 'desc' } : { order: 'asc' },
       skip,
       take,
     });
 
-    return this.transformTemplateListResult(res);
+    return this.transformTemplateListResult(
+      await this.withSlugs(res.map((item) => omit(item, ['review'])))
+    );
+  }
+
+  /** Templates listed before slugs existed get theirs the first time anyone reads them. */
+  private async withSlugs<T extends { id: string; name: string | null; slug: string | null }>(
+    items: T[]
+  ): Promise<T[]> {
+    const prisma = this.prismaService.txClient();
+    const out: T[] = [];
+    for (const item of items) {
+      out.push(item.slug ? item : { ...item, slug: await ensureTemplateSlug(prisma, item) });
+    }
+    return out;
   }
 
   private validateTakeCount(take: number) {
@@ -182,12 +219,12 @@ export class TemplateOpenApiService {
     }
   }
 
-  private async transformTemplateListResult<
+  protected async transformTemplateListResult<
     T extends { id: string; cover: string | null; snapshot: string | null; createdBy: string },
-  >(templates: T[]) {
+  >(templates: T[], options?: { withEmail?: boolean }) {
     const previewUrlMap: Record<string, string> = {};
     const userIds = templates.map((item) => item.createdBy).filter((id) => !!id);
-    const userMap = await this.getSpecifiedUserInfoByUserId(userIds);
+    const userMap = await this.getSpecifiedUserInfoByUserId(userIds, options?.withEmail);
 
     for (const item of templates) {
       const cover = item.cover ? JSON.parse(item.cover) : undefined;
@@ -305,6 +342,17 @@ export class TemplateOpenApiService {
         }
       );
     }
+    if (updateTemplateRo.slug) {
+      const taken = await prisma.template.findFirst({
+        where: { slug: updateTemplateRo.slug, NOT: { id: templateId } },
+        select: { id: true },
+      });
+      if (taken) {
+        throw new CustomHttpException('Slug already in use', HttpErrorCode.VALIDATION_ERROR, {
+          localization: { i18nKey: 'httpErrors.template.slugTaken' },
+        });
+      }
+    }
 
     await prisma.template
       .update({
@@ -313,9 +361,19 @@ export class TemplateOpenApiService {
           ...updateTemplateRo,
           categoryId: updateTemplateRo.categoryId,
           cover: newCover as string | null | undefined,
+          ...(updateTemplateRo.isPublished && !originalTemplate.history
+            ? {
+                history: firstPublishHistory(
+                  originalTemplate.version
+                ) as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
         },
       })
       .then(async (res) => {
+        if (updateTemplateRo.isPublished) {
+          await ensureTemplateSlug(prisma, res);
+        }
         if (res.baseId) {
           await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
         }
@@ -419,10 +477,12 @@ export class TemplateOpenApiService {
         baseId: true,
         name: true,
         snapshot: true,
+        publishInfo: true,
       },
     });
 
-    if (!templateRaw.baseId) {
+    const sourceBaseId = templateRaw.baseId;
+    if (!sourceBaseId) {
       throw new CustomHttpException('Source template not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.template.sourceTemplateNotFound',
@@ -440,59 +500,80 @@ export class TemplateOpenApiService {
       },
     });
 
-    return await this.prismaService.$tx(
-      async (prisma) => {
-        // duplicate a base for template snapshot, not allow cross base field relative, all cross base link field will be duplicated as single text fields
-        const {
-          base: { id, spaceId, name },
-        } = await this.baseDuplicateService.duplicateBase(
-          {
-            fromBaseId: templateRaw.baseId!,
-            spaceId: templateSpaceId.id,
-            withRecords: true,
-            name: templateRaw?.name || 'template snapshot',
-          },
-          false,
-          BaseDuplicateMode.CreateTemplate
-        );
-
-        if (templateRaw.snapshot) {
-          // delete previous base
-          const snapshot = JSON.parse(templateRaw.snapshot);
-          await prisma.base.update({
-            where: { id: snapshot.baseId },
-            data: {
-              deletedTime: new Date().toISOString(),
-            },
-          });
-        }
-
-        return await prisma.template
-          .update({
-            where: { id: templateId },
-            data: {
-              snapshot: JSON.stringify({
-                baseId: id,
-                snapshotTime: new Date().toISOString(),
-                spaceId,
-                name,
-              }),
-              lastModifiedBy: this.cls.get('user.id'),
-            },
-          })
-          .then(async (res) => {
-            if (res.baseId) {
-              await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
-            }
-            // Clear permalink cache when snapshot is updated
-            await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
-            return res;
-          });
-      },
+    const {
+      base: { id, spaceId, name },
+      nodeIdMap,
+    } = await this.baseDuplicateV2Service.duplicateBase(
       {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
+        fromBaseId: sourceBaseId,
+        spaceId: templateSpaceId.id,
+        withRecords: true,
+        name: templateRaw.name || 'template snapshot',
+      },
+      false,
+      BaseDuplicateMode.CreateTemplate
     );
+    return withStagedTemplateSnapshot(
+      this.prismaService,
+      sourceBaseId,
+      id,
+      this.cls.get('user.id'),
+      async () => {
+        const publishInfo = templateRaw.publishInfo;
+        const hasPublishInfo =
+          publishInfo && typeof publishInfo === 'object' && !Array.isArray(publishInfo);
+        const activeNodeId =
+          hasPublishInfo && typeof publishInfo.defaultActiveNodeId === 'string'
+            ? publishInfo.defaultActiveNodeId
+            : undefined;
+        const snapshotActiveNodeId = activeNodeId ? (nodeIdMap[activeNodeId] ?? null) : null;
+        const defaultUrl = await buildBaseNodeDefaultUrl(prisma, id, snapshotActiveNodeId);
+        let oldSnapshotBaseId: string | undefined;
+        const result = await this.prismaService.$tx(
+          async (prisma) => {
+            await lockTemplateSnapshotSwap(prisma, sourceBaseId);
+            // Read the current pointer at swap time, not before the native copy started.
+            const current = await prisma.template.findUniqueOrThrow({
+              where: { id: templateId },
+              select: { snapshot: true },
+            });
+            if (current.snapshot) {
+              const snapshot = JSON.parse(current.snapshot);
+              oldSnapshotBaseId = snapshot.baseId;
+              if (oldSnapshotBaseId) {
+                await retireTemplateSnapshot(prisma, oldSnapshotBaseId, this.cls.get('user.id'));
+              }
+            }
+            return await prisma.template.update({
+              where: { id: templateId },
+              data: {
+                snapshot: JSON.stringify({
+                  baseId: id,
+                  snapshotTime: new Date().toISOString(),
+                  spaceId,
+                  name,
+                }),
+                ...(hasPublishInfo
+                  ? { publishInfo: { ...publishInfo, snapshotActiveNodeId, defaultUrl } }
+                  : {}),
+                lastModifiedBy: this.cls.get('user.id'),
+              },
+            });
+          },
+          { timeout: this.thresholdConfig.bigTransactionTimeout }
+        );
+        return { result, oldSnapshotBaseId };
+      },
+      (error) => this.logger.error(`Failed to retire staged snapshot ${id}`, error)
+    ).then(async ({ result, oldSnapshotBaseId }) => {
+      await Promise.all([
+        this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId)),
+        ...[sourceBaseId, id, ...(oldSnapshotBaseId ? [oldSnapshotBaseId] : [])].map((baseId) =>
+          this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(baseId))
+        ),
+      ]);
+      return result;
+    });
   }
 
   async createTemplateCategory(createTemplateCategoryRo: ICreateTemplateCategoryRo) {
@@ -516,6 +597,16 @@ export class TemplateOpenApiService {
       );
     }
 
+    const { name, parentId } = createTemplateCategoryRo;
+    const kind = createTemplateCategoryRo.kind ?? TemplateCategoryKind.Industry;
+    if (kind === TemplateCategoryKind.Team && parentId) {
+      throw this.teamIsFlatError();
+    }
+    if (parentId) {
+      await this.assertIndustryRoot(parentId);
+    }
+    const key = await this.newCategoryKey(createTemplateCategoryRo.key, name);
+
     const categoryId = generateTemplateCategoryId();
     const maxOrder = await prisma.templateCategory.aggregate({
       _max: {
@@ -530,11 +621,74 @@ export class TemplateOpenApiService {
     return await prisma.templateCategory.create({
       data: {
         id: categoryId,
-        ...createTemplateCategoryRo,
+        name,
+        parentId,
+        kind,
+        key,
         createdBy: userId,
         order: finalOrder,
       },
     });
+  }
+
+  /** A sub-industry goes under an industry that is itself a root. */
+  private async assertIndustryRoot(parentId: string): Promise<void> {
+    const parent = await this.prismaService.txClient().templateCategory.findUnique({
+      where: { id: parentId },
+      select: { parentId: true, kind: true },
+    });
+    if (!parent) {
+      throw new CustomHttpException('Template category not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.template.categoryNotFound' },
+      });
+    }
+    if (parent.kind === TemplateCategoryKind.Team) {
+      throw this.teamIsFlatError();
+    }
+    if (parent.parentId) {
+      throw new CustomHttpException(
+        'A sub-industry cannot have sub-industries',
+        HttpErrorCode.VALIDATION_ERROR,
+        { localization: { i18nKey: 'httpErrors.template.categoryDepthExceeded' } }
+      );
+    }
+  }
+
+  /**
+   * The key an admin typed must be free. One made from the name is only a convenience, so a
+   * taken one (or a name with nothing to make it from) leaves the key empty.
+   */
+  private async newCategoryKey(requested: string | undefined, name: string) {
+    if (requested) {
+      await this.assertCategoryKeyFree(requested);
+      return requested;
+    }
+    const derived = slugFromName(name);
+    return derived && !(await this.categoryKeyTaken(derived)) ? derived : null;
+  }
+
+  private teamIsFlatError() {
+    return new CustomHttpException(
+      'A team has neither a parent nor sub-categories',
+      HttpErrorCode.VALIDATION_ERROR,
+      { localization: { i18nKey: 'httpErrors.template.teamIsFlat' } }
+    );
+  }
+
+  private async categoryKeyTaken(key: string, exceptId?: string): Promise<boolean> {
+    const taken = await this.prismaService.txClient().templateCategory.findFirst({
+      where: { key, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+      select: { id: true },
+    });
+    return Boolean(taken);
+  }
+
+  private async assertCategoryKeyFree(key: string, exceptId?: string): Promise<void> {
+    if (await this.categoryKeyTaken(key, exceptId)) {
+      throw new CustomHttpException('Key already in use', HttpErrorCode.VALIDATION_ERROR, {
+        localization: { i18nKey: 'httpErrors.template.categoryKeyTaken' },
+      });
+    }
   }
 
   @PerformanceCache({
@@ -582,8 +736,17 @@ export class TemplateOpenApiService {
   }
 
   async deleteTemplateCategory(categoryId: string) {
+    const prisma = this.prismaService.txClient();
+    const children = await prisma.templateCategory.count({ where: { parentId: categoryId } });
+    if (children > 0) {
+      throw new CustomHttpException(
+        'This industry still has sub-industries',
+        HttpErrorCode.VALIDATION_ERROR,
+        { localization: { i18nKey: 'httpErrors.template.categoryHasChildren' } }
+      );
+    }
     await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
-    await this.prismaService.txClient().templateCategory.delete({
+    await prisma.templateCategory.delete({
       where: { id: categoryId },
     });
   }
@@ -592,10 +755,12 @@ export class TemplateOpenApiService {
     categoryId: string,
     updateTemplateCategoryRo: IUpdateTemplateCategoryRo
   ) {
+    const { name, key } = updateTemplateCategoryRo;
+    if (key) await this.assertCategoryKeyFree(key, categoryId);
     await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
     await this.prismaService.txClient().templateCategory.update({
       where: { id: categoryId },
-      data: { ...updateTemplateCategoryRo },
+      data: { name, key },
     });
   }
 
@@ -704,7 +869,7 @@ export class TemplateOpenApiService {
     // to anyone who guesses an id. Admins manage drafts through the admin routes.
     const template = await prisma.template.findFirst({
       where: {
-        id: templateId,
+        ...templateIdOrSlugWhere(templateId),
         isPublished: true,
       },
     });
@@ -713,6 +878,7 @@ export class TemplateOpenApiService {
         localization: { i18nKey: 'httpErrors.base.templateNotFound' },
       });
     }
+    const [withSlug] = await this.withSlugs([template]);
 
     const cover = template.cover ? JSON.parse(template.cover) : undefined;
 
@@ -731,7 +897,7 @@ export class TemplateOpenApiService {
     const creator = userMap?.[template.createdBy];
 
     return {
-      ...template,
+      ...omit(withSlug, ['review']),
       cover: {
         ...newCover,
       },
@@ -758,9 +924,14 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
-        kind: true,
         createdBy: true,
         snapshot: true,
+        version: true,
+        manifest: true,
+        history: true,
+        parentTemplateId: true,
+        slug: true,
+        review: true,
       },
     });
 
@@ -794,13 +965,14 @@ export class TemplateOpenApiService {
   }
 
   async incrementTemplateVisitCount(templateId: string) {
-    await this.prismaService.txClient().template.update({
-      where: { id: templateId },
+    await this.prismaService.txClient().template.updateMany({
+      where: templateIdOrSlugWhere(templateId),
       data: { visitCount: { increment: 1 } },
     });
   }
 
-  private async getSpecifiedUserInfoByUserId(userIds: string[]) {
+  // The email is for admin screens only; the published list and detail are public routes.
+  private async getSpecifiedUserInfoByUserId(userIds: string[], withEmail = false) {
     const prisma = this.prismaService.txClient();
     const users = await prisma.user.findMany({
       where: {
@@ -811,7 +983,7 @@ export class TemplateOpenApiService {
         id: true,
         name: true,
         avatar: true,
-        email: true,
+        email: withEmail,
       },
     });
 
@@ -821,11 +993,11 @@ export class TemplateOpenApiService {
           id: user.id,
           name: user.name,
           avatar: user.avatar ? getPublicFullStorageUrl(user.avatar) : undefined,
-          email: user.email,
+          ...(withEmail ? { email: user.email } : {}),
         };
         return acc;
       },
-      {} as Record<string, { id: string; name: string; avatar: string | undefined; email: string }>
+      {} as Record<string, { id: string; name: string; avatar: string | undefined; email?: string }>
     );
   }
 

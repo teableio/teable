@@ -1,6 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { UnrecoverableError, type Job } from 'bullmq';
+import { Processor } from '../../../utils/queue-processor';
 
 import { DOMAIN_EVENT_OUTBOX_WAKEUP_QUEUE } from './constants';
 import { DomainEventWakeupHandler } from './domain-event-wakeup.handler';

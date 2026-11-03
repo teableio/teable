@@ -4,6 +4,7 @@ import { useBase } from '@teable/sdk/hooks';
 import { Button, cn, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { PublishBaseDialog } from '../../../blocks/table/table-header/publish-base/PublishBaseDialog';
 import { ShareBaseContent } from './ShareBaseContent';
 
@@ -21,6 +22,7 @@ export const BaseInviteDialog = ({
   children,
 }: IBaseInviteDialogProps) => {
   const [isSubPage, setIsSubPage] = useState(false);
+  const { t: tCommon } = useTranslation('common');
   const handleOpenChange = (open: boolean) => {
     onOpenChange(open);
     if (!open) setIsSubPage(false);
@@ -38,7 +40,7 @@ export const BaseInviteDialog = ({
         <ShareBaseContent
           baseId={base.id}
           spaceId={base.spaceId}
-          baseName={base.name}
+          baseName={getBaseDisplayName(base.name, tCommon)}
           role={base.role}
           enabledAuthority={base.enabledAuthority}
           onClose={() => handleOpenChange(false)}
@@ -85,7 +87,7 @@ export const ShareBaseDialog = (props: IShareBaseDialogProps) => {
         )}
       </BaseInviteDialog>
 
-      <PublishBaseDialog onClose={onClose} closeOnSuccess>
+      <PublishBaseDialog base={base} onClose={onClose} closeOnSuccess>
         <button ref={publishTriggerRef} className="hidden" />
       </PublishBaseDialog>
     </>

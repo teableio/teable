@@ -5,6 +5,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, MailTransporterType, MailType, PrincipalType } from '@teable/openapi';
 import { MailSenderService } from '../../features/mail-sender/mail-sender.service';
 import { NotificationService } from '../../features/notification/notification.service';
+import { baseDisplayName } from '../../utils/base-name';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorInvitedEvent, Events } from '../events';
 
@@ -45,26 +46,37 @@ export class CollaboratorInviteListener {
     }
 
     const isSpace = resourceType === CollaboratorType.Space;
-    const resource = isSpace
-      ? await this.prismaService.space.findUnique({
-          where: { id: resourceId, deletedTime: null },
-          select: { name: true },
-        })
-      : await this.prismaService.base.findUnique({
-          where: { id: resourceId, deletedTime: null },
-          select: { name: true },
-        });
-    if (!resource) {
+    const resourceName = isSpace
+      ? await this.getSpaceName(resourceId)
+      : await this.getBaseName(resourceId);
+    if (resourceName === undefined) {
       return;
     }
 
     // Settled, not sequential: a failing notification must not swallow the mail leg.
     const [notified, mailed] = await Promise.allSettled([
-      this.notifyInvitees(event, fromUser.name, resource.name),
-      this.sendInviteEmails(event, fromUser, resource.name),
+      this.notifyInvitees(event, fromUser.name, resourceName),
+      this.sendInviteEmails(event, fromUser, resourceName),
     ]);
     this.logRejection('notify invitees', notified);
     this.logRejection('send invite emails', mailed);
+  }
+
+  private async getSpaceName(spaceId: string): Promise<string | undefined> {
+    const space = await this.prismaService.space.findUnique({
+      where: { id: spaceId, deletedTime: null },
+      select: { name: true },
+    });
+    return space?.name;
+  }
+
+  /** A base may still be unnamed; the notification and mail cannot render null. */
+  private async getBaseName(baseId: string): Promise<string | undefined> {
+    const base = await this.prismaService.base.findUnique({
+      where: { id: baseId, deletedTime: null },
+      select: { name: true },
+    });
+    return base ? baseDisplayName(base.name) : undefined;
   }
 
   private logRejection(leg: string, result: PromiseSettledResult<void>): void {

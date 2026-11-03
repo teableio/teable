@@ -6,13 +6,13 @@ import { chunk, get } from 'lodash';
 import { useMemo, useEffect, useRef } from 'react';
 import { ReactQueryKeys } from '../config';
 import { useCommentPermission } from './use-comment-permission';
-import { useConnection } from './use-connection';
+import { usePresenceConnection } from './use-presence-connection';
 import { useTableId } from './use-table-id';
 
 export const useCommentCountMap = (recordIds: string[]) => {
   const tableId = useTableId();
   const queryClient = useQueryClient();
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   // Whoever cannot open the comments has no business knowing they exist: the
   // count badge follows the same gate as the panel (share links included).
   const { commentReadable } = useCommentPermission();

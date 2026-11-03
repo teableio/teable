@@ -5,7 +5,7 @@ import type { TableRecord } from '../../records/TableRecord';
 import type { Table } from '../../Table';
 import { calculateBatchSize } from './calculateBatchSize';
 import type { CreateRecordsStreamOptions } from './createRecordsStream';
-import { buildRecord } from './recordBuilders';
+import { buildRecord, createRecordBuildContext } from './recordBuilders';
 
 export async function* createRecordsStreamAsync(
   this: Table,
@@ -14,12 +14,14 @@ export async function* createRecordsStreamAsync(
 ): AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>> {
   const { typecast = false, emitRecordCreatedEvents = true } = options ?? {};
   const batchSize = calculateBatchSize(this.getFields().length, options?.batchSize);
+  const buildContext = createRecordBuildContext(this, { freshDefaults: true });
   let batch: TableRecord[] = [];
 
   for await (const fieldValues of recordsFieldValues) {
     const recordResult = buildRecord.call(this, fieldValues, undefined, {
       typecast,
       emitRecordCreatedEvent: emitRecordCreatedEvents,
+      buildContext,
     });
     if (recordResult.isErr()) {
       yield err(recordResult.error);

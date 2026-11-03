@@ -292,7 +292,12 @@ export class MinioStorage implements StorageAdapter {
     await new Promise<void>((resolve, reject) => {
       stream.on('data', (obj) => {
         if (obj.name) {
-          objects.push({ key: obj.name, size: obj.size ?? 0, etag: obj.etag ?? undefined });
+          objects.push({
+            key: obj.name,
+            size: obj.size ?? 0,
+            etag: obj.etag ?? undefined,
+            lastModified: obj.lastModified ?? undefined,
+          });
         } else if (obj.prefix) {
           prefixes.add(obj.prefix);
         }

@@ -97,13 +97,25 @@ export const createDataQueryHttpClient = (options: IV2HttpClientOptions): DataQu
         executeDataQueryRequestSchema,
         executeDataQueryResponseDtoSchema
       ),
-    validate: (request) =>
-      post(
+    validate: async (request) => {
+      const response = await post(
         DATA_QUERY_VALIDATE_PATH,
         request,
         validateDataQueryRequestSchema,
         validateDataQueryResponseDtoSchema
-      ),
+      );
+      if (request.includeUsage !== true || !response.ok || response.data.usage !== undefined) {
+        return response;
+      }
+      return {
+        ok: false,
+        error: {
+          code: 'data_query.invalid_response',
+          message: 'Invalid data query response',
+          tags: ['unexpected'],
+        },
+      };
+    },
     explain: (request) =>
       post(
         DATA_QUERY_EXPLAIN_PATH,

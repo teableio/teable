@@ -10,5 +10,7 @@ export * from './view-link-records';
 export * from './view-collaborators';
 export * from './view-search-count';
 export * from './view-search-index';
+export * from './view-search-cell-count';
+export * from './view-search-matches';
 export * from './view-calendar-daily-collection';
 export * from './view-button-click';

@@ -245,14 +245,13 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
       query: definition.bind({})._unsafeUnwrap(),
       rootTable: vendor,
       rootScope,
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: targets.get(source.alias)!,
         linkFieldId: source.linkFieldId,
         scope: sourceScopes.get(source.alias) ?? {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
   };
 

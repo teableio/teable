@@ -789,6 +789,23 @@ describe('useInstances hook', () => {
     expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the record subscription but opens no presence in a template preview', () => {
+    const { connection, createSubscribeQuery, collection, queryParams } = createMockConnection({
+      collection: 'rec_tblTemplatePreview',
+    });
+
+    renderHook(() => useInstances({ ...mockProps, collection, queryParams }), {
+      wrapper: createUseInstancesWrap({
+        ...mockAppContext,
+        connection,
+        template: { id: 'tplPreview', headers: 'signed' },
+      }),
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+    expect(connection.getPresence).not.toHaveBeenCalled();
+  });
+
   it('does not recreate field queries on schema-driven setField presence with fieldIds', () => {
     const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
       createMockConnection({

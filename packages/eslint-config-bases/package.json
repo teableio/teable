@@ -48,7 +48,7 @@
     }
   },
   "devDependencies": {
-    "@types/node": "24.13.2",
+    "@types/node": "24.19.2",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
     "rimraf": "5.0.5",

@@ -4,7 +4,7 @@ import type { FC, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 import { useSession } from '../../hooks';
-import { useConnection } from '../../hooks/use-connection';
+import { usePresenceConnection } from '../../hooks/use-presence-connection';
 import { redirectToUnauthenticatedAuth } from '../app/queryClient';
 import { NotificationContext } from './NotificationContext';
 
@@ -14,7 +14,7 @@ interface INotificationProviderProps {
 
 export const NotificationProvider: FC<INotificationProviderProps> = ({ children }) => {
   const { user } = useSession();
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const [remotePresence, setRemotePresence] = useState<Presence>();
   const [notification, setNotification] = useState<INotificationBuffer | null>(null);
 

@@ -105,6 +105,7 @@ export const PasteSelectionProgressDialog = ({
         confirmTitleKey: 'table:table.actionTips.pasteConfirmTitle',
         confirmDescriptionKey: 'table:table.actionTips.pasteConfirmDescription',
         confirmActionKey: 'table:table.actionTips.paste',
+        autoFocusConfirm: true,
         runningTitleKey: 'table:table.actionTips.pasting',
         successTitleKey: 'table:table.actionTips.pasteSuccessful',
         failedTitleKey: 'table:table.actionTips.pasteFailed',

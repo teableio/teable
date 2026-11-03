@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
-import { afterEach, describe, expect, it } from 'vitest';
+import { Agent } from 'undici/index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createSsrfSafeFetch,
   createTrustedUrlPredicate,
@@ -318,5 +319,47 @@ describe('createSsrfSafeFetch', () => {
         await new Promise<void>((resolve) => second.close(() => resolve()));
       }
     });
+  });
+});
+
+describe('undici dispatcher implementation', () => {
+  it('resolves an Agent with the dispatcher API the routing dispatcher requires', async () => {
+    // Bun's bare "undici" builtin lacks these methods, so the module under test imports the
+    // package entry by path; this pins the contract for both Node and Bun.
+    const agent = new Agent({});
+    expect(typeof agent.compose).toBe('function');
+    expect(typeof agent.dispatch).toBe('function');
+    await agent.close();
+  });
+});
+
+describe('Node fetch interception', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+  });
+
+  it('passes the dispatcher to the global fetch resolved at call time', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    const safeFetch = createSsrfSafeFetch();
+
+    const response = await safeFetch('https://public.example.test/data');
+
+    expect(response.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const init = spy.mock.calls[0]?.[1] as (RequestInit & { dispatcher?: unknown }) | undefined;
+    expect(init?.dispatcher).toBeDefined();
+  });
+
+  it('keeps the env opt-out on plain global fetch without a dispatcher', async () => {
+    process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    const safeFetch = createSsrfSafeFetch();
+
+    await safeFetch('https://public.example.test/data');
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const init = spy.mock.calls[0]?.[1] as (RequestInit & { dispatcher?: unknown }) | undefined;
+    expect(init?.dispatcher).toBeUndefined();
   });
 });

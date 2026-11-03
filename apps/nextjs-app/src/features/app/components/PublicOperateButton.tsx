@@ -90,7 +90,7 @@ export const PublicOperateButton = () => {
   const templateRef = useRef<ITemplateSelectSpaceDialogRef>(null);
   const isHydrated = useIsHydrated();
   // The base only carries the template's id; the host decides how a template is
-  // used from its full detail (EE: a solution is set up, not copied with rows).
+  // used from its full detail (EE: a template is set up, not copied with rows).
   const templateId = template?.id;
   const {
     data: templateDetail,

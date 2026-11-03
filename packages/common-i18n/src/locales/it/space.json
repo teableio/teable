@@ -207,19 +207,51 @@
     "form": {
       "title": "Titolo",
       "description": "Descrizione",
-      "security": "Sicurezza",
-      "advanced": "Avanzate",
+      "changelog": "Note di rilascio",
+      "changelogPlaceholder": "Descrivi le modifiche per le installazioni esistenti; vengono mostrate nell'anteprima dell'aggiornamento",
       "publishNode": "Pubblica nodi",
       "includeData": "Includi dati",
       "defaultActiveNode": "Nodo attivo predefinito",
       "descriptionPlaceholder": "Descrivi brevemente la tua idea...",
-      "titlePlaceholder": "Dai un nome al tuo lavoro..."
+      "titlePlaceholder": "Dai un nome al tuo lavoro...",
+      "cover": "Copertina",
+      "coverHint": "16:9, usata nella scheda del catalogo e nella pagina pubblica",
+      "versionTitle": "Contenuto della versione",
+      "addChangelog": "Aggiungi note di rilascio"
     },
     "publishToCommunity": "Pubblica nel centro modelli",
     "publish": "Pubblica",
     "publishSuccess": "Pubblicazione riuscita!",
     "previewTips": "Fai vedere al mondo il tuo lavoro",
     "update": "Aggiorna",
+    "submit": "Invia per la revisione",
+    "submitted": "Inviato per la revisione",
+    "review": {
+      "status": {
+        "review": "In revisione",
+        "rejected": "Rimandato indietro",
+        "withdrawn": "Ritirato"
+      },
+      "submittedTime": "Inviato {{time}}",
+      "note": "Nota del revisore",
+      "checks": "Controlli automatici",
+      "check": {
+        "connectors": "Connessioni",
+        "privacy": "Privacy",
+        "estimate": "Stima delle esecuzioni",
+        "trial": "Esecuzione di prova"
+      },
+      "checkMessage": {
+        "connectors": "Non collegabili qui: {{providers}}",
+        "privacy": "Sono inclusi dei record; controlla che non contengano dati personali",
+        "estimate": "Circa {{runs}} esecuzioni al mese, oltre le {{free}} del piano gratuito",
+        "trial": "Le automazioni non richiedono alcun account; verifica che funzionino senza"
+      },
+      "withdraw": "Ritira",
+      "withdrawn": "Invio ritirato.",
+      "live": "Online · v{{version}}",
+      "publicLink": "Link pubblico"
+    },
     "unPublish": "Annulla pubblicazione",
     "unPublishSuccess": "Pubblicazione progetto annullata con successo!",
     "unPublishConfirmTitle": "Conferma annullamento pubblicazione",
@@ -237,9 +269,7 @@
     "urlCopied": "URL copiato negli appunti!",
     "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "Ufficialmente selezionato come in evidenza. Il tuo modello riceverà più visibilità.",
-    "unfeaturedTip": "Non ancora in evidenza. Continua a migliorare per avere la possibilità di essere raccomandato. Lascia che più persone vedano il tuo lavoro.",
     "publishSuccessDescription": "Condividi il tuo lavoro con il mondo",
     "shareWith": "Condividi con",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "Vai a correggere",
       "redeploy": "Ridistribuisci",
       "unnamedApp": "App senza nome"
-    }
+    },
+    "submitVersion": "Invia la v{{version}} per la revisione"
   },
   "dataDb": {
     "create": {

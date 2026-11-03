@@ -49,10 +49,71 @@ describe('opt-in data query HTTP client', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('requests and parses logical usage only when explicitly opted in', async () => {
+    let sent: unknown;
+    const body = {
+      ok: true,
+      data: {
+        outputs: [],
+        usage: [
+          {
+            source: 'root',
+            tableId: request.definition.tableId,
+            fieldId: `fld${'b'.repeat(16)}`,
+            usages: ['projection'] as const,
+          },
+        ],
+      },
+    };
+    const client = createDataQueryHttpClient({
+      baseUrl: 'https://host/api/v2',
+      fetch: async (_input, init) => {
+        sent = JSON.parse(String(init?.body));
+        return Response.json(body);
+      },
+    });
+
+    expect(await client.validate({ definition: request.definition, includeUsage: true })).toEqual(
+      body
+    );
+    expect(sent).toEqual({ definition: request.definition, includeUsage: true });
+  });
+
+  it('rejects an outputs-only success when usage was requested', async () => {
+    const client = createDataQueryHttpClient({
+      baseUrl: 'https://host/api/v2',
+      fetch: async () => Response.json({ ok: true, data: { outputs: [] } }),
+    });
+
+    expect(await client.validate({ definition: request.definition, includeUsage: true })).toEqual({
+      ok: false,
+      error: {
+        code: 'data_query.invalid_response',
+        message: 'Invalid data query response',
+        tags: ['unexpected'],
+      },
+    });
+  });
+
   it('rejects execution rows and extra properties from the validate response', async () => {
     for (const body of [
       { ok: true, data: { rows: [] } },
       { ok: true, data: { outputs: [], sql: 'private' } },
+      {
+        ok: true,
+        data: {
+          outputs: [],
+          usage: [
+            {
+              source: 'root',
+              tableId: request.definition.tableId,
+              fieldId: `fld${'b'.repeat(16)}`,
+              usages: ['projection'],
+              column: 'private_column',
+            },
+          ],
+        },
+      },
     ]) {
       const client = createDataQueryHttpClient({
         baseUrl: 'https://host/api/v2',

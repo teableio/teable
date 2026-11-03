@@ -33,11 +33,12 @@ import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import {
   Tooltip,
   TooltipContent,
+  TooltipPortal,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shadcn/ui/tree';
-import { ChevronDownIcon, Pin, ShieldCheck } from 'lucide-react';
+import { ChevronDownIcon, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -45,6 +46,7 @@ import { createPortal } from 'react-dom';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { HighlightMatch } from '@/features/app/components/HighlightMatch';
 import { collapseChatPanelIfExpanded } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
@@ -60,6 +62,7 @@ import {
   getNodeName,
   getNodeUrl,
   ROOT_ID,
+  searchTreeItems,
   useBaseNodeCreatePermissions,
   useBaseNodeCrud,
 } from '../base-node/hooks';
@@ -80,6 +83,62 @@ const COMPACT_ITEM_CLS = 'ps-0';
 // 2rem to the icon, the label's 1px border included: under the space sidebar's group titles.
 const COMPACT_LABEL_CLS = 'ps-[calc(var(--tree-padding)+2rem-1px)] pe-2';
 const COMPACT_DRAG_LINE_CLS = 'ms-5';
+// Flush: no group title above, so the icon sits at the label's own 0.5rem, as a full tree's does.
+const FLUSH_LABEL_CLS = 'ps-[calc(var(--tree-padding)+0.5rem-1px)] pe-2';
+const compactInsetClasses = (flush?: boolean) =>
+  flush
+    ? { label: FLUSH_LABEL_CLS, dragLine: undefined }
+    : { label: COMPACT_LABEL_CLS, dragLine: COMPACT_DRAG_LINE_CLS };
+
+/**
+ * A node's name. In the compact tree (the resource pane's narrow column) a name cut short shows
+ * in full after a pause on it, as the space sidebar's chat rows do; elsewhere the row's title does.
+ * The tree's one `TooltipProvider` serves every row.
+ */
+const NodeName = ({
+  name,
+  search,
+  compact,
+  onDoubleClick,
+}: {
+  name: string;
+  search?: string;
+  compact?: boolean;
+  onDoubleClick?: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const label = (
+    <span ref={nameRef} className="truncate text-start" onDoubleClick={onDoubleClick}>
+      <HighlightMatch text={name} query={search} />
+    </span>
+  );
+  if (!compact) return label;
+  return (
+    <Tooltip
+      delayDuration={600}
+      open={open}
+      onOpenChange={(next) => {
+        const element = nameRef.current;
+        setOpen(next && !!element && element.scrollWidth > element.clientWidth);
+      }}
+    >
+      <TooltipTrigger asChild>{label}</TooltipTrigger>
+      <TooltipPortal>
+        {/* Clear of the window's edge, which the pane's column runs up to. */}
+        <TooltipContent
+          side="top"
+          align="start"
+          collisionPadding={8}
+          className="max-w-80 whitespace-normal break-words"
+        >
+          {name}
+        </TooltipContent>
+      </TooltipPortal>
+    </Tooltip>
+  );
+};
+
 /** A row's trailing buttons: muted until hovered. */
 const ROW_ACTION_CLS = 'text-muted-foreground hover:text-foreground';
 // A row stays active while one of its menus is shown, fade-out included: the fading menu follows
@@ -172,10 +231,16 @@ interface IBaseNodeTreeProps {
   onPrimaryAction?: (item: ItemInstance<TreeItemData>) => void;
   /** The resource pane's compact indentation and actions; the host draws the create button. */
   compact?: boolean;
+  /** Compact rows start at the tree's edge instead of under a group title the host draws. */
+  flush?: boolean;
+  /** Filter this instance by name without changing the shared tree or saved folder expansion. */
+  searchQuery?: string;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
-  const { mode = 'edit', emptyText, empty, onPrimaryAction, compact } = props;
+  const { mode = 'edit', emptyText, empty, onPrimaryAction, compact, flush, searchQuery } = props;
+  const compactInset = compactInsetClasses(flush);
+  const search = searchQuery?.trim().toLocaleLowerCase();
   const isEditMode = mode === 'edit';
   const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId() as string;
@@ -188,12 +253,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { togglePin } = usePinActions();
   const isAnonymous = useIsAnonymous();
   const isReadOnlyPreview = useIsReadOnlyPreview();
-  /** The space sidebar pins from a node's menu; elsewhere the row's star does it. */
-  const pinAction = (resourceType: BaseNodeResourceType, resourceId: string) => {
+  /** The resource pane stars from a node's menu; elsewhere the row's star does it. */
+  const starAction = (resourceType: BaseNodeResourceType, resourceId: string) => {
     const pinType = getNodePinType(resourceType);
     if (!compact || !pinType || isAnonymous || isReadOnlyPreview) return undefined;
     return {
-      pinned: Boolean(pinMap?.[resourceId]),
+      starred: Boolean(pinMap?.[resourceId]),
       onToggle: () => togglePin(resourceId, pinType),
     };
   };
@@ -222,6 +287,18 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { sharedNodeIds } = useSharedNodeIds();
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
+  const displayedTreeItems = useMemo(
+    () => (search ? searchTreeItems(treeItems, search) : treeItems),
+    [treeItems, search]
+  );
+  const displayedTreeItemsRef = useRef(displayedTreeItems);
+  const searchExpandedItems = useMemo(
+    () =>
+      Object.values(displayedTreeItems)
+        .filter((node) => node.resourceType === BaseNodeResourceType.Folder)
+        .map((node) => node.id),
+    [displayedTreeItems]
+  );
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -369,24 +446,24 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   const tree = useTree<TreeItemData>({
     state: {
-      selectedItems,
-      expandedItems,
+      selectedItems: search ? selectedItems.filter((id) => displayedTreeItems[id]) : selectedItems,
+      expandedItems: search ? searchExpandedItems : expandedItems,
     },
     setSelectedItems,
-    setExpandedItems,
+    setExpandedItems: search ? () => undefined : setExpandedItems,
     rootItemId: ROOT_ID,
     indent: INDENTATION_WIDTH,
     dataLoader: {
-      getItem: (itemId) => treeItemsRef.current[itemId] ?? {},
-      getChildren: (itemId) => treeItemsRef.current[itemId]?.children ?? [],
+      getItem: (itemId) => displayedTreeItemsRef.current[itemId] ?? {},
+      getChildren: (itemId) => displayedTreeItemsRef.current[itemId]?.children ?? [],
     },
     getItemName: (item) => getNodeName(item.getItemData()),
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
-    canDrag: () => !editingNodeId,
+    canDrag: () => !search && !editingNodeId,
     canDrop: (items, target) => {
       // Basic validation
-      if (editingNodeId || !canMoveNode || items.length !== 1) return false;
+      if (search || editingNodeId || !canMoveNode || items.length !== 1) return false;
 
       const isDraggingFolder = items[0].isFolder();
       const isReordering = 'childIndex' in target;
@@ -469,6 +546,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     treeItemsRef.current = treeItems;
   }, [treeItems]);
 
+  useEffect(() => {
+    displayedTreeItemsRef.current = displayedTreeItems;
+  }, [displayedTreeItems]);
+
   const currentResourceId = useMemo(() => {
     switch (baseResource.resourceType) {
       case BaseNodeResourceType.Table:
@@ -497,6 +578,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   }, [treeItems, baseResource, currentResourceId]);
 
   useEffect(() => {
+    if (search) return;
     if (Object.keys(treeItems).length === 0) return;
     if (!currentRouteNodeId) {
       setSelectedItems([]);
@@ -508,9 +590,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     }
     setSelectedItems([currentRouteNodeId]);
-  }, [treeItems, currentRouteNodeId, getAllParentIds, setExpandedItems, setSelectedItems]);
+  }, [treeItems, currentRouteNodeId, getAllParentIds, setExpandedItems, setSelectedItems, search]);
 
   useEffect(() => {
+    if (search) return;
     if (Object.keys(treeItems).length === 0) return;
     if (selectedItems.length === 0) {
       focusedNodeIdRef.current = null;
@@ -534,9 +617,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     if (draggedNodeId !== currentId || isCurrentRouteNode) {
       draggedItemsRef.current = [];
     }
-  }, [currentRouteNodeId, selectedItems, tree, treeItems]);
+  }, [currentRouteNodeId, selectedItems, tree, treeItems, search]);
 
   useEffect(() => {
+    if (search) return;
     if (!highlightedTableId || Object.keys(treeItems).length === 0) return;
     const node = Object.values(treeItems).find(
       (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === highlightedTableId
@@ -551,12 +635,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       item?.scrollTo({ block: 'nearest', inline: 'nearest' });
     });
     return () => cancelAnimationFrame(raf);
-  }, [highlightedTableId, treeItems, tree, getAllParentIds, setExpandedItems]);
+  }, [highlightedTableId, treeItems, tree, getAllParentIds, setExpandedItems, search]);
 
   useEffect(() => {
     if (isLoading) return;
     tree.rebuildTree();
-  }, [tree, treeItems, isLoading]);
+  }, [tree, displayedTreeItems, isLoading]);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
@@ -716,14 +800,22 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   <TreeItemLabel
                     className={cn(
                       'size-full min-w-0 py-0',
-                      compact && ['text-sm', COMPACT_LABEL_CLS]
+                      compact && ['text-sm', compactInset.label]
                     )}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
-                      <div className="flex min-w-0 grow items-center" title={name}>
-                        <span className="truncate text-start">{name}</span>
-                        <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
+                      <div
+                        className="flex min-w-0 grow items-center"
+                        title={compact ? undefined : name}
+                      >
+                        <NodeName name={name} search={search} compact={compact} />
+                        <div
+                          className={cn(
+                            'flex shrink-0 items-center gap-1',
+                            compact ? 'ps-2' : 'ms-auto ps-1'
+                          )}
+                        >
                           <ItemStatus item={item} />
                           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                           <div
@@ -747,7 +839,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               </TreeItem>
             );
           })}
-          <TreeDragLine className={cn(compact && COMPACT_DRAG_LINE_CLS)} />
+          <TreeDragLine className={cn(compact && compactInset.dragLine)} />
         </Tree>
         <ScrollBar className="z-30" />
       </ScrollArea>
@@ -815,7 +907,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   <TreeItemLabel
                     className={cn(
                       'size-full min-w-0 py-0',
-                      compact && ['text-sm', COMPACT_LABEL_CLS],
+                      compact && ['text-sm', compactInset.label],
                       {
                         'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
                         'group-has-[[data-state=open]]:bg-accent group-has-[[data-menu-shown]]:bg-accent':
@@ -854,16 +946,22 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <div className="flex min-w-0 grow items-center" title={name}>
-                            <span
-                              className="truncate text-start"
-                              onDoubleClick={() => {
-                                setEditingNodeId(nodeId);
-                              }}
+                          <div
+                            className="flex min-w-0 grow items-center"
+                            title={compact ? undefined : name}
+                          >
+                            <NodeName
+                              name={name}
+                              search={search}
+                              compact={compact}
+                              onDoubleClick={() => setEditingNodeId(nodeId)}
+                            />
+                            <div
+                              className={cn(
+                                'flex shrink-0 items-center gap-1',
+                                compact ? 'ps-2' : 'ms-auto ps-1'
+                              )}
                             >
-                              {name}
-                            </span>
-                            <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
                               <ItemStatus item={item} />
                             </div>
                           </div>
@@ -875,7 +973,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               }}
                               className="flex shrink-0 items-center"
                             >
-                              {/* The space sidebar pins from the node's menu instead, as its chats do. */}
+                              {/* The resource pane stars from the node's menu instead. */}
                               {!compact && (
                                 <BaseNodeStarButton
                                   resourceType={resourceType}
@@ -927,7 +1025,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                 <BaseNodeMore
                                   resourceType={resourceType}
                                   resourceId={resourceId}
-                                  pin={pinAction(resourceType, resourceId)}
+                                  star={starAction(resourceType, resourceId)}
                                   onRename={() => setEditingNodeId(nodeId)}
                                   onCreateSuccess={createSuccefulyCallback}
                                 >
@@ -960,14 +1058,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                       className={cn('ms-1', GROUP_ACTIVE_HIDDEN_CLS)}
                                     />
                                   )}
-                                  {compact && isPinned && (
-                                    <Pin
-                                      className={cn(
-                                        'ms-1 size-4 shrink-0 text-muted-foreground',
-                                        GROUP_ACTIVE_HIDDEN_CLS
-                                      )}
-                                    />
-                                  )}
                                 </>
                               )}
                             </div>
@@ -980,7 +1070,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               </TreeItem>
             );
           })}
-          <TreeDragLine className={cn(compact && COMPACT_DRAG_LINE_CLS)} />
+          <TreeDragLine className={cn(compact && compactInset.dragLine)} />
         </Tree>
         {contextMenu &&
           typeof document !== 'undefined' &&
@@ -999,7 +1089,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                 key={`${contextMenu.nodeId}-${contextMenu.x}-${contextMenu.y}`}
                 resourceType={contextMenu.resourceType}
                 resourceId={contextMenu.resourceId}
-                pin={pinAction(contextMenu.resourceType, contextMenu.resourceId)}
+                star={starAction(contextMenu.resourceType, contextMenu.resourceId)}
                 open={contextMenuOpen}
                 setOpen={setContextMenuOpen}
                 contentAlign="start"
@@ -1057,11 +1147,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           </TooltipProvider>
         </div>
       )}
-      {Object.keys(treeItems).length === 0
-        ? renderEmpty()
-        : isEditMode
-          ? renderEditTree()
-          : renderViewTree()}
+      <TooltipProvider>
+        {Object.keys(treeItems).length === 0
+          ? renderEmpty()
+          : isEditMode
+            ? renderEditTree()
+            : renderViewTree()}
+      </TooltipProvider>
     </>
   );
 };

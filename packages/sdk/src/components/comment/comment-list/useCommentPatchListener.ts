@@ -1,14 +1,14 @@
 import { getCommentChannel } from '@teable/core';
 import { isEmpty, get } from 'lodash';
 import { useEffect } from 'react';
-import { useConnection } from '../../../hooks';
+import { usePresenceConnection } from '../../../hooks';
 
 export const useCommentPatchListener = (
   tableId: string,
   recordId: string,
   cb: (remoteData: unknown) => void
 ) => {
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const presenceKey = getCommentChannel(tableId, recordId);
   const presence = connection?.getPresence(presenceKey);
 

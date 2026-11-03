@@ -1,4 +1,4 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { isHeic, isImage, isPdf } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -8,6 +8,7 @@ import sharp from 'sharp';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { NestWorkerOptions } from '../../utils/nest-worker-options';
+import { Processor } from '../../utils/queue-processor';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { renderHeicAsPng } from './heic-thumbnail';
 import { renderPdfFirstPageAsImage } from './pdf-thumbnail';

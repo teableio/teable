@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "Vorlagendetails konnten nicht geladen werden."
+    },
+    "searchPlaceholder": "Vorlagen durchsuchen",
+    "rankThisMonth": "#{{rank}} diesen Monat",
+    "listing": {
+      "newest": "Neueste",
+      "featured": "Hervorgehoben"
+    },
+    "detail": {
+      "install": "Installieren",
+      "installs": "Installationen",
+      "author": "Autor",
+      "updated": "Zuletzt aktualisiert",
+      "history": "Versionsverlauf",
+      "firstRelease": "Erstveröffentlichung",
+      "about": "Über",
+      "noChangelog": "Allgemeine Aktualisierung"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "Systemvorlagen können nicht geändert werden",
         "addCategoryTips": "Bitte geben Sie zuerst einen Kategorienamen in das Suchfeld ein.",
         "categoryNamePlaceholder": "Kategorienamen eingeben",
-        "duplicateCategoryName": "Kategoriename existiert bereits"
+        "subCategoryNamePlaceholder": "Name der Unterkategorie",
+        "noSubCategory": "Noch keine Unterkategorien. Klicken Sie links auf die Kategorie, um sie zuzuordnen.",
+        "duplicateCategoryName": "Kategoriename existiert bereits",
+        "teamNamePlaceholder": "Teamname",
+        "addTeamTips": "Geben Sie zuerst einen Teamnamen ein.",
+        "keyPlaceholder": "URL-Schlüssel, z. B. yoga",
+        "invalidKey": "Ein Schlüssel besteht aus Kleinbuchstaben, Ziffern und Bindestrichen"
       },
       "category": {
         "menu": {
           "getStarted": "Erste Schritte",
           "recommended": "Empfohlen",
           "all": "Alle",
-          "browseByCategory": "Nach Kategorie durchsuchen"
+          "browseByCategory": "Nach Kategorie durchsuchen",
+          "byTeam": "Nach Team"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "Benutzer existiert nicht",
         "preview": "Vorschau",
         "usage": "Nutzung",
-        "visit": "Besuche"
+        "visit": "Besuche",
+        "requirements": "Integrationen",
+        "slug": "URL-Slug"
       },
       "actions": {
         "title": "Aktionen",
@@ -267,7 +292,12 @@
         "use": "Verwenden",
         "pinTop": "Oben anheften",
         "addCategory": "Kategorie hinzufügen",
+        "addSubCategory": "Unterkategorie hinzufügen",
+        "addSubCategoryUnder": "Unterkategorie unter {{name}} hinzufügen",
         "selectCategory": "Kategorie auswählen",
+        "addTeam": "Team hinzufügen",
+        "industries": "Kategorien",
+        "teams": "Teams",
         "viewTemplate": "Vorlage anzeigen",
         "manageCategory": "Kategorien verwalten"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "Neue Routine",
     "newApp": "Neue App",
     "newFolder": "Neuer Ordner",
-    "template": "Vorlage"
+    "template": "Vorlage",
+    "installedTemplates": "Installierte Vorlagen"
   },
   "level": {
     "free": "Free",
@@ -516,6 +547,7 @@
   "allNodes": "Alle Knoten",
   "noDescription": "Keine Beschreibung",
   "untitled": "Ohne Titel",
+  "untitledBase": "Unbenanntes Projekt",
   "name": "Name",
   "description": "Beschreibung",
   "required": "Notwendig",
@@ -1309,6 +1341,20 @@
         "message": "Dies ist eine Test-E-Mail, bitte ignorieren."
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "Ihre Vorlage {{name}} ist online",
+            "message": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich.",
+            "messageWithNote": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Anmerkung des Prüfers: {{note}}",
+            "messageNoPayout": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu.",
+            "messageNoPayoutWithNote": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu. Anmerkung des Prüfers: {{note}}"
+          },
+          "rejected": {
+            "title": "Ihre Vorlage {{name}} wurde zurückgegeben",
+            "message": "{{name}} hat die Prüfung nicht bestanden.",
+            "messageWithNote": "{{name}} hat die Prüfung nicht bestanden. Anmerkung des Prüfers: {{note}}"
+          }
+        },
         "subject": "Benachrichtigung - {{brandName}}",
         "title": "Benachrichtigung",
         "buttonText": "Anzeigen",
@@ -1515,6 +1561,26 @@
           "spaceDeleted": {
             "title": "Ihr Space-Export ist bereit",
             "message": "Hallo {{name}},<br><br>Sie haben vor dem endgültigen Löschen des Spaces {{spaceNames}} eine Kopie angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "Ihre Aufgabe ist abgeschlossen",
+            "message": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, ist abgeschlossen:<br><em>{{prompt}}</em><br><br>Das Ergebnis liegt für Sie bereit.",
+            "messageWithoutPrompt": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, ist abgeschlossen.<br><br>Das Ergebnis liegt für Sie bereit.",
+            "buttonText": "Ergebnis ansehen"
+          },
+          "failed": {
+            "title": "Ihre Aufgabe konnte nicht abgeschlossen werden",
+            "message": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, wurde nicht abgeschlossen:<br><em>{{prompt}}</em><br><br>Öffnen Sie sie, um zu sehen, was passiert ist, und versuchen Sie es erneut.",
+            "messageWithoutPrompt": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, wurde nicht abgeschlossen.<br><br>Öffnen Sie sie, um zu sehen, was passiert ist, und versuchen Sie es erneut.",
+            "buttonText": "Details ansehen"
+          },
+          "creditExhausted": {
+            "title": "Ihre Aufgabe wurde angehalten: KI-Guthaben aufgebraucht",
+            "message": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, wurde angehalten, weil Ihr KI-Guthaben aufgebraucht ist:<br><em>{{prompt}}</em><br><br>Laden Sie Guthaben auf oder wechseln Sie zu einem höheren Tarif, um dort weiterzumachen, wo sie aufgehört hat.",
+            "messageWithoutPrompt": "Hallo {{name}},<br><br>Eine Aufgabe, die Sie in Teable gestartet haben, wurde angehalten, weil Ihr KI-Guthaben aufgebraucht ist.<br><br>Laden Sie Guthaben auf oder wechseln Sie zu einem höheren Tarif, um dort weiterzumachen, wo sie aufgehört hat.",
+            "buttonText": "Details ansehen"
           }
         }
       }
@@ -1887,6 +1953,7 @@
       "permission": "Cuppy wartet auf deine Bestätigung.",
       "connectIntegration": "Cuppy braucht eine verbundene App, um weiterzumachen.",
       "pickGoogleSheet": "Cuppy braucht die Auswahl einer Tabelle.",
+      "presentTemplates": "Cuppy hat eine fertige Vorlage gefunden und wartet auf Ihre Entscheidung.",
       "requestCredential": "Cuppy braucht Zugriff, um weiterzumachen."
     },
     "result": {

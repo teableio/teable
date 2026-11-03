@@ -9,6 +9,7 @@ import {
   DriverClient,
   getValidFilterOperators,
   FieldOpBuilder,
+  HttpErrorCode,
 } from '@teable/core';
 import type {
   IFilter,
@@ -22,10 +23,12 @@ import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityCheckVo, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { baseDisplayName } from '../../utils/base-name';
 import { LinkFieldQueryService } from '../field/field-calculate/link-field-query.service';
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -59,6 +62,7 @@ export class LinkIntegrityService {
       where: { id: baseId, deletedTime: null },
       select: { id: true, name: true },
     });
+    const mainBaseName = baseDisplayName(mainBase.name);
 
     const tables = await this.prismaService.tableMeta.findMany({
       where: { baseId, deletedTime: null },
@@ -71,6 +75,19 @@ export class LinkIntegrityService {
         },
       },
     });
+
+    // The base|update permission guard only authorizes :baseId. A caller-supplied
+    // tableId is unscoped, so without this check it could point at a table in
+    // another base (another tenant) and have link-check read its metadata or
+    // link-fix mutate its cells. `tables` already holds exactly this base's tables,
+    // so require tableId to be among them.
+    if (tableId && !tables.some((table) => table.id === tableId)) {
+      throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.table.notFound',
+        },
+      });
+    }
 
     const crossBaseLinkFieldsQuery = this.dbProvider.optionsQuery(FieldType.Link, 'baseId', baseId);
     const crossBaseLinkFieldsRaw =
@@ -87,7 +104,7 @@ export class LinkIntegrityService {
       if (tableIssues.length > 0) {
         linkFieldIssues.push({
           baseId: mainBase.id,
-          baseName: mainBase.name,
+          baseName: mainBaseName,
           issues: tableIssues,
         });
       }
@@ -95,7 +112,7 @@ export class LinkIntegrityService {
       if (uniqueIndexIssues.length > 0) {
         linkFieldIssues.push({
           baseId: mainBase.id,
-          baseName: mainBase.name,
+          baseName: mainBaseName,
           tableId: table.id,
           tableName: table.name,
           issues: uniqueIndexIssues,
@@ -131,7 +148,7 @@ export class LinkIntegrityService {
       if (tableIssues.length > 0) {
         linkFieldIssues.push({
           baseId: base.id,
-          baseName: base.name,
+          baseName: baseDisplayName(base.name),
           issues: tableIssues,
         });
       }
@@ -141,7 +158,7 @@ export class LinkIntegrityService {
     if (referenceFieldIssues.length > 0) {
       linkFieldIssues.push({
         baseId: mainBase.id,
-        baseName: mainBase.name,
+        baseName: mainBaseName,
         issues: referenceFieldIssues,
       });
     }
@@ -152,7 +169,7 @@ export class LinkIntegrityService {
       if (checkEmptyString.length > 0) {
         linkFieldIssues.push({
           baseId: mainBase.id,
-          baseName: mainBase.name,
+          baseName: mainBaseName,
           issues: checkEmptyString,
         });
       }
@@ -162,7 +179,7 @@ export class LinkIntegrityService {
     if (filterIssues.length > 0) {
       linkFieldIssues.push({
         baseId: mainBase.id,
-        baseName: mainBase.name,
+        baseName: mainBaseName,
         issues: filterIssues,
       });
     }
@@ -171,7 +188,7 @@ export class LinkIntegrityService {
     if (invalidPrimaryIssues.length > 0) {
       linkFieldIssues.push({
         baseId: mainBase.id,
-        baseName: mainBase.name,
+        baseName: mainBaseName,
         issues: invalidPrimaryIssues,
       });
     }
@@ -180,7 +197,7 @@ export class LinkIntegrityService {
     if (missingPrimaryIssues.length > 0) {
       linkFieldIssues.push({
         baseId: mainBase.id,
-        baseName: mainBase.name,
+        baseName: mainBaseName,
         issues: missingPrimaryIssues,
       });
     }

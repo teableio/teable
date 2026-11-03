@@ -20,11 +20,7 @@ import type {
   IMobileWebSessionQuery,
   IUserMeVo,
 } from '@teable/openapi';
-import {
-  createMobileAuthCodeRoSchema,
-  exchangeMobileAuthCodeRoSchema,
-  mobileWebSessionQuerySchema,
-} from '@teable/openapi';
+import { exchangeMobileAuthCodeRoSchema, mobileWebSessionQuerySchema } from '@teable/openapi';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
@@ -35,6 +31,7 @@ import { Public } from '../decorators/public.decorator';
 import { SessionService } from '../session/session.service';
 import { isValidRedirectPath } from '../utils';
 import { CookieSessionGuard } from './cookie-session.guard';
+import { MobileAuthCodeValidationPipe } from './mobile-auth-code.pipe';
 import { MobileAuthService } from './mobile-auth.service';
 
 /** passport session login; express-session then sets the `auth_session` cookie. */
@@ -55,7 +52,7 @@ export class MobileAuthController {
   @Post('code')
   @UseGuards(CookieSessionGuard)
   async createCode(
-    @Body(new ZodValidationPipe(createMobileAuthCodeRoSchema)) ro: ICreateMobileAuthCodeRo
+    @Body(MobileAuthCodeValidationPipe) ro: ICreateMobileAuthCodeRo
   ): Promise<ICreateMobileAuthCodeVo> {
     return this.mobileAuthService.createCode(this.cls.get('user.id'), ro);
   }

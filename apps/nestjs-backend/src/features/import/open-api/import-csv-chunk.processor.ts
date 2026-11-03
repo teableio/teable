@@ -2,7 +2,7 @@
 import os from 'node:os';
 import { PassThrough, Readable } from 'node:stream';
 import { Worker } from 'node:worker_threads';
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { FieldType, ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
@@ -15,6 +15,7 @@ import { I18nService } from 'nestjs-i18n';
 import Papa from 'papaparse';
 import { CacheService } from '../../../cache/cache.service';
 import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
+import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';

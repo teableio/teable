@@ -9,10 +9,11 @@ import { EventList } from './EventList';
 
 interface IEventListContainerProps {
   date: Date;
+  onRecordSelect?: () => void;
 }
 
 export const EventListContainer = (props: IEventListContainerProps) => {
-  const { date } = props;
+  const { date, onRecordSelect } = props;
   const { recordQuery, startDateField, endDateField } = useCalendar();
 
   const query = useMemo(() => {
@@ -81,7 +82,7 @@ export const EventListContainer = (props: IEventListContainerProps) => {
 
   return (
     <RowCountProvider query={query}>
-      <EventList query={query} />
+      <EventList query={query} onRecordSelect={onRecordSelect} />
     </RowCountProvider>
   );
 };

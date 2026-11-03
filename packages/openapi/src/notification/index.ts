@@ -2,5 +2,6 @@ export * from './get-list';
 export * from './update-status';
 export * from './read-all';
 export * from './unread-count';
+export * from './summary';
 export * from './send-admin-notification';
 export * from './create-app-notification';

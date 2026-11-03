@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
 import type { IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
@@ -293,6 +293,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastUpdateManyStreamBatches: UpdateManyStreamBatchInput[] = [];
   updateManyStreamVersions = new Map<string, number>();
   updateManyStreamOldVersions = new Map<string, number>();
+  updateManyStreamOldFieldValues = new Map<string, Readonly<Record<string, unknown>>>();
+  omitUpdateManyStreamOldFieldValues = false;
   updateManyStreamUpdatedRecordIds: Set<string> | undefined;
   updateManyResult: UpdateManyResult = {
     totalUpdated: 0,
@@ -375,7 +377,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
             totalUpdated -= 1;
             continue;
           }
-          updatedRecords.push(this.createStreamSnapshot(recordId));
+          updatedRecords.push(this.createStreamSnapshot(update));
         }
       }
     } else {
@@ -399,7 +401,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
             totalUpdated -= 1;
             continue;
           }
-          updatedRecords.push(this.createStreamSnapshot(recordId));
+          updatedRecords.push(this.createStreamSnapshot(update));
         }
       }
     }
@@ -407,13 +409,24 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({ totalUpdated, updatedRecords });
   }
 
-  private createStreamSnapshot(recordId: RecordId) {
+  private createStreamSnapshot(update: RecordUpdateResult) {
+    const recordId = update.record.id();
     const id = recordId.toString();
     return {
       recordId,
       oldVersion: this.updateManyStreamOldVersions.get(id) ?? 0,
       newVersion: this.updateManyStreamVersions.get(id) ?? 1,
-      oldFieldValues: {},
+      oldFieldValues: this.omitUpdateManyStreamOldFieldValues
+        ? {}
+        : {
+            ...Object.fromEntries(
+              update.record
+                .fields()
+                .entries()
+                .map(({ fieldId }) => [fieldId.toString(), null])
+            ),
+            ...this.updateManyStreamOldFieldValues.get(id),
+          },
     };
   }
 
@@ -594,6 +607,11 @@ const createHandler = (
     tableSchemaCoordination?: ITableSchemaCoordination;
   }
 ) => {
+  for (const record of options?.queryRepository?.records ?? []) {
+    if (!recordRepository.updateManyStreamOldFieldValues.has(record.id)) {
+      recordRepository.updateManyStreamOldFieldValues.set(record.id, record.fields);
+    }
+  }
   const orderCalculator = options?.orderCalculator ?? new FakeRecordOrderCalculator();
   const recordReorderService = new RecordReorderService(recordRepository, orderCalculator);
   const recordBulkUpdateService = new RecordBulkUpdateService(
@@ -994,6 +1012,43 @@ describe('UpdateRecordsHandler', () => {
     ]);
   });
 
+  it('rejects incomplete explicit before-images without publishing or recording undo', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const recordId = `rec${'m'.repeat(16)}`;
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitUpdateManyStreamOldFieldValues = true;
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: recordId, version: 2, fields: { [numberFieldId.toString()]: 1 } },
+    ];
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      new FakeUnitOfWork(),
+      undoRedoService,
+      { queryRepository }
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        records: [{ id: recordId, fields: { [numberFieldId.toString()]: 99 } }],
+      })._unsafeUnwrap()
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.update_snapshot.missing');
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
+    expect(undoRedoService.entries).toHaveLength(0);
+  });
+
   it('traces explicit bulk-update preparation phases', async () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordIdA = `rec${'m'.repeat(16)}`;
@@ -1246,6 +1301,109 @@ describe('UpdateRecordsHandler', () => {
     expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
     expect(undoRedoService.entries).toHaveLength(0);
   });
+
+  it.each([false, true])(
+    'preserves authoritative nulls without restoring stale attachments when storage changes=%s',
+    async (storageChanges) => {
+      const { table, tableId, numberFieldId, singleSelectFieldId, attachmentFieldId } =
+        buildTable();
+      const recordId = `rec${'x'.repeat(16)}`;
+      const requestedAmount = storageChanges ? 2 : 1;
+      const staleAttachment: AttachmentItem = {
+        id: 'att-stale',
+        name: 'stale.png',
+        path: '/attachments/stale.png',
+        token: 'tok-stale',
+        size: 12,
+        mimetype: 'image/png',
+        presignedUrl: 'https://example.test/expired.png',
+      };
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      if (!storageChanges) {
+        recordRepository.updateManyStreamUpdatedRecordIds = new Set();
+      }
+      recordRepository.updateManyStreamOldFieldValues.set(recordId, {
+        [numberFieldId.toString()]: 1,
+        [singleSelectFieldId.toString()]: null,
+      });
+      const queryRepository = new FakeTableRecordQueryRepository();
+      const find = vi
+        .spyOn(queryRepository, 'find')
+        .mockResolvedValueOnce(
+          ok({
+            records: [
+              {
+                id: recordId,
+                version: 1,
+                fields: {
+                  [numberFieldId.toString()]: 1,
+                  [singleSelectFieldId.toString()]: null,
+                  [attachmentFieldId.toString()]: [staleAttachment],
+                },
+              },
+            ],
+            total: 1,
+          })
+        )
+        .mockResolvedValueOnce(
+          ok({
+            records: [
+              {
+                id: recordId,
+                version: 2,
+                fields: {
+                  [numberFieldId.toString()]: requestedAmount,
+                  [singleSelectFieldId.toString()]: null,
+                  [attachmentFieldId.toString()]: null,
+                },
+              },
+            ],
+            total: 1,
+          })
+        );
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const undoRedoService = new FakeUndoRedoService();
+      const handler = createHandler(
+        tableRepository,
+        recordRepository,
+        eventBus,
+        unitOfWork,
+        undoRedoService,
+        { queryRepository }
+      );
+
+      const result = await handler.handle(
+        createContext(),
+        UpdateRecordsCommand.create({
+          tableId: tableId.toString(),
+          fieldKeyType: 'id',
+          records: [
+            {
+              id: recordId,
+              fields: {
+                [numberFieldId.toString()]: requestedAmount,
+                [singleSelectFieldId.toString()]: null,
+              },
+            },
+          ],
+        })._unsafeUnwrap()
+      );
+
+      const payload = result._unsafeUnwrap();
+      const fields = payload.records?.[0]?.fields();
+      expect(fields?.get(numberFieldId)?.toValue()).toBe(requestedAmount);
+      expect(fields?.get(singleSelectFieldId)?.toValue()).toBeNull();
+      expect(fields?.get(attachmentFieldId)?.toValue()).toBeNull();
+      expect(find).toHaveBeenCalledTimes(2);
+      expect(find.mock.calls[1]?.[0].transaction?.kind).toBe('unitOfWorkTransaction');
+      expect(payload.updatedCount).toBe(storageChanges ? 1 : 0);
+      expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(storageChanges);
+      expect(undoRedoService.entries).toHaveLength(storageChanges ? 1 : 0);
+    }
+  );
 
   it('skips explicit records that are missing from storage while updating the rest', async () => {
     const { table, tableId, numberFieldId } = buildTable();

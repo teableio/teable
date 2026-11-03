@@ -274,6 +274,33 @@ queries:
     expectRoundTrip(plan.repaired!);
   });
 
+  it('does not treat a frozen structured fallback as a runtime dependency', () => {
+    const manifest = parse(`
+schemaVersion: 1
+queries:
+  frozenFallback:
+    definition:
+      version: 1
+      kind: records
+      tableId: ${tableId}
+      select:
+        - { fieldId: ${titleField}, alias: title }
+    fallback:
+      sql: SELECT "Score" FROM "bse"."tbl_root"
+`);
+    const plan = planDataQueryManifestRepair(manifest, {
+      kind: 'field_deleted',
+      tableId,
+      fieldId: statusField,
+      fieldName: 'Score',
+    });
+    expect(plan.queries[0]).toMatchObject({
+      classification: 'noop',
+      reasons: [],
+    });
+    expect(plan.blockingQueryIds).toEqual([]);
+  });
+
   it('never treats an unverifiable SQL-only query as unaffected', () => {
     const manifest = parse(listManifest);
     const unrelated = planDataQueryManifestRepair(manifest, {
@@ -350,7 +377,7 @@ queries:
       aggregates:
         - { fieldId: ${amountField}, statisticFunc: sum, alias: total }
     fallback:
-      sql: SELECT sum("amount") AS "total" FROM "bse"."tbl_root"
+      sql: SELECT sum("legacy_amount") AS "total" FROM "bse"."tbl_root"
       outputs:
         - { alias: total, wireType: numberOrString, nullable: true }
 `);
@@ -368,6 +395,37 @@ queries:
     ]);
     expect(plan.queries[0]?.reasons).toContain('switch_to_fallback');
     expectRoundTrip(plan.repaired!);
+  });
+
+  it('refuses to promote an auto fallback that names the deleted field', () => {
+    const manifest = parse(`
+schemaVersion: 1
+queries:
+  autoTotal:
+    mode: auto
+    definition:
+      version: 1
+      kind: aggregate
+      tableId: ${tableId}
+      aggregates:
+        - { fieldId: ${amountField}, statisticFunc: sum, alias: total }
+    fallback:
+      sql: SELECT sum("Amount") AS "total" FROM "bse"."tbl_root"
+      outputs:
+        - { alias: total, wireType: numberOrString, nullable: true }
+`);
+    const plan = planDataQueryManifestRepair(manifest, {
+      kind: 'field_deleted',
+      tableId,
+      fieldId: amountField,
+      fieldName: 'Amount',
+    });
+    expect(plan.queries[0]?.reasons).toContain('fallback_references_field');
+    expect(plan.applyable).toBe(false);
+    expect(plan.blockingQueryIds).toEqual(['autoTotal']);
+    const preview = query(plan.preview!, 'autoTotal');
+    expect(preview.mode).toBe('auto');
+    expect(preview).toHaveProperty('definition');
   });
 
   it('rewrites a grouped relation metric through its own source and leaves count alone', () => {

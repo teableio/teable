@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import type { Action } from '@teable/core';
 import type {
   IUserLastVisitBaseNodeVo,
+  IUserLastVisitListBaseNodeVo,
   IUserLastVisitListBaseVo,
   IUserLastVisitMapVo,
   IUserLastVisitVo,
@@ -9,9 +10,11 @@ import type {
 import {
   IGetUserLastVisitRo,
   IGetUserLastVisitBaseNodeRo,
+  IGetUserLastVisitListBaseNodeRo,
   IUpdateUserLastVisitRo,
   LastVisitResourceType,
   getUserLastVisitBaseNodeRoSchema,
+  getUserLastVisitListBaseNodeRoSchema,
   getUserLastVisitRoSchema,
   updateUserLastVisitRoSchema,
 } from '@teable/openapi';
@@ -104,5 +107,17 @@ export class LastVisitController {
   ): Promise<IUserLastVisitBaseNodeVo> {
     const userId = this.cls.get('user.id');
     return this.lastVisitService.getUserLastVisitBaseNode(userId, params);
+  }
+
+  @Get('/list-base-node')
+  async getUserLastVisitListBaseNode(
+    @Query(new ZodValidationPipe(getUserLastVisitListBaseNodeRoSchema))
+    params: IGetUserLastVisitListBaseNodeRo
+  ): Promise<IUserLastVisitListBaseNodeVo> {
+    if (!(await this.canReadParent('base|read', params.parentResourceId))) {
+      return { total: 0, list: [] };
+    }
+    const userId = this.cls.get('user.id');
+    return this.lastVisitService.listUserLastVisitBaseNode(userId, params.parentResourceId);
   }
 }

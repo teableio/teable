@@ -495,12 +495,80 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
     expect(records.records).toHaveLength(0);
     expect(await junctionCount(junctionTableName)).toBe(junctionAfterDelete);
+    expect(
+      await prisma.recordTrash.count({ where: { tableId: table.id, recordId: hostRecordId } })
+    ).toBe(1);
+    expect(
+      (await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })).data.trashItems
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ id: trashItem!.id })]));
 
     // Owner can read the foreign base, so the same restore succeeds and the
     // junction row comes back.
     const restored = await restoreTrash(trashItem!.id, table.id);
     expect(restored.status).toBe(201);
     expect(await junctionCount(junctionTableName)).toBe(junctionRowCount);
+  });
+
+  it('allows restoring a same-base link when an unrelated cross-base link is null', async () => {
+    await updateRecord(table.id, hostRecordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [sameBaseLinkField.id]: [{ id: siblingRecordId }],
+          [linkField.id]: null,
+        },
+      },
+    });
+    expect(await junctionCount(junctionTableName)).toBe(0);
+
+    await deleteRecords(table.id, [hostRecordId]);
+    const findRecordTrashItem = async () =>
+      (
+        await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })
+      ).data.trashItems.find(
+        (item) => optionString(item, 'resourceType') === TableTrashType.Record
+      );
+    await expect.poll(findRecordTrashItem).toBeDefined();
+    const trashItem = await findRecordTrashItem();
+    const trashedRecord = await prisma.recordTrash.findFirstOrThrow({
+      where: { tableId: table.id, recordId: hostRecordId },
+      select: { snapshot: true },
+    });
+    const snapshot = JSON.parse(trashedRecord.snapshot) as {
+      fields: Record<string, unknown>;
+    };
+    expect(Object.hasOwn(snapshot.fields, linkField.id)).toBe(true);
+    expect(snapshot.fields[linkField.id]).toBeNull();
+    expect(snapshot.fields[sameBaseLinkField.id]).toEqual([
+      expect.objectContaining({ id: siblingRecordId }),
+    ]);
+
+    const restored = await editorUser.post(
+      urlBuilder(RESTORE_TRASH, { trashId: trashItem!.id }),
+      undefined,
+      { params: { tableId: table.id } }
+    );
+
+    expect(restored.status).toBe(201);
+    const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+    expect(records.records).toHaveLength(1);
+    expect(records.records[0].id).toBe(hostRecordId);
+    expect(records.records[0].fields[sameBaseLinkField.id]).toEqual([
+      expect.objectContaining({ id: siblingRecordId }),
+    ]);
+    expect(records.records[0].fields[linkField.id] ?? null).toBeNull();
+    expect(await junctionCount(junctionTableName)).toBe(0);
+    const siblingRecords = await getRecords(siblingTable.id, { fieldKeyType: FieldKeyType.Id });
+    const siblingLinkId = optionString(sameBaseLinkField.options, 'symmetricFieldId')!;
+    expect(siblingRecords.records[0].fields[siblingLinkId]).toEqual([
+      expect.objectContaining({ id: hostRecordId }),
+    ]);
+    expect(
+      await prisma.recordTrash.count({ where: { tableId: table.id, recordId: hostRecordId } })
+    ).toBe(0);
+    expect(
+      (await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })).data.trashItems
+    ).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: trashItem!.id })]));
   });
 
   it('allows the same write once the caller can read the foreign base', async () => {
@@ -553,6 +621,27 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
       })
     );
     expect(duplicated.status).toBe(201);
+
+    await deleteRecords(duplicateTable.id, [duplicateHostRecordId]);
+    const findRecordTrashItem = async () =>
+      (
+        await getTrashItems({ resourceId: duplicateTable.id, resourceType: TrashType.Table })
+      ).data.trashItems.find(
+        (item) => optionString(item, 'resourceType') === TableTrashType.Record
+      );
+    await expect.poll(findRecordTrashItem).toBeDefined();
+    const trashItem = await findRecordTrashItem();
+    const restored = await editorUser.post(
+      urlBuilder(RESTORE_TRASH, { trashId: trashItem!.id }),
+      undefined,
+      { params: { tableId: duplicateTable.id } }
+    );
+    expect(restored.status).toBe(201);
+    const restoredRecords = await getRecords(duplicateTable.id, { fieldKeyType: FieldKeyType.Id });
+    expect(restoredRecords.records).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: duplicateHostRecordId })])
+    );
+    expect(await junctionCount(duplicateJunctionTableName)).toBe(2);
 
     await updateRecord(table.id, hostRecordId, {
       fieldKeyType: FieldKeyType.Id,

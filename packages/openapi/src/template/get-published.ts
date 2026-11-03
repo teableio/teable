@@ -4,9 +4,14 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import type { ITemplateVo } from './get';
-import { templateKindSchema } from './kind';
 
 export const GET_PUBLISHED_TEMPLATE_LIST = '/template/published';
+
+export enum TemplateListSort {
+  Order = 'order',
+  Ranking = 'ranking',
+  Newest = 'newest',
+}
 
 export const templateQueryRoSchema = z.object({
   featured: z.stringbool().optional().meta({
@@ -30,12 +35,20 @@ export const templateQueryRoSchema = z.object({
   }),
   search: z.string().optional().meta({
     example: 'template',
-    description: 'The search keyword for template name',
+    description: 'Words to narrow the list by; each must appear in the name or the description',
   }),
-  kind: templateKindSchema.optional().meta({
-    example: 'solution',
+  sort: z.enum(TemplateListSort).optional().meta({
+    example: 'ranking',
     description:
-      'Narrow the list to one kind. Omitted: every kind (rows without a kind count as templates).',
+      "ranking: by this month's usage score, highest first; newest: last published first. Omitted: the admin's order.",
+  }),
+  requires: z.string().optional().meta({
+    example: 'slack',
+    description: 'Only templates that connect this provider; `none`: those that connect nothing.',
+  }),
+  createdBy: z.string().optional().meta({
+    example: 'usr_123',
+    description: 'Only templates by this author.',
   }),
 });
 

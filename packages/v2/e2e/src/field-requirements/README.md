@@ -410,7 +410,7 @@ test asserts the rule.
 | `B04` | Auto number is unique under concurrency and bulk create           | covered | `B-system/B04-auto-number-sequence.matrix.spec.ts`                                                                 |
 | `B05` | Button label/colour/click limit and action effects                | covered | `create-field/button/button.spec.ts` — see finding 20                                                              |
 | `B06` | Type conversion migrates value, default, style, deps, constraints | covered | `update-field/*/conversion/`, `update-field/option-preservation.matrix.spec.ts`                                    |
-| `B07` | Copy field/table/import/export keeps portable config              | covered | `duplicateField.e2e.spec.ts`, `duplicateTable.e2e.spec.ts`, `base-duplicate.e2e.spec.ts`                           |
+| `B07` | Copy field/table/import/export keeps portable config              | covered | `duplicateField.e2e.spec.ts`, `duplicateField-link-matrix.e2e.spec.ts`, `duplicateTable.e2e.spec.ts`, `base-duplicate.e2e.spec.ts` |
 | `B08` | Sort/filter/group use the business type, not the display format   | covered | `listRecords-sort-format.e2e.spec.ts`                                                                              |
 | `B09` | Hiding, resizing and reordering columns keeps values and config   | covered | `listRecords-metadata.e2e.spec.ts`, `viewOperations.e2e.spec.ts`                                                   |
 | `B10` | Cell/batch edit, paste, clear and undo share type validation      | covered | `paste.e2e.spec.ts`, `clear.e2e.spec.ts`, `undo-redo/`                                                             |

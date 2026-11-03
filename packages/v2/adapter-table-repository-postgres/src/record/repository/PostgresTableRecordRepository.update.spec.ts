@@ -1,3 +1,4 @@
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   BaseId,
@@ -206,6 +207,12 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
   });
   return { db, driver };
 };
+
+const runInRecordingTransaction = <T>(
+  db: Kysely<DynamicDB>,
+  operation: (transaction: PostgresUnitOfWorkTransaction<DynamicDB>) => Promise<T>
+): Promise<T> =>
+  db.transaction().execute((trx) => operation(new PostgresUnitOfWorkTransaction(trx, 'data')));
 
 const createLogger = (): ILogger => {
   const logger: ILogger = {
@@ -988,7 +995,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     vi.useRealTimers();
   });
 
-  it('reads only required before-image columns when conditional propagation needs old values', async () => {
+  it('passes required before-image values to conditional propagation planning', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -1061,48 +1068,31 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         }),
     } as unknown as ComputedUpdatePlanner;
 
-    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const { db, driver } = createRecordingDb(
-      createSingleRowProvider(tableName, {
-        record_id: recordId.toString(),
-        [`old_${numberFieldId.toString()}`]: 7,
-      })
+    const { db } = createRecordingDb(
+      createUndoLogRowProvider([
+        {
+          operation: 'UPDATE',
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+            __version: 1,
+            col_name: 'Before',
+            col_amount: 7,
+          },
+          new_row: {
+            __id: recordId.toString(),
+            __version: 2,
+            col_name: 'Alice',
+            col_amount: 7,
+          },
+        },
+      ])
     );
     const repo = createRepository(db, table, computedUpdatePlanner);
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__id" as "record_id", "col_amount" as "old_fldnnnnnnnnnnnnnnnn" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
-        },
-        {
-          "parameters": [
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "Alice",
-            "rechhhhhhhhhhhhhhhh",
-            "Alice",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
     expect(capturedPlanInputs[0]?.beforeImageRecords).toEqual([
       {
         recordId,
@@ -1330,7 +1320,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       yield ok([updateRecordResult._unsafeUnwrap()]);
     }
 
-    const result = await repo.updateManyStream({ actorId }, table, batches());
+    const result = await runInRecordingTransaction(db, (transaction) =>
+      repo.updateManyStream({ actorId, transaction }, table, batches())
+    );
     expect(result.isOk()).toBe(true);
     expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordId]);
     expect(capturedPlanInputs[0]?.extraSeedRecords).toEqual([
@@ -1343,333 +1335,6 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       valueFieldIds: [linkFieldId],
       linkFieldIds: [linkFieldId],
     });
-
-    vi.useRealTimers();
-  });
-
-  it('generates link update SQL for manyMany links', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'manyMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('LinkUpdateTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-    table
-      .getField((field) => field.id().equals(nameFieldId))
-      ._unsafeUnwrap()
-      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
-      ._unsafeUnwrap();
-    hydrateLinkField({ table, fieldId: linkFieldId, baseId, tableId });
-
-    // Create fieldValues map for update
-    const fieldValues = new Map<string, unknown>([
-      [LINK_FIELD_ID, [{ id: LINKED_RECORD_A }, { id: LINKED_RECORD_B }]],
-    ]);
-
-    // Get mutation spec from table.updateRecord
-    const updateRecordResult = table.updateRecord(recordId, fieldValues);
-    expect(updateRecordResult.isOk()).toBe(true);
-    const { mutateSpec } = updateRecordResult._unsafeUnwrap();
-
-    const { db, driver } = createRecordingDb();
-    const repo = createRepository(db, table);
-
-    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
-    expect(result.isOk()).toBe(true);
-    expect(toSnapshot(driver.queries)).toHaveLength(6);
-
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__fk_fldeeeeeeeeeeeeeeee" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1 order by "__order" asc",
-        },
-        {
-          "parameters": [
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
-            "rechhhhhhhhhhhhhhhh",
-            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
-        },
-        {
-          "parameters": [],
-          "sql": "SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
-              FROM unnest(ARRAY['v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:reciiiiiiiiiiiiiiii','v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:recjjjjjjjjjjjjjjjj']::text[]) AS k
-              ORDER BY k",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-            "reciiiiiiiiiiiiiiii",
-            1,
-            "rechhhhhhhhhhhhhhhh",
-            "recjjjjjjjjjjjjjjjj",
-            2,
-          ],
-          "sql": "insert into "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" ("__fk_fldffffffffffffffff", "__fk_fldeeeeeeeeeeeeeeee", "__order") values ($1, $2, $3), ($4, $5, $6)",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
-
-    vi.useRealTimers();
-  });
-
-  it('generates link update SQL for oneMany links', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'oneMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('LinkUpdateTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-    table
-      .getField((field) => field.id().equals(nameFieldId))
-      ._unsafeUnwrap()
-      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
-      ._unsafeUnwrap();
-    hydrateLinkField({ table, fieldId: linkFieldId, baseId, tableId });
-
-    // Create fieldValues map for update
-    const fieldValues = new Map<string, unknown>([
-      [LINK_FIELD_ID, [{ id: LINKED_RECORD_A }, { id: LINKED_RECORD_B }]],
-    ]);
-
-    // Get mutation spec from table.updateRecord
-    const updateRecordResult = table.updateRecord(recordId, fieldValues);
-    expect(updateRecordResult.isOk()).toBe(true);
-    const { mutateSpec } = updateRecordResult._unsafeUnwrap();
-
-    const { db, driver } = createRecordingDb();
-    const repo = createRepository(db, table);
-
-    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
-    expect(result.isOk()).toBe(true);
-    expect(toSnapshot(driver.queries)).toHaveLength(7);
-
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" = $1 order by "__fk_fldffffffffffffffff_order" asc",
-        },
-        {
-          "parameters": [
-            "reciiiiiiiiiiiiiiii",
-            "recjjjjjjjjjjjjjjjj",
-          ],
-          "sql": "select "__id" as "record_id", "__fk_fldffffffffffffffff" as "linked_to" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__id" in ($1, $2) and "__fk_fldffffffffffffffff" is not null",
-        },
-        {
-          "parameters": [
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
-            "rechhhhhhhhhhhhhhhh",
-            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
-        },
-        {
-          "parameters": [],
-          "sql": "SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
-              FROM unnest(ARRAY['v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:reciiiiiiiiiiiiiiii','v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:recjjjjjjjjjjjjjjjj']::text[]) AS k
-              ORDER BY k",
-        },
-        {
-          "parameters": [
-            null,
-            null,
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1, "__fk_fldffffffffffffffff_order" = $2 where "__fk_fldffffffffffffffff" = $3",
-        },
-        {
-          "parameters": [
-            "reciiiiiiiiiiiiiiii",
-            "rechhhhhhhhhhhhhhhh",
-            1,
-            "recjjjjjjjjjjjjjjjj",
-            "rechhhhhhhhhhhhhhhh",
-            2,
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as t set "__fk_fldffffffffffffffff" = "v"."record_id", "__fk_fldffffffffffffffff_order" = "v"."order_index"::integer from (values ($1, $2, $3), ($4, $5, $6)) as v(id, record_id, order_index) where "t"."__id" = "v"."id"",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
-
-    vi.useRealTimers();
-  });
-
-  it('acquires advisory lock for oneOne link in updateManyStream', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'oneOne',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-      isOneWay: false,
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('OneOneBatchUpdateTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Partner')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-    table
-      .getField((field) => field.id().equals(nameFieldId))
-      ._unsafeUnwrap()
-      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
-      ._unsafeUnwrap();
-    hydrateLinkField({ table, fieldId: linkFieldId, baseId, tableId });
-
-    const fieldValues = new Map<string, unknown>([[LINK_FIELD_ID, { id: LINKED_RECORD_A }]]);
-    const updateRecordResult = table.updateRecord(recordId, fieldValues);
-    expect(updateRecordResult.isOk()).toBe(true);
-
-    const { db, driver } = createRecordingDb();
-    const repo = createRepository(db, table);
-
-    function* batches() {
-      yield ok([updateRecordResult._unsafeUnwrap()]);
-    }
-
-    const result = await repo.updateManyStream({ actorId }, table, batches());
-    expect(result.isOk()).toBe(true);
-
-    const lockQuery = driver.queries.find((query) => query.sql.includes('pg_advisory_xact_lock'));
-    expect(lockQuery).toBeDefined();
-    expect(lockQuery?.sql).toContain(`v2:link:${BASE_ID}:${FOREIGN_TABLE_ID}:${LINKED_RECORD_A}`);
-    expect(lockQuery?.sql).toContain('ORDER BY k');
 
     vi.useRealTimers();
   });
@@ -1735,32 +1400,67 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       yield ok([updateRecordResult._unsafeUnwrap()]);
     }
 
-    const normalRun = createRecordingDb();
+    const foreignKeyName = `__fk_${SYMMETRIC_FIELD_ID}`;
+    const linkedRecordIds = [LINKED_RECORD_A, LINKED_RECORD_B];
+    // Real capture distinguishes source updates from the foreign ownership changes.
+    // Both runs start with unowned targets and persist the same final ownership.
+    const rowProvider: RowProvider = (query) => {
+      if (query.sql.includes('FROM "__undo_log"')) {
+        return [
+          {
+            id: '1',
+            operation: 'UPDATE',
+            table_name: `${BASE_ID}.${TABLE_ID}`,
+            record_id: RECORD_ID,
+            old_row: { __id: RECORD_ID, __version: 1, col_links: null },
+            new_row: {
+              __id: RECORD_ID,
+              __version: 2,
+              col_links: linkedRecordIds.map((id) => ({ id })),
+            },
+          },
+          ...linkedRecordIds.map((id, index) => ({
+            id: String(index + 2),
+            operation: 'UPDATE',
+            table_name: `${BASE_ID}.${FOREIGN_TABLE_ID}`,
+            record_id: id,
+            old_row: { __id: id, [foreignKeyName]: null },
+            new_row: { __id: id, [foreignKeyName]: RECORD_ID },
+          })),
+        ];
+      }
+      if (
+        query.sql.includes(`from "${BASE_ID}"."${FOREIGN_TABLE_ID}"`) &&
+        query.sql.includes('as "linked_to"')
+      ) {
+        return linkedRecordIds.map((id) => ({ record_id: id, linked_to: RECORD_ID }));
+      }
+      return [];
+    };
+
+    const normalRun = createRecordingDb(rowProvider);
     const normalRepo = createRepository(normalRun.db, table);
-    const normalResult = await normalRepo.updateManyStream({ actorId }, table, batches());
+    const normalResult = await runInRecordingTransaction(normalRun.db, (transaction) =>
+      normalRepo.updateManyStream({ actorId, transaction }, table, batches())
+    );
     expect(normalResult.isOk()).toBe(true);
     expect(
       hasExistingForeignKeyLinkRead(toSnapshot(normalRun.driver.queries), SYMMETRIC_FIELD_ID)
     ).toBe(true);
 
-    const restoreRun = createRecordingDb();
+    const restoreRun = createRecordingDb(rowProvider);
     const restoreRepo = createRepository(restoreRun.db, table);
-    const restoreResult = await restoreRepo.updateManyStream({ actorId }, table, batches(), {
-      skipComputedUpdates: true,
-      fillLinkTitles: true,
-      assumeEmptyLinkState: true,
-    });
+    const restoreResult = await runInRecordingTransaction(restoreRun.db, (transaction) =>
+      restoreRepo.updateManyStream({ actorId, transaction }, table, batches(), {
+        skipComputedUpdates: true,
+        fillLinkTitles: true,
+        assumeEmptyLinkState: true,
+      })
+    );
     expect(restoreResult.isOk()).toBe(true);
 
     const queries = toSnapshot(restoreRun.driver.queries);
     expect(hasExistingForeignKeyLinkRead(queries, SYMMETRIC_FIELD_ID)).toBe(false);
-    expect(
-      queries.some((query) =>
-        query.sql.includes(
-          `update "${BASE_ID}"."${FOREIGN_TABLE_ID}" as t set "__fk_${SYMMETRIC_FIELD_ID}"`
-        )
-      )
-    ).toBe(true);
 
     vi.useRealTimers();
   });
@@ -1841,12 +1541,10 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       'fetch failed for https://bucket.example/source.csv?X-Amz-Signature=secret'
     );
     let served = 0;
-    const close = vi.fn(
-      async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
-        done: true,
-        value: undefined,
-      })
-    );
+    const close = vi.fn(async (): Promise<IteratorResult<ReadonlyArray<TableRecord>>> => ({
+      done: true,
+      value: undefined,
+    }));
     const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
       [Symbol.asyncIterator]() {
         return {

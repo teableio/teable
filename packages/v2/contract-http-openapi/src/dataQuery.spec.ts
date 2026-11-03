@@ -8,6 +8,7 @@ import {
 import {
   DataQueryService,
   QueryExecutionService,
+  type DataQueryValidationResult,
   type ExecuteDataQueryRequest,
 } from '@teable/v2-data-query';
 import Ajv2020 from 'ajv/dist/2020';
@@ -62,6 +63,8 @@ describe('generated data-query OpenAPI contract', () => {
     const acceptsResponse = ajv.compile(response.content!['application/json'].schema!);
     expect(acceptsRequest(input)).toBe(true);
     expect(acceptsRequest({ ...input, parameters: {} })).toBe(false);
+    expect(acceptsRequest({ ...input, includeUsage: true })).toBe(true);
+    expect(acceptsRequest({ ...input, includeUsage: 'true' })).toBe(false);
     expect(
       acceptsResponse({
         ok: true,
@@ -78,6 +81,39 @@ describe('generated data-query OpenAPI contract', () => {
         },
       })
     ).toBe(true);
+    expect(
+      acceptsResponse({
+        ok: true,
+        data: {
+          outputs: [],
+          usage: [
+            {
+              source: 'root',
+              tableId: input.definition.tableId,
+              fieldId: `fld${'b'.repeat(16)}`,
+              usages: ['projection'],
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    expect(
+      acceptsResponse({
+        ok: true,
+        data: {
+          outputs: [],
+          usage: [
+            {
+              source: 'root',
+              tableId: input.definition.tableId,
+              fieldId: `fld${'b'.repeat(16)}`,
+              usages: ['projection'],
+              column: 'private_column',
+            },
+          ],
+        },
+      })
+    ).toBe(false);
     expect(acceptsResponse({ ok: true, data: { rows: [] } })).toBe(false);
   });
   it('lets consumers validate recursive inline requests and result envelopes', async () => {
@@ -242,6 +278,70 @@ describe('opt-in data query Fetch adapter', () => {
     expect(authenticate).toHaveBeenCalledWith(request);
     expect(validate).toHaveBeenCalledWith(context, input);
     expect(execute).not.toHaveBeenCalled();
+  });
+  it('omits unsolicited usage unless the request explicitly opts in', async () => {
+    const validation = {
+      outputs: [],
+      usage: [
+        {
+          source: 'root',
+          tableId: input.definition.tableId,
+          fieldId: `fld${'b'.repeat(16)}`,
+          usages: ['projection'],
+        },
+      ],
+    } as const satisfies DataQueryValidationResult;
+    const handler = createDataQueryFetchHandler({
+      service: {
+        validate: async () => ok(validation),
+        execute: async () => ok({ rows: [] }),
+      },
+      createExecutionContext: () => context,
+    });
+
+    const defaultResponse = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+    );
+    expect(await defaultResponse.json()).toEqual({ ok: true, data: { outputs: [] } });
+
+    const usageResponse = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, includeUsage: true }),
+      })
+    );
+    expect(await usageResponse.json()).toEqual({ ok: true, data: validation });
+  });
+  it('rejects an outputs-only service result when usage was requested', async () => {
+    const handler = createDataQueryFetchHandler({
+      service: {
+        validate: async () => ok({ outputs: [] }),
+        execute: async () => ok({ rows: [] }),
+      },
+      createExecutionContext: () => context,
+    });
+    const response = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, includeUsage: true }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        code: 'data_query.invalid_response',
+        message: 'Invalid data query response',
+        tags: ['unexpected'],
+      },
+    });
   });
   it('does not mount the API root or old SQL route and rejects unsupported methods', async () => {
     const execute = vi.fn(async () => ok({ rows: [] }));

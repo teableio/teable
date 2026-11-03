@@ -1767,6 +1767,8 @@ export class SpaceDataDbMigrationService {
     const { inventory, schemaNames, strategy, progressPollMs, startedAt } = context;
     const sourceDataDb = await this.getSourceDataDbForJob(job);
     const targetUrl = decryptDataDbUrl(job.targetConnection.encryptedUrl);
+    // Resumed jobs may predate the current data schema; do not rely on async startup upgrades.
+    await this.baselineService.initialize(targetUrl, job.targetInternalSchema);
 
     await this.migrationJobClient.spaceDataDbMigrationJob.update({
       where: { id: jobId },
@@ -2909,6 +2911,14 @@ export class SpaceDataDbMigrationService {
       return true;
     }
 
+    if (
+      input.row.schemaName === input.sourceSchema &&
+      input.row.tableName === sharedTables.undoLog
+    ) {
+      // Physical identities are local to the source database, never proof on the target.
+      payload.old_tuple = null;
+    }
+
     const targetSchema = this.targetSchemaForDeltaRow(
       input.row,
       input.sourceSchema,
@@ -3066,6 +3076,7 @@ export class SpaceDataDbMigrationService {
     const sourceDataDb = await this.getSourceDataDbForJob(job);
     const sourceSchema = this.getSourceSchema(sourceDataDb);
     const targetUrl = decryptDataDbUrl(job.targetConnection.encryptedUrl);
+    await this.baselineService.initialize(targetUrl, job.targetInternalSchema);
     const sourceClient = this.clientFactory(sourceDataDb.url);
     const targetClient = this.clientFactory(targetUrl);
     const batchSize =
@@ -3459,6 +3470,7 @@ export class SpaceDataDbMigrationService {
           captured_record_id text;
           captured_old_row jsonb;
           captured_new_row jsonb;
+          captured_old_tuple jsonb;
         BEGIN
           batch_id := current_setting('teable.undo_batch_id', true);
 
@@ -3478,13 +3490,24 @@ export class SpaceDataDbMigrationService {
             RETURN NULL;
           END IF;
 
+          IF TG_OP IN ('UPDATE', 'DELETE') THEN
+            -- The target internal schema is upgraded by the data DB migrations before copying.
+            captured_old_tuple := jsonb_build_object(
+              'xmin', OLD.xmin::text,
+              'ctid', OLD.ctid::text,
+              'relationOid', OLD.tableoid::text,
+              'relationFilenode', pg_relation_filenode(OLD.tableoid)::text
+            );
+          END IF;
+
           INSERT INTO "__undo_log" (
             "batch_id",
             "operation",
             "table_name",
             "record_id",
             "old_row",
-            "new_row"
+            "new_row",
+            "old_tuple"
           )
           VALUES (
             batch_id,
@@ -3492,7 +3515,8 @@ export class SpaceDataDbMigrationService {
             TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME,
             captured_record_id,
             captured_old_row,
-            captured_new_row
+            captured_new_row,
+            captured_old_tuple
           );
 
           RETURN NULL;
@@ -5177,6 +5201,7 @@ export class SpaceDataDbMigrationService {
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const sourceDataDb = await this.getSourceDataDbForJob(job);
     const targetUrl = decryptDataDbUrl(job.targetConnection.encryptedUrl);
+    await this.baselineService.initialize(targetUrl, job.targetInternalSchema);
     const startedAt = new Date().toISOString();
     const strategy = options.strategy ?? 'psql_copy';
     if (options.snapshotId && strategy !== 'psql_copy') {

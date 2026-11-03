@@ -159,6 +159,50 @@ describe('CrossBaseLinkAccessRecordWritePlugin', () => {
     expect(checkedFieldKeys(assertForeignTablesReadable)).toEqual([MATCH_FIELD_ID, LINK_FIELD_ID]);
   });
 
+  it.each([null, undefined, []])(
+    'does not authorize an empty restore cell (%j) for a later nonempty batch',
+    async (emptyValue) => {
+      const { plugin, assertForeignTablesReadable } = createPlugin();
+      assertForeignTablesReadable.mockRejectedValue(permissionDenied);
+
+      const empty = await plugin.prepare(
+        createContext(RecordWriteOperationKind.restoreMany, {
+          recordsFieldValues: [new Map([[LINK_FIELD_ID, emptyValue]])],
+          recordCount: 1,
+        })
+      );
+      expect(empty.isOk()).toBe(true);
+
+      const nonempty = await plugin.prepare(
+        createContext(RecordWriteOperationKind.restoreMany, {
+          recordsFieldValues: [
+            new Map([[LINK_FIELD_ID, emptyValue]]),
+            new Map([[LINK_FIELD_ID, [{ id: 'rec1' }]]]),
+          ],
+          recordCount: 2,
+        }),
+        empty._unsafeUnwrap()
+      );
+      expect(nonempty.isErr()).toBe(true);
+      expect(nonempty._unsafeUnwrapErr().code).toBe('cross_base_link.foreign_table_read_forbidden');
+    }
+  );
+
+  it('still denies clearing a cross-base link on update without foreign read', async () => {
+    const { plugin, assertForeignTablesReadable } = createPlugin();
+    assertForeignTablesReadable.mockRejectedValue(permissionDenied);
+
+    const result = await plugin.prepare(
+      createContext(RecordWriteOperationKind.updateOne, {
+        fieldValues: new Map([[LINK_FIELD_ID, null]]),
+        recordCount: 1,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('cross_base_link.foreign_table_read_forbidden');
+  });
+
   it('checks every field of an explicit updateMany payload', async () => {
     const { plugin, assertForeignTablesReadable } = createPlugin();
 

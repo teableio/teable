@@ -936,6 +936,9 @@ export const useSelectionOperation = (props?: {
   const { mutateAsync: temporaryPasteReq } = useMutation({
     mutationFn: (temporaryPasteRo: ITemporaryPasteRo) =>
       temporaryPaste(tableId!, { ...temporaryPasteRo, ...selectionViewQuery, viewId }),
+    meta: {
+      preventGlobalError: true,
+    },
   });
 
   const { mutateAsync: clearReq } = useMutation({
@@ -1153,6 +1156,7 @@ export const useSelectionOperation = (props?: {
         confirmText: t('table:table.actionTips.paste'),
         cancelText: t('common:actions.cancel'),
         confirmButtonVariant: 'destructive',
+        autoFocusConfirm: true,
       });
     },
     [confirm, t]

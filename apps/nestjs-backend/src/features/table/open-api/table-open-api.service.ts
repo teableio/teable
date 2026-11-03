@@ -48,6 +48,7 @@ import { handleBestEffortDataDbDropError } from '../../../global/data-db-runtime
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { RawOpType } from '../../../share-db/interface';
 import type { IClsStore } from '../../../types/cls';
+import { baseDisplayName } from '../../../utils/base-name';
 import { getMaxLevelRole } from '../../../utils/get-max-level-role';
 import { updateOrder } from '../../../utils/update-order';
 import { AuditScope } from '../../audit/audit-scope';
@@ -506,7 +507,7 @@ export class TableOpenApiService {
               icon: table.icon,
               base: {
                 id: base.id,
-                name: base.name,
+                name: baseDisplayName(base.name),
                 icon: base.icon,
               },
             },

@@ -56,6 +56,11 @@ const LAST_MODIFIED_TIME_COLUMN = '__last_modified_time';
 const LAST_MODIFIED_BY_COLUMN = '__last_modified_by';
 const VERSION_COLUMN = '__version';
 
+type AdditionalMutationStatement = CompiledQuery & {
+  /** Junction replacement must not outlive a source UPDATE skipped as a no-op. */
+  readonly requiresSourceWrite?: boolean;
+};
+
 /**
  * Result of mutation visitor processing.
  */
@@ -65,7 +70,7 @@ export interface MutationStatements {
   /** Raw SET clauses for rebuilding UPDATE ... RETURNING in repositories */
   setClauses: Record<string, unknown>;
   /** Additional SQL statements (junction table operations, FK updates for link fields) */
-  additionalStatements: CompiledQuery[];
+  additionalStatements: AdditionalMutationStatement[];
   /** Field IDs that were changed (for computed field propagation) */
   changedFieldIds: FieldId[];
 }
@@ -102,7 +107,7 @@ export interface CellValueMutateContext {
  */
 export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   private readonly setClauses: Record<string, unknown> = {};
-  private readonly additionalStatements: CompiledQuery[] = [];
+  private readonly additionalStatements: AdditionalMutationStatement[] = [];
   private readonly attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
   private readonly changedFieldIds: FieldId[] = [];
 
@@ -244,7 +249,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    */
   getSetClausesRaw(): {
     setClauses: Record<string, unknown>;
-    additionalStatements: CompiledQuery[];
+    additionalStatements: AdditionalMutationStatement[];
     changedFieldIds: FieldId[];
   } {
     // Return a shallow copy to prevent external modifications
@@ -620,7 +625,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
           .deleteFrom(junctionTableName)
           .where(selfKeyName, '=', visitor.ctx.recordId)
           .compile();
-        visitor.additionalStatements.push(deleteQuery);
+        visitor.additionalStatements.push({ ...deleteQuery, requiresSourceWrite: true });
 
         if (linkItems.length > 0) {
           const insertValues = linkItems.map((linkItem, index) => {
@@ -638,7 +643,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
             .insertInto(junctionTableName)
             .values(insertValues)
             .compile();
-          visitor.additionalStatements.push(insertQuery);
+          visitor.additionalStatements.push({ ...insertQuery, requiresSourceWrite: true });
         }
       } else if (relationship === 'manyOne' || relationship === 'oneOne') {
         const foreignKeyName = yield* linkField.foreignKeyNameString();
@@ -822,7 +827,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
             .deleteFrom(junctionTableName)
             .where(selfKeyName, '=', visitor.ctx.recordId)
             .compile();
-          visitor.additionalStatements.push(deleteQuery);
+          visitor.additionalStatements.push({ ...deleteQuery, requiresSourceWrite: true });
         } else if (relationship === 'manyOne' || relationship === 'oneOne') {
           const foreignKeyName = yield* linkField.foreignKeyNameString();
           visitor.setClauses[foreignKeyName] = null;

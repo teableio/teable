@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
-import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
@@ -25,7 +25,9 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import {
@@ -175,21 +177,28 @@ class TrackingUndoRedoService {
   }
 }
 
-class TrackingFieldUndoRedoSnapshotService {
-  capturedFieldIds: string[] = [];
+class CountingTableMapper extends DefaultTableMapper {
+  conversions = 0;
 
-  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
-    this.capturedFieldIds.push(fieldId.toString());
-    return ok({
-      field: {
-        id: fieldId.toString(),
-        name: `Snapshot ${fieldId.toString()}`,
-        type: 'singleLineText',
-      },
-      views: [],
-    });
+  override toDTO(table: Table) {
+    this.conversions += 1;
+    return super.toDTO(table);
   }
 }
+
+const createSnapshotService = (
+  records: ReadonlyArray<TableRecordReadModel> = [],
+  mapper = new DefaultTableMapper()
+) =>
+  new FieldUndoRedoSnapshotService(mapper, {
+    find: async () => ok({ records, total: records.length }),
+    findOne: async () => {
+      throw new Error('Snapshot capture must use the projected record query');
+    },
+    findStream: () => {
+      throw new Error('Snapshot capture must use the projected record query');
+    },
+  });
 
 const buildTable = (params: {
   baseId: string;
@@ -364,7 +373,7 @@ describe('CreateFieldsHandler', () => {
       new FieldCreationSideEffectService(flow),
       new ForeignTableLoaderService(repository),
       new TrackingUndoRedoService() as unknown as UndoRedoStackService,
-      new TrackingFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      createSnapshotService(),
       createFieldOperationPluginRunner()
     );
     const labelResult = await handler.handle(
@@ -532,13 +541,20 @@ describe('CreateFieldsHandler', () => {
     );
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const undoRedoService = new TrackingUndoRedoService();
-    const snapshotService = new TrackingFieldUndoRedoSnapshotService();
+    const mapper = new CountingTableMapper();
+    const snapshotService = createSnapshotService(
+      [
+        { id: `rec${'m'.repeat(16)}`, fields: { [numberFieldId]: 42 }, version: 1 },
+        { id: `rec${'n'.repeat(16)}`, fields: {}, version: 1 },
+      ],
+      mapper
+    );
     const handler = new CreateFieldsHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
       new ForeignTableLoaderService(tableRepository),
       undoRedoService as unknown as UndoRedoStackService,
-      snapshotService as unknown as FieldUndoRedoSnapshotService,
+      snapshotService,
       createFieldOperationPluginRunner()
     );
 
@@ -585,7 +601,7 @@ describe('CreateFieldsHandler', () => {
       (field): field is FormulaField => field.id().toString() === formulaFieldId
     );
     expect(createdFormula.isOk()).toBe(true);
-    expect(snapshotService.capturedFieldIds).toEqual([numberFieldId, formulaFieldId]);
+    expect(mapper.conversions).toBe(1);
     expect(undoRedoService.recordEntryCalls).toBe(1);
 
     const undoLeaves = flattenUndoRedoCommands(
@@ -607,5 +623,30 @@ describe('CreateFieldsHandler', () => {
       numberFieldId,
       formulaFieldId,
     ]);
+    const numberSnapshot = redoLeaves[0]!.payload.snapshot;
+    const formulaSnapshot = redoLeaves[1]!.payload.snapshot;
+    expect(numberSnapshot.field).toMatchObject({
+      id: numberFieldId,
+      type: 'number',
+      name: 'Amount',
+    });
+    expect(numberSnapshot.records).toEqual([
+      { recordId: `rec${'m'.repeat(16)}`, value: 42 },
+      { recordId: `rec${'n'.repeat(16)}`, value: null },
+    ]);
+    expect(formulaSnapshot.field).toMatchObject({
+      id: formulaFieldId,
+      type: 'formula',
+      options: { expression: `{${numberFieldId}}` },
+    });
+    expect(formulaSnapshot.records).toBeUndefined();
+    for (const snapshot of [numberSnapshot, formulaSnapshot]) {
+      expect(snapshot.views).toEqual([
+        expect.objectContaining({
+          viewId: result.value.table.views()[0]!.id().toString(),
+          orderedFieldIds: [primaryFieldId, numberFieldId, formulaFieldId],
+        }),
+      ]);
+    }
   });
 });

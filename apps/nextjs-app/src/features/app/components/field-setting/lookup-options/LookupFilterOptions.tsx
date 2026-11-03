@@ -4,7 +4,7 @@ import { Maximize2 } from '@teable/icons';
 import { getFields } from '@teable/openapi';
 import { FilterWithTable, useFieldFilterLinkContext } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useTableId } from '@teable/sdk/hooks';
+import { useBase, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { createFieldInstance } from '@teable/sdk/model';
 import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
@@ -36,6 +36,7 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const currentTableId = useTableId() as string;
+  const base = useBase();
   const tableIdForContext = contextTableId ?? currentTableId;
 
   const context = useFieldFilterLinkContext(tableIdForContext, fieldId, !fieldId);
@@ -46,7 +47,7 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
     enabled: !!foreignTableId,
   });
 
-  const { data: selfFieldVos = [] } = useQuery({
+  const selfFieldsQuery = useQuery({
     queryKey: ReactQueryKeys.fieldList(tableIdForContext),
     queryFn: () => getFields(tableIdForContext!).then((res) => res.data),
     enabled: !!tableIdForContext,
@@ -58,16 +59,30 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
   );
 
   const selfFieldInstances = useMemo(
-    () => selfFieldVos.map((field) => createFieldInstance(field) as IFieldInstance),
-    [selfFieldVos]
+    () => selfFieldsQuery.data?.map((field) => createFieldInstance(field) as IFieldInstance) ?? [],
+    [selfFieldsQuery.data]
   );
 
   const referenceSource = useMemo(() => {
     if (!enableFieldReference) {
       return undefined;
     }
-    return { fields: selfFieldInstances, tableId: tableIdForContext };
-  }, [enableFieldReference, selfFieldInstances, tableIdForContext]);
+    return {
+      fields: selfFieldInstances,
+      tableId: tableIdForContext,
+      isReady: selfFieldsQuery.data !== undefined,
+      supportsLinkTitleReference:
+        (base?.v2Status?.useV2 ?? Boolean(base?.isCanary)) && foreignTableId !== tableIdForContext,
+    };
+  }, [
+    base?.isCanary,
+    base?.v2Status?.useV2,
+    enableFieldReference,
+    foreignTableId,
+    selfFieldsQuery.data,
+    selfFieldInstances,
+    tableIdForContext,
+  ]);
 
   if (!foreignTableId || !foreignFieldInstances.length) {
     return null;

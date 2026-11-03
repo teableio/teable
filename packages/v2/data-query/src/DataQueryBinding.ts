@@ -24,6 +24,7 @@ import {
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
+import { buildBoundDataQueryPlan, type BoundDataQueryPlan } from './BoundDataQueryPlan';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import {
   freezeQueryValue,
@@ -755,6 +756,7 @@ export class DataQueryRelationBinding {
     readonly rootDependencies: ReadonlyArray<DataQueryFieldDependency>,
     readonly sources: ReadonlyArray<DataQueryRelationSourceBinding>,
     readonly outputs: ReadonlyArray<DataQueryOutput>,
+    readonly plan: BoundDataQueryPlan,
     readonly deferredFilterError?: DomainError
   ) {
     freezeQueryValue(rootDependencies);
@@ -1292,6 +1294,23 @@ export class DataQueryRelationBinding {
         }
       }
 
+      const plan = yield* buildBoundDataQueryPlan({
+        definition: snapshot,
+        rootTable,
+        rootDependencies: root.dependencies,
+        rootUsage: rootUsages,
+        relations: sources.map((source) => ({
+          alias: source.alias,
+          table: source.table,
+          linkFieldId: source.linkFieldId,
+          parentAlias: source.parentAlias,
+          cardinality: source.cardinality,
+          linkStorage: source.linkStorage,
+          dependencies: source.dependencies,
+          usage: targetUsages.get(source.alias) ?? new Map(),
+        })),
+      });
+
       return ok(
         new DataQueryRelationBinding(
           definition,
@@ -1299,6 +1318,7 @@ export class DataQueryRelationBinding {
           root.dependencies,
           sources,
           outputs,
+          plan,
           deferredFilterError
         )
       );
@@ -1311,6 +1331,7 @@ export class DataQueryBinding {
     readonly definition: DataQueryDefinition,
     readonly dependencies: ReadonlyArray<DataQueryFieldDependency>,
     readonly outputs: ReadonlyArray<DataQueryOutput>,
+    readonly plan: BoundDataQueryPlan,
     /** Present only when preparation deferred an operator rejection past authorization. */
     readonly deferredFilterError?: DomainError
   ) {
@@ -1339,7 +1360,8 @@ export class DataQueryBinding {
       const dependencies: DataQueryFieldDependency[] = [];
       const fields = new Map<string, Field>();
       const descriptions = new Map<string, DataQueryFieldDependency>();
-      for (const [id, fieldUsages] of queryFieldUsages(snapshot)) {
+      const usages = queryFieldUsages(snapshot);
+      for (const [id, fieldUsages] of usages) {
         const field = yield* table
           .getField((candidate) => candidate.id().toString() === id)
           .mapErr(() => queryError('field_missing', 'A required query field is missing'));
@@ -1366,7 +1388,13 @@ export class DataQueryBinding {
         }
       }
       const outputs = yield* describeOutputs(snapshot, fields, descriptions);
-      return ok(new DataQueryBinding(definition, dependencies, outputs, deferredFilterError));
+      const plan = yield* buildBoundDataQueryPlan({
+        definition: snapshot,
+        rootTable: table,
+        rootDependencies: dependencies,
+        rootUsage: usages,
+      });
+      return ok(new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError));
     });
   }
 }

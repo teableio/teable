@@ -9,7 +9,7 @@ import { createTable, deleteTable, permanentDeleteTable } from '@teable/openapi'
 
 export class Base implements IGetBaseVo {
   id: string;
-  name: string;
+  name: string | null;
   spaceId: string;
   icon: string | null;
   role: IRole;

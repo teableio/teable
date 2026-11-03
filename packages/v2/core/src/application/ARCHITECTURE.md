@@ -21,5 +21,5 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `services/DeleteByRangeApplicationService.ts` - Role: application service; Purpose: share range-based delete planning, persistence, undo/redo, and progress streaming for delete-by-range handlers.
 - `services/ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and validate missing references.
 - `services/RecordCreationService.ts` - Role: application service; Purpose: shared single-record creation workflow reused by multiple handlers.
-- `services/RecordWritePluginRunner.ts` - Role: application service; Purpose: run typed record-write plugins across prepare/guard/beforePersist/afterCommit phases.
+- `services/RecordWritePluginRunner.ts` - Role: application service; Purpose: run typed record-write plugins across prepare/guard/afterGuard/beforePersist/afterCommit phases. `guard()` completes every guard group before running serial `afterGuard` authorization against surviving payloads; either phase fails before callers prepare side effects or persist writes.
 - `services/TableUpdateFlow.ts` - Role: application service; Purpose: transactionally apply table mutations and publish events.

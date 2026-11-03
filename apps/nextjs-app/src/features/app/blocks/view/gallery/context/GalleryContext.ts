@@ -1,6 +1,5 @@
 import type { IGetRecordsRo } from '@teable/openapi';
 import type { AttachmentField, IFieldInstance } from '@teable/sdk/model';
-import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react';
 import type { IGalleryPermission } from '../type';
 
@@ -12,7 +11,9 @@ export interface IGalleryContext {
   permission: IGalleryPermission;
   primaryField: IFieldInstance | null;
   displayFields: IFieldInstance[];
-  setExpandRecordId: Dispatch<SetStateAction<string | undefined>>;
+  setExpandRecordId: (recordId?: string) => void;
+  // the loaded records in display order, for the expanded record's prev / next
+  setOrderedRecordIds: (recordIds: string[]) => void;
 }
 
 export const GalleryContext = createContext<IGalleryContext>(null!);

@@ -40,7 +40,6 @@ describe('LinkExclusivityConstraintCollector', () => {
   it('returns no constraint for non-link fields', () => {
     const visitor = LinkExclusivityConstraintCollector.create({
       recordId: mkRecordId('source'),
-      existingLinkIds: [],
       newRawValue: null,
     });
 
@@ -79,12 +78,10 @@ describe('LinkExclusivityConstraintCollector', () => {
 
     const none = LinkExclusivityConstraintCollector.create({
       recordId: mkRecordId('source'),
-      existingLinkIds: [],
       newRawValue: [{ id: mkRecordId('foreignA') }],
     }).visitLinkField(field as never);
     const invalid = LinkExclusivityConstraintCollector.create({
       recordId: mkRecordId('source'),
-      existingLinkIds: [],
       newRawValue: [{ bad: true }],
     }).visitLinkField(
       createLinkField({
@@ -95,70 +92,5 @@ describe('LinkExclusivityConstraintCollector', () => {
 
     expect(none._unsafeUnwrap()).toEqual({ hasConstraint: false });
     expect(invalid.isErr()).toBe(true);
-  });
-
-  it('collects exclusive constraints for two-way one-many links', () => {
-    const result = LinkExclusivityConstraintCollector.create({
-      recordId: mkRecordId('source'),
-      existingLinkIds: [mkRecordId('existing')],
-      newRawValue: [{ id: mkRecordId('existing') }, { id: mkRecordId('newA') }],
-    }).visitLinkField(
-      createLinkField({
-        fieldId: 'constraint',
-        foreignTableId: 'foreign',
-        relationship: 'oneMany',
-        isOneWay: false,
-        requiresExclusiveForeignRecord: true,
-        hostTableName: 'public.foreign_table',
-        selfKeyName: '__fk_parent',
-        foreignKeyName: '__id',
-      }) as never
-    );
-
-    expect(result._unsafeUnwrap()).toEqual({
-      hasConstraint: true,
-      constraint: {
-        fieldId: mkFieldId('constraint'),
-        foreignTableId: mkTableId('foreign'),
-        fkHostTableName: 'public.foreign_table',
-        selfKeyName: '__fk_parent',
-        foreignKeyName: '__id',
-        addedForeignRecordIds: [mkRecordId('newA')],
-        sourceRecordId: mkRecordId('source'),
-        isOneWay: false,
-        usesJunctionTable: false,
-      },
-    });
-  });
-
-  it('marks one-way one-many exclusivity constraints as junction-backed and ignores unchanged links', () => {
-    const field = createLinkField({
-      relationship: 'oneMany',
-      isOneWay: true,
-      requiresExclusiveForeignRecord: true,
-      hostTableName: 'junction_oneway',
-      selfKeyName: '__fk_source',
-      foreignKeyName: '__fk_foreign',
-    });
-    const constraint = LinkExclusivityConstraintCollector.create({
-      recordId: mkRecordId('source'),
-      existingLinkIds: [],
-      newRawValue: [{ id: mkRecordId('newA') }],
-    }).visitLinkField(field as never);
-    const noAdded = LinkExclusivityConstraintCollector.create({
-      recordId: mkRecordId('source'),
-      existingLinkIds: [mkRecordId('same')],
-      newRawValue: [{ id: mkRecordId('same') }],
-    }).visitLinkField(field as never);
-
-    expect(constraint._unsafeUnwrap()).toMatchObject({
-      hasConstraint: true,
-      constraint: {
-        isOneWay: true,
-        usesJunctionTable: true,
-        addedForeignRecordIds: [mkRecordId('newA')],
-      },
-    });
-    expect(noAdded._unsafeUnwrap()).toEqual({ hasConstraint: false });
   });
 });

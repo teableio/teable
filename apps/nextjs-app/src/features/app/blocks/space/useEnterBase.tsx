@@ -8,17 +8,19 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TeableLogo } from '@/components/TeableLogo';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { Emoji } from '../../components/emoji/Emoji';
 import { PlainPageSkeleton } from '../../components/PlainPageSkeleton';
 import { TableSkeleton } from '../table/TableSkeleton';
 
 /**
  * The subset of a base the transition shell can render; name/icon may be
- * unknown when entering through a table or view link (e.g. pinned items)
+ * unknown (undefined) when entering through a table or view link (e.g. pinned
+ * items). A null name is known: the base has not been named yet.
  */
 export interface IEnterBaseTarget {
   id: string;
-  name?: string;
+  name?: string | null;
   icon?: string | null;
 }
 
@@ -90,8 +92,8 @@ export const EnterBaseOverlay = ({
               )}
             </div>
           )}
-          {base.name ? (
-            <span className="truncate text-sm font-medium">{base.name}</span>
+          {base.name !== undefined ? (
+            <span className="truncate text-sm font-medium">{getBaseDisplayName(base.name, t)}</span>
           ) : (
             <Skeleton className="h-5 w-24" />
           )}

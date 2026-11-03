@@ -32,6 +32,7 @@ export * from './use-group-point';
 export * from './use-permission-actions-static';
 export * from './use-permission-update-listener';
 export * from './use-presence';
+export * from './use-presence-connection';
 export * from './use-table-listener';
 export * from './use-field-aware-table-listener';
 export * from './use-view-listener';

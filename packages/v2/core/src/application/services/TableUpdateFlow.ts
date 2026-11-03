@@ -54,8 +54,9 @@ import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewVersion } from '../../domain/table/views/ViewVersion';
 import * as EventBusPort from '../../ports/EventBus';
 import {
+  getUnitOfWorkTransaction,
   registerAfterCommit,
-  registerAfterRollback,
+  withoutTransaction,
   type IExecutionContext,
 } from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
@@ -100,6 +101,8 @@ type TableUpdateFlowOptions = {
   // Defers mutation events, not the provision-ready completion notification.
   publishEvents?: boolean;
   hooks?: TableUpdateFlowHooks;
+  /** Complete provision state before returning instead of using a parent transaction callback. */
+  finalizeWithinTransaction?: boolean;
 };
 
 type TableUpdateFlowHooks = {
@@ -179,6 +182,7 @@ export class TableUpdateFlow {
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, DomainError>> {
     const publishEvents = options?.publishEvents ?? true;
+    const finalizeWithinTransaction = options?.finalizeWithinTransaction ?? false;
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
@@ -372,45 +376,13 @@ export class TableUpdateFlow {
           }
         }
       };
+      const metaTransaction = getUnitOfWorkTransaction(context, 'meta');
+      const rollbackTransaction = metaTransaction?.afterRollback
+        ? metaTransaction
+        : context.transaction;
       let readyEventsAfterCommit = false;
-      if (registerAfterCommit(context, finalizeReady)) {
+      if (!finalizeWithinTransaction && registerAfterCommit(context, finalizeReady)) {
         readyEventsAfterCommit = true;
-        registerAfterRollback(context, async () => {
-          const operationResult = requiresPhysicalSchemaRepair
-            ? await failRecoverableTableSchemaOperation(
-                handler.unitOfWork,
-                handler.tableRepository,
-                context,
-                latestTable,
-                {
-                  lastError: 'Parent transaction rolled back',
-                  type: 'table.update',
-                  result: {
-                    tableUpdateFailure: {
-                      code: 'transaction.parent_rolled_back',
-                    },
-                  },
-                }
-              )
-            : await completeTableSchemaOperation(
-                handler.unitOfWork,
-                handler.tableRepository,
-                context,
-                latestTable,
-                {
-                  type: 'table.update',
-                  result: {
-                    nonRepairableFailure: 'Parent transaction rolled back',
-                  },
-                }
-              );
-          if (operationResult.isErr()) {
-            throw new Error(operationResult.error.message);
-          }
-        });
-        // Reused outer data transactions finalize ready only after the parent
-        // transaction commits, while a later outer rollback records the operation
-        // failure without making the table unavailable.
       } else {
         yield* await completeTableSchemaOperation(
           handler.unitOfWork,
@@ -420,6 +392,41 @@ export class TableUpdateFlow {
           { type: 'table.update' }
         );
       }
+
+      rollbackTransaction?.afterRollback?.(async () => {
+        const rollbackContext = withoutTransaction(context);
+        const operationResult = requiresPhysicalSchemaRepair
+          ? await failRecoverableTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              rollbackContext,
+              latestTable,
+              {
+                lastError: 'Parent transaction rolled back',
+                type: 'table.update',
+                result: {
+                  tableUpdateFailure: {
+                    code: 'transaction.parent_rolled_back',
+                  },
+                },
+              }
+            )
+          : await completeTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              rollbackContext,
+              latestTable,
+              {
+                type: 'table.update',
+                result: {
+                  nonRepairableFailure: 'Parent transaction rolled back',
+                },
+              }
+            );
+        if (operationResult.isErr()) {
+          throw new Error(operationResult.error.message);
+        }
+      });
 
       const normalizedEvents = handler.attachPersistedEventVersions(
         events,

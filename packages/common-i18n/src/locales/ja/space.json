@@ -52,10 +52,10 @@
   "collaborators": "コラボレーター",
   "more": "その他",
   "pin": {
-    "add": "ピンに追加",
-    "remove": "ピンから削除",
-    "pin": "ピン",
-    "empty": "ピン留めしたプロジェクトとスペースがここに表示されます"
+    "add": "お気に入りに追加",
+    "remove": "お気に入りから削除",
+    "pin": "お気に入り",
+    "empty": "お気に入りのプロジェクトとスペースがここに表示されます"
   },
   "tooltip": {
     "noPermissionToCreateBase": "プロジェクトを作成する権限がありません"
@@ -207,19 +207,51 @@
     "form": {
       "title": "タイトル",
       "description": "説明",
-      "security": "セキュリティ",
-      "advanced": "詳細設定",
+      "changelog": "リリースノート",
+      "changelogPlaceholder": "既存のインストール向けに変更内容を説明してください。アップグレードのプレビューに表示されます",
       "publishNode": "ノードを公開",
       "includeData": "データを含める",
       "defaultActiveNode": "デフォルトのアクティブノード",
       "descriptionPlaceholder": "アイデアを簡単に説明してください...",
-      "titlePlaceholder": "作品に名前を付ける..."
+      "titlePlaceholder": "作品に名前を付ける...",
+      "cover": "カバー",
+      "coverHint": "16:9。カタログのカードと公開ページで使用されます",
+      "versionTitle": "バージョンの内容",
+      "addChangelog": "リリースノートを追加"
     },
     "publishToCommunity": "テンプレートセンターに公開",
     "publish": "公開",
     "publishSuccess": "公開しました！",
     "previewTips": "あなたの作品を世界に見せましょう",
     "update": "更新",
+    "submit": "審査に提出",
+    "submitted": "審査に提出しました",
+    "review": {
+      "status": {
+        "review": "審査中",
+        "rejected": "差し戻し",
+        "withdrawn": "取り下げ済み"
+      },
+      "submittedTime": "{{time}} に提出",
+      "note": "審査担当者のコメント",
+      "checks": "自動チェック",
+      "check": {
+        "connectors": "接続",
+        "privacy": "プライバシー",
+        "estimate": "実行量の見積もり",
+        "trial": "試運転"
+      },
+      "checkMessage": {
+        "connectors": "ここでは接続できません：{{providers}}",
+        "privacy": "レコードが含まれています。個人データが含まれていないか確認してください",
+        "estimate": "月あたり約 {{runs}} 回の実行で、無料プランの {{free}} 回を超えます",
+        "trial": "オートメーションはアカウントを必要としません。アカウントなしで実行できることを確認してください"
+      },
+      "withdraw": "取り下げる",
+      "withdrawn": "提出を取り下げました。",
+      "live": "公開中 · v{{version}}",
+      "publicLink": "公開リンク"
+    },
     "unPublish": "公開停止",
     "unPublishSuccess": "プロジェクトの公開を停止しました！",
     "unPublishConfirmTitle": "公開停止の確認",
@@ -237,9 +269,7 @@
     "urlCopied": "URLをクリップボードにコピーしました！",
     "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "公式Featuredに選出されました。より多くの露出と推奨を受けられます。",
-    "unfeaturedTip": "まだ公式Featuredに選出されていません。改善を続けて、推奨される機会を得ましょう。より多くの人にあなたの作品を見てもらいましょう。",
     "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
     "shareWith": "共有先",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "修正へ移動",
       "redeploy": "再デプロイ",
       "unnamedApp": "無名のアプリ"
-    }
+    },
+    "submitVersion": "v{{version}} を審査に提出"
   },
   "dataDb": {
     "create": {

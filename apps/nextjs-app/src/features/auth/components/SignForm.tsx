@@ -422,40 +422,42 @@ export const SignForm: FC<ISignForm> = (props) => {
           {isCodeSignin && (
             <div className="grid gap-3">
               <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
-              <Input
-                className="h-9 sm:h-8"
-                id="verification-code"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder={t('auth:placeholder.verificationCode')}
-                value={signinCode}
-                onChange={(e) => setSigninCode(e.target.value)}
-                disabled={isLoading}
-              />
-              <SendVerificationButton
-                label={signinCodeSent ? undefined : t('auth:button.sendCode')}
-                disabled={sendSigninCodeLoading || countdown > 0}
-                loading={sendSigninCodeLoading}
-                countdown={countdown}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (turnstileSiteKey && !turnstileToken) {
-                    setError(t('auth:signError.turnstileRequired'));
-                    return;
-                  }
-                  const res = sendSigninVerificationCodeRoSchema.safeParse({
-                    email: emailRef.current?.value,
-                    turnstileToken,
-                  });
-                  if (!res.success) {
-                    setError(fromZodError(res.error).message);
-                    return;
-                  }
-                  sendSigninCodeMutation(res.data);
-                }}
-              />
+              <div className="flex gap-2">
+                <Input
+                  className="h-9 sm:h-8"
+                  id="verification-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder={t('auth:placeholder.verificationCode')}
+                  value={signinCode}
+                  onChange={(e) => setSigninCode(e.target.value)}
+                  disabled={isLoading}
+                />
+                <SendVerificationButton
+                  label={signinCodeSent ? undefined : t('auth:button.sendCode')}
+                  disabled={sendSigninCodeLoading || countdown > 0}
+                  loading={sendSigninCodeLoading}
+                  countdown={countdown}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (turnstileSiteKey && !turnstileToken) {
+                      setError(t('auth:signError.turnstileRequired'));
+                      return;
+                    }
+                    const res = sendSigninVerificationCodeRoSchema.safeParse({
+                      email: emailRef.current?.value,
+                      turnstileToken,
+                    });
+                    if (!res.success) {
+                      setError(fromZodError(res.error).message);
+                      return;
+                    }
+                    sendSigninCodeMutation(res.data);
+                  }}
+                />
+              </div>
             </div>
           )}
           {!isCodeSignin && (
@@ -508,46 +510,48 @@ export const SignForm: FC<ISignForm> = (props) => {
           {showVerificationCode && (
             <div className="mt-4 grid gap-3">
               <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
-              <Input
-                className="h-9 sm:h-8"
-                id="verification-code"
-                type="text"
-                placeholder={t('auth:placeholder.verificationCode')}
-                value={signupVerificationCode}
-                onChange={(e) => setSignupVerificationCode(e.target.value)}
-              />
-              <SendVerificationButton
-                disabled={sendSignupVerificationCodeLoading || countdown > 0}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const emailInput = e.currentTarget.form?.querySelector(
-                    '#email'
-                  ) as HTMLInputElement;
-                  const email = emailInput?.value;
-                  if (!email) {
-                    return;
-                  }
+              <div className="flex gap-2">
+                <Input
+                  className="h-9 sm:h-8"
+                  id="verification-code"
+                  type="text"
+                  placeholder={t('auth:placeholder.verificationCode')}
+                  value={signupVerificationCode}
+                  onChange={(e) => setSignupVerificationCode(e.target.value)}
+                />
+                <SendVerificationButton
+                  disabled={sendSignupVerificationCodeLoading || countdown > 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const emailInput = e.currentTarget.form?.querySelector(
+                      '#email'
+                    ) as HTMLInputElement;
+                    const email = emailInput?.value;
+                    if (!email) {
+                      return;
+                    }
 
-                  // Check Turnstile verification if enabled
-                  if (turnstileSiteKey && !turnstileToken) {
-                    setError(t('auth:signError.turnstileRequired'));
-                    return;
-                  }
+                    // Check Turnstile verification if enabled
+                    if (turnstileSiteKey && !turnstileToken) {
+                      setError(t('auth:signError.turnstileRequired'));
+                      return;
+                    }
 
-                  const res = sendSignupVerificationCodeRoSchema.safeParse({
-                    email,
-                    turnstileToken,
-                  });
-                  if (!res.success) {
-                    setError(fromZodError(res.error).message);
-                    return;
-                  }
-                  sendSignupVerificationCodeMutation({ email, turnstileToken });
-                }}
-                loading={sendSignupVerificationCodeLoading}
-                countdown={countdown}
-              />
+                    const res = sendSignupVerificationCodeRoSchema.safeParse({
+                      email,
+                      turnstileToken,
+                    });
+                    if (!res.success) {
+                      setError(fromZodError(res.error).message);
+                      return;
+                    }
+                    sendSignupVerificationCodeMutation({ email, turnstileToken });
+                  }}
+                  loading={sendSignupVerificationCodeLoading}
+                  countdown={countdown}
+                />
+              </div>
             </div>
           )}
 

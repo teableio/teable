@@ -42,10 +42,14 @@ export const buildFilledLinkValueExpression = (params: {
       .andThen((dbFieldName) => dbFieldName.value());
 
     if (linkField.isMultipleValue()) {
-      const valuesSql = sql.join(
-        linkItems.map((item, index) => sql`(${item.id}, ${item.title ?? null}, ${index})`),
-        sql`, `
-      );
+      // A batch combines many of these expressions. Bind aligned arrays rather
+      // than three parameters per item so retained links cannot exhaust PG binds.
+      const recordIds: string[] = [];
+      const titles: Array<string | null> = [];
+      for (const item of linkItems) {
+        recordIds.push(item.id);
+        titles.push(item.title ?? null);
+      }
       return ok(sql`(
         SELECT COALESCE(
           jsonb_agg(
@@ -59,7 +63,8 @@ export const buildFilledLinkValueExpression = (params: {
           ),
           '[]'::jsonb
         )
-        FROM (VALUES ${valuesSql}) AS v(id, title, ord)
+        FROM unnest(${sql.val(recordIds)}::text[], ${sql.val(titles)}::text[])
+          WITH ORDINALITY AS v(id, title, ord)
         LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = v.id
       )`);
     }

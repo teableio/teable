@@ -52,10 +52,10 @@
   "collaborators": "İş birlikçiler",
   "more": "Daha fazla",
   "pin": {
-    "add": "Sabitlemelere ekle",
-    "remove": "Sabitlemeleri kaldır",
-    "pin": "Sabitle",
-    "empty": "Sabitlediğiniz projeler ve alanlar burada görünecek"
+    "add": "Favorilere ekle",
+    "remove": "Favorilerden kaldır",
+    "pin": "Favoriler",
+    "empty": "Favorilerinize eklediğiniz projeler ve alanlar burada görünecek"
   },
   "tooltip": {
     "noPermissionToCreateBase": "Proje oluşturma izniniz yok"
@@ -207,19 +207,51 @@
     "form": {
       "title": "Başlık",
       "description": "Açıklama",
-      "security": "Güvenlik",
-      "advanced": "Gelişmiş",
+      "changelog": "Sürüm notları",
+      "changelogPlaceholder": "Mevcut kurulumlar için değişiklikleri açıklayın; yükseltme önizlemesinde gösterilir",
       "publishNode": "Düğümleri yayınla",
       "includeData": "Verileri dahil et",
       "defaultActiveNode": "Varsayılan aktif düğüm",
       "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
-      "titlePlaceholder": "Çalışmanıza bir ad verin..."
+      "titlePlaceholder": "Çalışmanıza bir ad verin...",
+      "cover": "Kapak",
+      "coverHint": "16:9; katalog kartında ve herkese açık sayfada kullanılır",
+      "versionTitle": "Sürüm içeriği",
+      "addChangelog": "Sürüm notları ekle"
     },
     "publishToCommunity": "Şablon merkezinde yayınla",
     "publish": "Yayınla",
     "publishSuccess": "Yayınlama başarılı!",
     "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
     "update": "Güncelle",
+    "submit": "İncelemeye gönder",
+    "submitted": "İncelemeye gönderildi",
+    "review": {
+      "status": {
+        "review": "İncelemede",
+        "rejected": "Geri gönderildi",
+        "withdrawn": "Geri çekildi"
+      },
+      "submittedTime": "Gönderildi: {{time}}",
+      "note": "İnceleyen notu",
+      "checks": "Otomatik kontroller",
+      "check": {
+        "connectors": "Bağlantılar",
+        "privacy": "Gizlilik",
+        "estimate": "Çalıştırma tahmini",
+        "trial": "Deneme çalıştırması"
+      },
+      "checkMessage": {
+        "connectors": "Burada bağlanamıyor: {{providers}}",
+        "privacy": "Kayıtlar dahil; kişisel veri içerip içermediklerini kontrol edin",
+        "estimate": "Ayda yaklaşık {{runs}} çalıştırma; ücretsiz planın sınırı olan {{free}} değerinin üzerinde",
+        "trial": "Otomasyonlar hesap gerektirmiyor; hesap olmadan çalıştıklarından emin olun"
+      },
+      "withdraw": "Geri çek",
+      "withdrawn": "Gönderim geri çekildi.",
+      "live": "Yayında · v{{version}}",
+      "publicLink": "Herkese açık bağlantı"
+    },
     "unPublish": "Yayından kaldır",
     "unPublishSuccess": "Proje başarıyla yayından kaldırıldı!",
     "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
@@ -237,9 +269,7 @@
     "urlCopied": "URL panoya kopyalandı!",
     "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "Resmi olarak öne çıkan olarak seçildi. Şablonunuz daha fazla görünürlük kazanacak.",
-    "unfeaturedTip": "Henüz öne çıkarılmadı. Tavsiye edilme şansı için geliştirmeye devam edin. Daha fazla kişinin çalışmanızı görmesine izin verin.",
     "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
     "shareWith": "Şununla paylaş",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "Düzeltmeye Git",
       "redeploy": "Yeniden Dağıt",
       "unnamedApp": "Adsız Uygulama"
-    }
+    },
+    "submitVersion": "v{{version}} sürümünü incelemeye gönder"
   },
   "dataDb": {
     "create": {

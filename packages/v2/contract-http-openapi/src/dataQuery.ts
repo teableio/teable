@@ -6,11 +6,11 @@ import {
   DATA_QUERY_VALIDATE_PATH,
   type ValidateDataQueryResponseDto,
 } from '@teable/v2-contract-http';
-import { explainDataQueryEndpoint } from '@teable/v2-contract-http-implementation/data-query-explain';
 import {
   executeDataQueryEndpoint,
   validateDataQueryEndpoint,
 } from '@teable/v2-contract-http-implementation/data-query';
+import { explainDataQueryEndpoint } from '@teable/v2-contract-http-implementation/data-query-explain';
 import {
   domainError,
   isDomainError,

@@ -364,6 +364,87 @@ describe('TableUpdateFlow', () => {
     expect(repository.provisionStateChanges).toEqual([]);
   });
 
+  it('finalizes schema provision inside the active transaction when requested', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const transaction = {
+      kind: 'unitOfWorkTransaction' as const,
+      scope: 'data' as const,
+      afterCommit: vi.fn(),
+    };
+    const context = {
+      ...createContext(),
+      transaction,
+      transactions: { data: transaction },
+    };
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const nextName = TableName.create('Flow Table In Transaction')._unsafeUnwrap();
+
+    const result = await flow.execute(
+      context,
+      { table },
+      (tableToUpdate) => tableToUpdate.update((mutator) => mutator.rename(nextName)),
+      { finalizeWithinTransaction: true, publishEvents: false }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(transaction.afterCommit).not.toHaveBeenCalled();
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+  });
+
+  it('settles physical schema updates when the parent transaction rolls back after inline finalization', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      unitOfWork
+    );
+    const outerResult = await unitOfWork.withTransaction(
+      createContext(),
+      async (metaContext) => {
+        const dataResult = await unitOfWork.withTransaction(
+          metaContext,
+          async (dataContext) => {
+            const innerResult = await flow.execute(
+              dataContext,
+              { table },
+              (tableToUpdate) =>
+                tableToUpdate.update((mutator) =>
+                  mutator.addField(buildTextField('e', 'Inline Rollback'))
+                ),
+              { finalizeWithinTransaction: true, publishEvents: false }
+            );
+            expect(innerResult.isOk()).toBe(true);
+            return ok(undefined);
+          },
+          { scope: 'data' }
+        );
+        expect(dataResult.isOk()).toBe(true);
+        return err(domainError.unexpected({ message: 'outer rollback' }));
+      },
+      { scope: 'meta' }
+    );
+    expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+      'error',
+    ]);
+    expect(repository.provisionOperations.at(-1)).toMatchObject({
+      lastError: 'Parent transaction rolled back',
+      result: { tableUpdateFailure: { code: 'transaction.parent_rolled_back' } },
+    });
+    expect(repository.provisionOperations.at(-1)?.payload).toBeUndefined();
+  });
+
   it('attaches persisted view versions to view column meta events', async () => {
     const table = buildTable();
     const eventBus = new FakeEventBus();

@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { AccessList } from './AccessList';
 
 interface IValue {
@@ -36,6 +37,7 @@ interface IFormAccess {
 export const AccessSelect = (props: IFormAccess) => {
   const { onChange, value } = props;
   const { t } = useTranslation('token');
+  const { t: tCommon } = useTranslation('common');
   const contentDir = useContentDir();
   const [bases, setBases] = useState<string[]>(value?.baseIds || []);
   const [spaces, setSpaces] = useState<string[]>(value?.spaceIds || []);
@@ -166,15 +168,15 @@ export const AccessSelect = (props: IFormAccess) => {
                       ?.map((base) => (
                         <CommandItem
                           key={base.id}
-                          value={`${base.id}-${base.name}`}
-                          title={base.name}
+                          value={`${base.id}-${getBaseDisplayName(base.name, tCommon)}`}
+                          title={getBaseDisplayName(base.name, tCommon)}
                           onSelect={() => {
                             setBases((prev) => [...prev, base.id]);
                             setOpen(false);
                             onChangeInner(undefined, base.id);
                           }}
                         >
-                          <span dir={contentDir}>{base.name}</span>
+                          <span dir={contentDir}>{getBaseDisplayName(base.name, tCommon)}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -206,8 +208,8 @@ export const AccessSelect = (props: IFormAccess) => {
                           <CommandItem
                             className="gap-1"
                             key={base.id}
-                            value={`${base.id}-${base.name}`}
-                            title={base.name}
+                            value={`${base.id}-${getBaseDisplayName(base.name, tCommon)}`}
+                            title={getBaseDisplayName(base.name, tCommon)}
                             onSelect={() => {
                               setBases((prev) => [...prev, base.id]);
                               setOpen(false);
@@ -219,7 +221,7 @@ export const AccessSelect = (props: IFormAccess) => {
                             ) : (
                               <LayoutGrid className="size-4 shrink-0" />
                             )}
-                            <div className="truncate">{base.name}</div>
+                            <div className="truncate">{getBaseDisplayName(base.name, tCommon)}</div>
                           </CommandItem>
                         ))}
                     </CommandGroup>

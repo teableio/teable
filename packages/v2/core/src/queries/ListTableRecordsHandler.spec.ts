@@ -1136,7 +1136,7 @@ describe('ListTableRecordsHandler', () => {
       tableId: tableWithHiddenStatus.id().toString(),
       viewId: view.id().toString(),
       ignoreViewQuery: true,
-      projection: [titleField.id().toString()],
+      projection: [statusField.id().toString(), titleField.id().toString()],
       search: ['hello', '', true],
     });
     const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
@@ -1144,6 +1144,125 @@ describe('ListTableRecordsHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expect(captured.searchFieldIds).toEqual([titleField.id().toString()]);
+  });
+
+  it('treats a personal projection as a set while preserving view column order', async () => {
+    const table = buildTable();
+    const titleField = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    let matchFieldIds: string[] | undefined;
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        matchFieldIds = options?.searchFieldMatchesSearch?.visibleFieldIds?.map((fieldId) =>
+          fieldId.toString()
+        );
+        return ok({ records: [], total: 0 });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        viewId: table.views()[0]!.id().toString(),
+        projection: [statusField.id().toString(), titleField.id().toString()],
+        search: ['hello', '', true],
+      },
+      {
+        includeSearchFieldMatches: true,
+        searchIndexMode: 'view',
+        searchFieldScope: 'projection',
+        applySearchRowFilter: false,
+      }
+    )._unsafeUnwrap();
+
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    await handler.handle(createContext(), query);
+
+    expect(matchFieldIds).toEqual([titleField.id().toString(), statusField.id().toString()]);
+  });
+
+  it('keeps mask dependencies out of personal-projection search matches', async () => {
+    const table = buildTable();
+    const titleField = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const titleId = titleField.id().toString();
+    const statusId = statusField.id().toString();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    const visibleWhen = {
+      field: () => statusField,
+      isSatisfiedBy: () => true,
+      mutate: () => ok(undefined as never),
+      accept: () => ok(undefined),
+    } as never;
+    const recordId = createRecordId('p');
+    const captured: { projectionFieldIds?: string[]; matchFieldIds?: string[] } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        const matchFieldIds = options?.searchFieldMatchesSearch?.visibleFieldIds ?? [];
+        captured.projectionFieldIds = options?.projectionFieldIds?.map((fieldId) =>
+          fieldId.toString()
+        );
+        captured.matchFieldIds = matchFieldIds.map((fieldId) => fieldId.toString());
+        return ok({
+          records: [
+            {
+              id: recordId.toString(),
+              version: 1,
+              fields: { [titleId]: 'needle', [statusId]: 'needle' },
+            },
+          ],
+          total: 1,
+          searchMatches: matchFieldIds.map((fieldId) => ({ index: 1, fieldId, recordId })),
+        });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        viewId: table.views()[0]!.id().toString(),
+        fieldKeyType: FieldKeyType.Id,
+        projection: [titleId],
+        search: ['needle', '', true],
+      },
+      {
+        includeSearchFieldMatches: true,
+        searchIndexMode: 'view',
+        searchFieldScope: 'projection',
+        applySearchRowFilter: false,
+        queryScope: {
+          readableFieldIds: new Set([titleId, statusId]),
+          fieldMasks: [{ fieldId: titleId, visibleWhen }],
+        },
+      }
+    )._unsafeUnwrap();
+
+    const result = await new ListTableRecordsHandler(
+      tableRepository,
+      recordQueryRepo,
+      new NoopLogger()
+    ).handle(createContext(), query);
+
+    expect(result.isOk()).toBe(true);
+    expect(captured.projectionFieldIds).toEqual([titleId, statusId]);
+    expect(captured.matchFieldIds).toEqual([titleId]);
+    expect(result._unsafeUnwrap().searchMatches).toEqual([
+      { index: 1, fieldId: titleField.id(), recordId },
+    ]);
+    expect(result._unsafeUnwrap().records[0]?.fields).toEqual({ [titleId]: 'needle' });
   });
 
   it('resolves named field keys for filter and sort, then transforms response keys back to names', async () => {

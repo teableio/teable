@@ -3,7 +3,7 @@ import { getBaseNodeChannel } from '@teable/core';
 import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
 import { getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useConnection } from '@teable/sdk/hooks';
+import { usePresenceConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildTreeItems, filterAutoHiddenFolders } from './helper';
@@ -11,7 +11,7 @@ import { buildTreeItems, filterAutoHiddenFolders } from './helper';
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
 export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => {
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const channel = getBaseNodeChannel(baseId);
   const queryClient = useQueryClient();
 
