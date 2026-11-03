@@ -40,9 +40,16 @@ interface IProps {
   removable: boolean;
   isActive: boolean;
   onEdit: (value: boolean) => void;
+  onContextMenuOpenChange?: (open: boolean) => void;
 }
 
-export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
+export const ViewListItem: React.FC<IProps> = ({
+  view,
+  removable,
+  isActive,
+  onEdit,
+  onContextMenuOpenChange,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -191,7 +198,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu onOpenChange={onContextMenuOpenChange}>
         <ContextMenuTrigger asChild disabled={isEditing || isReadOnlyPreview}>
           <div
             ref={viewItemRef}
