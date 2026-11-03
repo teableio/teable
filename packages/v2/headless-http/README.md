@@ -42,4 +42,18 @@ This package is not an auth boundary. Do not expose it to an untrusted network
 without a host authentication and authorization layer.
 
 `createHeadlessClient` re-exports the typed `@teable/v2-contract-http-client`
-factory for the table contract.
+factory for the same contract.
+
+The canonical operation-preview contract is mounted with the rest of the v2
+contract:
+
+- `GET /operations/preview/capabilities` discovers registered operations and
+  their required permission scopes and limitations.
+- `POST /operations/preview` returns the canonical preview envelope for one
+  registered operation.
+
+Capability discovery does not grant the listed permission. The host must
+authenticate and authorize the caller before exposing either preview or its
+corresponding write route. PGlite capabilities are partial: without a host
+preview-authorization adapter, affected resource identities are redacted and
+authorization gaps remain explicit in warnings and unknown coverage.

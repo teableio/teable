@@ -321,7 +321,9 @@ export const useCreateCellValue2GridDisplay = (
             const rawDisplayData = field.cellValue2String(cellValue);
             const isMarkdown = isMarkdownShowAs(field.options);
             const isLookupField = Boolean(field.isLookup);
-            const displayData = isMarkdown ? stripMarkdown(rawDisplayData) : rawDisplayData;
+            const displayData = isMarkdown
+              ? stripMarkdown(rawDisplayData, { keepLines: true })
+              : rawDisplayData;
             return {
               ...baseCellProps,
               type: CellType.Text,

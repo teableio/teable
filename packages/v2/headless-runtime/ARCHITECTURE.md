@@ -8,6 +8,8 @@ Declaration: If the folder I belong to changes, please update me, especially the
 - Select a persistence backend: PGlite or PostgreSQL.
 - Bootstrap a local actor and undo-capture globals for PGlite.
 - Expose command/query buses, computed draining, realtime, attachments, and lifecycle.
+- Register the canonical command-explain preview module for the Node/Bun PGlite
+  composition, where `container-browser` intentionally omits it.
 - Stay free of UI, authentication, billing, and cloud control-plane concerns.
 
 ## Boundaries
@@ -17,6 +19,8 @@ Declaration: If the folder I belong to changes, please update me, especially the
 - The host owns identity, authorization, audit, and presentation.
 - Backend-specific wiring stays in `container-browser` / `container-node`; this
   package only composes them.
+- Preview registration does not add authorization. Capability permission scopes
+  are requirements for the host, and missing preview adapters remain explicit.
 
 ## Backends
 
@@ -90,8 +94,9 @@ projections remain PostgreSQL-first.
   attachment seam, lifecycle.
 - `src/realtime.ts` - In-process realtime engine and subscriptions.
 - `src/registerRealtime.ts` - Selected engine and record/table/field/view projection registration.
-- `src/index.spec.ts` - PGlite coverage for base creation, formula update,
-  link/lookup/rollup, persistent reopen, attachments, realtime, and limits.
+- `src/index.spec.ts` - PGlite coverage for composition and preview registration,
+  base creation, formula update, link/lookup/rollup, persistent reopen,
+  attachments, realtime, and limits.
 - `src/realtime.spec.ts` - View projection and collection-notification coverage.
 
 ## Known limitations

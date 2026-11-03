@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { JwtSignOptions, JwtVerifyOptions } from '@nestjs/jwt';
 import { JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
@@ -88,12 +89,45 @@ export class TeableJwtService {
    * BACKEND_JWT_SECRET_OLD is removed.
    */
   async classifySigningSecret(token: string): Promise<'current' | 'old' | 'none'> {
+    const hs256 = this.classifyHs256(token);
+    if (hs256) return hs256;
     for (const [index, secret] of this.secrets.entries()) {
       try {
         await this.bare.verifyAsync(token, { secret, ignoreExpiration: true });
         return index === 0 ? 'current' : 'old';
       } catch {
         // try the next secret
+      }
+    }
+    return 'none';
+  }
+
+  /**
+   * The HS256 tokens this service signs, attributed with one HMAC per secret:
+   * the admin JWT credentials page classifies every app of the instance on each
+   * listing, and a full jsonwebtoken verify (a thrown error per secret that
+   * did not sign) blocks the event loop for seconds at tens of thousands of
+   * apps. Same comparison jws makes: the recomputed base64url signature
+   * against the token's. undefined leaves any other token to jsonwebtoken.
+   */
+  private classifyHs256(token: string): 'current' | 'old' | 'none' | undefined {
+    const parts = token.split('.');
+    if (parts.length !== 3) return undefined;
+    const [header, payload, signature] = parts;
+    try {
+      if (JSON.parse(Buffer.from(header, 'base64url').toString('utf8'))?.alg !== 'HS256') {
+        return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+    const given = Buffer.from(signature);
+    for (const [index, secret] of this.secrets.entries()) {
+      const expected = Buffer.from(
+        createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url')
+      );
+      if (expected.length === given.length && timingSafeEqual(expected, given)) {
+        return index === 0 ? 'current' : 'old';
       }
     }
     return 'none';

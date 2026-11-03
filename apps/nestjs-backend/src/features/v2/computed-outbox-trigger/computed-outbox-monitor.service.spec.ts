@@ -1,7 +1,75 @@
-import { Logger } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import { Writable } from 'node:stream';
 
+import { Logger } from '@nestjs/common';
+import type { LoggerService } from '@nestjs/common';
+import { Logger as PinoNestLogger, PinoLogger } from 'nestjs-pino';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { KyselyPGlite } from '../../../../../../packages/v2/adapter-db-postgres-pglite/src/kyselyPgliteBrowser';
+import {
+  assembleComputedOutboxBasePendingCapacityPage,
+  buildComputedOutboxBasePendingCapacityQuery,
+} from '../../../global/computed-outbox-maintenance-query';
 import { ComputedOutboxMonitorService } from './computed-outbox-monitor.service';
+
+let capacityClient: KyselyPGlite['client'];
+
+beforeAll(async () => {
+  capacityClient = (await KyselyPGlite.create('memory://')).client;
+  await capacityClient.exec(`create table "base" (id text primary key, space_id text)`);
+  await capacityClient.exec(`create table space_data_db_binding (space_id text, mode text)`);
+  await capacityClient.exec(
+    `create table computed_update_pause_scope (
+       id text primary key, scope_type text not null, scope_id text not null, resume_at timestamptz
+     )`
+  );
+  await capacityClient.exec(
+    `create table computed_update_outbox (
+       id text primary key, base_id text not null, seed_table_id text not null,
+       affected_table_ids text[], status text not null, next_run_at timestamptz not null default now()
+     )`
+  );
+});
+
+afterAll(async () => {
+  await capacityClient.close();
+});
+
+const pageCapacity = async (
+  counts: Record<string, number>,
+  request: { threshold: number; limit: number; afterBaseId?: string }
+) => {
+  await capacityClient.exec(
+    `truncate "base", space_data_db_binding, computed_update_outbox;
+     insert into space_data_db_binding (space_id, mode) values ('spc', 'default')`
+  );
+  const entries = Object.entries(counts);
+  await capacityClient.query(
+    `insert into "base" (id, space_id)
+     select id, 'spc' from unnest($1::text[]) as id`,
+    [entries.map(([baseId]) => baseId)]
+  );
+  const pendingBaseIds = entries.flatMap(([baseId, pending]) =>
+    Array.from({ length: pending }, () => baseId)
+  );
+  await capacityClient.query(
+    `insert into computed_update_outbox
+       (id, base_id, seed_table_id, affected_table_ids, status)
+     select 'task-' || ordinal::text, base_id, 'tbl', array['tbl']::text[], 'pending'
+     from unnest($1::text[]) with ordinality as pending(base_id, ordinal)`,
+    [pendingBaseIds]
+  );
+  const query = buildComputedOutboxBasePendingCapacityQuery({ storage: 'default' }, request);
+  let next = 0;
+  const result = await capacityClient.query<{ baseId: string; pending: number | string }>(
+    query.sql.replaceAll('?', () => `$${(next += 1)}`),
+    [...query.bindings]
+  );
+  return assembleComputedOutboxBasePendingCapacityPage(
+    result.rows.map((row) => ({ baseId: row.baseId, pending: Number(row.pending) })),
+    request
+  );
+};
 
 vi.mock('../../../global/data-db-client-manager.service', () => ({
   DataDbClientManager: class DataDbClientManager {},
@@ -17,6 +85,8 @@ const bullConfig = {
   redriveMaxPublishPerTarget: 200,
   claimConcurrencyPerBase: 2,
   claimConcurrencyPerSeedTable: 2,
+  basePendingCapacityThreshold: 1000,
+  basePendingCapacityQueryLimit: 50,
 } as const;
 
 const targets = [
@@ -40,6 +110,19 @@ const createMetrics = () => ({
   updateBacklogSnapshot: vi.fn(),
   recordMonitor: vi.fn(),
 });
+
+const idleMaintenanceSnapshot = {
+  duePending: 0,
+  scheduledPending: 0,
+  pausedPending: 0,
+  activeProcessing: 0,
+  staleProcessing: 0,
+  dead: 0,
+  anomalyGroups: 0,
+  oldestDueAgeMs: 0,
+  oldestPausedAgeMs: 0,
+  activePauseScopeCount: 0,
+};
 
 describe('ComputedOutboxMonitorService', () => {
   it('keeps the durable snapshot fresh', async () => {
@@ -890,6 +973,524 @@ describe('ComputedOutboxMonitorService', () => {
     } finally {
       warn.mockRestore();
       log.mockRestore();
+    }
+  });
+
+  it('pages per base so the (N+1)th over-threshold base appears on a later sample', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T00:00:00.000Z'));
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const capacity = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: undefined,
+        scannedThroughBaseId: 'bse-a',
+        scannedToEnd: false,
+        bases: [{ baseId: 'bse-a', pending: 2000 }],
+        nextBaseId: 'bse-a',
+        truncated: true,
+      })
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: 'bse-a',
+        scannedThroughBaseId: 'bse-b',
+        scannedToEnd: false,
+        bases: [{ baseId: 'bse-b', pending: 2000 }],
+        nextBaseId: 'bse-b',
+        truncated: true,
+      })
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: 'bse-b',
+        scannedToEnd: true,
+        bases: [],
+        truncated: false,
+      })
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: undefined,
+        scannedToEnd: true,
+        bases: [],
+        truncated: false,
+      });
+    const service = new ComputedOutboxMonitorService(
+      bullConfig,
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      await service.getOverview({ force: true });
+
+      const warned = warn.mock.calls
+        .map(([payload]) => payload as Record<string, unknown>)
+        .filter(({ event }) => event === 'computed:outbox:base_pending_capacity');
+      expect(warned).toEqual([
+        expect.objectContaining({
+          storage: 'default',
+          baseId: 'bse-a',
+          pending: 2000,
+          threshold: 1000,
+        }),
+        expect.objectContaining({
+          storage: 'default',
+          baseId: 'bse-b',
+          pending: 2000,
+          threshold: 1000,
+        }),
+      ]);
+      expect(capacity.mock.calls[1][1]).toMatchObject({ afterBaseId: 'bse-a' });
+      expect(
+        log.mock.calls
+          .map(([payload]) => payload as Record<string, unknown>)
+          .filter(({ event }) => event === 'computed:outbox:base_pending_capacity_recovered')
+      ).toHaveLength(0);
+
+      await service.getOverview({ force: true });
+      // The wrap page (after bse-b, scannedToEnd) proves only ids above bse-b;
+      // nothing at or below bse-b is covered by this page.
+      expect(
+        log.mock.calls
+          .map(([payload]) => payload as Record<string, unknown>)
+          .filter(({ event }) => event === 'computed:outbox:base_pending_capacity_recovered')
+      ).toHaveLength(0);
+
+      await service.getOverview({ force: true });
+      expect(capacity.mock.calls[3][1]).toMatchObject({ afterBaseId: undefined });
+      const recovered = log.mock.calls
+        .map(([payload]) => payload as Record<string, unknown>)
+        .filter(({ event }) => event === 'computed:outbox:base_pending_capacity_recovered');
+      expect(recovered).toEqual([
+        expect.objectContaining({ baseId: 'bse-a', pending: null }),
+        expect.objectContaining({ baseId: 'bse-b', pending: null }),
+      ]);
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('never reports recovery from a truncated page that merely omitted a base', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const capacity = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: undefined,
+        scannedThroughBaseId: 'bse-hot',
+        scannedToEnd: false,
+        bases: [{ baseId: 'bse-hot', pending: 1500 }],
+        nextBaseId: 'bse-hot',
+        truncated: true,
+      })
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 1,
+        afterBaseId: 'bse-hot',
+        scannedThroughBaseId: 'bse-other',
+        scannedToEnd: false,
+        bases: [{ baseId: 'bse-other', pending: 9000 }],
+        nextBaseId: 'bse-other',
+        truncated: true,
+      });
+    const service = new ComputedOutboxMonitorService(
+      bullConfig,
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      log.mockClear();
+      warn.mockClear();
+
+      await service.getOverview({ force: true });
+
+      expect(log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'computed:outbox:base_pending_capacity_recovered' })
+      );
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'computed:outbox:base_pending_capacity_truncated',
+          storage: 'default',
+          threshold: 1000,
+          limit: 50,
+          afterBaseId: 'bse-hot',
+          nextBaseId: 'bse-other',
+        })
+      );
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it('keeps cursor and suppression state but reports nothing when the probe fails', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const capacity = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 10,
+        afterBaseId: undefined,
+        scannedThroughBaseId: 'bse-hot',
+        scannedToEnd: true,
+        bases: [{ baseId: 'bse-hot', pending: 1500 }],
+        truncated: false,
+      })
+      .mockRejectedValueOnce(new Error('db unavailable'))
+      .mockResolvedValueOnce({
+        threshold: 1000,
+        limit: 10,
+        afterBaseId: undefined,
+        scannedToEnd: true,
+        bases: [],
+        truncated: false,
+      });
+    const service = new ComputedOutboxMonitorService(
+      bullConfig,
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      log.mockClear();
+      warn.mockClear();
+
+      await service.getOverview({ force: true });
+      expect(log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'computed:outbox:base_pending_capacity_recovered' })
+      );
+
+      await service.getOverview({ force: true });
+      expect(log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'computed:outbox:base_pending_capacity_recovered',
+          baseId: 'bse-hot',
+          pending: null,
+        })
+      );
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it('recovers only the base a later real SQL page proves is below threshold', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T00:00:00.000Z'));
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const counts = Object.fromEntries([
+      ['bse-A', 2],
+      ['bse-B', 2],
+    ]);
+    const capacity = vi.fn(
+      async (
+        _target: unknown,
+        request: { threshold: number; limit: number; afterBaseId?: string }
+      ) => pageCapacity(counts, request)
+    );
+    const service = new ComputedOutboxMonitorService(
+      { ...bullConfig, basePendingCapacityThreshold: 2, basePendingCapacityQueryLimit: 1 },
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      await service.getOverview({ force: true });
+      expect(capacity.mock.calls[0][1]).toMatchObject({ limit: 1, afterBaseId: undefined });
+      expect(capacity.mock.calls[1][1]).toMatchObject({ limit: 1, afterBaseId: 'bse-A' });
+      await expect(capacity.mock.results[0].value).resolves.toMatchObject({
+        bases: [{ baseId: 'bse-A', pending: 2 }],
+        scannedToEnd: false,
+      });
+      await expect(capacity.mock.results[1].value).resolves.toMatchObject({
+        bases: [{ baseId: 'bse-B', pending: 2 }],
+        scannedToEnd: true,
+      });
+      counts['bse-A'] = 1;
+      log.mockClear();
+
+      await service.getOverview({ force: true });
+      expect(capacity.mock.calls[2][1]).toMatchObject({ afterBaseId: undefined });
+      const recovered = log.mock.calls
+        .map(([payload]) => payload as Record<string, unknown>)
+        .filter(({ event }) => event === 'computed:outbox:base_pending_capacity_recovered');
+      expect(recovered).toEqual([
+        expect.objectContaining({ storage: 'default', baseId: 'bse-A', pending: null }),
+      ]);
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps an alerted first-page identity while warning the 51st base', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T00:00:00.000Z'));
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const counts: Record<string, number> = Object.fromEntries(
+      Array.from({ length: 51 }, (_, index) => [`bse-${String(index + 1).padStart(2, '0')}`, 2])
+    );
+    const capacity = vi.fn(
+      async (
+        _target: unknown,
+        request: { threshold: number; limit: number; afterBaseId?: string }
+      ) => pageCapacity(counts, request)
+    );
+    const service = new ComputedOutboxMonitorService(
+      { ...bullConfig, basePendingCapacityThreshold: 2, basePendingCapacityQueryLimit: 50 },
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      await service.getOverview({ force: true });
+      expect(capacity.mock.calls[1][1]).toMatchObject({ afterBaseId: 'bse-50' });
+      counts['bse-01'] = 1;
+      log.mockClear();
+
+      await service.getOverview({ force: true });
+      expect(capacity.mock.calls[2][1]).toMatchObject({ afterBaseId: undefined });
+      const recovered = log.mock.calls
+        .map(([payload]) => payload as Record<string, unknown>)
+        .filter(({ event }) => event === 'computed:outbox:base_pending_capacity_recovered');
+      expect(recovered).toEqual([
+        expect.objectContaining({ storage: 'default', baseId: 'bse-01', pending: null }),
+      ]);
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'computed:outbox:base_pending_capacity',
+          baseId: 'bse-51',
+          pending: 2,
+        })
+      );
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('drops state for a target that leaves the inventory without a false recovery', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const capacity = vi.fn().mockResolvedValue({
+      threshold: 1000,
+      limit: 10,
+      afterBaseId: undefined,
+      scannedThroughBaseId: 'bse-hot',
+      scannedToEnd: true,
+      bases: [{ baseId: 'bse-hot', pending: 1500 }],
+      truncated: false,
+    });
+    const listTargets = vi
+      .fn()
+      .mockResolvedValueOnce([targets[0]])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([targets[0]]);
+    const service = new ComputedOutboxMonitorService(
+      bullConfig,
+      {
+        listComputedOutboxMaintenanceTargets: listTargets,
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      log.mockClear();
+
+      await service.getOverview({ force: true });
+      expect(log).not.toHaveBeenCalledWith(
+        'computed:outbox:base_pending_capacity_recovered',
+        expect.anything()
+      );
+
+      capacity.mockResolvedValue({
+        threshold: 1000,
+        limit: 10,
+        afterBaseId: undefined,
+        scannedToEnd: true,
+        bases: [],
+        truncated: false,
+      });
+      log.mockClear();
+      await service.getOverview({ force: true });
+      // State was pruned with the target, so the reappearing target cannot claim recovery.
+      expect(log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'computed:outbox:base_pending_capacity_recovered' })
+      );
+    } finally {
+      await service.onModuleDestroy();
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it('emits capacity alert and recovery JSON with queryable root fields through Pino', async () => {
+    const lines: string[] = [];
+    const destination = new Writable({
+      write(chunk, _encoding, callback) {
+        lines.push(chunk.toString());
+        callback();
+      },
+    });
+    const previousLogger = Reflect.get(Logger, 'staticInstanceRef');
+    if (!previousLogger || typeof previousLogger !== 'object' || !('log' in previousLogger)) {
+      throw new Error('Nest Logger has no restorable static logger');
+    }
+    const previousLoggerService = previousLogger as LoggerService;
+    const pinoLogger = new PinoLogger({
+      pinoHttp: [{ level: 'info' }, destination],
+    });
+    Logger.overrideLogger(new PinoNestLogger(pinoLogger, {}));
+
+    const capacity = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threshold: 2,
+        limit: 1,
+        afterBaseId: undefined,
+        scannedThroughBaseId: 'bse-A',
+        scannedToEnd: false,
+        bases: [{ baseId: 'bse-A', pending: 3 }],
+        nextBaseId: 'bse-A',
+        truncated: true,
+      })
+      .mockResolvedValueOnce({
+        threshold: 2,
+        limit: 1,
+        afterBaseId: 'bse-A',
+        scannedThroughBaseId: 'bse-B',
+        scannedToEnd: true,
+        bases: [{ baseId: 'bse-B', pending: 2 }],
+        truncated: false,
+      })
+      .mockResolvedValueOnce({
+        threshold: 2,
+        limit: 1,
+        afterBaseId: undefined,
+        scannedThroughBaseId: 'bse-B',
+        scannedToEnd: true,
+        bases: [{ baseId: 'bse-B', pending: 2 }],
+        truncated: false,
+      });
+    const service = new ComputedOutboxMonitorService(
+      {
+        ...bullConfig,
+        basePendingCapacityThreshold: 2,
+        basePendingCapacityQueryLimit: 1,
+      },
+      {
+        listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+        inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue(idleMaintenanceSnapshot),
+        inspectComputedOutboxBasePendingCapacity: capacity,
+      } as never,
+      createMetrics() as never
+    );
+
+    try {
+      await service.getOverview({ force: true });
+      await service.getOverview({ force: true });
+      await service.getOverview({ force: true });
+      const records = lines
+        .join('')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      const capacityRecords = records.filter(({ event }) =>
+        String(event).startsWith('computed:outbox:base_pending_capacity')
+      );
+      expect(capacityRecords).toEqual([
+        expect.objectContaining({
+          level: 40,
+          context: 'ComputedOutboxMonitorService',
+          event: 'computed:outbox:base_pending_capacity',
+          msg: 'computed:outbox:base_pending_capacity',
+          storage: 'default',
+          baseId: 'bse-A',
+          pending: 3,
+          threshold: 2,
+        }),
+        expect.objectContaining({
+          level: 40,
+          context: 'ComputedOutboxMonitorService',
+          event: 'computed:outbox:base_pending_capacity_truncated',
+          msg: 'computed:outbox:base_pending_capacity_truncated',
+          storage: 'default',
+          threshold: 2,
+          limit: 1,
+        }),
+        expect.objectContaining({
+          level: 40,
+          context: 'ComputedOutboxMonitorService',
+          event: 'computed:outbox:base_pending_capacity',
+          msg: 'computed:outbox:base_pending_capacity',
+          storage: 'default',
+          baseId: 'bse-B',
+          pending: 2,
+          threshold: 2,
+        }),
+        expect.objectContaining({
+          level: 30,
+          context: 'ComputedOutboxMonitorService',
+          event: 'computed:outbox:base_pending_capacity_recovered',
+          msg: 'computed:outbox:base_pending_capacity_recovered',
+          storage: 'default',
+          baseId: 'bse-A',
+          pending: null,
+          threshold: 2,
+        }),
+      ]);
+    } finally {
+      await service.onModuleDestroy();
+      Logger.overrideLogger(previousLoggerService);
     }
   });
 });

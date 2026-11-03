@@ -1,7 +1,15 @@
 import { createServer } from 'node:http';
 
+import {
+  OPERATION_PREVIEW_CAPABILITIES_PATH,
+  OPERATION_PREVIEW_PATH,
+  operationPreviewCapabilitiesOkResponseSchema,
+  operationPreviewOkResponseSchema,
+  type ICreateBaseOkResponseDto,
+  type ICreateTableOkResponseDto,
+} from '@teable/v2-contract-http';
 import { createHeadlessRuntime } from '@teable/v2-headless-runtime';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createHeadlessHttpApp } from './index';
 
@@ -275,6 +283,102 @@ describe('createHeadlessHttpApp', () => {
     }
   }, 30_000);
 
+  it('serves canonical preview capabilities and preserves honest PGlite authorization coverage', async () => {
+    const runtime = await createHeadlessRuntime({
+      backend: { kind: 'pglite', dataDir: 'memory://' },
+    });
+    const resolveActorId = vi.fn(
+      (request: Request) => request.headers.get('x-authenticated-actor') ?? undefined
+    );
+    const app = createHeadlessHttpApp(runtime, { resolveActorId });
+
+    try {
+      const headers = new Headers();
+      headers.set('content-type', 'application/json');
+      headers.set('x-authenticated-actor', 'usr_preview');
+      const createdBase = await app.request('/bases/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'Preview base' }),
+      });
+      expect(createdBase.status).toBe(201);
+      const baseBody = (await createdBase.json()) as ICreateBaseOkResponseDto;
+      const baseId = baseBody.data.base.id;
+
+      const createTable = async (name: string, fieldId: string) => {
+        const response = await app.request('/tables/create', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            baseId,
+            name,
+            fields: [{ id: fieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+          }),
+        });
+        expect(response.status).toBe(201);
+        return (await response.json()) as ICreateTableOkResponseDto;
+      };
+      const targetTable = await createTable('Preview target', 'fldPreviewTargetName');
+      await createTable('Preview sibling', 'fldPreviewSiblingName');
+
+      const capabilitiesResponse = await app.request(OPERATION_PREVIEW_CAPABILITIES_PATH, {
+        headers,
+      });
+      expect(capabilitiesResponse.status).toBe(200);
+      const capabilities = operationPreviewCapabilitiesOkResponseSchema.parse(
+        await capabilitiesResponse.json()
+      );
+      const unauthenticatedCapabilities = await app.request(OPERATION_PREVIEW_CAPABILITIES_PATH);
+      expect(unauthenticatedCapabilities.status).toBe(401);
+
+      expect(capabilities.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            operation: 'table.delete',
+            canonicalWriteRoute: 'DELETE /tables/delete',
+            supportLevel: 'partial',
+            requiredPermissionScope: 'table.delete',
+          }),
+        ])
+      );
+      const tableDeleteCapability = capabilities.data.find(
+        (capability) => capability.operation === 'table.delete'
+      );
+      expect(tableDeleteCapability?.limitations).toContain(
+        'A preview authorization adapter is required to return resource identities.'
+      );
+
+      const previewResponse = await app.request(OPERATION_PREVIEW_PATH, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          operation: 'table.delete',
+          input: { baseId, tableId: targetTable.data.table.id },
+        }),
+      });
+      expect(previewResponse.status).toBe(200);
+      const preview = operationPreviewOkResponseSchema.parse(await previewResponse.json());
+      expect(preview.data).toMatchObject({
+        operation: 'table.delete',
+        outcome: 'incomplete',
+        authorization: 'not-applicable',
+      });
+      expect(preview.data.coverage.unknown).toContain('dependent-resource-authorization');
+      expect(preview.data.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'table.delete.authorization_scope_unavailable' }),
+        ])
+      );
+      expect(preview.data.effects[0]?.resource).toMatchObject({
+        visibility: 'redacted',
+        reason: 'authorization-scope-unavailable',
+      });
+      expect(resolveActorId).toHaveBeenCalled();
+    } finally {
+      await runtime.close();
+    }
+  }, 30_000);
+
   it('rejects an empty actor with the contract error envelope', async () => {
     const runtime = await createHeadlessRuntime({
       backend: { kind: 'pglite', dataDir: 'memory://' },
@@ -285,7 +389,11 @@ describe('createHeadlessHttpApp', () => {
       const headers = new Headers();
       headers.set('x-teable-actor', '');
 
-      const rejected = await app.request('/bases/list', { headers });
+      const rejected = await app.request(OPERATION_PREVIEW_PATH, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ operation: 'table.delete', input: {} }),
+      });
       expect(rejected.status).toBe(400);
       expect(rejected.headers.get('content-type')).toContain('application/json');
       expect(await rejected.json()).toEqual({

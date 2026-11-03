@@ -85,6 +85,29 @@ describe('TeableJwtService', () => {
     await expect(service.classifySigningSecret(foreign)).resolves.toBe('none');
   });
 
+  it('classifySigningSecret rejects a tampered or malformed token, and leaves other algorithms to jsonwebtoken', async () => {
+    const service = makeService('primary', 'old');
+    const current = await service.signAsync({ a: 1 });
+    const [header, payload, signature] = current.split('.');
+    const otherPayload = Buffer.from(JSON.stringify({ a: 2 })).toString('base64url');
+    const flipped = `${signature.slice(0, -2)}${signature.endsWith('AA') ? 'BB' : 'AA'}`;
+    await expect(
+      service.classifySigningSecret(`${header}.${otherPayload}.${signature}`)
+    ).resolves.toBe('none');
+    await expect(service.classifySigningSecret(`${header}.${payload}.${flipped}`)).resolves.toBe(
+      'none'
+    );
+    await expect(service.classifySigningSecret(`${header}.${payload}`)).resolves.toBe('none');
+    await expect(service.classifySigningSecret('not-a-jwt')).resolves.toBe('none');
+
+    // Not HS256: attributed by a full verify, as before the HMAC shortcut.
+    const hs512Old = await new JwtService({
+      secret: 'old',
+      signOptions: { algorithm: 'HS512' },
+    }).signAsync({ e: 5 });
+    await expect(service.classifySigningSecret(hs512Old)).resolves.toBe('old');
+  });
+
   it('passportSecretProvider hands back whichever secret verifies', async () => {
     const service = makeService('primary', 'old');
     const oldToken = await new JwtService({ secret: 'old' }).signAsync(

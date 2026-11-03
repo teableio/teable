@@ -19,15 +19,6 @@ const quoteIdent = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
 const isLinkField = (field: Field): field is LinkField => field instanceof LinkField;
 
-/**
- * Physical bulk path is preferred for all tables that includeRecords (T6153/T6156).
- * Self-links work when `__id` is preserved (junction endpoints stay valid).
- * Unsupported link storage shapes still fail closed inside the plan builder.
- */
-export const canUsePhysicalTableDuplicate = (_sourceTable: Table): boolean => {
-  return true;
-};
-
 const resolveDbFieldName = (field: Field): Result<string, DomainError> =>
   field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
 
@@ -58,6 +49,53 @@ const isSeparateLinkHostTable = (
   // Custom dedicated host (e.g. unit fixtures use `__source_related`).
   return true;
 };
+
+export type PhysicalTableDuplicateSourcePath =
+  | 'physical-candidate'
+  | 'hydrated-required'
+  | 'unknown';
+
+/**
+ * Source-only physical-copy admission. Final plan construction still waits for repository-assigned
+ * target physical metadata, while missing source metadata remains unknown rather than hydrated.
+ */
+export const classifyPhysicalTableDuplicateSourcePath = (
+  sourceTable: Table
+): PhysicalTableDuplicateSourcePath => {
+  const sourceTableName = sourceTable.dbTableName().andThen((name) => name.value());
+  if (sourceTableName.isErr()) return 'unknown';
+
+  for (const field of sourceTable.getFields()) {
+    if (field.type().equals(FieldType.button())) continue;
+    if (field instanceof LastModifiedTimeField || field instanceof LastModifiedByField) continue;
+    if (!(field instanceof LinkField)) {
+      if (resolveDbFieldName(field).isErr()) return 'unknown';
+      continue;
+    }
+    if (!field.config().hasDbConfig()) return 'unknown';
+
+    const host = field.fkHostTableNameString();
+    if (host.isErr()) return 'unknown';
+    if (host.value === sourceTableName.value) continue;
+
+    const isSelfLink = field.foreignTableId().equals(sourceTable.id());
+    if (
+      isSeparateLinkHostTable(
+        host.value,
+        sourceTableName.value,
+        field.foreignTableId().toString(),
+        isSelfLink
+      )
+    ) {
+      continue;
+    }
+    return 'hydrated-required';
+  }
+  return 'physical-candidate';
+};
+
+export const canUsePhysicalTableDuplicate = (sourceTable: Table): boolean =>
+  classifyPhysicalTableDuplicateSourcePath(sourceTable) === 'physical-candidate';
 
 const asLinkField = (field: Field): LinkField | undefined => {
   if (field instanceof LinkField) {

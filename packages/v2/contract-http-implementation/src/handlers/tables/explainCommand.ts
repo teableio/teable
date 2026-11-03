@@ -23,6 +23,7 @@ interface IExplainEndpointOptions {
   includeLocks?: boolean;
   sqlExplainMode?: SqlExplainMode;
   statementTimeoutMs?: number;
+  includeDataEstimate?: boolean;
 }
 
 const buildExplainOptions = (input: IExplainEndpointOptions) => ({
@@ -32,9 +33,10 @@ const buildExplainOptions = (input: IExplainEndpointOptions) => ({
   includeLocks: input.includeLocks ?? true,
   sqlExplainMode: input.sqlExplainMode ?? 'json',
   statementTimeoutMs: input.statementTimeoutMs ?? 0,
+  includeDataEstimate: input.includeDataEstimate ?? false,
 });
 
-export interface IExplainCreateFieldInput {
+export interface IExplainCreateFieldInput extends IExplainEndpointOptions {
   baseId: string;
   tableId: string;
   field: Record<string, unknown>;
@@ -42,81 +44,39 @@ export interface IExplainCreateFieldInput {
     viewId: string;
     orderIndex: number;
   };
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainUpdateFieldInput {
+export interface IExplainUpdateFieldInput extends IExplainEndpointOptions {
   tableId: string;
   fieldId: string;
   field: Record<string, unknown>;
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainDeleteFieldInput {
+export interface IExplainDeleteFieldInput extends IExplainEndpointOptions {
   baseId: string;
   tableId: string;
   fieldId: string;
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainCreateRecordInput {
+export interface IExplainCreateRecordInput extends IExplainEndpointOptions {
   tableId: string;
   fields: Record<string, unknown>;
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainUpdateRecordInput {
+export interface IExplainUpdateRecordInput extends IExplainEndpointOptions {
   tableId: string;
   recordId: string;
   fields: Record<string, unknown>;
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainDeleteRecordsInput {
+export interface IExplainDeleteRecordsInput extends IExplainEndpointOptions {
   tableId: string;
   recordIds: string[];
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
-export interface IExplainDeleteTableInput {
+export interface IExplainDeleteTableInput extends IExplainEndpointOptions {
   baseId: string;
   tableId: string;
-  analyze?: boolean;
-  includeSql?: boolean;
-  includeGraph?: boolean;
-  includeLocks?: boolean;
-  sqlExplainMode?: SqlExplainMode;
-  statementTimeoutMs?: number;
 }
 
 export const executeExplainCreateFieldEndpoint = async (

@@ -9,8 +9,11 @@ import { FieldType } from '../../domain/table/fields/FieldType';
 import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
 import {
   ensureSelectFieldOptionNameWithinLimit,
+  measureSelectOptionsBytes,
   resolveMaxSelectChoices,
+  resolveMaxSelectOptionsBytes,
   selectFieldOptionCountExceededError,
+  selectFieldOptionsBytesExceededError,
 } from '../../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
@@ -257,14 +260,17 @@ export class RecordWriteSideEffectService {
     const accepted: RecordWriteSideEffect[] = [];
     const rejectedNamesByFieldId: IsolatedSelectNames = new Map();
     const maxChoices = resolveMaxSelectChoices(domainContext);
+    const maxOptionsBytes = resolveMaxSelectOptionsBytes(domainContext);
     let countOverflowError: DomainError | undefined;
     let nameOverflowError: DomainError | undefined;
+    let bytesOverflowError: DomainError | undefined;
 
     for (const effect of effects) {
       const fieldResult = table.getField((field) => field.id().equals(effect.fieldId));
       if (fieldResult.isErr()) return err(fieldResult.error);
       const field = fieldResult.value as SingleSelectField | MultipleSelectField;
       const remaining = Math.max(0, maxChoices - selectOptionCount(field));
+      let optionsBytes = measureSelectOptionsBytes(field.selectOptions());
       const acceptedOptions: SelectOption[] = [];
 
       for (const option of effect.options) {
@@ -281,6 +287,15 @@ export class RecordWriteSideEffectService {
           rejectName(rejectedNamesByFieldId, effect.fieldId.toString(), name);
           continue;
         }
+        // +1 for the array separator; overcounts by one byte for an empty list.
+        const nextOptionsBytes = optionsBytes + measureSelectOptionsBytes([option]) - 1;
+        if (nextOptionsBytes > maxOptionsBytes) {
+          bytesOverflowError =
+            bytesOverflowError ?? selectFieldOptionsBytesExceededError(maxOptionsBytes);
+          rejectName(rejectedNamesByFieldId, effect.fieldId.toString(), name);
+          continue;
+        }
+        optionsBytes = nextOptionsBytes;
         acceptedOptions.push(option);
       }
 
@@ -297,7 +312,10 @@ export class RecordWriteSideEffectService {
       !hasRemainingFieldValues(recordFieldValues)
     ) {
       return err(
-        countOverflowError ?? nameOverflowError ?? selectFieldOptionCountExceededError(maxChoices)
+        countOverflowError ??
+          nameOverflowError ??
+          bytesOverflowError ??
+          selectFieldOptionCountExceededError(maxChoices)
       );
     }
 

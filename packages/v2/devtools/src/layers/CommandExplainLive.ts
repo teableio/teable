@@ -5,6 +5,11 @@ import {
   type ComplexityAssessResult,
   type IComplexityService,
   type IExplainService,
+  type IOperationPreviewService,
+  type OperationPreview,
+  type OperationPreviewRequest,
+  type PreviewCapability,
+  type PreviewPlannerRegistry,
   type ExplainResult,
 } from '@teable/v2-command-explain';
 import {
@@ -62,6 +67,12 @@ export const CommandExplainLive = Layer.effect(
     const complexityService = container.resolve(
       v2CommandExplainTokens.complexityService
     ) as IComplexityService;
+    const operationPreviewService = container.resolve(
+      v2CommandExplainTokens.operationPreviewService
+    ) as IOperationPreviewService;
+    const previewPlannerRegistry = container.resolve(
+      v2CommandExplainTokens.previewPlannerRegistry
+    ) as PreviewPlannerRegistry;
     const tableRepository = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
 
     const resolveBaseId = (tableIdRaw: string): Effect.Effect<string, CliError> =>
@@ -337,6 +348,24 @@ export const CommandExplainLive = Layer.effect(
             catch: (e) => CliError.fromUnknown(e),
           });
         }),
+
+      previewOperation: (
+        request: OperationPreviewRequest
+      ): Effect.Effect<OperationPreview, CliError> =>
+        Effect.gen(function* () {
+          const context = yield* createContext();
+          return yield* Effect.tryPromise({
+            try: async () => {
+              const result = await operationPreviewService.preview(context, request);
+              if (result.isErr()) throw result.error;
+              return result.value;
+            },
+            catch: (e) => CliError.fromUnknown(e),
+          });
+        }),
+
+      previewCapabilities: (): Effect.Effect<ReadonlyArray<PreviewCapability>, CliError> =>
+        Effect.sync(() => previewPlannerRegistry.capabilities()),
     };
   })
 );

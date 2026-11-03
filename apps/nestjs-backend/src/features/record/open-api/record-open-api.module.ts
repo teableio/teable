@@ -12,8 +12,8 @@ import { SelectionModule } from '../../selection/selection.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableModule } from '../../table/table.module';
 import { TableDomainQueryModule } from '../../table-domain';
-import { V2Module } from '../../v2/v2.module';
 import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
+import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModifyModule } from '../record-modify/record-modify.module';
@@ -21,6 +21,7 @@ import { RecordModule } from '../record.module';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
+import { RecordsPastePreviewRegistrar } from './record-paste-preview-registrar.service';
 import { RecordRestoreService } from './record-restore.service';
 
 @Module({
@@ -48,6 +49,7 @@ import { RecordRestoreService } from './record-restore.service';
   providers: [
     RecordOpenApiService,
     RecordOpenApiV2Service,
+    RecordsPastePreviewRegistrar,
     RecordRestoreService,
     TableQuerySearchVectorRuntimeService,
   ],

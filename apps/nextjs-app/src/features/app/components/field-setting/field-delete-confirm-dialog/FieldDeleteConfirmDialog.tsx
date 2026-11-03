@@ -1,9 +1,10 @@
 import {
   BaseNodeResourceType,
+  deleteField,
   deleteFields,
   type IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
-import { useFields } from '@teable/sdk/hooks';
+import { useBase, useBaseId, useFields } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -15,11 +16,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Button,
   Separator,
 } from '@teable/ui-lib/shadcn';
-import { ShieldCheck } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  OperationPreviewPanel,
+  useOperationPreview,
+} from '@/features/app/components/operation-preview';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { FieldDeleteImpact } from '@overridable/FieldDeleteImpact';
 import { useBaseNodeContext } from '../../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { LoginAppWarning } from '../../../components/LoginAppWarning';
@@ -50,17 +56,21 @@ const SingleFieldContent = ({
   tableId,
   fieldId,
   fieldName,
-  open,
+  affectedItems,
+  isLoading,
+  hasCanonicalPreview = false,
 }: {
   tableId: string;
   fieldId: string;
   fieldName: string;
-  open: boolean;
+  affectedItems: AffectedItem[];
+  isLoading: boolean;
+  hasCanonicalPreview?: boolean;
 }) => {
-  const { fieldRiskMap, isLoading } = useMultiFieldReferences(tableId, [fieldId], open);
-  const affectedItems = fieldRiskMap.get(fieldId) ?? [];
   const loginApps = useLoginAppsForField(tableId, fieldId);
   const { t } = useTranslation(['table']);
+
+  if (hasCanonicalPreview && affectedItems.length === 0 && !loginApps) return null;
 
   if (isLoading) {
     return (
@@ -107,24 +117,6 @@ const SingleFieldContent = ({
         )}
       </div>
     </AlertDialogDescription>
-  );
-};
-
-// Safe to delete state component
-const SafeToDeleteState = () => {
-  const { t } = useTranslation(['table']);
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <ShieldCheck className="size-12 text-muted-foreground" />
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-base font-medium text-foreground">
-          {t('table:field.editor.deleteField.safeToDelete')}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {t('table:field.editor.deleteField.safeToDeleteDesc')}
-        </p>
-      </div>
-    </div>
   );
 };
 
@@ -214,7 +206,11 @@ const DetailPanel = ({
   const { t } = useTranslation(['table']);
 
   if (affectedItems.length === 0 && !loginApps) {
-    return <SafeToDeleteState />;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t('table:field.editor.deleteField.noReferencesFound')}
+      </p>
+    );
   }
 
   return (
@@ -246,6 +242,9 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   const { tableId, fieldIds, open, onClose } = props;
   const { t } = useTranslation(['common', 'table']);
   const [isDeleting, setIsDeleting] = useState(false);
+  const baseId = useBaseId();
+  const base = useBase();
+  const { forceV2All } = useEnv();
   const allFields = useFields({ withHidden: true, withDenied: true });
 
   const targetFields = useMemo(
@@ -254,11 +253,26 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   );
 
   const isMultiField = fieldIds.length > 1;
+  const useV2 = Boolean(forceV2All || (base.v2Status?.useV2 ?? base.isCanary));
+  const previewEnabled =
+    open && useV2 && !isMultiField && Boolean(baseId && tableId && fieldIds[0]);
+  const preview = useOperationPreview(
+    {
+      operation: 'field.delete',
+      input: { baseId, tableId, fieldId: fieldIds[0] },
+      options: { detail: 'full' },
+    },
+    previewEnabled
+  );
 
   // State for multi-field mode
   const { selectedFieldId, selectField } = useFieldSelectionState(fieldIds);
   const { checkedFieldIds, toggleField } = useFieldCheckState(fieldIds, open);
-  const { fieldRiskMap, isLoading, isAllLoaded } = useMultiFieldReferences(tableId, fieldIds, open);
+  const { fieldRiskMap, isLoading, isAllLoaded, hasError, refetch } = useMultiFieldReferences(
+    tableId,
+    fieldIds,
+    open
+  );
   const [hasInitialSelected, setHasInitialSelected] = useState(false);
 
   // Select first field in grouped order (risk fields first) after loading - only once
@@ -285,7 +299,8 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   }, [open]);
 
   const deleteCount = checkedFieldIds.size;
-  const canDelete = deleteCount > 0;
+  const canDelete =
+    deleteCount > 0 && isAllLoaded && (!useV2 || isMultiField || preview.canConfirm);
   const impactFieldIds = useMemo(
     () => (isMultiField ? Array.from(checkedFieldIds) : fieldIds),
     [isMultiField, checkedFieldIds, fieldIds]
@@ -293,6 +308,9 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   const fieldNames = useMemo(
     () => Object.fromEntries(targetFields.map((field) => [field.id, field.name])),
     [targetFields]
+  );
+  const fieldReferences = (fieldRiskMap.get(fieldIds[0]) ?? []).filter(
+    (item) => item.itemType === 'field' || item.itemType === 'view'
   );
 
   const close = () => {
@@ -305,7 +323,11 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
     try {
       setIsDeleting(true);
       const idsToDelete = isMultiField ? Array.from(checkedFieldIds) : fieldIds;
-      await deleteFields(tableId, idsToDelete);
+      if (isMultiField) {
+        await deleteFields(tableId, idsToDelete);
+      } else {
+        await deleteField(tableId, idsToDelete[0]);
+      }
       close();
     } finally {
       setIsDeleting(false);
@@ -323,9 +345,20 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <AlertDialogHeader className="min-h-0 flex-1 overflow-hidden">
+        <AlertDialogHeader
+          className={
+            isMultiField ? 'min-h-0 flex-1 overflow-hidden' : 'min-h-0 flex-1 overflow-y-auto'
+          }
+        >
           <AlertDialogTitle>{t('table:field.editor.deleteField.title')}</AlertDialogTitle>
-          {isMultiField ? (
+          {hasError ? (
+            <div role="alert" className="space-y-2 text-sm">
+              <p>{t('table:field.editor.deleteField.referencesFailed')}</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => refetch()}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
+          ) : isMultiField ? (
             <MultiFieldContent
               tableId={tableId}
               targetFields={targetFields}
@@ -341,8 +374,31 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
               tableId={tableId}
               fieldId={fieldIds[0]}
               fieldName={targetFields[0]?.name ?? ''}
-              open={open}
+              affectedItems={(fieldRiskMap.get(fieldIds[0]) ?? []).filter(
+                (item) => !previewEnabled || (item.itemType !== 'field' && item.itemType !== 'view')
+              )}
+              isLoading={isLoading}
+              hasCanonicalPreview={previewEnabled}
             />
+          )}
+          {previewEnabled && (
+            <OperationPreviewPanel
+              preview={preview.data}
+              error={preview.error}
+              isLoading={preview.isPending || preview.isFetching}
+              onRetry={() => preview.refetch()}
+              targetFieldName={targetFields[0]?.name}
+            />
+          )}
+          {previewEnabled && fieldReferences.length > 0 && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                {t('table:field.editor.deleteField.affectedItems')} ({fieldReferences.length})
+              </summary>
+              <div className="mt-2">
+                <AffectedFieldsList items={fieldReferences} />
+              </div>
+            </details>
           )}
         </AlertDialogHeader>
         <FieldDeleteImpact

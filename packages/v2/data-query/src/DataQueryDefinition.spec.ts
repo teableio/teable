@@ -137,6 +137,9 @@ describe('DataQueryDefinition', () => {
     snapshot.parameters!.names.default = ['changed'];
     if (snapshot.kind === 'records') snapshot.select[0].alias = 'changed';
     const first = definition.bind({})._unsafeUnwrap();
+    expect(first.validatedDefinition).toBe(definition);
+    const retainedSnapshot = first.validatedDefinition.snapshot();
+    retainedSnapshot.parameters!.names.default = ['changed through retained definition'];
     if (first.filter && 'value' in first.filter && Array.isArray(first.filter.value)) {
       const boundValues = first.filter.value;
       expect(() => boundValues.push('injected')).toThrow();
@@ -150,7 +153,10 @@ describe('DataQueryDefinition', () => {
       operator: 'isAnyOf',
       value: ['first'],
     });
-    expect(definition.snapshot()).toMatchObject({ select: [{ alias: 'title' }] });
+    expect(first.validatedDefinition.snapshot()).toMatchObject({
+      select: [{ alias: 'title' }],
+      parameters: { names: { default: ['first'] } },
+    });
   });
 
   it('rejects reversed date ranges instead of allowing a predicate to become true', () => {

@@ -94,6 +94,7 @@ import {
   LinkFieldConfig,
   ListTableRecordsQuery,
   PasteStreamCommand,
+  MAX_PASTE_CELLS,
   ResetButtonCommand,
   presignAttachmentFieldMaps,
   RecordQueryOperationKind,
@@ -153,6 +154,7 @@ import { convertValueToStringify, string2Hash } from '../../../utils';
 import { generateFilterItem } from '../../../utils/filter';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
+import { PermissionService } from '../../auth/permission.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByVo } from '../../field/model/factory';
@@ -246,6 +248,9 @@ export class RecordOpenApiV2Service {
 
   @Inject(FieldSupplementService)
   private readonly fieldSupplementService!: FieldSupplementService;
+
+  @Inject(PermissionService)
+  private readonly previewPermissionService!: PermissionService;
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
@@ -3331,6 +3336,27 @@ export class RecordOpenApiV2Service {
     }
   }
 
+  /**
+   * Normalizes the mounted paste route into the canonical v2 command without invoking record
+   * query plugins. Preview authorization has already admitted unrestricted read scope, while
+   * execution reruns the normal plugin-aware preparation before writing.
+   */
+  async preparePastePreviewCommandInput(
+    tableId: string,
+    pasteRo: IPasteRo
+  ): Promise<IPasteCommandInput> {
+    const permissions = await this.previewPermissionService.getPermissions(
+      tableId,
+      this.cls.get('accessTokenId')
+    );
+    const prepared = await this.preparePasteCommandInput(tableId, pasteRo, {
+      allowFieldExpansion: permissions.includes('field|create'),
+      allowRecordExpansion: permissions.includes('record|create'),
+      previewReadOnly: true,
+    });
+    return prepared.commandInput;
+  }
+
   private async preparePasteCommandInput(
     tableId: string,
     pasteRo: IPasteRo,
@@ -3338,6 +3364,7 @@ export class RecordOpenApiV2Service {
       updateFilter?: IFilterSet | null;
       allowFieldExpansion?: boolean;
       allowRecordExpansion?: boolean;
+      previewReadOnly?: boolean;
     }
   ): Promise<{
     commandInput: IPasteCommandInput;
@@ -3375,15 +3402,19 @@ export class RecordOpenApiV2Service {
         const hasRecordCreatePermission =
           options?.allowRecordExpansion ?? permissions.includes('record|create');
 
-        const rangeQuery = await this.normalizeRangeQuery(tableId, {
-          viewId,
-          filter,
-          search,
-          groupBy,
-          orderBy,
-          collapsedGroupIds,
-          ignoreViewQuery,
-        });
+        const rangeQuery = await this.normalizeRangeQuery(
+          tableId,
+          {
+            viewId,
+            filter,
+            search,
+            groupBy,
+            orderBy,
+            collapsedGroupIds,
+            ignoreViewQuery,
+          },
+          options?.previewReadOnly
+        );
         const queryRo = {
           viewId: rangeQuery.viewId,
           ignoreViewQuery: rangeQuery.ignoreViewQuery,
@@ -3394,15 +3425,20 @@ export class RecordOpenApiV2Service {
           collapsedGroupIds,
           search,
         };
-        const container = await this.v2ContainerService.getContainerForTable(tableId);
+        const container = await this.getPastePreparationContainer(
+          tableId,
+          options?.previewReadOnly
+        );
         const context = await this.v2ContextFactory.createContext(container);
         const table = await this.loadV2Table(context, container, tableId);
         const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-        const queryScope = await this.prepareRecordQueryScope(context, container, table, {
-          kind: RecordQueryOperationKind.list,
-          viewId: rangeQuery.viewId,
-          ignoreViewQuery: rangeQuery.ignoreViewQuery,
-        });
+        const queryScope = options?.previewReadOnly
+          ? undefined
+          : await this.prepareRecordQueryScope(context, container, table, {
+              kind: RecordQueryOperationKind.list,
+              viewId: rangeQuery.viewId,
+              ignoreViewQuery: rangeQuery.ignoreViewQuery,
+            });
         const orderedFieldIds = table.getOrderedVisibleFieldIds(rangeQuery.viewId, {
           projection,
         });
@@ -3533,9 +3569,13 @@ export class RecordOpenApiV2Service {
           isMultipleCellValue: field.isMultipleCellValue,
           options: field.options,
         }));
-        const normalizedFilter = await this.normalizeFilterForV2(tableId, queryRo.filter);
+        const normalizedFilter = options?.previewReadOnly
+          ? this.normalizeFilterForV2FromTable(table, queryRo.filter)
+          : await this.normalizeFilterForV2(tableId, queryRo.filter);
         const normalizedUpdateFilter = options?.updateFilter
-          ? await this.normalizeFilterForV2(tableId, options.updateFilter)
+          ? options.previewReadOnly
+            ? this.normalizeFilterForV2FromTable(table, options.updateFilter)
+            : await this.normalizeFilterForV2(tableId, options.updateFilter)
           : undefined;
         const sortWithGroupFallback = this.mergeGroupByIntoSort(
           rangeQuery.groupBy,
@@ -3689,6 +3729,42 @@ export class RecordOpenApiV2Service {
     );
   }
 
+  private assertPasteExpansionWithinLimit(
+    content: ReadonlyArray<ReadonlyArray<unknown>>,
+    targetRows: number,
+    targetCols: number
+  ): void {
+    const configuredMax = this.thresholdConfig.maxPasteCells;
+    const maxPasteCells =
+      Number.isSafeInteger(configuredMax) && configuredMax > 0
+        ? Math.min(configuredMax, MAX_PASTE_CELLS)
+        : MAX_PASTE_CELLS;
+    const exceedsTarget =
+      !Number.isSafeInteger(targetRows) ||
+      !Number.isSafeInteger(targetCols) ||
+      (targetRows > 0 &&
+        targetCols > 0 &&
+        (targetRows > maxPasteCells || targetCols > Math.floor(maxPasteCells / targetRows)));
+    let submittedCells = 0;
+    let exceedsContent = false;
+    for (const row of content) {
+      if (row.length > maxPasteCells - submittedCells) {
+        exceedsContent = true;
+        break;
+      }
+      submittedCells += row.length;
+    }
+    if (!exceedsTarget && !exceedsContent) return;
+
+    throw new CustomHttpException(
+      `Exceed max paste cells ${maxPasteCells}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: { i18nKey: 'httpErrors.selection.exceedMaxPasteCells' },
+      }
+    );
+  }
+
   /**
    * Expand paste content to fill target selection (matches V1 behavior).
    * If the selection is a multiple of the content size, the content is tiled.
@@ -3728,6 +3804,7 @@ export class RecordOpenApiV2Service {
       targetCols = endCol - startCol + 1;
       targetRows = endRow - startRow + 1;
     }
+    this.assertPasteExpansionWithinLimit(content, targetRows, targetCols);
 
     // If target equals content size, no expansion needed
     if (targetRows === contentRows && targetCols === contentCols) {
@@ -4205,11 +4282,25 @@ export class RecordOpenApiV2Service {
     return parseClipboardText(content);
   }
 
-  private async resolveViewId(tableId: string, viewId?: string | null): Promise<string> {
+  private async getPastePreparationContainer(
+    tableId: string,
+    previewReadOnly?: boolean
+  ): Promise<DependencyContainer> {
+    if (!previewReadOnly) return this.v2ContainerService.getContainerForTable(tableId);
+    const container = await this.v2ContainerService.getPreviewContainerForTable(tableId);
+    if (!container) throw new Error('Current read-only table container is unavailable');
+    return container;
+  }
+
+  private async resolveViewId(
+    tableId: string,
+    viewId?: string | null,
+    previewReadOnly?: boolean
+  ): Promise<string> {
     if (viewId) {
       return viewId;
     }
-    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const container = await this.getPastePreparationContainer(tableId, previewReadOnly);
     const context = await this.v2ContextFactory.createContext(container);
     const table = await this.loadV2Table(context, container, tableId);
     const defaultView = table.defaultView();
@@ -4233,7 +4324,8 @@ export class RecordOpenApiV2Service {
       | 'orderBy'
       | 'collapsedGroupIds'
       | 'ignoreViewQuery'
-    >
+    >,
+    previewReadOnly?: boolean
   ): Promise<{
     viewId: string;
     filter: IFilter | null | undefined;
@@ -4242,15 +4334,19 @@ export class RecordOpenApiV2Service {
     groupBy: IRangesRo['groupBy'];
     ignoreViewQuery: boolean;
   }> {
-    const resolvedViewId = await this.resolveViewId(tableId, query.viewId);
-    const filterWithCollapsed = await this.buildRangeFilter(tableId, {
-      viewId: resolvedViewId,
-      filter: query.filter,
-      search: query.search,
-      groupBy: query.groupBy,
-      collapsedGroupIds: query.collapsedGroupIds,
-      ignoreViewQuery: query.ignoreViewQuery,
-    });
+    const resolvedViewId = await this.resolveViewId(tableId, query.viewId, previewReadOnly);
+    const filterWithCollapsed = await this.buildRangeFilter(
+      tableId,
+      {
+        viewId: resolvedViewId,
+        filter: query.filter,
+        search: query.search,
+        groupBy: query.groupBy,
+        collapsedGroupIds: query.collapsedGroupIds,
+        ignoreViewQuery: query.ignoreViewQuery,
+      },
+      previewReadOnly
+    );
 
     return {
       viewId: resolvedViewId,
@@ -4293,21 +4389,24 @@ export class RecordOpenApiV2Service {
       groupBy?: IRangesRo['groupBy'];
       collapsedGroupIds?: string[];
       ignoreViewQuery?: boolean;
-    }
+    },
+    previewReadOnly?: boolean
   ): Promise<IFilter | null | undefined> {
     const normalizedGroupBy = query.groupBy ?? undefined;
     if (!normalizedGroupBy?.length || !query.collapsedGroupIds?.length) {
       return query.filter;
     }
 
-    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const container = await this.getPastePreparationContainer(tableId, previewReadOnly);
     const context = await this.v2ContextFactory.createContext(container);
     const table = await this.loadV2Table(context, container, tableId);
-    const queryScope = await this.prepareRecordQueryScope(context, container, table, {
-      kind: RecordQueryOperationKind.list,
-      viewId: query.viewId,
-      ignoreViewQuery: query.ignoreViewQuery,
-    });
+    const queryScope = previewReadOnly
+      ? undefined
+      : await this.prepareRecordQueryScope(context, container, table, {
+          kind: RecordQueryOperationKind.list,
+          viewId: query.viewId,
+          ignoreViewQuery: query.ignoreViewQuery,
+        });
     const { result, appliedGroupBy } = await this.getRecordsWithPreparedScope(
       tableId,
       {

@@ -12,6 +12,8 @@ Declaration: If the folder I belong to changes, please update me.
 ## Boundaries
 
 - Authentication stays in the host/actor header; this package has no auth.
+- `startHeadlessServer` forwards the host-provided `resolveActorId` callback to
+  the HTTP adapter; it does not interpret credentials or permissions.
 - The PostgreSQL flavor does not embed PGlite assets and reads PGlite only
   through `TEABLE_PGLITE_DIR` (no wasm/data beside the binary). The PGlite flavor
   embeds the wasm module and Postgres data bundle and injects them as

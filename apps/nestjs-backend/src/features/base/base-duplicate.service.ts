@@ -13,6 +13,7 @@ import {
   type IDuplicateBaseRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import type { HostPreviewConcern, PreviewEffect, PreviewIssue } from '@teable/v2-command-explain';
 import {
   DeleteTableCommand,
   DuplicateBaseCommand,
@@ -24,6 +25,7 @@ import {
   type DotTeaFieldInput,
   type DuplicateBaseResult,
   type DuplicateBaseSource,
+  type IExecutionContext,
   type ICommandBus,
   type ITableFieldPersistenceDTO,
   type ITableMapper,
@@ -84,10 +86,94 @@ type DuplicateV2StructureConfig = Omit<DuplicateStructureConfig, 'tables'> &
   Omit<NormalizedDotTeaStructure, 'tables'> & {
     tables: DuplicateV2TableConfig[];
   };
+type DuplicateProjectionSourceField = {
+  id: string;
+  type: string;
+  isLookup: boolean | null;
+  isConditionalLookup: boolean | null;
+  options: unknown;
+  lookupOptions: unknown;
+};
 type DuplicateStructureConfigResult = {
   structure: DuplicateStructureConfig;
   sourceDbTableNameByTableId: Record<string, string>;
+  fieldConversions: {
+    readonly external: number;
+    readonly partialSelection: number;
+  };
 };
+export type DuplicateBaseV2RowCountEvidence =
+  | { readonly basis: 'exact'; readonly value: number }
+  | {
+      readonly basis: 'unknown';
+      readonly reason: 'source-row-count-unavailable' | 'source-row-count-not-requested';
+    };
+
+export type DuplicateBaseV2PreviewFacts = {
+  readonly input: {
+    readonly fromBaseId: string;
+    readonly spaceId: string;
+    readonly baseId?: string;
+    readonly shareId?: string;
+    readonly name?: string;
+    readonly nodes?: ReadonlyArray<string>;
+    readonly withRecords: boolean;
+    readonly timeZone?: string;
+    readonly allowCrossBase: boolean;
+    readonly duplicateMode: BaseDuplicateMode;
+  };
+  readonly selection: {
+    readonly resources: number;
+    readonly bases: number;
+    readonly tables: number;
+    readonly fields: number;
+    readonly views: number;
+    readonly nodes: number;
+  };
+  readonly records: DuplicateBaseV2RowCountEvidence;
+  readonly links: {
+    readonly sameSpacePreserved: number;
+    readonly crossSpaceConverted: number;
+    readonly optionDisabledConverted: number;
+    readonly partialSelectionDisconnected: number;
+    readonly unclassifiedExternal: number;
+  };
+};
+
+type DuplicateBaseV2ExecutionPreparation = {
+  readonly structure: DuplicateStructureConfig;
+  readonly normalizedStructure: DuplicateV2StructureConfig;
+  readonly tableSnapshots: ReadonlyMap<string, ITablePersistenceDTO>;
+  readonly sourceTableIdMap: Record<string, string>;
+  readonly sourceTableIds: string[];
+  readonly sourceDbTableNameByTableId: Record<string, string>;
+  readonly mergedLinkFieldTableMap: ILinkFieldTableMap;
+  readonly internalLinkRelationTableMap: Record<string, V2InternalLinkFieldTableInfo[]>;
+  readonly sourceLinkFields: BulkCopySourceLinkField[];
+  readonly source: DuplicateBaseSource;
+};
+
+export type DuplicateBaseV2Preparation = {
+  readonly preview: DuplicateBaseV2PreviewFacts;
+  /** Physical execution metadata. Preview adapters must never serialize this object. */
+  readonly execution: DuplicateBaseV2ExecutionPreparation;
+};
+
+export type DuplicateBaseV2HostPreviewExtension = {
+  readonly resolvedConcerns: ReadonlyArray<HostPreviewConcern>;
+  readonly effects: ReadonlyArray<PreviewEffect>;
+  readonly blockers: ReadonlyArray<PreviewIssue>;
+  readonly warnings: ReadonlyArray<PreviewIssue>;
+  readonly knownCoverage: ReadonlyArray<string>;
+  readonly unknownCoverage: ReadonlyArray<string>;
+};
+export type DuplicateBaseV2HostPreviewAdmission = {
+  readonly blockers: ReadonlyArray<PreviewIssue>;
+  readonly warnings: ReadonlyArray<PreviewIssue>;
+  readonly knownCoverage: ReadonlyArray<string>;
+  readonly unknownCoverage: ReadonlyArray<string>;
+};
+
 type DuplicateBaseStructConfigInput = Parameters<
   BaseExportService['generateBaseStructConfig']
 >[0] & {
@@ -145,6 +231,208 @@ const toLinkFieldTableInfo = ({
   dbFieldName,
   selfKeyName: (options as ILinkFieldOptions).selfKeyName,
   isMultipleCellValue: !!isMultipleCellValue,
+});
+
+const splitPostgresTextArrayItems = (inner: string): string[] | undefined => {
+  const items: string[] = [];
+  let item = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index];
+
+    if (inQuotes) {
+      if (char === '\\') {
+        index += 1;
+        item += inner[index] ?? '';
+        continue;
+      }
+      if (char === '"') {
+        inQuotes = false;
+        continue;
+      }
+      item += char;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (char === ',') {
+      items.push(item);
+      item = '';
+      continue;
+    }
+
+    item += char;
+  }
+
+  if (inQuotes) {
+    return undefined;
+  }
+
+  items.push(item);
+  return items;
+};
+
+const clearInternalLinkColumns = (
+  rows: Record<string, unknown>[],
+  internalLinkInfo: ReadonlyArray<V2InternalLinkFieldTableInfo>
+): void => {
+  for (const row of rows) {
+    for (const { dbFieldName } of internalLinkInfo) {
+      delete row[dbFieldName];
+    }
+  }
+};
+
+const applyInternalLinkRelations = (
+  rowsById: ReadonlyMap<string, Record<string, unknown>>,
+  relations: ReadonlyMap<string, V2LinkCellItem[]>,
+  info: V2InternalLinkFieldTableInfo
+): void => {
+  for (const [sourceRecordId, linkItems] of relations) {
+    const row = rowsById.get(sourceRecordId);
+    if (!row) continue;
+    if (info.isMultipleCellValue) {
+      row[info.dbFieldName] = linkItems;
+    } else if (linkItems[0]) {
+      row[info.dbFieldName] = linkItems[0];
+    }
+  }
+};
+
+const collectConvertedFieldIds = (
+  fieldRaws: ReadonlyArray<DuplicateProjectionSourceField>,
+  structure: DuplicateStructureConfig
+): Set<string> => {
+  const projectedFieldsById = new Map<
+    string,
+    DuplicateStructureConfig['tables'][number]['fields'][number]
+  >();
+  for (const table of structure.tables) {
+    for (const field of table.fields) {
+      if (field.id) projectedFieldsById.set(field.id, field);
+    }
+  }
+  const convertedFieldIds = new Set<string>();
+
+  for (const field of fieldRaws) {
+    const projected = projectedFieldsById.get(field.id);
+    if (!projected || projected.type !== FieldType.SingleLineText) continue;
+
+    const convertedType = field.type !== FieldType.SingleLineText;
+    const removedLookupSemantics =
+      Boolean(field.isLookup || field.isConditionalLookup) &&
+      !projected.isLookup &&
+      !projected.isConditionalLookup;
+    if (convertedType || removedLookupSemantics) convertedFieldIds.add(field.id);
+  }
+
+  return convertedFieldIds;
+};
+
+// generateFieldConfig currently degrades only external references and references
+// disconnected by the selected-node boundary. Intersecting the visitor result
+// with the actual projection delta avoids reporting merely potential effects.
+const countPartialSelectionConversions = (
+  fieldRaws: ReadonlyArray<DuplicateProjectionSourceField>,
+  convertedFieldIds: ReadonlySet<string>,
+  excludedTableIds: ReadonlyArray<string>
+): number => {
+  const excludedTableIdSet = new Set(excludedTableIds);
+  const affectedFieldIds = collectCrossSpaceAffectedFieldIds({
+    fields: fieldRaws,
+    isForeignCrossSpace: (foreignTableId) => excludedTableIdSet.has(foreignTableId),
+  });
+  let partialSelection = 0;
+  for (const fieldId of convertedFieldIds) {
+    if (affectedFieldIds.has(fieldId)) partialSelection += 1;
+  }
+  return partialSelection;
+};
+
+const isPreservedExternalLinkCandidate = (
+  field: DuplicateStructureConfig['tables'][number]['fields'][number]
+): boolean => {
+  if (field.type !== FieldType.Link || field.isLookup) return false;
+  return Boolean((field.options as ILinkFieldOptions | undefined)?.baseId);
+};
+
+const collectPreservedExternalLinkCandidates = (
+  structure: DuplicateStructureConfig
+): DuplicateStructureConfig['tables'][number]['fields'] =>
+  structure.tables.flatMap((table) => table.fields.filter(isPreservedExternalLinkCandidate));
+
+const summarizeDuplicateStructureSelection = (
+  structure: DuplicateStructureConfig
+): DuplicateBaseV2PreviewFacts['selection'] => {
+  const tables = structure.tables.length;
+  const fields = structure.tables.reduce((total, table) => total + table.fields.length, 0);
+  const views = structure.tables.reduce((total, table) => total + table.views.length, 0);
+  const nodes = structure.nodes?.length ?? 0;
+  const folders = structure.folders?.length ?? 0;
+  const plugins = structure.plugins
+    ? Object.values(structure.plugins).reduce(
+        (total, items) => total + (Array.isArray(items) ? items.length : 0),
+        0
+      )
+    : 0;
+  const editionStructure = structure as unknown as {
+    workflows?: ReadonlyArray<unknown>;
+    apps?: ReadonlyArray<unknown>;
+    routines?: ReadonlyArray<unknown>;
+    authorityMatrix?: unknown | null;
+  };
+  const editionResources =
+    (editionStructure.workflows?.length ?? 0) +
+    (editionStructure.apps?.length ?? 0) +
+    (editionStructure.routines?.length ?? 0) +
+    (editionStructure.authorityMatrix ? 1 : 0);
+
+  return {
+    resources: 1 + tables + fields + views + nodes + folders + plugins + editionResources,
+    bases: 1,
+    tables,
+    fields,
+    views,
+    nodes,
+  };
+};
+
+const buildDuplicatePreviewInput = (
+  duplicateBaseRo: IDuplicateBaseRo,
+  allowCrossBase: boolean,
+  duplicateMode: BaseDuplicateMode
+): DuplicateBaseV2PreviewFacts['input'] => {
+  const { fromBaseId, spaceId, withRecords, name, nodes, timeZone } = duplicateBaseRo;
+  return {
+    fromBaseId,
+    spaceId,
+    ...(duplicateBaseRo.baseId !== undefined ? { baseId: duplicateBaseRo.baseId } : {}),
+    ...(duplicateBaseRo.shareId !== undefined ? { shareId: duplicateBaseRo.shareId } : {}),
+    ...(name !== undefined ? { name } : {}),
+    ...(nodes !== undefined ? { nodes: [...nodes] } : {}),
+    withRecords: Boolean(withRecords),
+    ...(timeZone !== undefined ? { timeZone } : {}),
+    allowCrossBase,
+    duplicateMode,
+  };
+};
+
+const buildDuplicateLinkEvidence = (
+  allowCrossBase: boolean,
+  preservedExternal: { sameSpace: number; unclassified: number },
+  convertedExternal: number,
+  partialSelectionDisconnected: number
+): DuplicateBaseV2PreviewFacts['links'] => ({
+  sameSpacePreserved: preservedExternal.sameSpace,
+  crossSpaceConverted: allowCrossBase ? convertedExternal : 0,
+  optionDisabledConverted: allowCrossBase ? 0 : convertedExternal,
+  partialSelectionDisconnected,
+  unclassifiedExternal: preservedExternal.unclassified,
 });
 
 @Injectable()
@@ -288,6 +576,284 @@ export class BaseDuplicateService {
     }
   }
 
+  /**
+   * Builds the shared v2 duplication preparation used by execution and preview.
+   * Preview preparation defaults to non-migrating source acquisition; execution
+   * opts into normal routing initialization before consuming the same snapshots.
+   */
+  async prepareDuplicateBaseV2(
+    duplicateBaseRo: IDuplicateBaseRo,
+    allowCrossBase: boolean = true,
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
+    options: { readonly includeRowCount?: boolean; readonly readOnly?: boolean } = {}
+  ): Promise<DuplicateBaseV2Preparation> {
+    const { fromBaseId, spaceId, withRecords, name, nodes, timeZone } = duplicateBaseRo;
+    const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
+    const {
+      structure: rawStructure,
+      sourceDbTableNameByTableId,
+      fieldConversions,
+    } = await this.buildDuplicateStructureConfig(
+      fromBaseId,
+      name,
+      allowCrossBase,
+      nodes,
+      duplicateMode,
+      spaceId
+    );
+    const structure = timeZone ? adaptStructureTimeZone(rawStructure, timeZone) : rawStructure;
+    const sourceTableIdMap = Object.fromEntries(
+      structure.tables.flatMap((table) => (table.id ? ([[table.id, table.id]] as const) : []))
+    );
+    const sourceTableIds = Object.keys(sourceTableIdMap);
+
+    // With allowCrossBase enabled, only links that cannot remain stable at the
+    // destination are downgraded. A partial node selection is a separate cause.
+    const crossBaseLinkFieldTableMap: ILinkFieldTableMap = allowCrossBase
+      ? await this.getV2CrossBaseLinkFieldTableMap(sourceTableIdMap, spaceId)
+      : await this.getV2CrossBaseLinkFieldTableMap(sourceTableIdMap);
+    const disconnectedLinkFieldTableMap = await this.getV2DisconnectedLinkFieldTableMap(
+      sourceTableIdMap,
+      fromBaseId,
+      nodes,
+      skipParentNodes
+    );
+    const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
+      crossBaseLinkFieldTableMap,
+      disconnectedLinkFieldTableMap
+    );
+    const internalLinkRelationTableMap =
+      await this.getV2InternalLinkRelationTableMap(sourceTableIdMap);
+    const normalizedStructure = this.normalizeDuplicateStructureForV2(structure);
+    const tableSnapshots = await this.createNativeTableSnapshots(
+      fromBaseId,
+      normalizedStructure,
+      timeZone,
+      {
+        readOnly: options.readOnly !== false,
+        // Existing target schemas may already contain the source physical names.
+        keepDbTableNames: !duplicateBaseRo.baseId,
+      }
+    );
+    const sourceLinkFields = withRecords
+      ? await this.getV2BulkCopySourceLinkFields({
+          fromBaseId,
+          sourceTableIds,
+          allowCrossBase,
+          nodes,
+          skipParentNodes,
+        })
+      : [];
+    const source = this.createDuplicateBaseSource(
+      fromBaseId,
+      normalizedStructure,
+      tableSnapshots,
+      mergedLinkFieldTableMap,
+      sourceDbTableNameByTableId,
+      internalLinkRelationTableMap,
+      sourceLinkFields
+    );
+
+    const preservedExternal = await this.classifyPreservedExternalLinks(
+      collectPreservedExternalLinkCandidates(structure),
+      spaceId
+    );
+    const records = await this.resolveDuplicateRowCountEvidence(
+      fromBaseId,
+      sourceTableIds,
+      sourceDbTableNameByTableId,
+      Boolean(withRecords),
+      options.includeRowCount
+    );
+
+    return {
+      preview: {
+        input: buildDuplicatePreviewInput(duplicateBaseRo, allowCrossBase, duplicateMode),
+        selection: summarizeDuplicateStructureSelection(structure),
+        records,
+        links: buildDuplicateLinkEvidence(
+          allowCrossBase,
+          preservedExternal,
+          fieldConversions.external,
+          fieldConversions.partialSelection
+        ),
+      },
+      execution: {
+        structure,
+        normalizedStructure,
+        tableSnapshots,
+        sourceTableIdMap,
+        sourceTableIds,
+        sourceDbTableNameByTableId,
+        mergedLinkFieldTableMap,
+        internalLinkRelationTableMap,
+        sourceLinkFields,
+        source,
+      },
+    };
+  }
+
+  private async resolveDuplicateRowCountEvidence(
+    fromBaseId: string,
+    sourceTableIds: ReadonlyArray<string>,
+    sourceDbTableNameByTableId: Readonly<Record<string, string>>,
+    withRecords: boolean,
+    includeRowCount: boolean | undefined
+  ): Promise<DuplicateBaseV2RowCountEvidence> {
+    if (!withRecords) return { basis: 'exact', value: 0 };
+    if (includeRowCount === false) {
+      return { basis: 'unknown', reason: 'source-row-count-not-requested' };
+    }
+    return this.countDuplicateSourceRows(fromBaseId, sourceTableIds, sourceDbTableNameByTableId);
+  }
+
+  private async classifyPreservedExternalLinks(
+    fields: ReadonlyArray<{ options?: unknown }>,
+    destinationSpaceId: string
+  ): Promise<{ sameSpace: number; unclassified: number }> {
+    const foreignBaseIds = Array.from(
+      new Set(
+        fields
+          .map((field) => (field.options as ILinkFieldOptions | undefined)?.baseId)
+          .filter((baseId): baseId is string => Boolean(baseId))
+      )
+    );
+    if (foreignBaseIds.length === 0) return { sameSpace: 0, unclassified: 0 };
+
+    try {
+      const bases = await this.prismaService.txClient().base.findMany({
+        where: { id: { in: foreignBaseIds }, deletedTime: null },
+        select: { id: true, spaceId: true },
+      });
+      const sameSpaceBaseIds = new Set(
+        bases.filter((base) => base.spaceId === destinationSpaceId).map((base) => base.id)
+      );
+      const sameSpace = fields.filter((field) => {
+        const baseId = (field.options as ILinkFieldOptions | undefined)?.baseId;
+        return Boolean(baseId && sameSpaceBaseIds.has(baseId));
+      }).length;
+      return { sameSpace, unclassified: fields.length - sameSpace };
+    } catch {
+      return { sameSpace: 0, unclassified: fields.length };
+    }
+  }
+
+  private async countDuplicateSourceRows(
+    sourceBaseId: string,
+    sourceTableIds: ReadonlyArray<string>,
+    sourceDbTableNameByTableId: Readonly<Record<string, string>>
+  ): Promise<DuplicateBaseV2RowCountEvidence> {
+    if (sourceTableIds.length === 0) return { basis: 'exact', value: 0 };
+    if (sourceTableIds.some((tableId) => !sourceDbTableNameByTableId[tableId])) {
+      return { basis: 'unknown', reason: 'source-row-count-unavailable' };
+    }
+
+    try {
+      const scopedClient =
+        await this.dataDbClientManager.dataPrismaForBasePreviewReadOnly(sourceBaseId);
+      if (!scopedClient) return { basis: 'unknown', reason: 'source-row-count-unavailable' };
+      const prisma = this.getDataPrismaExecutor(scopedClient as IDataPrismaScopedClient);
+      let value = 0;
+      for (const tableId of sourceTableIds) {
+        const countQuery = this.knex(sourceDbTableNameByTableId[tableId])
+          .count('*', { as: 'count' })
+          .toQuery();
+        const result =
+          await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(countQuery);
+        const count = result[0]?.count;
+        const numericCount = count == null ? Number.NaN : Number(count);
+        if (!Number.isSafeInteger(numericCount) || numericCount < 0) {
+          return { basis: 'unknown', reason: 'source-row-count-unavailable' };
+        }
+        value += numericCount;
+      }
+      return Number.isSafeInteger(value)
+        ? { basis: 'exact', value }
+        : { basis: 'unknown', reason: 'source-row-count-unavailable' };
+    } catch {
+      return { basis: 'unknown', reason: 'source-row-count-unavailable' };
+    }
+  }
+
+  /** Mirrors the legacy duplicate route's same-data-database record-copy guard without migration. */
+  async previewDuplicateBaseV1DataRoute(
+    input: IDuplicateBaseRo
+  ): Promise<DuplicateBaseV2HostPreviewAdmission> {
+    if (!input.withRecords) {
+      return {
+        blockers: [],
+        warnings: [],
+        knownCoverage: ['host.cross-database.copy'],
+        unknownCoverage: [],
+      };
+    }
+
+    const [source, destination] = await Promise.all([
+      this.dataDbClientManager.getDataDatabaseForBasePreviewReadOnly(input.fromBaseId),
+      this.dataDbClientManager.getDataDatabaseForSpacePreviewReadOnly(input.spaceId),
+    ]);
+    if (!source || !destination) {
+      return {
+        blockers: [],
+        warnings: [
+          {
+            code: 'base.duplicate.cross_database.route_unknown',
+            message:
+              'Existing routing metadata is not ready enough to verify legacy record-copy compatibility.',
+          },
+        ],
+        knownCoverage: [],
+        unknownCoverage: ['host.cross-database.copy'],
+      };
+    }
+    if (source.cacheKey !== destination.cacheKey) {
+      return {
+        blockers: [
+          {
+            code: 'base.duplicate.v1.cross_database_records_blocked',
+            message: 'The selected legacy write path cannot copy records across data databases.',
+          },
+        ],
+        warnings: [],
+        knownCoverage: ['host.cross-database.copy'],
+        unknownCoverage: [],
+      };
+    }
+    return {
+      blockers: [],
+      warnings: [],
+      knownCoverage: ['host.cross-database.copy'],
+      unknownCoverage: [],
+    };
+  }
+
+  /** Edition admission that must run before any structure or row-count reads. */
+  async previewDuplicateBaseV2Admission(
+    _context: IExecutionContext,
+    _input: IDuplicateBaseRo
+  ): Promise<DuplicateBaseV2HostPreviewAdmission> {
+    return { blockers: [], warnings: [], knownCoverage: [], unknownCoverage: [] };
+  }
+
+  /**
+   * Edition extension seam for read-only host policy evidence. EE overrides
+   * this method to add authority/quota blockers and effects. The live request
+   * context is passed through and is never retained by the singleton.
+   */
+  async planDuplicateBaseV2Preview(
+    _context: IExecutionContext,
+    _preparation: DuplicateBaseV2Preparation
+  ): Promise<DuplicateBaseV2HostPreviewExtension> {
+    return {
+      resolvedConcerns: [],
+      effects: [],
+      blockers: [],
+      warnings: [],
+      knownCoverage: [],
+      unknownCoverage: [],
+    };
+  }
+
   async duplicateBaseV2(
     duplicateBaseRo: IDuplicateBaseRo,
     allowCrossBase: boolean = true,
@@ -295,10 +861,9 @@ export class BaseDuplicateService {
     onProgress?: BaseImportProgressCallback,
     onHostRestored?: (result: IDuplicateBaseV2Result) => Promise<void>
   ): Promise<IDuplicateBaseV2Result> {
-    const { fromBaseId, spaceId, withRecords, name, baseId, nodes, timeZone } = duplicateBaseRo;
+    const { fromBaseId, spaceId, withRecords, baseId } = duplicateBaseRo;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
-    const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
     const templateApply =
       duplicateMode === BaseDuplicateMode.ApplyTemplate ||
       duplicateMode === BaseDuplicateMode.InstallTemplate;
@@ -310,50 +875,15 @@ export class BaseDuplicateService {
 
     try {
       onProgress?.({ phase: 'structure_creating' });
-      const { structure: rawStructure, sourceDbTableNameByTableId } =
-        await this.buildDuplicateStructureConfig(
-          fromBaseId,
-          name,
-          allowCrossBase,
-          nodes,
-          duplicateMode,
-          spaceId
-        );
-      const structure = timeZone ? adaptStructureTimeZone(rawStructure, timeZone) : rawStructure;
-      const normalizedStructure = this.normalizeDuplicateStructureForV2(structure);
-      // A copy into its own new base keeps the source physical table names, as the v1 copy
-      // did: app code and saved SQL address tables as "<baseId>"."<table>", and only the base
-      // id is rewritten. An existing target schema may already hold those names.
-      const tableSnapshots = await this.createNativeTableSnapshots(
-        fromBaseId,
-        normalizedStructure,
-        timeZone,
-        !baseId
+      // Resolve every structure and copy decision before creating the target
+      // base. Execution consumes this preparation exactly once.
+      const preparation = await this.prepareDuplicateBaseV2(
+        duplicateBaseRo,
+        allowCrossBase,
+        duplicateMode,
+        { includeRowCount: false, readOnly: false }
       );
-
-      const sourceTableIdMap = Object.fromEntries(
-        structure.tables.flatMap((table) => (table.id ? ([[table.id, table.id]] as const) : []))
-      );
-      const sourceTableIds = Object.keys(sourceTableIdMap);
-      // Cross-space links can't survive duplication (per-space data-DB sharding),
-      // so their cell values are always downgraded to text — even when
-      // allowCrossBase=true keeps same-space cross-base links intact. Mirrors
-      // the v1 branch in duplicateBase above.
-      const crossBaseLinkFieldTableMap: ILinkFieldTableMap = allowCrossBase
-        ? await this.getV2CrossBaseLinkFieldTableMap(sourceTableIdMap, spaceId)
-        : await this.getV2CrossBaseLinkFieldTableMap(sourceTableIdMap);
-      const disconnectedLinkFieldTableMap = await this.getV2DisconnectedLinkFieldTableMap(
-        sourceTableIdMap,
-        fromBaseId,
-        nodes,
-        skipParentNodes
-      );
-      const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
-        crossBaseLinkFieldTableMap,
-        disconnectedLinkFieldTableMap
-      );
-      const internalLinkRelationTableMap =
-        await this.getV2InternalLinkRelationTableMap(sourceTableIdMap);
+      const { structure, source } = preparation.execution;
       const container = await this.v2ContainerService.getContainerForSpace(spaceId);
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
@@ -377,30 +907,9 @@ export class BaseDuplicateService {
         });
       }
 
-      // Physical plan inputs for the v2 bulk copier: source table physical
-      // names, link value columns to downgrade, and junction-carrying source
-      // link fields (filtered exactly like the legacy copier).
-      const sourceLinkFields = withRecords
-        ? await this.getV2BulkCopySourceLinkFields({
-            fromBaseId,
-            sourceTableIds,
-            allowCrossBase,
-            nodes,
-            skipParentNodes,
-          })
-        : [];
-      const source = this.createDuplicateBaseSource(
-        fromBaseId,
-        normalizedStructure,
-        tableSnapshots,
-        mergedLinkFieldTableMap,
-        sourceDbTableNameByTableId,
-        internalLinkRelationTableMap,
-        sourceLinkFields
-      );
-      // Structure and row copy both run inside the command: the v2 handler uses
-      // the same-database physical bulk copier when all source relations are
-      // reachable and falls back to row streaming for cross-database copies.
+      // Structure and row copy both run inside the command. The handler chooses
+      // its physical copy mode only after target metadata exists, so preparation
+      // and preview deliberately make no bulk-versus-stream promise.
       const commandResult = DuplicateBaseCommand.createFromSource({
         baseId: base.id,
         source,
@@ -749,6 +1258,32 @@ export class BaseDuplicateService {
           dbTableName ? ([[id, dbTableName]] as const) : []
         )
       ),
+      fieldConversions: this.summarizeProjectedFieldConversions(
+        fieldRaws,
+        structure,
+        excludedTableIds
+      ),
+    };
+  }
+
+  private summarizeProjectedFieldConversions(
+    fieldRaws: DuplicateProjectionSourceField[],
+    structure: DuplicateStructureConfig,
+    excludedTableIds?: ReadonlyArray<string>
+  ): { external: number; partialSelection: number } {
+    const convertedFieldIds = collectConvertedFieldIds(fieldRaws, structure);
+    if (convertedFieldIds.size === 0 || !excludedTableIds?.length) {
+      return { external: convertedFieldIds.size, partialSelection: 0 };
+    }
+
+    const partialSelection = countPartialSelectionConversions(
+      fieldRaws,
+      convertedFieldIds,
+      excludedTableIds
+    );
+    return {
+      external: convertedFieldIds.size - partialSelection,
+      partialSelection,
     };
   }
 
@@ -932,9 +1467,20 @@ export class BaseDuplicateService {
     sourceBaseId: string,
     structure: DuplicateV2StructureConfig,
     timeZone?: string,
-    keepDbTableNames = false
+    options: { readonly readOnly?: boolean; readonly keepDbTableNames?: boolean } = {}
   ): Promise<ReadonlyMap<string, ITablePersistenceDTO>> {
-    const sourceContainer = await this.v2ContainerService.getContainerForBase(sourceBaseId);
+    const { readOnly = false, keepDbTableNames = false } = options;
+    const firstTable = structure.tables[0];
+    if (!firstTable) return new Map();
+    if (!firstTable.id) {
+      throw new Error('Native duplicate source table is missing an id');
+    }
+    const sourceContainer = readOnly
+      ? await this.v2ContainerService.getPreviewContainerForTable(firstTable.id)
+      : await this.v2ContainerService.getContainerForBase(sourceBaseId);
+    if (!sourceContainer) {
+      throw new Error('Native duplicate source route is unavailable for read-only preview');
+    }
     const tableRepository = sourceContainer.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const tableMapper = sourceContainer.resolve<ITableMapper>(v2CoreTokens.tableMapper);
     const context = await this.v2ContextFactory.createContext(sourceContainer);
@@ -2081,47 +2627,7 @@ export class BaseDuplicateService {
       return [];
     }
 
-    const items: string[] = [];
-    let item = '';
-    let inQuotes = false;
-
-    for (let index = 0; index < inner.length; index += 1) {
-      const char = inner[index];
-
-      if (inQuotes) {
-        if (char === '\\') {
-          index += 1;
-          item += inner[index] ?? '';
-          continue;
-        }
-        if (char === '"') {
-          inQuotes = false;
-          continue;
-        }
-        item += char;
-        continue;
-      }
-
-      if (char === '"') {
-        inQuotes = true;
-        continue;
-      }
-
-      if (char === ',') {
-        items.push(item);
-        item = '';
-        continue;
-      }
-
-      item += char;
-    }
-
-    if (inQuotes) {
-      return undefined;
-    }
-
-    items.push(item);
-    return items;
+    return splitPostgresTextArrayItems(inner);
   }
 
   private async *createSourceTableRecordRows(
@@ -2202,11 +2708,7 @@ export class BaseDuplicateService {
     const rowsById = new Map(
       rows.flatMap((row) => (typeof row.__id === 'string' ? ([[row.__id, row]] as const) : []))
     );
-    for (const row of rows) {
-      for (const { dbFieldName } of internalLinkInfo) {
-        delete row[dbFieldName];
-      }
-    }
+    clearInternalLinkColumns(rows, internalLinkInfo);
 
     if (!sourceRecordIds.length) {
       return rows;
@@ -2219,15 +2721,7 @@ export class BaseDuplicateService {
         sourceRecordIds,
         info
       );
-      for (const [sourceRecordId, linkItems] of relations) {
-        const row = rowsById.get(sourceRecordId);
-        if (!row) continue;
-        if (info.isMultipleCellValue) {
-          row[info.dbFieldName] = linkItems;
-        } else if (linkItems[0]) {
-          row[info.dbFieldName] = linkItems[0];
-        }
-      }
+      applyInternalLinkRelations(rowsById, relations, info);
     }
 
     return rows;

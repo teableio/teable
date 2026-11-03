@@ -7,8 +7,9 @@ import type {
   IBaseNodeVo,
   IBaseNodeTableResourceMeta,
   IDuplicateBaseNodeRo,
+  IDuplicateTableCheckVo,
 } from '@teable/openapi';
-import { BaseNodeResourceType, duplicateTableCheck, SUPPORTEDTYPE } from '@teable/openapi';
+import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -56,6 +57,8 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
+import type { OperationPreviewPanelProps } from '@/features/app/components/operation-preview/OperationPreviewPanel';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
@@ -69,6 +72,8 @@ import {
   markTableDeletedLocally,
   unmarkTableDeletedLocally,
 } from '../../table/hooks/stale-table-fallback';
+import { TableDuplicateConversionWarning } from '../../table-list/TableDuplicateConversionWarning';
+import { useTableDuplicatePreview } from '../../table-list/useTableDuplicatePreview';
 import { useTableHref } from '../../table-list/useTableHref';
 import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
@@ -631,6 +636,23 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
+interface TableDuplicatePreviewEvidenceProps extends OperationPreviewPanelProps {
+  useV2: boolean;
+  affectedFields?: IDuplicateTableCheckVo['affectedFields'];
+}
+
+const TableDuplicatePreviewEvidence = ({
+  useV2,
+  affectedFields,
+  ...previewProps
+}: TableDuplicatePreviewEvidenceProps) => {
+  if (!useV2) {
+    return <TableDuplicateConversionWarning fields={affectedFields} />;
+  }
+
+  return <OperationPreviewPanel {...previewProps} />;
+};
+
 export const TableOperation = (props: ITableOperationProps) => {
   const {
     resourceId,
@@ -683,7 +705,6 @@ export const TableOperation = (props: ITableOperationProps) => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const tableName = table?.name ?? node?.resourceMeta?.name ?? resourceId;
   const { trigger } = useDownload({ downloadUrl: `/api/export/${resourceId}`, key: 'table' });
@@ -698,6 +719,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   );
 
   const [duplicateOption, setDuplicateOption] = useState({
+    name: defaultTableName,
     includeRecords: true,
   });
 
@@ -735,30 +757,16 @@ export const TableOperation = (props: ITableOperationProps) => {
     }
   };
 
-  // Cross-space preview that drives the inline warning. We resolve this
-  // BEFORE opening the duplicate dialog (see handleDuplicateClick below) so
-  // the warning is part of the dialog's initial render rather than appearing
-  // late after the user has already started configuring.
-  const [affectedCrossSpace, setAffectedCrossSpace] = useState<Array<{
-    fieldId: string;
-    fieldName: string;
-  }> | null>(null);
-  const [isPreviewing, setIsPreviewing] = useState(false);
+  const duplicateName = duplicateOption.name.trim() || defaultTableName;
+  const duplicatePreview = useTableDuplicatePreview(
+    baseId,
+    resourceId,
+    { name: duplicateName, includeRecords: duplicateOption.includeRecords },
+    duplicateSetting && Boolean(baseId && resourceId)
+  );
 
-  const handleDuplicateClick = async () => {
-    if (!baseId || !resourceId) {
-      setDuplicateSetting(true);
-      return;
-    }
-    setIsPreviewing(true);
-    try {
-      const res = await duplicateTableCheck(baseId, resourceId);
-      const affected = res.data.affectedFields;
-      setAffectedCrossSpace(affected && affected.length > 0 ? affected : null);
-    } catch {
-      setAffectedCrossSpace(null);
-    }
-    setIsPreviewing(false);
+  const handleDuplicateClick = () => {
+    setDuplicateOption((prev) => ({ ...prev, name: defaultTableName }));
     setDuplicateSetting(true);
   };
 
@@ -785,7 +793,7 @@ export const TableOperation = (props: ITableOperationProps) => {
       }
       toast.error(error.message);
     },
-    // Cross-space affected-fields are surfaced inline; bypass the global toast.
+    // Keep billing feedback and mutation errors local to this menu.
     meta: { preventGlobalError: true },
   });
 
@@ -818,6 +826,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           tableId={resourceId}
           tableName={tableName}
           isDeleting={isDeleting}
+          mode="soft"
           loginApps={loginApps}
           onOpenChange={setDeleteConfirm}
           onConfirm={() => deleteTable(false)}
@@ -827,17 +836,15 @@ export const TableOperation = (props: ITableOperationProps) => {
       {duplicateSetting && (
         <ConfirmDialog
           open={duplicateSetting}
-          onOpenChange={(open) => {
-            setDuplicateSetting(open);
-            if (!open) setAffectedCrossSpace(null);
-          }}
-          title={`${t('common:actions.duplicate')} ${table?.name}`}
+          onOpenChange={setDuplicateSetting}
+          title={`${t('common:actions.duplicate')} ${tableName}`}
           cancelText={t('common:actions.cancel')}
           confirmText={
-            affectedCrossSpace
+            duplicatePreview.affectedFields?.length
               ? t('table:crossSpace.convertAndDuplicate')
               : t('common:actions.duplicate')
           }
+          confirmDisabled={isLoading || !duplicatePreview.canConfirm}
           confirmLoading={isLoading}
           content={
             <div className="flex flex-col space-y-2 text-sm">
@@ -845,7 +852,13 @@ export const TableOperation = (props: ITableOperationProps) => {
                 <Label>
                   {t('common:noun.table')} {t('common:name')}
                 </Label>
-                <Input ref={inputRef} defaultValue={defaultTableName} />
+                <Input
+                  value={duplicateOption.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setDuplicateOption((prev) => ({ ...prev, name }));
+                  }}
+                />
               </div>
               <div className="flex items-center gap-1">
                 <Switch
@@ -857,32 +870,23 @@ export const TableOperation = (props: ITableOperationProps) => {
                 />
                 <Label htmlFor="include-record">{t('table:import.menu.includeRecords')}</Label>
               </div>
-              {affectedCrossSpace && (
-                <div className="mt-2 rounded-md border border-yellow-300 bg-yellow-50 p-2.5 text-xs text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200">
-                  <p className="font-medium">{t('table:crossSpace.duplicateTableTitle')}</p>
-                  <p className="mt-1">
-                    {t('table:crossSpace.duplicateTableDescription', {
-                      count: affectedCrossSpace.length,
-                    })}
-                  </p>
-                  <div className="mt-2 flex max-h-40 flex-wrap gap-1 overflow-y-auto">
-                    {affectedCrossSpace.map((f) => (
-                      <span
-                        key={f.fieldId}
-                        className="inline-flex items-center rounded border border-yellow-300/60 bg-background/70 px-1.5 py-0.5 text-[11px] dark:border-yellow-700/60 dark:bg-yellow-950/40"
-                      >
-                        {f.fieldName}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <TableDuplicatePreviewEvidence
+                useV2={duplicatePreview.useV2}
+                affectedFields={duplicatePreview.affectedFields}
+                preview={duplicatePreview.preview.data}
+                error={duplicatePreview.preview.error}
+                isLoading={
+                  duplicatePreview.preview.isPending || duplicatePreview.preview.isFetching
+                }
+                onRetry={() => void duplicatePreview.preview.refetch()}
+              />
             </div>
           }
           onCancel={() => setDuplicateSetting(false)}
           onConfirm={async () => {
+            if (isLoading || !duplicatePreview.canConfirm) return;
             await duplicateTableFn({
-              name: inputRef.current?.value?.trim() || defaultTableName,
+              name: duplicateName,
               includeRecords: duplicateOption.includeRecords,
             });
           }}
@@ -965,9 +969,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
-            onClick={() => {
-              void handleDuplicateClick();
-            }}
+            onClick={handleDuplicateClick}
           />
         )}
         {menuPermission.exportTable && (
@@ -1128,10 +1130,10 @@ export const TableOperation = (props: ITableOperationProps) => {
           {star && <StarItem star={star} />}
           {menuPermission.duplicateTable && (
             <DropdownMenuItem
-              disabled={isPreviewing}
+              disabled={isLoading}
               onClick={(e) => {
                 e.preventDefault();
-                void handleDuplicateClick();
+                handleDuplicateClick();
               }}
             >
               <CopyPlus className="me-2 size-4" />

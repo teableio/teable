@@ -4,11 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-shared';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
 import {
-  ComputedUpdateWorker,
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateWorker,
   type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
+import type { PreviewPlannerRegistry } from '@teable/v2-command-explain';
+import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 import {
   ActorId,
   buildRecordCollection,
@@ -81,6 +83,29 @@ describe('createHeadlessRuntime', () => {
     }
 
     await runtime.close();
+  }, 30_000);
+
+  it('registers canonical partial preview capabilities for the PGlite composition', async () => {
+    const runtime = await createHeadlessRuntime({
+      backend: { kind: 'pglite', dataDir: 'memory://' },
+    });
+
+    try {
+      const registry = runtime.container.resolve<PreviewPlannerRegistry>(
+        v2CommandExplainTokens.previewPlannerRegistry
+      );
+      expect(registry.capabilities()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            operation: 'table.delete',
+            supportLevel: 'partial',
+            requiredPermissionScope: 'table.delete',
+          }),
+        ])
+      );
+    } finally {
+      await runtime.close();
+    }
   }, 30_000);
 
   it('recomputes a formula after a record update', async () => {

@@ -21,7 +21,12 @@ export const normalizeMarkdownValue = (value: unknown): string => {
   return String(value);
 };
 
-export const stripMarkdown = (text: string): string => {
+/**
+ * `keepLines` keeps one item per line (grid cells wrap): list numbers stay,
+ * bullets become `•`, and per-line indentation is dropped. Without it the
+ * result is a single line for one-line previews.
+ */
+export const stripMarkdown = (text: string, options?: { keepLines?: boolean }): string => {
   // Preserve URLs from empty-label links [](url) and autolinks <url> before stripping
   const normalized = text
     .replace(/\\?<(\[[^\]]*\]\([^)]+\))>/g, '$1')
@@ -30,6 +35,16 @@ export const stripMarkdown = (text: string): string => {
       label.trim() ? `[${label}](${url})` : url
     )
     .replace(/<(https?:\/\/[^>]+)>/g, '$1');
+  if (options?.keepLines) {
+    return removeMd(normalized.replace(/^(\s*)[*+-]\s+/gm, '$1• '), {
+      stripListLeaders: false,
+      useImgAltText: true,
+    })
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n');
+  }
   return removeMd(normalized).replace(/\n+/g, ' ').trim();
 };
 

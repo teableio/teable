@@ -2,6 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  loadBulkRecordExplicitScope,
+  prepareBulkRecordExplicitScope,
+} from '../application/services/BulkRecordPreparationService';
 import { requireStoredRecordSnapshots } from '../application/services/RecordMutationSnapshotContract';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -32,7 +36,6 @@ import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
 import { persistDeletedTrashMarkers } from './shared/persistDeletedTrashMarkers';
 import { composeRecordConditionSpecs } from './shared/recordWriteScope';
-import { toTableRecord } from './shared/toTableRecord';
 
 export class DeleteRecordsResult {
   private constructor(
@@ -87,38 +90,34 @@ export class DeleteRecordsHandler implements ICommandHandler<
       yield* await pluginExecution.guard();
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
-      const deleteSpec = RecordByIdsSpec.create(command.recordIds);
-      const scopedSnapshots =
-        pluginRecordSpec != null
-          ? yield* await handler.tableRecordQueryRepository.find(context, table, deleteSpec, {
-              mode: 'stored',
-            })
-          : undefined;
+      const scopedSnapshots = yield* await loadBulkRecordExplicitScope(
+        context,
+        table,
+        command.recordIds,
+        handler.tableRecordQueryRepository
+      );
+      const preparedScope = yield* prepareBulkRecordExplicitScope(
+        table,
+        command.recordIds.map((recordId) => ({ recordId, fieldValues: new Map() })),
+        scopedSnapshots,
+        pluginRecordSpec
+      );
 
-      if (pluginRecordSpec && scopedSnapshots && scopedSnapshots.records.length > 0) {
-        let authorizedRecordCount = 0;
-        for (const readModel of scopedSnapshots.records) {
-          const tableRecord = yield* toTableRecord(table, readModel);
-          if (pluginRecordSpec.isSatisfiedBy(tableRecord)) {
-            authorizedRecordCount += 1;
-          }
-        }
-
-        if (authorizedRecordCount !== scopedSnapshots.records.length) {
-          return err(
-            domainError.forbidden({
-              code: 'record_write_plugin.scope_forbidden',
-              message: 'Record write target includes rows outside the allowed scope.',
-              details: {
-                operation: RecordWriteOperationKind.deleteMany,
-                tableId: table.id().toString(),
-                requestedRecordCount: scopedSnapshots.records.length,
-                authorizedRecordCount,
-              },
-            })
-          );
-        }
+      if (preparedScope.pluginFilteredRecordIds.length > 0) {
+        return err(
+          domainError.forbidden({
+            code: 'record_write_plugin.scope_forbidden',
+            message: 'Record write target includes rows outside the allowed scope.',
+            details: {
+              operation: RecordWriteOperationKind.deleteMany,
+              tableId: table.id().toString(),
+              requestedRecordCount: scopedSnapshots.records.length,
+              authorizedRecordCount: preparedScope.authorizedUpdates.length,
+            },
+          })
+        );
       }
+      const deleteSpec = RecordByIdsSpec.create(command.recordIds);
       const scopedDeleteSpec =
         composeRecordConditionSpecs(deleteSpec, pluginRecordSpec) ?? deleteSpec;
       let deleteReportedNotFound = false;
@@ -167,7 +166,9 @@ export class DeleteRecordsHandler implements ICommandHandler<
               }
             }
 
-            const expectedSnapshotCount = scopedSnapshots?.records.length;
+            const expectedSnapshotCount = pluginRecordSpec
+              ? scopedSnapshots.records.length
+              : undefined;
             const persistedDeletedSnapshots = deleteResult.value.deletedRecords;
             if (expectedSnapshotCount === 0 && !persistedDeletedSnapshots) {
               return ok(domainWrite.unchanged(deleteResult.value));
@@ -217,7 +218,7 @@ export class DeleteRecordsHandler implements ICommandHandler<
         );
 
       const deleteResult = committed.value;
-      const expectedSnapshotCount = scopedSnapshots?.records.length;
+      const expectedSnapshotCount = pluginRecordSpec ? scopedSnapshots.records.length : undefined;
       const persistedDeletedSnapshots = deleteResult.deletedRecords;
       if (deleteReportedNotFound || (expectedSnapshotCount === 0 && !persistedDeletedSnapshots)) {
         await pluginExecution.afterCommit();

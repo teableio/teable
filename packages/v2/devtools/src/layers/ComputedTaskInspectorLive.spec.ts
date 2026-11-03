@@ -50,7 +50,11 @@ describe('ComputedTaskInspectorLive replay', () => {
           Effect.provide(
             DatabasePgliteLive.pipe(
               Layer.provide(
-                Layer.succeed(DatabaseConfig, { connectionString: `pglite://${dataDir}` })
+                Layer.succeed(DatabaseConfig, {
+                  connectionString: `pglite://${dataDir}`,
+                  initializePglite: true,
+                  diagnostics: 'default',
+                })
               )
             )
           )

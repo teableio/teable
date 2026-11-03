@@ -1,14 +1,16 @@
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle } from '@teable/v2-di';
-import { UpdateRecordApplicationService } from '../commands/UpdateRecordApplicationService';
-import { UpdateRecordsApplicationService } from '../commands/UpdateRecordsApplicationService';
 
 import { AttachmentValueDecoratorService } from '../application/services/AttachmentValueDecoratorService';
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
+import { BulkRecordPreparationService } from '../application/services/BulkRecordPreparationService';
 import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { DuplicateRecordsApplicationService } from '../application/services/DuplicateRecordsApplicationService';
+import { DuplicateTablePreparationService } from '../application/services/DuplicateTablePreparationService';
+import { FieldConversionPreparationService } from '../application/services/FieldConversionPreparationService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldCrossTableUpdateSideEffectService } from '../application/services/FieldCrossTableUpdateSideEffectService';
+import { FieldDeletionPreparationService } from '../application/services/FieldDeletionPreparationService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import { FieldUndoRedoReplayService } from '../application/services/FieldUndoRedoReplayService';
@@ -18,14 +20,15 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
+import { PastePreparationService } from '../application/services/PastePreparationService';
 import { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
-import { RecordUpsertService } from '../application/services/RecordUpsertService';
 import { NullRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordReorderService } from '../application/services/RecordReorderService';
+import { RecordUpsertService } from '../application/services/RecordUpsertService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -43,6 +46,7 @@ import { TableDataSafetyLimitFieldOperationPlugin } from '../application/service
 import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableDataSafetyLimitViewOperationPlugin } from '../application/services/TableDataSafetyLimitViewOperationPlugin';
+import { TableDeletionPreparationService } from '../application/services/TableDeletionPreparationService';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
@@ -60,6 +64,8 @@ import { ViewPluginCreationService } from '../application/services/ViewPluginCre
 import { ViewUndoRedoService } from '../application/services/ViewUndoRedoService';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
 import { RestoreFieldStreamApplicationService } from '../commands/RestoreFieldStreamHandler';
+import { UpdateRecordApplicationService } from '../commands/UpdateRecordApplicationService';
+import { UpdateRecordsApplicationService } from '../commands/UpdateRecordsApplicationService';
 import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
 import { NoopBaseDataBulkCopier } from '../ports/defaults/NoopBaseDataBulkCopier';
 import { NoopButtonClickWorkflowService } from '../ports/defaults/NoopButtonClickWorkflowService';
@@ -106,6 +112,11 @@ import { registerViewOperationPlugin } from './registerViewOperationPlugin';
  * |----------------------------------|--------------------------------|----------------------------------------------|
  * | tableUpdateFlow                  | TableUpdateFlow                | Transactional table update workflow          |
  * | tableQueryService                | TableQueryService              | Common table lookup operations               |
+ * | duplicateTablePreparationService | DuplicateTablePreparationService | Read-only table duplication preparation    |
+ * | fieldConversionPreparationService | FieldConversionPreparationService | Read-only field conversion preparation    |
+ * | fieldDeletionPreparationService | FieldDeletionPreparationService | Read-only field deletion preparation        |
+ * | pastePreparationService          | PastePreparationService        | Read-only paste preparation                  |
+ * | bulkRecordPreparationService     | BulkRecordPreparationService   | Read-only bulk record preparation            |
  * | fieldCreationSideEffectService   | FieldCreationSideEffectService | Cross-table field creation side effects      |
  * | fieldDeletionSideEffectService   | FieldDeletionSideEffectService | Cross-table field deletion side effects      |
  * | fieldUpdateSideEffectService     | FieldUpdateSideEffectService   | Cascading field updates for dependent fields |
@@ -176,6 +187,42 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.tableQueryService, TableQueryService, { lifecycle });
   }
 
+  if (!container.isRegistered(v2CoreTokens.duplicateTablePreparationService)) {
+    container.register(
+      v2CoreTokens.duplicateTablePreparationService,
+      DuplicateTablePreparationService,
+      { lifecycle }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.fieldConversionPreparationService)) {
+    container.register(
+      v2CoreTokens.fieldConversionPreparationService,
+      FieldConversionPreparationService,
+      { lifecycle }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.fieldDeletionPreparationService)) {
+    container.register(
+      v2CoreTokens.fieldDeletionPreparationService,
+      FieldDeletionPreparationService,
+      { lifecycle }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.pastePreparationService)) {
+    container.register(v2CoreTokens.pastePreparationService, PastePreparationService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.bulkRecordPreparationService)) {
+    container.register(v2CoreTokens.bulkRecordPreparationService, BulkRecordPreparationService, {
+      lifecycle,
+    });
+  }
+
   // TableSchemaCoordination - no-op unless the host registers a database adapter
   if (!container.isRegistered(v2CoreTokens.tableSchemaCoordination)) {
     container.register(v2CoreTokens.tableSchemaCoordination, NoopTableSchemaCoordination, {
@@ -232,6 +279,14 @@ export const registerV2CoreServices = (
       {
         lifecycle,
       }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableDeletionPreparationService)) {
+    container.register(
+      v2CoreTokens.tableDeletionPreparationService,
+      TableDeletionPreparationService,
+      { lifecycle }
     );
   }
 
@@ -654,11 +709,9 @@ export const registerV2CoreServices = (
 
   // Row-order column preparation - default no-op (adapter provides DDL)
   if (!container.isRegistered(v2CoreTokens.recordOrderColumnPreparer)) {
-    container.register(
-      v2CoreTokens.recordOrderColumnPreparer,
-      NoopRecordOrderColumnPreparer,
-      { lifecycle }
-    );
+    container.register(v2CoreTokens.recordOrderColumnPreparer, NoopRecordOrderColumnPreparer, {
+      lifecycle,
+    });
   }
 
   // UndoRedoStore - default no-op store

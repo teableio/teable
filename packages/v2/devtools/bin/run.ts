@@ -1,8 +1,10 @@
 #!/usr/bin/env tsx
 import { Command } from '@effect/cli';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Effect } from 'effect';
+import { Cause, Effect } from 'effect';
 import { root } from '../src/commands';
+import { preview, previewCapabilities, previewOperation } from '../src/commands/preview';
+import { getPreviewInvocation } from '../src/utils/cliInvocation';
 
 /**
  * Extract connection string from command line args
@@ -21,21 +23,57 @@ const cli = Command.run(root, {
 });
 
 // Run - Effect CLI expects full process.argv, it handles slicing internally
-const connectionString = getConnectionFromArgs(process.argv);
+const previewInvocation = await Effect.runPromise(
+  getPreviewInvocation(
+    {
+      root: root.descriptor,
+      preview: preview.descriptor,
+      previewTag: preview.tag,
+      operation: previewOperation.descriptor,
+      operationTag: previewOperation.tag,
+      capabilities: previewCapabilities.descriptor,
+      capabilitiesTag: previewCapabilities.tag,
+    },
+    process.argv
+  ).pipe(Effect.provide(NodeContext.layer))
+);
+const connectionString = previewInvocation.connection ?? getConnectionFromArgs(process.argv);
 const isDotteaInspect = process.argv.includes('dottea') && process.argv.includes('inspect');
 // Repro builds its own in-memory runtime; the Database layer would eagerly open
 // the default local connection even for a --structure-only run.
 const isRepro = process.argv.includes('repro');
 
-const appLayer = isDotteaInspect
-  ? (await import('../src/layers/OutputLive')).OutputLive
-  : isRepro
-    ? (await import('../src/layers/ReproLayer')).ReproLayer
-    : (await import('../src/layers/AppLayer')).FullLayer(connectionString);
+const appLayer = previewInvocation.selected
+  ? previewInvocation.subcommand === 'capabilities'
+    ? (await import('../src/layers/AppLayer')).PreviewCapabilitiesLayer
+    : (await import('../src/layers/AppLayer')).PreviewLayer(connectionString, {
+        diagnostics: previewInvocation.json ? 'stderr' : 'default',
+      })
+  : isDotteaInspect
+    ? (await import('../src/layers/OutputLive')).OutputLive
+    : isRepro
+      ? (await import('../src/layers/ReproLayer')).ReproLayer
+      : (await import('../src/layers/AppLayer')).FullLayer(connectionString);
 
 const program = cli(process.argv).pipe(
   Effect.provide(appLayer),
   Effect.provide(NodeContext.layer)
 ) as Effect.Effect<void, unknown, never>;
 
-NodeRuntime.runMain(program);
+if (previewInvocation.json) {
+  // The preview handler reports stable errors itself. Preserve unexpected causes on stderr
+  // while disabling runMain's stdout-oriented pretty reporter for the JSON protocol.
+  const jsonProgram = program.pipe(
+    Effect.tapErrorCause((cause) =>
+      Effect.sync(() => {
+        process.stderr.write(`${Cause.pretty(cause)}\n`);
+      })
+    )
+  );
+  NodeRuntime.runMain(jsonProgram, {
+    disableErrorReporting: true,
+    disablePrettyLogger: true,
+  });
+} else {
+  NodeRuntime.runMain(program);
+}

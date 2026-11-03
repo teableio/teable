@@ -17,5 +17,9 @@ export class DatabaseConfig extends Context.Tag('DatabaseConfig')<
   DatabaseConfig,
   {
     readonly connectionString: string;
+    /** Preview commands inspect an existing database and must never bootstrap or seed it. */
+    readonly initializePglite: boolean;
+    /** Machine-readable commands keep diagnostics off stdout. */
+    readonly diagnostics: 'default' | 'stderr';
   }
 >() {}

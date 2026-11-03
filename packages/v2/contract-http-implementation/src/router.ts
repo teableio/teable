@@ -1,10 +1,17 @@
 import { ORPCError, implement } from '@orpc/server';
-import type { IComplexityService, IExplainService } from '@teable/v2-command-explain';
+import type { Router } from '@orpc/server';
+import type {
+  IComplexityService,
+  IExplainService,
+  IOperationPreviewService,
+  PreviewPlannerRegistry,
+} from '@teable/v2-command-explain';
 import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 import type {
   HttpErrorStatus,
   IApiErrorResponseDto,
   IHandlerResolver,
+  V2Contract,
 } from '@teable/v2-contract-http';
 import { v2Contract } from '@teable/v2-contract-http';
 import {
@@ -23,6 +30,10 @@ import { executeDuplicateBaseEndpoint } from './handlers/bases/duplicateBase';
 import { executeListBasesEndpoint } from './handlers/bases/listBases';
 import { executeComplexityAssessEndpoint } from './handlers/complexity/assess';
 import { executeComplexityAssessMatrixEndpoint } from './handlers/complexity/assessMatrix';
+import {
+  executeOperationPreviewCapabilitiesEndpoint,
+  executeOperationPreviewEndpoint,
+} from './handlers/operationPreview';
 import { executeClearEndpoint } from './handlers/tables/clear';
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
@@ -94,7 +105,9 @@ export interface IV2OrpcRouterOptions {
   createExecutionContext?: () => IExecutionContext | Promise<IExecutionContext>;
 }
 
-export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
+export type V2OrpcRouter = Router<V2Contract, Record<never, never>>;
+
+export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRouter => {
   let defaultContainerPromise: Promise<IHandlerResolver> | undefined;
   const createDefaultContainer = async (): Promise<IHandlerResolver> => {
     const { createV2NodePgContainer } = await import('@teable/v2-container-node');
@@ -146,8 +159,12 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   const throwDomainError = (
     orpcCode:
       | 'BAD_REQUEST'
+      | 'UNAUTHORIZED'
       | 'FORBIDDEN'
       | 'NOT_FOUND'
+      | 'CONFLICT'
+      | 'NOT_IMPLEMENTED'
+      | 'SERVICE_UNAVAILABLE'
       | 'GATEWAY_TIMEOUT'
       | 'INTERNAL_SERVER_ERROR',
     errorBody: {
@@ -172,7 +189,22 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     );
   };
 
-  const os = implement(v2Contract);
+  const throwMappedDomainError = (
+    status: HttpErrorStatus,
+    errorBody: IApiErrorResponseDto['error']
+  ): never => {
+    if (status === 400) return throwDomainError('BAD_REQUEST', errorBody);
+    if (status === 401) return throwDomainError('UNAUTHORIZED', errorBody);
+    if (status === 403) return throwDomainError('FORBIDDEN', errorBody);
+    if (status === 404) return throwDomainError('NOT_FOUND', errorBody);
+    if (status === 409) return throwDomainError('CONFLICT', errorBody);
+    if (status === 501) return throwDomainError('NOT_IMPLEMENTED', errorBody);
+    if (status === 503) return throwDomainError('SERVICE_UNAVAILABLE', errorBody);
+    if (status === 504) return throwDomainError('GATEWAY_TIMEOUT', errorBody);
+    return throwDomainError('INTERNAL_SERVER_ERROR', errorBody);
+  };
+
+  const os = implement<V2Contract>(v2Contract);
 
   type ViewRouteResult<TBody> =
     | { status: 200; body: TBody }
@@ -180,11 +212,11 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
   const unwrapViewRouteResult = <TBody>(result: ViewRouteResult<TBody>): TBody => {
     if (result.status === 200) return result.body;
-    if (result.status === 400) throwDomainError('BAD_REQUEST', result.body.error);
-    if (result.status === 403) throwDomainError('FORBIDDEN', result.body.error);
-    if (result.status === 404) throwDomainError('NOT_FOUND', result.body.error);
+    if (result.status === 400) return throwDomainError('BAD_REQUEST', result.body.error);
+    if (result.status === 403) return throwDomainError('FORBIDDEN', result.body.error);
+    if (result.status === 404) return throwDomainError('NOT_FOUND', result.body.error);
     // A read that outran its budget is a dependency timeout, not an internal failure.
-    if (result.status === 504) throwDomainError('GATEWAY_TIMEOUT', result.body.error);
+    if (result.status === 504) return throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   };
 
@@ -248,10 +280,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const basesList = os.bases.list.handler(async ({ input }) => {
@@ -272,10 +304,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const basesDuplicate = os.bases.duplicate.handler(async ({ input }) => {
@@ -293,10 +325,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDuplicateBaseEndpoint(executionContext, input, commandBus);
     if (result.status === 201) return result.body;
-    if (result.status === 400) throwDomainError('BAD_REQUEST', result.body.error);
-    if (result.status === 403) throwDomainError('FORBIDDEN', result.body.error);
-    if (result.status === 404) throwDomainError('NOT_FOUND', result.body.error);
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    if (result.status === 400) return throwDomainError('BAD_REQUEST', result.body.error);
+    if (result.status === 403) return throwDomainError('FORBIDDEN', result.body.error);
+    if (result.status === 404) return throwDomainError('NOT_FOUND', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreate = os.tables.create.handler(async ({ input }) => {
@@ -317,10 +349,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreateTables = os.tables.createTables.handler(async ({ input }) => {
@@ -341,10 +373,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreateField = os.tables.createField.handler(async ({ input }) => {
@@ -365,14 +397,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreateView = os.tables.createView.handler(async ({ input }) => {
@@ -393,14 +425,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDuplicateTable = os.tables.duplicateTable.handler(async ({ input }) => {
@@ -421,14 +453,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesUpdateField = os.tables.updateField.handler(async ({ input }) => {
@@ -449,14 +481,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreateRecord = os.tables.createRecord.handler(async ({ input }) => {
@@ -477,17 +509,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesSubmitRecord = os.tables.submitRecord.handler(async ({ input }) => {
@@ -508,17 +540,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesCreateRecords = os.tables.createRecords.handler(async ({ input }) => {
@@ -539,17 +571,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesUpdateRecord = os.tables.updateRecord.handler(async ({ input }) => {
@@ -570,17 +602,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesUpdateRecords = os.tables.updateRecords.handler(async ({ input }) => {
@@ -601,17 +633,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesReorderRecords = os.tables.reorderRecords.handler(async ({ input }) => {
@@ -632,14 +664,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDuplicateRecord = os.tables.duplicateRecord.handler(async ({ input }) => {
@@ -660,14 +692,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDuplicateField = os.tables.duplicateField.handler(async ({ input }) => {
@@ -688,14 +720,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesPaste = os.tables.paste.handler(async ({ input }) => {
@@ -716,17 +748,17 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesClear = os.tables.clear.handler(async ({ input }) => {
@@ -747,14 +779,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDeleteByRange = os.tables.deleteByRange.handler(async ({ input }) => {
@@ -775,14 +807,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDeleteRecords = os.tables.deleteRecords.handler(async ({ input }) => {
@@ -803,14 +835,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
@@ -831,18 +863,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesGetById = os.tables.getById.handler(async ({ input }) => {
@@ -876,14 +908,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesGetComputeActivity = os.tables.getComputeActivity.handler(async ({ input }) => {
@@ -904,14 +936,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesGetRecord = os.tables.getRecord.handler(async ({ input }) => {
@@ -932,14 +964,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesGetView = os.tables.getView.handler(async ({ input }) => {
@@ -960,14 +992,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDelete = os.tables.delete.handler(async ({ input }) => {
@@ -988,14 +1020,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesRestore = os.tables.restore.handler(async ({ input }) => {
@@ -1016,14 +1048,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesList = os.tables.list.handler(async ({ input }) => {
@@ -1044,10 +1076,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesListViews = os.tables.listViews.handler(async ({ input }) => {
@@ -1068,14 +1100,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesListRecords = os.tables.listRecords.handler(async ({ input }) => {
@@ -1096,19 +1128,19 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
     // A read that outran its budget is a dependency timeout, not an internal failure.
     if (result.status === 504) {
-      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
+      return throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesRename = os.tables.rename.handler(async ({ input }) => {
@@ -1129,14 +1161,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesUpdateProperties = os.tables.updateProperties.handler(async ({ input }) => {
@@ -1155,10 +1187,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     const result = await executeUpdateTablePropertiesEndpoint(executionContext, input, commandBus);
 
     if (result.status === 200) return result.body;
-    if (result.status === 400) throwDomainError('BAD_REQUEST', result.body.error);
-    if (result.status === 403) throwDomainError('FORBIDDEN', result.body.error);
-    if (result.status === 404) throwDomainError('NOT_FOUND', result.body.error);
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    if (result.status === 400) return throwDomainError('BAD_REQUEST', result.body.error);
+    if (result.status === 403) return throwDomainError('FORBIDDEN', result.body.error);
+    if (result.status === 404) return throwDomainError('NOT_FOUND', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesImportCsv = os.tables.importCsv.handler(async ({ input }) => {
@@ -1179,20 +1211,20 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
     // Dependency timeouts (statement timeout, interrupted import source) are
     // retryable, so keep 504 instead of collapsing them into a 500.
     if (result.status === 504) {
-      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
+      return throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesImportRecords = os.tables.importRecords.handler(async ({ input }) => {
@@ -1213,20 +1245,20 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
     // Dependency timeouts (statement timeout, interrupted import source) are
     // retryable, so keep 504 instead of collapsing them into a 500.
     if (result.status === 504) {
-      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
+      return throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainCreateRecord = os.tables.explainCreateRecord.handler(async ({ input }) => {
@@ -1253,14 +1285,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainCreateField = os.tables.explainCreateField.handler(async ({ input }) => {
@@ -1283,14 +1315,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainUpdateField = os.tables.explainUpdateField.handler(async ({ input }) => {
@@ -1313,14 +1345,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainDeleteField = os.tables.explainDeleteField.handler(async ({ input }) => {
@@ -1343,14 +1375,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainDeleteTable = os.tables.explainDeleteTable.handler(async ({ input }) => {
@@ -1373,14 +1405,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
@@ -1407,14 +1439,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesExplainDeleteRecords = os.tables.explainDeleteRecords.handler(async ({ input }) => {
@@ -1441,14 +1473,45 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  /**
+   * This generic mount is transport-only. An exposing host must authenticate
+   * and authorize the exact write scope before invoking preview.
+   */
+  const operationPreview = os.operations.preview.handler(async ({ input }) => {
+    const container = await resolveContainer();
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const previewService = container.resolve<IOperationPreviewService>(
+      v2CommandExplainTokens.operationPreviewService
+    );
+    const result = await executeOperationPreviewEndpoint(executionContext, input, previewService);
+    if (result.status === 200) return result.body;
+    return throwMappedDomainError(result.status, result.body.error);
+  });
+
+  const operationPreviewCapabilities = os.operations.capabilities.handler(async () => {
+    const container = await resolveContainer();
+    const registry = container.resolve<PreviewPlannerRegistry>(
+      v2CommandExplainTokens.previewPlannerRegistry
+    );
+    return executeOperationPreviewCapabilitiesEndpoint(registry).body;
   });
 
   /**
@@ -1482,18 +1545,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const complexityAssessMatrix = os.complexity.assessMatrix.handler(async ({ input }) => {
@@ -1519,18 +1582,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throwDomainError('BAD_REQUEST', result.body.error);
+      return throwDomainError('BAD_REQUEST', result.body.error);
     }
 
     if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
+      return throwDomainError('FORBIDDEN', result.body.error);
     }
 
     if (result.status === 404) {
-      throwDomainError('NOT_FOUND', result.body.error);
+      return throwDomainError('NOT_FOUND', result.body.error);
     }
 
-    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
   const tablesDeleteView = os.tables.deleteView.handler(({ input }) =>
@@ -1601,6 +1664,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   );
 
   return os.router({
+    operations: {
+      preview: operationPreview,
+      capabilities: operationPreviewCapabilities,
+    },
     complexity: {
       assess: complexityAssess,
       assessMatrix: complexityAssessMatrix,
@@ -1675,5 +1742,3 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     },
   });
 };
-
-export type V2OrpcRouter = ReturnType<typeof createV2OrpcRouter>;

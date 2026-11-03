@@ -440,6 +440,77 @@ describePg('interactive query cancellation through the public pg adapter (real P
     }
   );
 
+  it('rolls back an interrupted transaction and leaves later queries uncancelled', async () => {
+    const { db } = await connectDb();
+    await sql`drop table if exists computed_cancellation_probe`.execute(db);
+    await sql`create table computed_cancellation_probe (value integer not null)`.execute(db);
+    const controller = new AbortController();
+    const statement = `select pg_sleep(60) /* ${applicationName}-transaction */`;
+    const request = start(
+      runWithPostgresQueryCancellation(controller.signal, () =>
+        db.transaction().execute(async (trx) => {
+          await sql`insert into computed_cancellation_probe (value) values (1)`.execute(trx);
+          await sql.raw(statement).execute(trx);
+        })
+      )
+    );
+    await active(statement, 'PgSleep');
+
+    controller.abort();
+
+    expectCancelled(await withinWatch(request.result), '57014');
+    await gone(statement);
+    expect(
+      (
+        await sql<{
+          count: number;
+        }>`select count(*)::int as count from computed_cancellation_probe`.execute(db)
+      ).rows
+    ).toEqual([{ count: 0 }]);
+    await sql`insert into computed_cancellation_probe (value) values (2)`.execute(db);
+    expect(
+      (await sql<{ value: number }>`select value from computed_cancellation_probe`.execute(db)).rows
+    ).toEqual([{ value: 2 }]);
+  });
+
+  it('retires an aborted transaction checkout between statements', async () => {
+    const { db, pool } = await connectDb({ max: 1 });
+    await sql`drop table if exists computed_between_statement_probe`.execute(db);
+    await sql`create table computed_between_statement_probe (value integer not null)`.execute(db);
+    const controller = new AbortController();
+    const inserted = deferred<void>();
+    const continueTransaction = deferred<void>();
+    const request = start(
+      runWithPostgresQueryCancellation(controller.signal, () =>
+        db.transaction().execute(async (trx) => {
+          await sql`insert into computed_between_statement_probe (value) values (1)`.execute(trx);
+          inserted.resolve();
+          await continueTransaction.promise;
+          await sql`select 1`.execute(trx);
+        })
+      )
+    );
+    await inserted.promise;
+
+    controller.abort();
+    continueTransaction.resolve();
+
+    expectCancelled(await withinWatch(request.result));
+    expect(pool.totalCount).toBe(0);
+    expect(
+      (
+        await sql<{
+          count: number;
+        }>`select count(*)::int as count from computed_between_statement_probe`.execute(db)
+      ).rows
+    ).toEqual([{ count: 0 }]);
+    await sql`insert into computed_between_statement_probe (value) values (2)`.execute(db);
+    expect(
+      (await sql<{ value: number }>`select value from computed_between_statement_probe`.execute(db))
+        .rows
+    ).toEqual([{ value: 2 }]);
+  });
+
   it('keeps a completed original lease quarantined until the delayed CancelRequest closes', async () => {
     const { db, pool, proxy } = await throughProxy();
     const controller = new AbortController();

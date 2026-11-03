@@ -2,17 +2,17 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  type FieldDeletionPreparation,
+  FieldDeletionPreparationService,
+} from '../application/services/FieldDeletionPreparationService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import {
   FieldOperationPluginRunner,
   type FieldOperationPluginExecution,
 } from '../application/services/FieldOperationPluginRunner';
-import {
-  collectFieldDeletionSideEffects,
-  prepareFieldOperationSideEffectPlugins,
-} from '../application/services/FieldOperationSideEffectPluginSupport';
+import { prepareFieldOperationSideEffectPlugins } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import {
   toUndoRedoStackAppendContext,
@@ -20,25 +20,10 @@ import {
 } from '../application/services/UndoRedoStackService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
-import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { Field } from '../domain/table/fields/Field';
 import type { FieldId } from '../domain/table/fields/FieldId';
-import { FieldDeletionSideEffectVisitor } from '../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
-import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import {
-  implementsOnTeableFieldDeleted,
-  type FieldDeletionContext,
-  type FieldDeletionReaction,
-} from '../domain/table/OnTeableFieldDeleted';
-import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
-import { TableRemoveFieldSpec } from '../domain/table/specs/TableRemoveFieldSpec';
-import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
-import { TableUpdateViewOptionsSpec } from '../domain/table/specs/TableUpdateViewOptionsSpec';
-import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type {
   IFieldDeleteSnapshotSink,
@@ -76,16 +61,6 @@ export class DeleteFieldsResult {
   }
 }
 
-type FieldDeletionCleanup = {
-  readonly spec?: ISpecification<Table, ITableSpecVisitor>;
-  readonly relatedFieldIds: ReadonlyArray<FieldId>;
-};
-
-type DeletionCleanupTableState = {
-  readonly orderedTableIds: ReadonlyArray<string>;
-  readonly tablesById: Map<string, Table>;
-};
-
 @CommandHandler(DeleteFieldsCommand)
 @injectable()
 export class DeleteFieldsHandler implements ICommandHandler<
@@ -99,8 +74,8 @@ export class DeleteFieldsHandler implements ICommandHandler<
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldDeletionSideEffectService)
     private readonly fieldDeletionSideEffectService: FieldDeletionSideEffectService,
-    @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.fieldDeletionPreparationService)
+    private readonly fieldDeletionPreparationService: FieldDeletionPreparationService,
     @inject(v2CoreTokens.fieldOperationPluginRunner)
     private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -149,6 +124,15 @@ export class DeleteFieldsHandler implements ICommandHandler<
       const tableSpec = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
       const initialTable = yield* await handler.tableRepository.findOne(context, tableSpec);
       const targetFields = yield* handler.resolveTargetFields(initialTable, command.fieldIds);
+      const preparation = yield* await handler.fieldDeletionPreparationService.prepare(
+        context,
+        {
+          baseId: command.baseId,
+          tableId: command.tableId,
+          fieldIds: command.fieldIds,
+        },
+        { table: initialTable }
+      );
 
       const targetSnapshots = yield* await handler.fieldUndoRedoSnapshotService.captureMany(
         context,
@@ -182,8 +166,7 @@ export class DeleteFieldsHandler implements ICommandHandler<
 
       const relatedUndoSnapshots = yield* await handler.captureRelatedUndoSnapshots(
         context,
-        initialTable,
-        targetFields
+        preparation
       );
       for (const relatedSnapshot of relatedUndoSnapshots) {
         const snapshotFieldId = relatedSnapshot.snapshot.field.id;
@@ -204,19 +187,8 @@ export class DeleteFieldsHandler implements ICommandHandler<
         );
       }
 
-      const referenceVisitor = new LinkForeignTableReferenceVisitor();
-      const foreignRefs = yield* referenceVisitor.collect(targetFields);
-      // Allow missing foreign tables so orphan link fields remain deletable after
-      // the foreign table is soft-deleted (trash) or permanently removed (T4927).
-      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        references: foreignRefs,
-        allowMissing: true,
-      });
-      const plannedSideEffects = yield* collectFieldDeletionSideEffects(
-        initialTable,
-        targetFields,
-        foreignTables
-      );
+      const foreignTables = preparation.foreignTables;
+      const plannedSideEffects = preparation.sideEffects.sideEffects;
       const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
         runner: handler.fieldOperationPluginRunner,
         executionContext: context,
@@ -301,26 +273,17 @@ export class DeleteFieldsHandler implements ICommandHandler<
                         table: updatedTable,
                         fields: targetFields,
                         foreignTables,
-                      }
+                      },
+                      preparation.sideEffects
                     );
 
                   const cleanupResult = yield* await handler.executeDeletionEntityCleanups(
                     transactionContext,
                     updatedTable,
-                    initialTable,
-                    targetFields
+                    sideEffectResult.appliedDeletions,
+                    preparation
                   );
                   const cleanupEvents: IDomainEvent[] = [...cleanupResult.events];
-
-                  for (const appliedDeletion of sideEffectResult.appliedDeletions) {
-                    const appliedCleanupResult = yield* await handler.executeDeletionEntityCleanups(
-                      transactionContext,
-                      appliedDeletion.table,
-                      appliedDeletion.previousTable,
-                      [appliedDeletion.deletedField]
-                    );
-                    cleanupEvents.push(...appliedCleanupResult.events);
-                  }
 
                   return ok({
                     events: [...sideEffectResult.events, ...cleanupEvents],
@@ -388,123 +351,43 @@ export class DeleteFieldsHandler implements ICommandHandler<
   private async executeDeletionEntityCleanups(
     context: ExecutionContextPort.IExecutionContext,
     sourceTable: Table,
-    previousSourceTable: Table,
-    deletedFields: ReadonlyArray<Field>
+    appliedDeletions: ReadonlyArray<{ readonly table: Table; readonly deletedField: Field }>,
+    preparation: FieldDeletionPreparation
   ): Promise<
     Result<
-      {
-        sourceTable: Table;
-        events: ReadonlyArray<IDomainEvent>;
-      },
+      { readonly sourceTable: Table; readonly events: ReadonlyArray<IDomainEvent> },
       DomainError
     >
   > {
-    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<
-      {
-        sourceTable: Table;
-        events: ReadonlyArray<IDomainEvent>;
-      },
-      DomainError
-    >(async function* () {
-      let latestSourceTable = sourceTable;
-      const events: IDomainEvent[] = [];
-      const allTablesSpec = yield* TableAggregate.specs(sourceTable.baseId()).build();
-      const allTables = yield* await handler.tableRepository.find(context, allTablesSpec);
-      const sourceTableId = sourceTable.id().toString();
-      const tableState: DeletionCleanupTableState = {
-        orderedTableIds: [
-          sourceTableId,
-          ...allTables
-            .filter((table) => !table.id().equals(sourceTable.id()))
-            .map((table) => table.id().toString()),
-        ],
-        tablesById: new Map([
-          ...allTables.map((table) => [table.id().toString(), table] as const),
-          [sourceTableId, sourceTable] as const,
-        ]),
-      };
-
-      for (const deletedField of deletedFields) {
-        const cleanupResult = yield* await handler.executeDeletionEntityCleanup(
-          context,
-          latestSourceTable,
-          previousSourceTable,
-          deletedField,
-          tableState
-        );
-        latestSourceTable = cleanupResult.sourceTable;
-        events.push(...cleanupResult.events);
+    const handler = this;
+    return safeTry(async function* () {
+      const tablesById = new Map(preparation.tablesBeforeDeletionById);
+      tablesById.set(sourceTable.id().toString(), sourceTable);
+      for (const appliedDeletion of appliedDeletions) {
+        tablesById.set(appliedDeletion.table.id().toString(), appliedDeletion.table);
       }
-
-      return ok({
-        sourceTable: latestSourceTable,
-        events,
-      });
-    });
-  }
-
-  private async executeDeletionEntityCleanup(
-    context: ExecutionContextPort.IExecutionContext,
-    sourceTable: Table,
-    previousSourceTable: Table,
-    deletedField: Field,
-    tableState: DeletionCleanupTableState
-  ): Promise<
-    Result<
-      {
-        sourceTable: Table;
-        events: ReadonlyArray<IDomainEvent>;
-      },
-      DomainError
-    >
-  > {
-    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<
-      {
-        sourceTable: Table;
-        events: ReadonlyArray<IDomainEvent>;
-      },
-      DomainError
-    >(async function* () {
-      let latestSourceTable = sourceTable;
       const events: IDomainEvent[] = [];
-      tableState.tablesById.set(sourceTable.id().toString(), sourceTable);
-
-      for (const tableId of tableState.orderedTableIds) {
-        const table = tableState.tablesById.get(tableId);
+      for (const cleanup of preparation.cleanup) {
+        const table = tablesById.get(cleanup.tableId);
         if (!table) {
-          continue;
-        }
-        const candidateTable = table.id().equals(latestSourceTable.id())
-          ? latestSourceTable
-          : table;
-
-        const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletedField, {
-          table: candidateTable,
-          sourceTable: latestSourceTable,
-          previousSourceTable,
-        });
-        if (cleanupResult.isErr()) return err(cleanupResult.error);
-        const cleanupSpec = cleanupResult.value.spec;
-        if (!cleanupSpec) {
-          continue;
+          return err(
+            domainError.notFound({
+              code: 'field.delete.cleanup_table_missing',
+              message: 'Field deletion cleanup table not found',
+            })
+          );
         }
         const updateResult = yield* await handler.tableUpdateFlow.execute(
           context,
-          { table: candidateTable },
-          (table) => table.update((mutator) => mutator.applySpecs([cleanupSpec])),
+          { table },
+          (candidate) => candidate.update((mutator) => mutator.applySpecs([cleanup.spec])),
           { publishEvents: false }
         );
-        if (candidateTable.id().equals(latestSourceTable.id())) {
-          latestSourceTable = updateResult.table;
-        }
-        tableState.tablesById.set(updateResult.table.id().toString(), updateResult.table);
+        tablesById.set(cleanup.tableId, updateResult.table);
         events.push(...updateResult.events, ...updateResult.postPersistEvents);
       }
-
       return ok({
-        sourceTable: latestSourceTable,
+        sourceTable: tablesById.get(sourceTable.id().toString()) ?? sourceTable,
         events,
       });
     });
@@ -512,8 +395,7 @@ export class DeleteFieldsHandler implements ICommandHandler<
 
   private async captureRelatedUndoSnapshots(
     context: ExecutionContextPort.IExecutionContext,
-    sourceTable: Table,
-    deletedFields: ReadonlyArray<Field>
+    preparation: FieldDeletionPreparation
   ): Promise<
     Result<
       ReadonlyArray<{
@@ -524,146 +406,43 @@ export class DeleteFieldsHandler implements ICommandHandler<
       DomainError
     >
   > {
-    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    const handler = this;
     return safeTry(async function* () {
-      const allTablesSpec = yield* TableAggregate.specs(sourceTable.baseId()).build();
-      const allTables = yield* await handler.tableRepository.find(context, allTablesSpec);
-      const orderedTables = [
-        sourceTable,
-        ...allTables.filter((table) => !table.id().equals(sourceTable.id())),
-      ];
       const relatedSnapshots: Array<{
         baseId: string;
         tableId: string;
         snapshot: UndoRedoFieldSnapshot;
       }> = [];
-
-      const deletionTargets = deletedFields.map((field) => ({ table: sourceTable, field }));
-      const sideEffects = yield* FieldDeletionSideEffectVisitor.collect(deletedFields, {
-        table: sourceTable,
-        foreignTables: orderedTables,
-      });
-      for (const sideEffect of sideEffects) {
-        if (sideEffect.mutateSpec instanceof TableRemoveFieldSpec) {
-          deletionTargets.push({
-            table: sideEffect.foreignTable,
-            field: sideEffect.mutateSpec.field(),
-          });
+      const captured = new Set<string>();
+      for (const effect of preparation.snapshotFields) {
+        const key = `${effect.tableId}:${effect.fieldId}`;
+        if (captured.has(key)) continue;
+        captured.add(key);
+        const table = preparation.tablesBeforeDeletionById.get(effect.tableId);
+        if (!table) {
+          return err(
+            domainError.notFound({
+              code: 'field.delete.snapshot_table_missing',
+              message: 'Field deletion snapshot table not found',
+            })
+          );
         }
+        const field = yield* table.getField(
+          (candidate) => candidate.id().toString() === effect.fieldId
+        );
+        const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+          context,
+          table,
+          field.id(),
+          { includeRecords: false }
+        );
+        relatedSnapshots.push({
+          baseId: table.baseId().toString(),
+          tableId: effect.tableId,
+          snapshot,
+        });
       }
-      const capturedFieldIds = new Set<string>();
-      for (const deletion of deletionTargets) {
-        for (const candidateTable of orderedTables) {
-          const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletion.field, {
-            table: candidateTable,
-            sourceTable: deletion.table,
-            previousSourceTable: deletion.table,
-          });
-          if (cleanupResult.isErr()) {
-            return err(cleanupResult.error);
-          }
-
-          for (const relatedFieldId of cleanupResult.value.relatedFieldIds) {
-            if (capturedFieldIds.has(relatedFieldId.toString())) continue;
-            capturedFieldIds.add(relatedFieldId.toString());
-            const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-              context,
-              candidateTable,
-              relatedFieldId,
-              { includeRecords: false }
-            );
-            relatedSnapshots.push({
-              baseId: candidateTable.baseId().toString(),
-              tableId: candidateTable.id().toString(),
-              snapshot,
-            });
-          }
-        }
-      }
-
       return ok(relatedSnapshots);
     });
-  }
-
-  private buildDeletionCleanup(
-    candidateTable: Table,
-    deletedField: Field,
-    context: FieldDeletionContext
-  ): Result<FieldDeletionCleanup, DomainError> {
-    const specs: Array<ISpecification<Table, ITableSpecVisitor>> = [];
-    const relatedFieldIds = new Map<string, FieldId>();
-
-    for (const view of candidateTable.views()) {
-      if (!implementsOnTeableViewFieldDeleted(view)) {
-        continue;
-      }
-      const result = view.onFieldDeleted(deletedField, context);
-      if (result.isErr()) return err(result.error);
-      if (result.value?.columnMeta) {
-        specs.push(
-          TableUpdateViewColumnMetaSpec.create(candidateTable, [
-            {
-              viewId: result.value.viewId,
-              fieldId: result.value.fieldId,
-              columnMeta: result.value.columnMeta,
-              ...(result.value.options
-                ? {
-                    previousOptions: result.value.options.previousOptions,
-                    nextOptions: result.value.options.nextOptions,
-                    optionsChanged: true,
-                  }
-                : {}),
-            },
-          ])
-        );
-      } else if (result.value?.options) {
-        specs.push(
-          TableUpdateViewOptionsSpec.create({
-            viewId: result.value.viewId,
-            previousOptions: result.value.options.previousOptions,
-            nextOptions: result.value.options.nextOptions,
-          })
-        );
-      }
-      if (result.value?.queryDefaults) {
-        const previousQueryDefaultsResult = view.queryDefaults();
-        if (previousQueryDefaultsResult.isErr()) return err(previousQueryDefaultsResult.error);
-        specs.push(
-          TableUpdateViewQueryDefaultsSpec.create([
-            {
-              viewId: result.value.viewId,
-              previousQueryDefaults: previousQueryDefaultsResult.value,
-              queryDefaults: result.value.queryDefaults,
-            },
-          ])
-        );
-      }
-    }
-
-    for (const field of candidateTable.getFields()) {
-      if (!implementsOnTeableFieldDeleted(field)) {
-        continue;
-      }
-      const result = field.onFieldDeleted(deletedField, context);
-      if (result.isErr()) return err(result.error);
-      if (result.value) {
-        specs.push(result.value.spec);
-        this.collectRelatedFieldIds(relatedFieldIds, result.value);
-      }
-    }
-
-    return ok({
-      spec: composeAndSpecsOrUndefined(specs),
-      relatedFieldIds: [...relatedFieldIds.values()],
-    });
-  }
-
-  private collectRelatedFieldIds(
-    accumulator: Map<string, FieldId>,
-    reaction: FieldDeletionReaction
-  ): void {
-    for (const fieldId of reaction.relatedFieldIds) {
-      accumulator.set(fieldId.toString(), fieldId);
-    }
   }
 }

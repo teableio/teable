@@ -11,6 +11,14 @@ type RedisScriptState = {
   owner?: string;
 };
 
+const createDeferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
 const runAdmissionScript = (script: string, state: RedisScriptState, args: unknown[]): number => {
   if (script.includes("redis.call('ZREMRANGEBYSCORE'")) {
     if (state.expiresAt !== undefined && state.expiresAt <= state.now) {
@@ -177,6 +185,46 @@ describe('ComputedOutboxBaseAdmissionService', () => {
     finish?.();
 
     await expect(result).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
+    expect(evalRedis).toHaveBeenCalledTimes(3);
+  });
+
+  it('aborts in-flight work as soon as renewal loses ownership', async () => {
+    vi.useFakeTimers();
+    evalRedis.mockResolvedValueOnce(1).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    const aborted = createDeferred<void>();
+    const operationGate = createDeferred<void>();
+    const result = createService().runWithPermit('bse123', async (permit) => {
+      permit.signal.addEventListener('abort', () => aborted.resolve(), { once: true });
+      await operationGate.promise;
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(aborted.promise).resolves.toBeUndefined();
+    operationGate.resolve();
+
+    await expect(result).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
+  });
+
+  it('records processing-stop latency after lease loss without releasing early', async () => {
+    vi.useFakeTimers();
+    evalRedis.mockResolvedValueOnce(1).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    const recordAdmissionLeaseLossStop = vi.fn();
+    const operationGate = createDeferred<void>();
+    const service = new ComputedOutboxBaseAdmissionService(
+      { client: { eval: evalRedis } } as never,
+      undefined,
+      { recordAdmissionLeaseLossStop } as never
+    );
+    const result = service.runWithPermit('bse123', async () => operationGate.promise);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(evalRedis).toHaveBeenCalledTimes(2);
+    expect(recordAdmissionLeaseLossStop).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(250);
+    operationGate.resolve();
+
+    await expect(result).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
+    expect(recordAdmissionLeaseLossStop).toHaveBeenCalledWith(250);
     expect(evalRedis).toHaveBeenCalledTimes(3);
   });
 

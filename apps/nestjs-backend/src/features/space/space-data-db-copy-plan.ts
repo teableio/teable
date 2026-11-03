@@ -404,13 +404,16 @@ export const buildSharedTablePsqlCopyPlan = (input: {
   columns: string[];
   whereSql: string;
   targetWhereSql?: string;
+  targetResetSql?: string;
   snapshotId?: string;
 }): ISharedTablePsqlCopyPlan => {
   const plan = buildSharedTableCopyPlan(input);
   const sourceSql = withExportedSnapshot(plan.sourceSql, input.snapshotId);
-  const targetResetSql = `DELETE FROM ${qualify(input.targetSchema, input.table)} WHERE ${
-    input.targetWhereSql ?? input.whereSql
-  }`;
+  const targetResetSql =
+    input.targetResetSql ??
+    `DELETE FROM ${qualify(input.targetSchema, input.table)} WHERE ${
+      input.targetWhereSql ?? input.whereSql
+    }`;
   return {
     table: input.table,
     label: `shared-table:${input.table}`,
@@ -440,6 +443,7 @@ export const buildSharedTablePostgresFdwCopyPlan = (input: {
   columns: string[];
   whereSql: string;
   targetWhereSql?: string;
+  targetResetSql?: string;
   fdwSchema: string;
   serverName: string;
 }): ISharedTablePostgresFdwCopyPlan => {
@@ -482,7 +486,8 @@ export const buildSharedTablePostgresFdwCopyPlan = (input: {
       input.serverName
     )} INTO ${quoteIdent(input.fdwSchema)}`,
     // Scoped delete keeps FDW inserts restart-safe across per-table retries.
-    `DELETE FROM ${targetTable} WHERE ${input.targetWhereSql ?? input.whereSql}`,
+    input.targetResetSql ??
+      `DELETE FROM ${targetTable} WHERE ${input.targetWhereSql ?? input.whereSql}`,
     `INSERT INTO ${targetTable} (${columns}) SELECT ${columns} FROM ${foreignTable} WHERE ${input.whereSql}`,
     `DROP SERVER ${quoteIdent(input.serverName)} CASCADE`,
     `DROP SCHEMA ${quoteIdent(input.fdwSchema)} CASCADE`,
@@ -590,6 +595,7 @@ const buildMigrationSharedTableDefinitions = (input: {
   includePauseScopes?: boolean;
   /** When false, only base/table pause scopes are copied (base move). Default true. */
   includeSpacePauseScopes?: boolean;
+  sourceHasDeadLetterSeed?: boolean;
 }) => {
   const sharedTableIds = input.sharedTableIds?.length ? input.sharedTableIds : input.tableIds;
   const tablePredicate = textArrayPredicate('table_id', sharedTableIds);
@@ -616,6 +622,7 @@ const buildMigrationSharedTableDefinitions = (input: {
     columns: string[];
     whereSql: string;
     targetWhereSql?: string;
+    targetResetSql?: string;
   }> = [
     {
       table: 'record_history',
@@ -703,6 +710,22 @@ const buildMigrationSharedTableDefinitions = (input: {
       table: 'computed_update_dead_letter',
       columns: [...computedOutboxColumns, 'trace_data', 'failed_at'],
       whereSql: basePredicate,
+      targetResetSql: `SELECT ${qualify(
+        input.targetSchema,
+        'computed_outbox_discard_base'
+      )}(${textArray(input.baseIds)})`,
+    },
+    {
+      table: 'computed_update_dead_letter_seed',
+      columns: ['task_id', 'table_id', 'record_id'],
+      whereSql: `"task_id" IN (SELECT "id" FROM ${qualify(
+        input.sourceSchema,
+        'computed_update_dead_letter'
+      )} WHERE ${basePredicate})`,
+      targetWhereSql: `"task_id" IN (SELECT "id" FROM ${qualify(
+        input.targetSchema,
+        'computed_update_dead_letter'
+      )} WHERE ${basePredicate})`,
     },
     {
       table: 'computed_update_run_history',
@@ -815,7 +838,9 @@ const buildMigrationSharedTableDefinitions = (input: {
     }
   );
 
-  return definitions;
+  return input.sourceHasDeadLetterSeed === false
+    ? definitions.filter((item) => item.table !== 'computed_update_dead_letter_seed')
+    : definitions;
 };
 
 export const buildMigrationSharedTableSqlCopyPlans = (input: {
@@ -826,6 +851,7 @@ export const buildMigrationSharedTableSqlCopyPlans = (input: {
   baseIds: string[];
   tableIds: string[];
   sharedTableIds?: string[];
+  sourceHasDeadLetterSeed?: boolean;
   includePauseScopes?: boolean;
   includeSpacePauseScopes?: boolean;
 }): Array<{ table: string; resetSql: string; copySql: string }> => {
@@ -835,7 +861,9 @@ export const buildMigrationSharedTableSqlCopyPlans = (input: {
     const sourceTable = qualify(input.sourceSchema, item.table);
     return {
       table: item.table,
-      resetSql: `DELETE FROM ${targetTable} WHERE ${item.targetWhereSql ?? item.whereSql}`,
+      resetSql:
+        item.targetResetSql ??
+        `DELETE FROM ${targetTable} WHERE ${item.targetWhereSql ?? item.whereSql}`,
       copySql: `INSERT INTO ${targetTable} (${columns}) SELECT ${columns} FROM ${sourceTable} WHERE ${item.whereSql}`,
     };
   });
@@ -852,6 +880,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
   tableIds: string[];
   sharedTableIds?: string[];
   snapshotId?: string;
+  sourceHasDeadLetterSeed?: boolean;
   includePauseScopes?: boolean;
   includeSpacePauseScopes?: boolean;
 }): ISharedTablePsqlCopyPlan[] => {
@@ -867,6 +896,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
       columns: item.columns,
       whereSql: item.whereSql,
       targetWhereSql: item.targetWhereSql,
+      targetResetSql: item.targetResetSql,
       snapshotId: input.snapshotId,
     })
   );
@@ -884,6 +914,7 @@ export const buildMigrationSharedTablePostgresFdwCopyPlans = (input: {
   sharedTableIds?: string[];
   fdwSchemaPrefix: string;
   serverNamePrefix: string;
+  sourceHasDeadLetterSeed?: boolean;
   includePauseScopes?: boolean;
   includeSpacePauseScopes?: boolean;
 }): ISharedTablePostgresFdwCopyPlan[] => {
@@ -899,8 +930,12 @@ export const buildMigrationSharedTablePostgresFdwCopyPlans = (input: {
       targetSchema: input.targetSchema,
       table: item.table,
       columns: item.columns,
-      whereSql: item.whereSql,
+      // A child's source predicate may reference its parent, but the FDW schema
+      // imports only this relation. The target parent is already copied in plan
+      // order, so its scoped predicate is valid against the foreign child table.
+      whereSql: item.targetWhereSql ?? item.whereSql,
       targetWhereSql: item.targetWhereSql,
+      targetResetSql: item.targetResetSql,
       fdwSchema,
       serverName: `${input.serverNamePrefix}_${index}`,
     });

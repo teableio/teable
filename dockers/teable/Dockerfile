@@ -19,6 +19,7 @@ ENV HUSKY=0
 WORKDIR /workspace-install
 
 COPY --link package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY --link patches ./patches
 
 RUN pnpm fetch
 

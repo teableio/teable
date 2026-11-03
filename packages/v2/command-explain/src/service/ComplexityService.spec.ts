@@ -121,7 +121,6 @@ const createHarness = () => {
   return { service, table, graph, tableId, primaryFieldId, tableRepository, dependencyGraph };
 };
 
-
 const createAuthorizedHarness = () => {
   const baseId = BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap();
   const seedTableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
@@ -355,6 +354,38 @@ describe('ComplexityService', () => {
     }
   });
 
+  it('keeps a missing selection unknown when the single-record fallback is disabled', async () => {
+    const { service, tableId, primaryFieldId } = createHarness();
+    const collectMany = vi
+      .spyOn(PostgresComplexityStatisticsReader.prototype, 'collectMany')
+      .mockResolvedValue(ok(catalogSnapshot(tableId.toString())));
+
+    try {
+      const result = await service.assess(context, {
+        tableId: tableId.toString(),
+        operation: {
+          kind: 'update',
+          tableId: tableId.toString(),
+          changedFieldIds: [primaryFieldId.toString()],
+        },
+        includeCatalogStats: true,
+        assumeSingleRecordWhenSelectionUnknown: false,
+      });
+
+      const value = result._unsafeUnwrap();
+      expect(value.profile.dataEstimate?.seedRecordCount).toBeNull();
+      expect(value.profile.warnings).not.toContain('seed-record-count-defaulted:1');
+      expect(value.assessment.workload.rows).toEqual({
+        status: 'unknown',
+        expected: null,
+        lower: null,
+        upper: null,
+      });
+    } finally {
+      collectMany.mockRestore();
+    }
+  });
+
   it('merges caller assumptions with catalog stats per key', async () => {
     const { service, tableId, primaryFieldId } = createHarness();
     const collectMany = vi
@@ -472,7 +503,6 @@ describe('ComplexityService', () => {
     }
   });
 
-
   it('keeps dependency metadata when seed and dependency tables are authorized', async () => {
     const { service, seedTableId, dependencyTableId, dependencyFormulaId } =
       createAuthorizedHarness();
@@ -547,51 +577,106 @@ describe('ComplexityService', () => {
       .withId(seedId)
       .withBaseId(baseId)
       .withName(TableName.create('Seed')._unsafeUnwrap());
-    seedBuilder.field().number().withId(seedField).withName(FieldName.create('Amount')._unsafeUnwrap()).done();
+    seedBuilder
+      .field()
+      .number()
+      .withId(seedField)
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
     seedBuilder.view().defaultGrid().done();
     const seed = seedBuilder.build()._unsafeUnwrap();
     const depBuilder = Table.builder()
       .withId(depId)
       .withBaseId(baseId)
       .withName(TableName.create('Dependency')._unsafeUnwrap());
-    depBuilder.field().formula().withId(depField).withName(FieldName.create('Copy')._unsafeUnwrap())
-      .withExpression(FormulaExpression.create('1')._unsafeUnwrap()).done();
+    depBuilder
+      .field()
+      .formula()
+      .withId(depField)
+      .withName(FieldName.create('Copy')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
+      .done();
     depBuilder.view().defaultGrid().done();
     const dep = depBuilder.build()._unsafeUnwrap();
     const graph = {
       fieldsById: new Map([
-        [seedField.toString(), { id: seedField, tableId: seedId, type: 'number', isComputed: false, options: null, lookupOptions: null, conditionalOptions: null }],
-        [depField.toString(), { id: depField, tableId: depId, type: 'formula', isComputed: true, options: null, lookupOptions: null, conditionalOptions: null }],
+        [
+          seedField.toString(),
+          {
+            id: seedField,
+            tableId: seedId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          depField.toString(),
+          {
+            id: depField,
+            tableId: depId,
+            type: 'formula',
+            isComputed: true,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
       ]),
-      edges: [{ fromFieldId: seedField, toFieldId: depField, fromTableId: seedId, toTableId: depId, kind: 'cross_record' as const }],
+      edges: [
+        {
+          fromFieldId: seedField,
+          toFieldId: depField,
+          fromTableId: seedId,
+          toTableId: depId,
+          kind: 'cross_record' as const,
+        },
+      ],
     };
     const repository = {
       findOne: vi.fn(async () => ok(seed)),
       find: vi.fn(async () => ok([seed, dep])),
     } as unknown as ITableRepository;
-    const dependencyGraph = { load: vi.fn(async () => ok(graph)) } as unknown as FieldDependencyGraph;
-    const service = new ComplexityService(repository, dependencyGraph, {} as Kysely<V1TeableDatabase>);
+    const dependencyGraph = {
+      load: vi.fn(async () => ok(graph)),
+    } as unknown as FieldDependencyGraph;
+    const service = new ComplexityService(
+      repository,
+      dependencyGraph,
+      {} as Kysely<V1TeableDatabase>
+    );
     const input = {
       tableId: seedId.toString(),
-      operation: { kind: 'update' as const, tableId: seedId.toString(), changedFieldIds: [seedField.toString()] },
+      operation: {
+        kind: 'update' as const,
+        tableId: seedId.toString(),
+        changedFieldIds: [seedField.toString()],
+      },
       includeCatalogStats: false,
     };
-    const full = await service.assess(context, { ...input, authorizedTableIds: [seedId.toString(), depId.toString()] });
+    const full = await service.assess(context, {
+      ...input,
+      authorizedTableIds: [seedId.toString(), depId.toString()],
+    });
     expect(full.isOk()).toBe(true);
     const fullProfile = full._unsafeUnwrap().profile;
     expect(fullProfile.structural.fieldCount).toBe(2);
     expect(fullProfile.formulas).toHaveLength(1);
     expect(fullProfile.structural.completeness).toBe('complete');
-    const denied = await service.assess(context, { ...input, authorizedTableIds: [seedId.toString()] });
+    const denied = await service.assess(context, {
+      ...input,
+      authorizedTableIds: [seedId.toString()],
+    });
     expect(denied.isOk()).toBe(true);
     const deniedProfile = denied._unsafeUnwrap().profile;
     expect(deniedProfile.structural.fieldCount).toBe(1);
     expect(deniedProfile.formulas).toHaveLength(0);
     expect(deniedProfile.warnings).toContain('authorized-table-scope-excluded');
-    expect(
-      deniedProfile.warnings.some((warning) => warning.includes(depId.toString()))
-    ).toBe(false);
+    expect(deniedProfile.warnings.some((warning) => warning.includes(depId.toString()))).toBe(
+      false
+    );
     expect(deniedProfile.structural.completeness).toBe('partial');
   });
-
 });

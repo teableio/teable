@@ -46,6 +46,19 @@ export type DataQueryManifestQueryDependency = {
   readonly transitiveDependencies: 'not-expanded';
 };
 
+/**
+ * Logical dependency evidence consumed by schema-change repair. Unlike the
+ * offline index, this projection may come from an authorized bound plan. The
+ * accepted manifest still owns query/source identities and concrete edits;
+ * these fields are the authority for whether a field is actually used.
+ */
+export type DataQueryManifestRepairDependency = Omit<
+  DataQueryManifestQueryDependency,
+  'transitiveDependencies'
+>;
+
+export type DataQueryManifestRepairDependencies = ReadonlyArray<DataQueryManifestRepairDependency>;
+
 export type DataQueryManifestTableDependency = {
   readonly tableId: string;
   readonly queryIds: ReadonlyArray<string>;

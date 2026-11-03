@@ -412,15 +412,12 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
       return this;
     }
 
-    let nextTable = this.currentTable;
-    for (const field of fields) {
-      const nextTableResult = nextTable.addField(field, options);
-      if (nextTableResult.isErr()) {
-        this.recordError(nextTableResult.error);
-        return this;
-      }
-      nextTable = nextTableResult.value;
+    const nextTableResult = this.currentTable.addFields(fields, options);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
     }
+    const nextTable = nextTableResult.value;
 
     const createdFields = fields.map((field) => {
       const resolvedFieldResult = nextTable.getField((candidate) =>

@@ -5,14 +5,15 @@ import { z } from 'zod';
 import { type DomainError, domainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import type { RecordFilter } from '../queries/RecordFilterDto';
 import { RecordSearch } from '../queries/RecordSearch';
-import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 import {
   pasteCommandInputSchema,
   type PasteGroup,
   parseClipboardText,
   type PasteSort,
   type SourceFieldMeta,
+  validatePasteInputSize,
 } from './PasteCommand';
 import {
   normalizeRanges,
@@ -20,7 +21,7 @@ import {
   type RangeType,
   validateRangesFormat,
 } from './RangeUtils';
-import type { RecordFilter } from '../queries/RecordFilterDto';
+import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 
 export const pasteStreamCommandInputSchema = pasteCommandInputSchema.extend({
   batchSize: z.number().int().min(1).max(MAX_SELECTION_STREAM_BATCH_SIZE).optional(),
@@ -78,34 +79,37 @@ export class PasteStreamCommand {
       );
     }
 
-    return TableId.create(parsed.data.tableId).andThen((tableId) =>
-      ViewId.create(parsed.data.viewId).map((viewId) => {
-        const content =
-          typeof parsed.data.content === 'string'
-            ? parseClipboardText(parsed.data.content)
-            : parsed.data.content;
+    const content =
+      typeof parsed.data.content === 'string'
+        ? parseClipboardText(parsed.data.content)
+        : parsed.data.content;
+    const sizeResult = validatePasteInputSize(content, ranges, type);
+    if (sizeResult.isErr()) return err(sizeResult.error);
 
-        return new PasteStreamCommand(
-          tableId,
-          viewId,
-          parsed.data.ranges,
-          parsed.data.type,
-          content,
-          parsed.data.filter ?? undefined,
-          parsed.data.updateFilter ?? undefined,
-          RecordSearch.fromOptionalTuple(parsed.data.search),
-          parsed.data.sourceFields,
-          parsed.data.typecast,
-          parsed.data.projection,
-          parsed.data.sort,
-          parsed.data.groupBy,
-          parsed.data.ignoreViewQuery ?? false,
-          parsed.data.targetRecordIds,
-          parsed.data.excludedTargetRecordIds,
-          parsed.data.targetFieldIds,
-          parsed.data.batchSize
-        );
-      })
+    return TableId.create(parsed.data.tableId).andThen((tableId) =>
+      ViewId.create(parsed.data.viewId).map(
+        (viewId) =>
+          new PasteStreamCommand(
+            tableId,
+            viewId,
+            parsed.data.ranges,
+            parsed.data.type,
+            content,
+            parsed.data.filter ?? undefined,
+            parsed.data.updateFilter ?? undefined,
+            RecordSearch.fromOptionalTuple(parsed.data.search),
+            parsed.data.sourceFields,
+            parsed.data.typecast,
+            parsed.data.projection,
+            parsed.data.sort,
+            parsed.data.groupBy,
+            parsed.data.ignoreViewQuery ?? false,
+            parsed.data.targetRecordIds,
+            parsed.data.excludedTargetRecordIds,
+            parsed.data.targetFieldIds,
+            parsed.data.batchSize
+          )
+      )
     );
   }
 

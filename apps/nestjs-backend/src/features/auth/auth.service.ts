@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/common';
 import { type ITokenUserInfoVo, type IUserMeVo } from '@teable/openapi';
 import { omit, pick } from 'lodash';
@@ -112,7 +113,12 @@ export class AuthService {
       ...(context ? { context } : {}),
     } as IJwtAuthInternalInfo;
     return {
-      accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
+      accessToken: await this.jwtService.signAsync(payload, {
+        expiresIn,
+        // An App token is stored on its app and accepted only while it matches
+        // (EE): the random jti keeps apps minted in the same second apart.
+        ...(type === JwtAuthInternalType.App ? { jwtid: randomUUID() } : {}),
+      }),
       expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),
     };
   }

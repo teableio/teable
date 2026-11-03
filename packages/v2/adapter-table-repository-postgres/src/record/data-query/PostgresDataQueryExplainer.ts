@@ -97,16 +97,15 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
       {
         'teable.component': 'repository',
         'teable.table_id': table.id().toString(),
-        'teable.data_query.kind': query.definition.kind,
+        'teable.data_query.kind': prepared.value.plan.kind,
       },
       async () => this.plan(caller.value)
     );
     if (planning.isErr()) return err(planning.error);
-    const snapshot = query.definition.parameters ?? {};
-    const definitions = Object.entries(snapshot).map(([name, definition]) => ({
+    const definitions = prepared.value.plan.parameters.map(({ name, type, nullable }) => ({
       name,
-      type: definition.type,
-      nullable: definition.nullable === true,
+      type,
+      nullable,
     }));
     const result: DataQueryExplainResult = {
       sql: caller.value.sql,
@@ -117,7 +116,7 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
         fieldMaskCount: scope.fieldMasks ? scope.fieldMasks.length : null,
       },
       parameters: {
-        order: Object.keys(snapshot),
+        order: definitions.map(({ name }) => name),
         orderKind: 'declaration',
         redaction: 'bind-values-hidden',
         bindCount: caller.value.parameters.length,
@@ -155,17 +154,16 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
       {
         'teable.component': 'repository',
         'teable.table_id': plan.rootTable.id().toString(),
-        'teable.data_query.kind': plan.query.definition.kind,
+        'teable.data_query.kind': plan.plan.kind,
         'teable.data_query.relation_count': plan.sources.length,
       },
       async () => this.plan(caller.value.rows)
     );
     if (planning.isErr()) return err(planning.error);
-    const snapshot = plan.query.definition.parameters ?? {};
-    const definitions = Object.entries(snapshot).map(([name, definition]) => ({
+    const definitions = plan.plan.parameters.map(({ name, type, nullable }) => ({
       name,
-      type: definition.type,
-      nullable: definition.nullable === true,
+      type,
+      nullable,
     }));
     const fieldMaskCount = [plan.rootScope, ...plan.sources.map((source) => source.scope)].reduce(
       (total, scope) => total + (scope.fieldMasks?.length ?? 0),
@@ -180,7 +178,7 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
         fieldMaskCount,
       },
       parameters: {
-        order: Object.keys(snapshot),
+        order: definitions.map(({ name }) => name),
         orderKind: 'declaration',
         redaction: 'bind-values-hidden',
         bindCount: caller.value.rows.parameters.length,

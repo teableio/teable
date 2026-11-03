@@ -61,3 +61,7 @@ flavor still honors the PostgreSQL variables: when `TEABLE_PGLITE_DIR` is unset
 it falls back to the same environment resolution as the PostgreSQL flavor. The
 CLI remains loopback-only by default. `TEABLE_ACTOR_HEADER` maps an actor; it
 does not authenticate callers.
+
+Programmatic hosts can pass `resolveActorId` to `startHeadlessServer`; it is
+forwarded unchanged to `createHeadlessHttpApp`. The CLI never verifies a token or
+grants a preview/write permission itself.

@@ -192,6 +192,23 @@ describe('PasteCommand', () => {
     expect(commandResult.isErr()).toBe(true);
   });
 
+  it('rejects a gigantic tiled paste range before expansion', () => {
+    const result = PasteCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 100_000_000],
+      ],
+      content: [['x']],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.paste.max_cells_exceeded',
+    });
+  });
+
   it('generates row iterator correctly', () => {
     const commandResult = PasteCommand.create({
       tableId,

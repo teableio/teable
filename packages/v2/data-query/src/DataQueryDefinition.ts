@@ -591,7 +591,6 @@ class BoundDataQueryValue implements BoundDataQuery {
   constructor(
     token: symbol,
     readonly validatedDefinition: DataQueryDefinition,
-    readonly definition: DataQueryDefinitionInput,
     readonly filter: RecordFilter | undefined,
     readonly relationFilters: Readonly<Record<string, RecordFilter>> | undefined,
     readonly limit: number,
@@ -602,7 +601,6 @@ class BoundDataQueryValue implements BoundDataQuery {
   ) {
     if (token !== boundQueryToken)
       throw new Error('Bound queries must be created by definition.bind');
-    freezeQueryValue(definition);
     freezeQueryValue(filter);
     freezeQueryValue(relationFilters);
     freezeQueryValue(sort);
@@ -1386,7 +1384,6 @@ export class DataQueryDefinition {
             new BoundDataQueryValue(
               boundQueryToken,
               this,
-              this.snapshot(),
               filter,
               relationFilters,
               limit,

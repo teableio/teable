@@ -2,7 +2,14 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { TableDeletionSideEffectServiceResult } from '../application/services/TableDeletionSideEffectService';
+import {
+  TableDeletionPreparationService,
+  type ITableDeletionPreparationService,
+} from '../application/services/TableDeletionPreparationService';
+import type {
+  TableDeletionSideEffectPreparation,
+  TableDeletionSideEffectServiceResult,
+} from '../application/services/TableDeletionSideEffectService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -202,7 +209,21 @@ class FakeTableDeletionSideEffectService {
   contexts: IExecutionContext[] = [];
   failExecute: DomainError | undefined;
 
-  async execute(
+  async prepare(
+    _: IExecutionContext,
+    input: { table: Table }
+  ): Promise<Result<TableDeletionSideEffectPreparation, DomainError>> {
+    return ok({
+      deletedTable: input.table,
+      candidateEvidence: 'unknown',
+      candidateTableCount: 0,
+      downstreamCascadeEvidence: 'not-applicable',
+      reactionEffects: [],
+      candidatePlans: [],
+    });
+  }
+
+  async executePrepared(
     context: IExecutionContext
   ): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
     this.calls += 1;
@@ -267,6 +288,28 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
+const createHandler = (
+  repository: FakeTableRepository,
+  schemaRepository: FakeTableSchemaRepository,
+  sideEffects: FakeTableDeletionSideEffectService,
+  eventBus: FakeEventBus,
+  logger: FakeLogger,
+  unitOfWork: FakeUnitOfWork,
+  preparationService: ITableDeletionPreparationService = new TableDeletionPreparationService(
+    repository,
+    sideEffects as never
+  )
+) =>
+  new DeleteTableHandler(
+    repository,
+    schemaRepository,
+    sideEffects as never,
+    preparationService,
+    eventBus,
+    logger,
+    unitOfWork
+  );
+
 describe('DeleteTableHandler', () => {
   it('soft deletes tables without dropping schema and publishes TableTrashed', async () => {
     const table = buildTable('a');
@@ -284,10 +327,10 @@ describe('DeleteTableHandler', () => {
     });
     commandResult._unsafeUnwrap();
 
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       schemaRepo,
-      sideEffectService as never,
+      sideEffectService,
       eventBus,
       logger,
       unitOfWork
@@ -314,14 +357,65 @@ describe('DeleteTableHandler', () => {
     expect(sideEffectService.contexts[0]?.transactions?.data?.scope).toBe('data');
   });
 
+  it('stops on prepared blockers before schema lifecycle or persistence', async () => {
+    const table = buildTable('k');
+    const repository = new FakeTableRepository();
+    repository.tables.push(table);
+    const schemaRepository = new FakeTableSchemaRepository();
+    const sideEffects = new FakeTableDeletionSideEffectService();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const preparationService: ITableDeletionPreparationService = {
+      async prepare() {
+        return ok({
+          table,
+          mode: 'soft',
+          sourceState: 'active',
+          blockers: [{ code: 'table.delete.blocked', message: 'Deletion blocked.' }],
+          sideEffects: {
+            deletedTable: table,
+            candidateEvidence: 'unknown',
+            candidateTableCount: 0,
+            downstreamCascadeEvidence: 'not-applicable',
+            reactionEffects: [],
+            candidatePlans: [],
+          },
+        });
+      },
+    };
+    const handler = createHandler(
+      repository,
+      schemaRepository,
+      sideEffects,
+      eventBus,
+      new FakeLogger(),
+      unitOfWork,
+      preparationService
+    );
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      mode: 'soft',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().code).toBe('table.delete.blocked');
+    expect(unitOfWork.transactions).toEqual([]);
+    expect(repository.provisionStateChanges).toEqual([]);
+    expect(schemaRepository.deleteModes).toEqual([]);
+    expect(sideEffects.calls).toBe(0);
+    expect(eventBus.published).toEqual([]);
+  });
+
   it('loads active tables in any provisioning state so failed provisioning can be deleted', async () => {
     const table = buildTable('e');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       new FakeTableSchemaRepository(),
-      new FakeTableDeletionSideEffectService() as never,
+      new FakeTableDeletionSideEffectService(),
       new FakeEventBus(),
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -355,10 +449,10 @@ describe('DeleteTableHandler', () => {
       }),
     ];
 
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       schemaRepo,
-      sideEffectService as never,
+      sideEffectService,
       eventBus,
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -386,10 +480,10 @@ describe('DeleteTableHandler', () => {
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       schemaRepo,
-      new FakeTableDeletionSideEffectService() as never,
+      new FakeTableDeletionSideEffectService(),
       eventBus,
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -419,10 +513,10 @@ describe('DeleteTableHandler', () => {
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const sideEffectService = new FakeTableDeletionSideEffectService();
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       schemaRepo,
-      sideEffectService as never,
+      sideEffectService,
       eventBus,
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -447,10 +541,10 @@ describe('DeleteTableHandler', () => {
   it('returns not found when table is missing', async () => {
     const table = buildTable('b');
     const repo = new FakeTableRepository();
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       new FakeTableSchemaRepository(),
-      new FakeTableDeletionSideEffectService() as never,
+      new FakeTableDeletionSideEffectService(),
       new FakeEventBus(),
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -476,10 +570,10 @@ describe('DeleteTableHandler', () => {
     const sideEffectService = new FakeTableDeletionSideEffectService();
     const eventBus = new FakeEventBus();
 
-    const handler = new DeleteTableHandler(
+    const handler = createHandler(
       repo,
       schemaRepo,
-      sideEffectService as never,
+      sideEffectService,
       eventBus,
       new FakeLogger(),
       new FakeUnitOfWork()

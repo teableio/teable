@@ -63,6 +63,16 @@ export class DataDbRuntimeCacheService implements OnModuleDestroy {
     return (await entry.promise) as T;
   }
 
+  /** Returns an existing runtime without creating one; used by strict read-only previews. */
+  async get<T>(namespace: string, key: string): Promise<T | undefined> {
+    const cacheKey = this.getCacheKey(namespace, key);
+    const existing = this.entries.get(cacheKey);
+    if (!existing) return undefined;
+    this.entries.delete(cacheKey);
+    this.entries.set(cacheKey, existing);
+    return (await existing.promise) as T;
+  }
+
   async delete(namespace: string, key: string) {
     const cacheKey = this.getCacheKey(namespace, key);
     const entry = this.entries.get(cacheKey);

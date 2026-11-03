@@ -302,6 +302,14 @@ describe('stage ledger compaction wiring (pglite)', () => {
       );
       CREATE INDEX computed_update_stage_ledger_scope_id_kind_seq_idx
         ON ${STAGE_LEDGER_TABLE} (scope_id, kind, seq);
+      CREATE TABLE computed_update_change_frontier (
+        scope_id text NOT NULL,
+        kind text NOT NULL,
+        table_id text NOT NULL,
+        record_id text NOT NULL,
+        field_id text NOT NULL,
+        PRIMARY KEY (scope_id, kind, table_id, record_id, field_id)
+      );
       CREATE TABLE space (id text PRIMARY KEY, name text);
       CREATE TABLE base (id text PRIMARY KEY, space_id text NOT NULL, name text);
       CREATE TABLE space_data_db_binding (

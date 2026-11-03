@@ -2,42 +2,31 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldConversionPreparationService } from '../application/services/FieldConversionPreparationService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
-import {
-  collectFieldUpdateSideEffects,
-  prepareFieldOperationSideEffectPlugins,
-} from '../application/services/FieldOperationSideEffectPluginSupport';
+import { prepareFieldOperationSideEffectPlugins } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
-import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
-import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import type { FieldId } from '../domain/table/fields/FieldId';
-import {
-  LinkForeignTableReferenceVisitor,
-  type LinkForeignTableReference,
-} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
-import { Table as TableAggregate } from '../domain/table/Table';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
-import { type ITableMapper } from '../ports/mappers/TableMapper';
-import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { buildUpdateFieldSpecs } from './TableFieldUpdateSpecs';
 import { UpdateFieldCommand } from './UpdateFieldCommand';
 
 export class UpdateFieldResult {
@@ -55,16 +44,12 @@ export class UpdateFieldResult {
 @injectable()
 export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, UpdateFieldResult> {
   constructor(
-    @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
-    @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: ITableMapper,
+    @inject(v2CoreTokens.fieldConversionPreparationService)
+    private readonly fieldConversionPreparationService: FieldConversionPreparationService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldUpdateSideEffectService)
     private readonly fieldUpdateSideEffectService: FieldUpdateSideEffectService,
-    @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.fieldOperationPluginRunner)
     private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
@@ -72,19 +57,6 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
-
-  private hasTypeConversion(
-    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
-    fieldId: FieldId
-  ): boolean {
-    const targetFieldId = fieldId.toString();
-    return specs.some(
-      (spec) =>
-        spec instanceof TableUpdateFieldTypeSpec &&
-        spec.isTypeConversion() &&
-        spec.newField().id().toString() === targetFieldId
-    );
-  }
 
   private isValuePreservingConversion(
     specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
@@ -136,16 +108,6 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     return ok(undefined);
   }
 
-  /**
-   * Extract foreign table references from an existing field's config.
-   * Used to ensure foreign tables are loaded even when update payload doesn't include config.
-   */
-  private extractForeignTableReferencesFromField(
-    field: Field
-  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    return new LinkForeignTableReferenceVisitor().collect([field]);
-  }
-
   @TraceSpan()
   async handle(
     context: ExecutionContextPort.IExecutionContext,
@@ -153,60 +115,13 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
   ): Promise<Result<UpdateFieldResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateFieldResult, DomainError>(async function* () {
-      // 1. Load the table first to access existing field config
-      const whereSpec = yield* TableAggregate.specs().byId(command.tableId).build();
-      const tableResult = await handler.tableRepository.findOne(context, whereSpec);
-      if (tableResult.isErr()) {
-        if (isNotFoundError(tableResult.error)) {
-          return err(
-            domainError.notFound({
-              code: 'table.not_found',
-              message: 'Table not found',
-            })
-          );
-        }
-        return err(tableResult.error);
-      }
-      const table = tableResult.value;
-
-      // 2. Get the existing field to extract foreign table references
-      const fieldResult = table.getField((f) => f.id().equals(command.fieldId));
-      if (fieldResult.isErr()) {
-        return err(fieldResult.error);
-      }
-      const existingField = fieldResult.value;
-
-      // 3. Extract foreign table references from both command and existing field
-      const commandReferences = yield* command.foreignTableReferences();
-      const existingReferences =
-        yield* handler.extractForeignTableReferencesFromField(existingField);
-
-      // Merge references, avoiding duplicates
-      const allReferences = [...commandReferences];
-      for (const ref of existingReferences) {
-        if (!allReferences.some((r) => r.foreignTableId.equals(ref.foreignTableId))) {
-          allReferences.push(ref);
-        }
-      }
-
-      // 4. Load foreign tables
-      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        references: allReferences,
-      });
-
-      // 5. Build update specs once. Preview planning runs on a detached clone so the live table
-      // stays clean for undo snapshots, plugin checks, and the real update execution.
-      const previousField: Field = existingField;
-      const updateSpecsResult = buildUpdateFieldSpecs(existingField, command.fieldUpdate, {
-        hostTable: table,
-        foreignTables,
-        executionContext: context,
-      });
-      if (updateSpecsResult.isErr()) return err(updateSpecsResult.error);
-      const updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>> =
-        updateSpecsResult.value;
+      const preparation = yield* await handler.fieldConversionPreparationService.prepare(
+        context,
+        command
+      );
+      const { table, previousField, foreignTables, updateSpecs, plannedSideEffects } = preparation;
       yield* handler.ensureTypeConversionSpecDbFieldNames(updateSpecs);
-      const hasTypeConversion = handler.hasTypeConversion(updateSpecs, command.fieldId);
+      const hasTypeConversion = preparation.isTypeConversion;
       // Value-preserving conversions (e.g. singleSelect → text) keep every
       // stored cell verbatim, so materializing the whole column into the
       // undo/redo snapshots would be pure waste: replaying the meta change
@@ -214,10 +129,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       // writes when a snapshot carries no records.
       const includeSnapshotRecords =
         hasTypeConversion && !handler.isValuePreservingConversion(updateSpecs, command.fieldId);
-      if (updateSpecs.length === 0) {
-        if (!command.allowNoop) {
-          return err(domainError.validation({ message: 'No changes to apply' }));
-        }
+      if (preparation.isNoop) {
         return ok(UpdateFieldResult.create(table, []));
       }
 
@@ -226,22 +138,6 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         table,
         command.fieldId,
         { includeRecords: includeSnapshotRecords }
-      );
-      const previewTable = yield* table.clone(handler.tableMapper);
-      const previewPreviousField = yield* previewTable.getField((f) =>
-        f.id().equals(command.fieldId)
-      );
-      const previewUpdateResult = yield* previewTable.update((mutator) =>
-        mutator.updateField(command.fieldId, updateSpecs, { foreignTables })
-      );
-      const previewUpdatedField = yield* previewUpdateResult.table.getField((f) =>
-        f.id().equals(command.fieldId)
-      );
-      const plannedSideEffects = yield* collectFieldUpdateSideEffects(
-        previewTable,
-        previewUpdatedField,
-        previewPreviousField,
-        foreignTables
       );
 
       const basePluginContext = {

@@ -3,10 +3,14 @@
 import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 import { stringify as stringifyYaml } from 'yaml';
 
-import { collectDataQuerySourceFieldUsages } from './DataQueryFieldUsage';
 import type { DataQueryManifest } from './DataQueryManifest';
 import type {
+  DataQueryManifestRepairDependencies,
+  DataQueryManifestRepairDependency,
+} from './DataQueryManifestDependencies';
+import type {
   DataQueryDefinitionInput,
+  DataQueryFieldUsage,
   DataQueryFilter,
   DataQueryRecordsProjection,
   DataQueryRelation,
@@ -15,8 +19,9 @@ import type {
 
 /**
  * One schema change a repair plan is computed for. `baseId` is host scope and
- * deliberately absent: the planner is a pure function of the manifest and the
- * change, so it runs in tests and inside a worker without a database.
+ * deliberately absent: the planner is a pure function of the manifest, its
+ * required readonly logical dependency evidence and the change, so it runs in
+ * tests and inside a worker without a database.
  *
  * `fieldName`/`previousName` are the only way a fallback SQL statement can be
  * correlated with a change. SQL text is never parsed or rewritten: when the
@@ -81,7 +86,9 @@ export type DataQueryRepairReason =
   | 'type_change_affects_output'
   | 'ambiguous_field_mapping'
   | 'table_deleted'
-  | 'definition_empty';
+  | 'definition_empty'
+  | 'dependency_evidence_unavailable'
+  | 'dependency_not_editable';
 
 export type DataQueryRepairAction =
   | { kind: 'remove_projection'; alias: string }
@@ -96,7 +103,7 @@ export type DataQueryRepairAction =
       kind: 'rewrite_field';
       fromFieldId: string;
       toFieldId: string;
-      usages: readonly string[];
+      usages: ReadonlyArray<DataQueryFieldUsage>;
     }
   | { kind: 'switch_to_fallback' };
 
@@ -164,6 +171,36 @@ type ChangeTarget = {
   sqlIdentifier?: string;
   typeChanged?: boolean;
   outputCompatible?: boolean;
+};
+
+type DependencyImpact = {
+  affected: boolean;
+  usages: ReadonlySet<DataQueryFieldUsage>;
+};
+
+const dependencyImpact = (
+  dependency: DataQueryManifestRepairDependency,
+  target: ChangeTarget,
+  kind: DataQuerySchemaChange['kind']
+): DependencyImpact => {
+  const sources = [dependency, ...(dependency.relations ?? [])];
+  if (kind === 'table_deleted') {
+    const affectedSources = sources.filter((source) => source.tableId === target.tableId);
+    return {
+      affected: affectedSources.length > 0,
+      usages: new Set(
+        affectedSources.flatMap((source) => source.fields.flatMap((field) => field.usages))
+      ),
+    };
+  }
+  const fields = sources
+    .filter((source) => source.tableId === target.tableId)
+    .flatMap((source) => source.fields)
+    .filter((field) => field.fieldId === target.fieldId);
+  return {
+    affected: fields.length > 0,
+    usages: new Set(fields.flatMap((field) => field.usages)),
+  };
 };
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -280,7 +317,7 @@ const rewriteFieldReferences = (
   definition: MutableDefinition,
   target: ChangeTarget,
   toFieldId: string,
-  usages: Set<string>
+  usages: Set<DataQueryFieldUsage>
 ): void => {
   const rewrite = (tableId: string | undefined, fieldId: string): string => {
     if (tableId !== target.tableId || fieldId !== target.fieldId) return fieldId;
@@ -390,6 +427,7 @@ type QueryOutcome = {
 
 const planQuery = (
   original: MutableQuery,
+  dependency: DataQueryManifestRepairDependency | undefined,
   target: ChangeTarget,
   kind: DataQuerySchemaChange['kind']
 ): QueryOutcome => {
@@ -413,10 +451,18 @@ const planQuery = (
   // A SQL path can read columns the structured index cannot see. The name is
   // the only correlation available; without it the query is unknown, never
   // unaffected.
-  if (!query.definition || query.mode === 'sql-query') {
+  if (!query.definition || query.mode === 'sql-query' || dependency?.mode === 'sql-query') {
     reasons.add(fallbackMentionsTarget ? 'fallback_references_field' : 'sql_query_unverifiable');
     return outcome('manual');
   }
+  if (!dependency || !dependency.complete) {
+    reasons.add('dependency_evidence_unavailable');
+    return outcome('manual');
+  }
+
+  const impact = dependencyImpact(dependency, target, kind);
+  const semanticUsages = new Set(impact.usages);
+  if (!impact.affected) return outcome('noop');
 
   const definition = query.definition;
 
@@ -426,14 +472,6 @@ const planQuery = (
   }
 
   if (kind === 'field_updated') {
-    const referenced =
-      Object.values(relationsOf(definition)).some(
-        (relation) => relation.linkFieldId === target.fieldId
-      ) ||
-      [...collectDataQuerySourceFieldUsages(definition).values()].some((fields) =>
-        fields.has(target.fieldId!)
-      );
-    if (!referenced) return outcome('noop');
     if (target.typeChanged && target.outputCompatible !== true) {
       reasons.add('type_change_affects_output');
       return outcome('manual');
@@ -452,9 +490,12 @@ const planQuery = (
       reasons.add('type_change_affects_output');
       return outcome('manual');
     }
-    const usages = new Set<string>();
+    const usages = new Set<DataQueryFieldUsage>();
     rewriteFieldReferences(definition, target, target.replacementFieldId, usages);
-    if (!usages.size) return outcome('noop');
+    if (!usages.size) {
+      reasons.add('dependency_not_editable');
+      return outcome('manual');
+    }
     reasons.add('field_reference_rewritten');
     actions.push({
       kind: 'rewrite_field',
@@ -468,9 +509,6 @@ const planQuery = (
   const record = actionsOf(reasons, actions);
   const removedAliases = new Set<string>();
   let affected = false;
-  // Filter and grouping changes alter which rows or groups a query returns.
-  // They are suggested, never classified as a safe automatic repair.
-  let semanticsChanged = false;
 
   // --- Relations: a deleted link field or a deleted target table drops the
   // alias, its dependants and every via hop that went through it.
@@ -505,6 +543,12 @@ const planQuery = (
     }
     if (!Object.keys(relations).length) {
       delete (definition as Extract<MutableDefinition, { version: 2 }>).relations;
+    }
+  }
+  for (const relation of dependency.relations ?? []) {
+    if (!droppedRelations.has(relation.alias)) continue;
+    for (const field of relation.fields) {
+      for (const usage of field.usages) semanticUsages.add(usage);
     }
   }
 
@@ -555,7 +599,6 @@ const planQuery = (
     definition.groupBy = definition.groupBy?.filter((group) => {
       if (droppedRelations.has(sourceOf(group))) {
         affected = true;
-        semanticsChanged = true;
         removedAliases.add(group.alias);
         record.add({ kind: 'remove_group_by', alias: group.alias }, 'group_semantics_changed');
         return false;
@@ -566,7 +609,6 @@ const planQuery = (
         group.fieldId === target.fieldId
       ) {
         affected = true;
-        semanticsChanged = true;
         removedAliases.add(group.alias);
         record.add({ kind: 'remove_group_by', alias: group.alias }, 'group_semantics_changed');
         return false;
@@ -581,7 +623,6 @@ const planQuery = (
       const next = removeFilterLeaves(definition.filter, definition, 'root', target);
       if (next.removed) {
         affected = true;
-        semanticsChanged = true;
         record.add({ kind: 'remove_filter', source: 'root' }, 'filter_semantics_changed');
         if (next.node) definition.filter = next.node;
         else delete definition.filter;
@@ -592,7 +633,6 @@ const planQuery = (
       const next = removeFilterLeaves(relation.filter, definition, alias, target);
       if (!next.removed) continue;
       affected = true;
-      semanticsChanged = true;
       record.add({ kind: 'remove_filter', source: alias }, 'filter_semantics_changed');
       if (next.node) relation.filter = next.node;
       else delete relation.filter;
@@ -650,9 +690,25 @@ const planQuery = (
     else delete definition.sort;
   }
 
-  if (!affected) return outcome('noop');
+  if (!affected) {
+    if (semanticUsages.has('filter') || semanticUsages.has('reference')) {
+      reasons.add('filter_semantics_changed');
+    }
+    if (semanticUsages.has('group')) reasons.add('group_semantics_changed');
+    if (reasons.size === 0) reasons.add('dependency_not_editable');
+    return outcome('manual');
+  }
 
   pruneFallbackOutputs(query, removedAliases, actions);
+
+  // Filter/reference and grouping usage in the accepted dependency evidence
+  // governs semantic risk, including bound-only dependencies with no YAML node.
+  const semanticsChanged =
+    semanticUsages.has('filter') || semanticUsages.has('reference') || semanticUsages.has('group');
+  if (semanticUsages.has('filter') || semanticUsages.has('reference')) {
+    reasons.add('filter_semantics_changed');
+  }
+  if (semanticUsages.has('group')) reasons.add('group_semantics_changed');
 
   // A semantics-changing rewrite stays a suggestion: the diff shows the edit,
   // but apply is refused until a human applies it outside this flow.
@@ -713,19 +769,24 @@ const buildTarget = (change: DataQuerySchemaChange): ChangeTarget => {
 };
 
 /**
- * Pure repair plan for one accepted manifest and one schema change. The result
- * is deterministic: the same inputs always produce identical JSON, which is
- * what the preview hash and the audit record rely on.
+ * Pure repair plan for one accepted manifest, its exact authorized logical
+ * dependency evidence, and one schema change. The result is deterministic:
+ * the same inputs always produce identical JSON, which is what the preview
+ * hash and the audit record rely on.
  */
 export const planDataQueryManifestRepair = (
   manifest: DataQueryManifest,
-  change: DataQuerySchemaChange
+  change: DataQuerySchemaChange,
+  dependencies: DataQueryManifestRepairDependencies
 ): DataQueryManifestRepairPlan => {
   const target = buildTarget(change);
   const preview = clone(manifest);
   const plans: DataQueryRepairQueryPlan[] = [];
+  const dependenciesByQueryId = new Map(
+    dependencies.map((dependency) => [dependency.queryId, dependency])
+  );
   for (const [queryId, query] of Object.entries(manifest.queries)) {
-    const outcome = planQuery(query, target, change.kind);
+    const outcome = planQuery(query, dependenciesByQueryId.get(queryId), target, change.kind);
     if (outcome.actions.length) preview.queries[queryId] = outcome.query;
     plans.push({
       queryId,

@@ -146,7 +146,9 @@ export interface ITracer {
   capturePropagationCarrier?(): TracePropagationCarrier | undefined;
 
   /**
-   * Run work with the given W3C carrier as the active parent context.
+   * Run work with the given W3C carrier as its parent, independently of the
+   * caller's active context. Missing or invalid carriers establish a root;
+   * unknown origins must never inherit an unrelated consumer's parent.
    * Optional: tracers without propagation support may omit this.
    */
   runWithPropagationCarrier?<T>(

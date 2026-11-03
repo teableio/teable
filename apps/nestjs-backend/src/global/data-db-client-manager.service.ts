@@ -6,11 +6,19 @@ import {
   getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
 import { PgPoolRegistry, PrismaService } from '@teable/db-main-prisma';
-import { resolveComputedWorkerLane } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  parseTracePropagationCarrier,
+  resolveComputedWorkerLane,
+} from '@teable/v2-adapter-table-repository-postgres';
+import { generatePrefixedId, type TracePropagationCarrier } from '@teable/v2-core';
 import createKnex, { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { PoolClient } from 'pg';
+import {
+  normalizeBasePendingCapacityQueryLimit,
+  normalizeBasePendingCapacityThreshold,
+} from '../configs/computed-outbox-trigger.config';
 import { CustomHttpException } from '../custom.exception';
 import { withDataDbInternalSchemaParam } from '../features/space/data-db-internal-schema';
 import { DataDbMigrationService } from '../features/space/data-db-migration.service';
@@ -19,7 +27,9 @@ import type { IClsStore } from '../types/cls';
 import { getBaseCached, getTableMetaWithBaseCached } from '../utils/meta-ancestry-cache';
 import { resolveByodbDataDbPoolSettings } from './byodb-data-db-pool-budget';
 import {
+  assembleComputedOutboxBasePendingCapacityPage,
   buildComputedOutboxAnomalyListQuery,
+  buildComputedOutboxBasePendingCapacityQuery,
   buildComputedOutboxDeadLetterBatchSelectionQuery,
   buildComputedOutboxLineageRunChainQuery,
   buildComputedOutboxLineageTaskLookupQuery,
@@ -30,6 +40,7 @@ import {
   buildComputedOutboxStaleRecoverySelectQuery,
   buildComputedOutboxTaskStatesQuery,
   buildComputedOutboxWakeupCandidatesQuery,
+  type ComputedOutboxBasePendingCapacityPageRequest,
   type ComputedOutboxDeadLetterBatchSelection,
   type ComputedOutboxWakeupCandidateQueryOptions,
   type ComputedOutboxWakeupCandidateQueryTarget,
@@ -69,6 +80,27 @@ export type IComputedOutboxMaintenanceSnapshot = {
   oldestDueAgeMs: number;
   oldestPausedAgeMs: number;
   activePauseScopeCount: number;
+};
+
+/**
+ * One keyset page of the per-base pending capacity probe (T8159).
+ *
+ * `afterBaseId`/`scannedThroughBaseId` describe the base-id interval this page
+ * proves was scanned: `(afterBaseId, scannedThroughBaseId]`, extended to the
+ * end of the id range when `scannedToEnd` is true. Callers may only treat an
+ * absent base as recovered when it falls inside that proven interval.
+ */
+export type IComputedOutboxBasePendingCapacityPage = {
+  threshold: number;
+  /** Resolved page size actually used by SQL and the slice below. */
+  limit: number;
+  afterBaseId?: string;
+  scannedThroughBaseId?: string;
+  scannedToEnd: boolean;
+  bases: ReadonlyArray<{ baseId: string; pending: number }>;
+  /** Present iff `truncated`: continue strictly after this base id. */
+  nextBaseId?: string;
+  truncated: boolean;
 };
 
 export type IComputedOutboxLockConvoy = {
@@ -137,6 +169,7 @@ export interface IDataDbRoutingBinding {
     readonly urlFingerprint: string | null;
     readonly displayHost: string | null;
     readonly displayDatabase: string | null;
+    readonly schemaVersion?: string | null;
   } | null;
 }
 
@@ -211,6 +244,23 @@ const computedOutboxKnexTable = (
   table: string
 ) => (target.internalSchema ? db(table).withSchema(target.internalSchema) : db(table));
 
+const completeComputedOutboxArchiveDeletion = async (
+  trx: Knex.Transaction,
+  target: IComputedOutboxSchemaTarget,
+  intent: 'restore' | 'discard',
+  taskIds: ReadonlyArray<string>
+): Promise<number> => {
+  if (taskIds.length === 0) return 0;
+  const schema = `"${(target.internalSchema ?? 'public').replaceAll('"', '""')}"`;
+  const functionName =
+    intent === 'restore' ? 'computed_outbox_complete_restore' : 'computed_outbox_discard';
+  const result = await trx.raw<{ rows: Array<{ deleted: string | number }> }>(
+    `select ${schema}."${functionName}"(?::text[]) as deleted`,
+    [taskIds]
+  );
+  return Number(result.rows[0]?.deleted ?? 0);
+};
+
 /** Normalized lineage row over outbox / dead-letter / run-history (T6908). */
 export type IComputedOutboxLineageRow = {
   source: 'live' | 'dead' | 'history';
@@ -268,6 +318,9 @@ export type IComputedOutboxDeadLetterRow = {
   affectedTableIds: string[] | null;
   affectedFieldIds: string[] | null;
   syncMaxLevel: number | string | null;
+  sourceChangedAt: Date | string | null;
+  stageDepth?: number | string | null;
+  predecessorTaskId?: string | null;
   createdAt: Date | string;
 };
 
@@ -291,54 +344,375 @@ const COMPUTED_OUTBOX_DEAD_LETTER_COLUMNS = {
   affectedTableIds: 'affected_table_ids',
   affectedFieldIds: 'affected_field_ids',
   syncMaxLevel: 'sync_max_level',
+  sourceChangedAt: 'source_changed_at',
+  stageDepth: 'stage_depth',
+  predecessorTaskId: 'predecessor_task_id',
   createdAt: 'created_at',
 } as const;
 
-const toRecoveredComputedOutboxRow = (
+type ComputedRecoverySeedGroup = { tableId: string; recordIds: string[] };
+type PreparedComputedTaskRerun = {
+  taskId: string;
+  row: Record<string, unknown>;
+  seedGroups: ComputedRecoverySeedGroup[];
+  archivedSeedCount?: string;
+};
+
+const COMPUTED_OUTBOX_RECOVERY_SEED_INSERT_CHUNK_SIZE = 1000;
+
+const parseRecoveryJson = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+};
+
+const rejectMalformedComputedRerun = (dead: IComputedOutboxDeadLetterRow): never => {
+  throw new CustomHttpException(
+    `Computed dead-letter task ${dead.taskId} cannot be rerun because its archived task payload is malformed`,
+    HttpErrorCode.VALIDATION_ERROR
+  );
+};
+
+const parseRecoverySeedGroups = (
+  dead: IComputedOutboxDeadLetterRow
+): ComputedRecoverySeedGroup[] => {
+  const value = parseRecoveryJson(dead.seedRecordIds);
+  if (value == null) return [];
+  if (!Array.isArray(value)) return rejectMalformedComputedRerun(dead);
+  if (value.every((recordId) => typeof recordId === 'string')) {
+    return [{ tableId: dead.seedTableId, recordIds: value as string[] }];
+  }
+
+  const groups: ComputedRecoverySeedGroup[] = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return rejectMalformedComputedRerun(dead);
+    }
+    const { tableId, recordIds } = candidate as { tableId?: unknown; recordIds?: unknown };
+    if (
+      typeof tableId !== 'string' ||
+      !Array.isArray(recordIds) ||
+      !recordIds.every((recordId) => typeof recordId === 'string')
+    ) {
+      return rejectMalformedComputedRerun(dead);
+    }
+    groups.push({ tableId, recordIds: recordIds as string[] });
+  }
+  return groups;
+};
+
+const parseRecoveryPlanArray = (dead: IComputedOutboxDeadLetterRow, value: unknown): unknown[] => {
+  const parsed = parseRecoveryJson(value);
+  return Array.isArray(parsed) ? parsed : rejectMalformedComputedRerun(dead);
+};
+
+type PreparedRerunPlan = Record<string, unknown>;
+
+const prepareSeedRerun = (
+  dead: IComputedOutboxDeadLetterRow,
+  archived: Record<string, unknown>,
+  traceCarrier: TracePropagationCarrier | undefined,
+  seedCount: number
+): PreparedRerunPlan => {
+  const originalChangeType = archived.changeType;
+  if (!['insert', 'update', 'delete'].includes(String(originalChangeType))) {
+    return rejectMalformedComputedRerun(dead);
+  }
+  return {
+    steps: JSON.stringify([]),
+    edges: JSON.stringify([]),
+    dirty_stats: JSON.stringify({
+      changeType: originalChangeType,
+      ...(archived.impact !== undefined ? { impact: archived.impact } : {}),
+      ...(archived.beforeImageRecords !== undefined
+        ? { beforeImageRecords: archived.beforeImageRecords }
+        : {}),
+      ...(archived.cyclePolicy !== undefined ? { cyclePolicy: archived.cyclePolicy } : {}),
+      ...(archived.orchestration !== undefined ? { orchestration: archived.orchestration } : {}),
+      ...(traceCarrier ?? {}),
+    }),
+    estimated_complexity: seedCount,
+    run_total_steps: 0,
+    affected_table_ids: [dead.seedTableId],
+    affected_field_ids: dead.affectedFieldIds ?? [],
+    sync_max_level: 0,
+  };
+};
+
+const prepareBackfillRerun = (
+  dead: IComputedOutboxDeadLetterRow,
+  traceCarrier: TracePropagationCarrier | undefined
+): PreparedRerunPlan => ({
+  steps: JSON.stringify([]),
+  edges: JSON.stringify([]),
+  // A backfill rerun starts the archived field scope from the beginning; never
+  // restore its failed cursor as though prior batches were a resumable checkpoint.
+  dirty_stats: JSON.stringify({ ...(traceCarrier ?? {}) }),
+  estimated_complexity: dead.estimatedComplexity,
+  run_total_steps: 1,
+  affected_table_ids: [dead.seedTableId],
+  affected_field_ids: dead.affectedFieldIds ?? [],
+  sync_max_level: 0,
+});
+
+const validatePlannedRerunInputs = (
+  dead: IComputedOutboxDeadLetterRow,
+  archived: Record<string, unknown>
+): void => {
+  const legacySeedTables = new Set(
+    parseRecoverySeedGroups(dead)
+      .filter((group) => group.recordIds.length > 0)
+      .map((group) => group.tableId)
+  );
+  const manifest = archived.rerunInputs;
+  const completeManifest =
+    manifest &&
+    typeof manifest === 'object' &&
+    'version' in manifest &&
+    manifest.version === 1 &&
+    'complete' in manifest &&
+    manifest.complete === true;
+  if ('rerunInputs' in archived && !completeManifest) {
+    throw new CustomHttpException(
+      'Archived computed rerun inputs are unavailable or incomplete; the dead letter is preserved',
+      HttpErrorCode.VALIDATION_ERROR
+    );
+  }
+  if (
+    !manifest &&
+    (legacySeedTables.size === 0 ||
+      archived.ledgerScopeId ||
+      archived.partialStageBudget ||
+      archived.seedAllCursors ||
+      dead.predecessorTaskId ||
+      Number(dead.stageDepth ?? 0) > 0)
+  ) {
+    throw new CustomHttpException(
+      'Historical computed archive has no complete durable rerun inputs; the dead letter is preserved',
+      HttpErrorCode.VALIDATION_ERROR
+    );
+  }
+};
+
+const preparePlannedRerun = (
+  dead: IComputedOutboxDeadLetterRow,
+  archived: Record<string, unknown>,
+  traceCarrier: TracePropagationCarrier | undefined
+): PreparedRerunPlan => {
+  const steps = parseRecoveryPlanArray(dead, dead.steps);
+  // An upstream scalar may already have committed while its downstream edge did
+  // not. "Unchanged in this rerun" is not evidence that the archived edge is safe
+  // to prune. Remove only its delta-pruning provenance; preserve the logical edge
+  // and use the existing conservative no-provenance execution path for this rerun.
+  const edges = parseRecoveryPlanArray(dead, dead.edges).map((entry) => {
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      Array.isArray(entry) ||
+      !('propagationSourceFieldIds' in entry)
+    )
+      return entry;
+    const { propagationSourceFieldIds: _deltaEvidence, ...edge } = entry;
+    return edge;
+  });
+  validatePlannedRerunInputs(dead, archived);
+  return {
+    steps: JSON.stringify(steps),
+    edges: JSON.stringify(edges),
+    // Re-run the archived current-stage plan from its durable seeds. Preserve plan
+    // inputs, but intentionally discard ledger scopes, cursors, budgets, exclusions,
+    // terminal errors and prior run progress.
+    dirty_stats: JSON.stringify({
+      plannedRerun: true,
+      ...(archived.dirtyStats !== undefined ? { dirtyStats: archived.dirtyStats } : {}),
+      ...(archived.beforeImageRecords !== undefined
+        ? { beforeImageRecords: archived.beforeImageRecords }
+        : {}),
+      ...(archived.orchestration !== undefined ? { orchestration: archived.orchestration } : {}),
+      ...(archived.sameTableBatches !== undefined
+        ? { sameTableBatches: archived.sameTableBatches }
+        : {}),
+      ...(archived.sourceFieldIds !== undefined ? { sourceFieldIds: archived.sourceFieldIds } : {}),
+      ...(archived.seedAllTableIds !== undefined
+        ? { seedAllTableIds: archived.seedAllTableIds }
+        : {}),
+      ...(traceCarrier ?? {}),
+    }),
+    estimated_complexity: dead.estimatedComplexity,
+    run_total_steps: steps.length,
+    affected_table_ids: dead.affectedTableIds ?? [],
+    affected_field_ids: dead.affectedFieldIds ?? [],
+    sync_max_level: Number(dead.syncMaxLevel ?? 0),
+  };
+};
+
+const prepareComputedTaskRerun = (
   dead: IComputedOutboxDeadLetterRow,
   planHash: string,
   now: Date
-) => ({
-  id: dead.taskId,
-  worker_lane: dead.workerLane,
-  base_id: dead.baseId,
-  seed_table_id: dead.seedTableId,
-  seed_record_ids: dead.seedRecordIds == null ? null : JSON.stringify(dead.seedRecordIds),
-  change_type: dead.changeType,
-  steps: dead.steps == null ? null : JSON.stringify(dead.steps),
-  edges: dead.edges == null ? null : JSON.stringify(dead.edges),
-  status: 'pending',
-  attempts: 0,
-  max_attempts: dead.maxAttempts,
-  next_run_at: now,
-  locked_at: null,
-  locked_by: null,
-  last_error: null,
-  estimated_complexity: dead.estimatedComplexity,
-  plan_hash: planHash,
-  dirty_stats: dead.dirtyStats == null ? null : JSON.stringify(dead.dirtyStats),
-  run_id: dead.runId,
-  origin_run_ids: dead.originRunIds,
-  run_total_steps: dead.runTotalSteps,
-  run_completed_steps_before: dead.runCompletedStepsBefore,
-  affected_table_ids: dead.affectedTableIds,
-  affected_field_ids: dead.affectedFieldIds,
-  sync_max_level: dead.syncMaxLevel,
-  created_at: dead.createdAt,
-  updated_at: now,
-});
+): PreparedComputedTaskRerun => {
+  const parsedDirtyStats = parseRecoveryJson(dead.dirtyStats);
+  const archived =
+    parsedDirtyStats && typeof parsedDirtyStats === 'object' && !Array.isArray(parsedDirtyStats)
+      ? (parsedDirtyStats as Record<string, unknown>)
+      : {};
+  const traceCarrier = parseTracePropagationCarrier(archived);
+  const seedGroups = dead.changeType === 'field-backfill' ? [] : parseRecoverySeedGroups(dead);
+  const seedCount = seedGroups.reduce((count, group) => count + group.recordIds.length, 0);
+
+  const plan =
+    dead.changeType === 'seed'
+      ? prepareSeedRerun(dead, archived, traceCarrier, seedCount)
+      : dead.changeType === 'field-backfill'
+        ? prepareBackfillRerun(dead, traceCarrier)
+        : ['insert', 'update', 'delete'].includes(dead.changeType)
+          ? preparePlannedRerun(dead, archived, traceCarrier)
+          : rejectMalformedComputedRerun(dead);
+
+  const runId = generatePrefixedId('cur', 16);
+  const manifest = archived.rerunInputs;
+  let archivedSeedCount: string | undefined;
+  if (
+    manifest &&
+    typeof manifest === 'object' &&
+    'complete' in manifest &&
+    manifest.complete === true
+  ) {
+    if (
+      !('seedCount' in manifest) ||
+      typeof manifest.seedCount !== 'string' ||
+      !/^\d+$/.test(manifest.seedCount)
+    ) {
+      return rejectMalformedComputedRerun(dead);
+    }
+    archivedSeedCount = manifest.seedCount;
+  }
+  return {
+    taskId: dead.taskId,
+    seedGroups,
+    archivedSeedCount,
+    row: {
+      id: dead.taskId,
+      worker_lane: dead.workerLane,
+      base_id: dead.baseId,
+      seed_table_id: dead.seedTableId,
+      // Recovered seeds always spill to normalized child rows so the live payload
+      // stays bounded regardless of archive size.
+      seed_record_ids: null,
+      change_type: dead.changeType,
+      ...plan,
+      status: 'pending',
+      attempts: 0,
+      max_attempts: dead.maxAttempts,
+      next_run_at: now,
+      locked_at: null,
+      locked_by: null,
+      last_error: null,
+      plan_hash: planHash,
+      run_id: runId,
+      dead_letter_restore_version: 1,
+      origin_run_ids: [runId],
+      run_completed_steps_before: 0,
+      source_changed_at: dead.sourceChangedAt,
+      stage_depth: 0,
+      predecessor_task_id: null,
+      created_at: now,
+      updated_at: now,
+    },
+  };
+};
+
+const insertArchivedRerunSeedRows = async (
+  trx: Knex.Transaction,
+  prepared: ReadonlyArray<PreparedComputedTaskRerun>,
+  insertedTaskIds: ReadonlySet<string>,
+  target: IComputedOutboxSchemaTarget
+): Promise<void> => {
+  for (const task of prepared) {
+    if (!insertedTaskIds.has(task.taskId) || task.archivedSeedCount === undefined) continue;
+    const seeds = computedOutboxKnexTable(trx, target, 'computed_update_dead_letter_seed');
+    const count = await seeds.clone().where('task_id', task.taskId).count({ count: '*' }).first();
+    if (String(count?.count ?? '0') !== task.archivedSeedCount) {
+      throw new CustomHttpException(
+        'Archived computed rerun seed membership is incomplete; the dead letter is preserved',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    if (task.archivedSeedCount === '0') continue;
+    const source = seeds
+      .clone()
+      .where('task_id', task.taskId)
+      .select({
+        id: trx.raw("'cus' || substr(md5(task_id || ':' || table_id || ':' || record_id), 1, 16)"),
+        task_id: 'task_id',
+        table_id: 'table_id',
+        record_id: 'record_id',
+      });
+    await computedOutboxKnexTable(trx, target, 'computed_update_outbox_seed')
+      .insert(source)
+      .onConflict(['task_id', 'table_id', 'record_id'])
+      .ignore();
+  }
+};
+
+const insertRecoveredSeedRows = async (
+  trx: Knex.Transaction,
+  prepared: ReadonlyArray<PreparedComputedTaskRerun>,
+  insertedTaskIds: ReadonlySet<string>,
+  target: IComputedOutboxSchemaTarget
+): Promise<void> => {
+  let chunk: Array<Record<'id' | 'task_id' | 'table_id' | 'record_id', string>> = [];
+  const flush = async () => {
+    if (chunk.length === 0) return;
+    await computedOutboxKnexTable(trx, target, 'computed_update_outbox_seed')
+      .insert(chunk)
+      .onConflict(['task_id', 'table_id', 'record_id'])
+      .ignore();
+    chunk = [];
+  };
+
+  for (const task of prepared) {
+    if (!insertedTaskIds.has(task.taskId)) continue;
+    for (const group of task.seedGroups) {
+      for (const recordId of group.recordIds) {
+        chunk.push({
+          id: generatePrefixedId('cus', 16),
+          task_id: task.taskId,
+          table_id: group.tableId,
+          record_id: recordId,
+        });
+        if (chunk.length >= COMPUTED_OUTBOX_RECOVERY_SEED_INSERT_CHUNK_SIZE) await flush();
+      }
+    }
+  }
+  await flush();
+  await insertArchivedRerunSeedRows(trx, prepared, insertedTaskIds, target);
+};
 
 const restoreComputedOutboxDeadLetter = async (
   trx: Knex.Transaction,
   dead: IComputedOutboxDeadLetterRow,
   target: IComputedOutboxSchemaTarget = {}
 ): Promise<boolean> => {
-  const inserted = await computedOutboxKnexTable(trx, target, 'computed_update_outbox')
-    .insert(toRecoveredComputedOutboxRow(dead, dead.planHash ?? dead.taskId, new Date()))
-    .onConflict()
+  const prepared = prepareComputedTaskRerun(
+    dead,
+    buildComputedOutboxRecoveryPlanHash(dead.planHash ?? dead.taskId, dead.taskId),
+    new Date()
+  );
+  const inserted = (await computedOutboxKnexTable(trx, target, 'computed_update_outbox')
+    .insert(prepared.row)
+    .onConflict('id')
     .ignore()
-    .returning('id');
-  return inserted.length > 0;
+    .returning('id')) as Array<{ id: string }>;
+  const insertedTaskIds = new Set(inserted.map((row) => String(row.id)));
+  await insertRecoveredSeedRows(trx, [prepared], insertedTaskIds, target);
+  if (insertedTaskIds.size > 0) {
+    await completeComputedOutboxArchiveDeletion(trx, target, 'restore', [prepared.taskId]);
+  }
+  return insertedTaskIds.size > 0;
 };
 
 export const restoreComputedOutboxDeadLetterRows = async (
@@ -347,9 +721,7 @@ export const restoreComputedOutboxDeadLetterRows = async (
   target: IComputedOutboxSchemaTarget = {}
 ): Promise<IComputedOutboxMaintenanceDeadLetterBatchRecovery> => {
   // This pre-check is load-bearing, not an optimization: a task id already durable in the
-  // outbox may hold the identical replay plan hash from an earlier recovery. Re-inserting
-  // it could trip the pending plan-hash unique index before Postgres reaches the id
-  // conflict, and `on conflict (id)` below would surface that as a transaction abort.
+  // outbox may hold the identical replay plan hash from an earlier recovery.
   const alreadyPendingTaskIds = new Set<string>();
   for (let offset = 0; offset < rows.length; offset += COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE) {
     const taskIds = rows
@@ -372,33 +744,35 @@ export const restoreComputedOutboxDeadLetterRows = async (
   ) {
     const chunk = rowsToInsert.slice(offset, offset + COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE);
     const now = new Date();
-    const inserted = (await computedOutboxKnexTable(trx, target, 'computed_update_outbox')
-      .insert(
-        chunk.map((dead) =>
-          toRecoveredComputedOutboxRow(
-            dead,
-            buildComputedOutboxRecoveryPlanHash(dead.planHash ?? dead.taskId, dead.taskId),
-            now
-          )
-        )
+    const prepared = chunk.map((dead) =>
+      prepareComputedTaskRerun(
+        dead,
+        buildComputedOutboxRecoveryPlanHash(dead.planHash ?? dead.taskId, dead.taskId),
+        now
       )
-      // Replayed plan hashes are unique per original task. A remaining conflict can only
-      // be the same durable task id, which is already safe for consumer delivery.
+    );
+    const inserted = (await computedOutboxKnexTable(trx, target, 'computed_update_outbox')
+      .insert(prepared.map(({ row }) => row))
       .onConflict('id')
       .ignore()
       .returning('id')) as Array<{ id: string }>;
-    for (const row of inserted) insertedTaskIds.add(String(row.id));
+    const chunkInsertedTaskIds = new Set(inserted.map((row) => String(row.id)));
+    for (const taskId of chunkInsertedTaskIds) insertedTaskIds.add(taskId);
+    await insertRecoveredSeedRows(trx, prepared, chunkInsertedTaskIds, target);
   }
 
-  for (let offset = 0; offset < rows.length; offset += COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE) {
-    const taskIds = rows
-      .slice(offset, offset + COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE)
-      .map((dead) => dead.taskId);
-    if (taskIds.length > 0) {
-      await computedOutboxKnexTable(trx, target, 'computed_update_dead_letter')
-        .whereIn('id', taskIds)
-        .delete();
-    }
+  const insertedIds = [...insertedTaskIds];
+  for (
+    let offset = 0;
+    offset < insertedIds.length;
+    offset += COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE
+  ) {
+    await completeComputedOutboxArchiveDeletion(
+      trx,
+      target,
+      'restore',
+      insertedIds.slice(offset, offset + COMPUTED_OUTBOX_RECOVERY_INSERT_CHUNK_SIZE)
+    );
   }
 
   return {
@@ -857,6 +1231,38 @@ export class DataDbClientManager {
     }
   }
 
+  async inspectComputedOutboxBasePendingCapacity(
+    target: IComputedOutboxMaintenanceTarget,
+    request: ComputedOutboxBasePendingCapacityPageRequest
+  ): Promise<IComputedOutboxBasePendingCapacityPage> {
+    const threshold = normalizeBasePendingCapacityThreshold(request.threshold);
+    const limit = normalizeBasePendingCapacityQueryLimit(request.limit);
+    const page = buildComputedOutboxBasePendingCapacityQuery(target, {
+      threshold,
+      limit,
+      afterBaseId: request.afterBaseId,
+    });
+    const client = createComputedOutboxMaintenanceKnex(target);
+    try {
+      const result = await client
+        .raw<{
+          rows: Array<{ baseId: string; pending: string | number | null }>;
+        }>(page.sql, page.bindings)
+        .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+      const rows = result.rows.map((row) => ({
+        baseId: row.baseId,
+        pending: Number(row.pending ?? 0),
+      }));
+      return assembleComputedOutboxBasePendingCapacityPage(rows, {
+        threshold,
+        limit,
+        afterBaseId: request.afterBaseId,
+      });
+    } finally {
+      await client.destroy();
+    }
+  }
+
   async inspectComputedOutboxLockConvoy(
     target: IComputedOutboxMaintenanceTarget,
     idleMs: number
@@ -865,12 +1271,13 @@ export class DataDbClientManager {
     try {
       const result = await client
         .raw<{
-          rows: Array<{
-            lock_waiters: string | number | null;
-            idle_transactions: string | number | null;
-            oldest_idle_ms: string | number | null;
-            sample_query: string | null;
-          }>;
+          rows: Array<
+            Record<
+              'lock_waiters' | 'idle_transactions' | 'oldest_idle_ms',
+              string | number | null
+            > &
+              Record<'sample_query', string | null>
+          >;
         }>(
           `select
             count(*) filter (where wait_event_type = 'Lock')::int as lock_waiters,
@@ -975,7 +1382,7 @@ export class DataDbClientManager {
       const row = await computedOutboxKnexTable(client, target, table)
         .select('base_id')
         .where({ id: taskId })
-        .first<{ base_id: string } | undefined>()
+        .first<Record<'base_id', string> | undefined>()
         .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
       return row ? String(row.base_id) : null;
     } finally {
@@ -1113,9 +1520,6 @@ export class DataDbClientManager {
         const inserted = await restoreComputedOutboxDeadLetter(trx, dead, target);
         if (!inserted) return { status: 'conflict' } as const;
 
-        await computedOutboxKnexTable(trx, target, 'computed_update_dead_letter')
-          .where({ id: taskId })
-          .delete();
         return { status: 'recovered', baseId: dead.baseId } as const;
       });
     } finally {
@@ -1189,9 +1593,12 @@ export class DataDbClientManager {
           .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
         const taskIds = selected.rows.map((row) => String(row.taskId));
         if (!taskIds.length) return { discarded: 0 };
-        const discarded = await computedOutboxKnexTable(trx, target, 'computed_update_dead_letter')
-          .whereIn('id', taskIds)
-          .delete();
+        const discarded = await completeComputedOutboxArchiveDeletion(
+          trx,
+          target,
+          'discard',
+          taskIds
+        );
         return { discarded };
       });
     } finally {
@@ -1309,6 +1716,64 @@ export class DataDbClientManager {
       throw new Error(`Project ${baseId} not found`);
     }
     return await this.dataPrismaForSpace(spaceId, options);
+  }
+
+  /** Resolve only metadata-proven ready routes; never run migration-on-acquire. */
+  async getDataDatabaseForSpacePreviewReadOnly(
+    spaceId: string
+  ): Promise<IResolvedDataDatabase | null> {
+    const binding = await this.findSpaceDataDbBinding(spaceId);
+    if (!isBoundToDataDb(binding)) return this.toResolvedDataDatabase({ isMetaFallback: true });
+
+    const connection = binding.dataDbConnection;
+    if (binding.state !== 'ready' || connection?.status !== 'ready' || !connection.encryptedUrl) {
+      return null;
+    }
+    const latestSchemaVersion = this.dataDbMigrationService?.getLatestSchemaVersion();
+    if (latestSchemaVersion && connection.schemaVersion !== latestSchemaVersion) return null;
+    return this.toResolvedDataDatabase({
+      connectionId: connection.id,
+      internalSchema: connection.internalSchema,
+      isMetaFallback: false,
+      url: decryptDataDbUrl(connection.encryptedUrl),
+    });
+  }
+
+  async getDataDatabaseForBasePreviewReadOnly(
+    baseId: string
+  ): Promise<IResolvedDataDatabase | null> {
+    const spaceId = await this.findSpaceIdByBaseId(baseId);
+    return spaceId ? this.getDataDatabaseForSpacePreviewReadOnly(spaceId) : null;
+  }
+
+  async getDataDatabaseForTablePreviewReadOnly(
+    tableId: string
+  ): Promise<IResolvedDataDatabase | null> {
+    const spaceId = await this.findSpaceIdByTableId(tableId);
+    return spaceId ? this.getDataDatabaseForSpacePreviewReadOnly(spaceId) : null;
+  }
+  /** Returns a query client without invoking data-DB migration. */
+  async dataPrismaForBasePreviewReadOnly(baseId: string) {
+    const route = await this.getDataDatabaseForBasePreviewReadOnly(baseId);
+    if (!route) return null;
+    if (route.isMetaFallback) return this.metaFallbackDataPrismaService;
+    const { connectionId, connectionUrl, internalSchema } = route;
+    if (!connectionId || !connectionUrl || !internalSchema) return null;
+
+    return await this.runtimeCache.getOrCreate(
+      DATA_DB_PRISMA_CACHE_NAMESPACE,
+      connectionId,
+      async () => {
+        const poolLease = this.pgPoolRegistry.acquire(connectionUrl, this.byodbPoolSettings);
+        try {
+          return createScopedDataPrismaClient(poolLease, internalSchema);
+        } catch (error) {
+          await poolLease.release();
+          throw error;
+        }
+      },
+      (client) => client.$disconnect()
+    );
   }
 
   async invalidateConnection(connectionId: string) {

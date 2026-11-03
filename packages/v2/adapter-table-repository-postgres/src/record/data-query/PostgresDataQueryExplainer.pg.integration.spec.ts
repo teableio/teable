@@ -15,6 +15,7 @@ import {
   DataQueryBinding,
   DataQueryDefinition,
   DataQueryExplainService,
+  DataQueryRelationBinding,
   projectExplainPlanDocument,
 } from '@teable/v2-data-query';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -29,7 +30,7 @@ import {
   type QueryExecutor,
 } from 'kysely';
 import { ok } from 'neverthrow';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { PostgresDataQueryExecutor } from './PostgresDataQueryExecutor';
 import { PostgresDataQueryExplainer } from './PostgresDataQueryExplainer';
@@ -41,6 +42,8 @@ const titleId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
 const context = { actorId: ActorId.create('explain-actor')._unsafeUnwrap() };
 const bindSentinel = 'BIND_SENTINEL_T7974_5f19b1';
 const storedSentinel = 'STORED_SENTINEL_T7974_5f19b1';
+const defaultSentinel = 'DEFAULT_SENTINEL_T8304_57fc';
+const managerId = `fld${'y'.repeat(16)}`;
 
 const dto: ITablePersistenceDTO = {
   id: tableId.toString(),
@@ -55,6 +58,21 @@ const dto: ITablePersistenceDTO = {
       type: 'singleLineText',
       dbFieldName: 'title',
       isPrimary: true,
+    },
+    {
+      id: managerId,
+      name: 'Manager',
+      type: 'link',
+      dbFieldName: 'manager',
+      options: {
+        relationship: 'manyOne',
+        foreignTableId: tableId.toString(),
+        lookupFieldId: titleId.toString(),
+        isOneWay: true,
+        fkHostTableName: `${baseId.toString()}.explain_records`,
+        selfKeyName: '__id',
+        foreignKeyName: 'fk_manager',
+      },
     },
   ],
   views: [{ id: `viw${'x'.repeat(16)}`, name: 'Grid', type: 'grid', columnMeta: {} }],
@@ -170,12 +188,12 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
     });
     await sql`create schema ${sql.id(baseId.toString())}`.execute(db);
     const physical = sql.id(baseId.toString(), 'explain_records');
-    await sql`create table ${physical} (__id text, title text)`.execute(db);
-    await sql`insert into ${physical} values ('a', ${storedSentinel})`.execute(db);
-    await sql`insert into ${physical} select 'c' || value, 'common' from generate_series(1, 100) as value`.execute(
+    await sql`create table ${physical} (__id text, title text, fk_manager text)`.execute(db);
+    await sql`insert into ${physical} (__id, title) values ('a', ${storedSentinel})`.execute(db);
+    await sql`insert into ${physical} (__id, title) select 'c' || value, 'common' from generate_series(1, 100) as value`.execute(
       db
     );
-    await sql`insert into ${physical} values ('r', 'rare')`.execute(db);
+    await sql`insert into ${physical} (__id, title) values ('r', 'rare')`.execute(db);
     // Statistics make the custom plans value-sensitive; without ANALYZE both
     // custom and generic estimates fall back to the same defaults.
     await sql`analyze ${physical}`.execute(db);
@@ -198,6 +216,8 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
     await container?.stop();
   });
 
+  afterEach(() => vi.restoreAllMocks());
+
   it.each(['direct', 'prepared', 'service'] as const)(
     'returns caller-scoped SQL and a generic plan without bind values, predicates or rows (%s)',
     async (path) => {
@@ -206,14 +226,18 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
         version: 1,
         kind: 'records',
         tableId: tableId.toString(),
-        parameters: { needle: { type: 'string' } },
+        parameters: {
+          needle: { type: 'string', default: defaultSentinel },
+          optional: { type: 'string', nullable: true, default: null },
+          count: { type: 'number', default: 10 },
+        },
         select: [{ fieldId: titleId.toString(), alias: 'title' }],
         filter: {
           fieldId: titleId.toString(),
           operator: 'is',
           value: { type: 'parameter', name: 'needle' },
         },
-        page: { limit: 10 },
+        page: { limit: { type: 'parameter', name: 'count' } },
       })._unsafeUnwrap();
       const query = definition.bind({ needle: bindSentinel })._unsafeUnwrap();
       const visibleWhen = buildRecordConditionSpec(table, {
@@ -233,6 +257,11 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
         supports: () => true,
         scope: () => ok(scope),
       };
+      const binding =
+        path === 'prepared'
+          ? DataQueryBinding.prepare(definition, table)._unsafeUnwrap()
+          : undefined;
+      const prepare = vi.spyOn(DataQueryBinding, 'prepare');
       const result =
         path === 'service'
           ? await new DataQueryExplainService(
@@ -240,15 +269,8 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
               new RecordQueryPluginRunner([plugin], new NoopLogger()),
               explainer
             ).explain(context, definition, { parameters: { needle: bindSentinel } })
-          : await explainer.explain(
-              context,
-              table,
-              query,
-              scope,
-              path === 'prepared'
-                ? DataQueryBinding.prepare(definition, table)._unsafeUnwrap()
-                : undefined
-            );
+          : await explainer.explain(context, table, query, scope, binding);
+      expect(prepare).toHaveBeenCalledTimes(path === 'prepared' ? 0 : 1);
       const value = result._unsafeUnwrap();
       const caller = new PostgresDataQueryExecutor(capturingDb)
         .compile(context, table, query, {})
@@ -258,11 +280,16 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
 
       expect(value.sqlScope).toBe('caller');
       expect(value.sql).toContain('$1');
-      expect(value.parameters).toMatchObject({
-        order: ['needle'],
+      expect(value.parameters).toEqual({
+        order: ['needle', 'optional', 'count'],
         orderKind: 'declaration',
         redaction: 'bind-values-hidden',
-        definitions: [{ name: 'needle', type: 'string', nullable: false }],
+        bindCount: caller.parameters.length,
+        definitions: [
+          { name: 'needle', type: 'string', nullable: false },
+          { name: 'optional', type: 'string', nullable: true },
+          { name: 'count', type: 'number', nullable: false },
+        ],
       });
       expect(value.parameters.bindCount).toBeGreaterThan(0);
       expect(value.hostScope).toEqual({
@@ -290,12 +317,129 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
 
       const serialized = JSON.stringify(value);
       expect(serialized).not.toContain(bindSentinel);
+      expect(serialized).not.toContain(defaultSentinel);
+      expect(serialized).not.toContain('hasDefault');
       expect(serialized).not.toContain(storedSentinel);
       expect(serialized).not.toContain('restricted-policy-token');
       expect(serialized).not.toContain('Filter');
       expect(serialized).not.toContain('Index Cond');
       expect(serialized).not.toContain('Relation Name');
       expect(value).not.toHaveProperty('rows');
+    }
+  );
+
+  it('reports an empty declaration contract for a single-source query without parameters', async () => {
+    const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 1,
+      kind: 'records',
+      tableId: tableId.toString(),
+      select: [{ system: 'id', alias: 'id' }],
+    })._unsafeUnwrap();
+    const query = definition.bind({})._unsafeUnwrap();
+    const caller = new PostgresDataQueryExecutor(db)
+      .compile(context, table, query, {})
+      ._unsafeUnwrap();
+    const result = (
+      await new PostgresDataQueryExplainer(db).explain(context, table, query, {})
+    )._unsafeUnwrap();
+    expect(result.parameters).toEqual({
+      order: [],
+      orderKind: 'declaration',
+      redaction: 'bind-values-hidden',
+      bindCount: caller.parameters.length,
+      definitions: [],
+    });
+    expect(result.plan.mode).toBe('generic');
+  });
+
+  it.each([true, false])(
+    'projects relation declarations without defaults or values (parameters=%s)',
+    async (withParameters) => {
+      const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
+      const definition = DataQueryDefinition.create({
+        version: 2,
+        kind: 'records',
+        tableId: tableId.toString(),
+        relations: {
+          manager: {
+            linkFieldId: managerId,
+            tableId: tableId.toString(),
+            ...(withParameters
+              ? {
+                  filter: {
+                    fieldId: titleId.toString(),
+                    operator: 'is',
+                    value: { type: 'parameter', name: 'needle' },
+                  },
+                }
+              : {}),
+          },
+        },
+        select: [
+          { system: 'id', alias: 'id' },
+          { source: 'manager', fieldId: titleId.toString(), alias: 'managerTitle' },
+        ],
+        ...(withParameters
+          ? {
+              parameters: {
+                needle: { type: 'string', default: defaultSentinel },
+                optional: { type: 'string', nullable: true, default: null },
+                count: { type: 'number', default: 10 },
+              },
+              page: { limit: { type: 'parameter', name: 'count' } },
+            }
+          : {}),
+      })._unsafeUnwrap();
+      const binding = DataQueryRelationBinding.prepare(
+        definition,
+        table,
+        new Map([['manager', table]])
+      )._unsafeUnwrap();
+      const plan = {
+        query: definition.bind({})._unsafeUnwrap(),
+        rootTable: table,
+        rootScope: {},
+        sources: binding.sources.map((source) => ({
+          alias: source.alias,
+          table,
+          linkFieldId: source.linkFieldId,
+          scope: {},
+        })),
+        plan: binding.plan,
+      };
+      const prepare = vi.spyOn(DataQueryRelationBinding, 'prepare');
+      const captured: CapturedStatement[] = [];
+      const capturingDb = createCapturingDb(db.getExecutor(), captured);
+      const caller = (
+        await new PostgresDataQueryExecutor(capturingDb).compileRelation(context, plan)
+      )._unsafeUnwrap();
+      const result = (
+        await new PostgresDataQueryExplainer(capturingDb).explainRelation(context, plan)
+      )._unsafeUnwrap();
+      expect(prepare).not.toHaveBeenCalled();
+      expect(result.sql).toBe(caller.rows.sql);
+      expect(result.parameters).toEqual({
+        order: withParameters ? ['needle', 'optional', 'count'] : [],
+        orderKind: 'declaration',
+        redaction: 'bind-values-hidden',
+        bindCount: caller.rows.parameters.length,
+        definitions: withParameters
+          ? [
+              { name: 'needle', type: 'string', nullable: false },
+              { name: 'optional', type: 'string', nullable: true },
+              { name: 'count', type: 'number', nullable: false },
+            ]
+          : [],
+      });
+      expect(result.plan.mode).toBe('generic');
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain(defaultSentinel);
+      expect(serialized).not.toContain('hasDefault');
+      expect(captured.filter(isExplain)).toHaveLength(1);
+      expect(captured.filter(isExplain)[0]?.parameters).toEqual([]);
+      expect(businessReads(captured, 'explain_records')).toHaveLength(0);
+      expect(JSON.stringify(captured)).not.toContain(defaultSentinel);
     }
   );
 

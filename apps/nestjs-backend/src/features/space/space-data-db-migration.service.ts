@@ -702,6 +702,7 @@ const sharedTables = {
   recordRemovalTombstone: 'record_removal_tombstone',
   computedUpdateOutbox: 'computed_update_outbox',
   computedUpdateDeadLetter: 'computed_update_dead_letter',
+  computedUpdateDeadLetterSeed: 'computed_update_dead_letter_seed',
   computedUpdateOutboxSeed: 'computed_update_outbox_seed',
   computedUpdatePauseScope: 'computed_update_pause_scope',
   domainEventOutbox: 'domain_event_outbox',
@@ -2451,6 +2452,17 @@ export class SpaceDataDbMigrationService {
       [sharedTables.recordTrash]: scoped('table_id', tableScopeIds),
       [sharedTables.computedUpdateOutbox]: scoped('base_id', inventory.baseIds),
       [sharedTables.computedUpdateDeadLetter]: scoped('base_id', inventory.baseIds),
+      [sharedTables.computedUpdateDeadLetterSeed]: inventory.baseIds.length
+        ? {
+            column: 'task_id',
+            ids: inventory.baseIds,
+            existsIn: {
+              table: sharedTables.computedUpdateDeadLetter,
+              foreignColumn: 'id',
+              scopeColumn: 'base_id',
+            },
+          }
+        : undefined,
       [sharedTables.computedUpdateOutboxSeed]: scoped('table_id', inventory.tableIds),
       [sharedTables.domainEventOutbox]: scoped('base_id', inventory.baseIds),
       [sharedTables.domainEventDelivery]: inventory.baseIds.length
@@ -2561,6 +2573,19 @@ export class SpaceDataDbMigrationService {
             old_payload := to_jsonb(OLD);
           END IF;
 
+          IF TG_TABLE_NAME = 'computed_update_dead_letter_seed' THEN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM ${qualify(sourceSchema, sharedTables.computedUpdateDeadLetter)} AS archive
+              WHERE archive.id IN (new_payload ->> 'task_id', old_payload ->> 'task_id')
+                AND archive.base_id = ANY (${`ARRAY[${inventory.baseIds.map((id) => sqlLiteral(id)).join(', ')}]::text[]`})
+            ) THEN
+              IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+              RETURN NEW;
+            END IF;
+          END IF;
+
+
           IF TG_TABLE_NAME IN ('domain_event_delivery', 'domain_event_inbox') THEN
             IF NOT EXISTS (
               SELECT 1
@@ -2572,7 +2597,8 @@ export class SpaceDataDbMigrationService {
                     : 'ARRAY[]::text[]'
                 })
             ) THEN
-              RETURN NULL;
+              IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+              RETURN NEW;
             END IF;
           END IF;
 
@@ -2598,18 +2624,39 @@ export class SpaceDataDbMigrationService {
             TG_TABLE_SCHEMA,
             TG_TABLE_NAME,
             TG_OP,
-            CASE WHEN pk_text IS NULL THEN NULL ELSE jsonb_build_object('id', pk_text) END,
+            CASE
+              WHEN TG_TABLE_NAME = 'computed_update_dead_letter_seed' THEN
+                jsonb_build_object(
+                  'task_id', COALESCE(new_payload ->> 'task_id', old_payload ->> 'task_id'),
+                  'table_id', COALESCE(new_payload ->> 'table_id', old_payload ->> 'table_id'),
+                  'record_id', COALESCE(new_payload ->> 'record_id', old_payload ->> 'record_id')
+                )
+              WHEN pk_text IS NULL THEN NULL
+              ELSE jsonb_build_object('id', pk_text)
+            END,
             old_payload,
             new_payload
           );
 
-          RETURN NULL;
+          IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+          RETURN NEW;
         END;
         $$;
       `);
 
       const deleteTriggerName = this.deltaDeleteTriggerName(job.id);
-      for (const relation of this.getDeltaCaptureRelations(inventory, sourceSchema)) {
+      const captureRelations = this.getDeltaCaptureRelations(inventory, sourceSchema);
+      const sourceHasDeadLetterSeed = await this.relationExists(
+        client,
+        sourceSchema,
+        sharedTables.computedUpdateDeadLetterSeed
+      );
+      const availableCaptureRelations = sourceHasDeadLetterSeed
+        ? captureRelations
+        : captureRelations.filter(
+            (relation) => relation.tableName !== sharedTables.computedUpdateDeadLetterSeed
+          );
+      for (const relation of availableCaptureRelations) {
         const qualifiedRelation = qualify(relation.schemaName, relation.tableName);
         if (!relation.scope || relation.scope.existsIn) {
           await client.raw(
@@ -2617,7 +2664,11 @@ export class SpaceDataDbMigrationService {
               DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualifiedRelation};
               DROP TRIGGER IF EXISTS ${quoteIdent(deleteTriggerName)} ON ${qualifiedRelation};
               CREATE TRIGGER ${quoteIdent(triggerName)}
-              AFTER INSERT OR UPDATE OR DELETE ON ${qualifiedRelation}
+              AFTER INSERT OR UPDATE ON ${qualifiedRelation}
+              FOR EACH ROW
+              EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
+              CREATE TRIGGER ${quoteIdent(deleteTriggerName)}
+              BEFORE DELETE ON ${qualifiedRelation}
               FOR EACH ROW
               EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
             `
@@ -2641,7 +2692,7 @@ export class SpaceDataDbMigrationService {
             WHEN (NEW.${scopeColumn} = ANY (${scopeArray}))
             EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
             CREATE TRIGGER ${quoteIdent(deleteTriggerName)}
-            AFTER DELETE ON ${qualifiedRelation}
+            BEFORE DELETE ON ${qualifiedRelation}
             FOR EACH ROW
             WHEN (OLD.${scopeColumn} = ANY (${scopeArray}))
             EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
@@ -2658,7 +2709,7 @@ export class SpaceDataDbMigrationService {
             progress: this.buildMigrationProgress(job, inventory, 'source_delta_capture_installed'),
             delta: {
               triggerName,
-              relationCount: this.getDeltaCaptureRelations(inventory, sourceSchema).length,
+              relationCount: availableCaptureRelations.length,
               sourceSchema,
               installedAt: new Date().toISOString(),
             },
@@ -2843,6 +2894,11 @@ export class SpaceDataDbMigrationService {
     if (row.tableName === sharedTables.computedUpdateOutboxSeed) {
       return typeof payload.table_id === 'string' && inventory.tableIds.includes(payload.table_id);
     }
+    if (row.tableName === sharedTables.computedUpdateDeadLetterSeed) {
+      // The capture function proved parent scope while the archive was visible,
+      // including deletes captured before its FK cascade. table_id is not base scope.
+      return typeof payload.task_id === 'string' && baseIds.size > 0;
+    }
     if (
       row.tableName === sharedTables.domainEventDelivery ||
       row.tableName === sharedTables.domainEventInbox
@@ -2870,6 +2926,13 @@ export class SpaceDataDbMigrationService {
   }
 
   private primaryKeyColumns(tableName: string, payload: Record<string, unknown>): string[] | null {
+    if (tableName === sharedTables.computedUpdateDeadLetterSeed) {
+      return ['task_id', 'table_id', 'record_id'].every(
+        (column) => typeof payload[column] === 'string'
+      )
+        ? ['task_id', 'table_id', 'record_id']
+        : null;
+    }
     if (tableName === sharedTables.domainEventInbox) {
       return typeof payload.consumer_id === 'string' && typeof payload.event_id === 'string'
         ? ['consumer_id', 'event_id']
@@ -2907,8 +2970,48 @@ export class SpaceDataDbMigrationService {
     const pkValues = pkColumns.map((column) => payload[column]);
 
     if (input.row.op === 'DELETE') {
-      await input.targetClient.raw(`DELETE FROM ${qualified} WHERE ${pkPredicate}`, pkValues);
+      const targetSchema = this.targetSchemaForDeltaRow(
+        input.row,
+        input.sourceSchema,
+        input.targetSchema
+      );
+      if (input.row.tableName === sharedTables.computedUpdateDeadLetter) {
+        await input.targetClient.raw(
+          `SELECT ${qualify(targetSchema, 'computed_outbox_discard_existing')}(ARRAY[?]::text[])`,
+          [payload.id]
+        );
+      } else if (input.row.tableName === sharedTables.computedUpdateDeadLetterSeed) {
+        await input.targetClient.raw(
+          `SELECT ${qualify(
+            targetSchema,
+            'computed_outbox_delete_archive_seed'
+          )}(?::text, ?::text, ?::text)`,
+          pkValues
+        );
+      } else {
+        await input.targetClient.raw(`DELETE FROM ${qualified} WHERE ${pkPredicate}`, pkValues);
+      }
       return true;
+    }
+    if (
+      input.row.op === 'UPDATE' &&
+      input.row.tableName === sharedTables.computedUpdateDeadLetterSeed
+    ) {
+      const oldPayload = this.parseDeltaPayload(input.row.oldRow);
+      if (oldPayload && pkColumns.some((column) => oldPayload[column] !== payload[column])) {
+        const targetSchema = this.targetSchemaForDeltaRow(
+          input.row,
+          input.sourceSchema,
+          input.targetSchema
+        );
+        await input.targetClient.raw(
+          `SELECT ${qualify(
+            targetSchema,
+            'computed_outbox_delete_archive_seed'
+          )}(?::text, ?::text, ?::text)`,
+          pkColumns.map((column) => oldPayload[column])
+        );
+      }
     }
 
     if (
@@ -2917,6 +3020,12 @@ export class SpaceDataDbMigrationService {
     ) {
       // Physical identities are local to the source database, never proof on the target.
       payload.old_tuple = null;
+    }
+    if (input.row.tableName === sharedTables.computedUpdateDeadLetter) {
+      delete payload.delete_authorized_txid;
+    }
+    if (input.row.tableName === sharedTables.computedUpdateOutbox) {
+      delete payload.dead_letter_restore_version;
     }
 
     const targetSchema = this.targetSchemaForDeltaRow(
@@ -5166,6 +5275,15 @@ export class SpaceDataDbMigrationService {
     return rows.map((row) => row.columnName).filter((column) => columns.includes(column));
   }
 
+  private async relationExists(client: IDataDbPreflightClient, schema: string, table: string) {
+    const rows = normalizeRawRows<{ exists: boolean }>(
+      await client.raw(`SELECT to_regclass(?::text) IS NOT NULL AS "exists"`, [
+        qualify(schema, table),
+      ])
+    );
+    return rows[0]?.exists === true;
+  }
+
   private buildPhysicalRelationKeysFromRelations(relations: ISpaceDataDbPhysicalRelation[]) {
     return relations
       .map((relation) => `${relation.schemaName}.${relation.relationName}:${relation.relationKind}`)
@@ -5210,6 +5328,12 @@ export class SpaceDataDbMigrationService {
       );
     }
     const sourceSchema = sourceDataDb.internalSchema ?? 'public';
+    const sourceClient = this.clientFactory(sourceDataDb.url);
+    const sourceHasDeadLetterSeed = await this.relationExists(
+      sourceClient,
+      sourceSchema,
+      sharedTables.computedUpdateDeadLetterSeed
+    ).finally(() => sourceClient.destroy());
     const sharedPlanInput = {
       sourceUrl: sourceDataDb.url,
       targetUrl,
@@ -5221,6 +5345,7 @@ export class SpaceDataDbMigrationService {
       tableIds: inventory.tableIds,
       sharedTableIds: inventory.sharedTableIds,
       snapshotId: options.snapshotId,
+      sourceHasDeadLetterSeed,
       // Never copy source pause scopes into the target: they would freeze
       // computed updates after switch. Migration inserts its own pause row.
       includePauseScopes: false,
@@ -7479,19 +7604,30 @@ export class SpaceDataDbMigrationService {
         continue;
       }
 
-      const deletedRows = normalizeRawRows<{ count: string | number | bigint }>(
-        await client.raw(
-          `
-            WITH deleted AS (
-              DELETE FROM ${qualifiedTable}
-              WHERE ${plan.whereSql(targetSchema)}
-              RETURNING 1
+      const deletedRows =
+        plan.table === sharedTables.computedUpdateDeadLetter
+          ? normalizeRawRows<{ count: string | number | bigint }>(
+              await client.raw(
+                `SELECT ${qualify(
+                  targetSchema,
+                  'computed_outbox_discard_base'
+                )}(?::text[]) AS "count"`,
+                [inventory.baseIds]
+              )
             )
-            SELECT COUNT(*) AS "count" FROM deleted
-          `,
-          plan.bindings
-        )
-      );
+          : normalizeRawRows<{ count: string | number | bigint }>(
+              await client.raw(
+                `
+                  WITH deleted AS (
+                    DELETE FROM ${qualifiedTable}
+                    WHERE ${plan.whereSql(targetSchema)}
+                    RETURNING 1
+                  )
+                  SELECT COUNT(*) AS "count" FROM deleted
+                `,
+                plan.bindings
+              )
+            );
       stats.push({
         table: plan.table,
         deletedRows: Number(deletedRows[0]?.count ?? 0),
@@ -7499,6 +7635,7 @@ export class SpaceDataDbMigrationService {
     }
 
     if (options.truncate && existingPlans.length) {
+      await client.raw(`SELECT ${qualify(targetSchema, 'computed_outbox_discard_all')}()`);
       await client.raw(
         `TRUNCATE TABLE ${existingPlans.map((plan) => qualify(targetSchema, plan.table)).join(', ')}`
       );
@@ -7517,13 +7654,14 @@ export class SpaceDataDbMigrationService {
   private buildSharedTableCleanupPlans(inventory: ISpaceDataDbInventory, spaceId: string) {
     const plans = this.buildSharedTableCountPlans(inventory, spaceId);
     const priority = new Map<string, number>([
-      [sharedTables.computedUpdateOutboxSeed, 0],
-      [sharedTables.domainEventDelivery, 0],
-      [sharedTables.domainEventInbox, 0],
-      [sharedTables.recordHistory, 1],
-      [sharedTables.tableTrash, 2],
-      [sharedTables.recordTrash, 3],
-      [sharedTables.computedUpdateDeadLetter, 4],
+      [sharedTables.computedUpdateDeadLetter, 0],
+      [sharedTables.computedUpdateDeadLetterSeed, 1],
+      [sharedTables.computedUpdateOutboxSeed, 1],
+      [sharedTables.domainEventDelivery, 1],
+      [sharedTables.domainEventInbox, 1],
+      [sharedTables.recordHistory, 2],
+      [sharedTables.tableTrash, 3],
+      [sharedTables.recordTrash, 4],
       [sharedTables.computedUpdateOutbox, 5],
       [sharedTables.computedUpdatePauseScope, 6],
       [sharedTables.undoLog, 7],
@@ -7912,6 +8050,11 @@ export class SpaceDataDbMigrationService {
     inventory: ISpaceDataDbInventory;
     spaceId: string;
   }): Promise<{ validatedRows: IRowCountValidation[]; mismatches: IValidationMismatch[] }> {
+    const sourceHasDeadLetterSeed = await this.relationExists(
+      input.sourceClient,
+      input.sourceSchema,
+      sharedTables.computedUpdateDeadLetterSeed
+    );
     const countPlans = this.buildSharedTableCountPlans(input.inventory, input.spaceId);
     const relatedCountPlans = this.buildRelatedSharedTableCountPlans(
       input.inventory,
@@ -7921,14 +8064,18 @@ export class SpaceDataDbMigrationService {
     // 共享表在源侧是大表上的过滤扫描，控制并发避免压垮源库。
     const results = await mapWithConcurrency(countPlans, 4, async (plan) => {
       const relatedPlan = relatedPlanByTable.get(plan.table) ?? plan;
+      const sourceCountPromise =
+        plan.table === sharedTables.computedUpdateDeadLetterSeed && !sourceHasDeadLetterSeed
+          ? Promise.resolve(0)
+          : this.countRows(
+              input.sourceClient,
+              input.sourceSchema,
+              plan.table,
+              plan.whereSql(input.sourceSchema),
+              plan.bindings
+            );
       const [sourceCount, targetCount] = await Promise.all([
-        this.countRows(
-          input.sourceClient,
-          input.sourceSchema,
-          plan.table,
-          plan.whereSql(input.sourceSchema),
-          plan.bindings
-        ),
+        sourceCountPromise,
         this.countRows(
           input.targetClient,
           input.targetSchema,
@@ -8071,6 +8218,15 @@ export class SpaceDataDbMigrationService {
     }
 
     if (baseIds.length) {
+      plans.push({
+        table: sharedTables.computedUpdateDeadLetterSeed,
+        whereSql: (schema) =>
+          `"task_id" IN (SELECT "id" FROM ${qualify(
+            schema,
+            sharedTables.computedUpdateDeadLetter
+          )} WHERE "base_id" = ANY(?::text[]))`,
+        bindings: [baseIds],
+      });
       plans.push(
         {
           table: sharedTables.domainEventDelivery,

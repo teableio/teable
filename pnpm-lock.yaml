@@ -611,6 +611,9 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../packages/eslint-config-bases
+      '@teable/v2-adapter-db-postgres-pglite':
+        specifier: workspace:*
+        version: link:../../packages/v2/adapter-db-postgres-pglite
       '@types/archiver':
         specifier: 6.0.3
         version: 6.0.3
@@ -911,6 +914,9 @@ importers:
       '@teable/ui-lib':
         specifier: workspace:^
         version: link:../../packages/ui-lib
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../../packages/v2/contract-http
       axios:
         specifier: 1.20.0
         version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
@@ -4474,6 +4480,9 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../contract-http
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
@@ -4513,6 +4522,9 @@ importers:
       '@teable/v2-adapter-table-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-table-repository-postgres
+      '@teable/v2-command-explain':
+        specifier: workspace:*
+        version: link:../command-explain
       '@teable/v2-container-browser':
         specifier: workspace:*
         version: link:../container-browser

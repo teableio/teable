@@ -2,7 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldDeletionPreparationService } from '../application/services/FieldDeletionPreparationService';
+import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -15,17 +16,25 @@ import { DomainEventName } from '../domain/shared/DomainEventName';
 import { OccurredAt } from '../domain/shared/OccurredAt';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { Field } from '../domain/table/fields/Field';
+import { createNewLinkField } from '../domain/table/fields/FieldFactory';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LastModifiedByField } from '../domain/table/fields/types/LastModifiedByField';
+import { LastModifiedTimeField } from '../domain/table/fields/types/LastModifiedTimeField';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import { ForeignTable } from '../domain/table/ForeignTable';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { ViewName } from '../domain/table/views/ViewName';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { FieldDeleteSnapshotSinkInput } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { TableProvisionOperationOptions, TableProvisionState } from '../ports/TableRepository';
@@ -35,8 +44,8 @@ import {
   type TableSchemaCoordinationMode,
 } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { flattenUndoRedoCommands, type UndoRedoCommandData } from '../ports/UndoRedoStore';
+import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
 import { DeleteFieldsHandler } from './DeleteFieldsHandler';
 import {
@@ -128,6 +137,143 @@ const buildTable = (baseId: BaseId, tableId: TableId, fieldIds: readonly FieldId
   return builder.build()._unsafeUnwrap();
 };
 
+const buildSelfLinkedAuditTable = () => {
+  const baseId = createBaseId('m');
+  const tableId = createTableId('m');
+  const primaryFieldId = createFieldId('n');
+  const directFieldA = createFieldId('o');
+  const symmetricFieldA = createFieldId('q');
+  const directFieldB = createFieldId('r');
+  const symmetricFieldB = createFieldId('s');
+  const lastModifiedTimeFieldId = createFieldId('t');
+  const lastModifiedByFieldId = createFieldId('u');
+  const builder = Table.builder()
+    .withBaseId(baseId)
+    .withId(tableId)
+    .withName(TableName.create('Self-linked audit table')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withId(primaryFieldId)
+    .withName(FieldName.create('Primary')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .lastModifiedTime()
+    .withId(lastModifiedTimeFieldId)
+    .withName(FieldName.create('Last modified time')._unsafeUnwrap())
+    .withTrackedFieldIds([symmetricFieldA, symmetricFieldB])
+    .done();
+  builder
+    .field()
+    .lastModifiedBy()
+    .withId(lastModifiedByFieldId)
+    .withName(FieldName.create('Last modified by')._unsafeUnwrap())
+    .withTrackedFieldIds([symmetricFieldA, symmetricFieldB])
+    .done();
+  builder.view().grid().withName(ViewName.create('Frozen A')._unsafeUnwrap()).done();
+  builder.view().grid().withName(ViewName.create('Frozen B')._unsafeUnwrap()).done();
+  const seedResult = builder.build();
+  expect(seedResult.isOk(), `Building audit table: ${JSON.stringify(seedResult)}`).toBe(true);
+  const seedTable = seedResult._unsafeUnwrap();
+
+  const createSelfLinkPair = (
+    directId: FieldId,
+    symmetricId: FieldId,
+    directName: string,
+    symmetricName: string
+  ) => {
+    const directResult = createNewLinkField({
+      id: directId,
+      name: FieldName.create(directName)._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: tableId.toString(),
+        lookupFieldId: primaryFieldId.toString(),
+        isOneWay: false,
+        symmetricFieldId: symmetricId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId: tableId,
+    });
+    expect(directResult.isOk(), JSON.stringify(directResult)).toBe(true);
+    const direct = directResult._unsafeUnwrap() as LinkField;
+    const symmetricResult = direct
+      .buildSymmetricField({
+        foreignTable: ForeignTable.from(seedTable),
+        hostTable: seedTable,
+        symmetricFieldId: symmetricId,
+      })
+      .andThen((field) =>
+        field.withName({
+          newId: symmetricId,
+          newName: FieldName.create(symmetricName)._unsafeUnwrap(),
+          baseId,
+          tableId,
+        })
+      );
+    expect(symmetricResult.isOk(), JSON.stringify(symmetricResult)).toBe(true);
+    const symmetric = symmetricResult._unsafeUnwrap() as LinkField;
+    return { direct, symmetric };
+  };
+  const pairA = createSelfLinkPair(directFieldA, symmetricFieldA, 'Direct A', 'Symmetric A');
+  const pairB = createSelfLinkPair(directFieldB, symmetricFieldB, 'Direct B', 'Symmetric B');
+  const tableResult = Table.rehydrate({
+    id: tableId,
+    baseId,
+    name: seedTable.name(),
+    fields: [
+      ...seedTable.getFields(),
+      pairA.direct,
+      pairA.symmetric,
+      pairB.direct,
+      pairB.symmetric,
+    ],
+    views: seedTable.views(),
+    primaryFieldId,
+  });
+  expect(tableResult.isOk(), `Rehydrating self links: ${JSON.stringify(tableResult)}`).toBe(true);
+  const table = tableResult._unsafeUnwrap();
+  const orderedFieldIds = [
+    primaryFieldId,
+    directFieldA,
+    symmetricFieldA,
+    directFieldB,
+    symmetricFieldB,
+    lastModifiedTimeFieldId,
+    lastModifiedByFieldId,
+  ];
+  const mapper = new DefaultTableMapper();
+  const dtoResult = mapper.toDTO(table);
+  expect(dtoResult.isOk(), JSON.stringify(dtoResult)).toBe(true);
+  const dto = dtoResult._unsafeUnwrap();
+  const configuredResult = mapper.toDomain({
+    ...dto,
+    views: dto.views.map((view, index) => ({
+      ...view,
+      columnMeta: Object.fromEntries(
+        orderedFieldIds.map((fieldId, order) => [fieldId.toString(), { order }])
+      ),
+      options: {
+        frozenFieldId: (index === 0 ? symmetricFieldA : symmetricFieldB).toString(),
+      },
+    })),
+  });
+  expect(configuredResult.isOk(), JSON.stringify(configuredResult)).toBe(true);
+
+  return {
+    table: configuredResult._unsafeUnwrap(),
+    baseId,
+    tableId,
+    primaryFieldId,
+    directFieldIds: [directFieldA, directFieldB] as const,
+    symmetricFieldIds: [symmetricFieldA, symmetricFieldB] as const,
+    lastModifiedTimeFieldId,
+    lastModifiedByFieldId,
+  };
+};
+
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   updated: Table[] = [];
@@ -171,7 +317,10 @@ class FakeTableRepository implements ITableRepository {
     __: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     this.updated.push(table);
-    this.tables = this.tables.map((current) => (current.id().equals(table.id()) ? table : current));
+    const persisted = table.clone(new DefaultTableMapper())._unsafeUnwrap();
+    this.tables = this.tables.map((current) =>
+      current.id().equals(persisted.id()) ? persisted : current
+    );
     return ok(undefined);
   }
 
@@ -269,12 +418,14 @@ class FakeFieldDeletionSideEffectService {
 class FakeForeignTableLoaderService {
   calls: Array<{ references: ReadonlyArray<unknown> }> = [];
 
+  constructor(private readonly tables: ReadonlyArray<Table> = []) {}
+
   async load(
     _: IExecutionContext,
     input: { references: ReadonlyArray<unknown> }
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.calls.push({ references: [...input.references] });
-    return ok([]);
+    return ok(this.tables);
   }
 }
 
@@ -398,7 +549,12 @@ describe('DeleteFieldsHandler', () => {
       harness.tableRepository,
       harness.tableUpdateFlow,
       harness.sideEffectService as unknown as FieldDeletionSideEffectService,
-      harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        harness.tableRepository,
+        harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner([plugin]),
       harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
       harness.undoRedoService as unknown as UndoRedoStackService,
@@ -420,7 +576,7 @@ describe('DeleteFieldsHandler', () => {
 
     expect(harness.tableRepository.updated).toHaveLength(1);
     expect(harness.schemaRepository.updated).toHaveLength(1);
-    expect(harness.tableRepository.findCalls).toBe(2);
+    expect(harness.tableRepository.findCalls).toBe(1);
     expect(harness.sideEffectService.calls).toHaveLength(1);
     expect(harness.sideEffectService.calls[0]?.fields.map((fieldId) => fieldId.toString())).toEqual(
       [targetFieldA.toString(), targetFieldB.toString()]
@@ -478,6 +634,165 @@ describe('DeleteFieldsHandler', () => {
     expect(deleteFieldIds(redoLeaves)).toEqual([targetFieldA.toString(), targetFieldB.toString()]);
   });
 
+  it('accumulates cleanup for multiple self-link symmetric deletions on one table', async () => {
+    const fixture = buildSelfLinkedAuditTable();
+    const harness = createHarness(fixture.table);
+    const sideEffectService = new FieldDeletionSideEffectService(harness.tableUpdateFlow);
+    const foreignTableLoader = new FakeForeignTableLoaderService([fixture.table]);
+    const preparationService = new FieldDeletionPreparationService(
+      harness.tableRepository,
+      foreignTableLoader as unknown as ForeignTableLoaderService,
+      sideEffectService,
+      new DefaultTableMapper()
+    );
+    const previewResult = await preparationService.prepare(
+      createContext(),
+      {
+        baseId: fixture.baseId,
+        tableId: fixture.tableId,
+        fieldIds: fixture.directFieldIds,
+      },
+      { table: fixture.table }
+    );
+    expect(previewResult.isOk(), JSON.stringify(previewResult)).toBe(true);
+    const preview = previewResult._unsafeUnwrap();
+
+    expect(harness.tableRepository.updated).toHaveLength(0);
+    expect(preview.symmetricTargets.map((target) => target.fieldId)).toEqual(
+      fixture.symmetricFieldIds.map((fieldId) => fieldId.toString())
+    );
+
+    const handler = new DeleteFieldsHandler(
+      harness.tableRepository,
+      harness.tableUpdateFlow,
+      sideEffectService,
+      preparationService,
+      createFieldOperationPluginRunner(),
+      harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
+      harness.undoRedoService as unknown as UndoRedoStackService,
+      harness.fieldDeleteSnapshotSink
+    );
+    const command = DeleteFieldsCommand.create({
+      baseId: fixture.baseId.toString(),
+      tableId: fixture.tableId.toString(),
+      fieldIds: fixture.directFieldIds.map((fieldId) => fieldId.toString()),
+    })._unsafeUnwrap();
+    const handleResult = await handler.handle(createContext(), command);
+    expect(handleResult.isOk(), JSON.stringify(handleResult)).toBe(true);
+    const result = handleResult._unsafeUnwrap();
+    const persisted = harness.tableRepository.tables.find((table) =>
+      table.id().equals(fixture.tableId)
+    )!;
+    const deletedFieldIds = [...fixture.directFieldIds, ...fixture.symmetricFieldIds];
+
+    const expectCleanAggregate = (table: Table) => {
+      for (const deletedFieldId of deletedFieldIds) {
+        expect(table.getFields((field) => field.id().equals(deletedFieldId))).toHaveLength(0);
+      }
+      const lastModifiedTime = table
+        .getField((field) => field.id().equals(fixture.lastModifiedTimeFieldId))
+        ._unsafeUnwrap();
+      const lastModifiedBy = table
+        .getField((field) => field.id().equals(fixture.lastModifiedByFieldId))
+        ._unsafeUnwrap();
+      expect(lastModifiedTime).toBeInstanceOf(LastModifiedTimeField);
+      expect(lastModifiedBy).toBeInstanceOf(LastModifiedByField);
+      expect(
+        (lastModifiedTime as LastModifiedTimeField)
+          .trackedFieldIds()
+          .map((fieldId) => fieldId.toString())
+      ).toEqual([]);
+      expect(
+        (lastModifiedBy as LastModifiedByField)
+          .trackedFieldIds()
+          .map((fieldId) => fieldId.toString())
+      ).toEqual([]);
+      for (const view of table.views()) {
+        expect(view.options()).toEqual({ frozenFieldId: fixture.primaryFieldId.toString() });
+        const columnMeta = view.columnMeta()._unsafeUnwrap().toDto();
+        for (const deletedFieldId of deletedFieldIds) {
+          expect(columnMeta).not.toHaveProperty(deletedFieldId.toString());
+        }
+      }
+    };
+
+    expectCleanAggregate(result.table);
+    expectCleanAggregate(persisted);
+    const mapper = new DefaultTableMapper();
+    expect(mapper.toDTO(persisted)._unsafeUnwrap()).toEqual(
+      mapper.toDTO(result.table)._unsafeUnwrap()
+    );
+  });
+
+  it('deletes both halves of one self link once without obsolete symmetric side effects', async () => {
+    const fixture = buildSelfLinkedAuditTable();
+    const harness = createHarness(fixture.table);
+    const sideEffectService = new FieldDeletionSideEffectService(harness.tableUpdateFlow);
+    const foreignTableLoader = new FakeForeignTableLoaderService([fixture.table]);
+    const preparationService = new FieldDeletionPreparationService(
+      harness.tableRepository,
+      foreignTableLoader as unknown as ForeignTableLoaderService,
+      sideEffectService,
+      new DefaultTableMapper()
+    );
+    const bothHalves = [fixture.directFieldIds[0], fixture.symmetricFieldIds[0]] as const;
+    const previewResult = await preparationService.prepare(
+      createContext(),
+      {
+        baseId: fixture.baseId,
+        tableId: fixture.tableId,
+        fieldIds: bothHalves,
+      },
+      { table: fixture.table }
+    );
+    expect(previewResult.isOk(), JSON.stringify(previewResult)).toBe(true);
+    const preview = previewResult._unsafeUnwrap();
+    expect(preview.symmetricTargets).toEqual([]);
+    expect(preview.sideEffects.sideEffects).toEqual([]);
+    expect(harness.tableRepository.updated).toHaveLength(0);
+
+    const handler = new DeleteFieldsHandler(
+      harness.tableRepository,
+      harness.tableUpdateFlow,
+      sideEffectService,
+      preparationService,
+      createFieldOperationPluginRunner(),
+      harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
+      harness.undoRedoService as unknown as UndoRedoStackService,
+      harness.fieldDeleteSnapshotSink
+    );
+    const command = DeleteFieldsCommand.create({
+      baseId: fixture.baseId.toString(),
+      tableId: fixture.tableId.toString(),
+      fieldIds: bothHalves.map((fieldId) => fieldId.toString()),
+    })._unsafeUnwrap();
+    const handleResult = await handler.handle(createContext(), command);
+    expect(handleResult.isOk(), JSON.stringify(handleResult)).toBe(true);
+    const result = handleResult._unsafeUnwrap();
+    const persisted = harness.tableRepository.tables.find((table) =>
+      table.id().equals(fixture.tableId)
+    )!;
+
+    for (const deletedFieldId of bothHalves) {
+      expect(result.table.getFields((field) => field.id().equals(deletedFieldId))).toHaveLength(0);
+      expect(persisted.getFields((field) => field.id().equals(deletedFieldId))).toHaveLength(0);
+    }
+    expect(
+      result.events.filter((event) => event.name.equals(DomainEventName.fieldDeleted()))
+    ).toHaveLength(2);
+    expect(harness.undoRedoService.entries).toHaveLength(1);
+    const undoLeaves = flattenUndoRedoCommands(
+      harness.undoRedoService.entries[0]!.entry.undoCommand
+    );
+    const undoFieldIds = snapshotFieldIds(undoLeaves);
+    for (const targetField of bothHalves) {
+      expect(undoFieldIds.filter((fieldId) => fieldId === targetField.toString())).toHaveLength(1);
+    }
+    expect(
+      deleteFieldIds(flattenUndoRedoCommands(harness.undoRedoService.entries[0]!.entry.redoCommand))
+    ).toEqual(bothHalves.map((fieldId) => fieldId.toString()));
+  });
+
   it('holds an exclusive lease through bulk field deletion', async () => {
     const baseId = createBaseId('j');
     const tableId = createTableId('j');
@@ -490,7 +805,12 @@ describe('DeleteFieldsHandler', () => {
       harness.tableRepository,
       harness.tableUpdateFlow,
       harness.sideEffectService as unknown as FieldDeletionSideEffectService,
-      harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        harness.tableRepository,
+        harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
       harness.undoRedoService as unknown as UndoRedoStackService,
@@ -521,7 +841,12 @@ describe('DeleteFieldsHandler', () => {
       harness.tableRepository,
       harness.tableUpdateFlow,
       harness.sideEffectService as unknown as FieldDeletionSideEffectService,
-      harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        harness.tableRepository,
+        harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
       harness.undoRedoService as unknown as UndoRedoStackService,
@@ -554,7 +879,12 @@ describe('DeleteFieldsHandler', () => {
       harness.tableRepository,
       harness.tableUpdateFlow,
       harness.sideEffectService as unknown as FieldDeletionSideEffectService,
-      harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        harness.tableRepository,
+        harness.foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       harness.snapshotService as unknown as FieldUndoRedoSnapshotService,
       harness.undoRedoService as unknown as UndoRedoStackService,

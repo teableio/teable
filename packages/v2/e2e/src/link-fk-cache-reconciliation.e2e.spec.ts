@@ -318,7 +318,7 @@ describe('link FK/cache mismatch reconciliation (postgres e2e, T8242)', () => {
     expect(ctx.testContainer.connectionString).toMatch(/^postgres(?:ql)?:\/\//);
   }, 120_000);
 
-  it('rejects a lone claim of another parent\'s child and preserves its FK and both caches', async () => {
+  it("rejects a lone claim of another parent's child and preserves its FK and both caches", async () => {
     const fixture = await createBoundaryFixture(ctx);
     const [claimant, owner] = await ctx.createRecords(fixture.parentTableId, [
       { fields: { [fixture.parentTitleFieldId]: 'Claimant A' } },
@@ -334,10 +334,7 @@ describe('link FK/cache mismatch reconciliation (postgres e2e, T8242)', () => {
     await ctx.drainOutbox();
 
     const parentsBefore = await ctx.listRecordsWithoutDrain(fixture.parentTableId);
-    const childBefore = findRecord(
-      await ctx.listRecordsWithoutDrain(fixture.childTableId),
-      child
-    );
+    const childBefore = findRecord(await ctx.listRecordsWithoutDrain(fixture.childTableId), child);
     const physicalOwnerBefore = await readPhysicalOwner(
       ctx,
       fixture.childDbTableName,
@@ -363,18 +360,15 @@ describe('link FK/cache mismatch reconciliation (postgres e2e, T8242)', () => {
     expect(result.status, JSON.stringify(result.body)).toBeLessThan(500);
 
     const parentsAfter = await ctx.listRecordsWithoutDrain(fixture.parentTableId);
-    const childAfter = findRecord(
-      await ctx.listRecordsWithoutDrain(fixture.childTableId),
-      child
-    );
+    const childAfter = findRecord(await ctx.listRecordsWithoutDrain(fixture.childTableId), child);
     expect(linkIds(findRecord(parentsAfter, claimant).fields[fixture.childrenFieldId])).toEqual([]);
     expect(linkIds(findRecord(parentsAfter, owner).fields[fixture.childrenFieldId])).toEqual([
       child.id,
     ]);
     expect(singleLinkId(childAfter.fields[fixture.parentFieldId])).toBe(owner.id);
-    expect(
-      await readPhysicalOwner(ctx, fixture.childDbTableName, fixture.ownerColumn, child)
-    ).toBe(physicalOwnerBefore);
+    expect(await readPhysicalOwner(ctx, fixture.childDbTableName, fixture.ownerColumn, child)).toBe(
+      physicalOwnerBefore
+    );
   }, 120_000);
 
   it('releases a physical FK for a cache-noop source in a mixed batch', async () => {

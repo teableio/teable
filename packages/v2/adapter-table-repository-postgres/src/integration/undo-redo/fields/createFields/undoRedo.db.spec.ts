@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { CreateFieldsCommand, v2CoreTokens, type IUndoRedoStore } from '@teable/v2-core';
+import {
+  CreateFieldsCommand,
+  v2CoreTokens,
+  type CreateFieldsResult,
+  type IUndoRedoStore,
+} from '@teable/v2-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -40,7 +45,7 @@ describe('undo-redo/createFields (db)', () => {
     const lookupFieldId = `fld${'n'.repeat(16)}`;
     const store = harness.container.resolve<IUndoRedoStore>(v2CoreTokens.undoRedoStore);
 
-    await harness.execute(
+    const created = await harness.execute<CreateFieldsCommand, CreateFieldsResult>(
       CreateFieldsCommand.create({
         baseId: harness.testContainer.baseId.toString(),
         tableId: hostTable.id().toString(),
@@ -86,6 +91,12 @@ describe('undo-redo/createFields (db)', () => {
 
     const createdHostTable = await loadTable(harness, hostTable);
     const createdForeignTable = await loadTable(harness, foreignTable);
+    expect(
+      createdHostTable.views().map((view) => view.columnMeta()._unsafeUnwrap().toDto())
+    ).toEqual(created.table.views().map((view) => view.columnMeta()._unsafeUnwrap().toDto()));
+    expect(createdHostTable.getFields().map((field) => field.id().toString())).toEqual(
+      created.table.getFields().map((field) => field.id().toString())
+    );
     expect(listFieldIdsByViewOrder(createdHostTable, viewId)).toEqual([
       titleField.id().toString(),
       amountField.id().toString(),

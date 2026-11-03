@@ -16,6 +16,8 @@ const config = {
   redriveMaxPublishPerTarget: 1000,
   claimConcurrencyPerBase: 2,
   claimConcurrencyPerSeedTable: 2,
+  basePendingCapacityThreshold: 100,
+  basePendingCapacityQueryLimit: 50,
 } as const;
 
 describe('ComputedOutboxRedriveService', () => {

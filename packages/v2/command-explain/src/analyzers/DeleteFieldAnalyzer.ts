@@ -4,9 +4,9 @@ import type { Result } from 'neverthrow';
 import {
   DeleteFieldCommand,
   DeleteFieldHandler,
+  type FieldDeletionPreparationService,
   FieldDeletionSideEffectService,
   FieldUndoRedoSnapshotService,
-  ForeignTableLoaderService,
   NoopFieldDeleteSnapshotSink,
   TableByIdSpec,
   type DomainError,
@@ -42,8 +42,6 @@ export class DeleteFieldAnalyzer implements ICommandAnalyzer<DeleteFieldCommand>
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
-    @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
@@ -90,7 +88,9 @@ export class DeleteFieldAnalyzer implements ICommandAnalyzer<DeleteFieldCommand>
         dryRun.overlayTableRepository,
         dryRun.tableUpdateFlow,
         new FieldDeletionSideEffectService(dryRun.tableUpdateFlow),
-        this.foreignTableLoaderService,
+        dryRun.container.resolve<FieldDeletionPreparationService>(
+          v2CoreTokens.fieldDeletionPreparationService
+        ),
         createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
         this.fieldUndoRedoSnapshotService,

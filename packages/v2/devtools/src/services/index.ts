@@ -1,6 +1,7 @@
 export * from './Database';
 export * from './DebugData';
 export * from './CommandExplain';
+export * from './PreviewCapabilities';
 export * from './ComputedTaskControl';
 export * from './ComputedTaskInspector';
 export * from './DataDbMigrationInspector';

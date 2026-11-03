@@ -43,7 +43,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     onDeliveryRecovered: vi.fn(() => vi.fn()),
   });
 
-  const activePermit = { assertActive: vi.fn() };
+  const activePermit = { signal: new AbortController().signal, assertActive: vi.fn() };
 
   const createActiveAdmission = () =>
     ({
@@ -196,7 +196,10 @@ describe('ComputedOutboxWakeupHandler', () => {
         runWithPermit: async (
           _baseId: string,
           operation: (permit: typeof activePermit) => Promise<unknown>
-        ) => ({ admitted: true as const, value: await operation({ assertActive }) }),
+        ) => ({
+          admitted: true as const,
+          value: await operation({ signal: activePermit.signal, assertActive }),
+        }),
       } as never
     );
 

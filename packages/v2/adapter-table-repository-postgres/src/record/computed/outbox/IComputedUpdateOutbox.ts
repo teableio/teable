@@ -261,10 +261,7 @@ export const normalizeComputedUpdateOutboxConfig = (
     ...config,
     lockUnavailableRetryDelayMs: Math.max(0, Math.trunc(config.lockUnavailableRetryDelayMs)),
     lockStarvationEscalationAgeMs: Math.max(0, Math.trunc(config.lockStarvationEscalationAgeMs)),
-    lockStarvationEscalationWaitMs: Math.max(
-      0,
-      Math.trunc(config.lockStarvationEscalationWaitMs)
-    ),
+    lockStarvationEscalationWaitMs: Math.max(0, Math.trunc(config.lockStarvationEscalationWaitMs)),
     inactiveTableDeferMaxAgeMs: Math.max(0, Math.trunc(config.inactiveTableDeferMaxAgeMs)),
     processingLeaseMs,
     heartbeatIntervalMs: Math.max(
@@ -431,6 +428,14 @@ export type ComputedTaskFailureDiagnostics = {
     readonly directDeadLetter: boolean;
     readonly phase?: string;
     readonly details?: Readonly<Record<string, unknown>>;
+  };
+  readonly task?: {
+    readonly kind: 'computed' | 'seed' | 'field-backfill';
+    readonly runId: string;
+    readonly stageDepth: number;
+    readonly predecessorTaskId?: string;
+    readonly sourceChangedAt?: string;
+    readonly sourceToFailureElapsedMs?: number;
   };
   readonly execution?: PostgresSqlExecutionDiagnostics;
 };

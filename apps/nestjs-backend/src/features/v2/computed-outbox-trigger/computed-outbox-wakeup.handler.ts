@@ -1,12 +1,20 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
+  PostgresQueryCancelledError,
+  runWithPostgresQueryCancellation,
+} from '@teable/v2-adapter-db-postgres-pg';
+import {
   createComputedOutboxWakeup,
   v2RecordRepositoryPostgresTokens,
+  type ComputationTransactionOutcome,
+  type ComputedTaskExecutionCancellation,
+  type ComputedTaskSettlementObservation,
   type ComputedUpdateWorker,
   type IComputedUpdateOutbox,
   type OutboxTaskClaimEligibility,
 } from '@teable/v2-adapter-table-repository-postgres';
-import { v2CoreTokens, type ITracer } from '@teable/v2-core';
+import { v2CoreTokens, type DomainError, type ITracer } from '@teable/v2-core';
+import type { Result } from 'neverthrow';
 
 import {
   DataDbBaseNotFoundError,
@@ -29,6 +37,25 @@ import {
 import { IComputedOutboxWakeupAppPublisher } from './computed-outbox-wakeup.publisher';
 import type { ComputedOutboxWakeupWire } from './computed-outbox-wakeup.wire';
 import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER } from './constants';
+
+const createComputedTaskExecutionCancellation = (
+  signal: AbortSignal
+): ComputedTaskExecutionCancellation => ({
+  signal,
+  async runTransaction<T>(
+    work: () => Promise<Result<T, DomainError>>
+  ): Promise<ComputationTransactionOutcome<T>> {
+    try {
+      return {
+        status: 'completed',
+        result: await runWithPostgresQueryCancellation(signal, work),
+      };
+    } catch (error) {
+      if (error instanceof PostgresQueryCancelledError) return { status: 'cancelled', error };
+      throw error;
+    }
+  },
+});
 
 /** Handler-local tracer for wake-up spans + W3C carrier restore (no container needed). */
 const wakeupTracer = new OpenTelemetryTracer('computed-outbox-wakeup');
@@ -139,6 +166,8 @@ const resolveDeferredWakeup = (
 @Injectable()
 export class ComputedOutboxWakeupHandler {
   private readonly logger = new Logger(ComputedOutboxWakeupHandler.name);
+  private readonly recordTaskSettlement = (observation: ComputedTaskSettlementObservation) =>
+    this.metrics.recordTaskSettlement(observation);
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
@@ -310,6 +339,7 @@ export class ComputedOutboxWakeupHandler {
       );
       const workerId = `computed-queue-${process.pid}`;
       const workerTracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+      const cancellation = createComputedTaskExecutionCancellation(permit.signal);
       permit.assertActive();
 
       const runTaskStartedAt = performance.now();
@@ -317,6 +347,8 @@ export class ComputedOutboxWakeupHandler {
         taskId: wakeup.taskId,
         workerId,
         tracer: workerTracer,
+        cancellation,
+        recordTaskSettlement: this.recordTaskSettlement,
         // Healthy leases must not be stolen; claimById still reclaims expired processing.
         allowProcessingTakeover: false,
       });
@@ -338,7 +370,8 @@ export class ComputedOutboxWakeupHandler {
           workerId,
           wakeup.baseId,
           permit,
-          workerTracer
+          workerTracer,
+          cancellation
         );
         parentSpan.setAttribute('outbox.drainTaskCount', drained);
         this.metrics.recordConsume('processed');
@@ -606,7 +639,8 @@ export class ComputedOutboxWakeupHandler {
     workerId: string,
     baseId: string,
     permit: ComputedOutboxBaseAdmissionPermit,
-    workerTracer?: ITracer
+    workerTracer?: ITracer,
+    cancellation = createComputedTaskExecutionCancellation(permit.signal)
   ): Promise<number> {
     const span = wakeupTracer.startSpan('teable.computed.outbox.wakeup.drain', {
       'outbox.baseId': baseId,
@@ -621,6 +655,8 @@ export class ComputedOutboxWakeupHandler {
           workerId,
           limit: POST_PROCESS_DRAIN_BATCH_SIZE,
           tracer: workerTracer,
+          cancellation,
+          recordTaskSettlement: this.recordTaskSettlement,
         });
         permit.assertActive();
         if (more.isErr()) {

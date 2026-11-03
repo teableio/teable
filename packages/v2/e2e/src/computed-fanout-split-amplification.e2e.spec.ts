@@ -23,7 +23,11 @@ import { createConvergenceHarness, executionProfiles } from './shared/computedCo
 const baseProfile = executionProfiles.find((entry) => entry.name === 'ledger-spill');
 if (!baseProfile) throw new Error('Missing ledger-spill profile');
 
-const staged = (name: string, fanoutDirtyRecordsThreshold: number) =>
+const staged = (
+  name: string,
+  fanoutDirtyRecordsThreshold: number,
+  maxConcurrentProcessingPerSeedTable = 1
+) =>
   ({
     name,
     config: {
@@ -40,6 +44,8 @@ const staged = (name: string, fanoutDirtyRecordsThreshold: number) =>
         // crossed at 9,783 dirty records.
         ...(fanoutDirtyRecordsThreshold > 0 ? { fanoutSeedSplitMaxSeeds: 5 } : {}),
         maxSeedRecordsPerTask: 5000,
+        maxConcurrentProcessingPerBase: 2,
+        maxConcurrentProcessingPerSeedTable,
       },
     },
   }) as typeof baseProfile;
@@ -226,16 +232,23 @@ const runScenario = async (profile: typeof baseProfile): Promise<ScenarioResult>
 describe('[C14][S19] computed fanout split amplification', () => {
   it('bounds the fanout split on a cyclic link cascade and still converges', async () => {
     const control = await runScenario(staged('t7401-fanout-off', 0));
-    const enabled = await runScenario(staged('t7401-fanout-on', 10));
-
+    const serialized = await runScenario(staged('t8162-fanout-serialized', 10));
+    const enabled = await runScenario(staged('t7401-fanout-on', 10, 2));
     // Work is not skipped in either run: every listing carries the hub value of the
     // row it was relinked to, which the control run proves is reachable.
     expect(control.storedValues).toEqual(control.expectedValues);
     expect(enabled.storedValues).toEqual(enabled.expectedValues);
+    expect(serialized.storedValues).toEqual(serialized.expectedValues);
 
     // Control: the cascade itself, with no fanout children.
     expect(control.executions, 'control task executions').toBeLessThanOrEqual(40);
     expect(control.tinyChildren, 'control bare-cap children').toBeLessThanOrEqual(5);
+
+    // The default per-seed-table cap is one. Splitting one seed table cannot add
+    // parallelism there, so enabling the dirty threshold must not create fanout
+    // children or amplify task executions.
+    expect(serialized.children).toBe(control.children);
+    expect(serialized.executions).toBe(control.executions);
 
     // The fanout path must actually add children on top of ordinary stage
     // splitting, otherwise the bounds below would be satisfied by never splitting.

@@ -9,13 +9,16 @@ import {
   collectFieldCreationSideEffects,
   prepareFieldOperationSideEffectPlugins,
 } from '../application/services/FieldOperationSideEffectPluginSupport';
-import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import {
   type IPasteLinkAutoResolveResult,
   PasteLinkAutoResolveService,
   type ResolvedLinkValueLookupMap,
   type ResolvedLinkValueMap,
 } from '../application/services/PasteLinkAutoResolveService';
+import {
+  PastePreparationService,
+  type PasteColumnExpansion,
+} from '../application/services/PastePreparationService';
 import { areRecordFieldValuesEqual } from '../application/services/RecordFieldValueEquality';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
@@ -53,13 +56,10 @@ import type {
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
-import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
-import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
-import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { normalizeCellDisplayValue } from '../domain/table/fields/visitors/normalizeCellDisplayValue';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
@@ -103,15 +103,8 @@ import {
 } from '../queries/RecordFilterMapper';
 import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
-import {
-  dateFormattingSchema,
-  numberFormattingSchema,
-  numberShowAsSchema,
-  singleLineTextShowAsSchema,
-} from '../schemas/field';
-import type { ITableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { PasteCommand } from './PasteCommand';
+import { PasteCommand, validatePasteExpansion } from './PasteCommand';
 import type { PasteGroup, PasteSort, SourceFieldMeta } from './PasteCommand';
 import type { NormalizedRanges, RangeType } from './RangeUtils';
 import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
@@ -122,12 +115,6 @@ import {
 } from './shared/orderBy';
 import { resolveSelectionStreamBatchSize } from './shared/streamBatchSize';
 import { toTableRecord } from './shared/toTableRecord';
-import type { ICreateTableFieldSpec } from './TableFieldSpecs';
-import {
-  collectForeignTableReferences,
-  parseTableFieldSpec,
-  resolveTableFieldInputs,
-} from './TableFieldSpecs';
 
 export interface PasteResult {
   /** Number of records updated */
@@ -297,12 +284,6 @@ export type PasteStreamEvent =
 
 const MAX_PASTE_STREAM_BUFFERED_EVENTS = 64;
 
-type LooseFieldInput = {
-  type: string;
-  name?: string;
-  options?: Record<string, unknown>;
-};
-
 @CommandHandler(PasteCommand)
 @injectable()
 export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> {
@@ -313,8 +294,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     protected readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     protected readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
-    @inject(v2CoreTokens.foreignTableLoaderService)
-    protected readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.pastePreparationService)
+    protected readonly pastePreparationService: PastePreparationService,
     @inject(v2CoreTokens.tableRecordRepository)
     protected readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
@@ -351,178 +332,22 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<PasteResult, DomainError>(async function* () {
-      // 1. Get table
-      const persistedTable = yield* await handler.tableQueryService.getById(
-        context,
-        command.tableId
-      );
-      let tableForPaste = persistedTable;
-
-      // 2. Get ordered visible field IDs from view's columnMeta or projection
-      let orderedFieldIds = yield* persistedTable.getOrderedVisibleFieldIds(
-        command.viewId.toString(),
-        {
-          projection: command.projection,
-        }
-      );
-      const queryScope = yield* await handler.resolvePasteReadScope(
-        context,
-        persistedTable,
-        command
-      );
-      if (queryScope?.readableFieldIds) {
-        orderedFieldIds = orderedFieldIds.filter((fieldId) =>
-          queryScope.readableFieldIds!.has(fieldId.toString())
-        );
-      }
-      const totalCols = orderedFieldIds.length;
-
-      const view = yield* persistedTable.getView(command.viewId);
-      const viewDefaults = yield* view.queryDefaults();
-      const mergedDefaults = viewDefaults.merge({
-        filter: command.filter,
-        sort: command.sort,
-        group: command.groupBy,
+      const preparation = yield* await handler.pastePreparationService.prepare(context, command, {
+        readAuthorization: 'checked',
+        resolveReadScope: (table) => handler.resolvePasteReadScope(context, table, command),
+        includeSchemaProjection: false,
       });
-      const effectiveFilter = command.ignoreViewQuery
-        ? (command.filter ?? undefined)
-        : mergedDefaults.filter();
-      const effectiveSort = command.ignoreViewQuery
-        ? (command.sort ?? undefined)
-        : mergedDefaults.sort();
-
-      // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
-      // by the query repository so field-type-specific search semantics stay centralized.
-      const actorResolvedFilter = replaceCurrentUserTagInFilter(
-        persistedTable,
-        effectiveFilter,
-        context.actorId.toString()
-      );
-      const viewFilterSpec = yield* buildSanitizedRecordConditionSpec(
-        persistedTable,
-        actorResolvedFilter
-      );
-      const filterSpec = composeAndSpecsOrUndefined(
-        [
-          viewFilterSpec,
-          queryScope?.recordSpec && !queryScope.skipRecordSpec ? queryScope.recordSpec : undefined,
-        ].filter(
-          (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
-            spec != null
-        )
-      );
-      const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
-
-      // 4. Get total row count for columns/rows type normalization
-      // This uses a limit:1 query to get total count efficiently
-      let totalRows = 0;
-      if (command.rangeType === 'columns' || command.rangeType === 'rows') {
-        const limitResult = PageLimit.create(1);
-        if (limitResult.isOk()) {
-          const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
-          const countResult = yield* await handler.tableRecordQueryRepository.find(
-            context,
-            persistedTable,
-            filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
-          );
-          totalRows = countResult.total;
-        }
-      }
-
-      // 5. Normalize ranges based on type (columns/rows/cell)
-      const normalizedRanges = command.normalizeRanges(totalRows, totalCols);
-      const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
-      const targetRangeCols = endCol - startCol + 1;
-      const targetRangeRows = endRow - startRow + 1;
-
-      // 6. Expand paste content if selection is a multiple of content size
-      const expandedContent = expandPasteContent(command.content, targetRangeRows, targetRangeCols);
-
-      // Early return if nothing to paste
-      if (expandedContent.length === 0 || expandedContent[0]?.length === 0) {
-        return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
-      }
-
-      // 7. Plan column expansion if paste exceeds current field count.
-      // Persist the table schema only in the final execution phase so DDL
-      // does not happen during the planning/stream-shaping stage.
-      const expandedColCount = expandedContent[0]!.length;
-      const numColsToExpand = Math.max(0, startCol + expandedColCount - totalCols);
-      let plannedColumnExpansion: PlannedColumnExpansion | undefined;
-      if (numColsToExpand > 0) {
-        const expandResult = yield* await handler.planColumnExpansion(context, persistedTable, {
-          numColsToExpand,
-          sourceFields: command.sourceFields,
-        });
-        plannedColumnExpansion = expandResult;
-        tableForPaste = expandResult.table;
-        if (plannedColumnExpansion.newFieldIds.length > 0) {
-          orderedFieldIds = [...orderedFieldIds, ...plannedColumnExpansion.newFieldIds];
-        }
-      }
-
-      // 8. Calculate target fields based on expanded content
-      const targetFieldIds = orderedFieldIds.slice(startCol, startCol + expandedColCount);
-
-      // 9. Filter out computed fields while preserving column indices
-      const editableColumns: EditableColumn[] = [];
-      targetFieldIds.forEach((fieldId, columnIndex) => {
-        const fieldResult = tableForPaste.getField((f) => f.id().equals(fieldId));
-        if (fieldResult.isOk() && !fieldResult.value.computed().toBoolean()) {
-          editableColumns.push({ fieldId, columnIndex });
-        }
-      });
+      const persistedTable = preparation.persistedTable;
+      const tableForPaste = preparation.tableForPaste;
+      const editableColumns = preparation.editableColumns;
+      const plannedColumnExpansion = preparation.columnExpansion
+        ? yield* await handler.toPlannedColumnExpansion(context, preparation.columnExpansion)
+        : undefined;
 
       if (editableColumns.length === 0) {
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 10. Build orderBy from group + sort to match the visible list row order.
-      const effectiveGroup = command.ignoreViewQuery
-        ? (command.groupBy ?? undefined)
-        : mergedDefaults.group();
-      const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
-      const sortOrderBy = yield* resolveOrderBy(effectiveSort);
-      const orderBy = mergeOrderByWithViewRowTieBreaker(
-        groupByOrderBy,
-        sortOrderBy,
-        command.viewId.toString()
-      );
-
-      // 11. Create streaming query for existing records with filter and sort
-      const existingRecordsStream = handler.tableRecordQueryRepository.findStream(
-        context,
-        persistedTable,
-        filterSpec,
-        {
-          mode: 'stored',
-          pagination: {
-            offset: startRow,
-            limit: expandedContent.length,
-          },
-          orderBy,
-          search: visibleRowSearch,
-        }
-      );
-
-      // 10.5. Build updateFilterSpec if updateFilter is provided
-      // This spec will be used to evaluate each record in-memory during streaming
-      let updateFilterSpec:
-        | ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-        | undefined = undefined;
-      if (command.updateFilter) {
-        updateFilterSpec = yield* buildRecordConditionSpec(persistedTable, command.updateFilter);
-      }
-
-      // 11. Generate paste operations by streaming through existing records
-      const operationsStream = handler.generatePasteOperations(
-        existingRecordsStream,
-        expandedContent,
-        persistedTable,
-        updateFilterSpec
-      );
-      const collectedOperations = yield* await handler.collectPasteOperations(operationsStream);
       const initialPluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.paste,
         executionContext: context,
@@ -531,27 +356,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           command.typecast,
           editableColumns,
           editableColumns,
-          collectedOperations.updateOperations,
-          collectedOperations.createOperations
+          preparation.updateOperations,
+          preparation.createOperations
         ),
         isTransactionBound: false,
       });
-      const pluginScope = yield* initialPluginExecution.getScope();
-      const expandedFieldIds = new Set(
-        plannedColumnExpansion?.newFieldIds.map((fieldId) => fieldId.toString()) ?? []
-      );
-      const scopedUpdateOperations = yield* handler.scopeUpdateOperations(
-        persistedTable,
-        collectedOperations.updateOperations,
-        editableColumns,
-        pluginScope?.recordSpec,
-        initialPluginExecution,
-        expandedFieldIds
-      );
-      const scopedCreateColumns = handler.filterCreateColumns(
-        editableColumns,
-        pluginScope?.createFieldIds,
-        expandedFieldIds
+      const writeScope = yield* handler.pastePreparationService.applyWriteScope(
+        preparation,
+        initialPluginExecution
       );
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.paste,
@@ -560,16 +372,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         payload: yield* handler.buildPastePluginPayload(
           command.typecast,
           editableColumns,
-          scopedCreateColumns,
-          scopedUpdateOperations,
-          collectedOperations.createOperations
+          writeScope.createColumns,
+          writeScope.updateOperations,
+          writeScope.createOperations
         ),
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
-      const executableUpdateOperations = scopedUpdateOperations;
-      const executableCreateOperations =
-        scopedCreateColumns.length > 0 ? collectedOperations.createOperations : [];
+      const executableUpdateOperations = writeScope.updateOperations;
+      const executableCreateOperations = writeScope.createOperations;
+      const scopedCreateColumns = writeScope.createColumns;
       if (executableUpdateOperations.length === 0 && executableCreateOperations.length === 0) {
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
@@ -747,8 +559,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       sourceFields?: ReadonlyArray<SourceFieldMeta>;
     }
   ): Promise<Result<PlannedColumnExpansion, DomainError>> {
-    const { numColsToExpand, sourceFields } = params;
-    if (numColsToExpand <= 0) {
+    if (params.numColsToExpand <= 0) {
       return ok({
         table,
         newFieldIds: [],
@@ -756,217 +567,79 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         afterCommit: async () => undefined,
       });
     }
+    const prepared = await this.pastePreparationService.prepareColumnExpansion(context, table, {
+      columnsToExpand: params.numColsToExpand,
+      sourceFields: params.sourceFields,
+    });
+    if (prepared.isErr()) return err(prepared.error);
+    return this.toPlannedColumnExpansion(context, prepared.value);
+  }
 
-    const headerFields = sourceFields ?? [];
-    const startIndex = Math.max(0, headerFields.length - numColsToExpand);
-    const fieldInputs: ITableFieldInput[] = Array.from({ length: numColsToExpand }, (_, index) =>
-      this.sourceFieldToInput(headerFields[startIndex + index])
-    );
-
-    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+  private async toPlannedColumnExpansion(
+    context: ExecutionContextPort.IExecutionContext,
+    columnExpansion: PasteColumnExpansion
+  ): Promise<Result<PlannedColumnExpansion, DomainError>> {
+    const handler = this;
     return safeTry<PlannedColumnExpansion, DomainError>(async function* () {
-      const existingNames = table.getFields().map((field) => field.name().toString());
-      const resolvedInputs = yield* resolveTableFieldInputs(fieldInputs, existingNames, {
-        t: context.$t,
-        hostTable: table,
-      });
-      const specs: ICreateTableFieldSpec[] = [];
-
-      for (const input of resolvedInputs) {
-        const spec = yield* parseTableFieldSpec(input, { isPrimary: false });
-        specs.push(spec);
-      }
-
-      const foreignReferences = yield* collectForeignTableReferences(specs);
-      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        baseId: table.baseId(),
-        references: foreignReferences,
-      });
-
-      const createdFields: Field[] = [];
-      for (const spec of specs) {
-        const field = yield* spec.createField({
-          baseId: table.baseId(),
-          tableId: table.id(),
-        });
-        createdFields.push(field);
-      }
-
       const applyFields = (current: Table) =>
         current.update((mutator) => {
           let next = mutator;
-          for (const field of createdFields) {
-            next = next.addField(field, { foreignTables });
+          for (const field of columnExpansion.newFields) {
+            next = next.addField(field, { foreignTables: columnExpansion.foreignTables });
           }
           return next;
         });
-      const plannedUpdate = yield* applyFields(table);
       const domainContext = ExecutionContextPort.getDomainContext(context);
       const plannedSideEffects = yield* collectFieldCreationSideEffects(
-        plannedUpdate.table,
-        createdFields,
-        foreignTables,
+        columnExpansion.projectedTable,
+        columnExpansion.newFields,
+        columnExpansion.foreignTables,
         domainContext
       );
       const sideEffectPluginExecution = yield* await prepareFieldOperationSideEffectPlugins({
         runner: handler.fieldOperationPluginRunner,
         executionContext: context,
         sourceOperation: FieldOperationKind.create,
-        sourceTable: table,
-        foreignTables,
+        sourceTable: columnExpansion.originalTable,
+        foreignTables: columnExpansion.foreignTables,
         domainContext,
         sideEffects: plannedSideEffects,
       });
       yield* await sideEffectPluginExecution.guard();
 
       return ok({
-        table: plannedUpdate.table,
-        newFieldIds: createdFields.map((field) => field.id()),
+        table: columnExpansion.projectedTable,
+        newFieldIds: columnExpansion.newFields.map((field) => field.id()),
         afterCommit: () => sideEffectPluginExecution.afterCommit(),
         apply: async (transactionContext: ExecutionContextPort.IExecutionContext) =>
-          handler.tableUpdateFlow.execute(transactionContext, { table }, applyFields, {
-            publishEvents: false,
-            hooks: {
-              prepare: async (currentContext) => {
-                const beforePersistResult =
-                  await sideEffectPluginExecution.beforePersist(currentContext);
-                return beforePersistResult.map(() => []);
+          handler.tableUpdateFlow.execute(
+            transactionContext,
+            { table: columnExpansion.originalTable },
+            applyFields,
+            {
+              publishEvents: false,
+              hooks: {
+                prepare: async (currentContext) => {
+                  const beforePersistResult =
+                    await sideEffectPluginExecution.beforePersist(currentContext);
+                  return beforePersistResult.map(() => []);
+                },
+                afterPersist: async (currentContext, updatedTable) =>
+                  safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+                    if (columnExpansion.newFields.length === 0) return ok([]);
+                    const sideEffectResult =
+                      yield* await handler.fieldCreationSideEffectService.execute(currentContext, {
+                        table: updatedTable,
+                        fields: columnExpansion.newFields,
+                        foreignTables: columnExpansion.foreignTables,
+                      });
+                    return ok(sideEffectResult.events);
+                  }),
               },
-              afterPersist: async (currentContext, updatedTable) =>
-                safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                  if (createdFields.length === 0) return ok([]);
-                  const sideEffectResult =
-                    yield* await handler.fieldCreationSideEffectService.execute(currentContext, {
-                      table: updatedTable,
-                      fields: createdFields,
-                      foreignTables,
-                    });
-                  return ok(sideEffectResult.events);
-                }),
-            },
-          }),
+            }
+          ),
       });
     });
-  }
-
-  protected sourceFieldToInput(field?: SourceFieldMeta): ITableFieldInput {
-    if (!field?.type) {
-      return { type: 'singleLineText' } as ITableFieldInput;
-    }
-
-    const baseField: LooseFieldInput = {
-      name: field.name,
-      type: field.type,
-      options: field.options,
-    };
-
-    if (field.isComputed && !field.isLookup) {
-      if (field.type === 'createdBy' || field.type === 'lastModifiedBy') {
-        return {
-          ...baseField,
-          type: 'user',
-          options: {
-            isMultiple: false,
-            shouldNotify: true,
-          },
-        } as ITableFieldInput;
-      }
-
-      const mapped = this.optionsRoToVoByCvType(field.cellValueType, field.options);
-      return {
-        ...baseField,
-        type: mapped.type,
-        options: mapped.options,
-      } as ITableFieldInput;
-    }
-
-    if (field.isLookup) {
-      const mapped = this.lookupOptionsRoToVo(field);
-      return {
-        ...baseField,
-        type: mapped.type,
-        options: mapped.options,
-      } as ITableFieldInput;
-    }
-
-    return baseField as ITableFieldInput;
-  }
-
-  protected optionsRoToVoByCvType(
-    cellValueType?: string,
-    options?: Record<string, unknown>
-  ): LooseFieldInput {
-    const safeOptions = options ?? {};
-    switch (cellValueType) {
-      case 'number': {
-        const formattingRes = numberFormattingSchema.safeParse(safeOptions.formatting);
-        const showAsRes = numberShowAsSchema.safeParse(safeOptions.showAs);
-        return {
-          type: 'number',
-          options: {
-            formatting: formattingRes.success
-              ? formattingRes.data
-              : NumberFormatting.default().toDto(),
-            ...(showAsRes.success ? { showAs: showAsRes.data } : {}),
-          },
-        };
-      }
-      case 'dateTime': {
-        const formattingRes = dateFormattingSchema.safeParse(safeOptions.formatting);
-        return {
-          type: 'date',
-          options: {
-            formatting: formattingRes.success
-              ? formattingRes.data
-              : DateTimeFormatting.default().toDto(),
-          },
-        };
-      }
-      case 'boolean': {
-        return {
-          type: 'checkbox',
-          options: {},
-        };
-      }
-      case 'string':
-      default: {
-        const showAsRes = singleLineTextShowAsSchema.safeParse(safeOptions.showAs);
-        return {
-          type: 'singleLineText',
-          options: {
-            ...(showAsRes.success ? { showAs: showAsRes.data } : {}),
-          },
-        };
-      }
-    }
-  }
-
-  protected lookupOptionsRoToVo(field?: SourceFieldMeta): LooseFieldInput {
-    if (!field?.type) {
-      return { type: 'singleLineText' };
-    }
-
-    if (field.type === 'singleSelect' && field.isMultipleCellValue) {
-      return {
-        type: 'multipleSelect',
-        options: field.options,
-      };
-    }
-
-    if (field.type === 'user' && field.isMultipleCellValue) {
-      return {
-        type: 'user',
-        options: {
-          ...field.options,
-          isMultiple: true,
-        },
-      };
-    }
-
-    return {
-      type: field.type,
-      options: field.options,
-    };
   }
 
   /**
@@ -1045,81 +718,6 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     return ok({ updateOperations, createOperations });
-  }
-
-  private filterUpdateColumns(
-    editableColumns: ReadonlyArray<EditableColumn>,
-    allowedFieldIds: ReadonlySet<string> | undefined,
-    extraAllowedFieldIds: ReadonlySet<string>
-  ): ReadonlyArray<EditableColumn> {
-    if (!allowedFieldIds) {
-      return editableColumns;
-    }
-
-    return editableColumns.filter((column) => {
-      const fieldId = column.fieldId.toString();
-      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
-    });
-  }
-
-  private filterCreateColumns(
-    editableColumns: ReadonlyArray<EditableColumn>,
-    allowedFieldIds: ReadonlySet<string> | undefined,
-    extraAllowedFieldIds: ReadonlySet<string>
-  ): ReadonlyArray<EditableColumn> {
-    if (!allowedFieldIds) {
-      return editableColumns;
-    }
-
-    if (allowedFieldIds.size === 0) {
-      return [];
-    }
-
-    return editableColumns.filter((column) => {
-      const fieldId = column.fieldId.toString();
-      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
-    });
-  }
-
-  private scopeUpdateOperations(
-    table: Table,
-    updateOperations: ReadonlyArray<UpdateOperation>,
-    editableColumns: ReadonlyArray<EditableColumn>,
-    recordSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    pluginExecution: RecordWritePluginExecution,
-    extraAllowedFieldIds: ReadonlySet<string>
-  ): Result<ReadonlyArray<UpdateOperation>, DomainError> {
-    const authorizedOperations: UpdateOperation[] = [];
-    for (const operation of updateOperations) {
-      const tableRecord = toTableRecord(table, operation.existingRecord);
-      if (tableRecord.isErr()) {
-        return err(tableRecord.error);
-      }
-      if (recordSpec && !recordSpec.isSatisfiedBy(tableRecord.value)) {
-        continue;
-      }
-
-      const allowedFieldIdsResult = pluginExecution.getUpdateFieldIdsForRecord(tableRecord.value);
-      if (allowedFieldIdsResult.isErr()) {
-        return err(allowedFieldIdsResult.error);
-      }
-
-      const operationEditableColumns = this.filterUpdateColumns(
-        editableColumns,
-        allowedFieldIdsResult.value,
-        extraAllowedFieldIds
-      );
-      if (!operationEditableColumns.length) {
-        continue;
-      }
-
-      authorizedOperations.push({
-        ...operation,
-        editableColumns: operationEditableColumns,
-      });
-    }
-
-    return ok(authorizedOperations);
   }
 
   protected buildPastePluginPayload(
@@ -2707,6 +2305,12 @@ export class PasteStreamApplicationService extends PasteHandler {
       command.targetRecordIds !== undefined && !command.targetRecordIds.length
         ? Math.max(0, targetRangeRows - excludedTargetRecordIds.size)
         : targetRangeRows;
+    const expansionValidation = validatePasteExpansion(
+      command.content,
+      effectiveTargetRangeRows,
+      targetRangeCols
+    );
+    if (expansionValidation.isErr()) return err(expansionValidation.error);
     const expandedContent = expandPasteContent(
       command.content,
       effectiveTargetRangeRows,

@@ -142,6 +142,10 @@ database; it does not poll the durable domain-event worker, so call
 
 Use `@teable/v2-headless-http` for a Hono app and the typed contract client. The
 host maps authenticated identity to an actor id; the runtime has no auth layer.
+Both backends register the canonical operation-preview service used by
+`POST /operations/preview` and `GET /operations/preview/capabilities`. PGlite
+reports partial capabilities and keeps permission-dependent resource visibility
+unknown/redacted until the host supplies a preview-authorization adapter.
 
 ## Limits
 
@@ -172,6 +176,7 @@ link projections remain PostgreSQL-first; see the adapter e2e skips.
 - deterministic in-process realtime snapshots with `flushRealtime()`
 - explicit background delivery attempts with `flushBackground()`
 - attachment bytes + metadata + record cell references + GC/thumbnail seam
+- canonical operation preview and capability discovery through the HTTP adapter
 - local table data-safety limits, persistent PGlite reopen and idempotent close
 
 ## App bundles

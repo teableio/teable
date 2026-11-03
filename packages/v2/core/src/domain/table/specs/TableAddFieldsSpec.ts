@@ -1,4 +1,3 @@
-import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../shared/DomainContext';
@@ -34,17 +33,9 @@ export class TableAddFieldsSpec<
   }
 
   mutate(t: Table): Result<Table, DomainError> {
-    let nextTable = t;
-    for (const field of this.fieldsValue) {
-      const nextTableResult = nextTable.addField(field, {
-        domainContext: this.options?.domainContext,
-      });
-      if (nextTableResult.isErr()) {
-        return nextTableResult;
-      }
-      nextTable = nextTableResult.value;
-    }
-    return ok(nextTable);
+    return t.addFields(this.fieldsValue, {
+      domainContext: this.options?.domainContext,
+    });
   }
 
   accept(v: V): Result<void, DomainError> {

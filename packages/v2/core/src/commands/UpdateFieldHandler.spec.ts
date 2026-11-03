@@ -1,7 +1,8 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { FieldConversionPreparationService } from '../application/services/FieldConversionPreparationService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
@@ -256,8 +257,11 @@ const createHandlerWithDataSafetyPlugin = (
   eventBus = new FakeEventBus()
 ) =>
   new UpdateFieldHandler(
-    tableRepository,
-    tableMapper,
+    new FieldConversionPreparationService(tableRepository, tableMapper, {
+      async load() {
+        return ok([]);
+      },
+    } as unknown as ForeignTableLoaderService),
     new TableUpdateFlow(
       tableRepository,
       new FakeTableSchemaRepository(),
@@ -265,17 +269,49 @@ const createHandlerWithDataSafetyPlugin = (
       new FakeUnitOfWork()
     ),
     createNoopFieldUpdateSideEffectService(),
-    {
-      async load() {
-        return ok([]);
-      },
-    } as unknown as ForeignTableLoaderService,
     createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
     noopUndoRedoService,
     noopFieldUndoRedoSnapshotService
   );
 
 describe('UpdateFieldHandler', () => {
+  it.each([
+    { field: {}, allowNoop: true, isNoop: true, isTypeConversion: false },
+    {
+      field: { type: 'number', updateMode: 'full' as const },
+      allowNoop: false,
+      isNoop: false,
+      isTypeConversion: true,
+    },
+  ])('executes the same preparation decision for $field', async (fixture) => {
+    const { table, tableId, fieldId } = buildTable();
+    const repository = new FakeTableRepository();
+    repository.tables.push(table);
+    const command = UpdateFieldCommand.create(
+      { tableId: tableId.toString(), fieldId: fieldId.toString(), field: fixture.field },
+      { allowNoop: fixture.allowNoop }
+    )._unsafeUnwrap();
+    const preparation = vi.spyOn(FieldConversionPreparationService.prototype, 'prepare');
+    try {
+      const result = await createHandlerWithDataSafetyPlugin(repository).handle(
+        createContext(),
+        command
+      );
+      expect(result.isOk()).toBe(true);
+      expect(preparation).toHaveBeenCalledOnce();
+      const facts = (await preparation.mock.results[0]!.value)._unsafeUnwrap();
+      expect(facts).toMatchObject({
+        isNoop: fixture.isNoop,
+        isTypeConversion: fixture.isTypeConversion,
+      });
+      expect(result._unsafeUnwrap().table.getFields()[0]!.type().toString()).toBe(
+        fixture.isTypeConversion ? 'number' : 'singleLineText'
+      );
+    } finally {
+      preparation.mockRestore();
+    }
+  });
+
   it('rejects field updates with oversized descriptions', async () => {
     const { table, tableId, fieldId } = buildTable();
 
@@ -285,8 +321,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -301,11 +340,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -337,8 +371,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -353,11 +390,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -561,8 +593,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -577,11 +612,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -614,8 +644,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -630,11 +663,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -665,8 +693,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -681,11 +712,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -732,8 +758,11 @@ describe('UpdateFieldHandler', () => {
     const eventBus = new FakeEventBus();
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -748,11 +777,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -816,8 +840,11 @@ describe('UpdateFieldHandler', () => {
     } as unknown as FieldUndoRedoSnapshotService;
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -832,11 +859,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       snapshotService
@@ -918,8 +940,11 @@ describe('UpdateFieldHandler', () => {
       } as unknown as FieldUndoRedoSnapshotService;
 
       const handler = new UpdateFieldHandler(
-        tableRepository,
-        tableMapper,
+        new FieldConversionPreparationService(tableRepository, tableMapper, {
+          async load() {
+            return ok([]);
+          },
+        } as unknown as ForeignTableLoaderService),
         new TableUpdateFlow(
           tableRepository,
           new FakeTableSchemaRepository(),
@@ -934,11 +959,6 @@ describe('UpdateFieldHandler', () => {
             return ok({ specs: [], updatedTable: input.table, events: [] });
           },
         } as unknown as FieldUpdateSideEffectService,
-        {
-          async load() {
-            return ok([]);
-          },
-        } as unknown as ForeignTableLoaderService,
         createFieldOperationPluginRunner(),
         noopUndoRedoService,
         snapshotService
@@ -1019,8 +1039,11 @@ describe('UpdateFieldHandler', () => {
     tableRepository.tables.push(hostTable, foreignTable);
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(
+        tableRepository,
+        tableMapper,
+        new ForeignTableLoaderService(tableRepository)
+      ),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -1035,7 +1058,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      new ForeignTableLoaderService(tableRepository),
       createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -1129,8 +1151,11 @@ describe('UpdateFieldHandler', () => {
     const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(
+        tableRepository,
+        tableMapper,
+        new ForeignTableLoaderService(tableRepository)
+      ),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -1145,7 +1170,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      new ForeignTableLoaderService(tableRepository),
       createFieldOperationPluginRunner([plugin]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -1189,8 +1213,11 @@ describe('UpdateFieldHandler', () => {
     const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
 
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(tableRepository, tableMapper, {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService),
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -1205,11 +1232,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      {
-        async load() {
-          return ok([]);
-        },
-      } as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner([plugin]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
@@ -1320,8 +1342,11 @@ describe('UpdateFieldHandler', () => {
       },
     } as unknown as UndoRedoStackService;
     const handler = new UpdateFieldHandler(
-      tableRepository,
-      tableMapper,
+      new FieldConversionPreparationService(
+        tableRepository,
+        tableMapper,
+        new ForeignTableLoaderService(tableRepository)
+      ),
       tableUpdateFlow,
       {
         async prepare() {
@@ -1331,7 +1356,6 @@ describe('UpdateFieldHandler', () => {
           return ok({ specs: [], updatedTable: input.table, events: [] });
         },
       } as unknown as FieldUpdateSideEffectService,
-      new ForeignTableLoaderService(tableRepository),
       createFieldOperationPluginRunner([
         {
           name: 'reciprocal-update-delete-veto',

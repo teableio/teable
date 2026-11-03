@@ -1,5 +1,10 @@
 import { normalizeComputedOutboxErrorSignature } from '@teable/v2-core';
 
+import {
+  normalizeBasePendingCapacityQueryLimit,
+  normalizeBasePendingCapacityThreshold,
+} from '../configs/computed-outbox-trigger.config';
+
 export type ComputedOutboxWakeupCandidateQueryTarget = {
   storage: 'default' | 'byodb';
   internalSchema?: string;
@@ -427,6 +432,104 @@ export const buildComputedOutboxMaintenanceSnapshotQuery = (
       processingLeaseMs,
       processingLeaseMs,
     ],
+  };
+};
+
+/**
+ * Per-base pending capacity probe (T8159). "Pending capacity" counts every
+ * non-paused, still-routed `status = 'pending'` row for a base, whether already
+ * due or scheduled for later. Processing rows, dead letters and rows routed to
+ * another storage are not capacity: raising throughput cannot consume them.
+ *
+ * The page is a keyset over `base_id` (not a pending-desc top-N), because a
+ * top-N permanently hides the (N+1)th over-threshold base. `afterBaseId` is an
+ * exclusive cursor; the statement reads one row past the bound so the caller can
+ * report truncation and derive the next cursor without a second query.
+ *
+ * With `limit = N` the caller may treat every returned base plus every omitted
+ * base in `(afterBaseId, lastReturnedBaseId]` as proven scanned. Nothing beyond
+ * that interval is proven on a truncated page.
+ *
+ * The page order and cursor are C-collated so they match the monitor's JS
+ * code-unit comparisons even when the `base_id` column uses a locale or ICU
+ * collation. Without it a mixed-case id can sort outside the range the monitor
+ * believes it scanned.
+ */
+export type ComputedOutboxBasePendingCapacityPageRequest = {
+  threshold: number;
+  limit: number;
+  /** Exclusive lower bound; omit to start from the lowest base id. */
+  afterBaseId?: string;
+};
+
+export const buildComputedOutboxBasePendingCapacityQuery = (
+  target: ComputedOutboxWakeupCandidateQueryTarget,
+  request: ComputedOutboxBasePendingCapacityPageRequest
+): { sql: string; bindings: unknown[] } => {
+  const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
+  const routedFilter = buildComputedOutboxRoutedFilter(target);
+  const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
+  const threshold = normalizeBasePendingCapacityThreshold(request.threshold);
+  const limit = normalizeBasePendingCapacityQueryLimit(request.limit);
+  const afterClause = request.afterBaseId ? 'and base_id > ?' : '';
+  const bindings: unknown[] = [
+    ...routedFilter.bindings,
+    ...pauseExclusion.bindings,
+    ...(request.afterBaseId ? [request.afterBaseId] : []),
+    threshold,
+    limit + 1,
+  ];
+  return {
+    sql: `with ${routedFilter.cte},
+        pending_capacity as (
+         select o.base_id collate "C" as base_id, o.seed_table_id, o.affected_table_ids, o.status,
+            ${pauseExclusion.sql} as actionable,
+            (${routedFilter.condition('o.base_id')}) as routed
+          from ${outboxTable} as o
+          where o.status = 'pending'
+        )
+      select base_id as "baseId", count(*)::int as pending
+      from pending_capacity
+      where actionable and routed ${afterClause}
+      group by base_id
+      having count(*) >= ?
+      order by base_id asc
+      limit ?`,
+    bindings,
+  };
+};
+
+/**
+ * Turns raw keyset rows (`limit + 1` requested) into one page. Pure and shared so
+ * SQL normalization, the manager slice and `truncated` cannot diverge.
+ */
+export const assembleComputedOutboxBasePendingCapacityPage = (
+  rows: ReadonlyArray<{ baseId: string; pending: number }>,
+  request: ComputedOutboxBasePendingCapacityPageRequest
+): {
+  threshold: number;
+  limit: number;
+  afterBaseId?: string;
+  scannedThroughBaseId?: string;
+  scannedToEnd: boolean;
+  bases: ReadonlyArray<{ baseId: string; pending: number }>;
+  nextBaseId?: string;
+  truncated: boolean;
+} => {
+  const threshold = normalizeBasePendingCapacityThreshold(request.threshold);
+  const limit = normalizeBasePendingCapacityQueryLimit(request.limit);
+  const truncated = rows.length > limit;
+  const bases = rows.slice(0, limit);
+  const scannedThroughBaseId = bases.at(-1)?.baseId;
+  return {
+    threshold,
+    limit,
+    afterBaseId: request.afterBaseId,
+    scannedThroughBaseId,
+    scannedToEnd: !truncated,
+    bases,
+    nextBaseId: truncated ? scannedThroughBaseId : undefined,
+    truncated,
   };
 };
 

@@ -2,10 +2,21 @@ import { Effect, Layer } from 'effect';
 import { Database, DatabaseConfig } from '../services/Database';
 import { getConnectionString, isPgliteConnection } from '../utils/connection';
 import { DatabasePgliteLive } from './DatabasePgliteLive';
+import { StderrLogger } from './StderrLogger';
 
-export const DatabaseConfigFromOption = (connectionString: string | undefined) =>
+export interface DatabaseRuntimeOptions {
+  readonly initializePglite?: boolean;
+  readonly diagnostics?: 'default' | 'stderr';
+}
+
+export const DatabaseConfigFromOption = (
+  connectionString: string | undefined,
+  options: DatabaseRuntimeOptions = {}
+) =>
   Layer.succeed(DatabaseConfig, {
     connectionString: getConnectionString(connectionString),
+    initializePglite: options.initializePglite ?? true,
+    diagnostics: options.diagnostics ?? 'default',
   });
 
 /**
@@ -26,6 +37,8 @@ export const DatabasePgLive = Layer.effect(
         createV2NodePgContainer({
           connectionString: config.connectionString,
           computedUpdate: { mode: 'sync' },
+          ensureSchema: false,
+          ...(config.diagnostics === 'stderr' ? { logger: new StderrLogger() } : {}),
         }),
       catch: (error) => new Error(`Failed to create database container: ${error}`),
     });
@@ -63,8 +76,8 @@ export const DatabaseLive = Layer.effect(
   })
 );
 
-export const DatabaseLayer = (connectionString?: string) =>
-  DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString)));
+export const DatabaseLayer = (connectionString?: string, options: DatabaseRuntimeOptions = {}) =>
+  DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString, options)));
 
 // Re-export for explicit usage
 export { DatabasePgliteLive } from './DatabasePgliteLive';

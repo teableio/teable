@@ -2,6 +2,9 @@ import type {
   ComplexityAssessInput,
   ComplexityAssessResult,
   ExplainResult,
+  OperationPreview,
+  OperationPreviewRequest,
+  PreviewCapability,
 } from '@teable/v2-command-explain';
 import type {
   ICreateFieldCommandInput,
@@ -87,5 +90,9 @@ export class CommandExplain extends Context.Tag('CommandExplain')<
     readonly assessComplexity: (
       input: ComplexityAssessInput
     ) => Effect.Effect<ComplexityAssessResult, CliError>;
+    readonly previewOperation: (
+      request: OperationPreviewRequest
+    ) => Effect.Effect<OperationPreview, CliError>;
+    readonly previewCapabilities: () => Effect.Effect<ReadonlyArray<PreviewCapability>, CliError>;
   }
 >() {}

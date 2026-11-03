@@ -4,8 +4,6 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
-import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type {
   RecordFieldChangeDTO,
   RecordUpdateDTO,
@@ -31,8 +29,6 @@ import { RecordId } from '../../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
-import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
@@ -50,10 +46,7 @@ import {
   type RecordWriteFieldValues,
   type RecordWritePluginRunnerOptions,
 } from '../../ports/RecordWritePlugin';
-import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../../ports/TableRecordQueryRepository';
+import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
@@ -73,7 +66,12 @@ import {
   type UndoRedoCommandLeafData,
 } from '../../ports/UndoRedoStore';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
-import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
+import {
+  loadBulkRecordExplicitScope,
+  prepareBulkRecordExplicitScope,
+  prepareBulkRecordSelector,
+  resolveBulkRecordUpdates,
+} from './BulkRecordPreparationService';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
 import {
   type IForeignTableLoaderService,
@@ -103,8 +101,6 @@ import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoSt
 const BULK_UPDATE_SYNTHETIC_RECORD_ID = RecordId.create(`rec${'0'.repeat(16)}`)._unsafeUnwrap();
 const EXPLICIT_UPDATE_MAX_BATCH_SIZE = 1000;
 
-type RecordConditionSpec = ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-
 type BulkUpdateExecutionResult = {
   readonly updatedCount: number;
   readonly tableEvents: ReadonlyArray<IDomainEvent>;
@@ -124,21 +120,9 @@ type BulkUpdateWriteResult = Omit<
   'pluginExecution' | 'events' | 'fieldKeyMapping'
 >;
 
-type ExplicitResolvedUpdate = {
+export type ExplicitResolvedUpdate = {
   readonly recordId: RecordId;
   readonly fieldValues: RecordWriteFieldValues;
-};
-
-type ExplicitAuthorizedUpdate = {
-  readonly recordId: RecordId;
-  readonly currentRecord: TableRecordReadModel;
-  readonly fieldValues: RecordWriteFieldValues;
-};
-
-type ExplicitAuthorizationResult = {
-  readonly authorizedUpdates: ReadonlyArray<ExplicitAuthorizedUpdate>;
-  readonly missingRecordIds: ReadonlyArray<RecordId>;
-  readonly pluginFilteredRecordIds: ReadonlyArray<RecordId>;
 };
 
 type PendingExplicitEventData = {
@@ -265,11 +249,6 @@ const buildUpdateRecordsUndoRedoCommand = (
       ),
     })),
   });
-
-const composeRecordConditionSpecs = (
-  ...specs: ReadonlyArray<RecordConditionSpec | undefined>
-): RecordConditionSpec | undefined =>
-  composeAndSpecsOrUndefined(specs.filter((spec): spec is RecordConditionSpec => spec != null));
 
 const summarizeExplicitUpdates = (
   updates: ReadonlyArray<Pick<ExplicitResolvedUpdate, 'fieldValues'>>
@@ -705,10 +684,6 @@ export class RecordBulkUpdateService {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<BulkUpdateExecutionResult, DomainError>(async function* () {
-      const baseFilterSpec = input.recordIds
-        ? RecordByIdsSpec.create(input.recordIds)
-        : yield* buildRecordConditionSpec(input.table, input.filter!);
-
       const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeys(
         input.table,
         Object.fromEntries(input.fieldValues),
@@ -736,8 +711,12 @@ export class RecordBulkUpdateService {
       );
       yield* await pluginExecution.guard();
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
-      const filterSpec =
-        composeRecordConditionSpecs(baseFilterSpec, pluginRecordSpec) ?? baseFilterSpec;
+      const selectorPreparation = yield* prepareBulkRecordSelector(
+        input.table,
+        { recordIds: input.recordIds, filter: input.filter },
+        pluginRecordSpec
+      );
+      const filterSpec = selectorPreparation.scopedSpec;
 
       const committed = yield* await service.domainWriteTransaction.execute(
         context,
@@ -893,7 +872,7 @@ export class RecordBulkUpdateService {
         context,
         'resolveExplicitUpdates',
         explicitTraceAttributes,
-        () => service.resolveExplicitUpdates(input.table, records, input.fieldKeyType)
+        () => resolveBulkRecordUpdates(input.table, records, input.fieldKeyType)
       );
       const resolvedSummary = summarizeExplicitUpdates(resolvedUpdates);
       const resolvedTraceAttributes: SpanAttributes = {
@@ -952,10 +931,11 @@ export class RecordBulkUpdateService {
         'loadExplicitCurrentRecords',
         resolvedTraceAttributes,
         () =>
-          service.loadExplicitCurrentRecords(
+          loadBulkRecordExplicitScope(
             context,
             input.table,
             resolvedUpdates.map((update) => update.recordId),
+            service.tableRecordQueryRepository,
             Boolean(input.order)
           )
       );
@@ -967,13 +947,25 @@ export class RecordBulkUpdateService {
           'record.update.loadedCurrentRecordCount': currentRecordsResult.records.length,
         },
         () =>
-          service.filterAuthorizedExplicitUpdates(
+          prepareBulkRecordExplicitScope(
             input.table,
             resolvedUpdates,
             currentRecordsResult,
             pluginRecordSpec
           )
       );
+      if (
+        explicitAuthorization.missingRecordIds.length > 0 ||
+        explicitAuthorization.pluginFilteredRecordIds.length > 0
+      ) {
+        service.logger.debug('RecordBulkUpdateService.explicitUpdatesSkipped', {
+          tableId: input.table.id().toString(),
+          missingRecordIds: explicitAuthorization.missingRecordIds.map((id) => id.toString()),
+          pluginFilteredRecordIds: explicitAuthorization.pluginFilteredRecordIds.map((id) =>
+            id.toString()
+          ),
+        });
+      }
       const authorizedUpdates = explicitAuthorization.authorizedUpdates;
       activeSpan?.setAttributes({
         'record.update.authorizedRecordCount': authorizedUpdates.length,
@@ -1362,10 +1354,11 @@ export class RecordBulkUpdateService {
                 if (readbackRecordIds.length > 0) {
                   // Read through the same transaction: no-op responses and
                   // generated LastModified values both require after-images.
-                  const readbackResult = await service.loadExplicitCurrentRecords(
+                  const readbackResult = await loadBulkRecordExplicitScope(
                     transactionContext,
                     preparedWrite.tableForWrite,
                     readbackRecordIds,
+                    service.tableRecordQueryRepository,
                     false
                   );
                   if (readbackResult.isErr()) return err(readbackResult.error);
@@ -1711,7 +1704,7 @@ export class RecordBulkUpdateService {
       ReadonlyArray<ReadonlyMap<string, unknown>>,
       DomainError
     > = input.records
-      ? this.resolveExplicitUpdates(input.table, input.records, input.fieldKeyType).map((updates) =>
+      ? resolveBulkRecordUpdates(input.table, input.records, input.fieldKeyType).map((updates) =>
           updates.map((update) => update.fieldValues)
         )
       : FieldKeyResolverService.resolveFieldKeys(
@@ -1803,104 +1796,6 @@ export class RecordBulkUpdateService {
         tableEvents: tableFlowResult.events,
         sideEffectUndoRedoPlan,
       });
-    });
-  }
-
-  private resolveExplicitUpdates(
-    table: Table,
-    updates: ReadonlyArray<IRecordBulkUpdateItem>,
-    fieldKeyType: FieldKeyType
-  ): Result<ReadonlyArray<ExplicitResolvedUpdate>, DomainError> {
-    const resolvedUpdates: ExplicitResolvedUpdate[] = [];
-
-    for (const update of updates) {
-      const resolvedFields = FieldKeyResolverService.resolveFieldKeys(
-        table,
-        Object.fromEntries(update.fieldValues),
-        fieldKeyType
-      );
-      if (resolvedFields.isErr()) {
-        return err(resolvedFields.error);
-      }
-
-      resolvedUpdates.push({
-        recordId: update.recordId,
-        fieldValues: new Map(Object.entries(resolvedFields.value)),
-      });
-    }
-
-    return ok(resolvedUpdates);
-  }
-
-  private async loadExplicitCurrentRecords(
-    context: IExecutionContext,
-    table: Table,
-    recordIds: ReadonlyArray<RecordId>,
-    includeOrders: boolean
-  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
-    // Authorization joins these rows back to resolved updates by id, preserving request order
-    // without an expensive array_position sort in PostgreSQL.
-    return this.tableRecordQueryRepository.find(context, table, RecordByIdsSpec.create(recordIds), {
-      mode: 'stored',
-      includeOrders,
-      includeTotal: false,
-    });
-  }
-
-  private filterAuthorizedExplicitUpdates(
-    table: Table,
-    resolvedUpdates: ReadonlyArray<ExplicitResolvedUpdate>,
-    currentRecordsResult: ITableRecordQueryResult,
-    pluginRecordSpec: RecordConditionSpec | undefined
-  ): Result<ExplicitAuthorizationResult, DomainError> {
-    const currentRecords = new Map(
-      currentRecordsResult.records.map((record) => [record.id, record])
-    );
-    const authorizedUpdates: ExplicitAuthorizedUpdate[] = [];
-    const missingRecordIds: RecordId[] = [];
-    const pluginFilteredRecordIds: RecordId[] = [];
-
-    for (const update of resolvedUpdates) {
-      const currentRecord = currentRecords.get(update.recordId.toString());
-      if (!currentRecord) {
-        missingRecordIds.push(update.recordId);
-        continue;
-      }
-
-      if (pluginRecordSpec) {
-        const currentRecordEntity = TableRecord.fromRawFieldValues({
-          id: currentRecord.id,
-          tableId: table.id(),
-          fields: currentRecord.fields,
-        });
-        if (currentRecordEntity.isErr()) {
-          return err(currentRecordEntity.error);
-        }
-        if (!pluginRecordSpec.isSatisfiedBy(currentRecordEntity.value)) {
-          pluginFilteredRecordIds.push(update.recordId);
-          continue;
-        }
-      }
-
-      authorizedUpdates.push({
-        recordId: update.recordId,
-        currentRecord,
-        fieldValues: update.fieldValues,
-      });
-    }
-
-    if (missingRecordIds.length > 0 || pluginFilteredRecordIds.length > 0) {
-      this.logger.debug('RecordBulkUpdateService.explicitUpdatesSkipped', {
-        tableId: table.id().toString(),
-        missingRecordIds: missingRecordIds.map((recordId) => recordId.toString()),
-        pluginFilteredRecordIds: pluginFilteredRecordIds.map((recordId) => recordId.toString()),
-      });
-    }
-
-    return ok({
-      authorizedUpdates,
-      missingRecordIds,
-      pluginFilteredRecordIds,
     });
   }
 

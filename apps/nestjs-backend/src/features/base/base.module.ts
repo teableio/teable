@@ -20,6 +20,7 @@ import { TableModule } from '../table/table.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
+import { BaseDuplicatePreviewRegistrar } from './base-duplicate-preview.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
@@ -68,6 +69,7 @@ import { BaseService } from './base.service';
     BaseExportService,
     BaseExportV2Service,
     BaseImportService,
+    BaseDuplicatePreviewRegistrar,
     BaseDuplicateService,
     BaseDuplicateV2Service,
     BaseQueryService,
@@ -77,6 +79,7 @@ import { BaseService } from './base.service';
     BaseService,
     BasePersonalOrderService,
     BaseDataDbMoveService,
+    BaseDuplicatePreviewRegistrar,
     BaseDuplicateService,
     BaseDuplicateV2Service,
     BaseExportService,

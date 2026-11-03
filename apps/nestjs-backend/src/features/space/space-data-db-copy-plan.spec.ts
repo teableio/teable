@@ -458,6 +458,7 @@ describe('space data DB copy plan', () => {
       'attachments_table',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_dead_letter_seed',
       'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
@@ -472,41 +473,48 @@ describe('space data DB copy plan', () => {
     expect(plans.find((plan) => plan.table === 'attachments_table')?.sourceSql).toContain(
       `"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`
     );
-    expect(plans[4].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
-    expect(plans[6].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
-    expect(plans[7].sourceSql).toContain(
+    expect(plans.find((plan) => plan.table === 'computed_update_outbox')?.sourceSql).toContain(
+      `"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
+    );
+    expect(plans.find((plan) => plan.table === 'computed_update_run_history')?.sourceSql).toContain(
+      `"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
+    );
+    const outboxSeed = plans.find((plan) => plan.table === 'computed_update_outbox_seed');
+    expect(outboxSeed?.sourceSql).toContain(
       'FROM "public"."computed_update_outbox" WHERE "base_id" = ANY'
     );
-    const outboxSeedTargetResetSql = String(plans[7].targetReset?.args.at(-2));
+    const outboxSeedTargetResetSql = String(outboxSeed?.targetReset?.args.at(-2));
     expect(outboxSeedTargetResetSql).toContain(
       'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
     );
     expect(outboxSeedTargetResetSql).not.toContain('FROM "public"."computed_update_outbox"');
-    expect(plans[8].sourceSql).toContain(
+    expect(plans.find((plan) => plan.table === '__undo_log')?.sourceSql).toContain(
       `split_part("table_name", '.', 1) = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
     );
-    expect(plans[9].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
-    expect(plans[10].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
-    expect(plans[11].sourceSql).toContain(
+    expect(plans.find((plan) => plan.table === 'record_removal_tombstone')?.sourceSql).toContain(
+      `"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`
+    );
+    expect(plans.find((plan) => plan.table === 'domain_event_outbox')?.sourceSql).toContain(
+      `"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
+    );
+    const delivery = plans.find((plan) => plan.table === 'domain_event_delivery');
+    expect(delivery?.sourceSql).toContain(
       `"event_id" IN (SELECT "id" FROM "public"."domain_event_outbox" WHERE`
     );
-    expect(plans[12].sourceSql).toContain(
+    const inbox = plans.find((plan) => plan.table === 'domain_event_inbox');
+    expect(inbox?.sourceSql).toContain(
       `"event_id" IN (SELECT "id" FROM "public"."domain_event_outbox" WHERE`
     );
-    const deliveryResetSql = String(plans[11].targetReset?.args.at(-2));
+    const deliveryResetSql = String(delivery?.targetReset?.args.at(-2));
     expect(deliveryResetSql).toContain(
       'FROM "teable_meta_target"."domain_event_outbox" WHERE "base_id" = ANY'
     );
     expect(deliveryResetSql).not.toContain('FROM "public"."domain_event_outbox"');
-    const inboxResetSql = String(plans[12].targetReset?.args.at(-2));
+    const inboxResetSql = String(inbox?.targetReset?.args.at(-2));
     expect(inboxResetSql).toContain(
       'FROM "teable_meta_target"."domain_event_outbox" WHERE "base_id" = ANY'
     );
-    expect(
-      plans.every((plan) =>
-        plan.targetReset?.args.some((arg) => String(arg).includes('DELETE FROM'))
-      )
-    ).toBe(true);
+    expect(plans.every((plan) => plan.targetReset)).toBe(true);
     expect(plans.every((plan) => plan.source.args.includes(sourceUrl))).toBe(true);
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
   });
@@ -608,6 +616,7 @@ describe('space data DB copy plan', () => {
       'attachments_table',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_dead_letter_seed',
       'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
@@ -620,11 +629,14 @@ describe('space data DB copy plan', () => {
     ]);
     expect(plans[0].sql).toContain('FROM "sdmjxxx_fdw_0"."record_history"');
     expect(plans[0].sql).toContain('DELETE FROM "teable_meta_target"."record_history"');
-    expect(plans[4].sql).toContain('FROM "sdmjxxx_fdw_4"."computed_update_outbox"');
-    expect(plans[7].sql).toContain(
+    expect(plans.find((plan) => plan.table === 'computed_update_outbox')?.sql).toContain(
+      'FROM "sdmjxxx_fdw_4"."computed_update_outbox"'
+    );
+    const outboxSeedFdw = plans.find((plan) => plan.table === 'computed_update_outbox_seed');
+    expect(outboxSeedFdw?.sql).toContain(
       'DELETE FROM "teable_meta_target"."computed_update_outbox_seed" WHERE "table_id" = ANY'
     );
-    expect(plans[7].sql).toContain(
+    expect(outboxSeedFdw?.sql).toContain(
       'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
     );
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);

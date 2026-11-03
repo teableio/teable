@@ -33,6 +33,7 @@
     "@teable/v2-adapter-csv-parser-papaparse": "workspace:*",
     "@teable/v2-adapter-db-postgres-shared": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
+    "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-browser": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",

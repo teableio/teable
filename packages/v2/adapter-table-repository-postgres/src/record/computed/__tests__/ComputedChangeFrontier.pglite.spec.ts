@@ -270,9 +270,37 @@ describe.each(['public', 'frontier_internal'])('durable actual-value frontier in
     }
     expect((await stageLedgerHasFrontier(created.db, scopeId))._unsafeUnwrap()).toBe(false);
     expect(await collectedIds()).toEqual(['first']);
+    const retained = await created.pglite.query<{ kind: string; count: number }>(
+      `SELECT kind,count(*)::int as count FROM ${ledgerTable} WHERE kind IN ('rerun-source','rerun-input-v1') GROUP BY kind ORDER BY kind`
+    );
+    expect(retained.rows).toEqual([
+      { kind: 'rerun-input-v1', count: 1 },
+      { kind: 'rerun-source', count: 2 },
+    ]);
     (await clearStageLedger(created.db, scopeId))._unsafeUnwrap();
     expect((await created.pglite.query(`SELECT * FROM ${frontierTable}`)).rows).toEqual([]);
     expect((await created.pglite.query(`SELECT * FROM ${ledgerTable}`)).rows).toEqual([]);
+  });
+
+  it('retains generated self-reference sources without making them executable frontier work', async () => {
+    (
+      await pushStageLedgerFrontierHead(created.db, scopeId, [{ tableId, recordIds: ['original'] }])
+    )._unsafeUnwrap();
+    await sql`insert into ${sql.table('tmp_computed_dirty')}(table_id,record_id) values(${tableId},'generated')`.execute(
+      created.db
+    );
+    const appended = (
+      await appendStageLedgerPartialBatch(created.db, scopeId, [tableId], { appendFrontier: true })
+    )._unsafeUnwrap();
+    expect(appended.newFrontierRows).toBe(1);
+    const retained = await created.pglite.query<{ record_id: string }>(
+      `select record_id from ${ledgerTable} where kind='rerun-source' order by record_id`
+    );
+    expect(retained.rows).toEqual([{ record_id: 'generated' }, { record_id: 'original' }]);
+    (await retireStageLedgerFrontierHead(created.db, scopeId, '100'))._unsafeUnwrap();
+    expect((await stageLedgerHasFrontier(created.db, scopeId))._unsafeUnwrap()).toBe(false);
+    (await clearStageLedger(created.db, scopeId))._unsafeUnwrap();
+    expect((await created.pglite.query(`select * from ${ledgerTable}`)).rows).toEqual([]);
   });
 
   it.skipIf(schema === 'public')(

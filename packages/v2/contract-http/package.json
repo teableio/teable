@@ -34,6 +34,12 @@
       "types": "./src/complexityInput.ts",
       "import": "./src/complexityInput.ts",
       "require": "./src/complexityInput.ts"
+    },
+    "./operationPreview": {
+      "@teable/source": "./src/operationPreview.ts",
+      "types": "./src/operationPreview.ts",
+      "import": "./dist/operationPreview.js",
+      "require": "./dist/operationPreview.cjs"
     }
   },
   "files": [

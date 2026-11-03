@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-shared';
-import { createHeadlessHttpApp } from '@teable/v2-headless-http';
+import { createHeadlessHttpApp, type IHeadlessHttpOptions } from '@teable/v2-headless-http';
 import {
   createHeadlessRuntime,
   type IHeadlessRuntime,
@@ -17,6 +17,8 @@ export interface IHeadlessServerOptions {
   actorHeader?: string;
   defaultActorId?: string;
   allowAnonymousActor?: boolean;
+  /** Host-owned authentication hook; the CLI does not authenticate requests itself. */
+  resolveActorId?: IHeadlessHttpOptions['resolveActorId'];
 }
 
 export interface IHeadlessServer {
@@ -66,6 +68,7 @@ export const startHeadlessServer = async (
     actorHeader: options.actorHeader,
     defaultActorId: options.defaultActorId,
     allowAnonymousActor: options.allowAnonymousActor,
+    resolveActorId: options.resolveActorId,
   });
   const server = serve({
     fetch: app.fetch,

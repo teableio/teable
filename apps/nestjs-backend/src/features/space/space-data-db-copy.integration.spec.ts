@@ -312,8 +312,30 @@ const createSharedTables = async (client: Client, schema: string) => {
       "created_at" timestamp,
       "updated_at" timestamp,
       "trace_data" jsonb,
-      "failed_at" timestamp
+      "failed_at" timestamp,
+      "delete_authorized_txid" bigint
     )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."computed_update_dead_letter_seed" (
+      "task_id" text NOT NULL REFERENCES "${schema}"."computed_update_dead_letter" ("id") ON DELETE CASCADE,
+      "table_id" text NOT NULL,
+      "record_id" text NOT NULL,
+      PRIMARY KEY ("task_id", "table_id", "record_id")
+    )
+  `);
+  await client.query(`
+    CREATE FUNCTION "${schema}"."computed_outbox_discard_base"(base_ids text[])
+    RETURNS bigint LANGUAGE plpgsql AS $$
+    DECLARE deleted_count bigint;
+    BEGIN
+      WITH deleted AS (
+        DELETE FROM "${schema}"."computed_update_dead_letter"
+        WHERE base_id = ANY(base_ids) RETURNING 1
+      ) SELECT count(*) INTO deleted_count FROM deleted;
+      RETURN deleted_count;
+    END;
+    $$;
   `);
   await client.query(`
     CREATE TABLE "${schema}"."computed_update_run_history" (
@@ -584,6 +606,17 @@ const seedSourceData = async (client: Client) => {
       ('cudl1', $1, 'staging', 'failed', now(), now(), '{}'::jsonb, now()),
       ('cudl2', $2, 'production', 'failed', now(), now(), '{}'::jsonb, now())`,
     [baseId, otherBaseId]
+  );
+  await client.query(
+    `
+    INSERT INTO "public"."computed_update_dead_letter_seed"
+      ("task_id", "table_id", "record_id")
+    VALUES
+      ('cudl1', 'tbl-cross-base-membership', 'rec-archive-1'),
+      ('cudl1', 'tbl-cross-base-membership', 'rec-archive-2'),
+      ('cudl2', $1, 'rec-other-archive')
+  `,
+    [tableId]
   );
   await client.query(
     `INSERT INTO "public"."computed_update_outbox_seed" VALUES
@@ -1262,6 +1295,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           'computed_update_outbox',
           'computed_update_dead_letter',
           'computed_update_outbox_seed',
+          'computed_update_dead_letter_seed',
           '__undo_log',
           'domain_event_outbox',
           'domain_event_delivery',
@@ -1443,6 +1477,18 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             target,
             `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_dead_letter" WHERE "base_id" = $1`,
             [otherBaseId]
+          )
+        ).resolves.toBe(0);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_dead_letter_seed" WHERE "task_id" = 'cudl1'`
+          )
+        ).resolves.toBe(2);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_dead_letter_seed" WHERE "task_id" = 'cudl2'`
           )
         ).resolves.toBe(0);
         await expect(
@@ -1796,6 +1842,10 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           `INSERT INTO "${baseId}"."${mainRelationName}" ("id", "__created_time", "name")
            VALUES ('rec-target-extra', now(), 'Target extra row')`
         );
+        await target.query(
+          `DELETE FROM "${targetMismatchSchema}"."computed_update_dead_letter_seed"
+           WHERE "task_id" = 'cudl1' AND "record_id" = 'rec-archive-2'`
+        );
       } finally {
         await target.end();
       }
@@ -1808,6 +1858,11 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
               object: `base:${baseId}.${mainRelationName}`,
               sourceCount: 2,
               targetCount: 3,
+            }),
+            expect.objectContaining({
+              object: 'shared:computed_update_dead_letter_seed',
+              sourceCount: 2,
+              targetCount: 1,
             }),
           ]),
         }),

@@ -186,6 +186,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     getDataDatabaseForSpace: vi.fn(),
     getDataDatabaseForBase: vi.fn(),
     getDataDatabaseForTable: vi.fn(),
+    getDataDatabaseForTablePreviewReadOnly: vi.fn(),
   };
   const runtimeCache = new DataDbRuntimeCacheService();
   const pgPoolRegistry = createPgPoolRegistry();
@@ -250,6 +251,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     getDataDatabaseForSpace: vi.fn(),
     getDataDatabaseForBase: vi.fn(),
     getDataDatabaseForTable: vi.fn(),
+    getDataDatabaseForTablePreviewReadOnly: vi.fn(),
   };
   const runtimeCache = new DataDbRuntimeCacheService();
   const pgPoolRegistry = createPgPoolRegistry();
@@ -918,6 +920,145 @@ describe('V2ContainerService', () => {
     await expect(service.getContainer()).resolves.toBe(container);
     await expect(service.getContainerForSpace('spcxxx')).resolves.toBe(container);
 
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
+  });
+
+  it('reuses a cached container for a metadata-proven preview route', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, dataDbClientManager } = createService();
+    dataDbClientManager.getDataDatabaseForTablePreviewReadOnly.mockResolvedValue({
+      cacheKey: 'meta-fallback',
+      url: 'postgres://test',
+      connectionUrl: 'postgres://test',
+      isMetaFallback: true,
+    });
+
+    await service.getContainer();
+
+    await expect(service.getPreviewContainerForTable('tblxxx')).resolves.toBe(container);
+    expect(dataDbClientManager.getDataDatabaseForTablePreviewReadOnly).toHaveBeenCalledWith(
+      'tblxxx'
+    );
+    expect(dataDbClientManager.getDataDatabaseForTable).not.toHaveBeenCalled();
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
+  });
+
+  it('acquires a cold ready preview route without schema writes or workers', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService, dataDbClientManager, tableQueryObservationRuntime } =
+      createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'auto';
+      return undefined;
+    });
+    dataDbClientManager.getDataDatabaseForTablePreviewReadOnly.mockResolvedValue({
+      cacheKey: 'dcn-preview',
+      url: 'postgres://space-data-db',
+      connectionUrl: 'postgres://space-data-db',
+      internalSchema: 'teable_internal',
+      isMetaFallback: false,
+      connectionId: 'dcn-preview',
+    });
+
+    await expect(service.getPreviewContainerForTable('tblxxx')).resolves.toBe(container);
+
+    expect(dataDbClientManager.getDataDatabaseForTable).not.toHaveBeenCalled();
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ensureSchema: false,
+        tableQueryOps: expect.objectContaining({
+          ensureSchema: false,
+          ensureObservationSchema: false,
+        }),
+      })
+    );
+    expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+  });
+
+  it('reacquires an evicted ready preview route into the normal runtime cache', async () => {
+    const warmContainer = createContainerMock();
+    const reacquiredContainer = createContainerMock();
+    mocks.createV2NodePgContainer
+      .mockResolvedValueOnce(warmContainer)
+      .mockResolvedValueOnce(reacquiredContainer);
+    const { service, dataDbClientManager, runtimeCache } = createService();
+    const route = {
+      cacheKey: 'dcn-preview',
+      url: 'postgres://space-data-db',
+      connectionUrl: 'postgres://space-data-db',
+      internalSchema: 'teable_internal',
+      isMetaFallback: false,
+      connectionId: 'dcn-preview',
+    };
+    dataDbClientManager.getDataDatabaseForTable.mockResolvedValue(route);
+    dataDbClientManager.getDataDatabaseForTablePreviewReadOnly.mockResolvedValue(route);
+
+    await expect(service.getContainerForTable('tblxxx')).resolves.toBe(warmContainer);
+    await runtimeCache.deleteByKey(route.cacheKey);
+
+    await expect(service.getPreviewContainerForTable('tblxxx')).resolves.toBe(reacquiredContainer);
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(2);
+  });
+
+  it('promotes a preview-created container to normal workers on a regular acquisition', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService, dataDbClientManager } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      return undefined;
+    });
+    const route = {
+      cacheKey: 'dcn-preview',
+      url: 'postgres://space-data-db',
+      connectionUrl: 'postgres://space-data-db',
+      internalSchema: 'teable_internal',
+      isMetaFallback: false,
+      connectionId: 'dcn-preview',
+    };
+    dataDbClientManager.getDataDatabaseForTablePreviewReadOnly.mockResolvedValue(route);
+    dataDbClientManager.getDataDatabaseForTable.mockResolvedValue(route);
+
+    await service.getPreviewContainerForTable('tblxxx');
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+
+    await expect(service.getContainerForTable('tblxxx')).resolves.toBe(container);
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a cached container whose connection signature no longer matches metadata', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, dataDbClientManager } = createService();
+    dataDbClientManager.getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'dcn-preview',
+      url: 'postgres://old-data-db',
+      connectionUrl: 'postgres://old-data-db',
+      internalSchema: 'teable_internal',
+      isMetaFallback: false,
+      connectionId: 'dcn-preview',
+    });
+    dataDbClientManager.getDataDatabaseForTablePreviewReadOnly.mockResolvedValue({
+      cacheKey: 'dcn-preview',
+      url: 'postgres://new-data-db',
+      connectionUrl: 'postgres://new-data-db',
+      internalSchema: 'teable_internal',
+      isMetaFallback: false,
+      connectionId: 'dcn-preview',
+    });
+
+    await service.getContainerForTable('tblxxx');
+
+    await expect(service.getPreviewContainerForTable('tblxxx')).resolves.toBeNull();
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
   });
 

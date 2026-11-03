@@ -1869,6 +1869,187 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     }
   });
 
+  it('permanently deletes guarded archives through schema-qualified BYODB table and base paths', async () => {
+    const archiveInternalSchema = `byodb_archive_${Date.now().toString(36)}`;
+    let archiveSpaceId: string | undefined;
+    let deletedBaseId: string | undefined;
+    let retainedBaseId: string | undefined;
+    const archiveTaskIds: string[] = [];
+    try {
+      const space = await createSpace({
+        name: 'BYODB archive deletion',
+        dataDb: {
+          mode: 'byodb',
+          url: byodbDataDatabaseUrl!,
+          targetMode: 'initialize-empty',
+          internalSchema: archiveInternalSchema,
+        },
+      });
+      archiveSpaceId = space.id;
+      const deletedBase = await createBase({
+        spaceId: space.id,
+        name: 'BYODB deleted archive base',
+      });
+      deletedBaseId = deletedBase.id;
+      const retainedBase = await createBase({
+        spaceId: space.id,
+        name: 'BYODB retained archive base',
+      });
+      retainedBaseId = retainedBase.id;
+      const deletedTable = await createTable(deletedBase.id, {
+        name: 'BYODB deleted archive table',
+      });
+      const sameBaseTable = await createTable(deletedBase.id, {
+        name: 'BYODB same-base archive table',
+      });
+      const retainedBaseTable = await createTable(retainedBase.id, {
+        name: 'BYODB retained-base archive table',
+      });
+      const deletedTaskId = `cuo${deletedTable.id.slice(3)}`;
+      const sameBaseTaskId = `cuo${sameBaseTable.id.slice(3)}`;
+      const retainedBaseTaskId = `cuo${retainedBaseTable.id.slice(3)}`;
+      archiveTaskIds.push(deletedTaskId, sameBaseTaskId, retainedBaseTaskId);
+      const archiveTable = `${quoteIdent(archiveInternalSchema)}.${quoteIdent(
+        'computed_update_dead_letter'
+      )}`;
+      const archiveSeedTable = `${quoteIdent(archiveInternalSchema)}.${quoteIdent(
+        'computed_update_dead_letter_seed'
+      )}`;
+      const insertArchive = async (
+        taskId: string,
+        baseId: string,
+        seedTableId: string,
+        recordId: string
+      ) => {
+        await dataDb.raw(
+          `insert into ${archiveTable}
+            (id,worker_lane,base_id,seed_table_id,seed_record_ids,change_type,steps,edges,status,
+             attempts,max_attempts,next_run_at,estimated_complexity,plan_hash,dirty_stats,run_id,
+             origin_run_ids,run_total_steps,run_completed_steps_before,affected_table_ids,
+             affected_field_ids,stage_depth,failed_at,created_at,updated_at)
+           values(?,'production',?,?,null,'update','[]'::jsonb,'[]'::jsonb,'dead',1,8,now(),1,?,
+             '{"rerunInputs":{"version":1,"complete":true,"seedCount":"1"}}'::jsonb,?,
+             array[?],0,0,array[?],array[]::text[],0,now(),now(),now())`,
+          [taskId, baseId, seedTableId, taskId, taskId, taskId, seedTableId]
+        );
+        await dataDb.raw(
+          `insert into ${archiveSeedTable}(task_id,table_id,record_id) values(?,?,?)`,
+          [taskId, seedTableId, recordId]
+        );
+      };
+      await insertArchive(
+        deletedTaskId,
+        deletedBase.id,
+        deletedTable.id,
+        'rec-byodb-delete-target'
+      );
+      await insertArchive(sameBaseTaskId, deletedBase.id, sameBaseTable.id, 'rec-byodb-same-base');
+      await insertArchive(
+        retainedBaseTaskId,
+        retainedBase.id,
+        retainedBaseTable.id,
+        'rec-byodb-retained-base'
+      );
+
+      await permanentDeleteTable(deletedBase.id, deletedTable.id, 200);
+      await expect(tableExists(dataDb, deletedTable.dbTableName)).resolves.toBe(false);
+      await expect(
+        countRows(metaDb, 'public', 'table_meta', 'id = ?', [deletedTable.id])
+      ).resolves.toBe(0);
+      await expect(
+        Promise.all([
+          countRows(dataDb, archiveInternalSchema, 'computed_update_dead_letter', 'id = ?', [
+            deletedTaskId,
+          ]),
+          countRows(
+            dataDb,
+            archiveInternalSchema,
+            'computed_update_dead_letter_seed',
+            'task_id = ?',
+            [deletedTaskId]
+          ),
+          countRows(dataDb, archiveInternalSchema, 'computed_update_dead_letter', 'id = ?', [
+            sameBaseTaskId,
+          ]),
+          countRows(
+            dataDb,
+            archiveInternalSchema,
+            'computed_update_dead_letter_seed',
+            'task_id = ?',
+            [sameBaseTaskId]
+          ),
+        ])
+      ).resolves.toEqual([0, 0, 1, 1]);
+      await expect(
+        dataDb.raw(`delete from ${archiveTable} where id = ?`, [sameBaseTaskId])
+      ).rejects.toMatchObject({ code: '23514' });
+
+      await permanentDeleteBase(deletedBase.id);
+      deletedBaseId = undefined;
+      await expect(schemaExists(dataDb, deletedBase.id)).resolves.toBe(false);
+      await expect(schemaExists(dataDb, retainedBase.id)).resolves.toBe(true);
+      await expect(countRows(metaDb, 'public', 'base', 'id = ?', [deletedBase.id])).resolves.toBe(
+        0
+      );
+      await expect(countRows(metaDb, 'public', 'base', 'id = ?', [retainedBase.id])).resolves.toBe(
+        1
+      );
+      await expect(
+        Promise.all([
+          countRows(dataDb, archiveInternalSchema, 'computed_update_dead_letter', 'id = ?', [
+            sameBaseTaskId,
+          ]),
+          countRows(
+            dataDb,
+            archiveInternalSchema,
+            'computed_update_dead_letter_seed',
+            'task_id = ?',
+            [sameBaseTaskId]
+          ),
+          countRows(dataDb, archiveInternalSchema, 'computed_update_dead_letter', 'id = ?', [
+            retainedBaseTaskId,
+          ]),
+          countRows(
+            dataDb,
+            archiveInternalSchema,
+            'computed_update_dead_letter_seed',
+            'task_id = ?',
+            [retainedBaseTaskId]
+          ),
+        ])
+      ).resolves.toEqual([0, 0, 1, 1]);
+    } finally {
+      try {
+        if (archiveTaskIds.length > 0) {
+          try {
+            await dataDb.raw(
+              `select ${quoteIdent(archiveInternalSchema)}.${quoteIdent(
+                'computed_outbox_discard_existing'
+              )}(array[?,?,?]::text[])`,
+              archiveTaskIds
+            );
+          } catch {
+            // Teardown only: a failed fixture purge must not hide the test's own failure.
+          }
+        }
+        if (archiveSpaceId) {
+          try {
+            await permanentDeleteSpace(archiveSpaceId);
+          } catch {
+            // Teardown only: the schema drops below must still run.
+          }
+        }
+      } finally {
+        await safeDropSchema(dataDb, deletedBaseId);
+        await safeDropSchema(dataDb, retainedBaseId);
+        await safeDropSchema(dataDb, archiveInternalSchema);
+        await safeDropSchema(metaDb, deletedBaseId);
+        await safeDropSchema(metaDb, retainedBaseId);
+        await safeDropSchema(metaDb, archiveInternalSchema);
+      }
+    }
+  }, 240_000);
+
   const assertPhysicalTables = async (
     mainTable: ITableFullVo,
     foreignTable: ITableFullVo,

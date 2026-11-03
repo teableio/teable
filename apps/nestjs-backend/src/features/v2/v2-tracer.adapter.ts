@@ -1,5 +1,11 @@
 import type { Span as ApiSpan, TextMapGetter, TextMapSetter } from '@opentelemetry/api';
-import { SpanStatusCode, context as otelContext, propagation, trace } from '@opentelemetry/api';
+import {
+  ROOT_CONTEXT,
+  SpanStatusCode,
+  context as otelContext,
+  propagation,
+  trace,
+} from '@opentelemetry/api';
 import type {
   ISpan,
   ITracer,
@@ -98,8 +104,9 @@ export class OpenTelemetryTracer implements ITracer {
     carrier: TracePropagationCarrier | undefined,
     callback: () => Promise<T>
   ): Promise<T> {
-    if (!carrier?.traceparent) return callback();
-    const extracted = propagation.extract(otelContext.active(), carrier, carrierGetter);
+    const extracted = carrier?.traceparent
+      ? propagation.extract(ROOT_CONTEXT, carrier, carrierGetter)
+      : ROOT_CONTEXT;
     return otelContext.with(extracted, callback);
   }
 }

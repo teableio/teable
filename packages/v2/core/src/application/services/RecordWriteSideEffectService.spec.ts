@@ -7,6 +7,7 @@ import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
+import { measureSelectOptionsBytes } from '../../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
 import { Table } from '../../domain/table/Table';
@@ -70,7 +71,8 @@ const buildTable = () => {
 
 const contextWithLimits = (
   maxSelectChoices: number,
-  maxNameLength?: number
+  maxNameLength?: number,
+  maxBytes?: number
 ): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
   config: {
@@ -78,10 +80,18 @@ const contextWithLimits = (
       fieldOptions: {
         maxSelectChoices,
         ...(maxNameLength != null ? { maxSelectChoiceNameLength: maxNameLength } : {}),
+        ...(maxBytes != null ? { maxBytes } : {}),
       },
     },
   },
 });
+
+const selectOptionsBytes = (table: Table, fieldId: FieldId) =>
+  measureSelectOptionsBytes(
+    (
+      table.getField((field) => field.id().equals(fieldId))._unsafeUnwrap() as SingleSelectField
+    ).selectOptions()
+  );
 
 describe('RecordWriteSideEffectService', () => {
   const service = new RecordWriteSideEffectService();
@@ -414,5 +424,33 @@ describe('RecordWriteSideEffectService', () => {
     expect(result.effects).toHaveLength(0);
     expect(records[0]?.get(titleFieldId.toString())).toBe('Kept Title');
     expect(records[0]?.has(singleSelectFieldId.toString())).toBe(false);
+  });
+
+  it('creates options up to the options byte budget and skips later names', () => {
+    const { table, singleSelectFieldId } = buildTable();
+    const maxBytes = selectOptionsBytes(table, singleSelectFieldId) + 100;
+    const records = [
+      new Map<string, unknown>([[singleSelectFieldId.toString(), 'First']]),
+      new Map<string, unknown>([[singleSelectFieldId.toString(), 'S'.repeat(200)]]),
+    ];
+
+    const result = service
+      .execute(contextWithLimits(1000, 1000, maxBytes), table, records, true)
+      ._unsafeUnwrap();
+
+    expect(result.effects[0]?.options.map((option) => option.name().toString())).toEqual(['First']);
+    expect(records[0]?.get(singleSelectFieldId.toString())).toBe('First');
+    expect(records[1]?.has(singleSelectFieldId.toString())).toBe(false);
+    expect(selectOptionsBytes(result.table, singleSelectFieldId)).toBeLessThanOrEqual(maxBytes);
+  });
+
+  it('fails the write when the only cell would push options over the byte budget', () => {
+    const { table, singleSelectFieldId } = buildTable();
+    const maxBytes = selectOptionsBytes(table, singleSelectFieldId) + 10;
+    const records = [new Map<string, unknown>([[singleSelectFieldId.toString(), 'In Progress']])];
+
+    const result = service.execute(contextWithLimits(1000, 1000, maxBytes), table, records, true);
+
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.field_options_max_bytes');
   });
 });

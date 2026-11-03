@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { FieldDeletionPreparationService } from '../application/services/FieldDeletionPreparationService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
@@ -13,10 +14,12 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { DomainEventName } from '../domain/shared/DomainEventName';
 import { OccurredAt } from '../domain/shared/OccurredAt';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { createNewLinkField } from '../domain/table/fields/FieldFactory';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import { ForeignTable } from '../domain/table/ForeignTable';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -26,6 +29,7 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { FieldDeleteSnapshotSinkInput } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import {
@@ -87,7 +91,12 @@ class FakeFieldDeleteSnapshotSink {
 }
 
 class FakeFieldUndoRedoSnapshotService {
-  captured: Array<{ tableId: TableId; fieldId: FieldId; includeRecords?: boolean }> = [];
+  captured: Array<{
+    tableId: TableId;
+    fieldId: FieldId;
+    includeRecords?: boolean;
+    hasError: boolean;
+  }> = [];
 
   async capture(
     _context: IExecutionContext,
@@ -95,10 +104,12 @@ class FakeFieldUndoRedoSnapshotService {
     fieldId: FieldId,
     options?: { includeRecords?: boolean }
   ) {
+    const field = table.getField((candidate) => candidate.id().equals(fieldId))._unsafeUnwrap();
     this.captured.push({
       tableId: table.id(),
       fieldId,
       includeRecords: options?.includeRecords,
+      hasError: field.hasError().isError(),
     });
     return ok({
       field: {
@@ -143,6 +154,59 @@ const buildTable = () => {
   };
 };
 
+const buildSelfLinkedTable = () => {
+  const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+  const primaryFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+  const directFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+  const symmetricFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Self links')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withId(primaryFieldId)
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder.view().defaultGrid().done();
+  const seedTable = builder.build()._unsafeUnwrap();
+  const directFieldResult = createNewLinkField({
+    id: directFieldId,
+    name: FieldName.create('Related records')._unsafeUnwrap(),
+    config: LinkFieldConfig.create({
+      relationship: 'manyMany',
+      foreignTableId: tableId.toString(),
+      lookupFieldId: primaryFieldId.toString(),
+      isOneWay: false,
+      symmetricFieldId: symmetricFieldId.toString(),
+    })._unsafeUnwrap(),
+    baseId,
+    hostTableId: tableId,
+  });
+  expect(directFieldResult.isOk(), JSON.stringify(directFieldResult)).toBe(true);
+  const directField = directFieldResult._unsafeUnwrap() as LinkField;
+  const symmetricFieldResult = directField.buildSymmetricField({
+    foreignTable: ForeignTable.from(seedTable),
+    hostTable: seedTable,
+    symmetricFieldId,
+  });
+  expect(symmetricFieldResult.isOk(), JSON.stringify(symmetricFieldResult)).toBe(true);
+  const symmetricField = symmetricFieldResult._unsafeUnwrap();
+  const table = Table.rehydrate({
+    id: tableId,
+    baseId,
+    name: seedTable.name(),
+    fields: [...seedTable.getFields(), directField, symmetricField],
+    views: seedTable.views(),
+    primaryFieldId,
+  })._unsafeUnwrap();
+
+  return { table, baseId, tableId, directFieldId, symmetricFieldId };
+};
+
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   updated: Table[] = [];
@@ -183,6 +247,10 @@ class FakeTableRepository implements ITableRepository {
     __: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     this.updated.push(table);
+    const persisted = table.clone(new DefaultTableMapper())._unsafeUnwrap();
+    this.tables = this.tables.map((current) =>
+      current.id().equals(persisted.id()) ? persisted : current
+    );
     return ok(undefined);
   }
 
@@ -267,16 +335,17 @@ class FakeForeignTableLoaderService {
   lastBaseId: BaseId | undefined;
   lastReferences: unknown[] | undefined;
 
+  constructor(private readonly tables: ReadonlyArray<Table> = []) {}
+
   async load(
     _: IExecutionContext,
     input: { baseId?: BaseId; references: ReadonlyArray<unknown> }
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.lastBaseId = input.baseId;
     this.lastReferences = [...input.references];
-    return ok([]);
+    return ok(this.tables);
   }
 }
-
 const buildEvent = (): IDomainEvent => ({
   name: DomainEventName.fieldDeleted(),
   occurredAt: OccurredAt.now(),
@@ -309,7 +378,12 @@ describe('DeleteFieldHandler', () => {
       tableRepository,
       tableUpdateFlow,
       sideEffectService as unknown as FieldDeletionSideEffectService,
-      foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService,
@@ -340,6 +414,53 @@ describe('DeleteFieldHandler', () => {
     expect(fieldDeleteSnapshotSink.completions).toBe(1);
   });
 
+  it('deletes both sides of a self many-many link without restoring the direct field', async () => {
+    const { table, baseId, tableId, directFieldId, symmetricFieldId } = buildSelfLinkedTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const sideEffectService = new FieldDeletionSideEffectService(tableUpdateFlow);
+    const foreignTableLoader = new FakeForeignTableLoaderService([table]);
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      sideEffectService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        foreignTableLoader as unknown as ForeignTableLoaderService,
+        sideEffectService,
+        new DefaultTableMapper()
+      ),
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
+    );
+    const command = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldId: directFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const handleResult = await handler.handle(createContext(), command);
+    expect(handleResult.isOk(), JSON.stringify(handleResult)).toBe(true);
+    const result = handleResult._unsafeUnwrap();
+    const persisted = tableRepository.tables.find((candidate) => candidate.id().equals(tableId))!;
+
+    for (const deletedFieldId of [directFieldId, symmetricFieldId]) {
+      expect(result.table.getFields((field) => field.id().equals(deletedFieldId))).toHaveLength(0);
+      expect(persisted.getFields((field) => field.id().equals(deletedFieldId))).toHaveLength(0);
+    }
+    expect(result.table.getFields().map((field) => field.id().toString())).toEqual(
+      persisted.getFields().map((field) => field.id().toString())
+    );
+  });
+
   it('holds an exclusive lease through field deletion', async () => {
     const { table, baseId, tableId, secondaryFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -355,7 +476,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
@@ -390,7 +516,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
@@ -421,7 +552,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
@@ -461,7 +597,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       snapshotService as unknown as FieldUndoRedoSnapshotService,
@@ -501,7 +642,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
@@ -597,7 +743,12 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
       snapshotService as unknown as FieldUndoRedoSnapshotService,
@@ -631,6 +782,7 @@ describe('DeleteFieldHandler', () => {
         includeRecords: false,
       },
     ]);
+    expect(snapshotService.captured[1]?.hasError).toBe(false);
   });
 
   it('skips plugins that do not support delete', async () => {
@@ -653,7 +805,12 @@ describe('DeleteFieldHandler', () => {
       tableRepository,
       tableUpdateFlow,
       sideEffectService as unknown as FieldDeletionSideEffectService,
-      foreignTableLoader as unknown as ForeignTableLoaderService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        foreignTableLoader as unknown as ForeignTableLoaderService,
+        { prepare: FieldDeletionSideEffectService.prepare },
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner([plugin]),
       noopUndoRedoService,
       fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService,
@@ -754,11 +911,18 @@ describe('DeleteFieldHandler', () => {
       new FakeEventBus(),
       new FakeUnitOfWork()
     );
+    const fieldDeletionSideEffectService = new FieldDeletionSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new DeleteFieldHandler(
       tableRepository,
       tableUpdateFlow,
-      new FieldDeletionSideEffectService(tableUpdateFlow),
-      new ForeignTableLoaderService(tableRepository),
+      fieldDeletionSideEffectService,
+      new FieldDeletionPreparationService(
+        tableRepository,
+        foreignTableLoaderService,
+        fieldDeletionSideEffectService,
+        new DefaultTableMapper()
+      ),
       createFieldOperationPluginRunner([
         {
           name: 'reciprocal-delete-veto',
